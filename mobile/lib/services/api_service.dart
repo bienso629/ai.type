@@ -1907,4 +1907,162 @@ class ApiService {
       return 'Lỗi gửi mail: $e';
     }
   }
+
+  /// Thực thi gọi AI theo chuẩn 3 cấp ưu tiên (AI Priority Hierarchy):
+  /// 1. Sơn Tinh Agent (https://sontinh.type.vn) -> Bật/Tắt ở Cài đặt -> Plugins -> AI Agent
+  /// 2. Mì Tôm AI (Backend ChatGPT) -> Bật/Tắt & cấu hình ở Cài đặt -> Tài khoản -> AI tab -> Nâng cao
+  /// 3. Gemini AI Miễn phí -> Cấu hình ở Cài đặt -> Tài khoản -> AI tab -> Gemini API key
+  static Future<String?> executeAiRequest(String prompt) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Check Sơn Tinh Agent toggle (Priority 1)
+    final isSonTinhEnabled = prefs.getBool('ai_agent_enabled') ?? true;
+
+    String? geminiKey;
+    bool isMiTomEnabled = false;
+    try {
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr != null) {
+        final activeInfo = jsonDecode(activeInfoStr);
+        final uid = activeInfo['user']['id'] ?? 'default';
+        final userSettingsStr = prefs.getString('user_settings_$uid');
+        if (userSettingsStr != null) {
+          final settings = jsonDecode(userSettingsStr);
+          geminiKey = settings['secretKey']?.toString().trim();
+          isMiTomEnabled = settings['enable_umodelverse'] == true || settings['enableUmodelverse'] == true;
+        }
+      }
+    } catch (_) {}
+
+    // --- PRIORITY #1: Sơn Tinh Agent (sontinh.type.vn) ---
+    if (isSonTinhEnabled) {
+      try {
+        final agentRes = await askSonTinhAgent(prompt, '[]');
+        if (agentRes != null && agentRes.trim().isNotEmpty) {
+          return agentRes;
+        }
+      } catch (e) {
+        print('Priority #1 (Sơn Tinh Agent) error: $e');
+      }
+    }
+
+    // --- PRIORITY #2: Mì Tôm AI (Backend ChatGPT) ---
+    if (isMiTomEnabled) {
+      try {
+        var res = await askChatGpt(prompt);
+        if (res != null) {
+          if (res is Map<String, dynamic>) res = decodeIfEncrypted(res);
+          String text = '';
+          if (res['data'] != null && res['data'] is Map && res['data']['answer'] != null) {
+            text = res['data']['answer'].toString();
+          } else if (res['answer'] != null) {
+            text = res['answer'].toString();
+          } else if (res['text'] != null) {
+            text = res['text'].toString();
+          } else if (res['message'] != null) {
+            text = res['message'].toString();
+          }
+          if (text.trim().isNotEmpty) return text;
+        }
+      } catch (e) {
+        print('Priority #2 (Mì Tôm AI) error: $e');
+      }
+    }
+
+    // --- PRIORITY #3: Gemini AI Miễn Phí (Gemini Key) ---
+    if (geminiKey != null && geminiKey.isNotEmpty) {
+      try {
+        final geminiRes = await askGemini(prompt, [], geminiKey);
+        if (geminiRes != null && geminiRes.trim().isNotEmpty) {
+          return geminiRes;
+        }
+      } catch (e) {
+        print('Priority #3 (Gemini AI) error: $e');
+      }
+    }
+
+    // Best effort fallback if no option returned result or if AI configs are at default
+    try {
+      var res = await askChatGpt(prompt);
+      if (res != null) {
+        if (res is Map<String, dynamic>) res = decodeIfEncrypted(res);
+        String text = '';
+        if (res['data'] != null && res['data'] is Map && res['data']['answer'] != null) {
+          text = res['data']['answer'].toString();
+        } else if (res['answer'] != null) {
+          text = res['answer'].toString();
+        } else if (res['text'] != null) {
+          text = res['text'].toString();
+        } else if (res['message'] != null) {
+          text = res['message'].toString();
+        }
+        if (text.trim().isNotEmpty) return text;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  /// Upload tệp bytes/image lên CDN cdn1.type.vn
+  static Future<String?> uploadBytesToCdn(
+    Uint8List bytes,
+    String filename, {
+    String folder = 'thumbnails',
+  }) async {
+    try {
+      final uri = Uri.parse('https://cdn1.type.vn/upload');
+      var request = http.MultipartRequest('POST', uri);
+      request.headers['x-api-key'] = 'type-vn-secret-key-2026-yenai-dep-trai';
+
+      if (folder.isNotEmpty) {
+        request.fields['folder'] = folder;
+      }
+
+      final multipartFile = http.MultipartFile.fromBytes(
+        'files',
+        bytes,
+        filename: filename,
+      );
+      request.files.add(multipartFile);
+
+      final streamedRes = await request.send().timeout(const Duration(seconds: 20));
+      final res = await http.Response.fromStream(streamedRes);
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data != null && data['filename'] != null) {
+          return 'https://cdn1.type.vn/public/${data['filename']}';
+        }
+        if (data != null && data['url'] != null) {
+          final rawUrl = data['url'].toString();
+          return rawUrl.replaceAll(RegExp(r'^https?://[^/]+'), 'https://cdn1.type.vn');
+        }
+      } else {
+        print('[CDN Upload] HTTP ${res.statusCode}: ${res.body}');
+      }
+    } catch (e) {
+      print('[CDN Upload] Error: $e');
+    }
+    return null;
+  }
+
+  /// Tải tệp từ imageUrl rồi upload lên CDN cdn1.type.vn
+  static Future<String?> uploadUrlToCdn(
+    String imageUrl, {
+    String folder = 'thumbnails',
+  }) async {
+    try {
+      final imgRes = await http.get(Uri.parse(imageUrl)).timeout(const Duration(seconds: 15));
+      if (imgRes.statusCode == 200 && imgRes.bodyBytes.isNotEmpty) {
+        final filename = 'thumb_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final cdnUrl = await uploadBytesToCdn(imgRes.bodyBytes, filename, folder: folder);
+        if (cdnUrl != null && cdnUrl.isNotEmpty) {
+          return cdnUrl;
+        }
+      }
+    } catch (e) {
+      print('[CDN Download/Upload] Error: $e');
+    }
+    return null;
+  }
 }

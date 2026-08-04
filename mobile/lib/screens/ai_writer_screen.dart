@@ -151,8 +151,16 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     _promptInputController.dispose();
     _keywordController.dispose();
     _mainkeyController.dispose();
-    _requestController.dispose();
     super.dispose();
+  }
+
+  List<String> get _thumbnailsList {
+    final raw = _thumbnailController.text;
+    return raw
+        .split('\n')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
   }
 
   Future<void> _applyDomainStyle(String? domain) async {
@@ -673,50 +681,52 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                     content: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
-                          'Các bài viết cùng bộ (Collection)',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
-                        ),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          value: _articlesInCollection.any((a) => a['uuid'] == (_selectedArticleInCollection ?? widget.uuid))
-                              ? (_selectedArticleInCollection ?? widget.uuid)
-                              : null,
-                          isExpanded: true,
-                          hint: Text(
-                            _articlesInCollection.isEmpty ? '-- Chưa có bài viết cùng bộ --' : '-- Chọn bài viết cùng bộ --',
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        if (_articlesInCollection.isNotEmpty) ...[
+                          const Text(
+                            'Các bài viết cùng bộ (Collection)',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
                           ),
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.folder_special_outlined, size: 20, color: Colors.blue),
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          items: _articlesInCollection.map<DropdownMenuItem<String>>((article) {
-                            final String artUuid = article['uuid']?.toString() ?? '';
-                            final String artTitle = article['title']?.toString() ?? 'Bài viết không tên';
-                            return DropdownMenuItem<String>(
-                              value: artUuid,
-                              child: Text(
-                                artTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13, color: Colors.blue, fontWeight: FontWeight.w500),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: _articlesInCollection.isEmpty ? null : (val) {
-                            if (val != null && val != widget.uuid) {
-                              setState(() => _selectedArticleInCollection = val);
-                              Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(
-                                  builder: (_) => AiWriterScreen(uuid: val),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: _articlesInCollection.any((a) => a['uuid'] == (_selectedArticleInCollection ?? widget.uuid))
+                                ? (_selectedArticleInCollection ?? widget.uuid)
+                                : null,
+                            isExpanded: true,
+                            hint: const Text(
+                              '-- Chọn bài viết cùng bộ --',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.folder_special_outlined, size: 20, color: Colors.blue),
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: _articlesInCollection.map<DropdownMenuItem<String>>((article) {
+                              final String artUuid = article['uuid']?.toString() ?? '';
+                              final String artTitle = article['title']?.toString() ?? 'Bài viết không tên';
+                              return DropdownMenuItem<String>(
+                                value: artUuid,
+                                child: Text(
+                                  artTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13, color: Colors.blue, fontWeight: FontWeight.w500),
                                 ),
                               );
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 14),
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null && val != widget.uuid) {
+                                setState(() => _selectedArticleInCollection = val);
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (_) => AiWriterScreen(uuid: val),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         const Text(
                           'Tên công việc / Tiêu đề *',
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
@@ -765,16 +775,12 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                                 IconButton(
                                   icon: const Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
                                   tooltip: 'Tự động tạo ảnh bằng AI',
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Đang khởi tạo trình tạo ảnh AI...')),
-                                    );
-                                  },
+                                  onPressed: _showGenerateAiThumbnailDialog,
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.folder_open, color: AppColors.primary, size: 18),
                                   tooltip: 'Tải tệp media lên',
-                                  onPressed: () {},
+                                  onPressed: _showAddThumbnailUrlDialog,
                                 ),
                               ],
                             ),
@@ -782,7 +788,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                         ),
                         const SizedBox(height: 6),
 
-                        if (_thumbnailController.text.trim().isEmpty)
+                        if (_thumbnailsList.isEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                             decoration: BoxDecoration(
@@ -804,50 +810,68 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                             ),
                           )
                         else
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade50,
-                              border: Border.all(color: Colors.teal.shade200),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Image.network(
-                                    _thumbnailController.text.trim(),
-                                    width: 48,
-                                    height: 48,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.movie_creation, color: AppColors.primary),
-                                  ),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _thumbnailsList.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final thumbUrl = _thumbnailsList[index];
+                              return Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.teal.shade50,
+                                  border: Border.all(color: Colors.teal.shade200),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _thumbnailController.text.split('/').last,
-                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.network(
+                                        thumbUrl,
+                                        width: 64,
+                                        height: 48,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          width: 64,
+                                          height: 48,
+                                          color: Colors.teal.shade100,
+                                          child: const Icon(Icons.movie_creation, color: AppColors.primary),
+                                        ),
                                       ),
-                                      const Text('Đã đính kèm', style: TextStyle(color: Colors.teal, fontSize: 11)),
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            thumbUrl.split('/').last,
+                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const Text('cdn1.type.vn (Đã đính kèm)', style: TextStyle(color: Colors.teal, fontSize: 11)),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                      onPressed: () {
+                                        setState(() {
+                                          final list = List<String>.from(_thumbnailsList);
+                                          if (index < list.length) {
+                                            list.removeAt(index);
+                                            _thumbnailController.text = list.join('\n');
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                  onPressed: () {
-                                    setState(() {
-                                      _thumbnailController.clear();
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
                       ],
                     ),
@@ -1742,6 +1766,49 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
 
   Widget _buildRichText(String htmlStr) {
     if (htmlStr.isEmpty) return const SizedBox.shrink();
+
+    // Check if htmlStr contains an <img> tag with src="..."
+    final imgMatch = RegExp(r'<img[^>]+src="([^"]+)"', caseSensitive: false).firstMatch(htmlStr) ??
+        RegExp(r"<img[^>]+src='([^']+)'", caseSensitive: false).firstMatch(htmlStr);
+    if (imgMatch != null) {
+      final imgUrl = imgMatch.group(1) ?? '';
+      if (imgUrl.isNotEmpty) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                imgUrl,
+                width: double.infinity,
+                height: 180,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 100,
+                  color: Colors.grey.shade100,
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.broken_image, color: Colors.grey, size: 32),
+                      const SizedBox(height: 4),
+                      Text(imgUrl.split('/').last, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SelectableText(
+              imgUrl,
+              style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w500),
+            ),
+          ],
+        );
+      }
+    }
+
     final cleanInput = htmlStr
         .replaceAll('&nbsp;', ' ')
         .replaceAll('\u00A0', ' ')
@@ -3201,22 +3268,9 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
       String styleGuide = _selectedStyle != null ? ' Blog mang phong cách của $_selectedStyle.' : '';
       String finalPrompt = evaluatedPrompt + styleGuide + '\nTrình bày câu trả lời của bạn dưới định dạng JSON với key là "contents", value là một mảng các đoạn văn (Array of strings). Không dùng markdown.';
 
-      final res = await ApiService.askChatGpt(finalPrompt);
-      if (res != null) {
-        String jsonText = '';
-        if (res['data'] != null && res['data']['answer'] != null) {
-          jsonText = res['data']['answer'].toString();
-        } else if (res['answer'] != null) {
-          jsonText = res['answer'].toString();
-        } else if (res['message'] != null) {
-          jsonText = res['message'].toString();
-        } else if (res['text'] != null) {
-          jsonText = res['text'].toString();
-        } else {
-          jsonText = res.toString();
-        }
-        
-        jsonText = jsonText.replaceAll('```json', '').replaceAll('```', '').trim();
+      final aiResult = await ApiService.executeAiRequest(finalPrompt);
+      if (aiResult != null && aiResult.isNotEmpty) {
+        String jsonText = aiResult.replaceAll('```json', '').replaceAll('```', '').trim();
         
         setState(() {
           if (_source['text'] == null || _source['text'] is! List) {
@@ -3345,42 +3399,8 @@ Trả về kết quả dưới định dạng JSON với các key sau:
 Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' và kết thúc bằng '}', không kèm bình luận hay ký tự mã bọc.
 ''';
 
-      // 3. Ask AI to generate rewritten blog
-      var res = await ApiService.askChatGpt(aiPrompt);
-      String jsonText = '';
-      if (res != null) {
-        if (res is Map<String, dynamic>) res = ApiService.decodeIfEncrypted(res);
-        if (res['data'] != null && res['data'] is Map && res['data']['answer'] != null) {
-          jsonText = res['data']['answer'].toString();
-        } else if (res['answer'] != null) {
-          jsonText = res['answer'].toString();
-        } else if (res['text'] != null) {
-          jsonText = res['text'].toString();
-        }
-      }
-
-      if (jsonText.isEmpty) {
-        // Fallback to Gemini if ChatGPT endpoint returned empty
-        String? geminiKey;
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          final activeInfoStr = prefs.getString('active_info');
-          if (activeInfoStr != null) {
-            final activeInfo = jsonDecode(activeInfoStr);
-            final uid = activeInfo['user']['id'] ?? 'default';
-            final userSettingsStr = prefs.getString('user_settings_$uid');
-            if (userSettingsStr != null) {
-              final settings = jsonDecode(userSettingsStr);
-              geminiKey = settings['secretKey']?.toString().trim();
-            }
-          }
-        } catch (_) {}
-
-        if (geminiKey != null && geminiKey.isNotEmpty) {
-          final geminiRes = await ApiService.askGemini(aiPrompt, [], geminiKey);
-          if (geminiRes != null) jsonText = geminiRes;
-        }
-      }
+      // 3. Ask AI to generate rewritten blog following 3-tier priority
+      String jsonText = await ApiService.executeAiRequest(aiPrompt) ?? '';
 
       if (mounted) AppLoading.dismiss(context);
 
@@ -3493,33 +3513,7 @@ Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' v
     try {
       final prompt = 'Viết 6 đến 10 đoạn văn ngắn gợi ý ý tưởng nội dung độc đáo bằng tiếng Việt về từ khóa "$keyword". Mỗi đoạn nằm trên một dòng riêng biệt, dài từ 25 đến 80 từ, giàu thông tin, không chứa ký tự đặc biệt hay mã bọc.';
 
-      var res = await ApiService.askChatGpt(prompt);
-      
-      String jsonText = '';
-      if (res != null) {
-        if (res is Map<String, dynamic>) {
-          res = ApiService.decodeIfEncrypted(res);
-        }
-        if (res['data'] != null && res['data'] is Map && res['data']['answer'] != null) {
-          jsonText = res['data']['answer'].toString();
-        } else if (res['data'] != null && res['data'] is String) {
-          jsonText = res['data'].toString();
-        } else if (res['answer'] != null) {
-          jsonText = res['answer'].toString();
-        } else if (res['text'] != null) {
-          jsonText = res['text'].toString();
-        } else if (res['message'] != null) {
-          jsonText = res['message'].toString();
-        }
-      }
-
-      // Fallback to Gemini if ChatGPT endpoint returns error / 500 / empty
-      if (jsonText.isEmpty && geminiKey != null && geminiKey.isNotEmpty) {
-        final geminiAnswer = await ApiService.askGemini(prompt, [], geminiKey);
-        if (geminiAnswer != null) {
-          jsonText = geminiAnswer;
-        }
-      }
+      String jsonText = await ApiService.executeAiRequest(prompt) ?? '';
 
       if (mounted) {
         AppLoading.dismiss(context);
@@ -3788,6 +3782,330 @@ Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' v
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  Future<void> _generateAiThumbnailFromPrompt(String userPrompt) async {
+    final title = _titleController.text.trim();
+    final desc = _descController.text.trim();
+    if (title.isEmpty && userPrompt.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập Tiêu đề bài viết hoặc Prompt tạo ảnh!')),
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    AppLoading.show(context, message: 'Đang tạo hình ảnh Thumbnail bằng AI...');
+
+    try {
+      final baseText = userPrompt.isNotEmpty ? userPrompt : 'Title: $title. Description: $desc';
+      final promptForEnglishVisual = '''
+Create a short, detailed English image generation prompt (30-50 words) for a modern, high-quality blog header image based on: "$baseText".
+Style: Clean, vibrant, modern 3D digital art or professional vector illustration, high resolution, 8k.
+If there is any text in the image, it MUST be written in Vietnamese.
+Return ONLY the raw English prompt, with no quotes or extra text.
+''';
+
+      String visualPrompt = await ApiService.executeAiRequest(promptForEnglishVisual) ?? '';
+      visualPrompt = visualPrompt.replaceAll(RegExp(r'^["\s]+|["\s]+$'), '').trim();
+      if (visualPrompt.isEmpty) {
+        visualPrompt = 'Modern vibrant illustration for blog article about $title, 8k resolution, cinematic lighting';
+      }
+
+      final encodedPrompt = Uri.encodeComponent(visualPrompt);
+      final seed = DateTime.now().millisecondsSinceEpoch;
+      final rawImageUrl = 'https://image.pollinations.ai/prompt/$encodedPrompt?width=1024&height=576&seed=$seed&nologo=true';
+
+      // Upload generated image to cdn1.type.vn CDN server
+      String finalCdnUrl = rawImageUrl;
+      try {
+        final cdnRes = await ApiService.uploadUrlToCdn(rawImageUrl, folder: 'thumbnails');
+        if (cdnRes != null && cdnRes.isNotEmpty) {
+          finalCdnUrl = cdnRes;
+        }
+      } catch (e) {
+        debugPrint('CDN Upload error: $e');
+      }
+
+      if (mounted) AppLoading.dismiss(context);
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      setState(() {
+        _thumbnailController.text = finalCdnUrl;
+        
+        if (_source['img'] == null || _source['img'] is! List) {
+          _source['img'] = [];
+        }
+        final imgP = '<p id="source-img-$now"><img src="$finalCdnUrl" /></p>';
+        (_source['img'] as List).add(imgP);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã tạo ảnh Thumbnail bằng AI thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppLoading.dismiss(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Có lỗi xảy ra khi tạo ảnh Thumbnail: $e')),
+        );
+      }
+    }
+  }
+
+  void _showGenerateAiThumbnailDialog() {
+    final title = _titleController.text.trim();
+    final initialPromptController = TextEditingController(
+      text: title.isNotEmpty ? 'Hình ảnh minh họa 3D ấn tượng, hiện đại, màu sắc tươi sáng về chủ đề "$title"' : '',
+    );
+
+    final presetStyles = [
+      '3D Render hiện đại',
+      'Vector minh họa',
+      'Nghệ thuật số (Digital Art)',
+      'Cyberpunk / Tương lai',
+      'Tối giản (Minimalist)',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.92,
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.auto_awesome, color: Colors.amber, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Tạo hình bằng AI',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.textPrimary),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+
+                    // Prompt Input Label
+                    const Text(
+                      'Ý tưởng / Mô tả hình ảnh bạn muốn tạo',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: initialPromptController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: 'Ví dụ: Hình ảnh 3D mô tả công nghệ trí tuệ nhân tạo tương lai, gam màu xanh neon rực rỡ, ánh sáng điện ảnh...',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                        ),
+                        contentPadding: const EdgeInsets.all(12),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Preset Style Suggestion Chips
+                    const Text(
+                      'Gợi ý phong cách nghệ thuật:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: presetStyles.map((style) {
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            setDialogState(() {
+                              if (!initialPromptController.text.contains(style)) {
+                                initialPromptController.text = initialPromptController.text.trim().isEmpty
+                                    ? 'Phong cách $style'
+                                    : '${initialPromptController.text.trim()}, phong cách $style';
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.08),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              '+ $style',
+                              style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Action Buttons Footer
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton(
+                          style: AppStyles.accentButton,
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Hủy'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          style: AppStyles.primaryButton,
+                          icon: const Icon(Icons.auto_awesome, size: 18),
+                          label: const Text('Tạo ảnh ngay'),
+                          onPressed: () {
+                            final p = initialPromptController.text.trim();
+                            Navigator.pop(ctx);
+                            _generateAiThumbnailFromPrompt(p);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAddThumbnailUrlDialog() {
+    final urlCtrl = TextEditingController(text: _thumbnailController.text);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.92,
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.link_rounded, color: Colors.blue, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Đính kèm Link Media Thumbnail',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.textPrimary),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Nhập hoặc dán đường dẫn trực tiếp tới ảnh/video',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+
+                const Text(
+                  'Đường dẫn tệp Media (URL)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: urlCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'https://example.com/image.jpg',
+                    prefixIcon: const Icon(Icons.image_outlined, size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.all(12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      style: AppStyles.accentButton,
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Hủy'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      style: AppStyles.primaryButton,
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      label: const Text('Lưu Thumbnail'),
+                      onPressed: () {
+                        final val = urlCtrl.text.trim();
+                        setState(() {
+                          _thumbnailController.text = val;
+                        });
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

@@ -2115,12 +2115,33 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
     async deleteAllMonthTasksFromDB(year: number, month: number): Promise<number> {
         try {
+            // Fetch fresh tasks directly from CouchDB server
+            const tasksRes: any = await firstValueFrom(this._tasksService.fetch({ username: this.user.name, year: year })).catch(() => null);
+            let serverTasks: any[] = [];
+            if (Array.isArray(tasksRes)) {
+                serverTasks = tasksRes;
+            } else if (tasksRes && Array.isArray(tasksRes.data)) {
+                serverTasks = tasksRes.data;
+            } else if (tasksRes && Array.isArray(tasksRes.result)) {
+                serverTasks = tasksRes.result;
+            }
+
             const monthTasksToDelete: any[] = [];
+
+            // 1. Check server tasks for matching month
+            serverTasks.forEach((t: any) => {
+                if (!t || !t.startDate) return;
+                const dObj = this.safeDate(t.startDate);
+                if (dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month) {
+                    monthTasksToDelete.push(t);
+                }
+            });
+
+            // 2. Check RAM tasks for matching month
             const sourceLists = [
                 ...(this.items || []).flatMap((d: any) => d?.childrenItems?.[0]?.streamItems || (d?.domainData?.plan || [])),
                 ...(this.allDomainsList || []).flatMap((d: any) => d?.plan || [])
             ];
-
             sourceLists.forEach((t: any) => {
                 if (!t || !t.startDate) return;
                 const dObj = this.safeDate(t.startDate);
