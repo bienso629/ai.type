@@ -8,6 +8,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
+import '../widgets/app_loading.dart';
 class HtmlTextEditingController extends TextEditingController {
   HtmlTextEditingController({String? text}) : super(text: text);
 
@@ -118,8 +119,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
+    _titleController.addListener(_onTitleChanged);
     _initTabController();
     _loadTaskData();
+  }
+
+  void _onTitleChanged() {
+    if (mounted) setState(() {});
   }
 
   void _initTabController() {
@@ -134,6 +140,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
 
   @override
   void dispose() {
+    _titleController.removeListener(_onTitleChanged);
     _tabController?.removeListener(_onTabChanged);
     _tabController?.dispose();
     _titleController.dispose();
@@ -530,13 +537,17 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
               _scaffoldKey.currentState?.openDrawer();
             },
           ),
-          title: const Text(
-            'Soạn bài',
-            style: TextStyle(
+          title: Text(
+            _titleController.text.trim().isNotEmpty
+                ? _titleController.text.trim()
+                : 'Soạn bài',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           actions: [
             Padding(
@@ -911,19 +922,26 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                         const SizedBox(height: 6),
                         TextField(
                           controller: _keywordController,
+                          onSubmitted: (_) => _searchIdeasByKeyword(),
                           decoration: InputDecoration(
                             hintText: 'Dùng từ khoá để quét nội dung...',
                             prefixIcon: const Icon(Icons.search, size: 20),
                             suffixIcon: IconButton(
                               icon: const Icon(Icons.arrow_forward, color: AppColors.primary),
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Đang quét dữ liệu ý tưởng...')),
-                                );
-                              },
+                              onPressed: _searchIdeasByKeyword,
                             ),
                             border: const OutlineInputBorder(),
                             isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: _searchIdeasByKeyword,
+                          icon: const Icon(Icons.search, size: 16),
+                          label: const Text('Quét dữ liệu ý tưởng'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
                           ),
                         ),
                         const Padding(
@@ -1492,6 +1510,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
             '>_ ',
             style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
           ),
+          initiallyExpanded: true,
           actions: [
             _buildIconBtn(Icons.attach_file, Colors.teal, tooltip: 'Đính kèm tệp', onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1520,6 +1539,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
           title: 'Nội dung sáng tạo ($textCount)',
           iconPrefix: const Icon(Icons.article, size: 16, color: Colors.blue),
           titleColor: Colors.black87,
+          initiallyExpanded: true,
           actions: [
             _buildIconBtn(Icons.copy, Colors.orange, tooltip: 'Sao chép tất cả', onPressed: () {
               final textList = (_source['text'] as List?) ?? [];
@@ -3257,6 +3277,220 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
         });
       }
     }
+  }
+
+  Future<void> _searchIdeasByKeyword() async {
+    final keyword = _keywordController.text.trim();
+    if (keyword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập từ khoá tìm kiếm ý tưởng!')),
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    // Load searchAPIKey and secretKey (Gemini) from settings
+    String? geminiKey;
+    List<String> searchApiKeys = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr != null) {
+        final activeInfo = jsonDecode(activeInfoStr);
+        final uid = activeInfo['user']['id'] ?? 'default';
+        final userSettingsStr = prefs.getString('user_settings_$uid');
+        if (userSettingsStr != null) {
+          final settings = jsonDecode(userSettingsStr);
+          geminiKey = settings['secretKey']?.toString().trim();
+          final rawKey = settings['searchAPIKey']?.toString().trim();
+          if (rawKey != null && rawKey.isNotEmpty) {
+            searchApiKeys = rawKey.split(';').map((k) => k.trim()).where((k) => k.isNotEmpty).toList();
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    AppLoading.show(context, message: 'Đang tổng hợp...');
+
+    try {
+      final prompt = 'Hãy tạo ra 6 đến 10 đoạn văn ý tưởng chất lượng cao bằng tiếng Việt xoay quanh từ khóa: "$keyword". '
+          'Mỗi đoạn từ 25 đến 80 từ, giàu thông tin, viết tự nhiên. '
+          'Trả về kết quả dưới dạng JSON object {"blocks": ["đoạn 1...", "đoạn 2..."]}';
+
+      var res = await ApiService.askChatGpt(prompt);
+      
+      String jsonText = '';
+      if (res != null) {
+        if (res is Map<String, dynamic>) {
+          res = ApiService.decodeIfEncrypted(res);
+        }
+        if (res['data'] != null && res['data'] is Map && res['data']['answer'] != null) {
+          jsonText = res['data']['answer'].toString();
+        } else if (res['data'] != null && res['data'] is String) {
+          jsonText = res['data'].toString();
+        } else if (res['answer'] != null) {
+          jsonText = res['answer'].toString();
+        } else if (res['text'] != null) {
+          jsonText = res['text'].toString();
+        } else if (res['message'] != null) {
+          jsonText = res['message'].toString();
+        }
+      }
+
+      // Fallback to Gemini if ChatGPT endpoint returns error / 500 / empty
+      if (jsonText.isEmpty && geminiKey != null && geminiKey.isNotEmpty) {
+        final geminiAnswer = await ApiService.askGemini(prompt, [], geminiKey);
+        if (geminiAnswer != null) {
+          jsonText = geminiAnswer;
+        }
+      }
+
+      if (mounted) {
+        AppLoading.dismiss(context);
+      }
+
+      List<String> ideas = [];
+      if (jsonText.isNotEmpty) {
+        String cleanText = jsonText.replaceAll('```json', '').replaceAll('```', '').trim();
+        try {
+          final parsed = jsonDecode(cleanText);
+          if (parsed is Map && parsed['blocks'] is List) {
+            ideas = (parsed['blocks'] as List).map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+          } else if (parsed is List) {
+            ideas = parsed.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+          }
+        } catch (_) {}
+
+        if (ideas.isEmpty) {
+          final lines = cleanText.split(RegExp(r'\n+'));
+          for (var line in lines) {
+            final cleaned = line.replaceAll(RegExp(r'^\d+[\.\)]\s*|^[\-\*]\s*'), '').trim();
+            if (cleaned.length >= 10 && !cleaned.startsWith('{') && !cleaned.startsWith('}')) {
+              ideas.add(cleaned);
+            }
+          }
+        }
+      }
+
+      if (ideas.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Chưa tìm thấy nội dung ý tưởng nào cho từ khóa này.')),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        _showIdeasResultDialog(keyword, ideas);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppLoading.dismiss(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi khi quét ý tưởng: $e')),
+        );
+      }
+    }
+  }
+
+  void _showIdeasResultDialog(String keyword, List<String> ideas) {
+    final Set<int> selectedIndices = List.generate(ideas.length, (index) => index).toSet();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                'Phát triển nội dung với "$keyword"',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: MediaQuery.of(context).size.height * 0.5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Đã quét được ${ideas.length} đoạn ý tưởng. Chọn các đoạn bạn muốn thêm vào Từ điển tri thức:',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: ideas.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final isSelected = selectedIndices.contains(index);
+                          return CheckboxListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            title: Text(
+                              ideas[index],
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            value: isSelected,
+                            onChanged: (val) {
+                              setDialogState(() {
+                                if (val == true) {
+                                  selectedIndices.add(index);
+                                } else {
+                                  selectedIndices.remove(index);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Hủy'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: selectedIndices.isEmpty
+                      ? null
+                      : () {
+                          setState(() {
+                            if (_source['word'] == null || _source['word'] is! List) {
+                              _source['word'] = [];
+                            }
+                            for (var idx in selectedIndices) {
+                              final text = ideas[idx];
+                              (_source['word'] as List).add(
+                                '<p id="source-word-${DateTime.now().millisecondsSinceEpoch}-$idx">$text</p>',
+                              );
+                            }
+                          });
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Đã thêm ${selectedIndices.length} đoạn ý tưởng vào Từ điển tri thức!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                  child: Text('Sử dụng kết quả (${selectedIndices.length})'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildPromptBlockContent() {

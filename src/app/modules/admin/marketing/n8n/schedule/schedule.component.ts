@@ -206,6 +206,47 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     ];
     filteredMentionOptions: any[] = [];
 
+    // [NEW] Biến trạng thái Slide Chat rộng (Hover & Pin)
+    isChatHovered: boolean = false;
+    isChatFocused: boolean = false;
+    isChatPinned: boolean = false;
+    private chatHoverTimeout: any = null;
+
+    onChatMouseEnter() {
+        if (this.chatHoverTimeout) {
+            clearTimeout(this.chatHoverTimeout);
+            this.chatHoverTimeout = null;
+        }
+        if (!this.isChatHovered) {
+            this.isChatHovered = true;
+            this.cd.detectChanges();
+        }
+    }
+
+    onChatMouseLeave() {
+        if (this.chatHoverTimeout) {
+            clearTimeout(this.chatHoverTimeout);
+        }
+        this.chatHoverTimeout = setTimeout(() => {
+            this.isChatHovered = false;
+            this.cd.detectChanges();
+        }, 250);
+    }
+
+    isTaskDone(t: any): boolean {
+        if (!t) return false;
+        if (t.done === true) return true;
+        if (t.status === 'done' || t.status === 'completed') return true;
+        if (typeof t.meta === 'string' && t.meta.toLowerCase().includes('done')) return true;
+        return false;
+    }
+
+    clearChatHistory() {
+        this.chatHistory = [];
+        this.multiAccountService.setItem(this.STORAGE_KEY + '_CHAT', this.chatHistory);
+        this.cd.detectChanges();
+    }
+
     // [NEW] Biến lưu trữ danh sách tất cả tên miền từ DB
     allDomainsList: any[] = [];
     
@@ -2097,6 +2138,100 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         return 0;
     }
 
+    async deleteDayTasksFromDB(year: number, month: number, day: number): Promise<number> {
+        try {
+            const dayStr = day.toString().padStart(2, '0');
+            const monthStr = month.toString().padStart(2, '0');
+            const targetDateIso = `${year}-${monthStr}-${dayStr}`;
+
+            // Fetch fresh tasks directly from CouchDB server to ensure we get exact CouchDB _id and _rev
+            const tasksRes: any = await firstValueFrom(this._tasksService.fetch({ username: this.user.name, year: year })).catch(() => null);
+            let serverTasks: any[] = [];
+            if (Array.isArray(tasksRes)) {
+                serverTasks = tasksRes;
+            } else if (tasksRes && Array.isArray(tasksRes.data)) {
+                serverTasks = tasksRes.data;
+            } else if (tasksRes && Array.isArray(tasksRes.result)) {
+                serverTasks = tasksRes.result;
+            }
+
+            const dayTasksToDelete: any[] = [];
+            
+            // 1. Add matching server tasks that are not done
+            serverTasks.forEach((t: any) => {
+                if (!t || !t.startDate) return;
+                const dObj = this.safeDate(t.startDate);
+                if (!dObj) return;
+                const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
+                if (dIso === targetDateIso && !this.isTaskDone(t)) {
+                    dayTasksToDelete.push(t);
+                }
+            });
+
+            // 2. Also add matching RAM tasks
+            const sourceLists = [
+                ...(this.items || []).flatMap((d: any) => d?.childrenItems?.[0]?.streamItems || (d?.domainData?.plan || [])),
+                ...(this.allDomainsList || []).flatMap((d: any) => d?.plan || [])
+            ];
+            sourceLists.forEach((t: any) => {
+                if (!t || !t.startDate) return;
+                const dObj = this.safeDate(t.startDate);
+                if (!dObj) return;
+                const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
+                if (dIso === targetDateIso && !this.isTaskDone(t)) {
+                    dayTasksToDelete.push(t);
+                }
+            });
+
+            if (dayTasksToDelete.length > 0) {
+                const count = await this.batchDeleteTasksThrottled(dayTasksToDelete);
+
+                const taskIdsToRemove = new Set(dayTasksToDelete.map(t => String(t._id || t.id)).filter(Boolean));
+                (this.items || []).forEach((domainItem: any) => {
+                    const filterFn = (t: any) => {
+                        if (!t || !t.startDate) return true;
+                        const dObj = this.safeDate(t.startDate);
+                        if (!dObj) return true;
+                        const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
+                        if (dIso === targetDateIso && !this.isTaskDone(t)) return false;
+                        return !taskIdsToRemove.has(String(t._id || t.id));
+                    };
+                    if (domainItem.streamItems) {
+                        domainItem.streamItems = domainItem.streamItems.filter(filterFn);
+                    }
+                    if (domainItem.childrenItems?.[0]?.streamItems) {
+                        domainItem.childrenItems[0].streamItems = domainItem.childrenItems[0].streamItems.filter(filterFn);
+                    }
+                    if (domainItem.domainData?.plan) {
+                        domainItem.domainData.plan = domainItem.domainData.plan.filter(filterFn);
+                    }
+                });
+                (this.allDomainsList || []).forEach((d: any) => {
+                    const filterFn = (t: any) => {
+                        if (!t || !t.startDate) return true;
+                        const dObj = this.safeDate(t.startDate);
+                        if (!dObj) return true;
+                        const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
+                        if (dIso === targetDateIso && !this.isTaskDone(t)) return false;
+                        return !taskIdsToRemove.has(String(t._id || t.id));
+                    };
+                    if (d.plan) {
+                        d.plan = d.plan.filter(filterFn);
+                    }
+                });
+
+                this.updateTotalSummaryRow();
+                this.items = [...this.items];
+                this.saveScriptState();
+                this.cd.detectChanges();
+                return count;
+            }
+        } catch (e) {
+            console.error('Lỗi khi xóa task ngày từ CSDL:', e);
+        }
+        return 0;
+    }
+
     async batchDeleteTasksThrottled(tasks: any[]): Promise<number> {
         if (!tasks || tasks.length === 0) return 0;
         const uniqueTasks = Array.from(new Set(tasks.map(t => t._id || t.id)))
@@ -2968,7 +3103,11 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                     } else {
                         // Lấy ngày mục tiêu từ câu chat của user để tính chính xác
                         let targetDate = new Date();
-                        const exactDateMatch = userMessage.match(/\b(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?\b/) || userMessage.match(/ngày\s*(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?/i);
+                        const dayMonthSlashMatch = userMessage.match(/\b(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?\b/) 
+                            || userMessage.match(/ngày\s*(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?/i);
+                        const dayMonthTextMatch = userMessage.match(/ngày\s*(0?[1-9]|[12]\d|3[01])\s*tháng\s*(0?[1-9]|1[0-2])(?:\s*năm\s*(\d{4}))?/i);
+                        const dayOnlyMatch = userMessage.match(/(?:ngày|cho ngày|ngày thứ)\s*(0?[1-9]|[12]\d|3[01])\b/i);
+
                         const monthYearMatch = userMessage.match(/(?:tháng\s*|\b)(0?[1-9]|1[0-2])\/(\d{4})\b/i);
                         const monthWordMatch = userMessage.match(/tháng\s*(0?[1-9]|1[0-2])(?:\/(\d{4}))?/i);
 
@@ -2981,13 +3120,28 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                         const isTodayMention = userMessage.match(/(hôm nay|ngày hôm nay|nay)/i);
                         const isTomorrowMention = userMessage.match(/(ngày mai|mai)/i);
 
-                        if (exactDateMatch && !userMessage.match(/tháng\s*(0?[1-9]|1[0-2])\/(\d{4})/i)) {
+                        if (dayMonthSlashMatch) {
                             isDayRequest = true;
-                            requestDay = parseInt(exactDateMatch[1], 10);
-                            requestMonth = parseInt(exactDateMatch[2], 10);
-                            if (exactDateMatch[3]) {
-                                requestYear = parseInt(exactDateMatch[3], 10);
+                            requestDay = parseInt(dayMonthSlashMatch[1], 10);
+                            requestMonth = parseInt(dayMonthSlashMatch[2], 10);
+                            if (dayMonthSlashMatch[3]) {
+                                requestYear = parseInt(dayMonthSlashMatch[3], 10);
                             }
+                            targetDate = new Date(requestYear, requestMonth - 1, requestDay);
+                        } else if (dayMonthTextMatch) {
+                            isDayRequest = true;
+                            requestDay = parseInt(dayMonthTextMatch[1], 10);
+                            requestMonth = parseInt(dayMonthTextMatch[2], 10);
+                            if (dayMonthTextMatch[3]) {
+                                requestYear = parseInt(dayMonthTextMatch[3], 10);
+                            }
+                            targetDate = new Date(requestYear, requestMonth - 1, requestDay);
+                        } else if (dayOnlyMatch) {
+                            isDayRequest = true;
+                            requestDay = parseInt(dayOnlyMatch[1], 10);
+                            const now = new Date();
+                            requestMonth = now.getMonth() + 1;
+                            requestYear = now.getFullYear();
                             targetDate = new Date(requestYear, requestMonth - 1, requestDay);
                         } else if (isTodayMention) {
                             isDayRequest = true;
@@ -3026,14 +3180,16 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             }
                         }
 
-                        // Nếu là yêu cầu tạo/sửa công việc cho tháng hoặc cho 1 ngày, hiển thị Thẻ Xác Nhận Kế Hoạch Chi Tiết (AI Detailed Plan Proposal)
-                        const isTaskCreateIntent = userMessage.match(/(tạo|chỉnh sửa|sửa|lên|viết|phân bổ|sinh|tạo mới|cập nhật|đổi).*?(công việc|lịch|kế hoạch|task)/i) 
-                            || userMessage.toLowerCase().includes('tạo công việc') 
-                            || userMessage.toLowerCase().includes('chỉnh sửa công việc')
-                            || userMessage.toLowerCase().includes('sửa công việc')
-                            || userMessage.toLowerCase().includes('cập nhật công việc')
-                            || userMessage.toLowerCase().includes('sửa lịch')
-                            || userMessage.toLowerCase().includes('tạo lịch');
+                        // BẮT BUỘC hiển thị Thẻ Xác Nhận Kế Hoạch (Confirm Proposal Card) đối với mọi lệnh tạo/sửa công việc/lịch/ngày/tháng!
+                        const isTaskCreateIntent = isDayRequest 
+                            || isMonthRequest 
+                            || !!userMessage.match(/(tạo|chỉnh sửa|sửa|lên|viết|phân bổ|sinh|tạo mới|cập nhật|đổi|làm|thêm|xóa|sắp xếp|tạo lại)/i);
+
+                        if (isTaskCreateIntent && !isMonthRequest && !isDayRequest) {
+                            isMonthRequest = true; // Mặc định đề xuất kế hoạch tháng hiện tại
+                            requestMonth = new Date().getMonth() + 1;
+                            requestYear = new Date().getFullYear();
+                        }
 
                         if (isMonthRequest && isTaskCreateIntent) {
                             const daysInMonth = new Date(requestYear, requestMonth, 0).getDate();
@@ -3062,20 +3218,26 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                                 const monthlyTarget = item.domainData?.monthlyTarget || this.getResolvedTarget(item.name, requestMonth, requestYear) || 0;
                                 const streamItems = item.childrenItems?.[0]?.streamItems || (item.domainData?.plan || []);
                                 
+                                const doneTasksInMonth = streamItems.filter((t: any) => {
+                                    if (!t.startDate) return false;
+                                    const dObj = this.safeDate(t.startDate);
+                                    return dObj && dObj.getFullYear() === requestYear && (dObj.getMonth() + 1) === requestMonth && this.isTaskDone(t);
+                                }).length;
+
                                 const createdTasksInMonth = streamItems.filter((t: any) => {
                                     if (!t.startDate) return false;
                                     const dObj = this.safeDate(t.startDate);
                                     return dObj && dObj.getFullYear() === requestYear && (dObj.getMonth() + 1) === requestMonth;
                                 }).length;
 
-                                const missingTasksToCreate = Math.max(0, monthlyTarget - createdTasksInMonth);
+                                const missingTasksToCreate = Math.max(0, monthlyTarget - doneTasksInMonth);
                                 const dailyTarget = monthlyTarget > 0 ? (workingDaysLeft > 0 ? Math.ceil(missingTasksToCreate / workingDaysLeft) : missingTasksToCreate) : 0;
 
                                 totalMonthlyTargetSum += monthlyTarget;
                                 totalCreatedTasksSum += createdTasksInMonth;
                                 totalMissingTasksSum += missingTasksToCreate;
 
-                                return `| \`${rawName}\` | ${createdTasksInMonth} bài | **${missingTasksToCreate} bài** |`;
+                                return `| \`${rawName}\` | ${createdTasksInMonth} bài (${doneTasksInMonth} bài đã xong) | **${missingTasksToCreate} bài** |`;
                             });
 
                             const domainTopicsList = validDomains.map((item: any) => {
@@ -3205,24 +3367,41 @@ ${domainTopicsList}
                                     return dIso === dateIsoStr;
                                 }).length;
 
+                                const doneTasksInMonth = streamItems.filter((t: any) => {
+                                    if (!t.startDate) return false;
+                                    const dObj = this.safeDate(t.startDate);
+                                    return dObj && dObj.getFullYear() === requestYear && (dObj.getMonth() + 1) === requestMonth && this.isTaskDone(t);
+                                }).length;
+
+                                const doneTasksOnDay = streamItems.filter((t: any) => {
+                                    if (!t.startDate) return false;
+                                    const dObj = this.safeDate(t.startDate);
+                                    if (!dObj) return false;
+                                    const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
+                                    return dIso === dateIsoStr && this.isTaskDone(t);
+                                }).length;
+
+                                const missingTasksInMonth = Math.max(0, monthlyTarget - (doneTasksInMonth - doneTasksOnDay));
+                                const dailyTarget = monthlyTarget > 0 ? (workingDaysLeft > 0 ? Math.ceil(missingTasksInMonth / workingDaysLeft) : missingTasksInMonth) : 0;
+
+                                const existingToUpdate = Math.min(createdTasksOnDay, dailyTarget);
+                                const newToCreate = Math.max(0, dailyTarget - createdTasksOnDay);
+
                                 totalDayCreatedTasksSum += createdTasksOnDay;
 
                                 let actionText = '';
-                                if (createdTasksOnDay > 0) {
-                                    actionText = `**Cập nhật & Sửa lại ${createdTasksOnDay} bài hiện có**`;
-                                    totalDayUpdatedTasksSum += createdTasksOnDay;
+                                if (existingToUpdate > 0 && newToCreate > 0) {
+                                    actionText = `**Sửa ${existingToUpdate} bài cũ + Tạo mới ${newToCreate} bài (Tổng: ${dailyTarget} bài)**`;
+                                    totalDayUpdatedTasksSum += existingToUpdate;
+                                    totalDayNewTasksSum += newToCreate;
+                                } else if (existingToUpdate > 0) {
+                                    actionText = `**Cập nhật & Sửa lại ${existingToUpdate} bài hiện có**`;
+                                    totalDayUpdatedTasksSum += existingToUpdate;
+                                } else if (newToCreate > 0) {
+                                    actionText = `**Tạo mới ${newToCreate} bài**`;
+                                    totalDayNewTasksSum += newToCreate;
                                 } else {
-                                    const createdTasksInMonth = streamItems.filter((t: any) => {
-                                        if (!t.startDate) return false;
-                                        const dObj = this.safeDate(t.startDate);
-                                        return dObj && dObj.getFullYear() === requestYear && (dObj.getMonth() + 1) === requestMonth;
-                                    }).length;
-
-                                    const missingTasksToCreate = Math.max(0, monthlyTarget - createdTasksInMonth);
-                                    const dailyTarget = monthlyTarget > 0 ? (workingDaysLeft > 0 ? Math.ceil(missingTasksToCreate / workingDaysLeft) : missingTasksToCreate) : 0;
-
-                                    actionText = `**Tạo mới ${dailyTarget} bài**`;
-                                    totalDayNewTasksSum += dailyTarget;
+                                    actionText = `*Đã đủ chỉ tiêu*`;
                                 }
 
                                 return `| \`${rawName}\` | ${createdTasksOnDay} bài | ${actionText} |`;
@@ -3941,10 +4120,12 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
         if (msg) {
             msg.isConfirmed = true;
         }
-        const targetMsg = this.chatHistory.find(m => m && m.isConfirmMessage && !m.isConfirmed);
-        if (targetMsg) {
-            targetMsg.isConfirmed = true;
-        }
+        this.chatHistory.forEach((m: any) => {
+            if (m) {
+                if (m.isConfirmMessage) m.isConfirmed = true;
+                if (m.confirmData) m.confirmData.isConfirmed = true;
+            }
+        });
 
         this.isChatting = true;
         this.saveScriptState();
@@ -4046,15 +4227,19 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             return;
         }
 
-        this.toastr.info(`Đang gọi AI phân tích và lưu CSDL cho ngày ${vDateStrLocal}...`, 'Đang xử lý');
+        this.toastr.info(`Đang dọn dẹp và gọi AI phân tích CSDL cho ngày ${vDateStrLocal}...`, 'Đang xử lý');
         if (this._globalAgentService) {
             this._globalAgentService.sendStreamMessage({
                 role: 'model',
-                content: `⏳ Đang phân tích và ghi CSDL công việc ngày **${vDateStrLocal}**...`,
+                content: `⏳ Đang dọn dẹp bài cũ và phân tích CSDL công việc ngày **${vDateStrLocal}**...`,
                 isStreaming: true
             });
         }
 
+        // BƯỚC 1: Xóa sạch toàn bộ task cũ chưa hoàn thành của ngày này trên CSDL CouchDB & RAM TRƯỚC
+        await this.deleteDayTasksFromDB(year, month, day);
+
+        // BƯỚC 2: AI suy nghĩ và tính toán chỉ tiêu số lượng tasks trên dữ liệu sạch vừa xóa
         const daysInMonth = new Date(year, month, 0).getDate();
         const now = new Date();
         const startDay = (year === now.getFullYear() && month === (now.getMonth() + 1)) ? now.getDate() : 1;
@@ -4092,7 +4277,9 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
                 return dIso === vDateStrIso;
             }).map((t: any) => ({
-                id: t.id,
+                id: t._id || t.id,
+                _id: t._id || t.id,
+                _rev: t._rev,
                 name: t.name,
                 meta: t.meta || ''
             }));
@@ -4109,25 +4296,22 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 }
             }
 
-            const createdTasksInMonth = streamItems.filter((t: any) => {
+            const doneTasksInMonth = streamItems.filter((t: any) => {
                 if (!t.startDate) return false;
                 const dObj = this.safeDate(t.startDate);
-                return dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month;
+                return dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month && this.isTaskDone(t);
             }).length;
 
-            const missingTasksToCreate = Math.max(0, monthlyTarget - createdTasksInMonth);
-            
-            let computedDailyTarget = 0;
-            if (tasksOnDay.length > 0) {
-                computedDailyTarget = tasksOnDay.length;
-            } else if (monthlyTarget > 0) {
-                computedDailyTarget = workingDaysLeft > 0 ? Math.ceil(missingTasksToCreate / workingDaysLeft) : missingTasksToCreate;
-            }
+            const doneTasksOnDay = tasksOnDay.filter((t: any) => this.isTaskDone(t)).length;
+
+            const missingTasksInMonth = Math.max(0, monthlyTarget - (doneTasksInMonth - doneTasksOnDay));
+            let computedDailyTarget = monthlyTarget > 0 ? (workingDaysLeft > 0 ? Math.ceil(missingTasksInMonth / workingDaysLeft) : missingTasksInMonth) : 0;
 
             return {
                 domain: d.name,
                 monthlyTarget: monthlyTarget,
                 dailyTarget: computedDailyTarget,
+                existingTasksCountOnDay: tasksOnDay.length,
                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                 writingStyle: writingStyleInfo,
                 existingTasksOnDay: tasksOnDay
@@ -4143,7 +4327,7 @@ ${JSON.stringify(contextData, null, 2)}
 \`\`\`
 
 YÊU CẦU CỦA NGƯỜI DÙNG:
-Chỉnh sửa và cập nhật lại nội dung công việc (tiêu đề name & mô tả meta) cho tất cả các tên miền cho duy nhất ngày ${vDateStrLocal}.
+Chỉnh sửa và bổ sung công việc (tiêu đề name & mô tả meta) cho tất cả các tên miền cho duy nhất ngày ${vDateStrLocal} để đạt đúng chỉ tiêu dailyTarget.
 
 HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc.
@@ -4151,8 +4335,8 @@ BẠN HÃY TRÒ CHUYỆN VỚI NGƯỜI DÙNG BẰNG GIỌNG ĐIỆU VUI VẺ, T
 DỮ LIỆU CÔNG VIỆC BẮT BUỘC PHẢI ĐƯỢC ĐẶT BÊN TRONG BLOCK CODE MẶC ĐỊNH LÀ \`\`\`json [ ... ] \`\`\`.
 
 QUY TẮC BẮT BUỘC:
-1. Đối với tên miền ĐÃ CÓ task cũ trong ngày (trong thuộc tính "existingTasksOnDay"): BẠN PHẢI GIỮ NGUYÊN "id" CỦA MỖI TASK, và CẬP NHẬT/SỬA LẠI "name" (tiêu đề bài viết hấp dẫn, tối ưu SEO hơn) và "meta" (mô tả bài viết).
-2. Đối với tên miền CHƯA CÓ task: Bạn tạo task mới (không truyền "id") theo dailyTarget.
+1. Đối với mỗi tên miền: BẠN BẮT BUỘC GIỮ NGUYÊN "id" CỦA TẤT CẢ CÁC TASK CŨ TRONG "existingTasksOnDay" (và sửa lại name/meta cho hay hơn).
+2. Nếu số bài cũ ít hơn "dailyTarget": Bạn BẮT BUỘC tạo bổ sung các task mới (không truyền "id") cho đến khi TỔNG SỐ BÀI (cũ + mới) của tên miền đó đúng bằng "dailyTarget".
 3. Tất cả các task BẮT BUỘC chỉ thuộc về ngày ${vDateStrIso} (startDate là "${vDateStrIso}T08:00:00", endDate là "${vDateStrIso}T17:00:00").
 4. Áp dụng đúng phong cách "writingStyle" và "aiAnalysis" của từng tên miền.
 5. Đặt tiêu đề (name) và mô tả (meta) cụ thể, độc đáo.`;
@@ -4209,16 +4393,38 @@ QUY TẮC BẮT BUỘC:
                     }
                 }
 
-                if (normalizedList.length === 1 && !normalizedList[0].domain && contextData.length > 0) {
-                    normalizedList[0].domain = contextData[0].domain;
-                }
+                // Đảm bảo đủ chỉ tiêu dailyTarget cho tất cả tên miền trong contextData
+                const normalizeDomainHelper = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+                contextData.forEach((ctx: any) => {
+                    if (!ctx.domain || ctx.dailyTarget <= 0) return;
+                    const normCtxDomain = normalizeDomainHelper(ctx.domain);
+                    let normEntry = normalizedList.find((entry: any) => normalizeDomainHelper(entry.domain) === normCtxDomain);
+                    if (!normEntry) {
+                        normEntry = { domain: ctx.domain, tasks: [] };
+                        normalizedList.push(normEntry);
+                    }
+                    
+                    const existingTasksCount = normEntry.tasks ? normEntry.tasks.length : 0;
+                    if (existingTasksCount < ctx.dailyTarget) {
+                        const needed = ctx.dailyTarget - existingTasksCount;
+                        if (!normEntry.tasks) normEntry.tasks = [];
+                        for (let k = 1; k <= needed; k++) {
+                            normEntry.tasks.push({
+                                name: `Bài viết SEO ${ctx.domain} #${existingTasksCount + k}`,
+                                meta: `Nội dung truyền thông tự động đạt chỉ tiêu ngày ${vDateStrLocal}`,
+                                startDate: `${vDateStrIso}T08:00:00`,
+                                endDate: `${vDateStrIso}T17:00:00`
+                            });
+                        }
+                    }
+                });
 
                 // Cập nhật ngày cho các task
                 normalizedList.forEach((d: any) => {
                     if (d.tasks && Array.isArray(d.tasks)) {
                         d.tasks.forEach((t: any) => {
-                            t.startDate = `${vDateStrIso}T08:00:00`;
-                            t.endDate = `${vDateStrIso}T17:00:00`;
+                            t.startDate = t.startDate || `${vDateStrIso}T08:00:00`;
+                            t.endDate = t.endDate || `${vDateStrIso}T17:00:00`;
                         });
                     }
                 });
@@ -4227,7 +4433,11 @@ QUY TẮC BẮT BUỘC:
 
                 // Lưu tất cả task của ngày vào CSDL CouchDB ngầm qua API /tasks/add hoặc /tasks/edit
                 const normalizeDomain = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
-                
+                const allRamTasks = [
+                    ...(this.items || []).flatMap((d: any) => d?.childrenItems?.[0]?.streamItems || (d?.domainData?.plan || [])),
+                    ...(this.allDomainsList || []).flatMap((d: any) => d?.plan || [])
+                ];
+
                 for (const entry of normalizedList) {
                     if (!entry.tasks || !entry.tasks.length) continue;
                     const targetNorm = normalizeDomain(entry.domain || '');
@@ -4236,7 +4446,18 @@ QUY TẮC BẮT BUỘC:
 
                     for (const t of entry.tasks) {
                         if (!t) continue;
-                        const taskPayload = {
+                        const targetId = t._id || t.id;
+                        let existingDbTask = targetId ? allRamTasks.find((rt: any) => rt && (String(rt._id) === String(targetId) || String(rt.id) === String(targetId))) : null;
+                        if (!existingDbTask && (t.name || t.title)) {
+                            const tName = (t.name || t.title || '').trim().toLowerCase();
+                            existingDbTask = allRamTasks.find((rt: any) => {
+                                if (!rt || !rt.name) return false;
+                                if (rt.name.trim().toLowerCase() !== tName) return false;
+                                return this.safeIsoDate(rt.startDate) === vDateStrIso;
+                            });
+                        }
+
+                        const taskPayload: any = {
                             name: t.name || t.title || 'Công việc mới',
                             meta: t.meta || t.description || '',
                             domain_id: canonicalDomainName,
@@ -4250,16 +4471,53 @@ QUY TẮC BẮT BUỘC:
                         };
 
                         try {
-                            if (t._id || t.id) {
-                                (taskPayload as any)['_id'] = t._id || t.id;
-                                await firstValueFrom(this._tasksService.edit({ username: this.user.name, task: taskPayload })).catch(async () => {
-                                    await firstValueFrom(this._tasksService.add({ username: this.user.name, task: taskPayload }));
-                                });
-                            } else {
-                                const resAdd: any = await firstValueFrom(this._tasksService.add({ username: this.user.name, task: taskPayload }));
-                                if (resAdd && resAdd.data && resAdd.data._id) {
-                                    t._id = resAdd.data._id;
-                                    t._rev = resAdd.data._rev;
+                            let savedSuccessfully = false;
+                            const isRealCouchDbTask = existingDbTask && existingDbTask._id && existingDbTask._rev && String(existingDbTask._rev).includes('-');
+                            
+                            if (isRealCouchDbTask) {
+                                taskPayload['_id'] = existingDbTask._id;
+                                taskPayload['id'] = existingDbTask._id;
+                                taskPayload['_rev'] = existingDbTask._rev;
+                                const resEdit: any = await firstValueFrom(this._tasksService.edit({ username: this.user.name, task: taskPayload })).catch(() => null);
+                                if (resEdit && !resEdit.error && !resEdit.message) {
+                                    savedSuccessfully = true;
+                                    const newRev = resEdit.rev || resEdit._rev || resEdit.data?.rev || resEdit.data?._rev;
+                                    if (newRev) {
+                                        existingDbTask._rev = newRev;
+                                        t._rev = newRev;
+                                    }
+                                    existingDbTask.name = taskPayload.name;
+                                    existingDbTask.meta = taskPayload.meta;
+                                }
+                            }
+
+                            if (!savedSuccessfully) {
+                                delete taskPayload['_id'];
+                                delete taskPayload['id'];
+                                delete taskPayload['_rev'];
+                                const resAdd: any = await firstValueFrom(this._tasksService.add({ username: this.user.name, task: taskPayload })).catch(() => null);
+                                if (resAdd && !resAdd.error) {
+                                    const newId = resAdd.id || resAdd._id || resAdd.data?.id || resAdd.data?._id;
+                                    const newRev = resAdd.rev || resAdd._rev || resAdd.data?.rev || resAdd.data?._rev;
+                                    if (newId) { 
+                                        t._id = newId; t.id = newId; 
+                                        if (existingDbTask) { existingDbTask._id = newId; existingDbTask.id = newId; }
+                                        const tName = (t.name || t.title || '').trim().toLowerCase();
+                                        const ramTarget = allRamTasks.find((rt: any) => {
+                                            if (!rt || !rt.name) return false;
+                                            if (rt.name.trim().toLowerCase() !== tName) return false;
+                                            return this.safeIsoDate(rt.startDate) === vDateStrIso;
+                                        });
+                                        if (ramTarget) {
+                                            ramTarget._id = newId;
+                                            ramTarget.id = newId;
+                                            if (newRev) ramTarget._rev = newRev;
+                                        }
+                                    }
+                                    if (newRev) { 
+                                        t._rev = newRev; 
+                                        if (existingDbTask) { existingDbTask._rev = newRev; }
+                                    }
                                 }
                             }
                         } catch (err) {
@@ -4267,6 +4525,11 @@ QUY TẮC BẮT BUỘC:
                         }
                     }
                 }
+
+                this.updateTotalSummaryRow();
+                this.items = [...this.items];
+                this.saveScriptState();
+                this.cd.detectChanges();
 
                 this.toastr.success(`Đã cập nhật và lưu CSDL công việc ngày ${vDateStrLocal}!`);
                 this.chatHistory.push({
@@ -4407,7 +4670,25 @@ QUY TẮC BẮT BUỘC:
                                 }
                             }
                         } else {
-                            const existingIndex = newTasks.findIndex(existing => existing.id === t.id);
+                            // 1. Match by ID
+                            let targetTaskInDb = newTasks.find(existing => {
+                                if (!existing) return false;
+                                const tId = t._id || t.id;
+                                const exId = existing._id || existing.id;
+                                return tId && exId && String(tId) === String(exId);
+                            });
+
+                            // 2. Match by Name + Date
+                            if (!targetTaskInDb && (t.name || t.title)) {
+                                targetTaskInDb = newTasks.find(existing => {
+                                    if (!existing || !existing.name) return false;
+                                    if (existing.name.trim().toLowerCase() !== (t.name || t.title).trim().toLowerCase()) return false;
+                                    const d1 = this.safeIsoDate(existing.startDate);
+                                    const d2 = this.safeIsoDate(t.startDate);
+                                    return d1 && d2 && d1 === d2;
+                                });
+                            }
+
                             const parseDateStr = (dStr: string) => {
                                 if (!dStr) return new Date();
                                 let d = new Date(dStr);
@@ -4440,9 +4721,23 @@ QUY TẮC BẮT BUỘC:
                             sDate.setHours(8, 0, 0, 0);
                             const eDate = this.getNextValidDate(parseDateStr(t.endDate));
                             eDate.setHours(17, 0, 0, 0);
+                            const tIsoDate = this.safeIsoDate(sDate);
+
+                            // 3. Fallback: Match by Position (Index) among existing tasks on that specific day to avoid doubling tasks!
+                            if (!targetTaskInDb && tIsoDate) {
+                                const existingOnDay = newTasks.filter(ex => ex && this.safeIsoDate(ex.startDate) === tIsoDate);
+                                const indexOfTInParsedDay = parsedDomain.tasks.filter((pt: any) => this.safeIsoDate(pt.startDate) === tIsoDate).indexOf(t);
+                                if (indexOfTInParsedDay >= 0 && indexOfTInParsedDay < existingOnDay.length) {
+                                    targetTaskInDb = existingOnDay[indexOfTInParsedDay];
+                                }
+                            }
+
+                            const existingIndex = targetTaskInDb ? newTasks.findIndex(ex => ex === targetTaskInDb) : -1;
 
                             const mappedTask: any = {
-                                id: t.id || Math.random().toString(36).substring(7),
+                                id: targetTaskInDb ? (targetTaskInDb._id || targetTaskInDb.id) : (t._id || t.id || Math.random().toString(36).substring(7)),
+                                _id: targetTaskInDb ? (targetTaskInDb._id || targetTaskInDb.id) : (t._id || t.id),
+                                _rev: targetTaskInDb ? targetTaskInDb._rev : t._rev,
                                 name: t.name || t.title,
                                 meta: t.meta || '',
                                 startDate: sDate,
