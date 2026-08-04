@@ -3287,13 +3287,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     }
 
     FocusScope.of(context).unfocus();
-    AppLoading.show(context, message: 'Đang bóc tách bài mẫu...');
+    AppLoading.show(context, message: 'Đang đọc và viết lại bài mẫu...');
 
     try {
-      List<String> paragraphs = [];
       String articleTitle = '';
+      String articleTextContent = '';
 
-      // 1. Try direct HTTP fetch & parse HTML
+      // 1. Fetch content of sample URL via HTTP or scraper
       try {
         final httpRes = await http.get(Uri.parse(targetUrl)).timeout(const Duration(seconds: 8));
         if (httpRes.statusCode == 200) {
@@ -3304,93 +3304,152 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
           }
 
           final pMatches = RegExp(r'<p[^>]*>(.*?)</p>', caseSensitive: false, dotAll: true).allMatches(body);
+          final pList = <String>[];
           for (var match in pMatches) {
             final rawP = match.group(1) ?? '';
             final cleanP = rawP.replaceAll(RegExp(r'<[^>]*>'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
             if (cleanP.length >= 25 && !cleanP.toLowerCase().contains('copyright') && !cleanP.toLowerCase().contains('cookie')) {
-              paragraphs.add(cleanP);
+              pList.add(cleanP);
             }
           }
+          articleTextContent = pList.join('\n');
         }
       } catch (e) {
         debugPrint('Direct HTTP fetch error: $e');
       }
 
-      // 2. Fallback to AI URL extraction if HTTP fetch failed or paragraphs < 2
-      if (paragraphs.length < 2) {
-        final prompt = 'Hãy đóng vai chuyên gia bóc tách bài viết. Hãy phân tích và bóc tách bài viết mẫu từ liên kết sau: "$targetUrl". Trả về tiêu đề bài viết và 5 đến 8 đoạn văn nội dung chính của bài mẫu, mỗi đoạn từ 30 đến 80 từ nằm trên một dòng riêng biệt.';
-        var res = await ApiService.askChatGpt(prompt);
-        String aiAnswer = '';
-        if (res != null) {
-          if (res is Map<String, dynamic>) res = ApiService.decodeIfEncrypted(res);
-          if (res['data'] != null && res['data'] is Map && res['data']['answer'] != null) {
-            aiAnswer = res['data']['answer'].toString();
-          } else if (res['answer'] != null) {
-            aiAnswer = res['answer'].toString();
-          }
-        }
+      if (articleTextContent.trim().isEmpty) {
+        articleTextContent = 'Bài viết mẫu tại đường dẫn $targetUrl';
+      }
 
-        if (aiAnswer.isNotEmpty) {
-          final lines = aiAnswer.split(RegExp(r'\n+'));
-          for (var line in lines) {
-            final cleaned = line.replaceAll(RegExp(r'^\d+[\.\)]\s*|^[\-\*]\s*'), '').trim();
-            if (cleaned.length >= 20) {
-              if (articleTitle.isEmpty && cleaned.length < 120) {
-                articleTitle = cleaned;
-              } else {
-                paragraphs.add(cleaned);
-              }
+      // 2. Build prompt for AI matching Angular logic 1:1
+      String yourPrompt = '';
+      if (_source['prompt'] != null && _source['prompt'] is List && (_source['prompt'] as List).isNotEmpty) {
+        yourPrompt = (_source['prompt'] as List).join('. ').replaceAll(RegExp(r'<[^>]*>'), '');
+        yourPrompt = '$yourPrompt. ';
+      }
+
+      final styleGuide = _selectedStyle != null ? ' Blog mang phong cách của $_selectedStyle.' : '';
+
+      final aiPrompt = '''
+${yourPrompt}Hãy viết lại một bài viết blog hoàn chỉnh dựa vào nội dung mẫu sau: "$articleTextContent", và tiêu đề mẫu: "$articleTitle".
+Lưu ý: Viết theo phong cách của $styleGuide, trong nội dung bài viết phải chứa các thẻ h2, h3 và các đoạn văn <p> để làm chuẩn SEO.
+Trả về kết quả dưới định dạng JSON với các key sau:
+{
+  "title": "Tiêu đề bài viết viết lại",
+  "content": "Nội dung đầy đủ của bài blog dạng HTML với các thẻ <h2>, <h3>, <p>",
+  "description": "Bản tóm tắt ngắn gọn dưới 160 từ",
+  "main_keyword": "Từ khóa chính",
+  "image_prompt": "Gợi ý prompt tạo hình ảnh minh họa cho bài viết"
+}
+Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' và kết thúc bằng '}', không kèm bình luận hay ký tự mã bọc.
+''';
+
+      // 3. Ask AI to generate rewritten blog
+      var res = await ApiService.askChatGpt(aiPrompt);
+      String jsonText = '';
+      if (res != null) {
+        if (res is Map<String, dynamic>) res = ApiService.decodeIfEncrypted(res);
+        if (res['data'] != null && res['data'] is Map && res['data']['answer'] != null) {
+          jsonText = res['data']['answer'].toString();
+        } else if (res['answer'] != null) {
+          jsonText = res['answer'].toString();
+        } else if (res['text'] != null) {
+          jsonText = res['text'].toString();
+        }
+      }
+
+      if (jsonText.isEmpty) {
+        // Fallback to Gemini if ChatGPT endpoint returned empty
+        String? geminiKey;
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final activeInfoStr = prefs.getString('active_info');
+          if (activeInfoStr != null) {
+            final activeInfo = jsonDecode(activeInfoStr);
+            final uid = activeInfo['user']['id'] ?? 'default';
+            final userSettingsStr = prefs.getString('user_settings_$uid');
+            if (userSettingsStr != null) {
+              final settings = jsonDecode(userSettingsStr);
+              geminiKey = settings['secretKey']?.toString().trim();
             }
           }
+        } catch (_) {}
+
+        if (geminiKey != null && geminiKey.isNotEmpty) {
+          final geminiRes = await ApiService.askGemini(aiPrompt, [], geminiKey);
+          if (geminiRes != null) jsonText = geminiRes;
         }
       }
 
-      // 3. Fallback sample paragraphs if still empty
-      if (paragraphs.isEmpty) {
-        articleTitle = articleTitle.isNotEmpty ? articleTitle : 'Bài viết mẫu từ $targetUrl';
-        paragraphs = [
-          'Bài viết mẫu tập trung phân tích xu hướng và nội dung cốt lõi từ liên kết $targetUrl.',
-          'Các luận điểm quan trọng bao gồm đánh giá thực trạng, phương pháp triển khai và bài học kinh nghiệm.',
-          'Chi tiết về chiến lược và giải pháp đề xuất mang lại hiệu quả cao cho chủ đề đang được quan tâm.',
-        ];
-      }
+      if (mounted) AppLoading.dismiss(context);
 
-      if (mounted) {
-        AppLoading.dismiss(context);
+      if (jsonText.isNotEmpty) {
+        String cleanJson = jsonText.replaceAll('```json', '').replaceAll('```', '').trim();
+        Map<String, dynamic>? data;
+        try {
+          final parsed = jsonDecode(cleanJson);
+          if (parsed is Map<String, dynamic>) data = parsed;
+        } catch (_) {}
 
-        // Update Title if current title is empty
-        if (_titleController.text.trim().isEmpty && articleTitle.isNotEmpty) {
-          _titleController.text = articleTitle;
-        }
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final newTitle = data?['title']?.toString().trim() ?? (articleTitle.isNotEmpty ? articleTitle : 'Bài viết mẫu từ URL');
+        final newContent = data?['content']?.toString().trim() ?? cleanJson;
+        final newMainKey = data?['main_keyword']?.toString().trim() ?? '';
+        final newImgPrompt = data?['image_prompt']?.toString().trim() ?? '';
 
-        // Add extracted paragraphs to Nội dung sáng tạo (_source['done'] & _done)
         setState(() {
+          // Update Title
+          _titleController.text = newTitle;
+
+          // Update Main Keyword if provided
+          if (newMainKey.isNotEmpty) {
+            _mainkeyController.text = newMainKey;
+          }
+
+          // Add image_prompt to _source['pre'] (Prompt tạo ảnh) if present
+          if (newImgPrompt.isNotEmpty) {
+            if (_source['pre'] == null || _source['pre'] is! List) {
+              _source['pre'] = [];
+            }
+            (_source['pre'] as List).add('<p id="source-pre-$now">$newImgPrompt</p>');
+          }
+
+          // Save rewritten blog post result to Dàn ý (_source['done'] & _done)
           if (_source['done'] == null || _source['done'] is! List) {
             _source['done'] = [];
           }
           final list = _source['done'] as List;
-          final now = DateTime.now().millisecondsSinceEpoch;
-          for (int i = 0; i < paragraphs.length; i++) {
-            final htmlP = '<p id="done-p-$now-$i">${paragraphs[i]}</p>';
-            list.add(htmlP);
-            if (!_done.contains(htmlP)) {
-              _done.add(htmlP);
-            }
+          final htmlContent = newContent.startsWith('<') ? newContent : '<p id="done-p-$now">$newContent</p>';
+          list.add(htmlContent);
+          if (!_done.contains(htmlContent)) {
+            _done.add(htmlContent);
           }
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã bóc tách thành công ${paragraphs.length} đoạn văn mẫu vào Nội dung sáng tạo!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã tạo nội dung bài mẫu thành công vào Dàn ý!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể tạo bài viết từ bài mẫu, vui lòng thử lại!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         AppLoading.dismiss(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Có lỗi xảy ra khi bóc tách bài mẫu: $e')),
+          SnackBar(content: Text('Có lỗi xảy ra khi viết lại bài mẫu: $e')),
         );
       }
     }
