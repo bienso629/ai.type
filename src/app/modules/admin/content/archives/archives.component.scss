@@ -134,6 +134,33 @@ ng-dropdown-panel.ng-select-bottom {
                 }
             }
         }
+
+        .datatable-body-row.is-group-header {
+            background-color: #f1f5f9 !important;
+            border-top: 1px solid #cbd5e1;
+            border-bottom: 1px solid #cbd5e1;
+
+            &.datatable-row-even, &.datatable-row-odd {
+                background-color: #f1f5f9 !important;
+            }
+
+            .datatable-body-cell {
+                display: flex;
+                align-items: center;
+            }
+        }
+    }
+
+    .dark .ngx-datatable.material {
+        .datatable-body-row.is-group-header {
+            background-color: #1e293b !important;
+            border-top: 1px solid #334155;
+            border-bottom: 1px solid #334155;
+
+            &.datatable-row-even, &.datatable-row-odd {
+                background-color: #1e293b !important;
+            }
+        }
     }
 
     .custom-dialog-bulk {
