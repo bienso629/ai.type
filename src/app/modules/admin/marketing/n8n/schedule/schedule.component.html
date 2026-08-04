@@ -41,9 +41,9 @@
                          [matTooltip]="item.isMonthlyTotalBar ? (item.monthLabel + ': ' + item.taskCount + ' công việc') : (item.isGroup ? 'Bấm để xem danh sách ' + item.taskCount + ' công việc' : (item.name + (item.meta && item.meta.length ? '\n' + item.meta : '')))">
                         
                         <!-- Monthly Total Bar Centered White Text (1 Per Month) -->
-                        <div *ngIf="item.isMonthlyTotalBar" class="flex items-center justify-center text-center font-bold text-sm text-white px-2 pointer-events-none w-full h-full">
+                        <div *ngIf="item.isMonthlyTotalBar" class="flex items-center justify-center text-center font-bold text-sm text-white pointer-events-none w-full h-full min-w-0 overflow-hidden">
                             <mat-icon class="icon-size-4 mr-1.5 shrink-0 text-white" [svgIcon]="'feather:bar-chart-2'"></mat-icon>
-                            <span class="whitespace-nowrap font-bold text-white tracking-wide text-sm">
+                            <span class="truncate font-bold text-white text-sm min-w-0">
                                 {{ item.monthLabel }}: {{ item.taskCount }} công việc
                             </span>
                         </div>
@@ -114,7 +114,7 @@
                 <!-- Header -->
                 <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/90 shrink-0">
                     <div class="flex items-center space-x-2">
-                        <mat-icon class="text-primary icon-size-5" [svgIcon]="'feather:bot'"></mat-icon>
+                        <mat-icon class="text-primary icon-size-5" [svgIcon]="'heroicons_solid:sparkles'"></mat-icon>
                         <span class="font-bold text-sm text-gray-800">Trợ lý AI - Lên kịch bản</span>
                     </div>
                     <div class="flex items-center space-x-1">
