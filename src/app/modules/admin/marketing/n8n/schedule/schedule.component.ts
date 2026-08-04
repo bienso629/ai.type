@@ -2401,27 +2401,15 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
         realDomainItems.forEach(domainItem => {
             let allStreamItems: any[] = [];
-            if (domainItem.streamItems && domainItem.streamItems.length) {
-                allStreamItems.push(...domainItem.streamItems);
-            }
-            if (domainItem.childrenItems && domainItem.childrenItems.length) {
-                domainItem.childrenItems.forEach((child: any) => {
-                    if (child && child.streamItems && child.streamItems.length) {
-                        allStreamItems.push(...child.streamItems);
-                    } else if (child && !child.streamItems) {
-                        allStreamItems.push(child);
-                    }
-                });
-            }
-            if (domainItem.domainData && domainItem.domainData.plan && Array.isArray(domainItem.domainData.plan)) {
-                allStreamItems.push(...domainItem.domainData.plan);
+            if (domainItem.childrenItems && domainItem.childrenItems[0] && domainItem.childrenItems[0].streamItems && domainItem.childrenItems[0].streamItems.length > 0) {
+                allStreamItems = domainItem.childrenItems[0].streamItems;
+            } else if (domainItem.streamItems && domainItem.streamItems.length > 0) {
+                allStreamItems = domainItem.streamItems;
+            } else if (domainItem.domainData && domainItem.domainData.plan && Array.isArray(domainItem.domainData.plan)) {
+                allStreamItems = domainItem.domainData.plan;
             }
 
-            const uniqueStreamItems = Array.from(new Set(allStreamItems.map(st => st.id || st._id || st.name)))
-                .map(id => allStreamItems.find(st => (st.id || st._id || st.name) === id))
-                .filter(Boolean);
-
-            uniqueStreamItems.forEach((st: any) => {
+            allStreamItems.forEach((st: any) => {
                 let taskList: any[] = [];
                 if (st.isGroup && st.tasks && st.tasks.length) {
                     taskList = st.tasks;
@@ -2877,13 +2865,6 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                         this.router.navigate([matchedMention.url]);
                     });
                 }
-                
-                if (userMessage) {
-                    // Send to global agent instead
-                    // Wait for navigation, but for simplicity, we just skip it here
-                    // because the global chatgpt2s component will handle global states.
-                    // To keep it simple, we just navigate.
-                }
                 return;
             }
         }
@@ -2897,52 +2878,75 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         this.cd.detectChanges();
 
         try {
-            const executeMatch = userMessage.match(/(chạy|thực thi|viết bài).*?(bài viết|nội dung|kịch bản)/i);
-            const isToday = userMessage.match(/(hôm nay|nay)/i);
+            const isBlogWritingIntent = !!userMessage.match(/(viết blog|viết bài|soạn bài|chạy bài|sinh bài|tạo bài viết|viết nội dung|viết chi tiết)/i) 
+                && !userMessage.match(/(tạo công việc|tạo task|chỉnh sửa công việc|sửa task|cập nhật công việc|cập nhật task|lên lịch|phân bổ task)/i);
 
-            if (executeMatch && isToday) {
-                let todayTasks: any[] = [];
-                let todayStr = this.safeIsoDate(new Date());
-                this.items.forEach((domain: any) => {
-                    if (domain.childrenItems && domain.childrenItems[0] && domain.childrenItems[0].streamItems) {
-                        domain.childrenItems[0].streamItems.forEach((task: any) => {
-                            if (task.startDate) {
-                                let tDate = this.safeIsoDate(task.startDate);
-                                if (tDate === todayStr) {
-                                    todayTasks.push({ ...task, domain: domain.name, originalTask: task });
-                                }
-                            }
-                        });
+            if (isBlogWritingIntent) {
+                // Parse target date from userMessage
+                let targetDay = new Date().getDate();
+                let targetMonth = new Date().getMonth() + 1;
+                let targetYear = new Date().getFullYear();
+
+                const dateMatch = userMessage.match(/ngày\s*(\d{1,2})(?:[\/\-](\d{1,2}))?(?:[\/\-](\d{4}))?/i);
+                if (dateMatch) {
+                    targetDay = parseInt(dateMatch[1]);
+                    if (dateMatch[2]) targetMonth = parseInt(dateMatch[2]);
+                    if (dateMatch[3]) targetYear = parseInt(dateMatch[3]);
+                }
+
+                const dayStr = targetDay.toString().padStart(2, '0');
+                const monthStr = targetMonth.toString().padStart(2, '0');
+                const targetDateIso = `${targetYear}-${monthStr}-${dayStr}`;
+                const targetDateLocal = `${dayStr}/${monthStr}/${targetYear}`;
+
+                let tasksToProcess: any[] = [];
+                const sourceLists = [
+                    ...(this.items || []).flatMap((d: any) => (d?.childrenItems?.[0]?.streamItems || d?.domainData?.plan || []).map((t: any) => ({ ...t, domain: d.name, originalTask: t }))),
+                    ...(this.allDomainsList || []).flatMap((d: any) => (d?.plan || []).map((t: any) => ({ ...t, domain: d.domain || d.name, originalTask: t })))
+                ];
+
+                const seenIds = new Set();
+                sourceLists.forEach((task: any) => {
+                    if (!task || !task.startDate) return;
+                    const dObj = this.safeDate(task.startDate);
+                    if (!dObj) return;
+                    const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
+                    if (dIso === targetDateIso && !this.isTaskDone(task)) {
+                        const taskId = task._id || task.id || (task.name + dIso);
+                        if (!seenIds.has(taskId)) {
+                            seenIds.add(taskId);
+                            tasksToProcess.push(task);
+                        }
                     }
                 });
 
-                if (todayTasks.length === 0) {
-                    this.chatHistory.push({ role: 'model', content: `Dạ Sếp ơi, hôm nay không có task nào cả, sếp nghỉ ngơi đi ạ! 😎` });
+                if (tasksToProcess.length === 0) {
+                    this.chatHistory.push({ role: 'model', content: `Dạ Sếp ơi, ngày **${targetDateLocal}** không có task nào chưa hoàn thành để viết bài cả ạ! Sếp nghỉ ngơi đi ạ! 😎` });
                     this.isChatting = false;
                     this.cd.detectChanges();
                     this.scrollToBottom();
                     return;
                 }
 
-                this.chatHistory.push({ role: 'model', content: `Dạ Sếp! Em đang tiến hành chạy kịch bản viết bài cho **${todayTasks.length} task** của ngày hôm nay... 🚀` });
+                this.chatHistory.push({ role: 'model', content: `Dạ Sếp! Em đang tiến hành chạy kịch bản viết blog cho **${tasksToProcess.length} task** của ngày **${targetDateLocal}**... 🚀` });
                 this.cd.detectChanges();
                 this.scrollToBottom();
 
                 let successCount = 0;
                 let pendingArticles = this.multiAccountService.getItem('pending_articles') || [];
 
-                for (let i = 0; i < todayTasks.length; i++) {
+                for (let i = 0; i < tasksToProcess.length; i++) {
                     if (!this.isChatting) {
                         this.chatHistory.push({ role: 'model', content: `🛑 Đã dừng xử lý theo yêu cầu của Sếp!` });
                         break;
                     }
-                    const task = todayTasks[i];
+                    const task = tasksToProcess[i];
                     
-                    this.chatHistory.push({ role: 'model', content: `⏳ Đang xử lý task [${i+1}/${todayTasks.length}]: **${task.name}** (Domain: ${task.domain})...` });
+                    this.chatHistory.push({ role: 'model', content: `⏳ Đang xử lý task [${i+1}/${tasksToProcess.length}]: **${task.name}** (Domain: ${task.domain})...` });
                     this.cd.detectChanges();
                     this.scrollToBottom();
 
-                    let domainData = this.items?.find((i: any) => i.name === task.domain)?.domainData || { domain: task.domain };
+                    let domainData = this.items?.find((item: any) => item.name === task.domain)?.domainData || { domain: task.domain };
                     let styleInstructions = '';
                     if (domainData.note) {
                         styleInstructions += `\n- Phân tích chuyên môn (bám sát): ${domainData.note}`;
@@ -2976,7 +2980,7 @@ Yêu cầu:${styleInstructions}
                             config: { ttsVoice: 'none' } as any
                         });
                         
-                        let jsonText = response.text;
+                        let jsonText = response.text || (response as any).response?.text() || '';
                         let articleData = null;
                         if (jsonText) {
                             try {
@@ -2989,14 +2993,14 @@ Yêu cầu:${styleInstructions}
                         }
                         let archivePayload = {
                             title: articleData?.title || task.name,
-                            url: task.id,
+                            url: task._id || task.id || Math.random().toString(36).substring(7),
                             source: {
                                 title: [], description: [], url: [], domain: [],
                                 img: [], h: [], a: [], p: [], source: [],
                                 iframe: [], pre: [ articleData?.image_prompt || '' ], type: 'html', prompt: [ task.name ],
                                 synonyms: [], keyword: '', wp_post_id: null,
-                                wp_domain: domainData.domain, wpPosts: [],
-                                nodes: [], totalNodes: 1, wp_task_id: task.id
+                                wp_domain: domainData.domain || task.domain, wpPosts: [],
+                                nodes: [], totalNodes: 1, wp_task_id: task._id || task.id
                             },
                             done: [ articleData?.content || '' ],
                             trash: [],
@@ -3016,54 +3020,65 @@ Yêu cầu:${styleInstructions}
                             thumbnail: articleData?.image_prompt || ''
                         };
 
+                        // 1. Save to Crawl Service archive
                         try {
-                            const res: any = await firstValueFrom(this._crawlService.storeArchive(archivePayload));
-                            if (res && res.success) {
-                                this.chatHistory.push({ role: 'model', content: `✅ Đã viết và lưu xong bài: **${articleData?.title || task.name}** (UUID: ${res.data?.uuid}).` });
+                            await firstValueFrom(this._crawlService.storeArchive(archivePayload)).catch(() => null);
+                        } catch (e) {}
+
+                        // 2. Save to pending_articles in MultiAccountService so articles appear in UI!
+                        pendingArticles.push(archivePayload);
+                        this.multiAccountService.setItem('pending_articles', pendingArticles);
+
+                        // 3. Mark task as DONE in RAM and CouchDB!
+                        if (task.originalTask) {
+                            task.originalTask.done = true;
+                            task.originalTask.status = 'done';
+                            task.originalTask.meta = (task.originalTask.meta ? task.originalTask.meta.replace(/done/gi, '').trim() + ' ' : '') + 'Done';
+                        }
+                        task.done = true;
+                        task.status = 'done';
+
+                        let matchedItem = this.items?.find((item: any) => item.name === task.domain);
+                        let planTask = matchedItem?.domainData?.plan?.find((t: any) => (t._id || t.id) === (task._id || task.id) || t.name === task.name);
+                        if (!planTask && matchedItem?.childrenItems?.[0]?.streamItems) {
+                            planTask = matchedItem.childrenItems[0].streamItems.find((t: any) => (t._id || t.id) === (task._id || task.id) || t.name === task.name);
+                        }
+                        if (planTask) {
+                            planTask.done = true;
+                            planTask.status = 'done';
+                            planTask.meta = task.originalTask ? task.originalTask.meta : 'Done';
+                            
+                            const isRealCouchDbTask = planTask._id && planTask._rev && String(planTask._rev).includes('-');
+                            if (isRealCouchDbTask) {
+                                this._tasksService.edit({ username: this.user.name, task: planTask }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
                             } else {
-                                this.chatHistory.push({ role: 'model', content: `⚠️ Cảnh báo: API lưu bài thất bại - ${JSON.stringify(res)}` });
+                                this._tasksService.add({ username: this.user.name, task: planTask }).pipe(takeUntil(this._unsubscribeAll)).subscribe((res: any) => {
+                                    if (res) {
+                                        if (res.id || res._id) planTask._id = res.id || res._id;
+                                        if (res.rev || res._rev) planTask._rev = res.rev || res._rev;
+                                    }
+                                });
                             }
-                        } catch (e: any) {
-                            this.chatHistory.push({ role: 'model', content: `❌ Lỗi khi gọi API lưu bài: ${e.message}` });
                         }
-                        task.originalTask.meta = (task.originalTask.meta ? task.originalTask.meta + ' ' : '') + 'Done';
-                        task.originalTask.done = true;
+
+                        if (matchedItem) {
+                            const plan = matchedItem.domainData?.plan || matchedItem.childrenItems?.[0]?.streamItems || [];
+                            this.applyPackedTasks(matchedItem, plan);
+                        }
+
                         successCount++;
-                        
-                        // Save to database by updating the real plan reference
-                        let currentDomainData = this.items?.find((i: any) => i.name === task.domain)?.domainData;
-                        if (currentDomainData && currentDomainData.plan) {
-                            let planTask = currentDomainData.plan.find((t: any) => t.id === task.originalTask.id);
-                            if (planTask) {
-                                planTask.done = true;
-                                planTask.meta = task.originalTask.meta;
-                            }
-                            this._tasksService.edit({
-                                username: this.user.name,
-                                task: planTask
-                            }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-                        }
-                        
-                        // Force Angular Calendar Timeline to detect changes deeply by rebuilding from plan
-                        let itemIndex = this.items.findIndex(it => it.name === task.domain);
-                        if (itemIndex > -1 && currentDomainData && currentDomainData.plan) {
-                            this.applyPackedTasks(this.items[itemIndex], currentDomainData.plan);
-                        }
-                        this.items = [...this.items];
-                        this.cd.detectChanges();
+                        this.chatHistory.push({ role: 'model', content: `✅ Đã viết bài & đánh dấu Hoàn Thành [Done] cho task: **${articleData?.title || task.name}**` });
                     } catch (err: any) {
                         this.chatHistory.push({ role: 'model', content: `❌ Lỗi khi xử lý task **${task.name}**: ${err.message}` });
                     }
                     
+                    this.items = [...this.items];
+                    this.saveScriptState();
                     this.cd.detectChanges();
                     this.scrollToBottom();
                 }
 
-                if (this.isChatting) {
-                    this.chatHistory.push({ role: 'model', content: `🎉 Báo cáo Sếp: Đã thực thi hoàn tất ${successCount}/${todayTasks.length} task! Toàn bộ bài viết & thumbnail đã được lưu ở trạng thái Chờ duyệt (Pending). Sếp có thể vào kiểm tra nhé! 😎` });
-                }
-                
-                this.items = [...this.items];
+                this.chatHistory.push({ role: 'model', content: `🎉 Báo cáo Sếp: Đã hoàn tất viết blog và đánh dấu [Done] cho **${successCount}/${tasksToProcess.length} task** của ngày **${targetDateLocal}**! Tất cả bài viết đã được lưu vào CSDL và kho Soạn bài. 😎` });
                 this.isChatting = false;
                 this.cd.detectChanges();
                 this.scrollToBottom();
@@ -3180,10 +3195,11 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             }
                         }
 
-                        // BẮT BUỘC hiển thị Thẻ Xác Nhận Kế Hoạch (Confirm Proposal Card) đối với mọi lệnh tạo/sửa công việc/lịch/ngày/tháng!
-                        const isTaskCreateIntent = isDayRequest 
+                        // BẮT BUỘC hiển thị Thẻ Xác Nhận Kế Hoạch đối với lệnh tạo/sửa công việc (ngoại trừ lệnh viết blog)
+                        const isTaskCreateIntent = (isDayRequest 
                             || isMonthRequest 
-                            || !!userMessage.match(/(tạo|chỉnh sửa|sửa|lên|viết|phân bổ|sinh|tạo mới|cập nhật|đổi|làm|thêm|xóa|sắp xếp|tạo lại)/i);
+                            || !!userMessage.match(/(tạo công việc|chỉnh sửa|sửa task|lên lịch|phân bổ|sinh task|tạo mới|cập nhật công việc|đổi|làm task|thêm task|xóa task|sắp xếp|tạo lại)/i))
+                            && !isBlogWritingIntent;
 
                         if (isTaskCreateIntent && !isMonthRequest && !isDayRequest) {
                             isMonthRequest = true; // Mặc định đề xuất kế hoạch tháng hiện tại
