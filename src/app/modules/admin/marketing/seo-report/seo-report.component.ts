@@ -1800,6 +1800,8 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
     isPageSpeedLoading = false;
     pageSpeedError = '';
     pageSpeedActiveTab = 'performance';
+    aiPageSpeedLoading = false;
+    aiPageSpeedSuggestions = '';
 
     async fetchPageSpeedData() {
         this.pageSpeedError = '';
@@ -1976,6 +1978,135 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(downloadUrl);
+    }
+
+    async generateAIPageSpeedAnalysis(): Promise<void> {
+        if (!this.siteUrl) {
+            this.toastr.error('Vui lòng chọn hoặc nhập Domain trước.');
+            return;
+        }
+
+        if (!this.pageSpeedData) {
+            this.toastr.info('Chưa có dữ liệu PageSpeed Insights. Đang tiến hành lấy dữ liệu...');
+            await this.fetchPageSpeedData();
+            if (!this.pageSpeedData) {
+                this.toastr.error('Không thể lấy dữ liệu PageSpeed Insights để phân tích.');
+                return;
+            }
+        }
+
+        this.aiPageSpeedLoading = true;
+        this.aiPageSpeedSuggestions = '';
+        this.cd.markForCheck();
+
+        try {
+            const perf = this.getPageSpeedScore('performance');
+            const acc = this.getPageSpeedScore('accessibility');
+            const bp = this.getPageSpeedScore('best-practices');
+            const seo = this.getPageSpeedScore('seo');
+
+            const audits = this.pageSpeedData.lighthouseResult?.audits || {};
+            const fcp = audits['first-contentful-paint']?.displayValue || 'N/A';
+            const lcp = audits['largest-contentful-paint']?.displayValue || 'N/A';
+            const cls = audits['cumulative-layout-shift']?.displayValue || 'N/A';
+            const tbt = audits['total-blocking-time']?.displayValue || 'N/A';
+            const speedIndex = audits['speed-index']?.displayValue || 'N/A';
+            const tti = audits['interactive']?.displayValue || 'N/A';
+
+            let failedAuditsSummary = '';
+            const perfCategory = this.pageSpeedData.lighthouseResult?.categories?.performance;
+            if (perfCategory && perfCategory.auditRefs) {
+                const failedList: string[] = [];
+                perfCategory.auditRefs.forEach((ref: any) => {
+                    const audit = audits[ref.id];
+                    if (audit && audit.score !== null && audit.score < 0.9) {
+                        const title = audit.title || ref.id;
+                        const displayVal = audit.displayValue ? ` (${audit.displayValue})` : '';
+                        const desc = audit.description ? `: ${audit.description.replace(/\[.*?\]\(.*?\)/g, '')}` : '';
+                        failedList.push(`- [${ref.id}] ${title}${displayVal}${desc}`);
+                    }
+                });
+                if (failedList.length > 0) {
+                    failedAuditsSummary = failedList.slice(0, 15).join('\n');
+                }
+            }
+
+            const prompt = `
+Bạn là một Chuyên gia tối ưu Tốc độ Website & Web Performance Engineer hàng đầu với kinh nghiệm chuyên sâu về Google Lighthouse, Core Web Vitals, Nginx/Apache, WordPress & JavaScript Performance.
+
+Dưới đây là kết quả phân tích tốc độ kỹ thuật thực tế từ PageSpeed Insights của trang web (${this.siteUrl}):
+
+1. ĐIỂM SỐ LIGHTHOUSE (Tối đa 100 điểm):
+- Hiệu năng (Performance): ${perf}/100
+- Khả năng truy cập (Accessibility): ${acc}/100
+- Khuyến nghị tối ưu (Best Practices): ${bp}/100
+- SEO kỹ thuật (SEO): ${seo}/100
+
+2. CÁC CHỈ SỐ CORE WEB VITALS VÀ DỮ LIỆU THÍ NGHIỆM (Lab Data):
+- First Contentful Paint (FCP): ${fcp}
+- Largest Contentful Paint (LCP): ${lcp}
+- Cumulative Layout Shift (CLS): ${cls}
+- Total Blocking Time (TBT): ${tbt}
+- Speed Index: ${speedIndex}
+- Time to Interactive (TTI): ${tti}
+
+3. DANH SÁCH CÁC NGHẼN & CƠ HỘI TỐI ƯU (Opportunities & Diagnostics):
+${failedAuditsSummary || 'Không tìm thấy vấn đề nghiêm trọng.'}
+
+CÁC QUY ĐỊNH THIẾT KẾ VÀ TRÌNH BÀY BẮT BUỘC (TUÂN THỦ 100%):
+1. BỎ BORDER VÀ PADDING NGOÀI: Không dùng border viền ngoài bao bọc bài, không dùng padding ngoài to, không dùng background bao bọc toàn bộ.
+2. BỎ SHADOW: Tuyệt đối KHÔNG DÙNG shadow (không shadow-sm, shadow-md, shadow-lg, shadow-xl) cho bất kỳ block hay phần tử nào.
+3. CHỮ ĐỌC ĐƯỢC 100% ĐỘ TƯƠNG PHẢN CAO: Tất cả văn bản đều phải có màu tối rõ nét (như text-slate-800, text-slate-900, text-blue-900, text-emerald-900, text-red-900, text-amber-900). TUYỆT ĐỐI KHÔNG DÙNG CHỮ TRẮNG (text-white) hay chữ nhạt mờ khiến không đọc được chữ. Nền màu nhạt (bg-slate-50, bg-blue-50, bg-emerald-50, bg-red-50) thì màu chữ BẮT BUỘC là màu tối đậm tương ứng để ĐỌC RÕ 100% TRÊN MỌI MÀN HÌNH VÀ FILE PDF.
+4. ĐỒNG ĐỀU KÍCH CỠ CHỮ text-base: Tất cả các thẻ HTML (tiêu đề h3, h4, thẻ p, li, bảng th, td, badge, chỉ số) BẮT BUỘC PHẢI DÙNG DUY NHẤT CLASS text-base (font-size 16px). Không dùng text-xs, text-sm, text-lg, text-xl, text-2xl.
+
+HÃY VIẾT BẢN HƯỚNG DẪN TĂNG TỐC WEBSITE THỰC CHÍEN THEO CẤU TRÚC SAU (BẰNG NGHỆ THUẬT N TRONG CÁC KHỐI BG NHẠT):
+
+1. 🚀 PHÂN TÍCH TỔNG QUAN VÀ ĐÁNH GIÁ MỨC ĐỘ ẢNH HƯỞNG
+   - Nhận xét chi tiết về các chỉ số chính (LCP, CLS, TBT, FCP) và lý do tại sao website bị chậm.
+
+2. ⚡ LỘ TRÌNH THỰC HIỆN TĂNG TỐC (Ưu tiên theo thứ tự tác động lớn nhất đến nhỏ nhất):
+   - Tối ưu CSS / JS & Tài nguyên gây nghẽn (Render-blocking JS/CSS, Defer/Async, Minify)
+   - Tối ưu Hình ảnh & Media (Nén ảnh WebP/AVIF, Lazy Loading, Responsive images)
+   - Tối ưu Server & Caching (TTFB, HTTP/2, Browser Caching, CDN)
+   - Tối ưu Core Web Vitals cụ thể (Cách giảm LCP, giảm CLS, giảm TBT)
+
+3. 🛠 CÔNG CỤ & PLUGIN KHUYẾN NGHỊ (WordPress plugins như WP Rocket, LiteSpeed Cache, Perfmatters, hoặc cấu hình Nginx/Cloudflare).
+
+4. 📊 DỰ BÁO KẾT QUẢ VÀ LỢI ÍCH DÀI HẠN.
+
+Quy định xuất HTML:
+- KHÔNG DÙNG MARKDOWN. KHÔNG BỌC \`\`\`html.
+- Trình bày chuyên nghiệp, thực chiến, xưng "hệ thống" với "bạn".`;
+
+            let currentStreamedText = '';
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.6-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: {
+                    skipTTS: true,
+                    onStream: (chunk: string, isFull: boolean) => {
+                        if (isFull) {
+                            currentStreamedText = chunk;
+                        } else {
+                            currentStreamedText += chunk;
+                        }
+                        let cleanText = currentStreamedText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+                        this.aiPageSpeedSuggestions = cleanText;
+                        this.cd.markForCheck();
+                    }
+                } as any
+            });
+            let responseText = response?.text || currentStreamedText;
+            responseText = responseText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+            this.aiPageSpeedSuggestions = responseText;
+            this.toastr.success('AI đã hoàn thành phân tích hướng dẫn tăng tốc!');
+        } catch (error: any) {
+            this.toastr.error('Lỗi khi phân tích AI Tăng tốc: ' + error.message);
+            console.error('AI PageSpeed Error:', error);
+        } finally {
+            this.aiPageSpeedLoading = false;
+            this.cd.markForCheck();
+        }
     }
 
     changetab(e: any) {

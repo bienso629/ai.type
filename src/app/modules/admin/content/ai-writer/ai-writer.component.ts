@@ -218,6 +218,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     referenceImageBase64: string | null = null;
     currentParagraphItem: any = null;
 
+    @ViewChild('refreshOutlineDialog') refreshOutlineDialog: TemplateRef<any>;
+    refreshOutlineDialogRef: MatDialogRef<any>;
+    customRefreshOutlinePrompt: string = '';
+    referenceOutlineImageBase64: string | null = null;
+    isRefreshingOutline: boolean = false;
+
     source: any = {
         p: [],
         span: [],
@@ -4435,6 +4441,126 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             this.generateImageFromParagraph(this.currentParagraphItem);
         } else {
             this.generateImageFromOutline();
+        }
+    }
+
+    openRefreshOutlineDialog() {
+        this.customRefreshOutlinePrompt = '';
+        this.referenceOutlineImageBase64 = null;
+
+        this.refreshOutlineDialogRef = this.dialog.open(this.refreshOutlineDialog, {
+            width: '600px',
+            panelClass: 'custom-dialog-bulk',
+            disableClose: false
+        });
+    }
+
+    onReferenceOutlineImageSelected(event: any) {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e: any) => {
+                this.referenceOutlineImageBase64 = e.target.result;
+                this.cd.markForCheck();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    async confirmRefreshOutline() {
+        if (this.refreshOutlineDialogRef) {
+            this.refreshOutlineDialogRef.close();
+        }
+        await this.regenerateOutlineWithAI();
+    }
+
+    async regenerateOutlineWithAI() {
+        this.isRefreshingOutline = true;
+        this.toastr.info('AI đang tiến hành làm mới lại dàn ý...', 'Đang xử lý');
+        this.cd.markForCheck();
+
+        try {
+            const title = this.detectForm.get('step1')?.get('title')?.value || '';
+            const description = this.detectForm.get('step1')?.get('description')?.value || '';
+            
+            let outlineContent = '';
+            if (this.done && this.done.length > 0) {
+                outlineContent = this.done.map(item => typeof item === 'string' ? this.removeHTML.transform(item) : JSON.stringify(item)).join('\n');
+            }
+
+            let promptText = `YÊU CẦU: Hãy làm mới lại kết quả dàn ý (Outline) cho bài viết dựa trên các thông tin sau:\n`;
+            if (title) promptText += `- Tiêu đề: ${title}\n`;
+            if (description) promptText += `- Mô tả: ${description}\n`;
+            if (outlineContent) promptText += `- Dàn ý hiện tại:\n${outlineContent}\n`;
+            
+            if (this.customRefreshOutlinePrompt && this.customRefreshOutlinePrompt.trim()) {
+                promptText += `- YÊU CẦU TÙY CHỈNH CỦA NGUỜI DÙNG: ${this.customRefreshOutlinePrompt.trim()}\n`;
+            }
+
+            const styleGuide = this.style ? ` Blog mang phong cách của ${this.style.name} (${this.style.desc || ''}).` : '';
+            promptText += styleGuide + `\nTrình bày câu trả lời của bạn dưới định dạng JSON với key là "contents", value là một mảng các đoạn văn HTML (<p>...</p>) làm dàn ý chi tiết. Không sử dụng mảng lồng nhau.`;
+
+            let parts: any[] = [];
+            if (this.referenceOutlineImageBase64) {
+                const base64Data = this.referenceOutlineImageBase64.split(',')[1];
+                let mimeType = 'image/png';
+                if (this.referenceOutlineImageBase64.startsWith('data:image/jpeg')) mimeType = 'image/jpeg';
+                else if (this.referenceOutlineImageBase64.startsWith('data:image/webp')) mimeType = 'image/webp';
+                
+                parts.push({
+                    inlineData: {
+                        mimeType: mimeType,
+                        data: base64Data
+                    }
+                });
+            }
+
+            parts.unshift({ text: promptText });
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.6-flash',
+                contents: [{ role: 'user', parts: parts }],
+            });
+
+            const jsonText = response.text;
+            if (jsonText) {
+                try {
+                    let cleanedJson = jsonText.trim();
+                    const markdownMatch = cleanedJson.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+                    if (markdownMatch) {
+                        cleanedJson = markdownMatch[1].trim();
+                    }
+                    const data = JSON.parse(cleanedJson);
+                    if (data.contents && Array.isArray(data.contents) && data.contents.length > 0) {
+                        this.done = data.contents.map((text: string) => {
+                            const cleanText = this.sanitizeAIText(text);
+                            return cleanText.startsWith('<p>') ? cleanText : `<p id="outline-p-${uuid.v4()}">${cleanText}</p>`;
+                        });
+                    } else if (Array.isArray(data)) {
+                        this.done = data.map((text: string) => `<p id="outline-p-${uuid.v4()}">${this.sanitizeAIText(text)}</p>`);
+                    } else {
+                        this.done = [`<p id="outline-p-${uuid.v4()}">${this.sanitizeAIText(jsonText)}</p>`];
+                    }
+                } catch(e) {
+                    this.done = [`<p id="outline-p-${uuid.v4()}">${this.sanitizeAIText(jsonText)}</p>`];
+                }
+
+                // Cập nhật lại SEO score
+                this.seo = this.seoScore.transform({
+                    done: this.done,
+                    title: this.detectForm.get('step1')?.get('title')?.value,
+                    description: this.detectForm.get('step1')?.get('description')?.value,
+                    mainkey: this.detectForm.get('step5')?.get('mainkey')?.value,
+                });
+
+                this.toastr.success('Đã làm mới lại dàn ý thành công!');
+            }
+        } catch (err) {
+            console.error('Lỗi khi làm mới dàn ý:', err);
+            this.toastr.error('Có lỗi xảy ra khi làm mới dàn ý. Vui lòng thử lại.');
+        } finally {
+            this.isRefreshingOutline = false;
+            this.cd.markForCheck();
         }
     }
 

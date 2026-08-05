@@ -744,6 +744,53 @@
         </div>
     </mat-tab>
 
+    <mat-tab [label]="'AI hướng dẫn tăng tốc'">
+        <div class="flex flex-col gap-2 mt-6">
+            <div class="flex flex-col items-start justify-start h-full w-full">
+                <div class="w-full">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+                                <mat-icon class="icon-size-5" svgIcon="feather:zap"></mat-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-slate-800 m-0 hidden">AI hướng dẫn tăng tốc</h3>
+                                <p class="text-base text-slate-700 m-0">
+                                    Phân tích dữ liệu PageSpeed Insights để đề xuất giải pháp tăng tốc thực chiến cho: <strong class="text-emerald-700">{{siteUrl}}</strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        <button mat-flat-button class="!bg-emerald-600 hover:!bg-emerald-700 text-white" (click)="generateAIPageSpeedAnalysis()" [disabled]="aiPageSpeedLoading">
+                            <mat-icon *ngIf="!aiPageSpeedLoading" class="icon-size-4" svgIcon="feather:cpu"></mat-icon>
+                            <mat-icon *ngIf="aiPageSpeedLoading" class="icon-size-4 animate-spin" svgIcon="feather:loader"></mat-icon>
+                            <mat-label class="ml-2 text-base" *ngIf="!aiPageSpeedLoading">Phân tích & Hướng dẫn tăng tốc</mat-label>
+                            <mat-label class="ml-2 text-base" *ngIf="aiPageSpeedLoading">AI đang phân tích (15s)...</mat-label>
+                        </button>
+                    </div>
+
+                    <div *ngIf="!aiPageSpeedSuggestions && !aiPageSpeedLoading" class="py-6 px-0 text-center">
+                        <div class="w-16 h-16 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto mb-4">
+                            <mat-icon class="icon-size-8" svgIcon="feather:trending-up"></mat-icon>
+                        </div>
+                        <h4 class="text-base font-bold text-slate-900 mb-2">Nhận hướng dẫn tối ưu tốc độ từ AI chuyên sâu</h4>
+                        <p class="text-base text-slate-700 max-w-xl mx-auto mb-6">
+                            Hệ thống sẽ đối chiếu toàn bộ các chỉ số Core Web Vitals, lỗi gây nghẽn CSS/JS, nén hình ảnh và thời gian phản hồi máy chủ từ PageSpeed Insights để xuất lộ trình tăng tốc chuẩn xác cho website của bạn.
+                        </p>
+                        <button mat-flat-button class="!bg-emerald-600 hover:!bg-emerald-700 text-white" (click)="generateAIPageSpeedAnalysis()">
+                            <mat-icon class="icon-size-4" svgIcon="feather:zap"></mat-icon>
+                            <span class="ml-2 text-base">Phân tích ngay</span>
+                        </button>
+                    </div>
+
+                    <div *ngIf="aiPageSpeedSuggestions" class="mt-4 overflow-hidden prose max-w-none text-slate-800">
+                        <div [innerHTML]="aiPageSpeedSuggestions" class="text-base text-slate-800 leading-relaxed"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </mat-tab>
+
     <mat-tab [label]="('app.auto_things_to_do' | transloco) || 'AI Gợi ý'">
         <div class="flex flex-col gap-2 mt-8">
             <div class="flex flex-col items-start justify-start h-full w-full">
