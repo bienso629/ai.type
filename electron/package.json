@@ -86,6 +86,9 @@
                 "deb",
                 "AppImage"
             ],
+            "executableArgs": [
+                "--no-sandbox"
+            ],
             "category": "Office"
         }
     },

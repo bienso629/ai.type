@@ -171,6 +171,11 @@
                                             [disabled]="isGeneratingImage">
                                             <mat-icon class="icon-size-4" [class.animate-spin]="isGeneratingImage" [svgIcon]="isGeneratingImage ? 'feather:loader' : 'heroicons_outline:sparkles'"></mat-icon>
                                         </button>
+                                        <button mat-icon-button (click)="openRefreshOutlineDialog()" type="button"
+                                            [color]="'primary'" matTooltip="Làm mới lại Dàn ý"
+                                            [disabled]="isRefreshingOutline">
+                                            <mat-icon class="icon-size-4" [class.animate-spin]="isRefreshingOutline" [svgIcon]="isRefreshingOutline ? 'feather:loader' : 'feather:refresh-cw'"></mat-icon>
+                                        </button>
                                         <button mat-icon-button (click)="fileInput.click()" type="button"
                                             [color]="'primary'" [matTooltip]="'app.add_media_file' | transloco">
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
@@ -2660,9 +2665,9 @@
                                         <mat-label>Tạo kịch bản (Bài viết này)</mat-label>
                                     </button>
 
-                                    <button mat-menu-item (click)="generateCollectionScript()">
-                                        <mat-icon class="icon-size-4" svgIcon="feather:layers"></mat-icon>
-                                        <mat-label>Tạo kịch bản (Toàn bộ Collection)</mat-label>
+                                    <button mat-menu-item (click)="openRefreshOutlineDialog()">
+                                        <mat-icon class="icon-size-4" svgIcon="feather:refresh-cw"></mat-icon>
+                                        <mat-label>Làm mới lại Dàn ý</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="share()" [color]="'primary'">
@@ -2770,6 +2775,44 @@
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:check'" *ngIf="!isGeneratingImage"></mat-icon>
                 <mat-icon class="icon-size-5 animate-spin" [svgIcon]="'feather:refresh-cw'" *ngIf="isGeneratingImage"></mat-icon>
                 <mat-label class="ml-2">{{ isGeneratingImage ? 'Đang tạo...' : 'Xác nhận' }}</mat-label>
+            </button>
+        </div>
+    </div>
+</ng-template>
+
+<ng-template #refreshOutlineDialog>
+    <div class="flex flex-col h-full bg-card rounded-lg overflow-hidden" style="max-width: 600px; min-width: 400px">
+        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
+            <h2 class="text-xl font-semibold m-0 text-gray-800">Làm mới lại Dàn ý bằng AI</h2>
+            <button mat-icon-button mat-dialog-close [disabled]="isRefreshingOutline">
+                <mat-icon [svgIcon]="'feather:x'"></mat-icon>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto">
+            <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Prompt tùy chỉnh / ý tưởng làm mới dàn ý (tùy chọn)</mat-label>
+                <textarea matInput [(ngModel)]="customRefreshOutlinePrompt" rows="4" placeholder="Nhập chi tiết yêu cầu, định hướng nội dung hoặc thay đổi dàn ý mong muốn..." [disabled]="isRefreshingOutline"></textarea>
+            </mat-form-field>
+        </div>
+        <div class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0">
+            <div class="flex items-center gap-2">
+                <button mat-icon-button color="primary" type="button" (click)="refOutlineImageFileInput.click()" [disabled]="isRefreshingOutline" matTooltip="Chọn ảnh tham khảo">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:paperclip'"></mat-icon>
+                </button>
+                <input type="file" #refOutlineImageFileInput accept="image/*" (change)="onReferenceOutlineImageSelected($event)" class="hidden">
+                <span *ngIf="!referenceOutlineImageBase64" class="text-sm text-gray-400">Đính kèm ảnh tham khảo</span>
+                <div *ngIf="referenceOutlineImageBase64" class="relative inline-block ml-1">
+                    <img [src]="referenceOutlineImageBase64" class="w-10 h-10 rounded object-cover shadow border">
+                    <button *ngIf="!isRefreshingOutline" type="button" class="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center p-0 shadow cursor-pointer border-0" (click)="referenceOutlineImageBase64 = null" matTooltip="Xóa ảnh">
+                        <mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:x'"></mat-icon>
+                    </button>
+                </div>
+            </div>
+
+            <button mat-flat-button class="!bg-teal-600 !text-white" [disabled]="isRefreshingOutline" (click)="confirmRefreshOutline()">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:check'" *ngIf="!isRefreshingOutline"></mat-icon>
+                <mat-icon class="icon-size-5 animate-spin" [svgIcon]="'feather:refresh-cw'" *ngIf="isRefreshingOutline"></mat-icon>
+                <mat-label class="ml-2">{{ isRefreshingOutline ? 'Đang làm mới...' : 'Xác nhận' }}</mat-label>
             </button>
         </div>
     </div>
