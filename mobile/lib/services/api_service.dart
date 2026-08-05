@@ -544,6 +544,236 @@ class ApiService {
     return null;
   }
 
+  static Future<Uint8List?> generateGeminiImage(String imagePrompt, {String? referenceBase64}) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // === TẦNG 1: Sơn Tinh Agent (giống Angular generateWithAiAgent) ===
+    // Angular gọi sontinh.type.vn/api/chat với prompt và nhận image_base64 trong streaming response
+    try {
+      print('[generateGeminiImage] Tầng 1: Gọi Sơn Tinh Agent...');
+      String apiKey = prefs.getString('ai_agent_api_key') ?? '';
+      if (apiKey.trim().isEmpty) {
+        apiKey = 'type-vn-local-agent-2026';
+      }
+
+      var uri = Uri.parse('https://sontinh.type.vn/api/chat');
+      if (apiKey.startsWith('http://') || apiKey.startsWith('https://')) {
+        final parts = apiKey.split('|');
+        String urlStr = parts[0];
+        if (!urlStr.endsWith('/api/chat')) urlStr += '/api/chat';
+        uri = Uri.parse(urlStr);
+        apiKey = parts.length > 1 ? parts[1] : 'type-vn-local-agent-2026';
+      }
+
+      var request = http.MultipartRequest('POST', uri);
+      request.headers.addAll({'x-api-key': apiKey});
+
+      // Gửi prompt tạo ảnh - Angular thêm prefix cho image/video request (genai.service.ts line 510-512)
+      request.fields['prompt'] = 'Bắt buộc tạo hình ảnh: $imagePrompt';
+      request.fields['tts_voice'] = 'none';
+      request.fields['tts_rate'] = '+0%';
+
+      // Thêm ảnh tham chiếu nếu có (giống Angular gửi inlineData qua FormData files)
+      if (referenceBase64 != null && referenceBase64.isNotEmpty) {
+        String b64Data = referenceBase64;
+        if (b64Data.contains(',')) b64Data = b64Data.split(',')[1];
+        final bytes = base64Decode(b64Data);
+        request.files.add(http.MultipartFile.fromBytes(
+          'files',
+          bytes,
+          filename: 'reference_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ));
+      }
+
+      print('[generateGeminiImage] Sending to: $uri');
+      var response = await request.send().timeout(const Duration(seconds: 60));
+      print('[generateGeminiImage] SonTinh statusCode=${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        String? imageBase64;
+        String fullText = '';
+        await for (var line in response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())) {
+          if (line.trim().isEmpty) continue;
+          String jsonStr = line.trim();
+          if (jsonStr.startsWith('data: ')) jsonStr = jsonStr.substring(6).trim();
+          if (jsonStr == '[DONE]' || jsonStr.isEmpty) continue;
+
+          try {
+            var chunk = json.decode(jsonStr);
+            // Angular line 755: if (chunk.image_base64) imageBase64 = chunk.image_base64;
+            if (chunk['image_base64'] != null && chunk['image_base64'].toString().isNotEmpty) {
+              imageBase64 = chunk['image_base64'].toString();
+              print('[generateGeminiImage] SonTinh trả về image_base64 (${imageBase64!.length} chars)');
+            }
+            // Thu thập text response
+            if (chunk['content'] != null) fullText += chunk['content'].toString();
+            if (chunk['text'] != null) fullText += chunk['text'].toString();
+            if (chunk['result'] != null && chunk['content'] == null) fullText = chunk['result'].toString();
+          } catch (_) {}
+        }
+
+        // Ưu tiên image_base64
+        if (imageBase64 != null && imageBase64.isNotEmpty) {
+          String cleanB64 = imageBase64;
+          if (cleanB64.contains(',')) cleanB64 = cleanB64.split(',')[1];
+          return base64Decode(cleanB64);
+        }
+
+        // Angular line 339: Kiểm tra text có chứa ảnh (markdown ![](url) hoặc <img src="url">)
+        if (fullText.isNotEmpty) {
+          print('[generateGeminiImage] SonTinh text response (${fullText.length} chars): ${fullText.substring(0, fullText.length.clamp(0, 300))}');
+          
+          // Tìm URL ảnh trong markdown ![...](url) hoặc <img src="url">
+          String? imgUrl;
+          final mdMatch = RegExp(r'!\[.*?\]\((https?://[^\s\)]+)\)').firstMatch(fullText);
+          if (mdMatch != null) imgUrl = mdMatch.group(1);
+          
+          if (imgUrl == null) {
+            final imgTagMatch = RegExp(r'<img[^>]+src=["' "'" r']?(https?://[^\s"' "'" r'>)]+)').firstMatch(fullText);
+            if (imgTagMatch != null) imgUrl = imgTagMatch.group(1);
+          }
+          
+          if (imgUrl == null) {
+            // Tìm URL ảnh trực tiếp trong text
+            final urlMatch = RegExp(r'(https?://[^\s<">\)]+\.(?:png|jpg|jpeg|webp|gif))', caseSensitive: false).firstMatch(fullText);
+            if (urlMatch != null) imgUrl = urlMatch.group(1);
+          }
+          
+          if (imgUrl != null) {
+            print('[generateGeminiImage] SonTinh tìm thấy URL ảnh: $imgUrl');
+            try {
+              final imgRes = await http.get(Uri.parse(imgUrl)).timeout(const Duration(seconds: 20));
+              if (imgRes.statusCode == 200 && imgRes.bodyBytes.length > 1000) {
+                print('[generateGeminiImage] Tải ảnh từ URL thành công (${imgRes.bodyBytes.length} bytes)');
+                return imgRes.bodyBytes;
+              }
+            } catch (e) {
+              print('[generateGeminiImage] Lỗi tải ảnh từ URL: $e');
+            }
+          }
+          
+          // Tìm base64 inline trong text (data:image/...)
+          final b64Match = RegExp(r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)').firstMatch(fullText);
+          if (b64Match != null) {
+            final b64 = b64Match.group(1)!;
+            print('[generateGeminiImage] SonTinh tìm thấy base64 inline (${b64.length} chars)');
+            return base64Decode(b64);
+          }
+        }
+
+        print('[generateGeminiImage] SonTinh không trả về ảnh');
+      }
+    } catch (e) {
+      print('[generateGeminiImage] Tầng 1 SonTinh lỗi: $e');
+    }
+
+    // === TẦNG 2: Direct Gemini API Key ===
+    String? geminiKey;
+    try {
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr != null) {
+        final activeInfo = jsonDecode(activeInfoStr);
+        final uid = activeInfo['user']['id'] ?? 'default';
+        final userSettingsStr = prefs.getString('user_settings_$uid');
+        if (userSettingsStr != null) {
+          final settings = jsonDecode(userSettingsStr);
+          geminiKey = settings['secretKey']?.toString().trim();
+        }
+      }
+    } catch (_) {}
+
+    if (geminiKey != null && geminiKey.isNotEmpty) {
+      final keys = geminiKey.split(';').map((k) => k.trim()).where((k) => k.isNotEmpty).toList();
+
+      // Thử nhiều model hỗ trợ tạo ảnh
+      final imageModels = ['gemini-3.6-flash', 'gemini-2.0-flash-preview-image-generation', 'imagen-3.0-generate-002'];
+
+      for (final model in imageModels) {
+        for (final key in keys) {
+          try {
+            print('[generateGeminiImage] Tầng 2: $model với key ${key.substring(0, key.length.clamp(0, 8))}...');
+            
+            if (model.startsWith('imagen')) {
+              // Imagen dùng predict endpoint
+              final apiUrl = Uri.parse(
+                'https://generativelanguage.googleapis.com/v1beta/models/$model:predict?key=$key',
+              );
+              final response = await http.post(
+                apiUrl,
+                headers: {'Content-Type': 'application/json'},
+                body: jsonEncode({
+                  'instances': [{'prompt': imagePrompt}],
+                  'parameters': {'sampleCount': 1}
+                }),
+              ).timeout(const Duration(seconds: 30));
+
+              print('[generateGeminiImage] $model status=${response.statusCode}');
+              if (response.statusCode == 200) {
+                final data = jsonDecode(response.body);
+                if (data['predictions'] != null && data['predictions'].isNotEmpty) {
+                  final b64 = data['predictions'][0]['bytesBase64Encoded']?.toString();
+                  if (b64 != null && b64.isNotEmpty) {
+                    print('[generateGeminiImage] $model trả về ảnh (${b64.length} chars)');
+                    return base64Decode(b64);
+                  }
+                }
+              } else {
+                print('[generateGeminiImage] $model error: ${response.body.substring(0, response.body.length.clamp(0, 150))}');
+              }
+            } else {
+              // Gemini dùng generateContent endpoint
+              final apiUrl = Uri.parse(
+                'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$key',
+              );
+              final parts = <Map<String, dynamic>>[{'text': imagePrompt}];
+              if (referenceBase64 != null && referenceBase64.isNotEmpty) {
+                final base64Data = referenceBase64.contains(',') ? referenceBase64.split(',')[1] : referenceBase64;
+                parts.add({
+                  'inlineData': {'mimeType': 'image/jpeg', 'data': base64Data}
+                });
+              }
+
+              final response = await http.post(
+                apiUrl,
+                headers: {'Content-Type': 'application/json'},
+                body: jsonEncode({
+                  'contents': [{'role': 'user', 'parts': parts}],
+                  'generationConfig': {'responseModalities': ['IMAGE']}
+                }),
+              ).timeout(const Duration(seconds: 30));
+
+              print('[generateGeminiImage] $model status=${response.statusCode}');
+              if (response.statusCode == 200) {
+                final data = jsonDecode(response.body);
+                if (data['candidates'] != null && data['candidates'].isNotEmpty) {
+                  final resParts = data['candidates'][0]['content']?['parts'] as List?;
+                  if (resParts != null) {
+                    for (var part in resParts) {
+                      if (part['inlineData'] != null && part['inlineData']['data'] != null) {
+                        final b64 = part['inlineData']['data'].toString();
+                        print('[generateGeminiImage] $model trả về ảnh (${b64.length} chars)');
+                        return base64Decode(b64);
+                      }
+                    }
+                  }
+                }
+              } else {
+                print('[generateGeminiImage] $model error: ${response.body.substring(0, response.body.length.clamp(0, 150))}');
+              }
+            }
+          } catch (e) {
+            print('[generateGeminiImage] $model error: $e');
+          }
+        }
+      }
+    }
+
+    print('[generateGeminiImage] Tất cả tầng đều thất bại. Trả về null.');
+    return null;
+  }
+
   static Future<dynamic> saveChatGpt(
     String question,
     String answer, {

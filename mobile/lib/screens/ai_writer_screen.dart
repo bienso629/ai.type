@@ -3790,15 +3790,22 @@ Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' v
   String _getOutlineText() {
     final List<String> outlineTexts = [];
     
-    // Check Dàn ý (_source['done'])
-    if (_source['done'] != null && _source['done'] is List) {
-      for (var item in (_source['done'] as List)) {
+    // Match Angular exact logic: Extract outlineText from this.done (_source['done'])
+    final fallbackDone = (_source['done'] as List?) ??
+        (_source['outline'] as List?) ??
+        (_source['script'] as List?) ??
+        (_taskData?['done'] as List?) ??
+        (_taskData?['outline'] as List?) ??
+        (_taskData?['script'] as List?) ??
+        _done;
+
+    if (fallbackDone.isNotEmpty) {
+      for (var item in fallbackDone) {
         final clean = _cleanHtmlText(item.toString()).trim();
         if (clean.isNotEmpty) outlineTexts.add(clean);
       }
     }
 
-    // Fallback to h2, h1, or p
     if (outlineTexts.isEmpty && _source['h2'] != null && _source['h2'] is List) {
       for (var item in (_source['h2'] as List)) {
         final clean = _cleanHtmlText(item.toString()).trim();
@@ -3820,156 +3827,151 @@ Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' v
       }
     }
 
-    return outlineTexts.take(10).join('\n');
+    return outlineTexts.join('\n\n');
+  }
+
+  String _removeVietnameseAccents(String str) {
+    var result = str;
+    final vietnameseRegex = [
+      RegExp(r'[àáạảãâầấậẩẫăằắặẳẵ]'),
+      RegExp(r'[ÈÉẸẺẼÊỀẾỆỂỄ]'),
+      RegExp(r'[èéẹẻẽêềếệểễ]'),
+      RegExp(r'[ÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠ]'),
+      RegExp(r'[òóọỏõôồốộổỗơờớợởỡ]'),
+      RegExp(r'[ÙÚỤỦŨƯỪỨỰỬỮ]'),
+      RegExp(r'[ùúụủũưừứựửữ]'),
+      RegExp(r'[ÌÍỊỈĨ]'),
+      RegExp(r'[ìíịỉĩ]'),
+      RegExp(r'[Đ]'),
+      RegExp(r'[đ]'),
+      RegExp(r'[ỲÝỴỶỸ]'),
+      RegExp(r'[ỳýỵỷỹ]')
+    ];
+    final replaceChars = ['a', 'E', 'e', 'O', 'o', 'U', 'u', 'I', 'i', 'D', 'd', 'Y', 'y'];
+    for (int i = 0; i < vietnameseRegex.length; i++) {
+      result = result.replaceAll(vietnameseRegex[i], replaceChars[i]);
+    }
+    return result;
   }
 
   Future<void> _generateAiThumbnailFromPrompt(String userPrompt) async {
     final title = _titleController.text.trim();
-    final desc = _descController.text.trim();
-    final outlineContent = _getOutlineText();
+    var outlineText = _getOutlineText().trim();
 
-    if (title.isEmpty && userPrompt.trim().isEmpty && outlineContent.isEmpty) {
+    if (outlineText.isEmpty && title.isNotEmpty) {
+      outlineText = title;
+    }
+
+    if (outlineText.isEmpty && userPrompt.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập Tiêu đề bài viết, Dàn ý hoặc Prompt tạo ảnh!')),
+        const SnackBar(content: Text('Dàn ý chưa có nội dung để tạo hình ảnh!')),
       );
       return;
     }
 
     FocusScope.of(context).unfocus();
-    AppLoading.show(context, message: 'Đang đọc Dàn ý bài viết & tạo hình ảnh...');
+    AppLoading.show(context, message: 'Bước 1/3: Đang phân tích dàn ý...');
 
     try {
-      final baseText = StringBuffer();
-      if (title.isNotEmpty) baseText.writeln('Tiêu đề: $title');
-      if (desc.isNotEmpty) baseText.writeln('Mô tả: $desc');
-      if (userPrompt.trim().isNotEmpty) baseText.writeln('Yêu cầu tùy chỉnh (Custom Prompt): $userPrompt');
-      if (outlineContent.isNotEmpty) {
-        baseText.writeln('Nội dung Dàn ý bài viết:');
-        baseText.writeln(outlineContent);
+      // === STEP 1: Build prompt from Outline + custom prompt ===
+      debugPrint('[Thumbnail] Step 1: Building AI prompt from outline...');
+      var promptForPrompt = 'Dưới đây là dàn ý của một bài viết:\n"$outlineText"';
+      if (userPrompt.trim().isNotEmpty) {
+        promptForPrompt += '\nYÊU CẦU THÊM VỀ HÌNH ẢNH:\n"${userPrompt.trim()}"';
       }
+      promptForPrompt += '''
+\nHãy viết một prompt tiếng Anh ngắn gọn (10-20 từ) để tạo ảnh minh họa cho bài viết này.
+Phong cách: 3D render hiện đại hoặc vector illustration.
+Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm giải thích.''';
 
-      final promptForEnglishVisual = '''
-Dựa trên thông tin bài viết sau:
----
-$baseText
----
-Hãy tạo ra câu prompt tạo hình ảnh bằng tiếng Anh (ngắn gọn từ 8 đến 12 từ) để minh họa cho bài viết này.
-Hình ảnh phải đẹp mắt, phong cách 3D hoặc Vector minh họa hiện đại, chất lượng cao.
-Chỉ trả về danh sách 8-12 từ tiếng Anh ngăn cách bằng khoảng trắng, không kèm bất kỳ giải thích, dấu ngoặc hay kí tự đặc biệt nào.
-''';
+      String? promptResult = await ApiService.executeAiRequest(promptForPrompt);
+      String imagePrompt = (promptResult != null && promptResult.trim().isNotEmpty)
+          ? promptResult.trim()
+          : (userPrompt.trim().isNotEmpty 
+              ? userPrompt.trim() 
+              : 'modern 3d illustration blog article ${title.split(' ').take(3).join(' ')}');
 
-      String visualPrompt = await ApiService.executeAiRequest(promptForEnglishVisual.toString()) ?? '';
-      visualPrompt = visualPrompt.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (visualPrompt.isEmpty || visualPrompt.length < 3) {
-        visualPrompt = '3d cloud server hosting technology illustration modern';
-      }
-      final shortPrompt = visualPrompt.split(' ').take(10).join(' ');
+      debugPrint('[Thumbnail] AI returned image prompt: $imagePrompt');
 
-      final encodedPrompt = Uri.encodeComponent(shortPrompt);
-      final seed = DateTime.now().millisecondsSinceEpoch;
+      // === STEP 2: Generate image bytes ===
+      if (mounted) AppLoading.show(context, message: 'Bước 2/3: Đang tạo hình ảnh...');
+      debugPrint('[Thumbnail] Step 2: Calling generateGeminiImage...');
+      Uint8List? imageBytes = await ApiService.generateGeminiImage(imagePrompt);
+      debugPrint('[Thumbnail] generateGeminiImage returned: ${imageBytes != null ? '${imageBytes.length} bytes' : 'null'}');
 
-      final primaryUrl = 'https://image.pollinations.ai/prompt/$encodedPrompt?width=1024&height=576&seed=$seed&nologo=true';
-      final fallbackUrl1 = 'https://picsum.photos/seed/$seed/1024/576';
-      final fallbackUrl2 = 'https://loremflickr.com/1024/576/technology,cloud,server/all?lock=$seed';
-
-      Uint8List? imageBytes;
-
-      // Attempt 1: Fetch from Pollinations AI
-      try {
-        final imgRes = await http.get(
-          Uri.parse(primaryUrl),
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-          },
-        ).timeout(const Duration(seconds: 10));
-
-        if (imgRes.statusCode == 200 && imgRes.bodyBytes.length > 2000) {
-          imageBytes = imgRes.bodyBytes;
-          debugPrint('Successfully fetched Pollinations image bytes (${imageBytes.length} bytes)');
-        } else {
-          debugPrint('Pollinations returned HTTP status ${imgRes.statusCode}');
+      if (imageBytes == null || imageBytes.isEmpty) {
+        if (mounted) {
+          AppLoading.dismiss(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không tạo được ảnh. Vui lòng kiểm tra cấu hình AI (Gemini API key) trong Cài đặt.'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
-      } catch (e) {
-        debugPrint('Pollinations fetch error: $e');
+        return;
       }
 
-      // Attempt 2: Fallback to Picsum if Pollinations failed/500/timeout
-      if (imageBytes == null) {
-        try {
-          final res1 = await http.get(Uri.parse(fallbackUrl1)).timeout(const Duration(seconds: 8));
-          if (res1.statusCode == 200 && res1.bodyBytes.length > 2000) {
-            imageBytes = res1.bodyBytes;
-            debugPrint('Successfully fetched Picsum fallback bytes');
-          }
-        } catch (e) {
-          debugPrint('Picsum fallback error: $e');
-        }
-      }
+      // === STEP 3: Upload to CDN ===
+      if (mounted) AppLoading.show(context, message: 'Bước 3/3: Đang tải ảnh lên CDN...');
+      debugPrint('[Thumbnail] Step 3: Uploading ${imageBytes.length} bytes to CDN...');
 
-      // Attempt 3: Fallback to LoremFlickr if Picsum failed
-      if (imageBytes == null) {
-        try {
-          final res2 = await http.get(Uri.parse(fallbackUrl2)).timeout(const Duration(seconds: 8));
-          if (res2.statusCode == 200 && res2.bodyBytes.length > 2000) {
-            imageBytes = res2.bodyBytes;
-            debugPrint('Successfully fetched LoremFlickr fallback bytes');
-          }
-        } catch (e) {
-          debugPrint('LoremFlickr fallback error: $e');
-        }
-      }
-
-      // Upload image bytes to CDN (cdn1.type.vn or Backend CDN)
-      String? finalCdnUrl;
-      if (imageBytes != null) {
-        final filename = 'thumb_$seed.jpg';
-        final cdnUploadedUrl = await ApiService.uploadBytesToCdn(imageBytes, filename, folder: 'thumbnails');
-        if (cdnUploadedUrl != null && cdnUploadedUrl.isNotEmpty) {
-          finalCdnUrl = cdnUploadedUrl;
-        }
-      }
-
-      if (finalCdnUrl == null || finalCdnUrl.isEmpty) {
-        finalCdnUrl = fallbackUrl1;
-      }
+      final fileName = 'thumb_${DateTime.now().millisecondsSinceEpoch}.png';
+      final cdnUrl = await ApiService.uploadBytesToCdn(imageBytes, fileName, folder: 'thumbnails');
 
       if (mounted) AppLoading.dismiss(context);
 
+      if (cdnUrl == null || cdnUrl.isEmpty) {
+        debugPrint('[Thumbnail] CDN upload thất bại');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ảnh đã tạo nhưng tải lên CDN thất bại!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      debugPrint('[Thumbnail] CDN upload OK: $cdnUrl');
+
+      // === Update UI ===
       final now = DateTime.now().millisecondsSinceEpoch;
       setState(() {
         final existing = _thumbnailController.text.trim();
-        _thumbnailController.text = existing.isNotEmpty ? '$existing\n$finalCdnUrl' : finalCdnUrl!;
-        
+        _thumbnailController.text = existing.isNotEmpty ? '$existing\n$cdnUrl' : cdnUrl;
+
         if (_source['img'] == null || _source['img'] is! List) {
           _source['img'] = [];
         }
-        final imgP = '<p id="source-img-$now"><img src="$finalCdnUrl" /></p>';
+        final imgP = '<p id="source-img-$now"><img src="$cdnUrl" /></p>';
         (_source['img'] as List).add(imgP);
       });
+
+      debugPrint('[Thumbnail] SUCCESS - UI updated with: $cdnUrl');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đã tạo và tải hình ảnh lên CDN thành công!'),
+            content: Text('Ảnh minh họa đã tạo và tải lên CDN thành công!'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
+      debugPrint('[Thumbnail] FATAL ERROR: $e');
       if (mounted) {
         AppLoading.dismiss(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Có lỗi xảy ra khi tạo ảnh Thumbnail: $e')),
+          SnackBar(content: Text('Lỗi khi tạo ảnh Thumbnail: $e')),
         );
       }
     }
   }
 
   void _showGenerateAiThumbnailDialog() {
-    final title = _titleController.text.trim();
-    final initialPromptController = TextEditingController(
-      text: title.isNotEmpty ? 'Hình ảnh minh họa 3D ấn tượng, hiện đại, màu sắc tươi sáng về chủ đề "$title"' : '',
-    );
+    final initialPromptController = TextEditingController(text: '');
 
     final presetStyles = [
       '3D Render hiện đại',
@@ -4022,15 +4024,20 @@ Chỉ trả về danh sách 8-12 từ tiếng Anh ngăn cách bằng khoảng tr
 
                     // Prompt Input Label
                     const Text(
-                      'Ý tưởng / Mô tả hình ảnh bạn muốn tạo',
+                      'Tùy chỉnh phong cách (Tùy chọn)',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'AI sẽ tự động đọc Dàn ý (source.done) làm trọng tâm chính để tạo ảnh.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: initialPromptController,
-                      maxLines: 4,
+                      maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'Ví dụ: Hình ảnh 3D mô tả công nghệ trí tuệ nhân tạo tương lai, gam màu xanh neon rực rỡ, ánh sáng điện ảnh...',
+                        hintText: 'Nhập phong cách thêm (vd: 3D render tươi sáng, tone xanh lá...)...',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
