@@ -38,7 +38,7 @@
                     <mat-label>Domain</mat-label>
                     <mat-select class="w-full" (selectionChange)="onDomainChange()" [(ngModel)]="siteUrl">
                         <ng-container *ngFor="let d of domainOptions; let i = index">
-                            <mat-option [value]="d.domain">{{d.domain}}</mat-option>
+                            <mat-option [value]="d.domain">{{ normalizeDomainUrl(d.domain) }}</mat-option>
                         </ng-container>
                     </mat-select>
                 </mat-form-field>
@@ -210,8 +210,8 @@
                                 [plotOptions]="chartOptionsTopQueries.plotOptions" [legend]="chartOptionsTopQueries.legend">
                             </apx-chart>
                         </div>
-                        <div class="mt-3 p-3 rounded-lg bg-blue-50/60 border border-blue-100 text-xs text-slate-600">
-                            <span class="font-semibold text-blue-700">💡 Giải thích biểu đồ:</span> So sánh xu hướng giữa <strong>Lượt nhấp (đường xanh dương)</strong> và <strong>Lượt hiển thị (đường xanh lá)</strong> của các từ khóa hàng đầu. Khoảng cách giữa 2 đường giúp phát hiện các từ khóa có hiển thị cao nhưng nhấp thấp để tối ưu tiêu đề & mô tả.
+                        <div class="mt-2 text-xs text-slate-500">
+                            <span class="font-medium text-slate-700">💡 Giải thích biểu đồ:</span> So sánh xu hướng giữa <strong>Lượt nhấp (đường xanh dương)</strong> và <strong>Lượt hiển thị (đường xanh lá)</strong> của các từ khóa hàng đầu. Khoảng cách giữa 2 đường giúp phát hiện các từ khóa có hiển thị cao nhưng nhấp thấp để tối ưu tiêu đề & mô tả.
                         </div>
                     </div>
 
@@ -232,8 +232,8 @@
                                 [yaxis]="chartOptionsCtr.yaxis" [dataLabels]="chartOptionsCtr.dataLabels">
                             </apx-chart>
                         </div>
-                        <div class="mt-3 p-3 rounded-lg bg-purple-50/60 border border-purple-100 text-xs text-slate-600">
-                            <span class="font-semibold text-purple-700">💡 Giải thích biểu đồ:</span> Thể hiện tỷ lệ nhấp chuột <strong>CTR (%)</strong> tương ứng với các từ khóa hàng đầu. Chỉ số CTR cao cho thấy thẻ tiêu đề (Title) và mô tả (Meta Description) đang thu hút người dùng nhấp vào tốt.
+                        <div class="mt-2 text-xs text-slate-500">
+                            <span class="font-medium text-slate-700">💡 Giải thích biểu đồ:</span> Thể hiện tỷ lệ nhấp chuột <strong>CTR (%)</strong> tương ứng với các từ khóa hàng đầu. Chỉ số CTR cao cho thấy thẻ tiêu đề (Title) và mô tả (Meta Description) đang thu hút người dùng nhấp vào tốt.
                         </div>
                     </div>
                 </div>
@@ -607,7 +607,7 @@
                         </div>
                         <div>
                             <h3 class="text-base font-semibold text-slate-800 m-0 hidden">PageSpeed Insights</h3>
-                            <p class="text-base text-slate-700 m-0">Phân tích tốc độ và trải nghiệm (Core Web Vitals) cho: <strong class="text-primary">{{siteUrl}}</strong></p>
+                            <p class="text-base text-slate-700 m-0">Phân tích tốc độ và trải nghiệm (Core Web Vitals) cho: <strong class="text-primary">{{normalizeDomainUrl(siteUrl)}}</strong></p>
                         </div>
                     </div>
 
@@ -756,7 +756,7 @@
                             <div>
                                 <h3 class="text-base font-semibold text-slate-800 m-0 hidden">AI hướng dẫn tăng tốc</h3>
                                 <p class="text-base text-slate-700 m-0">
-                                    Phân tích dữ liệu PageSpeed Insights để đề xuất giải pháp tăng tốc thực chiến cho: <strong class="text-emerald-700">{{siteUrl}}</strong>
+                                    Phân tích dữ liệu PageSpeed Insights để đề xuất giải pháp tăng tốc thực chiến cho: <strong class="text-emerald-700">{{normalizeDomainUrl(siteUrl)}}</strong>
                                 </p>
                             </div>
                         </div>

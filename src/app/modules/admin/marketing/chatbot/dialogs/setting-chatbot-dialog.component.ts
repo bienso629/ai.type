@@ -46,6 +46,11 @@ export class SettingChatbotDialogComponent {
 
 
 
+    normalizeDomainUrl(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    }
+
     onClose(): void {
         this.dialogRef.close();
     }
