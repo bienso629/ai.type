@@ -8,7 +8,7 @@
         <mat-label>{{ 'app.select_domain' | transloco }}</mat-label>
         <mat-select class="w-full" (selectionChange)="getSitemap()" [(ngModel)]="selectedDomain">
             <ng-container *ngFor="let d of domainOptions">
-                <mat-option [value]="d.domain">{{d.domain}}</mat-option>
+                <mat-option [value]="d.domain">{{ normalizeDomainUrl(d.domain) }}</mat-option>
             </ng-container>
         </mat-select>
     </mat-form-field>

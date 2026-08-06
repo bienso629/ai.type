@@ -39,6 +39,11 @@ export class IndexDomainsDialogComponent implements OnInit {
         this.dialogRef.close();
     }
 
+    normalizeDomainUrl(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    }
+
     onConfirm(): void {
         this.dialogRef.close({
             selectedDomain: this.selectedDomain,

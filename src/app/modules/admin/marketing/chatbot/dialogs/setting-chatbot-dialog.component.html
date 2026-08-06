@@ -45,7 +45,7 @@
             class="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-100">
             <input type="checkbox" [checked]="selectedSettingsDomains.includes(d.domain)"
                 (change)="toggleSettingsDomain(d.domain)" />
-            <span class="text-base truncate" [title]="d.domain">{{ d.domain }}</span>
+            <span class="text-base truncate" [title]="d.domain">{{ normalizeDomainUrl(d.domain) }}</span>
         </label>
     </div>
 </div>
