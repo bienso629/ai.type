@@ -399,17 +399,18 @@ export class CollectionComponent implements OnInit, OnDestroy {
         const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
         if (!activeCol) return false;
 
+        if (activeCol.has_script) return true;
+
         let firstUuid = '';
         if (Array.isArray(activeCol.uuid) && activeCol.uuid.length > 0) {
             firstUuid = activeCol.uuid[0];
         } else if (typeof activeCol.uuid === 'string') {
             firstUuid = activeCol.uuid;
-        } else if (this.rows && this.rows.length > 0 && this.rows[0].uuid) {
+        } else if (this.rows && this.rows.length > 0 && this.rows[0] && this.rows[0].uuid) {
             firstUuid = this.rows[0].uuid;
         }
 
         if (!firstUuid) return false;
-        if (activeCol.has_script) return true;
 
         if (this.multiAccountService) {
             return !!this.multiAccountService.getItem(`ai_type_script_data_${firstUuid}`) ||

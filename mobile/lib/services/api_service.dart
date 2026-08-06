@@ -1799,6 +1799,53 @@ class ApiService {
     return null;
   }
 
+  static Future<dynamic> archiveBlockComment({
+    required String uuid,
+    required String blockid,
+    required String username,
+    required String content,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) return null;
+
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/crawl/node/archive/block/comment/$uuid');
+
+    final dataForm = {
+      'server': server,
+      'year': 2023,
+      'appId': 'ai.typing',
+      'username': username,
+      'author': username,
+      'uuid': uuid,
+      'blockid': blockid,
+      'comment': {
+        'content': content,
+        'username': username,
+        'childrens': [],
+        'createdAt': DateTime.now().toIso8601String(),
+      },
+      'appToken': activeInfo['user']['appToken'],
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
+
   static Future<dynamic> getArchiveComments(
     String username,
     String uuid,

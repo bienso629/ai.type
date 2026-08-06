@@ -116,6 +116,320 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
   bool _isSaving = false;
   List<dynamic> _articlesInCollection = [];
   String? _selectedArticleInCollection;
+  final Map<String, List<Map<String, dynamic>>> _blockComments = {};
+
+  String _getBlockIdFromHtml(String html) {
+    final reg = RegExp('id=["\']([^"\']+)["\']');
+    final match = reg.firstMatch(html);
+    return match?.group(1) ?? '';
+  }
+
+  Future<void> _splitWithAi(List list, int index) async {
+    if (index < 0 || index >= list.length) return;
+    final text = _cleanHtmlText(list[index].toString());
+    if (text.isEmpty) return;
+    try {
+      AppLoading.show(context, message: 'Đang tách đoạn bằng AI...');
+      final prompt = 'Tách đoạn văn sau thành 2-3 đoạn văn nhỏ mạch lạc, giữ nguyên ý nghĩa. Chỉ trả về danh sách các đoạn văn ngăn cách bằng dòng mới:\n$text';
+      final dynamic res = await ApiService.askSonTinhAgent(prompt, '[]');
+      if (mounted) AppLoading.dismiss(context);
+      if (res != null) {
+        final String answer = res is Map ? (res['answer']?.toString() ?? res['text']?.toString() ?? '') : res.toString();
+        if (answer.isNotEmpty) {
+          final parts = answer.split('\n').where((s) => s.trim().isNotEmpty).toList();
+          if (parts.isNotEmpty) {
+            setState(() {
+              list.removeAt(index);
+              for (int i = parts.length - 1; i >= 0; i--) {
+                final pText = parts[i].trim();
+                final cleanP = pText.replaceAll(RegExp(r'^\d+[\.\)]\s*'), '');
+                list.insert(index, '<p id="source-p-${DateTime.now().millisecondsSinceEpoch}-$i">$cleanP</p>');
+              }
+            });
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Tách đoạn bằng AI thành công!'), backgroundColor: Colors.green),
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) AppLoading.dismiss(context);
+      print('Error splitWithAi: $e');
+    }
+  }
+
+  String _ensureBlockId(List list, int index) {
+    if (index < 0 || index >= list.length) return '';
+    String html = list[index].toString();
+    String blockId = _getBlockIdFromHtml(html);
+    if (blockId.isEmpty) {
+      blockId = 'source-p-${DateTime.now().millisecondsSinceEpoch}-$index';
+      if (html.startsWith('<p')) {
+        html = html.replaceFirst('<p', '<p id="$blockId"');
+      } else {
+        html = '<p id="$blockId">$html</p>';
+      }
+      list[index] = html;
+    }
+    return blockId;
+  }
+
+  Future<void> _loadArchiveComments() async {
+    if (widget.uuid == null || widget.uuid!.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return;
+      final activeInfo = jsonDecode(activeInfoStr);
+      final username = activeInfo['user']['name'];
+      final res = await ApiService.getArchiveComments(username, widget.uuid!);
+      if (res != null && res['success'] == true && res['data'] is List) {
+        final list = res['data'] as List;
+        setState(() {
+          _blockComments.clear();
+          for (var item in list) {
+            final bId = item['blockid']?.toString() ?? '';
+            if (bId.isNotEmpty) {
+              _blockComments[bId] ??= [];
+              _blockComments[bId]!.add(Map<String, dynamic>.from(item));
+            }
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading archive comments: $e');
+    }
+  }
+
+  Widget _buildCommentBadge(String blockId) {
+    if (blockId.isEmpty) return const SizedBox.shrink();
+    final comments = _blockComments[blockId] ?? [];
+    if (comments.isEmpty) return const SizedBox.shrink();
+
+    final count = comments.length;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        _showCommentsBottomSheet(blockId);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade700,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+        child: Center(
+          child: Text(
+            '$count',
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCommentsBottomSheet(String blockId) async {
+    final comments = _blockComments[blockId] ?? [];
+    final tc = TextEditingController();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bCtx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.65,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.amber, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Danh sách Ghi chú (${comments.length})',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: comments.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Chưa có ghi chú nào cho đoạn này.',
+                              style: TextStyle(fontSize: 13, color: Colors.grey),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: comments.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (context, idx) {
+                              final item = comments[idx];
+                              final author = item['author'] ?? item['username'] ?? item['comment']?['username'] ?? 'Thành viên';
+                              final text = item['comment']?['content'] ?? item['content'] ?? '';
+                              final rawTime = item['createdAt']?.toString() ?? '';
+                              final time = rawTime.length >= 16 ? rawTime.substring(0, 16).replaceAll('T', ' ') : 'Gần đây';
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          author,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+                                        ),
+                                        Text(
+                                          time,
+                                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      text,
+                                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: tc,
+                          maxLines: 3,
+                          minLines: 1,
+                          decoration: InputDecoration(
+                            hintText: 'Nhập phản hồi hoặc ghi chú mới...',
+                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: const BorderSide(color: AppColors.primary),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                          onPressed: () async {
+                            final text = tc.text.trim();
+                            if (text.isEmpty) return;
+                            tc.clear();
+
+                            final prefs = await SharedPreferences.getInstance();
+                            final activeInfoStr = prefs.getString('active_info');
+                            String username = 'User';
+                            if (activeInfoStr != null) {
+                              final activeInfo = jsonDecode(activeInfoStr);
+                              username = activeInfo['user']['name'] ?? 'User';
+                            }
+
+                            if (widget.uuid != null && widget.uuid!.isNotEmpty) {
+                              await ApiService.archiveBlockComment(
+                                uuid: widget.uuid!,
+                                blockid: blockId,
+                                username: username,
+                                content: text,
+                              );
+                            }
+
+                            final newComment = {
+                              'blockid': blockId,
+                              'author': username,
+                              'username': username,
+                              'comment': {'content': text, 'username': username},
+                              'createdAt': DateTime.now().toIso8601String(),
+                            };
+
+                            setState(() {
+                              _blockComments[blockId] ??= [];
+                              _blockComments[blockId]!.add(newComment);
+                            });
+                            setSheetState(() {});
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -1340,50 +1654,244 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final htmlStr = outlineList[index].toString();
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _buildRichText(htmlStr),
-                    ),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          _editPrompt(index, htmlStr, targetKey: 'done', customTitle: 'Chỉnh sửa Dàn ý #${index + 1}');
-                        } else if (value == 'copy') {
-                          Clipboard.setData(ClipboardData(text: _cleanHtmlText(htmlStr)));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Đã sao chép nội dung dàn ý!')),
-                          );
-                        } else if (value == 'delete') {
-                          setState(() {
-                            if (_source['done'] is List && index < (_source['done'] as List).length) {
-                              (_source['done'] as List).removeAt(index);
-                            }
-                          });
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => [
-                        const PopupMenuItem(value: 'copy', child: Row(children: [Icon(Icons.copy, size: 16), SizedBox(width: 8), Text('Sao chép')])),
-                        const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, size: 16), SizedBox(width: 8), Text('Sửa dàn ý')])),
-                        const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xoá', style: TextStyle(color: Colors.red))])),
-                      ],
-                    ),
-                  ],
+              final blockId = _getBlockIdFromHtml(htmlStr);
+              final hasComment = blockId.isNotEmpty && (_blockComments[blockId]?.isNotEmpty ?? false);
+
+              return InkWell(
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                focusColor: Colors.transparent,
+                onDoubleTap: () => _editPrompt(index, htmlStr, targetKey: 'done', customTitle: 'Chỉnh sửa Dàn ý #${index + 1}'),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildRichText(htmlStr),
+                      ),
+                      const SizedBox(width: 6),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: const Icon(Icons.more_horiz, color: Colors.grey, size: 20),
+                            onSelected: (value) async {
+                              final plainText = _cleanHtmlText(htmlStr);
+                              if (value == 'copy') {
+                                Clipboard.setData(ClipboardData(text: plainText));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Đã sao chép nội dung dàn ý!')),
+                                );
+                              } else if (value == 'to_mp3') {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Đang khởi tạo chuyển đổi MP3 cho: "${plainText.substring(0, plainText.length.clamp(0, 30))}..."')),
+                                );
+                                try {
+                                  AppLoading.show(context, message: 'Đang chuyển đổi văn bản sang MP3...');
+                                  await ApiService.askSonTinhAgent('Chuyển đoạn sau thành giọng đọc audio MP3: $plainText', '[]');
+                                  if (mounted) AppLoading.dismiss(context);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Đã yêu cầu chuyển thành MP3 thành công!'), backgroundColor: Colors.green),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (mounted) AppLoading.dismiss(context);
+                                }
+                              } else if (value == 'comment') {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    final tc = TextEditingController();
+                                    return Dialog(
+                                      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      child: Container(
+                                        width: MediaQuery.of(context).size.width * 0.9,
+                                        padding: const EdgeInsets.all(20),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            // Header
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                                    borderRadius: BorderRadius.circular(10),
+                                                  ),
+                                                  child: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.primary, size: 22),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                const Expanded(
+                                                  child: Text(
+                                                    'Thêm Ghi chú',
+                                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.textPrimary),
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                                                  onPressed: () => Navigator.pop(context),
+                                                ),
+                                              ],
+                                            ),
+                                            const Divider(height: 24),
+                                            const Text(
+                                              'Nội dung ghi chú',
+                                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            TextField(
+                                              controller: tc,
+                                              maxLines: 4,
+                                              autofocus: true,
+                                              decoration: InputDecoration(
+                                                hintText: 'Nhập ghi chú hoặc bình luận cho mục này...',
+                                                hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                                contentPadding: const EdgeInsets.all(12),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            const Divider(height: 1),
+                                            const SizedBox(height: 16),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: ElevatedButton(
+                                                    style: AppStyles.accentButton,
+                                                    onPressed: () => Navigator.pop(context),
+                                                    child: const Text('Huỷ'),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: ElevatedButton.icon(
+                                                    style: AppStyles.primaryButton,
+                                                    onPressed: () async {
+                                                      final commentText = tc.text.trim();
+                                                      if (commentText.isNotEmpty) {
+                                                        final targetBlockId = _ensureBlockId(_source['done'] as List, index);
+                                                        Navigator.pop(context);
+
+                                                        final prefs = await SharedPreferences.getInstance();
+                                                        final activeInfoStr = prefs.getString('active_info');
+                                                        String username = 'User';
+                                                        if (activeInfoStr != null) {
+                                                          final activeInfo = jsonDecode(activeInfoStr);
+                                                          username = activeInfo['user']['name'] ?? 'User';
+                                                        }
+
+                                                        final newComment = {
+                                                          'blockid': targetBlockId,
+                                                          'author': username,
+                                                          'username': username,
+                                                          'comment': {'content': commentText, 'username': username},
+                                                          'createdAt': DateTime.now().toIso8601String(),
+                                                        };
+
+                                                        setState(() {
+                                                          _blockComments[targetBlockId] ??= [];
+                                                          _blockComments[targetBlockId]!.add(newComment);
+                                                        });
+
+                                                        if (mounted) {
+                                                          ScaffoldMessenger.of(context).showSnackBar(
+                                                            const SnackBar(content: Text('Đã thêm ghi chú!'), backgroundColor: Colors.green, duration: Duration(seconds: 2)),
+                                                          );
+                                                        }
+
+                                                        if (widget.uuid != null && widget.uuid!.isNotEmpty) {
+                                                          ApiService.archiveBlockComment(
+                                                            uuid: widget.uuid!,
+                                                            blockid: targetBlockId,
+                                                            username: username,
+                                                            content: commentText,
+                                                          ).then((res) {
+                                                            print('archiveBlockComment result: $res');
+                                                          }).catchError((e) {
+                                                            print('archiveBlockComment error: $e');
+                                                          });
+                                                        }
+                                                      } else {
+                                                        Navigator.pop(context);
+                                                      }
+                                                    },
+                                                    icon: const Icon(Icons.check_rounded, size: 18),
+                                                    label: const Text('Ghi chú'),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              } else if (value == 'generate_image') {
+                                _showGenerateAiThumbnailDialog();
+                              } else if (value == 'keyword') {
+                                final words = plainText.split(RegExp(r'\s+')).where((w) => w.length > 3).toList();
+                                final extracted = words.take(5).join(', ');
+                                setState(() {
+                                  if (_source['arr_keyword'] == null || _source['arr_keyword'] is! List) {
+                                    _source['arr_keyword'] = [];
+                                  }
+                                  for (var w in words.take(3)) {
+                                    final cleanW = w.replaceAll(RegExp(r'[^\w\sàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false), '').trim();
+                                    if (cleanW.isNotEmpty && !(_source['arr_keyword'] as List).contains(cleanW)) {
+                                      (_source['arr_keyword'] as List).add(cleanW);
+                                    }
+                                  }
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Phân tích từ khoá xong: $extracted'), backgroundColor: Colors.green),
+                                );
+                              } else if (value == 'edit') {
+                                _editPrompt(index, htmlStr, targetKey: 'done', customTitle: 'Chỉnh sửa Dàn ý #${index + 1}');
+                              } else if (value == 'split') {
+                                if (_source['done'] is List) {
+                                  _splitWithAi(_source['done'] as List, index);
+                                }
+                              } else if (value == 'delete') {
+                                setState(() {
+                                  if (_source['done'] is List && index < (_source['done'] as List).length) {
+                                    (_source['done'] as List).removeAt(index);
+                                  }
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Đã xoá mục dàn ý!')),
+                                );
+                              }
+                            },
+                            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                              PopupMenuItem(value: 'copy', child: Row(children: [Icon(Icons.copy_rounded, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Sao chép')])),
+                              PopupMenuItem(value: 'to_mp3', child: Row(children: [Icon(Icons.volume_up_rounded, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Chuyển thành MP3')])),
+                              PopupMenuItem(value: 'comment', child: Row(children: [Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Ghi chú')])),
+                              PopupMenuItem(value: 'generate_image', child: Row(children: [Icon(Icons.auto_awesome_outlined, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Tạo hình ảnh')])),
+                              PopupMenuItem(value: 'keyword', child: Row(children: [Icon(Icons.label_outlined, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Từ khoá')])),
+                              PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Sửa dàn ý')])),
+                              PopupMenuItem(value: 'split', child: Row(children: [Icon(Icons.call_split_rounded, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Tách đoạn')])),
+                              PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red), const SizedBox(width: 10), const Text('Xoá', style: TextStyle(color: Colors.red))])),
+                            ],
+                          ),
+                          if (hasComment)
+                            Positioned(
+                              top: -4,
+                              right: -4,
+                              child: _buildCommentBadge(blockId),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -3119,11 +3627,14 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                         contentPadding: const EdgeInsets.all(12),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(
+                          child: ElevatedButton(
+                            style: AppStyles.accentButton,
                             onPressed: () {
                               stopListening();
                               Navigator.pop(dCtx);
@@ -3737,20 +4248,24 @@ Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' v
                       ),
                     ),
                     const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
 
                     // Actions Footer Buttons
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        ElevatedButton(
-                          style: AppStyles.accentButton,
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Hủy'),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: AppStyles.accentButton,
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Hủy'),
+                          ),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          style: AppStyles.primaryButton,
-                          onPressed: selectedIndices.isEmpty
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: AppStyles.primaryButton,
+                            onPressed: selectedIndices.isEmpty
                               ? null
                               : () {
                                   setState(() {
@@ -3773,9 +4288,10 @@ Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' v
                                   );
                                 },
                           icon: const Icon(Icons.check_rounded, size: 18),
-                          label: Text('Sử dụng kết quả (${selectedIndices.length})'),
+                          label: Text('Áp dụng (${selectedIndices.length})'),
                         ),
-                      ],
+                      ),
+                    ],
                     ),
                   ],
                 ),
@@ -4088,25 +4604,32 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm giải thíc
 
                     const SizedBox(height: 20),
 
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
+
                     // Action Buttons Footer
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        ElevatedButton(
-                          style: AppStyles.accentButton,
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Hủy'),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: AppStyles.accentButton,
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Hủy'),
+                          ),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          style: AppStyles.primaryButton,
-                          icon: const Icon(Icons.auto_awesome, size: 18),
-                          label: const Text('Tạo ảnh ngay'),
-                          onPressed: () {
-                            final p = initialPromptController.text.trim();
-                            Navigator.pop(ctx);
-                            _generateAiThumbnailFromPrompt(p);
-                          },
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: AppStyles.primaryButton,
+                            icon: const Icon(Icons.auto_awesome, size: 18),
+                            label: const Text('Tạo ảnh'),
+                            onPressed: () {
+                              final p = initialPromptController.text.trim();
+                              Navigator.pop(ctx);
+                              _generateAiThumbnailFromPrompt(p);
+                            },
+                          ),
                         ),
                       ],
                     ),
@@ -4189,28 +4712,33 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm giải thíc
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
 
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    ElevatedButton(
-                      style: AppStyles.accentButton,
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Hủy'),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: AppStyles.accentButton,
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Hủy'),
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      style: AppStyles.primaryButton,
-                      icon: const Icon(Icons.check_rounded, size: 18),
-                      label: const Text('Lưu Thumbnail'),
-                      onPressed: () {
-                        final val = urlCtrl.text.trim();
-                        setState(() {
-                          _thumbnailController.text = val;
-                        });
-                        Navigator.pop(ctx);
-                      },
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: AppStyles.primaryButton,
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: const Text('Lưu ảnh'),
+                        onPressed: () {
+                          final val = urlCtrl.text.trim();
+                          setState(() {
+                            _thumbnailController.text = val;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      ),
                     ),
                   ],
                 ),
