@@ -80,6 +80,21 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Actions kịch bản -->
+                    <div class="flex shrink-0 items-center gap-2 mt-4 sm:mt-0 ml-auto" *ngIf="selectedCollection">
+                        <button *ngIf="hasCollectionScript()" mat-flat-button color="primary" class="bg-primary text-white" (click)="readCollectionScript()" [matTooltip]="'Đọc kịch bản phim của tập này'">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:feather'"></mat-icon>
+                            <mat-label class="ml-2">Đọc kịch bản</mat-label>
+                        </button>
+                        <button *ngIf="!hasCollectionScript()" mat-flat-button color="primary" class="bg-primary text-white" (click)="generateCollectionScriptFromCollectionPage()" [disabled]="isGeneratingCollectionScript" [matTooltip]="'Tự động mổ xẻ các chương để dựng kịch bản phim'">
+                            <mat-icon *ngIf="!isGeneratingCollectionScript" class="icon-size-4" [svgIcon]="'feather:cpu'"></mat-icon>
+                            <div *ngIf="isGeneratingCollectionScript" class="w-4 h-4 inline-flex items-center justify-center">
+                                <mat-spinner [diameter]="16" class="text-white"></mat-spinner>
+                            </div>
+                            <mat-label class="ml-2">{{ isGeneratingCollectionScript ? 'Đang dựng kịch bản...' : 'Dựng kịch bản Collection' }}</mat-label>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="flex-auto overflow-hidden relative w-full">
