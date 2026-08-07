@@ -10,6 +10,8 @@ import { ToastrService } from "ngx-toastr";
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import Quill from 'quill';
+import { MatDialog } from '@angular/material/dialog';
+import { ArticlePasswordDialog } from './article-password-dialog';
 
 declare var TurndownService: any;
 
@@ -129,6 +131,16 @@ declare var TurndownService: any;
                 <button mat-flat-button *ngIf="data.function === 'edit'" color="primary" (click)="save($event)">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
                     <mat-label class="ml-2">Chỉnh xong</mat-label>
+                </button>
+
+                <button mat-stroked-button color="accent" (click)="saveToLocalDisk($event)" [matTooltip]="'Lưu bài viết thành file Markdown/JSON trực tiếp trên ổ đĩa máy tính (Bảo mật & Không lưu Server)'">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:hard-drive'"></mat-icon>
+                    <mat-label class="ml-2">Lưu Cục Bộ (Local)</mat-label>
+                </button>
+
+                <button mat-stroked-button color="warn" (click)="saveToLocalDiskWithEncryption($event)" [matTooltip]="'Mã hóa AES-256 toàn bộ nội dung bài viết/kịch bản bằng mật khẩu'">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:lock'"></mat-icon>
+                    <mat-label class="ml-2">Mã Hóa Mật Khẩu</mat-label>
                 </button>
 
                 <button mat-flat-button *ngIf="data.function === 'new'" color="primary" (click)="save($event)">
@@ -909,6 +921,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         private _formBuilder: UntypedFormBuilder,
         private clipboard: Clipboard,
         private cdr: ChangeDetectorRef,
+        private _dialog: MatDialog,
         @Inject(MAT_BOTTOM_SHEET_DATA) public data: any
     ) {
         if (data && data['domain'].domain && data['domain'].domain.indexOf('https') < 0) {
@@ -968,6 +981,72 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             // lấy thẻ
             this.tags();
         }
+    }
+
+    async saveToLocalDisk(event: MouseEvent): Promise<void> {
+        event.preventDefault();
+        const title = this.editorForm.get('title')?.value || this.data.title || 'Bài viết chưa đặt tên';
+        const content = this.editorForm.get('content')?.value || '';
+        const domain = this.editorForm.get('domain')?.value || this.domain?.domain || 'local.ai.type';
+
+        if ((window as any).electron && (window as any).electron.saveLocalArticle) {
+            const res = await (window as any).electron.saveLocalArticle({
+                title,
+                content,
+                domain,
+                uuid: this.data.uuid || undefined
+            });
+            if (res && res.success) {
+                this.toastr.success(`Đã lưu bài viết cục bộ (.md & .json) vào ổ đĩa máy tính thành công!`, 'Lưu Cục Bộ');
+            } else {
+                this.toastr.error(`Lỗi khi lưu cục bộ: ${res?.error || 'Không rõ lỗi'}`);
+            }
+        } else {
+            const blob = new Blob([`# ${title}\n\n${content}`], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[/\\?%*:|"<>]/g, '_')}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.toastr.success(`Đã tải tệp Markdown cục bộ về máy!`, 'Lưu Cục Bộ');
+        }
+    }
+
+    saveToLocalDiskWithEncryption(event: MouseEvent): void {
+        event.preventDefault();
+        const dialogRef = this._dialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'set',
+                title: this.editorForm.get('title')?.value || this.data.title || 'Bài viết'
+            },
+            width: '450px'
+        });
+
+        dialogRef.afterClosed().subscribe(async (result) => {
+            if (result && result.password) {
+                const title = this.editorForm.get('title')?.value || this.data.title || 'Bài viết chưa đặt tên';
+                const content = this.editorForm.get('content')?.value || '';
+                const domain = this.editorForm.get('domain')?.value || this.domain?.domain || 'local.ai.type';
+
+                if ((window as any).electron && (window as any).electron.saveLocalArticle) {
+                    const res = await (window as any).electron.saveLocalArticle({
+                        title,
+                        content,
+                        domain,
+                        uuid: this.data.uuid || undefined,
+                        password: result.password
+                    });
+                    if (res && res.success) {
+                        this.toastr.success(`Đã mã hóa AES-256 bài viết và lưu cục bộ thành công!`, 'Mã Hóa Mật Khẩu');
+                    } else {
+                        this.toastr.error(`Lỗi khi lưu bài viết mã hóa: ${res?.error || 'Không rõ lỗi'}`);
+                    }
+                } else {
+                    this.toastr.warning('Mã hóa ổ đĩa cục bộ yêu cầu ứng dụng Desktop AI.Type');
+                }
+            }
+        });
     }
 
     /**

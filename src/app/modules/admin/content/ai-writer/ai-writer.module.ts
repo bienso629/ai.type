@@ -18,6 +18,7 @@ import { MatBottomSheetModule } from '@angular/material/bottom-sheet';
 import { MatListModule } from '@angular/material/list';
 import { MatGridListModule } from '@angular/material/grid-list';
 import { MatBadgeModule } from '@angular/material/badge';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { MatMenuModule } from '@angular/material/menu';
 import { FuseAlertModule } from '@fuse/components/alert';
@@ -47,6 +48,7 @@ import { ChatGPTDataDialog } from 'app/modules/admin/content/ai-writer/tools/cha
 import { ChatGPTQuestionSheet } from 'app/modules/admin/content/ai-writer/tools/chatgpt-questions-sheet';
 import { KeywordGoogleDataDialog } from 'app/modules/admin/content/ai-writer/tools/keyword-google-data-dialog';
 import { EditBeforeExportSheet } from 'app/modules/admin/content/ai-writer/tools/edit-before-export-sheet';
+import { ArticlePasswordDialog } from 'app/modules/admin/content/ai-writer/tools/article-password-dialog';
 import { ScriptDialog } from 'app/modules/admin/content/ai-writer/tools/script-dialog';
 import { AIScriptComponent } from 'app/modules/admin/content/ai-writer/tools/script-view.component';
 import { SettingsDomainLoginComponent } from 'app/modules/admin/account/settings/domain/login/login.component';
@@ -79,6 +81,7 @@ const Routes: Route[] = [{
         SettingsDomainLoginComponent,
         ScriptDialog,
         AIScriptComponent,
+        ArticlePasswordDialog,
     ],
     imports: [
         TranslocoModule,
@@ -101,6 +104,7 @@ const Routes: Route[] = [{
         MatGridListModule,
         MatBottomSheetModule,
         MatBadgeModule,
+        MatSlideToggleModule,
         ClipboardModule,
         MatExpansionModule,
         MatMenuModule,
@@ -141,7 +145,7 @@ const Routes: Route[] = [{
         WordpressService,
         { provide: TimeagoIntl, useClass: ViTimeagoIntl }
     ],
-    exports: [CopyPasteDialog, GeminiImageDialog, WordDataDialog, CommentDialog, EditBeforeExportSheet, ChatGPTDataDialog, ChatGPTQuestionSheet, KeywordGoogleDataDialog, MediaDataDialog],
+    exports: [CopyPasteDialog, GeminiImageDialog, WordDataDialog, CommentDialog, EditBeforeExportSheet, ChatGPTDataDialog, ChatGPTQuestionSheet, KeywordGoogleDataDialog, MediaDataDialog, ArticlePasswordDialog],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class AIWriterModule {

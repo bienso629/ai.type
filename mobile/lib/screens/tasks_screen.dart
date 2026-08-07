@@ -376,10 +376,10 @@ class _TasksScreenState extends State<TasksScreen> {
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.edit, color: Color(0xFF3B82F6), size: 20),
+                      Icon(Icons.movie_creation_outlined, color: Color(0xFF3B82F6), size: 20),
                       SizedBox(height: 4),
                       Text(
-                        'Sửa',
+                        'Kịch bản',
                         style: TextStyle(
                           color: Color(0xFF3B82F6),
                           fontSize: 11,
@@ -456,10 +456,19 @@ class _TasksScreenState extends State<TasksScreen> {
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AiWriterScreen(uuid: uid),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(
                   width: 24,
@@ -545,7 +554,8 @@ class _TasksScreenState extends State<TasksScreen> {
             ),
           ),
         ),
-        const Divider(height: 1, color: Colors.black12),
+      ),
+      const Divider(height: 1, color: Colors.black12),
       ],
     );
   }

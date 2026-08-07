@@ -15,6 +15,7 @@ const {
 } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { registerExportImportHandlers } = require("./export-import-project");
+const { registerLocalArticlesHandlers } = require("./local-articles");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn } = require("child_process");
 const os = require("os");
@@ -3815,6 +3816,7 @@ app.whenReady().then(async () => {
     });
 
     registerExportImportHandlers();
+    registerLocalArticlesHandlers();
     if (process.platform === 'win32') {
         app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
     }
