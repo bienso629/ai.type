@@ -31,6 +31,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     // Form data
     newToolName: string = '';
     newToolUrl: string = '';
+    newToolIcon: string = '';
 
     isZaloRunningBackground: boolean = false;
     private _intervalId: any;
@@ -112,13 +113,39 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         this.tools = savedTools;
     }
 
+    onNewIconSelected(event: any): void {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e: any) => {
+                this.newToolIcon = e.target.result;
+                this.cd.detectChanges();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    onEditIconSelected(event: any, tool: ToolItem): void {
+        const file = event.target.files?.[0];
+        if (file && tool) {
+            const reader = new FileReader();
+            reader.onload = (e: any) => {
+                tool.icon = e.target.result;
+                this.multiAccountService.setItem('tools_urls', this.tools);
+                this.cd.detectChanges();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
     saveTool(): void {
         if (!this.newToolName || !this.newToolUrl) return;
 
         const newTool: ToolItem = {
             id: Date.now().toString(),
             name: this.newToolName,
-            url: this.newToolUrl
+            url: this.newToolUrl,
+            icon: this.newToolIcon || ''
         };
 
         this.tools.push(newTool);
@@ -127,6 +154,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         // Reset form
         this.newToolName = '';
         this.newToolUrl = '';
+        this.newToolIcon = '';
         if (this.dialogRef) {
             this.dialogRef.close();
         }
@@ -270,9 +298,15 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         }
     }
 
-    getFavicon(url: string): string {
+    getFavicon(tool: ToolItem | string): string {
+        if (typeof tool === 'object' && tool) {
+            if (tool.icon && tool.icon.trim()) {
+                return tool.icon;
+            }
+            return this.getFavicon(tool.url);
+        }
         try {
-            const domain = new URL(url).hostname;
+            const domain = new URL(tool as string).hostname;
             return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
         } catch (e) {
             return './assets/images/logo/favicon.svg';

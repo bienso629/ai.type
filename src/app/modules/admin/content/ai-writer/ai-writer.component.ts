@@ -32,6 +32,9 @@ import {
     takeUntil,
     Observable,
     firstValueFrom,
+    from,
+    of,
+    map
 } from 'rxjs';
 import { ActivatedRoute, Params } from '@angular/router';
 import { Router } from '@angular/router';
@@ -55,6 +58,7 @@ import { MediaDataDialog } from 'app/modules/admin/content/ai-writer/tools/media
 import { KeywordGoogleDataDialog } from 'app/modules/admin/content/ai-writer/tools/keyword-google-data-dialog';
 import { ChatGPTQuestionSheet } from 'app/modules/admin/content/ai-writer/tools/chatgpt-questions-sheet';
 import { EditBeforeExportSheet } from 'app/modules/admin/content/ai-writer/tools/edit-before-export-sheet';
+import { ArticlePasswordDialog } from 'app/modules/admin/content/ai-writer/tools/article-password-dialog';
 import { ScriptDialog } from 'app/modules/admin/content/ai-writer/tools/script-dialog';
 
 import { forkJoin } from 'rxjs'; // RxJS 6 syntax
@@ -66,6 +70,7 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import * as _ from 'lodash';
 import * as $ from 'jquery';
 import * as uuid from 'uuid';
+import * as CryptoJS from 'crypto-js';
 
 import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config/config.service';
@@ -267,6 +272,211 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     trash: any = [];
 
     details: any;
+    articlePassword: string = '';
+    autoSaveLocal: boolean = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
+    toggleAutoSaveLocal(event: any) {
+        this.autoSaveLocal = event.checked;
+        localStorage.setItem('ai_type_auto_save_local', this.autoSaveLocal ? 'true' : 'false');
+        if (this.autoSaveLocal) {
+            this.toastr.success('Bật tự động lưu bản sao xuống máy tính cục bộ.');
+            this.saveToLocalDiskQuick();
+        } else {
+            this.toastr.info('Đã tắt tự động lưu bản sao cục bộ.');
+        }
+    }
+
+    openEncryptionDialog() {
+        if (this.articlePassword || (this.details && this.details.is_encrypted)) {
+            const confirmDialog = this._fuseConfirmationService.open({
+                title: 'Hủy mã hóa bài viết',
+                message: 'Bạn có chắc chắn muốn HỦY MÃ HÓA (bỏ mật khẩu) cho bài viết này không? Nội dung bài viết sẽ chuyển về dạng lưu trữ không mã hóa trên Server.',
+                icon: {
+                    show: true,
+                    name: 'heroicons_outline:lock-open',
+                    color: 'warning'
+                },
+                actions: {
+                    confirm: {
+                        show: true,
+                        label: 'Hủy mã hóa & Lưu Server',
+                        color: 'warn'
+                    },
+                    cancel: {
+                        show: true,
+                        label: 'Đóng'
+                    }
+                },
+                dismissible: true
+            });
+
+            confirmDialog.afterClosed().subscribe((result) => {
+                if (result === 'confirmed') {
+                    this.articlePassword = '';
+                    if (this.details) {
+                        this.details.is_encrypted = false;
+                        if (this.details.source) {
+                            this.details.source.encrypted = false;
+                            delete this.details.source.cipher;
+                        }
+                    }
+                    this.toastr.success('Đã hủy mã hóa bài viết! Đang lưu nội dung dạng tiêu chuẩn lên Server...', 'Hủy Mã Hóa');
+                    this.cd.markForCheck();
+
+                    if (this.uuid) {
+                        this.update();
+                    } else if (this.detectForm?.get('step1')?.get('title')?.value) {
+                        this.archive();
+                    }
+                }
+            });
+            return;
+        }
+
+        const dialogRef = this.dialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'set',
+                title: this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || 'Bài viết'
+            },
+            width: '450px'
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                this.articlePassword = res.password;
+                if (this.details) {
+                    this.details.is_encrypted = true;
+                }
+                this.toastr.success('Đã mã hóa AES-256 bài viết! Đang lưu nội dung mã hóa lên Server...', 'Mã Hóa & Lưu');
+                this.cd.markForCheck();
+
+                if (this.uuid) {
+                    this.update();
+                } else if (this.detectForm?.get('step1')?.get('title')?.value) {
+                    this.archive();
+                }
+            }
+        });
+    }
+
+    encryptPayload(sourceData: any, doneData: any, trashData: any, password: string, extraData?: any) {
+        try {
+            const titleVal = extraData?.title || this.detectForm?.get('step1')?.get('title')?.value || '';
+            const urlVal = extraData?.url || this.detectForm?.get('step2')?.get('url')?.value || '';
+            const thumbVal = extraData?.thumbnail || this.detectForm?.get('step1')?.get('thumbnail')?.value || '';
+            const descVal = extraData?.description || this.detectForm?.get('step1')?.get('description')?.value || '';
+            const seoVal = extraData?.seo || this.seo;
+            const kwVal = extraData?.arr_keyword || this.arr_keyword;
+
+            const rawPayload = JSON.stringify({
+                source: sourceData,
+                done: doneData,
+                trash: trashData,
+                title: titleVal,
+                url: urlVal,
+                thumbnail: thumbVal,
+                description: descVal,
+                seo: seoVal,
+                arr_keyword: kwVal
+            });
+            const ciphertext = CryptoJS.AES.encrypt(rawPayload, password).toString();
+            return {
+                source: {
+                    encrypted: true,
+                    cipher: ciphertext,
+                    backup: ['[NỘI DUNG MÃ HÓA AES-256]']
+                },
+                done: ['<p>[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU CÁ NHÂN]</p>'],
+                trash: []
+            };
+        } catch (e) {
+            console.error('Lỗi mã hóa payload:', e);
+            return { source: sourceData, done: doneData, trash: trashData };
+        }
+    }
+
+    decryptPayload(ciphertext: string, password: string) {
+        try {
+            if (!ciphertext || !password) return null;
+            const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+            const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+            if (!decryptedText) return null;
+            return JSON.parse(decryptedText);
+        } catch (e) {
+            console.error('Lỗi giải mã payload:', e);
+            return null;
+        }
+    }
+
+    splitIntoParagraphs(raw: any): string[] {
+        if (!raw) return [];
+        if (Array.isArray(raw)) {
+            const result: string[] = [];
+            raw.forEach((item: any) => {
+                const str = String(item).trim();
+                if (str.includes('\n')) {
+                    const lines = str.split(/\r?\n\r?\n|\r?\n/);
+                    lines.forEach(l => {
+                        const trimmed = l.trim();
+                        if (trimmed) result.push(trimmed);
+                    });
+                } else if (str) {
+                    result.push(str);
+                }
+            });
+            return result;
+        }
+        const str = String(raw).trim();
+        return str.split(/\r?\n\r?\n|\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    }
+
+    formatDoneParagraphs(raw: any): string[] {
+        const paragraphs = this.splitIntoParagraphs(raw);
+        if (paragraphs.length === 0) return [];
+
+        return paragraphs.map((p: string) => {
+            let clean = p.trim();
+            if (clean.startsWith('<p') || clean.startsWith('<h') || clean.startsWith('<div')) {
+                return clean;
+            }
+            return `<p id="source-p-${uuid.v4()}">${clean}</p>`;
+        });
+    }
+
+    parseRawContentToDone(rawContent: any): string[] {
+        if (!rawContent) return [];
+        if (Array.isArray(rawContent)) return rawContent;
+        let str = String(rawContent);
+
+        // Strip Markdown headers if present
+        str = str.replace(/^#\s+[^\n]*\n+/g, '');
+        str = str.replace(/^>\s*\*\*Domain\*\*:[^\n]*\n+/g, '');
+        str = str.replace(/^---\s*\n+/g, '');
+        str = str.trim();
+
+        if (str.includes('<p') || str.includes('<div') || str.includes('<h')) {
+            const matches = str.match(/<(p|div|h[1-6]|table|blockquote)[^>]*>[\s\S]*?<\/\1>/gi);
+            if (matches && matches.length > 0) {
+                return matches;
+            }
+        }
+
+        const lines = str.split(/\r?\n\r?\n|\r?\n/);
+        const result: string[] = [];
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed.length > 0 && !trimmed.startsWith('```')) {
+                if (trimmed.startsWith('<')) {
+                    result.push(trimmed);
+                } else if (trimmed.startsWith('#')) {
+                    result.push(`<h2>${trimmed.replace(/^#+\s*/, '')}</h2>`);
+                } else {
+                    result.push(`<p>${trimmed}</p>`);
+                }
+            }
+        });
+        return result.length > 0 ? result : [`<p>${str}</p>`];
+    }
 
     time: Date = new Date();
     version_value: Date = new Date();
@@ -3490,6 +3700,66 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         });
     }
 
+    confirmClear() {
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xác nhận xóa nội dung',
+            message: 'Bạn có chắc chắn muốn xóa toàn bộ các đoạn văn bản trong bài viết này không?',
+            icon: {
+                show: true,
+                name: 'heroicons_outline:exclamation',
+                color: 'warn'
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Xóa ngay',
+                    color: 'warn'
+                },
+                cancel: {
+                    show: true,
+                    label: 'Hủy'
+                }
+            }
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this.clear();
+            }
+        });
+    }
+
+    async saveToLocalDiskQuick(event?: MouseEvent, silent: boolean = false): Promise<void> {
+        if (event) event.preventDefault();
+        const title = this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || 'Bài viết chưa đặt tên';
+        const content = (this.done || []).join('\n\n');
+        const domainStr = this.domain?.domain || 'local.ai.type';
+
+        if ((window as any).electron && (window as any).electron.saveLocalArticle) {
+            const res = await (window as any).electron.saveLocalArticle({
+                title,
+                content,
+                domain: domainStr,
+                uuid: this.uuid || undefined,
+                password: this.articlePassword || undefined
+            });
+            if (res && res.success) {
+                if (!silent) this.toastr.success(`Đã lưu bài viết cục bộ (${res.is_encrypted ? 'Đã mã hóa AES-256' : '.md & .json'}) vào ổ đĩa!`, 'Lưu Cục Bộ');
+            } else if (!silent) {
+                this.toastr.error(`Lỗi khi lưu cục bộ: ${res?.error || 'Không rõ lỗi'}`);
+            }
+        } else if (!silent) {
+            const blob = new Blob([`# ${title}\n\n${content}`], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[/\\?%*:|"<>]/g, '_')}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.toastr.success(`Đã tải tệp Markdown cục bộ về máy!`, 'Lưu Cục Bộ');
+        }
+    }
+
     /**
      * Xoá một đoạn văn
      */
@@ -3667,18 +3937,32 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         if (this.detectForm.get('step1').get('title').value) {
             this.checkseo();
 
+            let sourceToSend = this.source;
+            let doneToSend = this.done;
+            let trashToSend = this.trash;
+            let isEncrypted = false;
+
+            if (this.articlePassword) {
+                isEncrypted = true;
+                const encryptedObj = this.encryptPayload(this.source, this.done, this.trash, this.articlePassword);
+                sourceToSend = encryptedObj.source;
+                doneToSend = encryptedObj.done;
+                trashToSend = encryptedObj.trash;
+            }
+
             this._crawlService
                 .storeArchive({
                     title: this.detectForm.get('step1').get('title').value,
                     url: this.detectForm.get('step2').get('url').value,
-                    source: this.source,
-                    done: this.done,
-                    trash: this.trash,
+                    source: sourceToSend,
+                    done: doneToSend,
+                    trash: trashToSend,
                     seo: this.seo,
                     arr_keyword: this.arr_keyword,
                     domain: this.domain,
                     username: this.user.name,
-                    thumbnail: this.detectForm.get('step1').get('thumbnail').value,
+                    thumbnail: isEncrypted ? '' : this.detectForm.get('step1').get('thumbnail').value,
+                    is_encrypted: isEncrypted
                 })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
@@ -3884,23 +4168,39 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             this.source.style = this.style;
         }
 
+        let sourceToSend = this.source;
+        let doneToSend = this.done;
+        let trashToSend = this.trash;
+        let isEncrypted = false;
+
+        if (this.articlePassword || (this.details && this.details.is_encrypted)) {
+            if (this.articlePassword) {
+                isEncrypted = true;
+                const encryptedObj = this.encryptPayload(this.source, this.done, this.trash, this.articlePassword);
+                sourceToSend = encryptedObj.source;
+                doneToSend = encryptedObj.done;
+                trashToSend = encryptedObj.trash;
+            }
+        }
+
         let data = {
             uuid: this.uuid,
             title: this.detectForm.get('step1').get('title').value,
             url: this.detectForm.get('step2').get('url').value,
-            source: this.source,
-            done: this.done,
-            trash: this.trash,
+            source: sourceToSend,
+            done: doneToSend,
+            trash: trashToSend,
             seo: this.seo,
             arr_keyword: this.arr_keyword,
             domain: this.domain,
             style: this.style,
             username: this.user.name,
-            thumbnail: this.detectForm.get('step1').get('thumbnail').value,
+            thumbnail: isEncrypted ? '' : this.detectForm.get('step1').get('thumbnail').value,
             confirm: confirm,
             new_version: this.new_version,
             createdAt: this.version_value,
             has_script: !!this.multiAccountService.getItem(`ai_type_script_data_${this.uuid}`),
+            is_encrypted: isEncrypted
         };
 
         this._crawlService
@@ -3909,7 +4209,9 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             .subscribe({
                 error: () => { },
                 complete: () => {
-                    // this.storelocal();
+                    if (this.autoSaveLocal) {
+                        this.saveToLocalDiskQuick(undefined, true);
+                    }
                     if (this.new_version === -2) {
                         if (this.details) {
                             if (!this.details['history']) this.details['history'] = [];
@@ -3984,6 +4286,75 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                     const details = response[1];
                     if (details && details.success && details.data) {
                         this.details = details.data;
+
+                        if (this.details.is_encrypted || (this.details.source && this.details.source.encrypted)) {
+                            const cipherText = this.details.source?.cipher;
+                            if (cipherText) {
+                                if (!this.articlePassword) {
+                                    const dialogRef = this.dialog.open(ArticlePasswordDialog, {
+                                        data: {
+                                            mode: 'unlock',
+                                            title: this.details.title || 'Bài viết'
+                                        },
+                                        width: '450px',
+                                        disableClose: true
+                                    });
+
+                                    dialogRef.afterClosed().subscribe((res: any) => {
+                                        if (res && res.password) {
+                                            const decrypted = this.decryptPayload(cipherText, res.password);
+                                            if (decrypted) {
+                                                this.articlePassword = res.password;
+                                                if (decrypted.source) this.source = decrypted.source;
+                                                if (decrypted.done) this.done = decrypted.done;
+                                                if (decrypted.trash) this.trash = decrypted.trash;
+                                                if (decrypted.seo) this.seo = decrypted.seo;
+                                                if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
+
+                                                if (decrypted.title) this.details.title = decrypted.title;
+                                                if (decrypted.url) this.details.url = decrypted.url;
+                                                if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
+                                                if (decrypted.description) this.details.description = decrypted.description;
+
+                                                this.details.source = this.source;
+                                                this.details.done = this.done;
+                                                this.details.trash = this.trash;
+                                                this.details.seo = this.seo;
+                                                this.details.arr_keyword = this.arr_keyword;
+
+                                                this.setdata(this.details);
+                                                this.toastr.success('Giải mã thành công nội dung bài viết!', 'Mật khẩu đúng');
+                                                this.cd.markForCheck();
+                                            } else {
+                                                this.toastr.error('Mật khẩu giải mã không chính xác!');
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    const decrypted = this.decryptPayload(cipherText, this.articlePassword);
+                                    if (decrypted) {
+                                        if (decrypted.source) this.source = decrypted.source;
+                                        if (decrypted.done) this.done = decrypted.done;
+                                        if (decrypted.trash) this.trash = decrypted.trash;
+                                        if (decrypted.seo) this.seo = decrypted.seo;
+                                        if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
+
+                                        if (decrypted.title) this.details.title = decrypted.title;
+                                        if (decrypted.url) this.details.url = decrypted.url;
+                                        if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
+                                        if (decrypted.description) this.details.description = decrypted.description;
+
+                                        this.details.source = this.source;
+                                        this.details.done = this.done;
+                                        this.details.trash = this.trash;
+                                        this.details.seo = this.seo;
+                                        this.details.arr_keyword = this.arr_keyword;
+
+                                        this.setdata(this.details);
+                                    }
+                                }
+                            }
+                        }
 
                         if (!this.details.source) {
                             this.details.source = { backup: this.source.backup };
@@ -4707,7 +5078,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 }).filter((item: string) => item.length > 0);
 
                 // Build source object for new article (bỏ dany trùng lặp, lưu style vào source.style)
-                const newSource: any = {
+                let newSource: any = {
                     description: newDescription,
                     pre: [],
                     prompt: promptList.map((item: string) => `<p id="source-prompt-${uuid.v4()}">${item}</p>`),
@@ -4722,12 +5093,27 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 const newUuid = uuid.v4();
                 const newSlug = this.slugifyPipe.transform(newTitle);
 
+                let isEncryptedChapter = false;
+                if (this.articlePassword || (this.details && this.details.is_encrypted)) {
+                    if (this.articlePassword) {
+                        isEncryptedChapter = true;
+                        const encryptedObj = this.encryptPayload(newSource, [], [], this.articlePassword, {
+                            title: newTitle,
+                            url: newSlug,
+                            description: newDescription,
+                            seo: newSeo,
+                            arr_keyword: []
+                        });
+                        newSource = encryptedObj.source;
+                    }
+                }
+
                 const newArchiveData: any = {
                     uuid: newUuid,
                     title: newTitle,
                     url: newSlug,
                     source: newSource,
-                    done: [],
+                    done: isEncryptedChapter ? ['<p>[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU CÁ NHÂN]</p>'] : [],
                     trash: [],
                     seo: newSeo,
                     arr_keyword: [],
@@ -4735,7 +5121,8 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                     style: this.style || this.source?.style || '',
                     username: this.user?.name || this.name,
                     thumbnail: '',
-                    confirm: false
+                    confirm: false,
+                    is_encrypted: isEncryptedChapter
                 };
 
                 const saveRes: any = await firstValueFrom(this._crawlService.storeArchive(newArchiveData));
@@ -5059,23 +5446,60 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
             }
         }
 
-        this.done = editor.done ? editor.done : this.done;
+        const isLocked = (editor.is_encrypted || (editor.source && editor.source.encrypted)) && !this.articlePassword;
+        if (isLocked) {
+            this.source.img = [];
+            this.source.prompt = [];
+            this.source.backup = ['[NỘI DUNG MÃ HÓA AES-256]'];
+            this.done = ['<p>[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU CÁ NHÂN]</p>'];
+            this.detectForm.get('step1').get('thumbnail').setValue('');
+            this.detectForm.get('step1').get('description').setValue('');
+            return;
+        }
+
+        let rawDone = (editor.done && editor.done.length > 0)
+            ? editor.done
+            : ((editor.source && editor.source.backup && editor.source.backup.length > 0)
+                ? editor.source.backup
+                : this.done);
+
+        if (this.source && this.source.backup) {
+            this.source.backup = this.splitIntoParagraphs(this.source.backup);
+        }
+
+        this.done = this.formatDoneParagraphs(rawDone);
         this.trash = editor.trash ? editor.trash : this.trash;
         this.seo = editor.seo && editor.seo.title ? editor.seo : this.seo;
         this.arr_keyword = editor.arr_keyword
             ? editor.arr_keyword
             : this.arr_keyword;
 
-        this.detectForm.get('step1').get('title').setValue(editor.title);
-        this.detectForm.get('step2').get('url').setValue(editor.url);
+        const titleVal = editor.title || editor.source?.title || '';
+        if (titleVal) {
+            this.detectForm.get('step1').get('title').setValue(titleVal);
+        }
 
-        if (editor.thumbnail) {
-            this.detectForm.get('step1').get('thumbnail').setValue(editor.thumbnail);
+        const urlVal = editor.url || editor.source?.url || '';
+        if (urlVal) {
+            this.detectForm.get('step2').get('url').setValue(urlVal);
+        }
+
+        let thumbVal = editor.thumbnail || editor.source?.thumbnail || '';
+        if (!thumbVal && editor.source?.img && Array.isArray(editor.source.img) && editor.source.img.length > 0) {
+            const firstImg = editor.source.img[0];
+            if (typeof firstImg === 'string') {
+                const match = firstImg.match(/src=["']([^"']+)["']/);
+                thumbVal = match && match[1] ? match[1] : firstImg;
+            }
+        }
+
+        if (thumbVal) {
+            this.detectForm.get('step1').get('thumbnail').setValue(thumbVal);
 
             if (!this.source.img) {
                 this.source.img = [];
             }
-            const thumbnails = editor.thumbnail.split('\n').filter((p: string) => p.trim() !== '');
+            const thumbnails = thumbVal.split('\n').filter((p: string) => p.trim() !== '');
             thumbnails.forEach((thumb: string) => {
                 if (this.isImage(thumb)) {
                     let cleanB64 = thumb;
@@ -5096,11 +5520,18 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
             });
         }
 
-        if (this.seo.description && this.seo.description.text) {
-            this.detectForm
-                .get('step1')
-                .get('description')
-                .setValue(this.seo.description.text);
+        let descVal = editor.description || editor.source?.description || '';
+        if (!descVal && this.seo?.description?.text) {
+            descVal = this.seo.description.text;
+        }
+        if (!descVal && editor.source?.prompt && Array.isArray(editor.source.prompt) && editor.source.prompt.length > 0) {
+            descVal = editor.source.prompt.map((p: any) => typeof p === 'string' ? p.replace(/<[^>]*>/g, '') : p).join('\n');
+        }
+        if (descVal) {
+            this.detectForm.get('step1').get('description').setValue(descVal);
+            if (!this.source.prompt || this.source.prompt.length === 0) {
+                this.source.prompt = [`<p id="source-prompt-${uuid.v4()}">${descVal}</p>`];
+            }
         }
 
         if (this.seo.mainkey) {

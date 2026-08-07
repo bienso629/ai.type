@@ -124,6 +124,86 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     return match?.group(1) ?? '';
   }
 
+  Future<void> _analyzeKeywordsForContent(String content) async {
+    final clean = _cleanHtmlText(content).trim();
+    if (clean.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nội dung rỗng, không thể phân tích từ khóa.')),
+      );
+      return;
+    }
+
+    try {
+      AppLoading.show(context, message: 'Đang phân tích từ khoá...');
+      final List<String> keywords = await ApiService.extractKeywords(clean);
+      if (mounted) AppLoading.dismiss(context);
+
+      if (keywords.isNotEmpty) {
+        setState(() {
+          if (_source['arr_keyword'] == null || _source['arr_keyword'] is! List) {
+            _source['arr_keyword'] = [];
+          }
+          final list = _source['arr_keyword'] as List;
+          for (var kw in keywords) {
+            if (!list.contains(kw)) {
+              list.add(kw);
+            }
+          }
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Phân tích thành công! Tìm thấy ${keywords.length} từ khóa.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Máy chủ không xử lý được hoặc không tìm thấy từ khóa.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) AppLoading.dismiss(context);
+      debugPrint('Error analyzing keywords: $e');
+    }
+  }
+
+  Future<void> _generateScriptForOutlineItem(String plainText) async {
+    final clean = _cleanHtmlText(plainText).trim();
+    if (clean.isEmpty) return;
+    try {
+      AppLoading.show(context, message: 'Đang chuyển thể kịch bản...');
+      final prompt = 'Chuyển thể đoạn dàn ý sau thành kịch bản phân cảnh chi tiết (gồm nhân vật, bối cảnh, lời thoại và hành động):\n$clean';
+      final aiRes = await ApiService.askSonTinhAgent(prompt, '[]');
+      if (mounted) AppLoading.dismiss(context);
+      if (aiRes != null && aiRes.isNotEmpty) {
+        setState(() {
+          if (_source['script'] == null || _source['script'] is! List) {
+            _source['script'] = [];
+          }
+          (_source['script'] as List).add(
+            '<p id="source-script-${DateTime.now().millisecondsSinceEpoch}">$aiRes</p>',
+          );
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã tạo kịch bản thành công!'), backgroundColor: Colors.green),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) AppLoading.dismiss(context);
+      debugPrint('Error generating script: $e');
+    }
+  }
+
   Future<void> _splitWithAi(List list, int index) async {
     if (index < 0 || index >= list.length) return;
     final text = _cleanHtmlText(list[index].toString());
@@ -177,14 +257,15 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
   }
 
   Future<void> _loadArchiveComments() async {
-    if (widget.uuid == null || widget.uuid!.isEmpty) return;
+    final targetUuid = widget.uuid ?? _taskData?['uuid'] ?? _taskData?['_id'] ?? '';
+    if (targetUuid.isEmpty) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final activeInfoStr = prefs.getString('active_info');
       if (activeInfoStr == null) return;
       final activeInfo = jsonDecode(activeInfoStr);
       final username = activeInfo['user']['name'];
-      final res = await ApiService.getArchiveComments(username, widget.uuid!);
+      final res = await ApiService.getArchiveComments(username, targetUuid);
       if (res != null && res['success'] == true && res['data'] is List) {
         final list = res['data'] as List;
         setState(() {
@@ -200,6 +281,51 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
       }
     } catch (e) {
       print('Error loading archive comments: $e');
+    }
+  }
+
+  Future<void> _submitBlockComment(String blockId, String commentText) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    String username = 'User';
+    if (activeInfoStr != null) {
+      final activeInfo = jsonDecode(activeInfoStr);
+      username = activeInfo['user']['name'] ?? 'User';
+    }
+
+    final newComment = {
+      'blockid': blockId,
+      'author': username,
+      'username': username,
+      'comment': {'content': commentText, 'username': username},
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+
+    setState(() {
+      _blockComments[blockId] ??= [];
+      _blockComments[blockId]!.add(newComment);
+    });
+
+    String targetUuid = widget.uuid ?? _taskData?['uuid'] ?? _taskData?['_id'] ?? '';
+
+    if (targetUuid.isEmpty) {
+      await _saveTaskData();
+      targetUuid = widget.uuid ?? _taskData?['uuid'] ?? _taskData?['_id'] ?? '';
+    }
+
+    if (targetUuid.isNotEmpty) {
+      ApiService.archiveBlockComment(
+        uuid: targetUuid,
+        blockid: blockId,
+        username: username,
+        content: commentText,
+      ).then((res) {
+        print('archiveBlockComment DB success: $res');
+      }).catchError((e) {
+        print('archiveBlockComment DB error: $e');
+      });
+
+      _saveTaskData();
     }
   }
 
@@ -387,35 +513,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                             if (text.isEmpty) return;
                             tc.clear();
 
-                            final prefs = await SharedPreferences.getInstance();
-                            final activeInfoStr = prefs.getString('active_info');
-                            String username = 'User';
-                            if (activeInfoStr != null) {
-                              final activeInfo = jsonDecode(activeInfoStr);
-                              username = activeInfo['user']['name'] ?? 'User';
-                            }
-
-                            if (widget.uuid != null && widget.uuid!.isNotEmpty) {
-                              await ApiService.archiveBlockComment(
-                                uuid: widget.uuid!,
-                                blockid: blockId,
-                                username: username,
-                                content: text,
-                              );
-                            }
-
-                            final newComment = {
-                              'blockid': blockId,
-                              'author': username,
-                              'username': username,
-                              'comment': {'content': text, 'username': username},
-                              'createdAt': DateTime.now().toIso8601String(),
-                            };
-
-                            setState(() {
-                              _blockComments[blockId] ??= [];
-                              _blockComments[blockId]!.add(newComment);
-                            });
+                            await _submitBlockComment(blockId, text);
                             setSheetState(() {});
                           },
                         ),
@@ -1662,7 +1760,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                 highlightColor: Colors.transparent,
                 hoverColor: Colors.transparent,
                 focusColor: Colors.transparent,
-                onDoubleTap: () => _editPrompt(index, htmlStr, targetKey: 'done', customTitle: 'Chỉnh sửa Dàn ý #${index + 1}'),
+                onTap: () => _editPrompt(index, htmlStr, targetKey: 'done', customTitle: 'Chỉnh sửa Dàn ý #${index + 1}'),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
                   child: Row(
@@ -1780,44 +1878,12 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                                                         final targetBlockId = _ensureBlockId(_source['done'] as List, index);
                                                         Navigator.pop(context);
 
-                                                        final prefs = await SharedPreferences.getInstance();
-                                                        final activeInfoStr = prefs.getString('active_info');
-                                                        String username = 'User';
-                                                        if (activeInfoStr != null) {
-                                                          final activeInfo = jsonDecode(activeInfoStr);
-                                                          username = activeInfo['user']['name'] ?? 'User';
-                                                        }
-
-                                                        final newComment = {
-                                                          'blockid': targetBlockId,
-                                                          'author': username,
-                                                          'username': username,
-                                                          'comment': {'content': commentText, 'username': username},
-                                                          'createdAt': DateTime.now().toIso8601String(),
-                                                        };
-
-                                                        setState(() {
-                                                          _blockComments[targetBlockId] ??= [];
-                                                          _blockComments[targetBlockId]!.add(newComment);
-                                                        });
+                                                        await _submitBlockComment(targetBlockId, commentText);
 
                                                         if (mounted) {
                                                           ScaffoldMessenger.of(context).showSnackBar(
                                                             const SnackBar(content: Text('Đã thêm ghi chú!'), backgroundColor: Colors.green, duration: Duration(seconds: 2)),
                                                           );
-                                                        }
-
-                                                        if (widget.uuid != null && widget.uuid!.isNotEmpty) {
-                                                          ApiService.archiveBlockComment(
-                                                            uuid: widget.uuid!,
-                                                            blockid: targetBlockId,
-                                                            username: username,
-                                                            content: commentText,
-                                                          ).then((res) {
-                                                            print('archiveBlockComment result: $res');
-                                                          }).catchError((e) {
-                                                            print('archiveBlockComment error: $e');
-                                                          });
                                                         }
                                                       } else {
                                                         Navigator.pop(context);
@@ -1838,24 +1904,9 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                               } else if (value == 'generate_image') {
                                 _showGenerateAiThumbnailDialog();
                               } else if (value == 'keyword') {
-                                final words = plainText.split(RegExp(r'\s+')).where((w) => w.length > 3).toList();
-                                final extracted = words.take(5).join(', ');
-                                setState(() {
-                                  if (_source['arr_keyword'] == null || _source['arr_keyword'] is! List) {
-                                    _source['arr_keyword'] = [];
-                                  }
-                                  for (var w in words.take(3)) {
-                                    final cleanW = w.replaceAll(RegExp(r'[^\w\sàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false), '').trim();
-                                    if (cleanW.isNotEmpty && !(_source['arr_keyword'] as List).contains(cleanW)) {
-                                      (_source['arr_keyword'] as List).add(cleanW);
-                                    }
-                                  }
-                                });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Phân tích từ khoá xong: $extracted'), backgroundColor: Colors.green),
-                                );
-                              } else if (value == 'edit') {
-                                _editPrompt(index, htmlStr, targetKey: 'done', customTitle: 'Chỉnh sửa Dàn ý #${index + 1}');
+                                _analyzeKeywordsForContent(plainText);
+                              } else if (value == 'script') {
+                                _generateScriptForOutlineItem(plainText);
                               } else if (value == 'split') {
                                 if (_source['done'] is List) {
                                   _splitWithAi(_source['done'] as List, index);
@@ -1877,7 +1928,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                               PopupMenuItem(value: 'comment', child: Row(children: [Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Ghi chú')])),
                               PopupMenuItem(value: 'generate_image', child: Row(children: [Icon(Icons.auto_awesome_outlined, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Tạo hình ảnh')])),
                               PopupMenuItem(value: 'keyword', child: Row(children: [Icon(Icons.label_outlined, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Từ khoá')])),
-                              PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Sửa dàn ý')])),
+                              PopupMenuItem(value: 'script', child: Row(children: [Icon(Icons.movie_creation_outlined, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Kịch bản')])),
                               PopupMenuItem(value: 'split', child: Row(children: [Icon(Icons.call_split_rounded, size: 18, color: Colors.grey.shade700), const SizedBox(width: 10), const Text('Tách đoạn')])),
                               PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red), const SizedBox(width: 10), const Text('Xoá', style: TextStyle(color: Colors.red))])),
                             ],
@@ -2552,11 +2603,10 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
       ];
     }
     return [
-      ListView.separated(
+      ListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: kwList.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final kw = kwList[index].toString();
           return Padding(
@@ -2578,22 +2628,74 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                       _addPrompt('Hỏi về từ khóa: $kw');
                       _sendPromptToAi();
                     } else if (value == 'explain') {
-                      _addPrompt('Giải nghĩa và tìm từ đồng nghĩa cho từ khóa: $kw');
-                      _sendPromptToAi();
+                      try {
+                        AppLoading.show(context, message: 'Đang giải nghĩa từ khóa...');
+                        final prompt = 'Giải nghĩa chi tiết và tìm các từ đồng nghĩa cho từ khóa: "$kw".';
+                        final aiRes = await ApiService.askSonTinhAgent(prompt, '[]');
+                        if (mounted) AppLoading.dismiss(context);
+                        if (aiRes != null && aiRes.isNotEmpty) {
+                          setState(() {
+                            if (_source['word'] == null || _source['word'] is! List) {
+                              _source['word'] = [];
+                            }
+                            (_source['word'] as List).add(
+                              '<p id="source-word-${DateTime.now().millisecondsSinceEpoch}">$aiRes</p>',
+                            );
+                          });
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Đã giải nghĩa "$kw" và thêm vào Từ điển tri thức!'), backgroundColor: Colors.green),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) AppLoading.dismiss(context);
+                      }
                     } else if (value == 'develop') {
-                      _addPrompt('Tự động phát triển nội dung từ từ khóa: $kw');
-                      _sendPromptToAi();
+                      try {
+                        AppLoading.show(context, message: 'Đang phát triển nội dung...');
+                        final prompt = 'Tạo 2-3 đoạn văn chi tiết chuẩn SEO phát triển cho từ khóa: "$kw".';
+                        final aiRes = await ApiService.askSonTinhAgent(prompt, '[]');
+                        if (mounted) AppLoading.dismiss(context);
+                        if (aiRes != null && aiRes.isNotEmpty) {
+                          setState(() {
+                            if (_source['word'] == null || _source['word'] is! List) {
+                              _source['word'] = [];
+                            }
+                            (_source['word'] as List).add(
+                              '<p id="source-word-${DateTime.now().millisecondsSinceEpoch}">$aiRes</p>',
+                            );
+                          });
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Đã phát triển nội dung từ từ khóa "$kw"!'), backgroundColor: Colors.green),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) AppLoading.dismiss(context);
+                      }
                     } else if (value == 'backlink') {
                       setState(() {
                         if (_source['a'] == null || _source['a'] is! List) {
                           _source['a'] = [];
                         }
+                        final domainStr = _selectedDomain ?? 'ai.type.vn';
                         (_source['a'] as List).add(
-                          '<p id="source-a-${DateTime.now().millisecondsSinceEpoch}">Xem thêm: <a href="https://${_selectedDomain ?? 'ai.type.vn'}/?s=${Uri.encodeComponent(kw)}" title="$kw" target="_blank">$kw</a></p>',
+                          '<p id="source-a-${DateTime.now().millisecondsSinceEpoch}">Xem thêm: <a href="https://$domainStr/?s=${Uri.encodeComponent(kw)}" title="$kw" target="_blank">$kw</a></p>',
                         );
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Đã thêm Backlink cho từ khóa "$kw"!')),
+                        SnackBar(content: Text('Đã thêm Backlink cho từ khóa "$kw"!'), backgroundColor: Colors.green),
+                      );
+                    } else if (value == 'delete') {
+                      setState(() {
+                        if (_source['arr_keyword'] is List) {
+                          (_source['arr_keyword'] as List).removeWhere((item) => item.toString() == kw);
+                        }
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Đã xóa từ khóa "$kw"!')),
                       );
                     }
                   },
@@ -2635,6 +2737,16 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                           const Icon(Icons.link, size: 16, color: Colors.blue),
                           const SizedBox(width: 8),
                           const Text('Thêm backlink'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red),
+                          const SizedBox(width: 8),
+                          const Text('Xóa từ khóa', style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -3270,171 +3382,180 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                         ),
                       );
                     })(),
-                    const SizedBox(height: 8),
-
                     // 4. Fixed Footer Buttons (Hold-to-speak Voice logic like AI Agent Chat)
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Listener(
-                          onPointerDown: (_) {
-                            if (isAiProcessing) return;
-                            recordedVoicePrompt = '';
-                            voiceTimer = Timer(const Duration(milliseconds: 200), () async {
-                              bool available = await voiceSpeech.initialize(
-                                onStatus: (status) {
-                                  if (status == 'done' || status == 'notListening') {
-                                    setModalState(() => isVoiceRecording = false);
-                                  }
-                                },
-                                onError: (err) {
-                                  debugPrint('Speech STT Error: $err');
-                                  setModalState(() => isVoiceRecording = false);
-                                },
-                              );
-                              if (available) {
-                                setModalState(() => isVoiceRecording = true);
-                                voiceSpeech.listen(
-                                  onResult: (result) {
-                                    recordedVoicePrompt = result.recognizedWords;
-                                    debugPrint('Speech STT Result: ${result.recognizedWords}');
+                        Expanded(
+                          child: Listener(
+                            onPointerDown: (_) {
+                              if (isAiProcessing) return;
+                              recordedVoicePrompt = '';
+                              voiceTimer = Timer(const Duration(milliseconds: 200), () async {
+                                bool available = await voiceSpeech.initialize(
+                                  onStatus: (status) {
+                                    if (status == 'done' || status == 'notListening') {
+                                      setModalState(() => isVoiceRecording = false);
+                                    }
                                   },
-                                  listenOptions: stt.SpeechListenOptions(
-                                    localeId: 'vi_VN',
-                                  ),
+                                  onError: (_) {
+                                    setModalState(() => isVoiceRecording = false);
+                                  },
                                 );
-                              }
-                            });
-                          },
-                          onPointerUp: (_) async {
-                            voiceTimer?.cancel();
-                            bool wasRecording = isVoiceRecording;
-                            setModalState(() {
-                              isVoiceRecording = false;
-                              isAiProcessing = true;
-                            });
 
-                            try {
-                              if (wasRecording) {
-                                await voiceSpeech.stop();
-                                await Future.delayed(const Duration(milliseconds: 200));
-                              }
-
-                              final voicePrompt = recordedVoicePrompt.trim();
-                              final currentEditorText = quillController.document.toPlainText().trim();
-
-                              debugPrint('PointerUp - voicePrompt: "$voicePrompt", editorText: "$currentEditorText"');
-
-                              if (voicePrompt.isNotEmpty || currentEditorText.isNotEmpty) {
-                                String aiPrompt;
-                                if (voicePrompt.isNotEmpty && currentEditorText.isNotEmpty) {
-                                  aiPrompt = 'Nội dung hiện tại:\n$currentEditorText\n\nYêu cầu chỉnh sửa: $voicePrompt\n\nHãy chỉnh sửa hoặc viết lại nội dung trên theo đúng yêu cầu. Chỉ trả về văn bản kết quả đã hoàn thiện, không kèm thêm lời giải thích hay ký tự markdown/JSON.';
-                                } else if (voicePrompt.isNotEmpty) {
-                                  aiPrompt = 'Yêu cầu: $voicePrompt\n\nHãy viết nội dung theo yêu cầu trên. Chỉ trả về văn bản kết quả, không kèm lời giải thích hay ký tự markdown/JSON.';
+                                if (available) {
+                                  setModalState(() => isVoiceRecording = true);
+                                  voiceSpeech.listen(
+                                    localeId: 'vi_VN',
+                                    onResult: (result) {
+                                      setModalState(() {
+                                        recordedVoicePrompt = result.recognizedWords;
+                                      });
+                                    },
+                                  );
                                 } else {
-                                  aiPrompt = 'Nội dung hiện tại:\n$currentEditorText\n\nHãy chỉnh sửa, tối ưu và viết lại nội dung trên cho mượt mà, chuyên nghiệp hơn. Chỉ trả về văn bản kết quả, không kèm lời giải thích hay ký tự markdown/JSON.';
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Thiết bị không hỗ trợ nhận diện giọng nói')),
+                                    );
+                                  }
+                                }
+                              });
+                            },
+                            onPointerUp: (_) async {
+                              final wasRecording = isVoiceRecording;
+                              voiceTimer?.cancel();
+
+                              setModalState(() {
+                                isVoiceRecording = false;
+                                isAiProcessing = true;
+                              });
+
+                              try {
+                                if (wasRecording) {
+                                  await voiceSpeech.stop();
+                                  await Future.delayed(const Duration(milliseconds: 200));
                                 }
 
-                                debugPrint('--- SENDING AI PROMPT: $aiPrompt ---');
-                                String aiResult = '';
-                                final res = await ApiService.askChatGpt(aiPrompt);
-                                debugPrint('--- askChatGpt RESPONSE: $res ---');
+                                final voicePrompt = recordedVoicePrompt.trim();
+                                final currentEditorText = quillController.document.toPlainText().trim();
 
-                                if (res != null) {
-                                  if (res['data'] != null && res['data']['answer'] != null) {
-                                    aiResult = res['data']['answer'].toString();
-                                  } else if (res['answer'] != null) {
-                                    aiResult = res['answer'].toString();
-                                  } else if (res['message'] != null) {
-                                    aiResult = res['message'].toString();
-                                  } else if (res['text'] != null) {
-                                    aiResult = res['text'].toString();
+                                debugPrint('PointerUp - voicePrompt: "$voicePrompt", editorText: "$currentEditorText"');
+
+                                if (voicePrompt.isNotEmpty || currentEditorText.isNotEmpty) {
+                                  String aiPrompt;
+                                  if (voicePrompt.isNotEmpty && currentEditorText.isNotEmpty) {
+                                    aiPrompt = 'Nội dung hiện tại:\n$currentEditorText\n\nYêu cầu chỉnh sửa: $voicePrompt\n\nHãy chỉnh sửa hoặc viết lại nội dung trên theo đúng yêu cầu. Chỉ trả về văn bản kết quả đã hoàn thiện, không kèm thêm lời giải thích hay ký tự markdown/JSON.';
+                                  } else if (voicePrompt.isNotEmpty) {
+                                    aiPrompt = 'Yêu cầu: $voicePrompt\n\nHãy viết nội dung theo yêu cầu trên. Chỉ trả về văn bản kết quả, không kèm lời giải thích hay ký tự markdown/JSON.';
                                   } else {
-                                    aiResult = res.toString();
+                                    aiPrompt = 'Nội dung hiện tại:\n$currentEditorText\n\nHãy chỉnh sửa, tối ưu và viết lại nội dung trên cho mượt mà, chuyên nghiệp hơn. Chỉ trả về văn bản kết quả, không kèm lời giải thích hay ký tự markdown/JSON.';
+                                  }
+
+                                  debugPrint('--- SENDING AI PROMPT: $aiPrompt ---');
+                                  String aiResult = '';
+                                  final res = await ApiService.askChatGpt(aiPrompt);
+                                  debugPrint('--- askChatGpt RESPONSE: $res ---');
+
+                                  if (res != null) {
+                                    if (res['data'] != null && res['data']['answer'] != null) {
+                                      aiResult = res['data']['answer'].toString();
+                                    } else if (res['answer'] != null) {
+                                      aiResult = res['answer'].toString();
+                                    } else if (res['message'] != null) {
+                                      aiResult = res['message'].toString();
+                                    } else if (res['text'] != null) {
+                                      aiResult = res['text'].toString();
+                                    } else {
+                                      aiResult = res.toString();
+                                    }
+                                  }
+
+                                  if (aiResult.trim().isEmpty) {
+                                    debugPrint('--- FALLING BACK TO askSonTinhAgent ---');
+                                    final agentRes = await ApiService.askSonTinhAgent(aiPrompt, '[]');
+                                    debugPrint('--- askSonTinhAgent RESPONSE: $agentRes ---');
+                                    if (agentRes != null && agentRes.trim().isNotEmpty) {
+                                      aiResult = agentRes;
+                                    }
+                                  }
+
+                                  aiResult = aiResult.replaceAll('```markdown', '').replaceAll('```json', '').replaceAll('```', '').trim();
+                                  aiResult = _cleanHtmlText(aiResult);
+                                  if (aiResult.isNotEmpty) {
+                                    quillController.document = quill.Document()..insert(0, '$aiResult\n');
                                   }
                                 }
-
-                                if (aiResult.trim().isEmpty) {
-                                  debugPrint('--- FALLING BACK TO askSonTinhAgent ---');
-                                  final agentRes = await ApiService.askSonTinhAgent(aiPrompt, '[]');
-                                  debugPrint('--- askSonTinhAgent RESPONSE: $agentRes ---');
-                                  if (agentRes != null && agentRes.trim().isNotEmpty) {
-                                    aiResult = agentRes;
-                                  }
-                                }
-
-                                aiResult = aiResult.replaceAll('```markdown', '').replaceAll('```json', '').replaceAll('```', '').trim();
-                                aiResult = _cleanHtmlText(aiResult);
-                                if (aiResult.isNotEmpty) {
-                                  quillController.document = quill.Document()..insert(0, '$aiResult\n');
-                                }
+                              } catch (e, stack) {
+                                debugPrint('AI process voice prompt error: $e\n$stack');
+                              } finally {
+                                setModalState(() => isAiProcessing = false);
                               }
-                            } catch (e, stack) {
-                              debugPrint('AI process voice prompt error: $e\n$stack');
-                            } finally {
-                              setModalState(() => isAiProcessing = false);
-                            }
-                          },
-                          onPointerCancel: (_) async {
-                            voiceTimer?.cancel();
-                            if (isVoiceRecording) {
-                              setModalState(() => isVoiceRecording = false);
-                              await voiceSpeech.stop();
-                            }
-                          },
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isVoiceRecording
-                                  ? Colors.red
-                                  : (isAiProcessing ? const Color(0xFF5B21B6) : const Color(0xFF7C3AED)),
-                              foregroundColor: Colors.white,
-                              disabledForegroundColor: Colors.white,
-                              disabledBackgroundColor: const Color(0xFF5B21B6),
-                            ),
-                            onPressed: isAiProcessing ? null : () {},
-                            icon: isAiProcessing
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                  )
-                                : Icon(isVoiceRecording ? Icons.mic : Icons.mic_rounded, size: 18, color: Colors.white),
-                            label: Text(
-                              isVoiceRecording
-                                  ? 'Đang thu...'
-                                  : (isAiProcessing ? 'AI đang sửa...' : 'AI sửa'),
+                            },
+                            onPointerCancel: (_) async {
+                              voiceTimer?.cancel();
+                              if (isVoiceRecording) {
+                                setModalState(() => isVoiceRecording = false);
+                                await voiceSpeech.stop();
+                              }
+                            },
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isVoiceRecording
+                                    ? Colors.red
+                                    : (isAiProcessing ? const Color(0xFF5B21B6) : const Color(0xFF7C3AED)),
+                                foregroundColor: Colors.white,
+                                disabledForegroundColor: Colors.white,
+                                disabledBackgroundColor: const Color(0xFF5B21B6),
+                              ),
+                              onPressed: isAiProcessing ? null : () {},
+                              icon: isAiProcessing
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : Icon(isVoiceRecording ? Icons.mic : Icons.mic_rounded, size: 18, color: Colors.white),
+                              label: Text(
+                                isVoiceRecording
+                                    ? 'Đang thu...'
+                                    : (isAiProcessing ? 'AI đang sửa...' : 'AI sửa'),
+                              ),
                             ),
                           ),
                         ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      style: AppStyles.primaryButton,
-                      onPressed: () {
-                        final rawText = quillController.document.toPlainText();
-                        final newText = _cleanHtmlText(rawText);
-                        if (newText.isNotEmpty) {
-                          setState(() {
-                            if (_source[targetKey] == null || _source[targetKey] is! List) {
-                              _source[targetKey] = [];
-                            }
-                            final list = _source[targetKey] as List;
-                            final valToInsert = targetKey == 'prompt'
-                                ? newText
-                                : (newText.startsWith('<p') ? newText : '<p id="source-p-${DateTime.now().millisecondsSinceEpoch}">$newText</p>');
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: AppStyles.primaryButton,
+                            onPressed: () {
+                              final rawText = quillController.document.toPlainText();
+                              final newText = _cleanHtmlText(rawText);
+                              if (newText.isNotEmpty) {
+                                setState(() {
+                                  if (_source[targetKey] == null || _source[targetKey] is! List) {
+                                    _source[targetKey] = [];
+                                  }
+                                  final list = _source[targetKey] as List;
+                                  final valToInsert = targetKey == 'prompt'
+                                      ? newText
+                                      : (newText.startsWith('<p') ? newText : '<p id="source-p-${DateTime.now().millisecondsSinceEpoch}">$newText</p>');
 
-                            if (index != null && index >= 0 && index < list.length) {
-                              list[index] = valToInsert;
-                            } else {
-                              list.add(valToInsert);
-                            }
-                          });
-                        }
-                        Navigator.pop(ctx);
-                      },
-                      icon: const Icon(Icons.save_rounded, size: 18),
-                      label: const Text('Lưu'),
-                    ),
+                                  if (index != null && index >= 0 && index < list.length) {
+                                    list[index] = valToInsert;
+                                  } else {
+                                    list.add(valToInsert);
+                                  }
+                                });
+                              }
+                              Navigator.pop(ctx);
+                            },
+                            icon: const Icon(Icons.save_rounded, size: 18),
+                            label: const Text('Lưu'),
+                          ),
+                        ),
                   ],
                 ),
               ],

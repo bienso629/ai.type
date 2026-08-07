@@ -83,7 +83,12 @@ contextBridge.exposeInMainWorld('electron', {
         return () => ipcRenderer.removeListener('pdf-analysis-progress', listener);
     },
     exportProject: (payload) => ipcRenderer.invoke('export-project', payload),
-    importProject: (uuid) => ipcRenderer.invoke('import-project', uuid)
+    importProject: (uuid) => ipcRenderer.invoke('import-project', uuid),
+    saveLocalArticle: (payload) => ipcRenderer.invoke('save-local-article', payload),
+    exportLocalArticleDialog: (payload) => ipcRenderer.invoke('export-local-article-dialog', payload),
+    listLocalArticles: (payload) => ipcRenderer.invoke('list-local-articles', payload),
+    readLocalArticle: (payload) => ipcRenderer.invoke('read-local-article', payload),
+    deleteLocalArticle: (payload) => ipcRenderer.invoke('delete-local-article', payload)
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...

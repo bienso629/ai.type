@@ -9,21 +9,44 @@
             <!-- Panel links -->
             <div class="flex flex-col divide-y border-t">
                 <ng-container *ngFor="let panel of collections; trackBy: trackByFn">
-                    <div class="flex px-6 py-5 cursor-pointer transition-colors duration-200"
+                    <div class="flex px-6 py-5 cursor-pointer transition-colors duration-200 items-center justify-between"
                         [ngClass]="{'hover:bg-gray-100 dark:hover:bg-hover': !selectedCollection || selectedCollection._id !== panel._id,
                                     'bg-primary-50 dark:bg-hover': selectedCollection && selectedCollection._id === panel._id}" (click)="goToCollection(panel)">
-                        <mat-icon class="mt-1"
-                            [ngClass]="{'text-hint': !selectedCollection || selectedCollection._id !== panel._id,
-                                        'text-primary dark:text-primary-500': selectedCollection && selectedCollection._id === panel._id}"
-                            [svgIcon]="'heroicons_outline:collection'"></mat-icon>
-                        <div class="ml-3 flex-auto">
-                            <div class="font-medium leading-6 truncate w-full"
-                                [ngClass]="{'text-primary dark:text-primary-500': selectedCollection && selectedCollection._id === panel._id}">
-                                {{panel.title}}
+                        <div class="flex items-center min-w-0 flex-auto">
+                            <mat-icon class="mt-0.5 shrink-0"
+                                [ngClass]="{'text-hint': !selectedCollection || selectedCollection._id !== panel._id,
+                                            'text-primary dark:text-primary-500': selectedCollection && selectedCollection._id === panel._id}"
+                                [svgIcon]="'heroicons_outline:collection'"></mat-icon>
+                            <div class="ml-3 flex-auto min-w-0" *ngIf="editingCollectionId !== (panel._id || panel.id)">
+                                <div class="font-medium leading-6 truncate w-full"
+                                    [ngClass]="{'text-primary dark:text-primary-500': selectedCollection && selectedCollection._id === panel._id}">
+                                    {{panel.title}}
+                                </div>
+                                <div class="mt-0.5 text-secondary text-sm">
+                                    {{panel.count || 0}} công việc
+                                </div>
                             </div>
-                            <div class="mt-0.5 text-secondary text-sm">
-                                {{panel.count || 0}} công việc
+                            <div class="ml-3 flex-auto min-w-0 flex items-center gap-1" *ngIf="editingCollectionId === (panel._id || panel.id)" (click)="$event.stopPropagation()">
+                                <input type="text" class="px-2 py-1 border border-blue-500 rounded text-sm w-full font-medium bg-white text-gray-800"
+                                    [(ngModel)]="editingCollectionTitle" (keyup.enter)="saveTitle(panel, $event)" (keyup.escape)="cancelEditTitle($event)" autofocus>
+                                <button mat-icon-button type="button" class="w-6 h-6 min-h-6 p-0 text-green-600 hover:text-green-700" (click)="saveTitle(panel, $event)" [matTooltip]="'Lưu tên'">
+                                    <mat-icon class="icon-size-3.5" [svgIcon]="'feather:check'"></mat-icon>
+                                </button>
+                                <button mat-icon-button type="button" class="w-6 h-6 min-h-6 p-0 text-red-500 hover:text-red-600" (click)="cancelEditTitle($event)" [matTooltip]="'Hủy'">
+                                    <mat-icon class="icon-size-3.5" [svgIcon]="'feather:x'"></mat-icon>
+                                </button>
                             </div>
+                        </div>
+                        <div class="flex items-center gap-0.5 shrink-0 ml-1" *ngIf="editingCollectionId !== (panel._id || panel.id)">
+                            <button mat-icon-button type="button" class="w-7 h-7 min-h-7 p-0" (click)="startEditTitle(panel, $event)"
+                                [matTooltip]="'app.edit_episode_name' | transloco">
+                                <mat-icon class="icon-size-3.5 text-gray-400 hover:text-blue-500" [svgIcon]="'feather:edit-2'"></mat-icon>
+                            </button>
+                            <button mat-icon-button type="button" class="w-7 h-7 min-h-7 p-0" (click)="openCollectionEncryptionDialog(panel); $event.stopPropagation()"
+                                [color]="panel.is_encrypted ? 'warn' : 'accent'"
+                                [matTooltip]="panel.is_encrypted ? 'Collection đã được mã hóa AES-256' : 'Đặt mật khẩu mã hóa AES-256 cho Collection này'">
+                                <mat-icon class="icon-size-3.5" [svgIcon]="panel.is_encrypted ? 'feather:lock' : 'feather:unlock'"></mat-icon>
+                            </button>
                         </div>
                     </div>
                 </ng-container>
@@ -54,13 +77,6 @@
                                     <ng-container *ngIf="!editingTitle">
                                         <span class="ml-1 text-base text-secondary">công việc trong tập {{
                                             selectedCollection?.title || '' }}</span>
-                                        <div class="flex items-center ml-2" *ngIf="selectedCollection">
-                                            <button mat-icon-button (click)="startEditTitle(selectedCollection)"
-                                                [matTooltip]="'app.edit_episode_name' | transloco">
-                                                <mat-icon class="icon-size-4 text-gray-500 hover:text-blue-500"
-                                                    [svgIcon]="'feather:edit-2'"></mat-icon>
-                                            </button>
-                                        </div>
                                     </ng-container>
 
                                     <!-- Hiển thị khi đang sửa -->
@@ -116,7 +132,7 @@
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <div *ngIf="row" class="flex items-center justify-self-stretch">
                                     <mat-label matTooltipPosition="above" [matTooltip]="'app.continue_editing_content' | transloco"
-                                        [routerLink]="['/ai-writer', user.name, row.uuid]"
+                                        (click)="openArticle(row)"
                                         class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
                                         {{row.uuid}}
                                     </mat-label>

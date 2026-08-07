@@ -14,6 +14,9 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
 import { GenaiService } from 'app/genai.service';
 import { BlogService } from 'app/_services/blog';
 
+import { MatDialog } from '@angular/material/dialog';
+import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
+
 @Component({
     selector: 'app-collection',
     templateUrl: './collection.component.html',
@@ -29,6 +32,8 @@ export class CollectionComponent implements OnInit, OnDestroy {
 
     editingTitle: boolean = false;
     newTitle: string = '';
+    editingCollectionId: string | null = null;
+    editingCollectionTitle: string = '';
 
     rows = [];
     totalElements: number = 0;
@@ -66,7 +71,8 @@ export class CollectionComponent implements OnInit, OnDestroy {
         private multiAccountService: MultiAccountService,
         private router: Router,
         private _genaiService: GenaiService,
-        private _blogService: BlogService
+        private _blogService: BlogService,
+        public _matDialog: MatDialog
     ) {
         this.titleService.setTitle(`tập của bạn | ai.type - công cụ tạo content`);
 
@@ -79,6 +85,80 @@ export class CollectionComponent implements OnInit, OnDestroy {
 
                 this.loadCollections();
             });
+    }
+
+    openCollectionEncryptionDialog(targetCollection: any = null) {
+        const col = targetCollection || this.selectedCollection;
+        if (!col) {
+            this.toastr.warning('Vui lòng chọn 1 Tập hợp (Collection) trước khi cài đặt mật khẩu.');
+            return;
+        }
+
+        const colName = col.title || 'Collection';
+        const colId = col._id || col.id;
+
+        if (col.is_encrypted) {
+            const confirmDialog = this._fuseConfirmationService.open({
+                title: 'Hủy mã hóa Collection',
+                message: `Bạn có chắc chắn muốn HỦY MÃ HÓA (bỏ mật khẩu) cho Collection "${colName}" không?`,
+                icon: {
+                    show: true,
+                    name: 'heroicons_outline:lock-open',
+                    color: 'warning'
+                },
+                actions: {
+                    confirm: {
+                        show: true,
+                        label: 'Hủy mã hóa & Lưu',
+                        color: 'warn'
+                    },
+                    cancel: {
+                        show: true,
+                        label: 'Đóng'
+                    }
+                },
+                dismissible: true
+            });
+
+            confirmDialog.afterClosed().subscribe((result) => {
+                if (result === 'confirmed') {
+                    col.is_encrypted = false;
+                    localStorage.removeItem('collection_encrypted_' + colId);
+                    this._crawlService.updateCollection({
+                        _id: colId,
+                        is_encrypted: false,
+                        username: this.user.name
+                    }).subscribe(() => {
+                        this.toastr.success(`Đã hủy mã hóa cho Collection: "${colName}"!`);
+                        this.cd.markForCheck();
+                    });
+                }
+            });
+            return;
+        }
+
+        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'set',
+                title: `Collection: ${colName}`
+            },
+            width: '450px'
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                col.is_encrypted = true;
+                localStorage.setItem('collection_encrypted_' + colId, 'true');
+                this._crawlService.updateCollection({
+                    _id: colId,
+                    is_encrypted: true,
+                    username: this.user.name
+                }).subscribe(() => {
+                    this.toastr.success(`Đã cài đặt mật khẩu mã hóa AES-256 cho Collection: "${colName}"!`, 'Mã Hóa Collection');
+                    this.cd.markForCheck();
+                });
+            }
+        });
     }
 
     ngOnInit(): void {
@@ -105,6 +185,12 @@ export class CollectionComponent implements OnInit, OnDestroy {
                 next: (result) => {
                     if (result && result.success) {
                         this.collections = result.data;
+                        this.collections.forEach((c: any) => {
+                            const colId = c._id || c.id;
+                            if (c.is_encrypted || localStorage.getItem('collection_encrypted_' + colId) === 'true') {
+                                c.is_encrypted = true;
+                            }
+                        });
 
                         // Check if collectionId is in query params
                         this.route.queryParams.subscribe(params => {
@@ -274,36 +360,95 @@ export class CollectionComponent implements OnInit, OnDestroy {
         return row && row.title ? row.title !== 'Ethel Price' : false;
     }
 
-    startEditTitle(collection: any) {
-        this.editingTitle = true;
-        this.newTitle = collection.title;
+    collectionUnlockedPasswords: { [key: string]: string } = {};
+
+    startEditTitle(collection: any, event?: Event) {
+        if (event) event.stopPropagation();
+        const colId = collection._id || collection.id;
+        if (collection.is_encrypted && !this.collectionUnlockedPasswords[colId]) {
+            const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+                data: {
+                    mode: 'unlock',
+                    title: `Collection: ${collection.title}`
+                },
+                width: '450px',
+                disableClose: true
+            });
+
+            dialogRef.afterClosed().subscribe((res: any) => {
+                if (res && res.password) {
+                    this.collectionUnlockedPasswords[colId] = res.password;
+                    this.editingCollectionId = colId;
+                    this.editingCollectionTitle = collection.title;
+                    this.cd.markForCheck();
+                }
+            });
+            return;
+        }
+
+        this.editingCollectionId = colId;
+        this.editingCollectionTitle = collection.title;
+        this.cd.markForCheck();
     }
 
-    cancelEditTitle() {
-        this.editingTitle = false;
-        this.newTitle = '';
+    openArticle(row: any) {
+        if (!row || !row.uuid) return;
+        const colIsEncrypted = (this.selectedCollection && this.selectedCollection.is_encrypted) || row.is_encrypted || (row.source && row.source.encrypted);
+        const colId = this.selectedCollection?._id || this.selectedCollection?.id;
+        const savedPassword = this.collectionUnlockedPasswords[colId];
+
+        if (colIsEncrypted && !savedPassword) {
+            const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+                data: {
+                    mode: 'unlock',
+                    title: row.title || this.selectedCollection?.title || 'Bài viết'
+                },
+                width: '450px',
+                disableClose: true
+            });
+
+            dialogRef.afterClosed().subscribe((res: any) => {
+                if (res && res.password) {
+                    this.collectionUnlockedPasswords[colId] = res.password;
+                    this.toastr.success('Giải mã mở khóa Collection thành công!');
+                    this.router.navigate(['/ai-writer', this.user.name, row.uuid]);
+                }
+            });
+            return;
+        }
+
+        this.router.navigate(['/ai-writer', this.user.name, row.uuid]);
     }
 
-    saveTitle() {
-        if (!this.selectedCollection) return;
-        const newTitle = this.newTitle.trim();
-        if (newTitle && newTitle !== this.selectedCollection.title) {
+    cancelEditTitle(event?: Event) {
+        if (event) event.stopPropagation();
+        this.editingCollectionId = null;
+        this.editingCollectionTitle = '';
+        this.cd.markForCheck();
+    }
+
+    saveTitle(collection?: any, event?: Event) {
+        if (event) event.stopPropagation();
+        const targetCol = collection || this.selectedCollection;
+        if (!targetCol) return;
+        const newTitle = this.editingCollectionTitle.trim();
+        if (newTitle && newTitle !== targetCol.title) {
             this._crawlService.updateCollection({
-                _id: this.selectedCollection._id,
+                _id: targetCol._id || targetCol.id,
                 title: newTitle,
                 username: this.user.name
             }).subscribe(res => {
                 if (res.success || res.ok) {
-                    this.selectedCollection.title = newTitle;
+                    targetCol.title = newTitle;
                     this.toastr.success('Cập nhật tên tập thành công');
-                    this.editingTitle = false;
+                    this.editingCollectionId = null;
                     this.cd.markForCheck();
                 } else {
                     this.toastr.error('Lỗi khi cập nhật tên tập');
                 }
             });
         } else {
-            this.editingTitle = false;
+            this.editingCollectionId = null;
         }
     }
 

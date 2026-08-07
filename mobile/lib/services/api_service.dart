@@ -348,6 +348,85 @@ class ApiService {
     return null;
   }
 
+  static Future<List<String>> extractKeywords(String content) async {
+    final clean = content.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+    if (clean.isEmpty) return [];
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final server = prefs.getString('api_server') ?? 'vn.s3';
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      final url = Uri.parse('$baseUrl/blog/keywords');
+
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr != null) {
+        final activeInfo = jsonDecode(activeInfoStr);
+        final payload = {
+          'content': clean.length > 3000 ? clean.substring(0, 3000) : clean,
+          'year': DateTime.now().year.toString(),
+          'appId': 'ai.typing',
+          'appToken': activeInfo['user']?['appToken'] ?? '',
+        };
+
+        final bodyEncrypted = {'params': encryptAES(payload)};
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(bodyEncrypted),
+        ).timeout(const Duration(seconds: 15));
+
+        if (response.statusCode == 200) {
+          final resJson = jsonDecode(response.body);
+          var resData = resJson;
+          if (resJson is Map && resJson.containsKey('params') && resJson['params'] is String) {
+            resData = decryptAES(resJson['params']);
+          }
+
+          if (resData != null && resData['success'] == true && resData['data'] != null) {
+            final rawStr = resData['data'][1]?.toString() ?? resData['data']?.toString() ?? '';
+            final List<String> extracted = [];
+            final arr = rawStr.split(RegExp(r'\s+'));
+            for (var item in arr) {
+              if (item.contains('_')) {
+                final kw = item
+                    .replaceAll(RegExp(r'''[@!^&/\\#,+()$~%.'"*:*?<>{}\[\]]'''), '')
+                    .replaceAll('_', ' ')
+                    .trim();
+                if (kw.isNotEmpty && !extracted.contains(kw)) {
+                  extracted.add(kw);
+                }
+              }
+            }
+            if (extracted.isNotEmpty) return extracted;
+          }
+        }
+      }
+    } catch (e) {
+      print('extractKeywords API error: $e');
+    }
+
+    // AI Fallback nếu backend NLP 500 hoặc không trả kết quả:
+    try {
+      final prompt = 'Trích xuất 5-10 từ khóa chính (keywords) tốt nhất đại diện cho nội dung sau đây:\n"${clean.length > 1500 ? clean.substring(0, 1500) : clean}"\n\nChỉ trả về danh sách các từ khóa phân cách bằng dấu phẩy (ví dụ: công nghệ AI, lập trình ứng dụng, thiết kế web), không kèm giải thích hay ký tự nào khác.';
+      final aiRes = await askSonTinhAgent(prompt, '[]');
+      if (aiRes != null && aiRes.trim().isNotEmpty) {
+        final List<String> extracted = [];
+        final items = aiRes.split(RegExp(r'[,;\n]'));
+        for (var item in items) {
+          final kw = item.replaceAll(RegExp(r'^[0-9+.\-*\s]+'), '').replaceAll(RegExp(r'[`"*\.]'), '').trim();
+          if (kw.isNotEmpty && kw.length >= 2 && !extracted.contains(kw)) {
+            extracted.add(kw);
+          }
+        }
+        return extracted;
+      }
+    } catch (e) {
+      print('extractKeywords AI fallback error: $e');
+    }
+
+    return [];
+  }
+
   static Future<String?> askSonTinhAgent(
     String question,
     String historyJson, {

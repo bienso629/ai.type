@@ -30,6 +30,7 @@ import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 import { MatDialog } from '@angular/material/dialog';
 import { GenaiService } from 'app/genai.service';
+import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
 
 @Component({
     selector: 'archives',
@@ -924,7 +925,65 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         this._unsubscribeAll.complete();
     }
 
+    async loadLocalArticles() {
+        if ((window as any).electron && (window as any).electron.listLocalArticles) {
+            try {
+                const res = await (window as any).electron.listLocalArticles({ username: this.user.name });
+                if (res && res.success && res.articles && res.articles.length > 0) {
+                    const localDocs = res.articles.map((art: any) => ({
+                        uuid: art.uuid,
+                        title: art.title || 'Bài viết cục bộ',
+                        domain: art.domain || 'local.ai.type',
+                        used: 0,
+                        is_local: true,
+                        is_encrypted: !!art.is_encrypted,
+                        created_at: art.created_at || art.updated_at || new Date().toISOString(),
+                        updated_at: art.updated_at || art.created_at || new Date().toISOString(),
+                        dateGroup: this.getDateGroup(art)
+                    }));
+
+                    if (!this.masterLoadedRows) this.masterLoadedRows = [];
+                    localDocs.forEach((doc: any) => {
+                        if (!this.masterLoadedRows.some((m: any) => m.uuid === doc.uuid)) {
+                            this.masterLoadedRows.unshift(doc);
+                        }
+                    });
+
+                    this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
+                    this.totalElements = this.rows.length;
+                    this.cd.markForCheck();
+                }
+            } catch (e) {
+                console.error('Lỗi khi nạp bài viết cục bộ:', e);
+            }
+        }
+    }
+
+    openCollectionEncryptionDialog() {
+        if (!this.selectedCollections || this.selectedCollections.length === 0) {
+            this.toastr.warning('Vui lòng chọn 1 Tập hợp (Collection) trước khi cài đặt mật khẩu.');
+            return;
+        }
+
+        const colName = this.selectedCollections[0]?.title || 'Collection';
+        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'set',
+                title: `Collection: ${colName}`
+            },
+            width: '450px'
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                this.toastr.success(`Đã cài đặt mật khẩu mã hóa AES-256 cho Collection: "${colName}"!`, 'Mã Hóa Collection');
+                this.cd.markForCheck();
+            }
+        });
+    }
+
     ngOnInit(): void {
+                // this.loadLocalArticles();
         let temp = localStorage.getItem('statistics');
         if (temp && temp !== 'undefined') {
             try {

@@ -38,18 +38,6 @@
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4 gap-2">
-            <button *ngIf="hasCollectionScriptFromArchives()" mat-flat-button color="primary" class="bg-primary text-white" (click)="readCollectionScriptFromArchives()" [matTooltip]="'Đọc kịch bản phim của tập này'">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:feather'"></mat-icon>
-                <mat-label class="ml-2">Đọc kịch bản</mat-label>
-            </button>
-            <button *ngIf="!hasCollectionScriptFromArchives() && selectedCollections && selectedCollections.length > 0" mat-flat-button color="primary" class="bg-primary text-white" (click)="generateCollectionScriptFromArchives()" [disabled]="isGeneratingCollectionScript" [matTooltip]="'Tự động mổ xẻ các chương để dựng kịch bản phim'">
-                <mat-icon *ngIf="!isGeneratingCollectionScript" class="icon-size-4" [svgIcon]="'feather:cpu'"></mat-icon>
-                <div *ngIf="isGeneratingCollectionScript" class="w-4 h-4 inline-flex items-center justify-center">
-                    <mat-spinner [diameter]="16" class="text-white"></mat-spinner>
-                </div>
-                <mat-label class="ml-2">{{ isGeneratingCollectionScript ? 'Đang dựng kịch bản...' : 'Dựng kịch bản Collection' }}</mat-label>
-            </button>
-
             <ng-select class="custom-select-ai-writer max-w-60" [placeholder]="'app.search_by_episode' | transloco" [items]="collections"
                 (clear)="onClearCollection()" (change)="onChangeCollection()" multiple="true" bindLabel="title"
                 [clearable]="false" [(ngModel)]="selectedCollections" [dropdownPosition]="'bottom'" appendTo="body">
@@ -57,6 +45,10 @@
                     <mat-label class="text-base">{{ 'app.search_by' | transloco }}: {{search}}</mat-label>
                 </ng-template>
             </ng-select>
+
+            <button mat-icon-button (click)="openCollectionEncryptionDialog()" class="ml-1" [color]="'accent'" [matTooltip]="'Đặt mật khẩu mã hóa AES-256 cho Collection đang chọn'">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:lock'"></mat-icon>
+            </button>
 
             <mat-form-field class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix ml-2"
                 appearance="fill">
@@ -106,7 +98,9 @@
                 [draggable]="false" [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
-                        <div class="flex items-center w-full">
+                        <div class="flex items-center w-full gap-2">
+                            <span *ngIf="row.is_local" class="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-700" [matTooltip]="'Bài viết lưu cục bộ trên ổ đĩa máy tính'">Local</span>
+                            <span *ngIf="row.is_encrypted" class="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700 flex items-center gap-1" [matTooltip]="'Nội dung đã được mã hóa AES-256 (Cần mật khẩu để đọc/sửa)'"><mat-icon class="icon-size-3" [svgIcon]="'feather:lock'"></mat-icon>Đã Khóa</span>
                             <p class="font-normal truncate flex-1" [matTooltip]="row.title">{{row.title}}</p>
                         </div>
                     </ng-container>

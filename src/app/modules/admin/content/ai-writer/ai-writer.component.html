@@ -84,6 +84,10 @@
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:message-circle'"></mat-icon>
                 </button> -->
             </mat-form-field>
+
+            <button mat-icon-button (click)="openEncryptionDialog()" class="ml-2" [color]="articlePassword || (details && details.is_encrypted) ? 'warn' : 'accent'" [matTooltip]="(articlePassword || (details && details.is_encrypted)) ? 'Bài viết đã được mã hóa AES-256 (Đã bật bảo vệ)' : 'Đặt mật khẩu mã hóa AES-256 bài viết (Bao gồm Server & Local)'">
+                <mat-icon class="icon-size-5" [svgIcon]="(articlePassword || (details && details.is_encrypted)) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
+            </button>
         </div>
     </div>
 
@@ -2557,7 +2561,14 @@
                                     <div class="mt-4 flex flex-col">
                                         <!-- Tuyển tập -->
                                         <div class="mb-4">
-                                            <mat-label class="font-semibold text-sm block mb-1">{{ 'app.your_episode' | transloco }}</mat-label>
+                                            <div class="flex items-center justify-between mb-1">
+                                                <mat-label class="font-semibold text-sm block">{{ 'app.your_episode' | transloco }}</mat-label>
+                                                <button mat-icon-button type="button" class="w-6 h-6 min-h-6 p-0" (click)="openEncryptionDialog()"
+                                                    [color]="(articlePassword || (details && details.is_encrypted)) ? 'warn' : 'accent'"
+                                                    [matTooltip]="(articlePassword || (details && details.is_encrypted)) ? 'Collection & Bài viết đã được mã hóa (Bấm để Hủy khóa)' : 'Đặt mật khẩu mã hóa AES-256 cho Collection này'">
+                                                    <mat-icon class="icon-size-3.5" [svgIcon]="(articlePassword || (details && details.is_encrypted)) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
+                                                </button>
+                                            </div>
                                             <ng-select class="custom-select-ai-writer w-full" [placeholder]="'app.select_episode' | transloco"
                                                 [items]="collections" [addTag]="addCollection"
                                                 [readonly]="(name !== user.name)" (clear)="onClearCollection()"
@@ -2649,9 +2660,19 @@
                                     </span>
                                 </button>
 
-                                <button mat-icon-button (click)="clear()" class="ml-auto" color="warn" matTooltipPosition="above" [matTooltip]="'app.delete_outline' | transloco">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:trash'"></mat-icon>
-                                </button>
+                                <div class="ml-auto flex items-center gap-3">
+                                    <mat-slide-toggle [checked]="autoSaveLocal" (change)="toggleAutoSaveLocal($event)" [color]="'primary'" class="text-xs text-gray-700 dark:text-gray-300 font-medium" [matTooltip]="'Tự động sao lưu bản sao (.md & .json) xuống ổ đĩa cục bộ'">
+                                        Lưu cục bộ
+                                    </mat-slide-toggle>
+
+                                    <button mat-icon-button (click)="openEncryptionDialog()" [color]="articlePassword || (details && details.is_encrypted) ? 'warn' : 'accent'" [matTooltip]="(articlePassword || (details && details.is_encrypted)) ? 'Bài viết đã được mã hóa AES-256 (Đã bật bảo vệ)' : 'Đặt mật khẩu mã hóa AES-256 cho bài viết'">
+                                        <mat-icon class="icon-size-5" [svgIcon]="(articlePassword || (details && details.is_encrypted)) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
+                                    </button>
+
+                                    <button mat-icon-button (click)="confirmClear()" color="warn" matTooltipPosition="above" [matTooltip]="'app.delete_outline' | transloco">
+                                        <mat-icon class="icon-size-5" [svgIcon]="'feather:trash-2'"></mat-icon>
+                                    </button>
+                                </div>
 
                                 <mat-menu #menu="matMenu">
                                     <button *ngIf="details && details.uuid && permissionText2Voice" mat-menu-item
