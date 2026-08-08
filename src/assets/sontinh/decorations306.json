@@ -1,0 +1,27 @@
+{
+  "roomId": "room_306",
+  "pictureFrame": {
+    "id": "family_photo_frame_1",
+    "title": "Kỷ Niệm Gia Đình Việt Nam",
+    "position": [69.37, 16.0, 28.5],
+    "rotation": [0, -90, 0],
+    "frameSize": [5.8, 8.8],
+    "photoSize": [4.4, 7.4],
+    "imageUrl": "/family_photo.jpg",
+    "backlightColor": "#fde047",
+    "interactiveView": {
+      "pivot": [69.65, 16.0, 28.5],
+      "yaw": -90,
+      "pitch": 0,
+      "distance": 14.0
+    }
+  },
+  "wallClock": {
+    "id": "front_wall_analog_clock",
+    "position": [0.0, 28.5, 39.75],
+    "rotation": [0, 180, 0],
+    "diameter": 2.6,
+    "frameMaterial": "Walnut Wood",
+    "realtimeSync": true
+  }
+}

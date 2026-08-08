@@ -1,0 +1,159 @@
+<div class="profile-layout">
+
+  <!-- Hidden photo file input -->
+  <input #photoFileInput type="file" accept="image/*" style="display:none" (change)="onPhotoSelected($event)">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="profile-sidebar">
+    <div class="sidebar-header">
+      <h2 class="sidebar-title">Căn phòng của {{ username }}</h2>
+    </div>
+
+    <div class="sidebar-body">
+
+      <!-- NHÂN VẬT -->
+      <div class="sidebar-section-label">Nhân vật</div>
+
+      <!-- Upload zone khi chưa có character -->
+      <div class="char-upload-zone" *ngIf="!profile?.character?.glbPath" (click)="triggerUpload()" [class.is-uploading]="isUploading">
+        <input #glbFileInput type="file" accept=".glb" style="display:none" (change)="onGlbSelected($event)">
+        <div class="char-upload-zone-inner">
+          <ng-container *ngIf="!isUploading">
+            <span class="char-upload-icon">🧍</span>
+            <span class="char-upload-title">Thêm nhân vật</span>
+            <span class="char-upload-hint">Nhấn để upload file .GLB</span>
+          </ng-container>
+          <ng-container *ngIf="isUploading">
+            <div class="char-upload-spinner"></div>
+            <span class="char-upload-hint">Đang tải lên...</span>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- Sau khi có character -->
+      <div class="sidebar-char-card" *ngIf="profile?.character?.glbPath">
+        <div class="sidebar-char-avatar">
+          <img *ngIf="charThumbnail" [src]="charThumbnail" alt="avatar">
+          <mat-icon *ngIf="!charThumbnail" class="char-fallback-icon">person</mat-icon>
+        </div>
+        <div class="sidebar-char-info">
+          <span class="sidebar-char-name">{{ profile?.character?.name || username }}</span>
+          <span class="sidebar-char-sub">{{ profile?.character?.animationState || 'Walk' }}</span>
+        </div>
+        <input #glbFileInput type="file" accept=".glb" style="display:none" (change)="onGlbSelected($event)">
+        <button mat-icon-button class="sidebar-char-replace" (click)="triggerUpload()" title="Thay nhân vật">
+          <mat-icon>file_upload</mat-icon>
+        </button>
+      </div>
+
+      <!-- Upload error -->
+      <div class="char-upload-error" *ngIf="uploadError">
+        ⚠️ {{ uploadError }}
+      </div>
+
+      <!-- ACCORDION MENU -->
+      <div class="sidebar-accordion">
+
+        <details class="sidebar-panel">
+          <summary class="sidebar-panel-header">
+            <span class="sidebar-panel-label">GÓC NHÌN</span>
+            <mat-icon class="sidebar-panel-arrow">expand_more</mat-icon>
+          </summary>
+          <div class="sidebar-sub-items">
+            <button class="sidebar-sub-item" (click)="setCameraPreset('WALL_1')"><mat-icon class="sub-icon">crop_square</mat-icon>Góc tường 1</button>
+            <button class="sidebar-sub-item" (click)="setCameraPreset('WALL_2')"><mat-icon class="sub-icon">crop_square</mat-icon>Góc tường 2</button>
+            <button class="sidebar-sub-item" (click)="setCameraPreset('WALL_3')"><mat-icon class="sub-icon">crop_square</mat-icon>Góc tường 3</button>
+            <button class="sidebar-sub-item" (click)="setCameraPreset('WALL_4')"><mat-icon class="sub-icon">crop_square</mat-icon>Góc tường 4</button>
+            <button class="sidebar-sub-item" (click)="setCameraPreset('CHARACTER')"><mat-icon class="sub-icon">person_pin</mat-icon>Góc nhìn từ nhân vật</button>
+            <button class="sidebar-sub-item" (click)="setCameraPreset('DESK_VIEW')"><mat-icon class="sub-icon">desk</mat-icon>Góc bàn làm việc</button>
+          </div>
+        </details>
+
+        <details class="sidebar-panel">
+          <summary class="sidebar-panel-header">
+            <span class="sidebar-panel-label">ĐỒ VẬT</span>
+            <mat-icon class="sidebar-panel-arrow">expand_more</mat-icon>
+          </summary>
+          <div class="sidebar-sub-items">
+            <button class="sidebar-sub-item"><mat-icon class="sub-icon">table_restaurant</mat-icon>Cái bàn</button>
+            <button class="sidebar-sub-item"><mat-icon class="sub-icon">water</mat-icon>Bể cá</button>
+            <button class="sidebar-sub-item"><mat-icon class="sub-icon">computer</mat-icon>Máy tính</button>
+            <button class="sidebar-sub-item"><mat-icon class="sub-icon">keyboard</mat-icon>Bàn phím</button>
+            <button class="sidebar-sub-item sidebar-sub-item--add"><mat-icon class="sub-icon">add_circle_outline</mat-icon>Thêm đồ vật...</button>
+          </div>
+        </details>
+
+        <details class="sidebar-panel">
+          <summary class="sidebar-panel-header">
+            <span class="sidebar-panel-label">NHÂN VẬT</span>
+            <mat-icon class="sidebar-panel-arrow">expand_more</mat-icon>
+          </summary>
+          <div class="sidebar-sub-items">
+            <button class="sidebar-sub-item"><mat-icon class="sub-icon">checkroom</mat-icon>Quần áo</button>
+            <button class="sidebar-sub-item"><mat-icon class="sub-icon">face</mat-icon>Kiểu tóc</button>
+            <button class="sidebar-sub-item"><mat-icon class="sub-icon">face_retouching_natural</mat-icon>Gương mặt</button>
+            <button class="sidebar-sub-item"><mat-icon class="sub-icon">directions_run</mat-icon>Các hành động</button>
+          </div>
+        </details>
+
+      </div>
+
+    </div>
+
+    <!-- SIDEBAR FOOTER: Prompt Input -->
+    <div class="sidebar-footer">
+      <div class="sidebar-prompt-bar">
+        <button class="sidebar-prompt-attach" title="Đính kèm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+        <textarea
+          class="sidebar-prompt-input"
+          placeholder="Tiếp tục chỉnh sửa..."
+          [(ngModel)]="promptText"
+          (keydown.enter)="onPromptEnter($event)"
+          rows="2"
+          cdkTextareaAutosize
+          cdkAutosizeMinRows="2"
+          cdkAutosizeMaxRows="5"></textarea>
+        <button class="sidebar-prompt-send" title="Gửi" (click)="sendPrompt()" [disabled]="!promptText?.trim()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: 3D SCENE -->
+  <div class="profile-scene-wrap">
+
+    <!-- Inner padded container — canvas fills this, not the outer wrap -->
+    <div class="scene-inner">
+
+      <!-- Loading Overlay -->
+      <div class="sontinh-loading-overlay" *ngIf="isLoading">
+        <div class="sontinh-loading-content">
+          <div class="sontinh-spinner"></div>
+          <p class="sontinh-loading-text">Đang tải Căn phòng của {{ username }}...</p>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div class="sontinh-error-overlay" *ngIf="loadError && !isLoading">
+        <div class="sontinh-error-content">
+          <span class="sontinh-error-icon">⚠️</span>
+          <p class="sontinh-error-text">{{ loadError }}</p>
+        </div>
+      </div>
+
+      <!-- 3D Scene Canvas -->
+      <canvas #sceneCanvas id="application-canvas" class="sontinh-canvas"></canvas>
+
+    </div>
+
+  </div>
+
+</div>

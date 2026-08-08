@@ -1,0 +1,39 @@
+{
+  "roomId": "room_306",
+  "character": {
+    "id": "character_yen",
+    "name": "Yên (Main Avatar)",
+    "position": [0.0, 0.1, -5.0],
+    "height": 7.5,
+    "width": 3.1,
+    "imageUrl": "/single_character.png",
+    "auraGlowColor": "#6ee7b7",
+    "pedestal": true
+  },
+  "workstation": {
+    "desk": {
+      "model": "Haigo BHS230-2 Double Desk",
+      "position": [0.0, 0.1, -39.75],
+      "width": 18.0,
+      "leftStationX": -6.0,
+      "rightStationX": 6.0
+    },
+    "monitors": [
+      { "id": "workstation_left", "position": [-6.0, 5.2, -34.75], "curved": true, "glowColor": "#3b82f6" },
+      { "id": "workstation_right", "position": [6.0, 5.2, -34.75], "curved": true, "glowColor": "#c084fc" }
+    ],
+    "chairs": [
+      { "id": "chair_left", "position": [-6.0, 0.1, -31.5] },
+      { "id": "chair_right", "position": [6.0, 0.1, -31.5] }
+    ],
+    "aquarium": {
+      "position": [0.0, 3.8, -37.5],
+      "fishCount": 4,
+      "waterGlow": "#38bdf8"
+    },
+    "pegboard": {
+      "position": [0.0, 12.8, -39.45],
+      "ps5Pro": { "position": [0.0, 10.5, -38.55] }
+    }
+  }
+}

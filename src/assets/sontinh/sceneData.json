@@ -1,0 +1,99 @@
+{
+  "version": "1.0.0",
+  "room": {
+    "width": 140.0,
+    "depth": 80.0,
+    "height": 35.0,
+    "floorElevationY": 0.1,
+    "wallColor": "#262e42",
+    "floorTile": {
+      "tileSize": 0.8,
+      "tiling": [87.5, 50],
+      "baseColor": "#14171f",
+      "groutColor": "#485060",
+      "gloss": 0.25
+    }
+  },
+  "buildingBase": {
+    "height": 24.0,
+    "groundY": -24.0,
+    "color": "#293042",
+    "corniceColor": "#d1d1d9"
+  },
+  "decorations": {
+    "pictureFrame": {
+      "position": [69.37, 16.0, 28.5],
+      "size": [5.8, 8.8],
+      "imageUrl": "/family_photo.jpg",
+      "title": "Gia Đình Kỷ Niệm"
+    },
+    "analogClock": {
+      "position": [0.0, 28.5, 39.75],
+      "diameter": 2.6,
+      "frameColor": "#3d2617"
+    },
+    "workstationDesk": {
+      "position": [0.0, 0.1, -39.75],
+      "deskWidth": 18.0,
+      "leftStationX": -6.0,
+      "rightStationX": 6.0
+    }
+  },
+  "environment": {
+    "street": {
+      "groundY": -24.0,
+      "roadOffsetX": 85.0,
+      "roadWidth": 10.0,
+      "pedestrianWidth": 36.0,
+      "trees": [
+        { "z": -25 },
+        { "z": -13 },
+        { "z": -1 },
+        { "z": 11 },
+        { "z": 23 }
+      ]
+    },
+    "shophouses": [
+      {
+        "id": "bun_dau",
+        "name": "BÚN ĐẬU MẮM TÔM",
+        "subTitle": "ĐẶC SẢN HÀ NỘI • PHỐ CỔ",
+        "bgColor": "#701a75",
+        "textColor": "#fef08a",
+        "buildingColor": "#d9b438",
+        "pos": [116.0, -12.0, -20.0],
+        "scale": [10.0, 24.0, 20.0]
+      },
+      {
+        "id": "com_tam",
+        "name": "CƠM TẤM SÀI GÒN",
+        "subTitle": "SƯỜN BÌ CHẢ TÔM • CHÍNH GỐC",
+        "bgColor": "#c2410c",
+        "textColor": "#ffffff",
+        "buildingColor": "#cc8833",
+        "pos": [116.0, -11.0, 0.0],
+        "scale": [10.0, 26.0, 18.0]
+      },
+      {
+        "id": "banh_mi",
+        "name": "BÁNH MÌ SÀI GÒN",
+        "subTitle": "GIÒ LỤA • THỊT NƯỚNG • PÂTÉ",
+        "bgColor": "#b91c1c",
+        "textColor": "#facc15",
+        "buildingColor": "#b82e2e",
+        "pos": [116.0, -12.5, 20.0],
+        "scale": [10.0, 23.0, 18.0]
+      }
+    ],
+    "traffic": {
+      "cars": [
+        { "id": "CarRedSedan", "color": "#b91c1c", "speed": 22.0, "dir": 1, "laneX": 83.0, "startZ": -22.0 },
+        { "id": "CarWhiteSUV", "color": "#ffffff", "speed": 18.0, "dir": 1, "laneX": 83.0, "startZ": 12.0 },
+        { "id": "CarBlueSport", "color": "#1d4ed8", "speed": 26.0, "dir": 1, "laneX": 83.0, "startZ": -42.0 },
+        { "id": "CarBlackLuxury", "color": "#111827", "speed": 20.0, "dir": -1, "laneX": 87.0, "startZ": 25.0 },
+        { "id": "CarSilverCoupe", "color": "#9ca3af", "speed": 24.0, "dir": -1, "laneX": 87.0, "startZ": -15.0 },
+        { "id": "CarYellowTaxi", "color": "#eab308", "speed": 19.0, "dir": -1, "laneX": 87.0, "startZ": 45.0 }
+      ]
+    }
+  }
+}

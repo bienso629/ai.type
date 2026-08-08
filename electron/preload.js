@@ -88,7 +88,48 @@ contextBridge.exposeInMainWorld('electron', {
     exportLocalArticleDialog: (payload) => ipcRenderer.invoke('export-local-article-dialog', payload),
     listLocalArticles: (payload) => ipcRenderer.invoke('list-local-articles', payload),
     readLocalArticle: (payload) => ipcRenderer.invoke('read-local-article', payload),
-    deleteLocalArticle: (payload) => ipcRenderer.invoke('delete-local-article', payload)
+    deleteLocalArticle: (payload) => ipcRenderer.invoke('delete-local-article', payload),
+
+    // ===== PROFILE SCENE (đọc/ghi file trực tiếp, không qua HTTP) =====
+
+    // ── Profile tổng hợp ──
+    getProfile:         (username)               => ipcRenderer.invoke('profile:get',                { username }),
+    saveProfile:        (username, profile)      => ipcRenderer.invoke('profile:save',               { username, profile }),
+
+    // ── Character ──
+    saveCharacter:      (username, character)    => ipcRenderer.invoke('character:save',             { username, character }),
+    uploadCharacterGlb: (username, buffer)       => ipcRenderer.invoke('character:upload-glb',       { username, buffer }),
+    checkCharacterGlb:  (username)               => ipcRenderer.invoke('profile:check-character-glb',{ username }),
+    readGlb:            (filePath)               => ipcRenderer.invoke('asset:read-glb',             { filePath }),
+
+    // ── Animations ──
+    listAnimations:     (username)               => ipcRenderer.invoke('animations:list',            { username }),
+    uploadAnimation:    (username, name, buffer) => ipcRenderer.invoke('animations:upload',          { username, name, buffer }),
+    deleteAnimation:    (username, id)           => ipcRenderer.invoke('animations:delete',          { username, id }),
+
+    // ── Clothing / Accessories ──
+    listClothing:       (username)               => ipcRenderer.invoke('clothing:list',              { username }),
+    uploadClothing:     (username, name, slot, buffer) => ipcRenderer.invoke('clothing:upload',      { username, name, slot, buffer }),
+    deleteClothing:     (username, id)           => ipcRenderer.invoke('clothing:delete',            { username, id }),
+
+    // ── Room ──
+    getRoom:            (username)               => ipcRenderer.invoke('room:get',                   { username }),
+    saveRoom:           (username, room)         => ipcRenderer.invoke('room:save',                  { username, room }),
+    saveWallPhoto:      (username, buffer)       => ipcRenderer.invoke('wall-photo:save',             { username, buffer }),
+
+    // ── Props ──
+    listProps:          (username)               => ipcRenderer.invoke('props:list',                 { username }),
+    saveProps:          (username, props)        => ipcRenderer.invoke('props:save',                 { username, props }),
+    uploadProp:         (username, name, position, scale, buffer) => ipcRenderer.invoke('props:upload', { username, name, position, scale, buffer }),
+    deleteProp:         (username, id)           => ipcRenderer.invoke('props:delete',               { username, id }),
+
+    // ── Inventory ──
+    getInventory:       (username)               => ipcRenderer.invoke('inventory:get',              { username }),
+    addInventoryItem:   (username, item)         => ipcRenderer.invoke('inventory:add-item',         { username, item }),
+    removeInventoryItem:(username, itemId)       => ipcRenderer.invoke('inventory:remove-item',      { username, itemId }),
+
+    // ── Legacy aliases (giữ để không break code cũ) ──
+    saveCharacterGlb: (username, buffer) => ipcRenderer.invoke('character:upload-glb', { username, buffer }),
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
