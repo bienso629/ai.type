@@ -13,7 +13,6 @@ const {
     net,
     safeStorage
 } = require("electron");
-const { autoUpdater } = require("electron-updater");
 const { registerExportImportHandlers } = require("./export-import-project");
 const { registerLocalArticlesHandlers } = require("./local-articles");
 const { registerProfileHandlers } = require("./local-profiles");
@@ -5062,7 +5061,7 @@ app.whenReady().then(async () => {
                                         .catch(() => 0);
 
                                     await page.keyboard.press("End");
-                                    await new Promise((r) => setTimeout(r, 3500)); // �?ợi lâu chút để ảnh kịp load
+                                    await new Promise((r) => setTimeout(r, 3500)); // Đợi lâu chút để ảnh kịp load
 
                                     if (currentHeight > lastHeight) {
                                         lastHeight = currentHeight;
@@ -5092,7 +5091,7 @@ app.whenReady().then(async () => {
                             } catch (err) {
                                 sendToRenderer(
                                     "tools-log",
-                                    `[TikTok] �?� Lỗi: ${err.message}`,
+                                    `[TikTok] ❌ Lỗi: ${err.message}`,
                                 );
                             }
                         },
@@ -5107,7 +5106,7 @@ app.whenReady().then(async () => {
                     const w = data.width || 1200;
                     const h = data.height || 800;
 
-                    // G�?i hàm với tham số mới
+                    // Gọi hàm với tham số mới
                     openChromeApp(data.url, w, h);
 
                     event.reply("tools-response", {
@@ -5121,7 +5120,7 @@ app.whenReady().then(async () => {
                 case "zalo-crawl": {
                     const uniqueID = data.uniqueID || createUniqueID();
                     // createTargetWindow của bạn đã có cơ chế callback(url, id) khi 'did-finish-load'
-                    // Chúng ta sẽ g�?i zaloCrawlDirect ngay tại đó.
+                    // Chúng ta sẽ gọi zaloCrawlDirect ngay tại đó.
                     createTargetWindow(data.url, () => {
                         // targetWindow lúc này đã được khởi tạo trong scope của main.js
                         zaloCrawlDirect(targetWindow, uniqueID);
@@ -5144,7 +5143,7 @@ app.whenReady().then(async () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
     });
 
-    // (�?ã chuyển web-contents-created lên đầu file)
+    // (Đã chuyển web-contents-created lên đầu file)
 
     globalShortcut.register("CommandOrControl+C+G", () => {
         if (targetWindow) targetWindow.close();
@@ -5164,30 +5163,6 @@ app.whenReady().then(async () => {
     // Tính năng refresh được xử lý qua Menu "Hiển thị" (View Menu)
 
     // ==========================================
-    // AUTO UPDATER (CẬP NHẬT TỰ �?ỘNG)
-    // ==========================================
-    autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = true;
-
-    autoUpdater.on('checking-for-update', () => {
-        sendToRenderer("tools-log", '[AutoUpdate] �?ang kiểm tra phiên bản mới...');
-    });
-
-    autoUpdater.on('update-available', (info) => {
-        sendToRenderer("tools-log", `[AutoUpdate] T�m th?y phi�n b?n m?i: ${info.version}`);
-        dialog.showMessageBox({
-            type: 'info',
-            title: 'C?p nh?t',
-            message: `?� c� phi�n b?n m?i (${info.version}). B?n c� mu?n t?i v? kh�ng?`,
-            buttons: ['T?i c?p nh?t', '?? sau']
-        }).then((result) => {
-            if (result.response === 0) {
-                sendToRenderer("tools-log", '[AutoUpdate] ?ang b?t ??u t?i...');
-                autoUpdater.downloadUpdate();
-            }
-        });
-    });
-
     autoUpdater.on('update-not-available', (info) => {
         sendToRenderer("tools-log", '[AutoUpdate] Bạn đang dùng phiên bản mới nhất.');
     });
