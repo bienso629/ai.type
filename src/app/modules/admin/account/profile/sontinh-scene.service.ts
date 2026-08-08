@@ -18,7 +18,7 @@ export class SontinhSceneService implements OnDestroy {
 
   // Exposed scene controls for applyProfile()
   private _charBodyRoot: pc.Entity | null = null;
-  private _loadAndPlayAnim: ((key: string) => void) | null = null;
+  private _loadAndPlayAnim: ((key: string, glbPath?: string) => void) | null = null;
   private _toggleRoomLights: ((on?: boolean) => void) | null = null;
   private _profile: UserProfile | null = null;
 
@@ -28,6 +28,12 @@ export class SontinhSceneService implements OnDestroy {
 
   /** Gọi khi user click vào khung ảnh mà chưa có ảnh — component override để mở file picker */
   onPictureFrameClick: (() => void) | null = null;
+
+  playAnimation(key: string, glbPath?: string): void {
+    if (this._loadAndPlayAnim) {
+      this._loadAndPlayAnim(key, glbPath);
+    }
+  }
 
   /** Gọi từ component sau khi user chọn ảnh — truyền blob URL vào để update texture */
   loadPhotoTexture(blobUrl: string): void {
@@ -476,13 +482,24 @@ export class SontinhSceneService implements OnDestroy {
     let wasdWasActive = false;
     
     window.addEventListener('keydown', (e: KeyboardEvent) => {
-      // Prevent page scroll when using arrow/space keys in 3D view
-      if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))
-        e.preventDefault();
-      wasdKeys[e.code] = true;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return; // Skip when typing in text fields
+      }
+      const code = e.code;
+      const key = e.key ? e.key.toLowerCase() : '';
+      if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(code) ||
+          ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)) {
+        if (e.code.startsWith('Arrow')) e.preventDefault();
+      }
+      wasdKeys[code] = true;
+      if (key) wasdKeys[key] = true;
     });
+
     window.addEventListener('keyup', (e: KeyboardEvent) => {
-      wasdKeys[e.code] = false;
+      const code = e.code;
+      const key = e.key ? e.key.toLowerCase() : '';
+      wasdKeys[code] = false;
+      if (key) wasdKeys[key] = false;
     });
     
     app.touch?.on(pc.EVENT_TOUCHSTART, (e: pc.TouchEvent) => {
@@ -3114,46 +3131,123 @@ export class SontinhSceneService implements OnDestroy {
     // Returns the movement speed for the active animation (manual override if it's
     // a Move-type anim, otherwise default walk speed).
     function getEffectiveWalkSpeed(): number {
-      if (manualAnimOverride) {
-        const entry = ANIM_CATALOG.find(a => a.key === manualAnimOverride);
-        if (entry && entry.category === 'Move') {
-          return ANIM_MOVE_SPEED[manualAnimOverride] ?? charWalkSpeed;
-        }
-        return 0; // Not a moving animation (e.g. Combat, Emote, Dance) -> stand in place
-      }
-      return ANIM_MOVE_SPEED[activeWalkAnim] ?? charWalkSpeed;
+      return charWalkSpeed;
     }
     
-    // ── Lazy-load an animation by key ───────────────────────────────────────────
-    function loadAndPlayAnim(key: string) {
-      if (!animComp || !glbCharEntity) return;
-      const entry = ANIM_CATALOG.find(a => a.key === key);
-      if (!entry) return;
-    
-      // Lock override IMMEDIATELY so walking AI won’t interfere during load
+    function ensureAnimComponent(): any {
+      if (!glbCharEntity) return null;
+      if (animComp) return animComp;
+      if (glbCharEntity.anim) { animComp = glbCharEntity.anim; return animComp; }
+      if ((glbCharEntity as any).animation) { animComp = (glbCharEntity as any).animation; return animComp; }
+      try {
+        animComp = glbCharEntity.addComponent('anim', { activate: true });
+        return animComp;
+      } catch (e) {
+        console.warn('[Scene] Could not add anim component:', e);
+        return null;
+      }
+    }
+
+    function playAnimTrack(key: string, animResource: any) {
+      if (!glbCharEntity) return;
+      const targetAnimComp = ensureAnimComponent();
       manualAnimOverride = key;
-      drawAnimStatusBoard(key); // update 3D board status
-    
-      if (loadedAnims.has(key)) { playAnim(key); return; }
-    
-      // Lazy load the GLB
-      app.assets.loadFromUrl(entry.url, 'container', (err: any, asset?: pc.Asset) => {
-        if (err || !asset?.resource) { console.warn('Anim load failed:', key, err); return; }
-        const anims: any[] = (asset.resource as any).animations ?? [];
-        if (anims.length > 0) {
-          animComp.assignAnimation(key, anims[0].resource);
-          loadedAnims.add(key);
-          console.log('✅ Loaded:', key);
+      drawAnimStatusBoard(key);
+
+      if (!targetAnimComp) return;
+
+      try {
+        if (targetAnimComp.assignAnimation) {
+          targetAnimComp.assignAnimation(key, animResource);
+          if (targetAnimComp.baseLayer) {
+            targetAnimComp.baseLayer.transition(key, 0.2);
+            targetAnimComp.playing = true;
+          }
+        } else if (targetAnimComp.addClip) {
+          targetAnimComp.addClip(animResource, key);
+          targetAnimComp.play(key, 0.2);
         }
+        console.log('▶ Playing animation track on character:', key);
+      } catch (e) {
+        console.error('Error playing animation track:', key, e);
+      }
+    }
+
+    // ── Lazy-load an animation by key (built-in or custom user GLB) ─────────────
+    function loadAndPlayAnim(key: string, customGlbPath?: string) {
+      if (!glbCharEntity) return;
+
+      manualAnimOverride = key;
+      drawAnimStatusBoard(key);
+
+      if (loadedAnims.has(key)) {
         playAnim(key);
-      });
+        return;
+      }
+
+      // 1. Check built-in catalog
+      const entry = ANIM_CATALOG.find(a => a.key.toLowerCase() === key.toLowerCase());
+      if (entry) {
+        app.assets.loadFromUrl(entry.url, 'container', (err: any, asset?: pc.Asset) => {
+          if (err || !asset?.resource) { console.warn('Anim load failed:', key, err); return; }
+          const anims: any[] = (asset.resource as any).animations ?? [];
+          if (anims.length > 0) {
+            loadedAnims.add(key);
+            playAnimTrack(key, anims[0].resource);
+          }
+        });
+        return;
+      }
+
+      // 2. Custom user uploaded GLB animation
+      let targetPath = customGlbPath;
+      if (!targetPath && (_svc as any)._profile?.username) {
+        const username = (_svc as any)._profile.username;
+        const safe = key.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+        targetPath = `/home/yenai/Documents/ai.type/data/profiles/${username}/assets/anims/${safe}.glb`;
+      }
+
+      if (targetPath && (window as any).electron?.readGlb) {
+        (window as any).electron.readGlb(targetPath).then((res: any) => {
+          if (res?.success && res.buffer) {
+            const bytes = res.buffer instanceof ArrayBuffer
+              ? new Uint8Array(res.buffer)
+              : new Uint8Array(res.buffer.buffer, res.buffer.byteOffset, res.buffer.byteLength);
+            const blob = new Blob([bytes], { type: 'model/gltf-binary' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            app.assets.loadFromUrl(blobUrl, 'container', (err: any, asset?: pc.Asset) => {
+              URL.revokeObjectURL(blobUrl);
+              if (err || !asset?.resource) {
+                console.warn('[Scene] Custom GLB anim load failed:', key, targetPath, err);
+                return;
+              }
+              const anims: any[] = (asset.resource as any).animations ?? [];
+              if (anims.length > 0) {
+                loadedAnims.add(key);
+                console.log('✅ Loaded custom GLB anim track:', key);
+                playAnimTrack(key, anims[0].resource);
+              } else {
+                console.warn('[Scene] No animation tracks inside custom GLB:', targetPath);
+              }
+            });
+          }
+        }).catch((e: any) => console.error('[Scene] Error reading custom GLB anim file:', e));
+      }
     }
     
     function playAnim(key: string) {
-      if (!animComp || !charAnimReady) return;
-      (glbCharEntity!.anim!.baseLayer as any)?.transition(key, 0.25);
+      if (!charAnimReady || !glbCharEntity) return;
+      const targetAnimComp = ensureAnimComponent();
+      if (targetAnimComp?.baseLayer) {
+        (targetAnimComp.baseLayer as any)?.transition(key, 0.25);
+      } else if (targetAnimComp?.play) {
+        targetAnimComp.play(key, 0.25);
+      }
       drawAnimStatusBoard(key);
     }
+
+    this._loadAndPlayAnim = loadAndPlayAnim;
     
     // ── 3D LED Status Board (minimal wall display) ───────────────────────
     // Shows current animation. Clicking opens the full overlay control panel.
@@ -3422,11 +3516,13 @@ export class SontinhSceneService implements OnDestroy {
     
       // NOTE: do NOT call fixMatteMaterials — Meshy model has proper PBR textures
 
-      // Character load xong — đứng im, chờ user upload animation
-      // (animation sẽ được load qua loadAnimationFromBlobUrl() sau)
       charAnimReady = true;
+      animComp = ensureAnimComponent();
+      if ((_svc as any)._profile?.character?.animationState) {
+        loadAndPlayAnim((_svc as any)._profile.character.animationState);
+      }
       buildAnimBoard3D();
-      console.log('✅ Character loaded — standing by, no animations yet');
+      console.log('✅ Character loaded & animComp ready');
     }); // end loadFromUrl character
     } // end else (charGlbUrl exists)
 
@@ -3459,10 +3555,10 @@ export class SontinhSceneService implements OnDestroy {
     // Camera-relative: W=forward, S=back, A=left, D=right.
     // Returns true if WASD is active (caller should skip AI update).
     function updateWASDMovement(dt: number): boolean {
-      const w = wasdKeys['KeyW']     || wasdKeys['ArrowUp'];
-      const s = wasdKeys['KeyS']     || wasdKeys['ArrowDown'];
-      const a = wasdKeys['KeyA']     || wasdKeys['ArrowLeft'];
-      const d = wasdKeys['KeyD']     || wasdKeys['ArrowRight'];
+      const w = wasdKeys['KeyW'] || wasdKeys['w'] || wasdKeys['ArrowUp'] || wasdKeys['arrowup'];
+      const s = wasdKeys['KeyS'] || wasdKeys['s'] || wasdKeys['ArrowDown'] || wasdKeys['arrowdown'];
+      const a = wasdKeys['KeyA'] || wasdKeys['a'] || wasdKeys['ArrowLeft'] || wasdKeys['arrowleft'];
+      const d = wasdKeys['KeyD'] || wasdKeys['d'] || wasdKeys['ArrowRight'] || wasdKeys['arrowright'];
       const anyKey = w || s || a || d;
     
       if (!anyKey || !charAnimReady) {
@@ -3475,40 +3571,33 @@ export class SontinhSceneService implements OnDestroy {
         return false;
       }
     
-      // Clear manual animation override as soon as the user touches WASD
-      if (manualAnimOverride !== null) {
-        manualAnimOverride = null;
-        charWasWalking = false; // force animation switch next frame
-        drawAnimStatusBoard(activeWalkAnim);
-      }
-    
       wasdWasActive = true;
       charIsWalking = true; // keep AI from resetting to waypoint logic
-    
+
       // Camera orbit yaw → camera-relative axes (XZ plane only)
       const yawRad = targetYaw * pc.math.DEG_TO_RAD;
       const fwdX = -Math.sin(yawRad),  fwdZ = -Math.cos(yawRad); // W direction
       const rgtX =  Math.cos(yawRad),  rgtZ = -Math.sin(yawRad); // D direction
-    
+
       let moveX = 0, moveZ = 0;
       if (w) { moveX += fwdX; moveZ += fwdZ; }
       if (s) { moveX -= fwdX; moveZ -= fwdZ; }
       if (a) { moveX -= rgtX; moveZ -= rgtZ; }
       if (d) { moveX += rgtX; moveZ += rgtZ; }
-    
+
       const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
       if (len > 0.001) {
         moveX /= len; moveZ /= len;
-    
+
         const spd = getEffectiveWalkSpeed();
         charCurrentPos.x += moveX * spd * dt;
         charCurrentPos.z += moveZ * spd * dt;
-    
+
         // Room bounds
         const BOUND_X = 55, BOUND_Z = 28;
         charCurrentPos.x = Math.max(-BOUND_X, Math.min(BOUND_X, charCurrentPos.x));
         charCurrentPos.z = Math.max(-BOUND_Z, Math.min(BOUND_Z, charCurrentPos.z));
-    
+
         // Smooth facing toward movement direction
         const desiredYaw = Math.atan2(moveX, moveZ) * pc.math.RAD_TO_DEG;
         let dyaw = desiredYaw - charCurrentYaw;
@@ -3516,20 +3605,14 @@ export class SontinhSceneService implements OnDestroy {
         while (dyaw < -180) dyaw += 360;
         charCurrentYaw += dyaw * Math.min(1.0, dt * 12);
       }
-    
+
       charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
       charPivot.setEulerAngles(0, charCurrentYaw, 0);
       charBodyRoot.setLocalEulerAngles(0, 0, 0);
-    
+
       // Camera pivot follows character
       targetPivot.set(charCurrentPos.x, targetPivot.y, charCurrentPos.z);
-    
-      // Switch to walk animation if not already
-      if (!charWasWalking) {
-        charWasWalking = true;
-        switchCharAnim(activeWalkAnim);
-      }
-    
+
       return true;
     }
     

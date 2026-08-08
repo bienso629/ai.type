@@ -4,6 +4,8 @@ import { CommonModule } from '@angular/common';
 import { SharedModule } from 'app/shared.module';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { ProfileComponent } from 'app/modules/admin/account/profile/profile.component';
 import { SontinhSceneService } from 'app/modules/admin/account/profile/sontinh-scene.service';
 import { ProfileDataService } from 'app/modules/admin/account/profile/profile-data.service';
@@ -19,7 +21,9 @@ const routes: Route[] = [
         CommonModule,
         SharedModule,
         TextFieldModule,
-        MatExpansionModule
+        MatExpansionModule,
+        MatMenuModule,
+        MatDividerModule
     ],
     providers: [SontinhSceneService, ProfileDataService]
 })

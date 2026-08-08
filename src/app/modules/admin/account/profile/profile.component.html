@@ -2,6 +2,8 @@
 
   <!-- Hidden photo file input -->
   <input #photoFileInput type="file" accept="image/*" style="display:none" (change)="onPhotoSelected($event)">
+  <!-- Hidden action GLB file input -->
+  <input #actionFileInput type="file" accept=".glb" style="display:none" (change)="onActionFileSelected($event)">
 
   <!-- LEFT SIDEBAR -->
   <div class="profile-sidebar">
@@ -54,6 +56,7 @@
       <!-- ACCORDION MENU -->
       <div class="sidebar-accordion">
 
+        <!-- GÓC NHÌN -->
         <details class="sidebar-panel">
           <summary class="sidebar-panel-header">
             <span class="sidebar-panel-label">GÓC NHÌN</span>
@@ -69,6 +72,7 @@
           </div>
         </details>
 
+        <!-- ĐỒ VẬT -->
         <details class="sidebar-panel">
           <summary class="sidebar-panel-header">
             <span class="sidebar-panel-label">ĐỒ VẬT</span>
@@ -79,24 +83,129 @@
             <button class="sidebar-sub-item"><mat-icon class="sub-icon">water</mat-icon>Bể cá</button>
             <button class="sidebar-sub-item"><mat-icon class="sub-icon">computer</mat-icon>Máy tính</button>
             <button class="sidebar-sub-item"><mat-icon class="sub-icon">keyboard</mat-icon>Bàn phím</button>
-            <button class="sidebar-sub-item sidebar-sub-item--add"><mat-icon class="sub-icon">add_circle_outline</mat-icon>Thêm đồ vật...</button>
+            <button class="sidebar-sub-item sidebar-sub-item--add" (click)="triggerAddProp()"><mat-icon class="sub-icon">add_circle_outline</mat-icon>Thêm đồ vật...</button>
           </div>
         </details>
 
-        <details class="sidebar-panel">
+        <!-- NHÂN VẬT -->
+        <details class="sidebar-panel" open>
           <summary class="sidebar-panel-header">
             <span class="sidebar-panel-label">NHÂN VẬT</span>
             <mat-icon class="sidebar-panel-arrow">expand_more</mat-icon>
           </summary>
           <div class="sidebar-sub-items">
-            <button class="sidebar-sub-item"><mat-icon class="sub-icon">checkroom</mat-icon>Quần áo</button>
-            <button class="sidebar-sub-item"><mat-icon class="sub-icon">face</mat-icon>Kiểu tóc</button>
-            <button class="sidebar-sub-item"><mat-icon class="sub-icon">face_retouching_natural</mat-icon>Gương mặt</button>
-            <button class="sidebar-sub-item"><mat-icon class="sub-icon">directions_run</mat-icon>Các hành động</button>
+            <button class="sidebar-sub-item" [matMenuTriggerFor]="clothesMenu">
+              <mat-icon class="sub-icon">checkroom</mat-icon>
+              <span class="flex-1">Quần áo</span>
+              <mat-icon class="sub-arrow">chevron_right</mat-icon>
+            </button>
+
+            <button class="sidebar-sub-item" [matMenuTriggerFor]="hairMenu">
+              <mat-icon class="sub-icon">face</mat-icon>
+              <span class="flex-1">Kiểu tóc</span>
+              <mat-icon class="sub-arrow">chevron_right</mat-icon>
+            </button>
+
+            <button class="sidebar-sub-item" [matMenuTriggerFor]="faceMenu">
+              <mat-icon class="sub-icon">face_retouching_natural</mat-icon>
+              <span class="flex-1">Gương mặt</span>
+              <mat-icon class="sub-arrow">chevron_right</mat-icon>
+            </button>
+
+            <!-- CÁC HÀNH ĐỘNG — Angular mat-menu flyout -->
+            <button class="sidebar-sub-item" [matMenuTriggerFor]="actionsMenu">
+              <mat-icon class="sub-icon">directions_run</mat-icon>
+              <span class="flex-1">Các hành động</span>
+              <mat-icon class="sub-arrow">chevron_right</mat-icon>
+            </button>
           </div>
         </details>
 
       </div>
+
+      <!-- Angular Material Sub-Menus -->
+      <!-- Actions Sub-Menu -->
+      <mat-menu #actionsMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
+        <div mat-menu-item *ngFor="let anim of userAnimations" (click)="setAnimation(anim.name, anim.glbPath)" class="hover:bg-gray-50 flex items-center justify-between !px-3">
+          <!-- Radio button chọn mặc định -->
+          <div (click)="setDefaultAnimation($event, anim.name, anim.glbPath)" class="flex items-center shrink-0 mr-2.5" [title]="profile?.character?.animationState === anim.name ? 'Đang là mặc định' : 'Chọn làm hành động mặc định'">
+            <span class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center transition-colors"
+                  [class.border-teal-500]="profile?.character?.animationState === anim.name"
+                  [class.bg-teal-500]="profile?.character?.animationState === anim.name">
+              <span *ngIf="profile?.character?.animationState === anim.name" class="w-1.5 h-1.5 rounded-full bg-white"></span>
+            </span>
+          </div>
+
+          <!-- Tên hành động (bấm vào để phát ngay) -->
+          <span class="text-sm font-medium truncate flex-1" [class.text-teal-600]="profile?.character?.animationState === anim.name">
+            {{ anim.name }}
+          </span>
+
+          <button mat-icon-button color="warn" (click)="deleteAction($event, anim.id)" title="Xoá hành động">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </div>
+
+        <button mat-menu-item *ngIf="userAnimations.length === 0" disabled>
+          <span class="text-sm text-gray-400 font-normal">Chưa có hành động nào</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="triggerAddAction()" class="hover:bg-teal-50 text-teal-600">
+          <mat-icon class="icon-size-5 text-teal-600">add_circle_outline</mat-icon>
+          <span class="text-sm font-semibold">Thêm hành động...</span>
+        </button>
+      </mat-menu>
+
+      <!-- Clothes Sub-Menu -->
+      <mat-menu #clothesMenu="matMenu" class="rounded-xl py-1 w-56" panelClass="faint-shadow-menu">
+        <button mat-menu-item class="hover:bg-gray-50">
+          <mat-icon class="icon-size-5 text-teal-600">checkroom</mat-icon>
+          <span class="text-sm font-medium">Mặc định</span>
+        </button>
+        <button mat-menu-item class="hover:bg-gray-50">
+          <mat-icon class="icon-size-5 text-teal-600">checkroom</mat-icon>
+          <span class="text-sm font-medium">Áo phông đen</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
+          <mat-icon class="icon-size-5 text-teal-600">add_circle_outline</mat-icon>
+          <span class="text-sm font-semibold">Thêm trang phục...</span>
+        </button>
+      </mat-menu>
+
+      <!-- Hair Sub-Menu -->
+      <mat-menu #hairMenu="matMenu" class="rounded-xl py-1 w-56" panelClass="faint-shadow-menu">
+        <button mat-menu-item class="hover:bg-gray-50">
+          <mat-icon class="icon-size-5 text-teal-600">face</mat-icon>
+          <span class="text-sm font-medium">Kiểu tóc ngắn</span>
+        </button>
+        <button mat-menu-item class="hover:bg-gray-50">
+          <mat-icon class="icon-size-5 text-teal-600">face</mat-icon>
+          <span class="text-sm font-medium">Tóc vuốt ngược</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
+          <mat-icon class="icon-size-5 text-teal-600">add_circle_outline</mat-icon>
+          <span class="text-sm font-semibold">Thêm kiểu tóc...</span>
+        </button>
+      </mat-menu>
+
+      <!-- Face Sub-Menu -->
+      <mat-menu #faceMenu="matMenu" class="rounded-xl py-1 w-56" panelClass="faint-shadow-menu">
+        <button mat-menu-item class="hover:bg-gray-50">
+          <mat-icon class="icon-size-5 text-teal-600">sentiment_satisfied_alt</mat-icon>
+          <span class="text-sm font-medium">Gương mặt chuẩn</span>
+        </button>
+        <button mat-menu-item class="hover:bg-gray-50">
+          <mat-icon class="icon-size-5 text-teal-600">mood</mat-icon>
+          <span class="text-sm font-medium">Tự nhiên</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
+          <mat-icon class="icon-size-5 text-teal-600">add_circle_outline</mat-icon>
+          <span class="text-sm font-semibold">Thêm gương mặt...</span>
+        </button>
+      </mat-menu>
 
     </div>
 

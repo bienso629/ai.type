@@ -28,6 +28,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('sceneCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('glbFileInput') glbFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('photoFileInput') photoFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('actionFileInput') actionFileInput!: ElementRef<HTMLInputElement>;
 
   isLoading    = true;
   isUploading  = false;
@@ -37,6 +38,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   username = 'admin';
   promptText = '';
   charThumbnail: string | null = null;
+  userAnimations: Array<{ id: string; name: string; glbPath: string; uploadedAt?: string }> = [];
 
   private _destroy$    = new Subject<void>();
   private _charBlobUrl: string | null = null;
@@ -96,6 +98,18 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         if (p) { this.profile = p; this.sceneService.applyProfile(p); this.cdr.markForCheck(); }
       });
 
+      // 6. Load danh sách hành động (animations) từ đĩa
+      if ((window as any).electron?.listAnimations) {
+        try {
+          const animRes = await (window as any).electron.listAnimations(this.username);
+          if (animRes?.success && Array.isArray(animRes.data)) {
+            this.userAnimations = animRes.data;
+          }
+        } catch (e) {
+          console.warn('[Profile] Lỗi load danh sách hành động:', e);
+        }
+      }
+
       this.isLoading = false;
       this.cdr.markForCheck();
     } catch (err) {
@@ -114,6 +128,92 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   /** Đổi góc nhìn camera */
   setCameraPreset(preset: string): void {
     (this.sceneService as any).setCameraPreset?.(preset);
+  }
+
+  /** Chọn và phát animation cho nhân vật */
+  setAnimation(animName: string, glbPath?: string): void {
+    if (!glbPath) {
+      const found = this.userAnimations.find(a => a.name === animName);
+      if (found) glbPath = found.glbPath;
+    }
+    console.log('[Profile] Play animation:', animName, glbPath);
+    this.sceneService.playAnimation?.(animName, glbPath);
+    this.cdr.markForCheck();
+  }
+
+  /** Đặt 1 hành động làm mặc định cho nhân vật (lưu vào profile) */
+  setDefaultAnimation(event: Event, animName: string, glbPath?: string): void {
+    event.stopPropagation();
+    if (!glbPath) {
+      const found = this.userAnimations.find(a => a.name === animName);
+      if (found) glbPath = found.glbPath;
+    }
+    if (this.profile?.character) {
+      this.profile.character.animationState = animName;
+    }
+    console.log('[Profile] Set default animation:', animName, glbPath);
+    this.profileDataService.saveCharacter({ animationState: animName }).subscribe();
+    this.sceneService.playAnimation?.(animName, glbPath);
+    this.cdr.markForCheck();
+  }
+
+  /** Trigger thêm hành động mới */
+  triggerAddAction(): void {
+    this.actionFileInput?.nativeElement?.click();
+  }
+
+  /** Xử lý khi chọn file animation clip GLB */
+  async onActionFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file  = input.files?.[0];
+    if (!file) return;
+    input.value = '';
+
+    const actionName = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ").trim();
+    if (!actionName) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      if ((window as any).electron?.uploadAnimation) {
+        const res = await (window as any).electron.uploadAnimation(this.username, actionName, buffer);
+        if (res?.success && res.data) {
+          const idx = this.userAnimations.findIndex(a => a.name === res.data.name);
+          if (idx >= 0) {
+            this.userAnimations[idx] = res.data;
+          } else {
+            this.userAnimations.push(res.data);
+          }
+          this.setAnimation(res.data.name, res.data.glbPath);
+          this.cdr.markForCheck();
+        } else {
+          alert('Upload hành động thất bại: ' + (res?.error || 'Lỗi không xác định'));
+        }
+      }
+    } catch (err: any) {
+      console.error('[Profile] Upload action error:', err);
+      alert('Upload hành động thất bại: ' + (err?.message || 'Lỗi không xác định'));
+    }
+  }
+
+  /** Xoá 1 hành động đã upload */
+  async deleteAction(event: MouseEvent, animId: string): Promise<void> {
+    event.stopPropagation();
+    try {
+      if ((window as any).electron?.deleteAnimation) {
+        const res = await (window as any).electron.deleteAnimation(this.username, animId);
+        if (res?.success) {
+          this.userAnimations = this.userAnimations.filter(a => a.id !== animId);
+          this.cdr.markForCheck();
+        }
+      }
+    } catch (err) {
+      console.error('[Profile] Delete animation error:', err);
+    }
+  }
+
+  /** Trigger thêm đồ vật mới */
+  triggerAddProp(): void {
+    console.log('[Profile] Trigger add prop dialog/upload');
   }
 
   /** Gửi prompt */
