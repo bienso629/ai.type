@@ -18,7 +18,7 @@ export class SontinhSceneService implements OnDestroy {
 
   // Exposed scene controls for applyProfile()
   private _charBodyRoot: pc.Entity | null = null;
-  private _loadAndPlayAnim: ((key: string, glbPath?: string) => void) | null = null;
+  private _loadAndPlayAnim: ((key: string, glbPath?: string, isMovement?: boolean, speed?: number) => void) | null = null;
   private _toggleRoomLights: ((on?: boolean) => void) | null = null;
   private _profile: UserProfile | null = null;
 
@@ -29,9 +29,9 @@ export class SontinhSceneService implements OnDestroy {
   /** Gọi khi user click vào khung ảnh mà chưa có ảnh — component override để mở file picker */
   onPictureFrameClick: (() => void) | null = null;
 
-  playAnimation(key: string, glbPath?: string): void {
+  playAnimation(key: string, glbPath?: string, isMovement?: boolean, speed?: number): void {
     if (this._loadAndPlayAnim) {
-      this._loadAndPlayAnim(key, glbPath);
+      this._loadAndPlayAnim(key, glbPath, isMovement, speed);
     }
   }
 
@@ -3128,10 +3128,14 @@ export class SontinhSceneService implements OnDestroy {
       'Running':  24.0,
     };
     
-    // Returns the movement speed for the active animation (manual override if it's
-    // a Move-type anim, otherwise default walk speed).
+    let activeAnimIsMovement = false;
+    let activeAnimSpeed = 11.0;
+
     function getEffectiveWalkSpeed(): number {
-      return charWalkSpeed;
+      if (activeAnimIsMovement) {
+        return activeAnimSpeed > 0 ? activeAnimSpeed : charWalkSpeed;
+      }
+      return 0.0;
     }
     
     function ensureAnimComponent(): any {
@@ -3174,8 +3178,11 @@ export class SontinhSceneService implements OnDestroy {
     }
 
     // ── Lazy-load an animation by key (built-in or custom user GLB) ─────────────
-    function loadAndPlayAnim(key: string, customGlbPath?: string) {
+    function loadAndPlayAnim(key: string, customGlbPath?: string, isMovement?: boolean, speed?: number) {
       if (!glbCharEntity) return;
+
+      activeAnimIsMovement = typeof isMovement === 'boolean' ? isMovement : /walk|run|move|chay|di/i.test(key);
+      activeAnimSpeed = typeof speed === 'number' ? speed : (activeAnimIsMovement ? 11.0 : 0.0);
 
       manualAnimOverride = key;
       drawAnimStatusBoard(key);
@@ -3626,6 +3633,33 @@ export class SontinhSceneService implements OnDestroy {
     const CHAR_ACCEL = 14.0;   // units/s² acceleration / deceleration rate
     
     function updateCharacterWalkingAI(dt: number) {
+      if (manualAnimOverride !== null) {
+        if (activeAnimIsMovement && activeAnimSpeed > 0) {
+          // Hành động thuộc loại Di chuyển (VD: 8.0 units/s) → di chuyển nhân vật tiến về phía trước theo bước chân!
+          const yawRad = charCurrentYaw * pc.math.DEG_TO_RAD;
+          const fwdX = Math.sin(yawRad);
+          const fwdZ = Math.cos(yawRad);
+
+          charCurrentPos.x += fwdX * activeAnimSpeed * dt;
+          charCurrentPos.z += fwdZ * activeAnimSpeed * dt;
+
+          // Xử lý va chạm tường phòng (nếu chạm tường thì tự quay đầu)
+          const BOUND_X = 55, BOUND_Z = 28;
+          if (charCurrentPos.x > BOUND_X) { charCurrentPos.x = BOUND_X; charCurrentYaw += 150; }
+          if (charCurrentPos.x < -BOUND_X) { charCurrentPos.x = -BOUND_X; charCurrentYaw += 150; }
+          if (charCurrentPos.z > BOUND_Z) { charCurrentPos.z = BOUND_Z; charCurrentYaw += 150; }
+          if (charCurrentPos.z < -BOUND_Z) { charCurrentPos.z = -BOUND_Z; charCurrentYaw += 150; }
+
+          charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
+          charPivot.setEulerAngles(0, charCurrentYaw, 0);
+          targetPivot.set(charCurrentPos.x, targetPivot.y, charCurrentPos.z);
+        } else {
+          // Hành động Tại chỗ (speed = 0) → đứng yên vị trí
+          charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
+        }
+        return;
+      }
+
       const targetWP = roomWaypoints[charTargetIndex];
     
       // ── IDLE ─────────────────────────────────────────────────────────────────────

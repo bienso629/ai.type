@@ -38,7 +38,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   username = 'admin';
   promptText = '';
   charThumbnail: string | null = null;
-  userAnimations: Array<{ id: string; name: string; glbPath: string; uploadedAt?: string }> = [];
+  userAnimations: Array<{ id: string; name: string; glbPath: string; isMovement?: boolean; speed?: number; uploadedAt?: string }> = [];
 
   private _destroy$    = new Subject<void>();
   private _charBlobUrl: string | null = null;
@@ -131,29 +131,79 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   /** Chọn và phát animation cho nhân vật */
-  setAnimation(animName: string, glbPath?: string): void {
-    if (!glbPath) {
-      const found = this.userAnimations.find(a => a.name === animName);
-      if (found) glbPath = found.glbPath;
+  setAnimation(animName: string, glbPath?: string, isMovement?: boolean, speed?: number): void {
+    const found = this.userAnimations.find(a => a.name === animName);
+    if (found) {
+      glbPath = glbPath || found.glbPath;
+      if (typeof isMovement !== 'boolean') isMovement = found.isMovement;
+      if (typeof speed !== 'number') speed = found.speed;
     }
-    console.log('[Profile] Play animation:', animName, glbPath);
-    this.sceneService.playAnimation?.(animName, glbPath);
+    console.log('[Profile] Play animation:', animName, glbPath, isMovement, speed);
+    this.sceneService.playAnimation?.(animName, glbPath, isMovement, speed);
     this.cdr.markForCheck();
   }
 
   /** Đặt 1 hành động làm mặc định cho nhân vật (lưu vào profile) */
-  setDefaultAnimation(event: Event, animName: string, glbPath?: string): void {
+  setDefaultAnimation(event: Event, animName: string, glbPath?: string, isMovement?: boolean, speed?: number): void {
     event.stopPropagation();
-    if (!glbPath) {
-      const found = this.userAnimations.find(a => a.name === animName);
-      if (found) glbPath = found.glbPath;
+    const found = this.userAnimations.find(a => a.name === animName);
+    if (found) {
+      glbPath = glbPath || found.glbPath;
+      if (typeof isMovement !== 'boolean') isMovement = found.isMovement;
+      if (typeof speed !== 'number') speed = found.speed;
     }
     if (this.profile?.character) {
       this.profile.character.animationState = animName;
     }
-    console.log('[Profile] Set default animation:', animName, glbPath);
+    console.log('[Profile] Set default animation:', animName, glbPath, isMovement, speed);
     this.profileDataService.saveCharacter({ animationState: animName }).subscribe();
-    this.sceneService.playAnimation?.(animName, glbPath);
+    this.sceneService.playAnimation?.(animName, glbPath, isMovement, speed);
+    this.cdr.markForCheck();
+  }
+
+  /** Modal Cấu hình hành động */
+  editingAction: { id: string; name: string; isMovement: boolean; speed: number } | null = null;
+
+  openActionConfig(event: MouseEvent, anim: any): void {
+    event.stopPropagation();
+    this.editingAction = {
+      id: anim.id,
+      name: anim.name,
+      isMovement: anim.isMovement ?? false,
+      speed: anim.speed ?? (anim.isMovement ? 11.0 : 0.0)
+    };
+    this.cdr.markForCheck();
+  }
+
+  async saveActionConfig(): Promise<void> {
+    if (!this.editingAction) return;
+    const { id, name, isMovement, speed } = this.editingAction;
+    try {
+      if ((window as any).electron?.updateAnimation) {
+        const res = await (window as any).electron.updateAnimation(this.username, id, {
+          name: name.trim(),
+          isMovement,
+          speed: isMovement ? (speed > 0 ? speed : 11.0) : 0.0
+        });
+        if (res?.success && res.data) {
+          const idx = this.userAnimations.findIndex(a => a.id === id);
+          if (idx >= 0) {
+            this.userAnimations[idx] = res.data;
+          }
+          if (this.profile?.character?.animationState === name) {
+            this.setAnimation(res.data.name, res.data.glbPath, res.data.isMovement, res.data.speed);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Profile] Save action config error:', e);
+    }
+    this.editingAction = null;
+    this.cdr.markForCheck();
+  }
+
+  closeActionConfig(): void {
+    this.editingAction = null;
     this.cdr.markForCheck();
   }
 

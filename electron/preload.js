@@ -106,6 +106,7 @@ contextBridge.exposeInMainWorld('electron', {
     listAnimations:     (username)               => ipcRenderer.invoke('animations:list',            { username }),
     uploadAnimation:    (username, name, buffer) => ipcRenderer.invoke('animations:upload',          { username, name, buffer }),
     deleteAnimation:    (username, id)           => ipcRenderer.invoke('animations:delete',          { username, id }),
+    updateAnimation:    (username, id, patch)    => ipcRenderer.invoke('animations:update',          { username, id, patch }),
 
     // ── Clothing / Accessories ──
     listClothing:       (username)               => ipcRenderer.invoke('clothing:list',              { username }),
