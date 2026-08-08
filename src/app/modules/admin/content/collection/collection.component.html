@@ -103,6 +103,10 @@
                             <mat-icon class="icon-size-4" [svgIcon]="'feather:feather'"></mat-icon>
                             <mat-label class="ml-2">Đọc kịch bản</mat-label>
                         </button>
+                        <button *ngIf="hasCollectionVideo()" mat-flat-button class="bg-blue-600 text-white" (click)="editCollectionVideo()" [matTooltip]="'Dựng video của tập này'">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:film'"></mat-icon>
+                            <mat-label class="ml-2">Dựng video</mat-label>
+                        </button>
                         <button *ngIf="!hasCollectionScript()" mat-flat-button color="primary" class="bg-primary text-white" (click)="generateCollectionScriptFromCollectionPage()" [disabled]="isGeneratingCollectionScript" [matTooltip]="'Tự động mổ xẻ các chương để dựng kịch bản phim'">
                             <mat-icon *ngIf="!isGeneratingCollectionScript" class="icon-size-4" [svgIcon]="'feather:cpu'"></mat-icon>
                             <div *ngIf="isGeneratingCollectionScript" class="w-4 h-4 inline-flex items-center justify-center">
@@ -115,6 +119,7 @@
 
                 <div class="flex-auto overflow-hidden relative w-full">
                     <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #table
+                        [columnMode]="ColumnMode.force"
                         class="material fullscreen transition-opacity duration-300 absolute inset-0"
                         [class.opacity-50]="isLoading" [selected]="selected"
                         [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
@@ -140,12 +145,14 @@
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Tiêu đề" [width]="400" [sortable]="false" [canAutoResize]="true"
+                        <ngx-datatable-column name="Tiêu đề" [width]="450" [sortable]="false" [canAutoResize]="true"
                             [draggable]="false" [resizeable]="true">
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <ng-container *ngIf="row">
-                                    <p *ngIf="row.seo" class="font-normal truncate hover:text-clip">{{row.title}}</p>
-                                    <p class="font-normal truncate hover:text-clip" *ngIf="!row.seo">{{row.title}}</p>
+                                    <div class="flex items-center gap-1.5 w-full my-auto cursor-pointer" (click)="openArticle(row)">
+                                        <mat-icon *ngIf="row.is_encrypted" class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto" [svgIcon]="'feather:lock'" [matTooltip]="'Nội dung đã được mã hóa AES-256'"></mat-icon>
+                                        <p class="font-normal truncate hover:text-clip my-auto leading-normal hover:underline">{{row.title}}</p>
+                                    </div>
                                 </ng-container>
                             </ng-template>
                         </ngx-datatable-column>
@@ -170,24 +177,24 @@
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                            [resizeable]="true">
+                        <ngx-datatable-column name="" [width]="240" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                            [resizeable]="false">
                             <ng-template let-row="row" ngx-datatable-cell-template>
-                                <div *ngIf="row" class="flex items-center justify-end gap-1">
-                                    <button *ngIf="permissionScriptCommentLike && hasScriptProject(row)" mat-icon-button
+                                <div *ngIf="row" class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-4">
+                                    <button *ngIf="row.has_script || row.hasScript || hasScriptProject(row)" mat-icon-button
                                         matTooltipPosition="above"
                                         matTooltip="Xem kịch bản"
-                                        [routerLink]="['/ai-writer', user.name, row.uuid, 'script']"
+                                        [routerLink]="['/ai-writer', user?.name || 'admin', row.uuid, 'script']"
                                         class="transition-colors">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:feather'"></mat-icon>
                                     </button>
 
-                                    <button *ngIf="hasVideoProject(row.uuid)" mat-icon-button matTooltipPosition="above"
+                                    <button *ngIf="row.has_video || row.hasVideo || hasVideoProject(row)" mat-icon-button matTooltipPosition="above"
                                         matTooltip="Xem kịch bản video cho bài '{{ row.title }}'"
-                                        [routerLink]="['/voice2video', user.name, row.uuid]" class="transition-colors">
+                                        [routerLink]="['/voice2video', user?.name || 'admin', row.uuid]" class="transition-colors">
                                         <mat-icon class="icon-size-4 text-blue-500"
-                                            [svgIcon]="'heroicons_outline:film'"></mat-icon>
+                                            [svgIcon]="'feather:film'"></mat-icon>
                                     </button>
 
                                     <button *ngIf="permissionScriptCommentLike" mat-icon-button matTooltipPosition="above"

@@ -431,6 +431,17 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             });
     }
 
+    getDomainString(row: any): string {
+        if (!row) return '';
+        const d = row?.source?.wp_domain || row?.domain;
+        if (!d) return '';
+        if (typeof d === 'string') return d;
+        if (typeof d === 'object') {
+            return d.domain || d.name || d.url || d.host || '';
+        }
+        return String(d);
+    }
+
     openWPPost(row: any, wpItem?: any) {
         let link = '';
         let domain = '';
@@ -468,8 +479,11 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
     }
 
-    hasVideoProject(uuid: string): boolean {
+    hasVideoProject(row: any): boolean {
+        if (!row) return false;
+        const uuid = typeof row === 'string' ? row : (row.uuid || row._id || row.id);
         if (!uuid) return false;
+        if (typeof row === 'object' && (row.has_video || row.hasVideo)) return true;
         if (this.multiAccountService) {
             return !!this.multiAccountService.getItem(`ai_type_audio_merger_data_${uuid}`);
         }
@@ -480,7 +494,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (!row || !row.uuid) return false;
         if (row.has_script) return true;
         if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(`ai_type_script_data_${row.uuid}`);
+            return !!this.multiAccountService.getItem(`ai_type_script_data_${row.uuid}`) || !!this.multiAccountService.getItem(`ai_type_script_merger_data_${row.uuid}`);
         }
         return false;
     }
@@ -969,7 +983,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
             data: {
                 mode: 'set',
-                title: `Collection: ${colName}`
+                type: 'collection',
+                title: colName
             },
             width: '450px'
         });
@@ -1191,7 +1206,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (col.has_script) return true;
 
         if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(`ai_type_script_data_${firstUuid}`);
+            return !!this.multiAccountService.getItem(`ai_type_script_data_${firstUuid}`) ||
+                   !!this.multiAccountService.getItem(`ai_type_script_merger_data_${firstUuid}`) ||
+                   !!this.multiAccountService.getItem(`ai_type_script_data_${col._id}`) ||
+                   !!this.multiAccountService.getItem(`ai_type_script_merger_data_${col._id}`);
         }
         return false;
     }

@@ -85,9 +85,6 @@
                 </button> -->
             </mat-form-field>
 
-            <button mat-icon-button (click)="openEncryptionDialog()" class="ml-2" [color]="articlePassword || (details && details.is_encrypted) ? 'warn' : 'accent'" [matTooltip]="(articlePassword || (details && details.is_encrypted)) ? 'Bài viết đã được mã hóa AES-256 (Đã bật bảo vệ)' : 'Đặt mật khẩu mã hóa AES-256 bài viết (Bao gồm Server & Local)'">
-                <mat-icon class="icon-size-5" [svgIcon]="(articlePassword || (details && details.is_encrypted)) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
-            </button>
         </div>
     </div>
 
@@ -2677,13 +2674,13 @@
                                 <mat-menu #menu="matMenu">
                                     <button *ngIf="details && details.uuid && permissionText2Voice" mat-menu-item
                                         [routerLink]="['/voice2video', user.name, details.uuid]">
-                                        <mat-icon class="icon-size-4" svgIcon="feather:film"></mat-icon>
-                                        <mat-label>Dựng kịch bản</mat-label>
+                                        <mat-icon class="icon-size-4" [ngClass]="{'text-blue-500': hasVideoData()}" svgIcon="feather:film"></mat-icon>
+                                        <mat-label [ngClass]="{'text-blue-500': hasVideoData()}">Dựng video</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="generateScript()">
-                                        <mat-icon class="icon-size-4" svgIcon="feather:feather"></mat-icon>
-                                        <mat-label>Tạo kịch bản (Bài viết này)</mat-label>
+                                        <mat-icon class="icon-size-4" [ngClass]="{'text-red-500': hasScriptData()}" svgIcon="feather:feather"></mat-icon>
+                                        <mat-label [ngClass]="{'text-red-500': hasScriptData()}">Tạo kịch bản</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="openRefreshOutlineDialog()">

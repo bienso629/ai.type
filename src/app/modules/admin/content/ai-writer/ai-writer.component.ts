@@ -336,6 +336,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         const dialogRef = this.dialog.open(ArticlePasswordDialog, {
             data: {
                 mode: 'set',
+                type: 'article',
                 title: this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || 'Bài viết'
             },
             width: '450px'
@@ -4287,13 +4288,87 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                     if (details && details.success && details.data) {
                         this.details = details.data;
 
+                        const finishInit = () => {
+                            if (!this.details.source) {
+                                this.details.source = { backup: this.source.backup };
+                            } else if (!this.details.source.backup) {
+                                this.details.source.backup = this.source.backup;
+                            }
+
+                            let version_value = localStorage.version_value;
+                            if (version_value) {
+                                this.version_value = version_value;
+                            } else {
+                                this.version_value = this.details.createdAt;
+                            }
+
+                            this.history();
+                            this.nodeInCollection();
+                            this.allcomments();
+                            this.setDefault();
+                        };
+
                         if (this.details.is_encrypted || (this.details.source && this.details.source.encrypted)) {
-                            const cipherText = this.details.source?.cipher;
-                            if (cipherText) {
-                                if (!this.articlePassword) {
+                            const cipherText = this.details.source?.cipher || this.details.cipher;
+                            if (!this.articlePassword) {
+                                const storedPwd = (this.uuid ? sessionStorage.getItem('unlocked_pwd_' + this.uuid) : null) ||
+                                                  (this.details.collection_id ? sessionStorage.getItem('unlocked_pwd_' + this.details.collection_id) : null);
+                                if (storedPwd) {
+                                    this.articlePassword = storedPwd;
+                                }
+                            }
+
+                            let autoUnlocked = false;
+                            if (this.articlePassword && cipherText) {
+                                try {
+                                    const bytes = CryptoJS.AES.decrypt(cipherText, this.articlePassword);
+                                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                                    if (decryptedText === 'VALID') {
+                                        autoUnlocked = true;
+                                    } else if (decryptedText && decryptedText.length > 0) {
+                                        const decrypted = JSON.parse(decryptedText);
+                                        if (decrypted) {
+                                            autoUnlocked = true;
+                                            if (decrypted.source) this.source = decrypted.source;
+                                            if (decrypted.done) this.done = decrypted.done;
+                                            if (decrypted.trash) this.trash = decrypted.trash;
+                                            if (decrypted.seo) this.seo = decrypted.seo;
+                                            if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
+
+                                            if (decrypted.title) this.details.title = decrypted.title;
+                                            if (decrypted.url) this.details.url = decrypted.url;
+                                            if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
+                                            if (decrypted.description) this.details.description = decrypted.description;
+
+                                            this.details.source = this.source;
+                                            this.details.done = this.done;
+                                            this.details.trash = this.trash;
+                                            this.details.seo = this.seo;
+                                            this.details.arr_keyword = this.arr_keyword;
+
+                                            this.setdata(this.details);
+                                        }
+                                    }
+                                } catch (e) {
+                                    autoUnlocked = false;
+                                }
+                            }
+
+                            if (autoUnlocked) {
+                                if (this.uuid) sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
+                                if (this.details.collection_id) sessionStorage.setItem('unlocked_pwd_' + this.details.collection_id, this.articlePassword);
+                                finishInit();
+                                return;
+                            } else {
+                                this.articlePassword = '';
+                                if (this.uuid) sessionStorage.removeItem('unlocked_pwd_' + this.uuid);
+                                if (this.details.collection_id) sessionStorage.removeItem('unlocked_pwd_' + this.details.collection_id);
+
+                                const openPasswordDialog = () => {
                                     const dialogRef = this.dialog.open(ArticlePasswordDialog, {
                                         data: {
                                             mode: 'unlock',
+                                            type: 'article',
                                             title: this.details.title || 'Bài viết'
                                         },
                                         width: '450px',
@@ -4302,86 +4377,84 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
                                     dialogRef.afterClosed().subscribe((res: any) => {
                                         if (res && res.password) {
-                                            const decrypted = this.decryptPayload(cipherText, res.password);
-                                            if (decrypted) {
-                                                this.articlePassword = res.password;
-                                                if (decrypted.source) this.source = decrypted.source;
-                                                if (decrypted.done) this.done = decrypted.done;
-                                                if (decrypted.trash) this.trash = decrypted.trash;
-                                                if (decrypted.seo) this.seo = decrypted.seo;
-                                                if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
+                                            let isValid = false;
+                                            if (cipherText) {
+                                                try {
+                                                    const bytes = CryptoJS.AES.decrypt(cipherText, res.password);
+                                                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                                                    if (decryptedText === 'VALID') {
+                                                        isValid = true;
+                                                        this.articlePassword = res.password;
+                                                        this.toastr.success('Mở khóa thành công!');
+                                                        this.cd.markForCheck();
+                                                        finishInit();
+                                                    } else if (decryptedText && decryptedText.length > 0) {
+                                                        const decrypted = JSON.parse(decryptedText);
+                                                        if (decrypted) {
+                                                            isValid = true;
+                                                            this.articlePassword = res.password;
+                                                            if (decrypted.source) this.source = decrypted.source;
+                                                            if (decrypted.done) this.done = decrypted.done;
+                                                            if (decrypted.trash) this.trash = decrypted.trash;
+                                                            if (decrypted.seo) this.seo = decrypted.seo;
+                                                            if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
 
-                                                if (decrypted.title) this.details.title = decrypted.title;
-                                                if (decrypted.url) this.details.url = decrypted.url;
-                                                if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
-                                                if (decrypted.description) this.details.description = decrypted.description;
+                                                            if (decrypted.title) this.details.title = decrypted.title;
+                                                            if (decrypted.url) this.details.url = decrypted.url;
+                                                            if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
+                                                            if (decrypted.description) this.details.description = decrypted.description;
 
-                                                this.details.source = this.source;
-                                                this.details.done = this.done;
-                                                this.details.trash = this.trash;
-                                                this.details.seo = this.seo;
-                                                this.details.arr_keyword = this.arr_keyword;
+                                                            this.details.source = this.source;
+                                                            this.details.done = this.done;
+                                                            this.details.trash = this.trash;
+                                                            this.details.seo = this.seo;
+                                                            this.details.arr_keyword = this.arr_keyword;
 
-                                                this.setdata(this.details);
-                                                this.toastr.success('Giải mã thành công nội dung bài viết!', 'Mật khẩu đúng');
-                                                this.cd.markForCheck();
-                                            } else {
-                                                this.toastr.error('Mật khẩu giải mã không chính xác!');
+                                                            this.setdata(this.details);
+                                                            this.toastr.success('Giải mã thành công nội dung bài viết!', 'Mật khẩu đúng');
+                                                            this.cd.markForCheck();
+                                                            finishInit();
+                                                        }
+                                                    }
+                                                } catch (e) {
+                                                    isValid = false;
+                                                }
                                             }
+
+                                            if (isValid) {
+                                                localStorage.removeItem('password_failed_attempts');
+                                                localStorage.removeItem('password_lockout_until');
+                                                if (this.uuid) sessionStorage.setItem('unlocked_pwd_' + this.uuid, res.password);
+                                                if (this.details.collection_id) sessionStorage.setItem('unlocked_pwd_' + this.details.collection_id, res.password);
+                                            } else {
+                                                let attempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10) + 1;
+                                                if (attempts >= 5) {
+                                                    localStorage.setItem('password_lockout_until', String(Date.now() + 5 * 60 * 1000));
+                                                    localStorage.setItem('password_failed_attempts', '0');
+                                                    this.toastr.error('Bạn đã nhập sai 5 lần! Hệ thống tạm dừng 5 phút.');
+                                                } else {
+                                                    localStorage.setItem('password_failed_attempts', String(attempts));
+                                                    this.toastr.error(`Mật khẩu giải mã không chính xác! (Đã nhập sai ${attempts}/5 lần)`);
+                                                }
+                                                openPasswordDialog();
+                                            }
+                                        } else {
+                                            this.toastr.warning('Bài viết đã bị khóa. Vui lòng nhập mật khẩu để xem/sửa!');
+                                            this.router.navigate(['/collection']);
                                         }
                                     });
-                                } else {
-                                    const decrypted = this.decryptPayload(cipherText, this.articlePassword);
-                                    if (decrypted) {
-                                        if (decrypted.source) this.source = decrypted.source;
-                                        if (decrypted.done) this.done = decrypted.done;
-                                        if (decrypted.trash) this.trash = decrypted.trash;
-                                        if (decrypted.seo) this.seo = decrypted.seo;
-                                        if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
-
-                                        if (decrypted.title) this.details.title = decrypted.title;
-                                        if (decrypted.url) this.details.url = decrypted.url;
-                                        if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
-                                        if (decrypted.description) this.details.description = decrypted.description;
-
-                                        this.details.source = this.source;
-                                        this.details.done = this.done;
-                                        this.details.trash = this.trash;
-                                        this.details.seo = this.seo;
-                                        this.details.arr_keyword = this.arr_keyword;
-
-                                        this.setdata(this.details);
-                                    }
-                                }
+                                };
+                                openPasswordDialog();
+                                return;
                             }
                         }
 
-                        if (!this.details.source) {
-                            this.details.source = { backup: this.source.backup };
-                        } else if (!this.details.source.backup) {
-                            this.details.source.backup = this.source.backup;
-                        }
-
-                        // if (this.details.domain) {
-                        //     this.domain = this.details.domain;
-                        // }
-
-                        let version_value = localStorage.version_value;
-                        if (version_value) {
-                            this.version_value = version_value;
-                        } else {
-                            this.version_value = this.details.createdAt;
-                        }
-
-                        this.history();
-                        this.nodeInCollection();
-                        this.allcomments();
+                        finishInit();
                     } else {
                         this.alert('ID không hợp lệ.');
                     }
                 },
                 complete: () => {
-                    this.setDefault();
                 },
             });
     }
@@ -5980,6 +6053,24 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
     /**
      * Constructor
      */
+    hasScriptData(): boolean {
+        if (!this.uuid) return false;
+        if (this.details && this.details.has_script) return true;
+        if (this.multiAccountService) {
+            return !!this.multiAccountService.getItem(`ai_type_script_data_${this.uuid}`) || !!this.multiAccountService.getItem(`ai_type_script_merger_data_${this.uuid}`);
+        }
+        return false;
+    }
+
+    hasVideoData(): boolean {
+        if (!this.uuid) return false;
+        if (this.details && this.details.has_video) return true;
+        if (this.multiAccountService) {
+            return !!this.multiAccountService.getItem(`ai_type_audio_merger_data_${this.uuid}`);
+        }
+        return false;
+    }
+
     constructor(
         private _formBuilder: UntypedFormBuilder,
         private clipboard: Clipboard,
