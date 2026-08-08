@@ -205,8 +205,16 @@ function registerProfileHandlers() {
             const animListPath = path.join(getProfileDir(username), 'animations.json');
             const list = readJson(animListPath, []);
             const idx  = list.findIndex(a => a.name === name);
-            const entry = { id: safe, name, glbPath, uploadedAt: new Date().toISOString() };
-            if (idx >= 0) list[idx] = entry; else list.push(entry);
+            const isWalk = /walk|run|move|chay|di/i.test(name);
+            const entry = {
+                id: safe,
+                name,
+                glbPath,
+                isMovement: isWalk,
+                speed: isWalk ? 11.0 : 0.0,
+                uploadedAt: new Date().toISOString()
+            };
+            if (idx >= 0) list[idx] = { ...list[idx], ...entry }; else list.push(entry);
             writeJson(animListPath, list);
 
             return { success: true, data: entry };
@@ -226,6 +234,23 @@ function registerProfileHandlers() {
             list = list.filter(a => a.id !== id);
             writeJson(animListPath, list);
             return { success: true };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    });
+
+    /** Cập nhật cấu hình animation */
+    ipcMain.handle('animations:update', async (_event, { username, id, patch } = {}) => {
+        try {
+            const animListPath = path.join(getProfileDir(username), 'animations.json');
+            let list = readJson(animListPath, []);
+            const idx = list.findIndex(a => a.id === id);
+            if (idx >= 0) {
+                list[idx] = { ...list[idx], ...patch };
+                writeJson(animListPath, list);
+                return { success: true, data: list[idx] };
+            }
+            return { success: false, error: 'Animation not found' };
         } catch (e) {
             return { success: false, error: e.message };
         }
