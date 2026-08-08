@@ -651,32 +651,131 @@ export class CollectionComponent implements OnInit, OnDestroy {
         return false;
     }
 
+    ensureUnlocked(targetObj: any, callback: (unlocked: boolean, password?: string) => void) {
+        if (!targetObj) {
+            callback(true);
+            return;
+        }
+
+        const colIsEncrypted = (this.selectedCollection && this.selectedCollection.is_encrypted) ||
+                               targetObj.is_encrypted ||
+                               (targetObj.source && targetObj.source.encrypted);
+
+        if (!colIsEncrypted) {
+            callback(true);
+            return;
+        }
+
+        const targetUuid = targetObj.uuid || (Array.isArray(targetObj.uuid) ? targetObj.uuid[0] : null) || targetObj._id || targetObj.id || this.selectedCollection?.uuid;
+
+        // Check if unlocked in this session already
+        if (targetUuid) {
+            const token = sessionStorage.getItem('nav_handshake_pwd_' + targetUuid);
+            if (token) {
+                try {
+                    const parsed = JSON.parse(token);
+                    if (parsed && parsed.password) {
+                        callback(true, parsed.password);
+                        return;
+                    }
+                } catch (e) {}
+            }
+        }
+
+        // Prompt for password
+        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'unlock',
+                type: 'article',
+                title: targetObj.title || this.selectedCollection?.title || 'Bộ sưu tập / Bài viết'
+            },
+            width: '450px',
+            disableClose: true
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                const cipher = targetObj.cipher || this.selectedCollection?.cipher || targetObj.source?.cipher;
+                let isValid = false;
+                if (cipher) {
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(cipher, res.password);
+                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
+                            isValid = true;
+                        }
+                    } catch (e) {
+                        isValid = false;
+                    }
+                } else {
+                    isValid = true;
+                }
+
+                if (isValid) {
+                    if (targetUuid) {
+                        sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
+                    }
+                    callback(true, res.password);
+                } else {
+                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
+                    callback(false);
+                }
+            } else {
+                callback(false);
+            }
+        });
+    }
+
+    openRowScript(row: any) {
+        if (!row) return;
+        this.ensureUnlocked(row, (unlocked) => {
+            if (unlocked) {
+                const username = this.user?.name || 'admin';
+                this.router.navigate(['/ai-writer', username, row.uuid, 'script']);
+            }
+        });
+    }
+
+    openRowVideo(row: any) {
+        if (!row) return;
+        this.ensureUnlocked(row, (unlocked) => {
+            if (unlocked) {
+                const username = this.user?.name || 'admin';
+                this.router.navigate(['/voice2video', username, row.uuid]);
+            }
+        });
+    }
+
     readCollectionScript() {
         const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
         if (!activeCol) return;
 
-        let scriptUuid = '';
-        if (this.rows && this.rows.length > 0) {
-            const foundScriptRow = this.rows.find((r: any) => r && (r.has_script || this.hasScriptProject(r)));
-            if (foundScriptRow && foundScriptRow.uuid) {
-                scriptUuid = foundScriptRow.uuid;
+        this.ensureUnlocked(activeCol, (unlocked) => {
+            if (!unlocked) return;
+
+            let scriptUuid = '';
+            if (this.rows && this.rows.length > 0) {
+                const foundScriptRow = this.rows.find((r: any) => r && (r.has_script || this.hasScriptProject(r)));
+                if (foundScriptRow && foundScriptRow.uuid) {
+                    scriptUuid = foundScriptRow.uuid;
+                }
             }
-        }
 
-        if (!scriptUuid) {
-            let uuids: string[] = Array.isArray(activeCol.uuid) ? activeCol.uuid : (activeCol.uuid ? [activeCol.uuid] : []);
-            if (uuids.length > 0) {
-                scriptUuid = uuids.find(uId => !!this.multiAccountService.getItem(`ai_type_script_data_${uId}`)) || uuids[0];
+            if (!scriptUuid) {
+                let uuids: string[] = Array.isArray(activeCol.uuid) ? activeCol.uuid : (activeCol.uuid ? [activeCol.uuid] : []);
+                if (uuids.length > 0) {
+                    scriptUuid = uuids.find(uId => !!this.multiAccountService.getItem(`ai_type_script_data_${uId}`)) || uuids[0];
+                }
             }
-        }
 
-        if (!scriptUuid) {
-            this.toastr.warning('Không tìm thấy UUID của Collection!', 'Cảnh báo');
-            return;
-        }
+            if (!scriptUuid) {
+                this.toastr.warning('Không tìm thấy UUID của Collection!', 'Cảnh báo');
+                return;
+            }
 
-        const username = this.user?.name || 'admin';
-        this.router.navigate(['/ai-writer', username, scriptUuid, 'script']);
+            const username = this.user?.name || 'admin';
+            this.router.navigate(['/ai-writer', username, scriptUuid, 'script']);
+        });
     }
 
     hasCollectionVideo(): boolean {
@@ -704,22 +803,26 @@ export class CollectionComponent implements OnInit, OnDestroy {
         const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
         if (!activeCol) return;
 
-        let firstUuid = '';
-        if (Array.isArray(activeCol.uuid) && activeCol.uuid.length > 0) {
-            firstUuid = activeCol.uuid[0];
-        } else if (typeof activeCol.uuid === 'string') {
-            firstUuid = activeCol.uuid;
-        } else if (this.rows && this.rows.length > 0 && this.rows[0].uuid) {
-            firstUuid = this.rows[0].uuid;
-        }
+        this.ensureUnlocked(activeCol, (unlocked) => {
+            if (!unlocked) return;
 
-        if (!firstUuid) {
-            this.toastr.warning('Không tìm thấy UUID của Collection!', 'Cảnh báo');
-            return;
-        }
+            let firstUuid = '';
+            if (Array.isArray(activeCol.uuid) && activeCol.uuid.length > 0) {
+                firstUuid = activeCol.uuid[0];
+            } else if (typeof activeCol.uuid === 'string') {
+                firstUuid = activeCol.uuid;
+            } else if (this.rows && this.rows.length > 0 && this.rows[0].uuid) {
+                firstUuid = this.rows[0].uuid;
+            }
 
-        const username = this.user?.name || 'admin';
-        this.router.navigate(['/voice2video', username, firstUuid]);
+            if (!firstUuid) {
+                this.toastr.warning('Không tìm thấy UUID của Collection!', 'Cảnh báo');
+                return;
+            }
+
+            const username = this.user?.name || 'admin';
+            this.router.navigate(['/voice2video', username, firstUuid]);
+        });
     }
 
     isGeneratingCollectionScript: boolean = false;
@@ -806,31 +909,35 @@ export class CollectionComponent implements OnInit, OnDestroy {
         }
 
         const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
-        const collectionTitle = activeCol?.title || 'Kịch bản Bộ Tiểu Thuyết';
-        
-        let uuids: string[] = [];
-        if (activeCol) {
-            if (Array.isArray(activeCol.uuid)) {
-                uuids = activeCol.uuid;
-            } else if (activeCol.uuid) {
-                uuids = [activeCol.uuid];
+
+        this.ensureUnlocked(activeCol, async (unlocked) => {
+            if (!unlocked) return;
+
+            const collectionTitle = activeCol?.title || 'Kịch bản Bộ Tiểu Thuyết';
+            
+            let uuids: string[] = [];
+            if (activeCol) {
+                if (Array.isArray(activeCol.uuid)) {
+                    uuids = activeCol.uuid;
+                } else if (activeCol.uuid) {
+                    uuids = [activeCol.uuid];
+                }
             }
-        }
 
-        if (uuids.length === 0 && this.rows && this.rows.length > 0) {
-            uuids = this.rows.map((r: any) => r.uuid).filter((u: any) => !!u);
-        }
+            if (uuids.length === 0 && this.rows && this.rows.length > 0) {
+                uuids = this.rows.map((r: any) => r.uuid).filter((u: any) => !!u);
+            }
 
-        if (uuids.length === 0) {
-            this.toastr.warning('Collection này chưa có bài viết nào để dựng kịch bản!', 'Trống');
-            return;
-        }
+            if (uuids.length === 0) {
+                this.toastr.warning('Collection này chưa có bài viết nào để dựng kịch bản!', 'Trống');
+                return;
+            }
 
-        this.isGeneratingCollectionScript = true;
-        this.cd.markForCheck();
+            this.isGeneratingCollectionScript = true;
+            this.cd.markForCheck();
 
-        try {
-            this.toastr.info(`Đang siêu tối ưu đọc ${uuids.length} chương trong Collection "${collectionTitle}"...`, 'Đang xử lý siêu tốc');
+            try {
+                this.toastr.info(`Đang siêu tối ưu đọc ${uuids.length} chương trong Collection "${collectionTitle}"...`, 'Đang xử lý siêu tốc');
             const username = this.user?.name || 'admin';
             
             const fullDocs = await this.fetchCollectionContentBulk(uuids, username);
@@ -964,5 +1071,6 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
             this.isGeneratingCollectionScript = false;
             this.cd.markForCheck();
         }
+        });
     }
 }

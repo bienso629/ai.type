@@ -51,13 +51,13 @@ export class SontinhSceneService implements OnDestroy {
     const svc = this;                    // tham chiếu service trong inner functions
     const username = profile?.username || 'default';
 
-    // Fetch JSON configs from Angular assets
+    // Fetch JSON configs from Angular assets (dùng đường dẫn tương đối assets/ để chạy được trên file:// trong Electron packaged app)
     const [room306Data, furniture306Data, decorations306Data, shophousesData, trafficData] = await Promise.all([
-      fetch('/assets/sontinh/room306.json').then(r => r.json()),
-      fetch('/assets/sontinh/furniture306.json').then(r => r.json()),
-      fetch('/assets/sontinh/decorations306.json').then(r => r.json()),
-      fetch('/assets/sontinh/shophouses.json').then(r => r.json()),
-      fetch('/assets/sontinh/traffic.json').then(r => r.json()),
+      fetch('assets/sontinh/room306.json').then(r => r.json()),
+      fetch('assets/sontinh/furniture306.json').then(r => r.json()),
+      fetch('assets/sontinh/decorations306.json').then(r => r.json()),
+      fetch('assets/sontinh/shophouses.json').then(r => r.json()),
+      fetch('assets/sontinh/traffic.json').then(r => r.json()),
     ]);
 
     // charGlbObjectUrl: Blob URL từ file trên đĩa qua Electron IPC

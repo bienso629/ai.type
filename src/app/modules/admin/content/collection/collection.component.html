@@ -184,7 +184,7 @@
                                     <button *ngIf="row.has_script || row.hasScript || hasScriptProject(row)" mat-icon-button
                                         matTooltipPosition="above"
                                         matTooltip="Xem kịch bản"
-                                        [routerLink]="['/ai-writer', user?.name || 'admin', row.uuid, 'script']"
+                                        (click)="openRowScript(row)"
                                         class="transition-colors">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:feather'"></mat-icon>
@@ -192,7 +192,7 @@
 
                                     <button *ngIf="row.has_video || row.hasVideo || hasVideoProject(row)" mat-icon-button matTooltipPosition="above"
                                         matTooltip="Xem kịch bản video cho bài '{{ row.title }}'"
-                                        [routerLink]="['/voice2video', user?.name || 'admin', row.uuid]" class="transition-colors">
+                                        (click)="openRowVideo(row)" class="transition-colors">
                                         <mat-icon class="icon-size-4 text-blue-500"
                                             [svgIcon]="'feather:film'"></mat-icon>
                                     </button>
