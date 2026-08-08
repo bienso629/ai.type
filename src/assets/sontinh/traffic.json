@@ -1,0 +1,23 @@
+{
+  "groundY": -24.0,
+  "road": {
+    "offsetX": 85.0,
+    "width": 10.0,
+    "pedestrianWidth": 36.0
+  },
+  "trees": [
+    { "z": -25 },
+    { "z": -13 },
+    { "z": -1 },
+    { "z": 11 },
+    { "z": 23 }
+  ],
+  "vehicles": [
+    { "id": "CarRedSedan", "color": "#b91c1c", "speed": 22.0, "dir": 1, "laneX": 83.0, "startZ": -22.0 },
+    { "id": "CarWhiteSUV", "color": "#ffffff", "speed": 18.0, "dir": 1, "laneX": 83.0, "startZ": 12.0 },
+    { "id": "CarBlueSport", "color": "#1d4ed8", "speed": 26.0, "dir": 1, "laneX": 83.0, "startZ": -42.0 },
+    { "id": "CarBlackLuxury", "color": "#111827", "speed": 20.0, "dir": -1, "laneX": 87.0, "startZ": 25.0 },
+    { "id": "CarSilverCoupe", "color": "#9ca3af", "speed": 24.0, "dir": -1, "laneX": 87.0, "startZ": -15.0 },
+    { "id": "CarYellowTaxi", "color": "#eab308", "speed": 19.0, "dir": -1, "laneX": 87.0, "startZ": 45.0 }
+  ]
+}

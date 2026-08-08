@@ -1,0 +1,43 @@
+{
+  "roomId": "room_306",
+  "roomName": "Căn Phòng Studio 306 - Căn Phòng của Yên",
+  "floorLevel": 3,
+  "dimensions": {
+    "width": 140.0,
+    "depth": 80.0,
+    "height": 35.0,
+    "floorElevationY": 0.1
+  },
+  "materials": {
+    "wallColor": "#262e42",
+    "floorTile": {
+      "tileSize": 0.8,
+      "tiling": [87.5, 50],
+      "baseColor": "#14171f",
+      "groutColor": "#485060",
+      "gloss": 0.25
+    }
+  },
+  "buildingBase": {
+    "height": 24.0,
+    "groundY": -24.0,
+    "color": "#293042",
+    "corniceColor": "#d1d1d9"
+  },
+  "window21x9": {
+    "width": 37.33,
+    "height": 16.0,
+    "positionY": 16.0,
+    "wallX": 70.0
+  },
+  "door": {
+    "width": 8.0,
+    "height": 16.0,
+    "position": [-70.0, 8.1, 0.0]
+  },
+  "lightSwitch": {
+    "position": [-69.72, 11.8, 6.8],
+    "phosphorGlow": true,
+    "glowColor": "#34d399"
+  }
+}

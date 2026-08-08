@@ -101,6 +101,7 @@ export const appRoutes: Route[] = [
             { path: 'face2node', loadChildren: () => import('app/modules/admin/marketing/trend/trend.module').then(m => m.AIFacePostModule) },
             { path: 'payment', loadChildren: () => import('app/modules/microsites/payment/payment.module').then(m => m.PaymentModule) },
             { path: 'settings', loadChildren: () => import('app/modules/admin/account/settings/settings.module').then(m => m.SettingsModule) },
+            { path: 'profile', loadChildren: () => import('app/modules/admin/account/profile/profile.module').then(m => m.ProfileModule) },
 
             { path: 'links', loadChildren: () => import('app/modules/admin/marketing/seo-links/seo-links.module').then(m => m.LinksModule) },
             { path: 'woocommerce', loadChildren: () => import('app/modules/admin/marketing/clone-product/export.module').then(m => m.WoocommerceExportModule) },

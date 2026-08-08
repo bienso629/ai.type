@@ -1,3 +1,11 @@
+:host {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .divider {
     position: absolute; // Dùng absolute để nó chạy theo container
     top: 0;

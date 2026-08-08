@@ -25,8 +25,8 @@ export class UserComponent implements OnInit, OnDestroy {
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
-    goto(page?: string) {
-        this._router.navigateByUrl('settings');
+    goto(page: string = 'settings') {
+        this._router.navigateByUrl(page);
     }
 
     async onSelectAccount(accountId: string) {
