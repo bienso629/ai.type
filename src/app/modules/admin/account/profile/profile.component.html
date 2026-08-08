@@ -125,10 +125,10 @@
 
       <!-- Angular Material Sub-Menus -->
       <!-- Actions Sub-Menu -->
-      <mat-menu #actionsMenu="matMenu" class="rounded-xl py-1 w-80" panelClass="faint-shadow-menu">
+      <mat-menu #actionsMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
         <div mat-menu-item *ngFor="let anim of userAnimations" (click)="setAnimation(anim.name, anim.glbPath)" class="hover:bg-gray-50 flex items-center justify-between !px-3 min-w-0 gap-1.5">
           <!-- Radio button chọn mặc định -->
-          <div (click)="setDefaultAnimation($event, anim.name, anim.glbPath)" class="flex items-center shrink-0 mr-1" [title]="profile?.character?.animationState === anim.name ? 'Đang là mặc định' : 'Chọn làm hành động mặc định'">
+          <div (click)="setDefaultAnimation($event, anim.name, anim.glbPath)" class="flex items-center shrink-0 mr-2" [title]="profile?.character?.animationState === anim.name ? 'Đang là mặc định' : 'Chọn làm hành động mặc định'">
             <span class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center transition-colors"
                   [class.border-teal-500]="profile?.character?.animationState === anim.name"
                   [class.bg-teal-500]="profile?.character?.animationState === anim.name">
@@ -137,19 +137,19 @@
           </div>
 
           <!-- Tên hành động (bấm vào để phát ngay) -->
-          <span class="text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap block max-w-[140px] shrink flex-1" [title]="anim.name" [class.text-teal-600]="profile?.character?.animationState === anim.name">
+          <span class="text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap block max-w-[110px] shrink flex-1" [title]="anim.name" [class.text-teal-600]="profile?.character?.animationState === anim.name">
             {{ anim.name }}
           </span>
 
           <!-- Bộ nút thao tác căn lề phải -->
-          <div class="flex items-center ml-auto shrink-0">
+          <div class="flex items-center justify-end ml-auto shrink-0">
             <!-- Nút cấu hình hành động -->
-            <button mat-icon-button (click)="openActionConfig($event, anim)" title="Cấu hình hành động">
+            <button mat-icon-button disableRipple (click)="openActionConfig($event, anim)" title="Cấu hình hành động">
               <mat-icon class="icon-size-4">tune</mat-icon>
             </button>
 
             <!-- Nút xoá -->
-            <button mat-icon-button color="warn" (click)="deleteAction($event, anim.id)" title="Xoá hành động">
+            <button mat-icon-button color="warn" disableRipple (click)="deleteAction($event, anim.id)" title="Xoá hành động">
               <mat-icon class="icon-size-4">delete_outline</mat-icon>
             </button>
           </div>
