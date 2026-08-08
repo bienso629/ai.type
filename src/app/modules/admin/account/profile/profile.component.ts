@@ -74,8 +74,29 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         }
       }
 
+      // 3b. Load danh sách hành động (animations) từ đĩa trước khi khởi tạo scene
+      if ((window as any).electron?.listAnimations) {
+        try {
+          const animRes = await (window as any).electron.listAnimations(this.username);
+          if (animRes?.success && Array.isArray(animRes.data)) {
+            this.userAnimations = animRes.data;
+          }
+        } catch (e) {
+          console.warn('[Profile] Lỗi load danh sách hành động:', e);
+        }
+      }
+
       // 4. Khởi động 3D scene
       await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, charGlbObjectUrl);
+
+      // 4a. Phát ngay hành động mặc định nếu đã chọn
+      const defaultAnimState = profile?.character?.animationState;
+      if (defaultAnimState) {
+        const found = this.userAnimations.find(a => a.name === defaultAnimState);
+        if (found) {
+          this.setAnimation(found.name, found.glbPath, found.isMovement, found.speed);
+        }
+      }
 
       // Capture thumbnail sau khi scene render frame đầu
       if (profile?.character?.glbPath) {
@@ -97,18 +118,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.profileDataService.profile$.pipe(takeUntil(this._destroy$)).subscribe(p => {
         if (p) { this.profile = p; this.sceneService.applyProfile(p); this.cdr.markForCheck(); }
       });
-
-      // 6. Load danh sách hành động (animations) từ đĩa
-      if ((window as any).electron?.listAnimations) {
-        try {
-          const animRes = await (window as any).electron.listAnimations(this.username);
-          if (animRes?.success && Array.isArray(animRes.data)) {
-            this.userAnimations = animRes.data;
-          }
-        } catch (e) {
-          console.warn('[Profile] Lỗi load danh sách hành động:', e);
-        }
-      }
 
       this.isLoading = false;
       this.cdr.markForCheck();

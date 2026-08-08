@@ -3208,10 +3208,17 @@ export class SontinhSceneService implements OnDestroy {
 
       // 2. Custom user uploaded GLB animation
       let targetPath = customGlbPath;
-      if (!targetPath && (_svc as any)._profile?.username) {
+      if (!targetPath && (_svc as any)._profile?.username && (window as any).electron?.listAnimations) {
         const username = (_svc as any)._profile.username;
-        const safe = key.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-        targetPath = `/home/yenai/Documents/ai.type/data/profiles/${username}/assets/anims/${safe}.glb`;
+        (window as any).electron.listAnimations(username).then((res: any) => {
+          if (res?.success && Array.isArray(res.data)) {
+            const found = res.data.find((a: any) => a.name === key || a.id === key);
+            if (found && found.glbPath) {
+              loadAndPlayAnim(found.name, found.glbPath, found.isMovement, found.speed);
+            }
+          }
+        }).catch((e: any) => console.warn('[Scene] Error listing animations:', e));
+        return;
       }
 
       if (targetPath && (window as any).electron?.readGlb) {
