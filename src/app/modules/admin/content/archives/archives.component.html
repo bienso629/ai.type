@@ -94,14 +94,14 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="{{ 'app.title' | transloco }}" [width]="300" [sortable]="false" [canAutoResize]="true"
+            <ngx-datatable-column name="{{ 'app.title' | transloco }}" [width]="450" [sortable]="false" [canAutoResize]="true"
                 [draggable]="false" [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
-                        <div class="flex items-center w-full gap-2">
+                        <div class="flex items-center w-full gap-2 my-auto">
                             <span *ngIf="row.is_local" class="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-700" [matTooltip]="'Bài viết lưu cục bộ trên ổ đĩa máy tính'">Local</span>
-                            <span *ngIf="row.is_encrypted" class="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700 flex items-center gap-1" [matTooltip]="'Nội dung đã được mã hóa AES-256 (Cần mật khẩu để đọc/sửa)'"><mat-icon class="icon-size-3" [svgIcon]="'feather:lock'"></mat-icon>Đã Khóa</span>
-                            <p class="font-normal truncate flex-1" [matTooltip]="row.title">{{row.title}}</p>
+                            <mat-icon *ngIf="row.is_encrypted" class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto" [svgIcon]="'feather:lock'" [matTooltip]="'Nội dung đã được mã hóa AES-256'"></mat-icon>
+                            <p class="font-normal truncate flex-1 my-auto leading-normal" [matTooltip]="row.title">{{row.title}}</p>
                         </div>
                     </ng-container>
                 </ng-template>
@@ -139,9 +139,9 @@
             <ngx-datatable-column name="Domain" [width]="200" [sortable]="false" [canAutoResize]="true"
                 [draggable]="false" [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <span *ngIf="!row?.isGroupHeader && (row?.source?.wp_domain || row?.domain)" class="truncate block w-full text-blue-600 cursor-pointer hover:underline" [matTooltip]="row?.source?.wp_domain || row?.domain"
+                    <span *ngIf="!row?.isGroupHeader && getDomainString(row)" class="truncate block w-full text-blue-600 cursor-pointer hover:underline" [matTooltip]="getDomainString(row)"
                         (click)="$event.stopPropagation(); openWPPost(row)">
-                        {{ row?.source?.wp_domain || row?.domain }}
+                        {{ getDomainString(row) }}
                     </span>
                 </ng-template>
             </ngx-datatable-column>
@@ -196,18 +196,18 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                [resizeable]="true">
+            <ngx-datatable-column name="" [width]="240" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row && !row.isGroupHeader && row.uuid" class="flex items-center justify-end gap-1 w-full pr-2">
-                        <button *ngIf="permissionScriptCommentLike && hasScriptProject(row)" mat-icon-button
-                            [routerLink]="['/ai-writer', user.name, row.uuid, 'script']"
+                    <div *ngIf="row && !row.isGroupHeader && row.uuid" class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-0 mr-0">
+                        <button *ngIf="row.has_script || row.hasScript || hasScriptProject(row)" mat-icon-button
+                            [routerLink]="['/ai-writer', user?.name || 'admin', row.uuid, 'script']"
                             class="transition-colors" [matTooltip]="'Xem kịch bản'">
                             <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:feather'"></mat-icon>
                         </button>
 
-                        <button *ngIf="hasVideoProject(row.uuid)" mat-icon-button
-                            [routerLink]="['/voice2video', user.name, row.uuid]" class="transition-colors" [matTooltip]="'Kịch bản video'">
+                        <button *ngIf="row.has_video || row.hasVideo || hasVideoProject(row)" mat-icon-button
+                            [routerLink]="['/voice2video', user?.name || 'admin', row.uuid]" class="transition-colors" [matTooltip]="'Kịch bản video'">
                             <mat-icon class="icon-size-4 text-blue-500" [svgIcon]="'heroicons_outline:film'"></mat-icon>
                         </button>
 
