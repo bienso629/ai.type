@@ -4310,11 +4310,16 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
                         if (this.details.is_encrypted || (this.details.source && this.details.source.encrypted)) {
                             const cipherText = this.details.source?.cipher || this.details.cipher;
-                            if (!this.articlePassword) {
-                                const storedPwd = (this.uuid ? sessionStorage.getItem('unlocked_pwd_' + this.uuid) : null) ||
-                                                  (this.details.collection_id ? sessionStorage.getItem('unlocked_pwd_' + this.details.collection_id) : null);
-                                if (storedPwd) {
-                                    this.articlePassword = storedPwd;
+                            if (!this.articlePassword && this.uuid) {
+                                const rawToken = sessionStorage.getItem('nav_handshake_pwd_' + this.uuid);
+                                if (rawToken) {
+                                    try {
+                                        const parsed = JSON.parse(rawToken);
+                                        if (parsed && parsed.password && (Date.now() - parsed.ts < 30000)) {
+                                            this.articlePassword = parsed.password;
+                                        }
+                                    } catch (e) {}
+                                    sessionStorage.removeItem('nav_handshake_pwd_' + this.uuid);
                                 }
                             }
 
@@ -4355,14 +4360,14 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                             }
 
                             if (autoUnlocked) {
-                                if (this.uuid) sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
-                                if (this.details.collection_id) sessionStorage.setItem('unlocked_pwd_' + this.details.collection_id, this.articlePassword);
                                 finishInit();
                                 return;
                             } else {
                                 this.articlePassword = '';
-                                if (this.uuid) sessionStorage.removeItem('unlocked_pwd_' + this.uuid);
-                                if (this.details.collection_id) sessionStorage.removeItem('unlocked_pwd_' + this.details.collection_id);
+                                if (this.uuid) {
+                                    sessionStorage.removeItem('nav_handshake_pwd_' + this.uuid);
+                                    sessionStorage.removeItem('unlocked_pwd_' + this.uuid);
+                                }
 
                                 const openPasswordDialog = () => {
                                     const dialogRef = this.dialog.open(ArticlePasswordDialog, {
@@ -4424,8 +4429,6 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                                             if (isValid) {
                                                 localStorage.removeItem('password_failed_attempts');
                                                 localStorage.removeItem('password_lockout_until');
-                                                if (this.uuid) sessionStorage.setItem('unlocked_pwd_' + this.uuid, res.password);
-                                                if (this.details.collection_id) sessionStorage.setItem('unlocked_pwd_' + this.details.collection_id, res.password);
                                             } else {
                                                 let attempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10) + 1;
                                                 if (attempts >= 5) {
@@ -6643,6 +6646,11 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
      * On destroy
      */
     ngOnDestroy(): void {
+        this.articlePassword = '';
+        if (this.uuid) {
+            sessionStorage.removeItem('nav_handshake_pwd_' + this.uuid);
+            sessionStorage.removeItem('unlocked_pwd_' + this.uuid);
+        }
         this.globalAgentService.clearContext();
         window.removeEventListener('stt-transcribed', this.onSttTranscribed);
         clearInterval(this.intervalAutoSave);

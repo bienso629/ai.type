@@ -441,39 +441,8 @@ export class CollectionComponent implements OnInit, OnDestroy {
         if (!row || !row.uuid) return;
         const colIsEncrypted = (this.selectedCollection && this.selectedCollection.is_encrypted) || row.is_encrypted || (row.source && row.source.encrypted);
         const colId = this.selectedCollection?._id || this.selectedCollection?.id;
-        let savedPassword = this.collectionUnlockedPasswords[colId] ||
-            (row.uuid ? sessionStorage.getItem('unlocked_pwd_' + row.uuid) : null) ||
-            (colId ? sessionStorage.getItem('unlocked_pwd_' + colId) : null);
 
         if (colIsEncrypted) {
-            let isSavedValid = false;
-            if (savedPassword) {
-                const cipher = this.selectedCollection?.cipher || row.cipher || row.source?.cipher;
-                if (cipher) {
-                    try {
-                        const bytes = CryptoJS.AES.decrypt(cipher, savedPassword);
-                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                            isSavedValid = true;
-                        }
-                    } catch (e) {
-                        isSavedValid = false;
-                    }
-                } else {
-                    isSavedValid = true;
-                }
-            }
-
-            if (isSavedValid && savedPassword) {
-                if (colId) {
-                    this.collectionUnlockedPasswords[colId] = savedPassword;
-                    sessionStorage.setItem('unlocked_pwd_' + colId, savedPassword);
-                }
-                if (row.uuid) sessionStorage.setItem('unlocked_pwd_' + row.uuid, savedPassword);
-                this.router.navigate(['/ai-writer', this.user.name, row.uuid]);
-                return;
-            }
-
             const openDialog = () => {
                 const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
                     data: {
@@ -507,12 +476,8 @@ export class CollectionComponent implements OnInit, OnDestroy {
                         if (isValid) {
                             localStorage.removeItem('password_failed_attempts');
                             localStorage.removeItem('password_lockout_until');
-                            if (colId) {
-                                this.collectionUnlockedPasswords[colId] = res.password;
-                                sessionStorage.setItem('unlocked_pwd_' + colId, res.password);
-                            }
                             if (row.uuid) {
-                                sessionStorage.setItem('unlocked_pwd_' + row.uuid, res.password);
+                                sessionStorage.setItem('nav_handshake_pwd_' + row.uuid, JSON.stringify({ password: res.password, ts: Date.now() }));
                             }
                             this.toastr.success('Giải mã mở khóa thành công!');
                             this.router.navigate(['/ai-writer', this.user.name, row.uuid]);
@@ -535,9 +500,6 @@ export class CollectionComponent implements OnInit, OnDestroy {
             return;
         }
 
-        if (savedPassword && row.uuid) {
-            sessionStorage.setItem('unlocked_pwd_' + row.uuid, savedPassword);
-        }
         this.router.navigate(['/ai-writer', this.user.name, row.uuid]);
     }
 
