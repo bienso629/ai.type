@@ -30,6 +30,8 @@ import { GenaiService } from 'app/genai.service';
 import { MyKeysService } from 'app/_services/mykey';
 import { SharedService } from 'app/shared.service';
 import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-editor-settings-dialog/video-editor-settings-dialog.component';
+import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
+import * as CryptoJS from 'crypto-js';
 
 export interface AudioClip {
     id: string;
@@ -2260,22 +2262,86 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result && result.data && result.data.done) {
-                        if (result.data.title) {
-                            this.projectTitle = result.data.title;
-                            this.titleService.setTitle(
-                                `${this.projectTitle} | Audio Manager`,
-                            );
+                    if (result && result.data) {
+                        const isEncrypted = result.data.is_encrypted || (result.data.source && result.data.source.encrypted) || result.data.cipher;
+                        if (isEncrypted) {
+                            const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
+                            let isUnlocked = false;
+                            if (token) {
+                                try {
+                                    const parsed = JSON.parse(token);
+                                    if (parsed && parsed.password) {
+                                        isUnlocked = true;
+                                    }
+                                } catch (e) {}
+                            }
+
+                            if (!isUnlocked) {
+                                const dialogRef = this.dialog.open(ArticlePasswordDialog, {
+                                    data: {
+                                        mode: 'unlock',
+                                        type: 'article',
+                                        title: result.data.title || 'Kịch bản Video'
+                                    },
+                                    width: '450px',
+                                    disableClose: true
+                                });
+
+                                dialogRef.afterClosed().subscribe((resPass: any) => {
+                                    if (resPass && resPass.password) {
+                                        const cipher = result.data.cipher || result.data.source?.cipher;
+                                        let isValid = false;
+                                        if (cipher) {
+                                            try {
+                                                const bytes = CryptoJS.AES.decrypt(cipher, resPass.password);
+                                                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                                                if (decryptedText === 'VALID' || decryptedText.length > 0) {
+                                                    isValid = true;
+                                                }
+                                            } catch (e) {
+                                                isValid = false;
+                                            }
+                                        } else {
+                                            isValid = true;
+                                        }
+
+                                        if (isValid) {
+                                            sessionStorage.setItem('nav_handshake_pwd_' + uuid, JSON.stringify({ password: resPass.password, ts: Date.now() }));
+                                            this.processDetailResult(result, uuid, isReload);
+                                        } else {
+                                            this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
+                                            this.router.navigate(['/dashboard']);
+                                        }
+                                    } else {
+                                        this.router.navigate(['/dashboard']);
+                                    }
+                                });
+                                return;
+                            }
                         }
+                        this.processDetailResult(result, uuid, isReload);
+                    }
+                }
+            });
+    }
 
-                        // Lưu lại danh sách cũ để đối chiếu
-                        const oldAudioList = this.audioList || [];
+    processDetailResult(result: any, uuid: string, isReload: boolean) {
+        if (result && result.data && result.data.done) {
+            if (result.data.title) {
+                this.projectTitle = result.data.title;
+                this.titleService.setTitle(
+                    `${this.projectTitle} | Audio Manager`,
+                );
+            }
 
-                        // Lưu lại bản gốc từ server để có thể update() lên lại
-                        this.originalArchiveData = JSON.parse(JSON.stringify(result.data));
+            // Lưu lại danh sách cũ để đối chiếu
+            const oldAudioList = this.audioList || [];
 
-                        this.audioList = result.data.done.map(
-                            (htmlItem: any, index: number) => {
+            // Lưu lại bản gốc từ server để có thể update() lên lại
+            this.originalArchiveData = JSON.parse(JSON.stringify(result.data));
+
+            this.audioList = result.data.done.map(
+                (htmlItem: any, index: number) => {
                                 let cleanText = this.removeHTML.transform(htmlItem);
                                 if (cleanText) {
                                     const doc = new DOMParser().parseFromString(cleanText, 'text/html');
@@ -2322,8 +2388,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             this.toastr.success('Đã cập nhật văn bản mới thành công!');
                         }
                     }
-                },
-            });
     }
 
     onFileSelected(event: any) {
@@ -2633,16 +2697,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // Đảm bảo IndexedDB đã sẵn sàng
                 await this.multiAccountService.isReady;
 
-                // 1. Thử load danh sách Audio Clips từ máy trước
-                const hasAudioLocal = this.loadAudiosFromLocal(this.uuid);
-
-                // 2. Nếu không có dữ liệu cũ, mới gọi API detail từ server
-                if (!hasAudioLocal) {
-                    this.detail(this.uuid, name);
-                }
-
-                // 3. Load project video (scenes) nếu có
-                this.loadClipsFromLocal(this.uuid);
+                // 1. Kiểm tra xác thực mật khẩu trước khi nạp dữ liệu
+                this.verifyAndLoadProject(this.uuid, name);
 
                 // Lắng nghe yêu cầu sửa kịch bản từ NodeEditorComponent
                 this.route.queryParams.pipe(takeUntil(this._unsubscribeAll)).subscribe(qParams => {
@@ -2670,6 +2726,133 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.router.navigate(['/tools']);
             }
         });
+    }
+
+    async verifyAndLoadProject(uuid: string, name: string) {
+        // 1. Kiểm tra xem đã giải mã trong phiên làm việc sessionStorage chưa
+        const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
+        if (token) {
+            try {
+                const parsed = JSON.parse(token);
+                if (parsed && parsed.password) {
+                    this.executeLoadProject(uuid, name);
+                    return;
+                }
+            } catch (e) {}
+        }
+
+        // 2. Lấy dữ liệu local để kiểm tra mã hóa
+        const storageKey = `${this.STORAGE_AUDIO_KEY}_${uuid}`;
+        const localData = this.multiAccountService.getItem(storageKey);
+
+        // 3. Gọi API detail để kiểm tra trạng thái is_encrypted chính xác nhất
+        this._crawlService.detail({ uuid: uuid, username: name }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+            next: (res: any) => {
+                const artData = res?.data || localData;
+                const isEncrypted = artData?.is_encrypted || artData?.cipher || artData?.source?.encrypted || localData?.is_encrypted || localData?.cipher;
+
+                if (isEncrypted) {
+                    const cipher = artData?.cipher || artData?.source?.cipher || localData?.cipher;
+                    const dialogRef = this.dialog.open(ArticlePasswordDialog, {
+                        data: {
+                            mode: 'unlock',
+                            type: 'article',
+                            title: artData?.title || localData?.title || 'Kịch bản Video'
+                        },
+                        width: '450px',
+                        disableClose: true
+                    });
+
+                    dialogRef.afterClosed().subscribe((resPass: any) => {
+                        if (resPass && resPass.password) {
+                            let isValid = false;
+                            if (cipher) {
+                                try {
+                                    const bytes = CryptoJS.AES.decrypt(cipher, resPass.password);
+                                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                                    if (decryptedText === 'VALID' || decryptedText.length > 0) {
+                                        isValid = true;
+                                    }
+                                } catch (e) {
+                                    isValid = false;
+                                }
+                            } else {
+                                isValid = true;
+                            }
+
+                            if (isValid) {
+                                sessionStorage.setItem('nav_handshake_pwd_' + uuid, JSON.stringify({ password: resPass.password, ts: Date.now() }));
+                                this.executeLoadProject(uuid, name, res);
+                            } else {
+                                this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
+                                this.router.navigate(['/dashboard']);
+                            }
+                        } else {
+                            this.router.navigate(['/dashboard']);
+                        }
+                    });
+                } else {
+                    this.executeLoadProject(uuid, name, res);
+                }
+            },
+            error: (err) => {
+                if (localData && (localData.is_encrypted || localData.cipher)) {
+                    const cipher = localData.cipher;
+                    const dialogRef = this.dialog.open(ArticlePasswordDialog, {
+                        data: {
+                            mode: 'unlock',
+                            type: 'article',
+                            title: localData.title || 'Kịch bản Video'
+                        },
+                        width: '450px',
+                        disableClose: true
+                    });
+
+                    dialogRef.afterClosed().subscribe((resPass: any) => {
+                        if (resPass && resPass.password) {
+                            let isValid = false;
+                            if (cipher) {
+                                try {
+                                    const bytes = CryptoJS.AES.decrypt(cipher, resPass.password);
+                                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                                    if (decryptedText === 'VALID' || decryptedText.length > 0) {
+                                        isValid = true;
+                                    }
+                                } catch (e) {
+                                    isValid = false;
+                                }
+                            } else {
+                                isValid = true;
+                            }
+
+                            if (isValid) {
+                                sessionStorage.setItem('nav_handshake_pwd_' + uuid, JSON.stringify({ password: resPass.password, ts: Date.now() }));
+                                this.executeLoadProject(uuid, name);
+                            } else {
+                                this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
+                                this.router.navigate(['/dashboard']);
+                            }
+                        } else {
+                            this.router.navigate(['/dashboard']);
+                        }
+                    });
+                } else {
+                    this.executeLoadProject(uuid, name);
+                }
+            }
+        });
+    }
+
+    executeLoadProject(uuid: string, name: string, detailRes?: any) {
+        const hasAudioLocal = this.loadAudiosFromLocal(uuid);
+        if (!hasAudioLocal) {
+            if (detailRes) {
+                this.processDetailResult(detailRes, uuid, false);
+            } else {
+                this.detail(uuid, name);
+            }
+        }
+        this.loadClipsFromLocal(uuid);
     }
 
     ngAfterViewInit(): void {

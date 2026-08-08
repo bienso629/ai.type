@@ -31,6 +31,7 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
 import { MatDialog } from '@angular/material/dialog';
 import { GenaiService } from 'app/genai.service';
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
+import * as CryptoJS from 'crypto-js';
 
 @Component({
     selector: 'archives',
@@ -971,6 +972,105 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 console.error('Lỗi khi nạp bài viết cục bộ:', e);
             }
         }
+    }
+
+    ensureUnlocked(row: any, callback: (unlocked: boolean, password?: string) => void) {
+        if (!row) {
+            callback(true);
+            return;
+        }
+
+        const isEncrypted = row.is_encrypted || (row.source && row.source.encrypted);
+        if (!isEncrypted) {
+            callback(true);
+            return;
+        }
+
+        const targetUuid = row.uuid || row._id || row.id;
+        if (targetUuid) {
+            const token = sessionStorage.getItem('nav_handshake_pwd_' + targetUuid);
+            if (token) {
+                try {
+                    const parsed = JSON.parse(token);
+                    if (parsed && parsed.password) {
+                        callback(true, parsed.password);
+                        return;
+                    }
+                } catch (e) {}
+            }
+        }
+
+        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'unlock',
+                type: 'article',
+                title: row.title || 'Bài viết'
+            },
+            width: '450px',
+            disableClose: true
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                const cipher = row.cipher || row.source?.cipher;
+                let isValid = false;
+                if (cipher) {
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(cipher, res.password);
+                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
+                            isValid = true;
+                        }
+                    } catch (e) {
+                        isValid = false;
+                    }
+                } else {
+                    isValid = true;
+                }
+
+                if (isValid) {
+                    if (targetUuid) {
+                        sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
+                    }
+                    callback(true, res.password);
+                } else {
+                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
+                    callback(false);
+                }
+            } else {
+                callback(false);
+            }
+        });
+    }
+
+    openRowArticle(row: any) {
+        if (!row) return;
+        this.ensureUnlocked(row, (unlocked) => {
+            if (unlocked) {
+                const username = this.user?.name || 'admin';
+                this.router.navigate(['/ai-writer', username, row.uuid]);
+            }
+        });
+    }
+
+    openRowScript(row: any) {
+        if (!row) return;
+        this.ensureUnlocked(row, (unlocked) => {
+            if (unlocked) {
+                const username = this.user?.name || 'admin';
+                this.router.navigate(['/ai-writer', username, row.uuid, 'script']);
+            }
+        });
+    }
+
+    openRowVideo(row: any) {
+        if (!row) return;
+        this.ensureUnlocked(row, (unlocked) => {
+            if (unlocked) {
+                const username = this.user?.name || 'admin';
+                this.router.navigate(['/voice2video', username, row.uuid]);
+            }
+        });
     }
 
     openCollectionEncryptionDialog() {

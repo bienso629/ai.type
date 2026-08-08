@@ -9,6 +9,8 @@ import { GenaiService } from 'app/genai.service';
 import { CrawlService } from 'app/_services/crawl';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-editor-settings-dialog/video-editor-settings-dialog.component';
+import { ArticlePasswordDialog } from './article-password-dialog';
+import * as CryptoJS from 'crypto-js';
 
 interface ScreenplayLine {
     type: string;
@@ -634,28 +636,63 @@ export class AIScriptComponent implements OnInit, OnDestroy {
             uuid: this.uuid
         }).subscribe({
             next: (res: any) => {
-                if (res && res.success && res.data) {
-                    this.scriptDoc = res.data;
-                    if (this.draftTitleFallback) {
-                        this.scriptDoc.title = this.draftTitleFallback;
+                const targetDoc = (res && res.success && res.data) ? res.data : res;
+                if (targetDoc && (targetDoc.is_encrypted || targetDoc.cipher || targetDoc.source?.encrypted)) {
+                    const token = sessionStorage.getItem('nav_handshake_pwd_' + this.uuid);
+                    let isUnlocked = false;
+                    if (token) {
+                        try {
+                            const parsed = JSON.parse(token);
+                            if (parsed && parsed.password) {
+                                isUnlocked = true;
+                            }
+                        } catch (e) {}
                     }
-                    this.scriptText = res.data.script || '';
-                    this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
-                } else if (res && res.script) {
-                    // Cấu trúc fallback trực tiếp
-                    this.scriptDoc = res;
-                    if (this.draftTitleFallback) {
-                        this.scriptDoc.title = this.draftTitleFallback;
+
+                    if (!isUnlocked) {
+                        const dialogRef = this.dialog.open(ArticlePasswordDialog, {
+                            data: {
+                                mode: 'unlock',
+                                type: 'article',
+                                title: targetDoc.title || 'Kịch bản'
+                            },
+                            width: '450px',
+                            disableClose: true
+                        });
+
+                        dialogRef.afterClosed().subscribe((resPass: any) => {
+                            if (resPass && resPass.password) {
+                                const cipher = targetDoc.cipher || targetDoc.source?.cipher;
+                                let isValid = false;
+                                if (cipher) {
+                                    try {
+                                        const bytes = CryptoJS.AES.decrypt(cipher, resPass.password);
+                                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
+                                            isValid = true;
+                                        }
+                                    } catch (e) {
+                                        isValid = false;
+                                    }
+                                } else {
+                                    isValid = true;
+                                }
+
+                                if (isValid) {
+                                    sessionStorage.setItem('nav_handshake_pwd_' + this.uuid, JSON.stringify({ password: resPass.password, ts: Date.now() }));
+                                    this.processScriptResponse(res);
+                                } else {
+                                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
+                                    this.router.navigate(['/dashboard']);
+                                }
+                            } else {
+                                this.router.navigate(['/dashboard']);
+                            }
+                        });
+                        return;
                     }
-                    this.scriptText = res.script;
-                    this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
                 }
-                this.parseScriptText();
-                this.isLoading = false;
-                if (!this.scriptText) {
-                    this.loadScriptList();
-                }
-                this.cd.markForCheck();
+                this.processScriptResponse(res);
             },
             error: (err) => {
                 console.error('Error loading script:', err);
@@ -664,6 +701,31 @@ export class AIScriptComponent implements OnInit, OnDestroy {
                 this.cd.markForCheck();
             }
         });
+    }
+
+    processScriptResponse(res: any) {
+        if (res && res.success && res.data) {
+            this.scriptDoc = res.data;
+            if (this.draftTitleFallback) {
+                this.scriptDoc.title = this.draftTitleFallback;
+            }
+            this.scriptText = res.data.script || '';
+            this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
+        } else if (res && res.script) {
+            // Cấu trúc fallback trực tiếp
+            this.scriptDoc = res;
+            if (this.draftTitleFallback) {
+                this.scriptDoc.title = this.draftTitleFallback;
+            }
+            this.scriptText = res.script;
+            this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
+        }
+        this.parseScriptText();
+        this.isLoading = false;
+        if (!this.scriptText) {
+            this.loadScriptList();
+        }
+        this.cd.markForCheck();
     }
 
     parseScriptText() {

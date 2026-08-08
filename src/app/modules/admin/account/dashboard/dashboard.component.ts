@@ -14,6 +14,9 @@ import { TranslocoService } from '@ngneat/transloco';
 import { FuseSplashScreenService } from '@fuse/services/splash-screen/splash-screen.service';
 import { MatDialog } from '@angular/material/dialog';
 import { DomainService } from 'app/_services/domain';
+import { ToastrService } from 'ngx-toastr';
+import { ArticlePasswordDialog } from '../../content/ai-writer/tools/article-password-dialog';
+import * as CryptoJS from 'crypto-js';
 
 @Component({
     selector: 'dashboard',
@@ -380,7 +383,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         private _fuseSplashScreenService: FuseSplashScreenService,
         private _matDialog: MatDialog,
         private _changeDetectorRef: ChangeDetectorRef,
-        private _domainService: DomainService
+        private _domainService: DomainService,
+        private toastr: ToastrService
     ) {
         this.titleService.setTitle(this.translocoService.translate('nav.dashboard.title'));
 
@@ -934,5 +938,65 @@ export class DashboardComponent implements OnInit, OnDestroy {
     onYearChange() {
         // Fetch new data for the selected year
         this.statistic();
+    }
+
+    openVideoProject(project: any) {
+        if (!project) return;
+        const targetUuid = project.uuid;
+        const username = this.user?.name || 'admin';
+
+        const isEncrypted = project.is_encrypted || (project.source && project.source.encrypted) || project.cipher;
+        if (!isEncrypted) {
+            this.router.navigate(['/voice2video', username, targetUuid]);
+            return;
+        }
+
+        const token = sessionStorage.getItem('nav_handshake_pwd_' + targetUuid);
+        if (token) {
+            try {
+                const parsed = JSON.parse(token);
+                if (parsed && parsed.password) {
+                    this.router.navigate(['/voice2video', username, targetUuid]);
+                    return;
+                }
+            } catch (e) {}
+        }
+
+        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'unlock',
+                type: 'article',
+                title: project.title || 'Kịch bản video'
+            },
+            width: '450px',
+            disableClose: true
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                const cipher = project.cipher || project.source?.cipher;
+                let isValid = false;
+                if (cipher) {
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(cipher, res.password);
+                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
+                            isValid = true;
+                        }
+                    } catch (e) {
+                        isValid = false;
+                    }
+                } else {
+                    isValid = true;
+                }
+
+                if (isValid) {
+                    sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
+                    this.router.navigate(['/voice2video', username, targetUuid]);
+                } else {
+                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
+                }
+            }
+        });
     }
 }
