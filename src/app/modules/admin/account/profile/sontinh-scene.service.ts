@@ -40,6 +40,42 @@ export class SontinhSceneService implements OnDestroy {
     this._loadPhotoTexture?.(blobUrl);
   }
 
+  /** Trigger sự kiện click công tắc đèn 3D trên tường (lật phím công tắc & bật/tắt đèn) */
+  clickLightSwitch(on?: boolean): void {
+    if (this._toggleRoomLights) {
+      this._toggleRoomLights(on);
+    }
+  }
+
+  private _disabledTriggers: Set<string> = new Set();
+
+  setDisabledTriggers(triggers: string[]): void {
+    this._disabledTriggers = new Set(triggers);
+  }
+
+  isTriggerDisabled(trigger: string): boolean {
+    return this._disabledTriggers.has(trigger);
+  }
+
+  /** Thực thi kịch bản chuỗi hành động sự kiện 3D từ events.json */
+  executeEvent(triggerName: string): boolean {
+    if (this.isTriggerDisabled(triggerName)) return false;
+    const events = (this._profile as any)?.events;
+    if (!Array.isArray(events)) return false;
+
+    const matchedEvent = events.find((e: any) => e.trigger === triggerName || e.id === triggerName);
+    if (!matchedEvent || matchedEvent.disabled || !Array.isArray(matchedEvent.actions)) return false;
+
+    for (const act of matchedEvent.actions) {
+      if (act.type === 'playAnimation' && act.animation) {
+        this.playAnimation(act.animation);
+      } else if (act.type === 'toggleLights' || act.type === 'setLight') {
+        this.clickLightSwitch(act.value !== undefined ? act.value : true);
+      }
+    }
+    return true;
+  }
+
   constructor(private ngZone: NgZone) {}
 
   /**
@@ -47,6 +83,7 @@ export class SontinhSceneService implements OnDestroy {
    * All JSON configs are fetched from /assets/sontinh/*.json
    */
   async initScene(canvasEl: HTMLCanvasElement, profile?: UserProfile | null, charGlbObjectUrl?: string | null): Promise<void> {
+    this._destroyed = false;
     this._profile = profile ?? null;
     const svc = this;                    // tham chiếu service trong inner functions
     const username = profile?.username || 'default';
@@ -86,6 +123,9 @@ export class SontinhSceneService implements OnDestroy {
    */
   applyProfile(profile: UserProfile): void {
     this._profile = profile;
+    if (Array.isArray((profile as any).disabledEvents)) {
+      this.setDisabledTriggers((profile as any).disabledEvents);
+    }
     this.ngZone.runOutsideAngular(() => {
       // Scene settings
       if (profile.scene && this._toggleRoomLights) {
@@ -162,6 +202,7 @@ export class SontinhSceneService implements OnDestroy {
     trafficData: any
   ): void {
     if (this._destroyed) return;
+    const self = this;
     const app = new pc.Application(canvas, {
       mouse: new pc.Mouse(canvas),
       touch: new pc.TouchDevice(canvas),
@@ -170,7 +211,7 @@ export class SontinhSceneService implements OnDestroy {
         antialias: true,
         alpha: false,
         powerPreference: 'high-performance',
-        preserveDrawingBuffer: false,
+        preserveDrawingBuffer: true,
         stencil: true
       }
     });
@@ -1201,8 +1242,12 @@ export class SontinhSceneService implements OnDestroy {
     
     let isHighWallLedOn = true;
     
-    function toggleRoomLights() {
-      isHighWallLedOn = !isHighWallLedOn;
+    function toggleRoomLights(explicitState?: boolean) {
+      if (typeof explicitState === 'boolean') {
+        isHighWallLedOn = explicitState;
+      } else {
+        isHighWallLedOn = !isHighWallLedOn;
+      }
     
       if (isHighWallLedOn) {
         app.scene.ambientLight = new pc.Color(0.24, 0.26, 0.35);
@@ -1250,6 +1295,7 @@ export class SontinhSceneService implements OnDestroy {
         if (wallSwitchGlowLight.light) wallSwitchGlowLight.light.intensity = 3.5;
       }
     }
+    this._toggleRoomLights = toggleRoomLights;
     
     function tryClickLightSwitch(screenX: number, screenY: number) {
       if (!camera.camera) return false;
@@ -1444,6 +1490,7 @@ export class SontinhSceneService implements OnDestroy {
     // Click on CHARACTER — opens animation overlay. Called before tryClickWindow
     // to prevent the glass-pane street-view from firing on character area.
     function tryClickCharacter(screenX: number, screenY: number): boolean {
+      if (self.isTriggerDisabled('clickCharacter')) return false;
       if (!camera?.camera || !charPivot || !charAnimReady) return false;
     
       const near = new pc.Vec3(), far = new pc.Vec3();
@@ -1462,6 +1509,7 @@ export class SontinhSceneService implements OnDestroy {
       const disc = b * b - 4 * c;
       if (disc < 0) return false; // ray misses sphere
     
+      if (self.executeEvent('clickCharacter')) return true;
       toggleAnimOverlay();
       return true;
     }
@@ -4146,7 +4194,11 @@ export class SontinhSceneService implements OnDestroy {
   ngOnDestroy(): void {
     this._destroyed = true;
     if (this.app) {
-      this.app.destroy();
+      try {
+        this.app.destroy();
+      } catch (e) {
+        console.warn('[SontinhScene] App destroy warning:', e);
+      }
       this.app = null;
     }
   }

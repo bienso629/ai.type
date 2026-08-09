@@ -2,6 +2,8 @@
 
   <!-- Hidden photo file input -->
   <input #photoFileInput type="file" accept="image/*" style="display:none" (change)="onPhotoSelected($event)">
+  <!-- Hidden avatar file input -->
+  <input #avatarFileInput type="file" accept="image/*" style="display:none" (change)="onAvatarSelected($event)">
   <!-- Hidden action GLB file input -->
   <input #actionFileInput type="file" accept=".glb" style="display:none" (change)="onActionFileSelected($event)">
 
@@ -34,9 +36,14 @@
 
       <!-- Sau khi có character -->
       <div class="sidebar-char-card" *ngIf="profile?.character?.glbPath">
-        <div class="sidebar-char-avatar">
-          <img *ngIf="charThumbnail" [src]="charThumbnail" alt="avatar">
-          <mat-icon *ngIf="!charThumbnail" class="char-fallback-icon">person</mat-icon>
+        <div class="sidebar-char-avatar cursor-pointer relative group" (click)="triggerAvatarUpload()" matTooltip="Nhấn để đổi ảnh đại diện">
+          <img *ngIf="charThumbnail" [src]="charThumbnail" alt="avatar" class="w-full h-full object-cover rounded">
+          <div *ngIf="!charThumbnail" class="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold text-base uppercase rounded shadow-inner">
+            {{ (profile?.character?.name || username || 'A').slice(0, 1) }}
+          </div>
+          <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white rounded">
+            <mat-icon class="icon-size-4">photo_camera</mat-icon>
+          </div>
         </div>
         <div class="sidebar-char-info">
           <span class="sidebar-char-name">{{ profile?.character?.name || username }}</span>
@@ -125,121 +132,140 @@
 
       <!-- Angular Material Sub-Menus -->
       <!-- Actions Sub-Menu -->
-      <mat-menu #actionsMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
-        <div mat-menu-item *ngFor="let anim of userAnimations" (click)="setAnimation(anim.name, anim.glbPath)" class="hover:bg-gray-50 flex items-center justify-between !px-3 min-w-0 gap-1.5">
+      <mat-menu #actionsMenu="matMenu" class="rounded-xl py-1 w-72" panelClass="faint-shadow-menu">
+        <div mat-menu-item *ngFor="let anim of userAnimations" (click)="setAnimation(anim.name, anim.glbPath)" class="hover:bg-gray-50 flex items-center justify-between !px-3 min-w-0 gap-2">
           <!-- Radio button chọn mặc định -->
           <div (click)="setDefaultAnimation($event, anim.name, anim.glbPath)" class="flex items-center shrink-0 mr-2" [title]="profile?.character?.animationState === anim.name ? 'Đang là mặc định' : 'Chọn làm hành động mặc định'">
-            <span class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center transition-colors"
+            <span class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center transition-colors"
                   [class.border-teal-500]="profile?.character?.animationState === anim.name"
                   [class.bg-teal-500]="profile?.character?.animationState === anim.name">
-              <span *ngIf="profile?.character?.animationState === anim.name" class="w-1.5 h-1.5 rounded-full bg-white"></span>
+              <span *ngIf="profile?.character?.animationState === anim.name" class="w-2 h-2 rounded-full bg-white"></span>
             </span>
           </div>
 
           <!-- Tên hành động (bấm vào để phát ngay) -->
-          <span class="text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap block max-w-[110px] shrink flex-1" [title]="anim.name" [class.text-teal-600]="profile?.character?.animationState === anim.name">
+          <span class="text-base font-medium overflow-hidden text-ellipsis whitespace-nowrap block shrink flex-1" [title]="anim.name" [class.text-teal-600]="profile?.character?.animationState === anim.name">
             {{ anim.name }}
           </span>
 
-          <!-- Bộ nút thao tác căn lề phải -->
-          <div class="flex items-center justify-end ml-auto shrink-0">
-            <!-- Nút cấu hình hành động -->
-            <button mat-icon-button disableRipple (click)="openActionConfig($event, anim)" title="Cấu hình hành động">
-              <mat-icon class="icon-size-4">tune</mat-icon>
+          <!-- Bộ nút 3 chấm chuẩn Angular 1:1 icon-only -->
+          <div class="flex items-center justify-end ml-auto shrink-0" (click)="$event.stopPropagation()">
+            <button mat-icon-button [matMenuTriggerFor]="actionSubMenu" disableRipple title="Tùy chọn">
+              <mat-icon class="icon-size-5 text-gray-500">more_vert</mat-icon>
             </button>
 
-            <!-- Nút xoá -->
-            <button mat-icon-button color="warn" disableRipple (click)="deleteAction($event, anim.id)" title="Xoá hành động">
-              <mat-icon class="icon-size-4">delete_outline</mat-icon>
-            </button>
+            <mat-menu #actionSubMenu="matMenu" class="rounded-xl py-1 min-w-[180px]" panelClass="faint-shadow-menu">
+              <button mat-menu-item (click)="openActionConfig($event, anim)" class="hover:bg-gray-50">
+                <mat-icon class="icon-size-5 text-teal-600 mr-2.5">tune</mat-icon>
+                <span class="text-base font-medium">Chỉnh sửa</span>
+              </button>
+              <button mat-menu-item (click)="deleteAction($event, anim.id)" class="hover:bg-red-50 text-red-600">
+                <mat-icon class="icon-size-5 text-red-600 mr-2.5">delete_outline</mat-icon>
+                <span class="text-base font-medium">Xoá hành động</span>
+              </button>
+            </mat-menu>
           </div>
         </div>
 
         <button mat-menu-item *ngIf="userAnimations.length === 0" disabled>
-          <span class="text-sm text-gray-400 font-normal">Chưa có hành động nào</span>
+          <span class="text-base text-gray-400 font-normal">Chưa có hành động nào</span>
         </button>
         <mat-divider></mat-divider>
         <button mat-menu-item (click)="triggerAddAction()" class="hover:bg-teal-50 text-teal-600">
-          <mat-icon class="icon-size-5 text-teal-600">add_circle_outline</mat-icon>
-          <span class="text-sm font-semibold">Thêm hành động...</span>
+          <mat-icon class="icon-size-6 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
+          <span class="text-base font-semibold">Thêm hành động...</span>
         </button>
       </mat-menu>
 
       <!-- Clothes Sub-Menu -->
-      <mat-menu #clothesMenu="matMenu" class="rounded-xl py-1 w-56" panelClass="faint-shadow-menu">
+      <mat-menu #clothesMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
         <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600">checkroom</mat-icon>
-          <span class="text-sm font-medium">Mặc định</span>
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">checkroom</mat-icon>
+          <span class="text-base font-medium">Mặc định</span>
         </button>
         <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600">checkroom</mat-icon>
-          <span class="text-sm font-medium">Áo phông đen</span>
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">checkroom</mat-icon>
+          <span class="text-base font-medium">Áo phông đen</span>
         </button>
         <mat-divider></mat-divider>
         <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
-          <mat-icon class="icon-size-5 text-teal-600">add_circle_outline</mat-icon>
-          <span class="text-sm font-semibold">Thêm trang phục...</span>
+          <mat-icon class="icon-size-6 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
+          <span class="text-base font-semibold">Thêm trang phục...</span>
         </button>
       </mat-menu>
 
       <!-- Hair Sub-Menu -->
-      <mat-menu #hairMenu="matMenu" class="rounded-xl py-1 w-56" panelClass="faint-shadow-menu">
+      <mat-menu #hairMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
         <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600">face</mat-icon>
-          <span class="text-sm font-medium">Kiểu tóc ngắn</span>
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">face</mat-icon>
+          <span class="text-base font-medium">Kiểu tóc ngắn</span>
         </button>
         <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600">face</mat-icon>
-          <span class="text-sm font-medium">Tóc vuốt ngược</span>
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">face</mat-icon>
+          <span class="text-base font-medium">Tóc vuốt ngược</span>
         </button>
         <mat-divider></mat-divider>
         <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
-          <mat-icon class="icon-size-5 text-teal-600">add_circle_outline</mat-icon>
-          <span class="text-sm font-semibold">Thêm kiểu tóc...</span>
+          <mat-icon class="icon-size-6 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
+          <span class="text-base font-semibold">Thêm kiểu tóc...</span>
         </button>
       </mat-menu>
 
       <!-- Face Sub-Menu -->
-      <mat-menu #faceMenu="matMenu" class="rounded-xl py-1 w-56" panelClass="faint-shadow-menu">
+      <mat-menu #faceMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
         <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600">sentiment_satisfied_alt</mat-icon>
-          <span class="text-sm font-medium">Gương mặt chuẩn</span>
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">sentiment_satisfied_alt</mat-icon>
+          <span class="text-base font-medium">Gương mặt chuẩn</span>
         </button>
         <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600">mood</mat-icon>
-          <span class="text-sm font-medium">Tự nhiên</span>
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">mood</mat-icon>
+          <span class="text-base font-medium">Tự nhiên</span>
         </button>
         <mat-divider></mat-divider>
         <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
-          <mat-icon class="icon-size-5 text-teal-600">add_circle_outline</mat-icon>
-          <span class="text-sm font-semibold">Thêm gương mặt...</span>
+          <mat-icon class="icon-size-6 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
+          <span class="text-base font-semibold">Thêm gương mặt...</span>
         </button>
       </mat-menu>
 
     </div>
 
+    <!-- Hidden input for prompt image attachments -->
+    <input #promptFileInput type="file" accept="image/*" multiple class="hidden" (change)="onPromptFileSelected($event)" />
+
     <!-- SIDEBAR FOOTER: Prompt Input -->
     <div class="sidebar-footer">
+      <!-- Attached Image Thumbnails Bar -->
+      <div *ngIf="attachedImages.length > 0" class="flex flex-wrap gap-2.5 p-3">
+        <div *ngFor="let img of attachedImages; let i = index" class="relative group w-12 h-12 rounded-xl overflow-hidden shadow-sm bg-slate-100 flex-shrink-0">
+          <img [src]="img.dataUrl" class="w-full h-full object-cover" />
+          <button (click)="removeAttachedImage(i)" class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-slate-900/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
       <div class="sidebar-prompt-bar">
-        <button class="sidebar-prompt-attach" title="Đính kèm">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-          </svg>
-        </button>
         <textarea
           class="sidebar-prompt-input"
-          placeholder="Tiếp tục chỉnh sửa..."
+          placeholder="Tiếp tục chỉnh sửa... (có thể dán ảnh màn hình Ctrl+V)"
           [(ngModel)]="promptText"
           (keydown.enter)="onPromptEnter($event)"
+          (paste)="onPromptPaste($event)"
           rows="2"
           cdkTextareaAutosize
           cdkAutosizeMinRows="2"
           cdkAutosizeMaxRows="5"></textarea>
-        <button class="sidebar-prompt-send" title="Gửi" (click)="sendPrompt()" [disabled]="!promptText?.trim()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
+
+        <!-- Right Action Buttons Stack (Send top, Attach bottom) -->
+        <div class="sidebar-prompt-actions">
+          <button mat-icon-button class="sidebar-prompt-send" title="Gửi" (click)="sendPrompt()" [disabled]="!promptText?.trim() && attachedImages.length === 0">
+            <mat-icon class="icon-size-4 text-white">send</mat-icon>
+          </button>
+          <button mat-icon-button class="sidebar-prompt-attach" title="Đính kèm hoặc dán ảnh (Ctrl+V)" (click)="triggerPromptFileUpload()">
+            <mat-icon class="icon-size-4">attach_file</mat-icon>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -249,7 +275,31 @@
   <div class="profile-scene-wrap">
 
     <!-- Inner padded container — canvas fills this, not the outer wrap -->
-    <div class="scene-inner">
+    <div class="scene-inner" #sceneContainer>
+
+      <!-- Floating Scene Toolbar (Top-Right) -->
+      <div class="scene-floating-toolbar">
+        <!-- Live Recording Timer Counter Badge -->
+        <div *ngIf="isRecording" class="flex items-center gap-1.5 px-2.5 py-1 bg-red-600/90 text-white rounded-full text-xs font-mono font-bold shadow animate-pulse mr-1">
+          <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+          <span>{{ recordingTimerText }}</span>
+        </div>
+
+        <!-- 1. Full Screen -->
+        <button mat-icon-button (click)="toggleFullScreen()" class="scene-toolbar-btn" [matTooltip]="isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'">
+          <mat-icon>{{ isFullscreen ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+        </button>
+
+        <!-- 2. Reload -->
+        <button mat-icon-button (click)="reloadScene()" class="scene-toolbar-btn" matTooltip="Tải lại 3D Scene">
+          <mat-icon>refresh</mat-icon>
+        </button>
+
+        <!-- 3. Record / Export Video -->
+        <button mat-icon-button (click)="toggleVideoRecording()" class="scene-toolbar-btn" [class.scene-toolbar-btn--recording]="isRecording" [class.scene-toolbar-btn--primary]="!isRecording" [matTooltip]="isRecording ? 'Dừng & Lưu Video' : 'Bắt đầu Quay & Xuất Video'">
+          <mat-icon>{{ isRecording ? 'stop' : 'videocam' }}</mat-icon>
+        </button>
+      </div>
 
       <!-- Loading Overlay -->
       <div class="sontinh-loading-overlay" *ngIf="isLoading">
@@ -277,7 +327,7 @@
 </div>
 
 <!-- Modal Cấu hình hành động -->
-<div *ngIf="editingAction" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+<div *ngIf="editingAction" class="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
   <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-full max-w-md animate-in fade-in zoom-in-95 duration-150">
     <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
       <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">

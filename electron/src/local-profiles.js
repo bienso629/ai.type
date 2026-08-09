@@ -56,6 +56,7 @@ function writeJson(filePath, data) {
 // ── Default Data ───────────────────────────────────────────────────────────────
 
 const DEFAULT_CHARACTER = {
+    id: 'char_main',
     name: null,                  // hiển thị tên, null = dùng username
     glbPath: null,               // đường dẫn tuyệt đối trên đĩa
     position: { x: 0, y: 0, z: 0 },
@@ -67,6 +68,7 @@ const DEFAULT_CHARACTER = {
 };
 
 const DEFAULT_ROOM = {
+    id: 'room_306',
     theme: 'default',
     lightsOn: true,
     ambientColor: '#ffffff',
@@ -74,6 +76,18 @@ const DEFAULT_ROOM = {
     backgroundUrl: null,
     updatedAt: null
 };
+
+const DEFAULT_PROPS = [
+    { id: 'prop_main_desk', name: 'Bàn làm việc 306', position: { x: -6.5, y: 0, z: 4.0 }, visible: true },
+    { id: 'prop_swivel_chair', name: 'Ghế xoay văn phòng', position: { x: -6.5, y: 0, z: 2.2 }, visible: true },
+    { id: 'prop_mechanical_keyboard', name: 'Bàn phím cơ 3 màu', position: { x: -6.6, y: 4.12, z: 4.3 }, visible: true },
+    { id: 'prop_wall_switch', name: 'Công tắc đèn tường', position: { x: 19.8, y: 12.0, z: -10.0 }, visible: true },
+    { id: 'prop_window_21_9', name: 'Cửa sổ góc nhìn 21:9', position: { x: 20.0, y: 16.0, z: 0.0 }, visible: true },
+    { id: 'prop_aquarium', name: 'Bể cá cảnh', position: { x: -14.0, y: 5.0, z: -8.0 }, visible: true },
+    { id: 'prop_picture_frame', name: 'Khung ảnh treo tường', position: { x: 0.0, y: 18.0, z: -19.8 }, visible: true },
+    { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo', position: { x: 12.0, y: 0.0, z: -18.0 }, visible: true },
+    { id: 'prop_main_door', name: 'Cửa ra vào căn phòng', position: { x: 19.8, y: 0.0, z: -12.0 }, visible: true }
+];
 
 // ── IPC Handlers ───────────────────────────────────────────────────────────────
 
@@ -93,7 +107,7 @@ function registerProfileHandlers() {
             const profilePath = path.join(dir, 'profile.json');
             let profile = readJson(profilePath);
             if (!profile) {
-                profile = { username, createdAt: now, updatedAt: now };
+                profile = { id: `profile_${username || 'admin'}`, username, createdAt: now, updatedAt: now };
                 writeJson(profilePath, profile);
             }
 
@@ -109,7 +123,7 @@ function registerProfileHandlers() {
             if (!fs.existsSync(roomPath))  writeJson(roomPath,  { ...DEFAULT_ROOM, updatedAt: now });
             if (!fs.existsSync(clothPath)) writeJson(clothPath, []);
             if (!fs.existsSync(animPath))  writeJson(animPath,  []);
-            if (!fs.existsSync(propPath))  writeJson(propPath,  []);
+            if (!fs.existsSync(propPath))  writeJson(propPath,  DEFAULT_PROPS);
             if (!fs.existsSync(invPath))   writeJson(invPath,   { items: [] });
 
             return {
@@ -332,6 +346,86 @@ function registerProfileHandlers() {
         } catch (e) { return { success: false, error: e.message }; }
     });
 
+    ipcMain.handle('avatar:save', async (_event, { username, buffer, ext = 'png' } = {}) => {
+        try {
+            const assetsDir = path.join(getProfileDir(username), 'assets');
+            fs.mkdirSync(assetsDir, { recursive: true });
+            const cleanExt = (ext || 'png').replace('.', '');
+            const avatarPath = path.join(assetsDir, `avatar.${cleanExt}`);
+            fs.writeFileSync(avatarPath, Buffer.from(buffer));
+
+            const p = path.join(getProfileDir(username), 'character.json');
+            const charData = readJson(p, { ...DEFAULT_CHARACTER });
+            charData.avatarPath = avatarPath;
+            charData.updatedAt = new Date().toISOString();
+            writeJson(p, charData);
+
+            return { success: true, filePath: avatarPath };
+        } catch (e) { return { success: false, error: e.message }; }
+    });
+
+    ipcMain.handle('avatar:get', async (_event, { username } = {}) => {
+        try {
+            const assetsDir = path.join(getProfileDir(username), 'assets');
+            const pngPath = path.join(assetsDir, 'avatar.png');
+            const jpgPath = path.join(assetsDir, 'avatar.jpg');
+            const jpegPath = path.join(assetsDir, 'avatar.jpeg');
+
+            let targetPath = null;
+            if (fs.existsSync(pngPath)) targetPath = pngPath;
+            else if (fs.existsSync(jpgPath)) targetPath = jpgPath;
+            else if (fs.existsSync(jpegPath)) targetPath = jpegPath;
+
+            if (targetPath) {
+                const buf = fs.readFileSync(targetPath);
+                const ext = path.extname(targetPath).substring(1);
+                const base64 = buf.toString('base64');
+                const dataUrl = `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${base64}`;
+                return { success: true, dataUrl, filePath: targetPath };
+            }
+            return { success: true, dataUrl: null };
+        } catch (e) { return { success: false, error: e.message }; }
+    });
+
+    // ── Export Video & Frames ──
+    function getExportsDir(username) {
+        const safe = (username || 'default').replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+        const dir = path.join(app.getPath('documents'), 'ai.type', 'data', 'profiles', safe, 'exports');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        return dir;
+    }
+
+    ipcMain.handle('exports:save-video', async (_event, { username, buffer, filename } = {}) => {
+        try {
+            const exportsDir = getExportsDir(username);
+            const name = filename || `video_${Date.now()}.webm`;
+            const videoPath = path.join(exportsDir, name);
+            fs.writeFileSync(videoPath, Buffer.from(buffer));
+            return { success: true, filePath: videoPath, exportsDir };
+        } catch (e) { return { success: false, error: e.message }; }
+    });
+
+    ipcMain.handle('exports:save-frame', async (_event, { username, sessionFolder, frameIndex, buffer } = {}) => {
+        try {
+            const exportsDir = getExportsDir(username);
+            const folderPath = path.join(exportsDir, sessionFolder || 'frames');
+            if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
+            const padIndex = String(frameIndex).padStart(5, '0');
+            const framePath = path.join(folderPath, `frame_${padIndex}.png`);
+            fs.writeFileSync(framePath, Buffer.from(buffer));
+            return { success: true, filePath: framePath };
+        } catch (e) { return { success: false, error: e.message }; }
+    });
+
+    ipcMain.handle('exports:open-folder', async (_event, { username } = {}) => {
+        try {
+            const { shell } = require('electron');
+            const exportsDir = getExportsDir(username);
+            await shell.openPath(exportsDir);
+            return { success: true, exportsDir };
+        } catch (e) { return { success: false, error: e.message }; }
+    });
+
     // ─────────────────────────────────────────────────────────────
     // PROPS (đồ vật trong phòng)
     // ─────────────────────────────────────────────────────────────
@@ -425,27 +519,29 @@ function registerProfileHandlers() {
     /** @deprecated dùng character:save thay thế */
     ipcMain.handle('profile:save', async (_event, { username, profile } = {}) => {
         try {
-            const dir = getProfileDir(username);
+            const safe = (username || 'admin').replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+            const dir = getProfileDir(safe);
             const now = new Date().toISOString();
 
             // Merge character fields nếu có
-            if (profile?.character) {
-                const charPath = path.join(dir, 'character.json');
-                const existing = readJson(charPath, { ...DEFAULT_CHARACTER });
-                writeJson(charPath, { ...existing, ...profile.character, updatedAt: now });
-            }
+            const charPath = path.join(dir, 'character.json');
+            const existingChar = readJson(charPath, { ...DEFAULT_CHARACTER });
+            const charData = { ...existingChar, ...(profile?.character || {}), updatedAt: now };
+            writeJson(charPath, charData);
+
             // Merge room fields nếu có
-            if (profile?.scene || profile?.room) {
-                const roomPath = path.join(dir, 'room.json');
-                const existing = readJson(roomPath, { ...DEFAULT_ROOM });
-                writeJson(roomPath, { ...existing, ...(profile.scene || profile.room), updatedAt: now });
-            }
+            const roomPath = path.join(dir, 'room.json');
+            const existingRoom = readJson(roomPath, { ...DEFAULT_ROOM });
+            const roomData = { ...existingRoom, ...(profile?.scene || profile?.room || {}), updatedAt: now };
+            writeJson(roomPath, roomData);
+
             // Cập nhật profile.json
             const profilePath = path.join(dir, 'profile.json');
-            const base = readJson(profilePath, { username, createdAt: now });
-            writeJson(profilePath, { ...base, updatedAt: now });
+            const base = readJson(profilePath, { username: safe, createdAt: now });
+            const updatedProfile = { ...base, ...profile, character: charData, scene: roomData, room: roomData, updatedAt: now };
+            writeJson(profilePath, updatedProfile);
 
-            return { success: true };
+            return { success: true, data: updatedProfile };
         } catch (e) {
             return { success: false, error: e.message };
         }
