@@ -120,10 +120,14 @@
   transition: background 0.15s, opacity 0.15s !important;
 
   mat-icon {
-    font-size: 15px !important;
-    width: 15px !important;
-    height: 15px !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 16px !important;
     color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   &:hover:not([disabled]) {
@@ -132,6 +136,8 @@
   &[disabled] {
     opacity: 0.35 !important;
     cursor: default !important;
+    color: #ffffff !important;
+    background: var(--fuse-primary-500, #10b981) !important;
   }
 }
 
@@ -690,4 +696,58 @@
   font-weight: 500;
   color: #fca5a5;
   text-align: center;
+}
+
+/* ── ULTRA-COMPACT SLEEK INSPECTOR FORM FIELDS ── */
+.compact-inspector-form {
+  ::ng-deep {
+    .mat-mdc-form-field {
+      font-size: 11px !important;
+      line-height: 1.2 !important;
+    }
+    .mat-mdc-form-field-flex {
+      height: 32px !important;
+      min-height: 32px !important;
+      padding: 0 8px !important;
+      align-items: center !important;
+    }
+    .mat-mdc-form-field-infix {
+      padding-top: 4px !important;
+      padding-bottom: 4px !important;
+      min-height: 32px !important;
+    }
+    .mat-mdc-text-field-wrapper {
+      height: 32px !important;
+      padding: 0 !important;
+    }
+    .mat-mdc-floating-label {
+      top: 14px !important;
+      font-size: 10px !important;
+    }
+    .mat-mdc-form-field-subscript-wrapper {
+      display: none !important;
+    }
+    .mat-mdc-select-trigger {
+      height: 20px !important;
+    }
+    .mat-mdc-select-value {
+      font-size: 11px !important;
+      font-weight: 500 !important;
+    }
+    input.mat-mdc-input-element {
+      font-size: 11px !important;
+      height: 20px !important;
+      padding: 0 !important;
+    }
+    .mdc-notched-outline__leading {
+      border-radius: 4px 0 0 4px !important;
+    }
+    .mdc-notched-outline__trailing {
+      border-radius: 0 4px 4px 0 !important;
+    }
+    .mat-mdc-text-field-wrapper,
+    .mdc-text-field--outlined {
+      border-radius: 4px !important;
+    }
+  }
 }
