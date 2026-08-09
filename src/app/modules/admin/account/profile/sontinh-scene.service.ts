@@ -1530,7 +1530,7 @@ export class SontinhSceneService implements OnDestroy {
       // 🏢 Kiến trúc Tòa nhà & Phòng 306
       'prop_building_5story_main': { primary: 'LeftWallBack', targets: ['LowerBuildingBase', 'CorniceFloor1', 'CorniceFloor2', 'CorniceFloor3'] },
       'prop_room_306_floor': { primary: 'Floor', targets: ['Floor', 'Ceiling', 'BackWall', 'FrontWall', 'LeftWallBack', 'LeftWallFront', 'LeftWallTop'] },
-      'prop_building_floor1': { primary: 'Floor1_Root', targets: ['Floor1_Root', 'F1EntranceFrame', 'F1EntranceGlass', 'CorniceFloor1'] },
+      'prop_building_floor1': { primary: 'Floor1_Root', targets: ['Floor1_Root', 'CorniceFloor1'] },
       'prop_building_floor2': { primary: 'Floor2_Root', targets: ['Floor2_Root', 'CorniceFloor2'] },
       'prop_building_floor4': { primary: 'Floor4_Root', targets: ['Floor4_Root', 'CorniceFloor3'] },
       'prop_building_floor5': { primary: 'Floor5_Root', targets: ['Floor5_Root'] },
@@ -1661,64 +1661,37 @@ export class SontinhSceneService implements OnDestroy {
     // -------------------------------------------------------------
     // 🏢 3-STORY BUILDING FACADE BASE UNDERNEATH 3RD FLOOR STUDIO ROOM (HEIGHT: 24.0M FROM GROUND_Y: -24.0M TO 0.0M)
     // -------------------------------------------------------------
-    const GROUND_Y = -24.0; // Street ground level is 24 meters below 3rd floor studio room!
+    const GROUND_Y = -64.0; // Street ground level is 64 meters below 3rd floor studio room (Floors 1 & 2 are 32m height each)!
     
     const matBuildingFacade = createMat(new pc.Color(0.16, 0.19, 0.26), new pc.Color(0.2, 0.2, 0.2)); // Dark Slate Building Base Facade
     const matCorniceTrim = createMat(new pc.Color(0.82, 0.82, 0.85), new pc.Color(0.6, 0.6, 0.6));     // White Architectural Molding Trim
     
-    // 1. Solid Building Base Structure (Tầng 1 + Tầng 2)
+    // 1. Ground Foundation Base Structure (Bệ móng tòa nhà bên dưới Tầng 1)
     const lowerBuildingBase = new pc.Entity('LowerBuildingBase');
     lowerBuildingBase.addComponent('render', { type: 'box', material: matBuildingFacade });
-    lowerBuildingBase.setLocalScale(ROOM_WIDTH_X + 0.4, 24.0, ROOM_DEPTH_Z + 0.4);
-    lowerBuildingBase.setPosition(0, -12.0, 0);
+    lowerBuildingBase.setLocalScale(ROOM_WIDTH_X + 2.0, 16.0, ROOM_DEPTH_Z + 2.0);
+    lowerBuildingBase.setPosition(0, -72.0, 0);
     app.root.addChild(lowerBuildingBase);
     
     // 2. Architectural Floor Moldings (Gờ chỉ phân tầng 1, 2 & 3)
     const corniceFloor1 = new pc.Entity('CorniceFloor1');
     corniceFloor1.addComponent('render', { type: 'box', material: matCorniceTrim });
     corniceFloor1.setLocalScale(ROOM_WIDTH_X + 1.2, 0.6, ROOM_DEPTH_Z + 1.2);
-    corniceFloor1.setPosition(0, -16.0, 0);
+    corniceFloor1.setPosition(0, -64.0, 0);
     app.root.addChild(corniceFloor1);
     
     const corniceFloor2 = new pc.Entity('CorniceFloor2');
     corniceFloor2.addComponent('render', { type: 'box', material: matCorniceTrim });
     corniceFloor2.setLocalScale(ROOM_WIDTH_X + 1.2, 0.6, ROOM_DEPTH_Z + 1.2);
-    corniceFloor2.setPosition(0, -8.0, 0);
+    corniceFloor2.setPosition(0, -32.0, 0);
     app.root.addChild(corniceFloor2);
     
     const corniceFloor3 = new pc.Entity('CorniceFloor3');
     corniceFloor3.addComponent('render', { type: 'box', material: matCorniceTrim });
     corniceFloor3.setLocalScale(ROOM_WIDTH_X + 1.2, 0.4, ROOM_DEPTH_Z + 1.2);
-    corniceFloor3.setPosition(0, -0.5, 0);
+    corniceFloor3.setPosition(0, 0.0, 0);
     app.root.addChild(corniceFloor3);
     
-    // 3. Floor 2 Architectural Louver Windows on Right Facade (X: +70.0m)
-    for (let zWin = -30; zWin <= 30; zWin += 15) {
-      const f2WinFrame = new pc.Entity(`F2WinFrame_${zWin}`);
-      f2WinFrame.addComponent('render', { type: 'box', material: matOuterFrame });
-      f2WinFrame.setLocalScale(0.8, 5.0, 8.0);
-      f2WinFrame.setPosition(ROOM_WIDTH_X / 2 + 0.2, -6.0, zWin);
-      app.root.addChild(f2WinFrame);
-    
-      const f2WinGlass = new pc.Entity(`F2WinGlass_${zWin}`);
-      f2WinGlass.addComponent('render', { type: 'box', material: matGlass });
-      f2WinGlass.setLocalScale(0.1, 4.5, 7.5);
-      f2WinGlass.setPosition(ROOM_WIDTH_X / 2 + 0.3, -6.0, zWin);
-      app.root.addChild(f2WinGlass);
-    }
-    
-    // 4. Floor 1 Ground Floor Shophouse Retail Entrance Glass Doors on Right Facade (X: +70.0m)
-    const f1EntranceFrame = new pc.Entity('F1EntranceFrame');
-    f1EntranceFrame.addComponent('render', { type: 'box', material: matOuterFrame });
-    f1EntranceFrame.setLocalScale(0.8, 7.0, 12.0);
-    f1EntranceFrame.setPosition(ROOM_WIDTH_X / 2 + 0.2, -18.0, 0);
-    app.root.addChild(f1EntranceFrame);
-    
-    const f1EntranceGlass = new pc.Entity('F1EntranceGlass');
-    f1EntranceGlass.addComponent('render', { type: 'box', material: matWarmStoreInterior });
-    f1EntranceGlass.setLocalScale(0.1, 6.5, 11.5);
-    f1EntranceGlass.setPosition(ROOM_WIDTH_X / 2 + 0.3, -18.0, 0);
-    app.root.addChild(f1EntranceGlass);
     
     const WINDOW_21_9_WIDTH = 37.33; // Z: -18.665m to +18.665m (37.33m / 16.0m = 2.333 ~ 21:9 Ultrawide Aspect Ratio!)
     
@@ -1820,26 +1793,153 @@ export class SontinhSceneService implements OnDestroy {
     chillGlassPane.setPosition(ROOM_WIDTH_X / 2, 16.0, 0);
     app.root.addChild(chillGlassPane);
 
-    // 🏢 TẠO CẤU TRÚC KIẾN TRÚC TẦNG NGOẠI THẤT RỖNG (TẦNG 1, 2, 4, 5)
-    function createEmptyFloorStructure(floorPrefix: string, offsetY: number) {
+    // 🏢 TẠO CẤU TRÚC KIẾN TRÚC TẦNG GIỐNG 100% TẦNG 3 (ROOM 306) VỚI ĐỘ CAO KHÔNG GIAN TỰ NHIÊN
+    function createEmptyFloorStructure(floorPrefix: string, offsetY: number, floorHeight: number = WALL_H) {
       const rootEnt = new pc.Entity(`${floorPrefix}_Root`);
       rootEnt.setPosition(0, offsetY, 0);
       app.root.addChild(rootEnt);
 
-      // Cửa sổ Minimalist 21:9 chuẩn góc nhìn cho từng tầng
+      const h = floorHeight;
+      const winH = Math.min(WINDOW_21_9_HEIGHT, h * 0.5);
+      const winY = h * 0.5;
+
+      // 1. Sàn đá Cẩm thạch Marble
+      const floorEnt = new pc.Entity(`${floorPrefix}_Floor`);
+      floorEnt.addComponent('render', { type: 'box', material: matMarbleFloor });
+      floorEnt.setLocalScale(ROOM_WIDTH_X, 0.4, ROOM_DEPTH_Z);
+      floorEnt.setPosition(0, 0, 0);
+      rootEnt.addChild(floorEnt);
+
+      // 2. Tường Sau (Back Wall - Z: -40.0m)
+      const bWall = new pc.Entity(`${floorPrefix}_BackWall`);
+      bWall.addComponent('render', { type: 'box', material: matWall });
+      bWall.setLocalScale(ROOM_WIDTH_X, h, 0.5);
+      bWall.setPosition(0, h / 2, -ROOM_DEPTH_Z / 2);
+      rootEnt.addChild(bWall);
+
+      // 3. Tường Trước (Front Wall - Z: +40.0m)
+      const fWall = new pc.Entity(`${floorPrefix}_FrontWall`);
+      fWall.addComponent('render', { type: 'box', material: matWall });
+      fWall.setLocalScale(ROOM_WIDTH_X, h, 0.5);
+      fWall.setPosition(0, h / 2, ROOM_DEPTH_Z / 2);
+      rootEnt.addChild(fWall);
+
+      // 3. Tường Trái với Khung Cửa Ra Vào Tầng chuẩn y hệt Tầng 3 (Left Wall with Door Cutout & Assembly - X: -70.0m)
+      const lWallBack = new pc.Entity(`${floorPrefix}_LeftWallBack`);
+      lWallBack.addComponent('render', { type: 'box', material: matWall });
+      lWallBack.setLocalScale(0.5, h, 35.0);
+      lWallBack.setPosition(-ROOM_WIDTH_X / 2, h / 2, -22.5);
+      rootEnt.addChild(lWallBack);
+
+      const lWallFront = new pc.Entity(`${floorPrefix}_LeftWallFront`);
+      lWallFront.addComponent('render', { type: 'box', material: matWall });
+      lWallFront.setLocalScale(0.5, h, 35.0);
+      lWallFront.setPosition(-ROOM_WIDTH_X / 2, h / 2, 22.5);
+      rootEnt.addChild(lWallFront);
+
+      const doorH = Math.min(20.0, h * 0.7);
+      const lWallTopH = Math.max(0.5, h - doorH);
+
+      const lWallTop = new pc.Entity(`${floorPrefix}_LeftWallTop`);
+      lWallTop.addComponent('render', { type: 'box', material: matWall });
+      lWallTop.setLocalScale(0.5, lWallTopH, 10.0);
+      lWallTop.setPosition(-ROOM_WIDTH_X / 2, doorH + lWallTopH / 2, 0.0);
+      rootEnt.addChild(lWallTop);
+
+      // 🚪 Cửa Ra Vào Tầng chuẩn Y Hệt Tầng 3 (Main Entrance Door Frame & Panel Assembly)
+      const doorFrameBack = new pc.Entity(`${floorPrefix}_DoorFrameBack`);
+      doorFrameBack.addComponent('render', { type: 'box', material: matOuterFrame });
+      doorFrameBack.setLocalScale(0.6, doorH, 0.3);
+      doorFrameBack.setPosition(-ROOM_WIDTH_X / 2, doorH / 2, -5.15);
+      rootEnt.addChild(doorFrameBack);
+
+      const doorFrameFront = new pc.Entity(`${floorPrefix}_DoorFrameFront`);
+      doorFrameFront.addComponent('render', { type: 'box', material: matOuterFrame });
+      doorFrameFront.setLocalScale(0.6, doorH, 0.3);
+      doorFrameFront.setPosition(-ROOM_WIDTH_X / 2, doorH / 2, 5.15);
+      rootEnt.addChild(doorFrameFront);
+
+      const doorFrameTop = new pc.Entity(`${floorPrefix}_DoorFrameTop`);
+      doorFrameTop.addComponent('render', { type: 'box', material: matOuterFrame });
+      doorFrameTop.setLocalScale(0.6, 0.3, 10.6);
+      doorFrameTop.setPosition(-ROOM_WIDTH_X / 2, doorH + 0.15, 0.0);
+      rootEnt.addChild(doorFrameTop);
+
+      const doorThreshold = new pc.Entity(`${floorPrefix}_DoorThreshold`);
+      doorThreshold.addComponent('render', { type: 'box', material: matOuterFrame });
+      doorThreshold.setLocalScale(0.6, 0.1, 10.2);
+      doorThreshold.setPosition(-ROOM_WIDTH_X / 2, 0.05, 0.0);
+      rootEnt.addChild(doorThreshold);
+
+      const doorPivot = new pc.Entity(`${floorPrefix}_DoorPivot`);
+      doorPivot.setPosition(-ROOM_WIDTH_X / 2, 0, -4.95);
+      rootEnt.addChild(doorPivot);
+
+      const doorPanel = new pc.Entity(`${floorPrefix}_DoorPanel`);
+      doorPanel.addComponent('render', { type: 'box', material: matDoorWood });
+      doorPanel.setLocalScale(0.32, doorH - 0.4, 9.6);
+      doorPanel.setPosition(0, doorH / 2, 4.95);
+      doorPivot.addChild(doorPanel);
+
+      const sashTop = new pc.Entity(`${floorPrefix}_SashTop`);
+      sashTop.addComponent('render', { type: 'box', material: matInnerBlackSash });
+      sashTop.setLocalScale(0.36, 0.16, 9.9);
+      sashTop.setPosition(0, doorH - 0.18, 4.95);
+      doorPivot.addChild(sashTop);
+
+      const sashBottom = new pc.Entity(`${floorPrefix}_SashBottom`);
+      sashBottom.addComponent('render', { type: 'box', material: matInnerBlackSash });
+      sashBottom.setLocalScale(0.36, 0.16, 9.9);
+      sashBottom.setPosition(0, 0.1, 4.95);
+      doorPivot.addChild(sashBottom);
+
+      const handle = new pc.Entity(`${floorPrefix}_Handle`);
+      handle.addComponent('render', { type: 'box', material: matDoorHandleGold });
+      handle.setLocalScale(0.48, 1.2, 0.15);
+      handle.setPosition(0, doorH * 0.5, 9.2);
+      doorPivot.addChild(handle);
+
+      // 4. Cửa sổ Minimalist 21:9 & Tường Phải (Right Wall Cutout - X: +70.0m)
+      const rightWallB = new pc.Entity(`${floorPrefix}_RightWallB`);
+      rightWallB.addComponent('render', { type: 'box', material: matWall });
+      rightWallB.setLocalScale(0.5, h * 0.25, ROOM_DEPTH_Z);
+      rightWallB.setPosition(ROOM_WIDTH_X / 2, h * 0.125, 0);
+      rootEnt.addChild(rightWallB);
+
+      const rightWallT = new pc.Entity(`${floorPrefix}_RightWallT`);
+      rightWallT.addComponent('render', { type: 'box', material: matWall });
+      rightWallT.setLocalScale(0.5, h * 0.25, ROOM_DEPTH_Z);
+      rightWallT.setPosition(ROOM_WIDTH_X / 2, h * 0.875, 0);
+      rootEnt.addChild(rightWallT);
+
+      const rightWallSideLen = (ROOM_DEPTH_Z - WINDOW_21_9_WIDTH) / 2;
+
+      const rightWallL = new pc.Entity(`${floorPrefix}_RightWallL`);
+      rightWallL.addComponent('render', { type: 'box', material: matWall });
+      rightWallL.setLocalScale(0.5, winH, rightWallSideLen);
+      rightWallL.setPosition(ROOM_WIDTH_X / 2, winY, -18.665 - rightWallSideLen / 2);
+      rootEnt.addChild(rightWallL);
+
+      const rightWallR = new pc.Entity(`${floorPrefix}_RightWallR`);
+      rightWallR.addComponent('render', { type: 'box', material: matWall });
+      rightWallR.setLocalScale(0.5, winH, rightWallSideLen);
+      rightWallR.setPosition(ROOM_WIDTH_X / 2, winY, 18.665 + rightWallSideLen / 2);
+      rootEnt.addChild(rightWallR);
+
       const winOuter = new pc.Entity(`${floorPrefix}_WindowOuterFrame`);
       winOuter.addComponent('render', { type: 'box', material: matTechDisplayBezel });
-      winOuter.setLocalScale(0.6, WINDOW_21_9_HEIGHT + 1.2, WINDOW_21_9_WIDTH + 1.2);
-      winOuter.setPosition(ROOM_WIDTH_X / 2, 16.0, 0);
+      winOuter.setLocalScale(0.6, winH + 1.2, WINDOW_21_9_WIDTH + 1.2);
+      winOuter.setPosition(ROOM_WIDTH_X / 2, winY, 0);
       rootEnt.addChild(winOuter);
 
       const winGlass = new pc.Entity(`${floorPrefix}_WindowGlass`);
       winGlass.addComponent('render', { type: 'box', material: matGlass });
-      winGlass.setLocalScale(0.1, WINDOW_21_9_HEIGHT, WINDOW_21_9_WIDTH);
-      winGlass.setPosition(ROOM_WIDTH_X / 2 + 0.1, 16.0, 0);
+      winGlass.setLocalScale(0.1, winH, WINDOW_21_9_WIDTH);
+      winGlass.setPosition(ROOM_WIDTH_X / 2 + 0.1, winY, 0);
       rootEnt.addChild(winGlass);
 
-      // Gờ chỉ kiến trúc phân tầng
+
+      // 6. Gờ chỉ kiến trúc phân tầng
       const floorCornice = new pc.Entity(`${floorPrefix}_Cornice`);
       floorCornice.addComponent('render', { type: 'box', material: matCorniceTrim });
       floorCornice.setLocalScale(ROOM_WIDTH_X + 1.2, 0.6, ROOM_DEPTH_Z + 1.2);
@@ -1847,11 +1947,11 @@ export class SontinhSceneService implements OnDestroy {
       rootEnt.addChild(floorCornice);
     }
 
-    // Khởi tạo 4 tầng (Tầng 1, Tầng 2, Tầng 4, Tầng 5) rỗng hoàn toàn giống Tầng 3
-    createEmptyFloorStructure('Floor1', -64.0); // Tầng 1 (Y: -64m)
-    createEmptyFloorStructure('Floor2', -32.0); // Tầng 2 (Y: -32m)
-    createEmptyFloorStructure('Floor4', 32.0);  // Tầng 4 (Y: +32m)
-    createEmptyFloorStructure('Floor5', 64.0);  // Tầng 5 (Y: +64m)
+    // Khởi tạo 5 tầng kiến trúc tòa nhà với chiều cao 32m đồng nhất 100%
+    createEmptyFloorStructure('Floor1', -64.0, 32.0); // Tầng 1 (Y: -64m đến -32m)
+    createEmptyFloorStructure('Floor2', -32.0, 32.0); // Tầng 2 (Y: -32m đến 0m)
+    createEmptyFloorStructure('Floor4', 32.0,  32.0); // Tầng 4 (Y: +32m đến +64m)
+    createEmptyFloorStructure('Floor5', 64.0,  32.0); // Tầng 5 (Y: +64m đến +96m)
     
     
     // 🖱️ Raycast Click Detection for Window Glass
@@ -1909,18 +2009,6 @@ export class SontinhSceneService implements OnDestroy {
     
     const STREET_OFFSET_X = ROOM_WIDTH_X / 2;
     
-    // 🌌 3D REAL-TIME SKY BACKDROP PLANE (DYNAMIC 24H SKY VIEW THROUGH WINDOW)
-    const matSkyBackdrop = new pc.StandardMaterial();
-    matSkyBackdrop.diffuse = new pc.Color(0.1, 0.2, 0.4);
-    matSkyBackdrop.emissive = new pc.Color(0.2, 0.4, 0.8);
-    matSkyBackdrop.useLighting = false;
-    matSkyBackdrop.update();
-    
-    const skyBackdropPlane = new pc.Entity('SkyBackdropPlane');
-    skyBackdropPlane.addComponent('render', { type: 'box', material: matSkyBackdrop });
-    skyBackdropPlane.setLocalScale(0.5, 55.0, 140.0);
-    skyBackdropPlane.setPosition(STREET_OFFSET_X + 45.0, 25.0, 0);
-    app.root.addChild(skyBackdropPlane);
     
     // 🛣️ ĐƯỜNG PHỐ NHỰA ASPHALT 2 CHIỀU DÀNH RIÊNG CHO Ô TÔ (Y: GROUND_Y = -24.0M)
     const streetRoad = new pc.Entity('StreetRoad');
@@ -2034,13 +2122,13 @@ export class SontinhSceneService implements OnDestroy {
       nonLaHat.setLocalScale(0.7, 0.35, 0.7);
       nonLaHat.setPosition(0, 2.2, 0.8);
       cycloPivot.addChild(nonLaHat);
-    
+
       return cycloPivot;
     }
+
+    // 🏢 DÃY 3 QUÁN ẨM THỰC VIỆT NAM ĐỐI DIỆN TÒA NHÀ (SÁT VỈA HÈ ĐƯỜNG PHỐ Y: -64.0M)
     
-    
-    
-    // HD TEXT SIGNBOARD MATERIALS
+    // HD TEXT SIGNBOARD MATERIALS (Gam màu truyền thống nhã nhặn, sang trọng)
     const matSignBunDauText = createDynamicTextSignTexture(
       app,
       'BÚN ĐẬU MẮM TÔM',
@@ -2054,7 +2142,7 @@ export class SontinhSceneService implements OnDestroy {
       app,
       'CƠM TẤM SÀI GÒN',
       'SƯỜN BÌ CHẢ TÔM • CHÍNH GỐC',
-      '#c2410c',
+      '#15803d',
       '#ffffff',
       '#fef08a'
     );
@@ -2063,14 +2151,12 @@ export class SontinhSceneService implements OnDestroy {
       app,
       'BÁNH MÌ SÀI GÒN',
       'GIÒ LỤA • THỊT NƯỚNG • PÂTÉ',
-      '#b91c1c',
+      '#0f766e',
       '#facc15',
       '#ffffff'
     );
-    
-    // 🏢 VIETNAMESE CULINARY SHOPHOUSES ROW & 3D HIGH-VISIBILITY ENTRANCE DOORS (GROUND_Y = -24.0M)
-    
-    // 1. 🍲 QUÁN BÚN ĐẬU MẮM TÔM & CỬA RA VÀO NỔI BẬT
+
+    // 1. 🍲 QUÁN BÚN ĐẬU MẮM TÔM
     const shopBunDauBuilding = new pc.Entity('ShopBunDauBuilding');
     shopBunDauBuilding.addComponent('render', { type: 'box', material: matShopYellow });
     shopBunDauBuilding.setLocalScale(10.0, 24.0, 20.0);
@@ -2088,8 +2174,7 @@ export class SontinhSceneService implements OnDestroy {
     signBunDau.setLocalScale(0.6, 2.8, 14.0);
     signBunDau.setPosition(STREET_OFFSET_X + 40.6, GROUND_Y + 16.5, -20.0);
     app.root.addChild(signBunDau);
-    
-    // 🚪 CỬA RA VÀO QUÁN BÚN ĐẬU MẮM TÔM
+
     const doorBunDauInterior = new pc.Entity('DoorBunDauInterior');
     doorBunDauInterior.addComponent('render', { type: 'box', material: matWarmStoreInterior });
     doorBunDauInterior.setLocalScale(0.3, 5.0, 6.5);
@@ -2101,38 +2186,8 @@ export class SontinhSceneService implements OnDestroy {
     doorBunDauFrame.setLocalScale(0.5, 5.2, 6.8);
     doorBunDauFrame.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.6, -20.0);
     app.root.addChild(doorBunDauFrame);
-    
-    const doorBunDauGlassL = new pc.Entity('DoorBunDauGlassL');
-    doorBunDauGlassL.addComponent('render', { type: 'box', material: matAquariumGlass });
-    doorBunDauGlassL.setLocalScale(0.12, 4.8, 3.1);
-    doorBunDauGlassL.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.6, -21.6);
-    app.root.addChild(doorBunDauGlassL);
-    
-    const doorBunDauGlassR = new pc.Entity('DoorBunDauGlassR');
-    doorBunDauGlassR.addComponent('render', { type: 'box', material: matAquariumGlass });
-    doorBunDauGlassR.setLocalScale(0.12, 4.8, 3.1);
-    doorBunDauGlassR.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.6, -18.4);
-    app.root.addChild(doorBunDauGlassR);
-    
-    const doorBunDauHandleL = new pc.Entity('DoorBunDauHandleL');
-    doorBunDauHandleL.addComponent('render', { type: 'cylinder', material: matPs5SilverStand });
-    doorBunDauHandleL.setLocalScale(0.12, 1.2, 0.12);
-    doorBunDauHandleL.setPosition(STREET_OFFSET_X + 39.9, GROUND_Y + 2.6, -20.2);
-    app.root.addChild(doorBunDauHandleL);
-    
-    const doorBunDauHandleR = new pc.Entity('DoorBunDauHandleR');
-    doorBunDauHandleR.addComponent('render', { type: 'cylinder', material: matPs5SilverStand });
-    doorBunDauHandleR.setLocalScale(0.12, 1.2, 0.12);
-    doorBunDauHandleR.setPosition(STREET_OFFSET_X + 39.9, GROUND_Y + 2.6, -19.8);
-    app.root.addChild(doorBunDauHandleR);
-    
-    const vietFlagBunDau = new pc.Entity('VietFlagBunDau');
-    vietFlagBunDau.addComponent('render', { type: 'box', material: matVietFlag });
-    vietFlagBunDau.setLocalScale(0.1, 1.8, 2.6);
-    vietFlagBunDau.setPosition(STREET_OFFSET_X + 40.8, GROUND_Y + 20.5, -20.0);
-    app.root.addChild(vietFlagBunDau);
-    
-    // 2. 🍖 QUÁN CƠM TẤM SÀI GÒN & CỬA RA VÀO NỔI BẬT
+
+    // 2. 🍖 QUÁN CƠM TẤM SÀI GÒN
     const shopComTamBuilding = new pc.Entity('ShopComTamBuilding');
     shopComTamBuilding.addComponent('render', { type: 'box', material: matFrenchOchre });
     shopComTamBuilding.setLocalScale(10.0, 26.0, 18.0);
@@ -2150,47 +2205,16 @@ export class SontinhSceneService implements OnDestroy {
     signComTam.setLocalScale(0.6, 3.0, 15.0);
     signComTam.setPosition(STREET_OFFSET_X + 40.6, GROUND_Y + 18.2, 0.0);
     app.root.addChild(signComTam);
-    
-    // 🚪 CỬA RA VÀO QUÁN CƠM TẤM SÀI GÒN
+
     const doorComTamInterior = new pc.Entity('DoorComTamInterior');
     doorComTamInterior.addComponent('render', { type: 'box', material: matWarmStoreInterior });
     doorComTamInterior.setLocalScale(0.3, 5.2, 7.0);
     doorComTamInterior.setPosition(STREET_OFFSET_X + 40.5, GROUND_Y + 2.6, 0.0);
     app.root.addChild(doorComTamInterior);
-    
-    const doorComTamFrame = new pc.Entity('DoorComTamFrame');
-    doorComTamFrame.addComponent('render', { type: 'box', material: matOakWood });
-    doorComTamFrame.setLocalScale(0.5, 5.4, 7.2);
-    doorComTamFrame.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.7, 0.0);
-    app.root.addChild(doorComTamFrame);
-    
-    const doorComTamGlassL = new pc.Entity('DoorComTamGlassL');
-    doorComTamGlassL.addComponent('render', { type: 'box', material: matAquariumGlass });
-    doorComTamGlassL.setLocalScale(0.12, 5.0, 3.3);
-    doorComTamGlassL.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.7, -1.7);
-    app.root.addChild(doorComTamGlassL);
-    
-    const doorComTamGlassR = new pc.Entity('DoorComTamGlassR');
-    doorComTamGlassR.addComponent('render', { type: 'box', material: matAquariumGlass });
-    doorComTamGlassR.setLocalScale(0.12, 5.0, 3.3);
-    doorComTamGlassR.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.7, 1.7);
-    app.root.addChild(doorComTamGlassR);
-    
-    const doorComTamHandleL = new pc.Entity('DoorComTamHandleL');
-    doorComTamHandleL.addComponent('render', { type: 'cylinder', material: matPs5SilverStand });
-    doorComTamHandleL.setLocalScale(0.12, 1.2, 0.12);
-    doorComTamHandleL.setPosition(STREET_OFFSET_X + 39.9, GROUND_Y + 2.7, -0.2);
-    app.root.addChild(doorComTamHandleL);
-    
-    const doorComTamHandleR = new pc.Entity('DoorComTamHandleR');
-    doorComTamHandleR.addComponent('render', { type: 'cylinder', material: matPs5SilverStand });
-    doorComTamHandleR.setLocalScale(0.12, 1.2, 0.12);
-    doorComTamHandleR.setPosition(STREET_OFFSET_X + 39.9, GROUND_Y + 2.7, 0.2);
-    app.root.addChild(doorComTamHandleR);
-    
-    // 3. 🥖 TIỆM BÁNH MÌ SÀI GÒN & CỬA RA VÀO NỔI BẬT
+
+    // 3. 🥖 TIỆM BÁNH MÌ SÀI GÒN
     const shopBanhMiSaiGonBuilding = new pc.Entity('ShopBanhMiSaiGonBuilding');
-    shopBanhMiSaiGonBuilding.addComponent('render', { type: 'box', material: matShopRed });
+    shopBanhMiSaiGonBuilding.addComponent('render', { type: 'box', material: matShopYellow });
     shopBanhMiSaiGonBuilding.setLocalScale(10.0, 23.0, 18.0);
     shopBanhMiSaiGonBuilding.setPosition(STREET_OFFSET_X + 46.0, GROUND_Y + 11.5, 20.0);
     app.root.addChild(shopBanhMiSaiGonBuilding);
@@ -2200,56 +2224,20 @@ export class SontinhSceneService implements OnDestroy {
     roofBanhMi.setLocalScale(10.6, 1.4, 18.6);
     roofBanhMi.setPosition(STREET_OFFSET_X + 46.0, GROUND_Y + 23.7, 20.0);
     app.root.addChild(roofBanhMi);
-    
+
     const signBanhMiSaiGon = new pc.Entity('SignBanhMiSaiGon');
     signBanhMiSaiGon.addComponent('render', { type: 'box', material: matSignBanhMiText });
     signBanhMiSaiGon.setLocalScale(0.6, 2.6, 14.0);
     signBanhMiSaiGon.setPosition(STREET_OFFSET_X + 40.6, GROUND_Y + 15.5, 20.0);
     app.root.addChild(signBanhMiSaiGon);
-    
-    // 🚪 CỬA RA VÀO TIỆM BÁNH MÌ SÀI GÒN
+
     const doorBanhMiInterior = new pc.Entity('DoorBanhMiInterior');
     doorBanhMiInterior.addComponent('render', { type: 'box', material: matWarmStoreInterior });
     doorBanhMiInterior.setLocalScale(0.3, 4.8, 6.2);
     doorBanhMiInterior.setPosition(STREET_OFFSET_X + 40.5, GROUND_Y + 2.4, 20.0);
     app.root.addChild(doorBanhMiInterior);
+
     
-    const doorBanhMiFrame = new pc.Entity('DoorBanhMiFrame');
-    doorBanhMiFrame.addComponent('render', { type: 'box', material: matShopRed });
-    doorBanhMiFrame.setLocalScale(0.5, 5.0, 6.4);
-    doorBanhMiFrame.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.5, 20.0);
-    app.root.addChild(doorBanhMiFrame);
-    
-    const doorBanhMiGlassL = new pc.Entity('DoorBanhMiGlassL');
-    doorBanhMiGlassL.addComponent('render', { type: 'box', material: matAquariumGlass });
-    doorBanhMiGlassL.setLocalScale(0.12, 4.6, 2.9);
-    doorBanhMiGlassL.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.5, 18.5);
-    app.root.addChild(doorBanhMiGlassL);
-    
-    const doorBanhMiGlassR = new pc.Entity('DoorBanhMiGlassR');
-    doorBanhMiGlassR.addComponent('render', { type: 'box', material: matAquariumGlass });
-    doorBanhMiGlassR.setLocalScale(0.12, 4.6, 2.9);
-    doorBanhMiGlassR.setPosition(STREET_OFFSET_X + 40.2, GROUND_Y + 2.5, 21.5);
-    app.root.addChild(doorBanhMiGlassR);
-    
-    const doorBanhMiHandleL = new pc.Entity('DoorBanhMiHandleL');
-    doorBanhMiHandleL.addComponent('render', { type: 'cylinder', material: matPs5SilverStand });
-    doorBanhMiHandleL.setLocalScale(0.12, 1.2, 0.12);
-    doorBanhMiHandleL.setPosition(STREET_OFFSET_X + 39.9, GROUND_Y + 2.5, 19.8);
-    app.root.addChild(doorBanhMiHandleL);
-    
-    const doorBanhMiHandleR = new pc.Entity('DoorBanhMiHandleR');
-    doorBanhMiHandleR.addComponent('render', { type: 'cylinder', material: matPs5SilverStand });
-    doorBanhMiHandleR.setLocalScale(0.12, 1.2, 0.12);
-    doorBanhMiHandleR.setPosition(STREET_OFFSET_X + 39.9, GROUND_Y + 2.5, 20.2);
-    app.root.addChild(doorBanhMiHandleR);
-    
-    // Tủ Kính Xe Bánh Mì Đặt Trực Tiếp Trước Cửa Ra Vào
-    const banhMiDisplayCart = new pc.Entity('BanhMiDisplayCart');
-    banhMiDisplayCart.addComponent('render', { type: 'box', material: matAquariumGlass });
-    banhMiDisplayCart.setLocalScale(1.4, 2.0, 2.8);
-    banhMiDisplayCart.setPosition(STREET_OFFSET_X + 38.8, 1.0, 20.0);
-    app.root.addChild(banhMiDisplayCart);
     
     // 🚘 HELPER: CREATE 3D AUTOMOBILE CAR WITH WHEELS, HEADLIGHTS & TAILLIGHTS
     function create3DCarEntity(name: string, bodyMaterial: pc.StandardMaterial, posX: number, posZ: number, isReverseDirection: boolean = false) {
@@ -4040,10 +4028,7 @@ export class SontinhSceneService implements OnDestroy {
       charPivot.setEulerAngles(0, charCurrentYaw, 0);
       charBodyRoot.setLocalEulerAngles(0, 0, 0);
 
-      // Camera pivot follows character ONLY when not focusing on a prop or specific view
-      if (!isPropCameraActive && !isWindowViewActive && !isPictureViewActive && !isAquariumViewActive) {
-        targetPivot.set(charCurrentPos.x, targetPivot.y, charCurrentPos.z);
-      }
+      // Camera pivot stays static until user clicks a prop item
 
       return true;
     }
@@ -4077,9 +4062,6 @@ export class SontinhSceneService implements OnDestroy {
 
           charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
           charPivot.setEulerAngles(0, charCurrentYaw, 0);
-          if (!isPropCameraActive && !isWindowViewActive && !isPictureViewActive && !isAquariumViewActive) {
-            targetPivot.set(charCurrentPos.x, targetPivot.y, charCurrentPos.z);
-          }
         } else {
           // Hành động Tại chỗ (speed = 0) → đứng yên vị trí
           charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
@@ -4272,9 +4254,9 @@ export class SontinhSceneService implements OnDestroy {
         targetSunPitch = pc.math.lerp(20, 5, duskProgress);
         targetWindowIntensity = pc.math.lerp(1.8, 0.6, duskProgress);
     
-        bgR = pc.math.lerp(0.90, 0.12, duskProgress);
-        bgG = pc.math.lerp(0.35, 0.04, duskProgress);
-        bgB = pc.math.lerp(0.15, 0.15, duskProgress);
+        bgR = pc.math.lerp(0.12, 0.03, duskProgress);
+        bgG = pc.math.lerp(0.25, 0.05, duskProgress);
+        bgB = pc.math.lerp(0.55, 0.15, duskProgress);
     
       } else {
         // 🌙 NIGHTTIME (7:00 PM - 5:00 AM - TRỜI TỐI ĐÊM KHUYA)
@@ -4288,9 +4270,6 @@ export class SontinhSceneService implements OnDestroy {
         bgR = 0.015; bgG = 0.025; bgB = 0.06;
       }
     
-      // Smoothly lerp Sky Backdrop Emissive Material
-      matSkyBackdrop.emissive.lerp(matSkyBackdrop.emissive, new pc.Color(bgR, bgG, bgB), dt * 3.0);
-      matSkyBackdrop.update();
     
       // (Real-time illuminated signboards use HD canvas textures with 1.4x emissive intensity)
     

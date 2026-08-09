@@ -247,11 +247,6 @@
 
       <!-- Floating Scene Toolbar (Top-Right) -->
       <div class="scene-floating-toolbar">
-        <!-- Live Recording Timer Counter Badge -->
-        <div *ngIf="isRecording" class="flex items-center gap-1.5 px-2.5 py-1 bg-red-600/90 text-white rounded-full text-xs font-mono font-bold shadow animate-pulse mr-1">
-          <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
-          <span>{{ recordingTimerText }}</span>
-        </div>
 
         <!-- 1. Full Screen -->
         <button mat-icon-button (click)="toggleFullScreen()" class="scene-toolbar-btn" [matTooltip]="isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'">
