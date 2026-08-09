@@ -416,6 +416,7 @@ export class SontinhSceneService implements OnDestroy {
     let isWindowViewActive = false;
     let isPictureViewActive = false;
     let isAquariumViewActive = false;
+    let isPropCameraActive = false;
     
     let targetPivot = DESK_VIEW.pivot.clone();
     let currentPivot = DESK_VIEW.pivot.clone();
@@ -437,37 +438,212 @@ export class SontinhSceneService implements OnDestroy {
 
     self._applyCameraPreset = (presetName: string) => {
       const p = (presetName || '').toLowerCase();
-      if (p === 'desk' || p === 'desk_view') {
-        isWindowViewActive = false; isPictureViewActive = false; isAquariumViewActive = false;
-        targetPivot.copy(DESK_VIEW.pivot);
-        targetYaw = DESK_VIEW.yaw;
-        targetPitch = DESK_VIEW.pitch;
-        targetDistance = DESK_VIEW.distance;
-      } else if (p === 'character' || p === 'character_view') {
-        isWindowViewActive = false; isPictureViewActive = false; isAquariumViewActive = false;
-        const cp = charPivot ? charPivot.getPosition() : new pc.Vec3(0, 0, 0);
-        targetPivot.set(cp.x, cp.y + 5, cp.z);
-        targetYaw = 0;
-        targetPitch = 12;
-        targetDistance = 15;
-      } else if (p === 'overhead' || p === 'overhead_view') {
-        isWindowViewActive = false; isPictureViewActive = false; isAquariumViewActive = false;
-        targetPivot.set(0, 10, 0);
-        targetYaw = 0;
-        targetPitch = 85;
-        targetDistance = 50;
-      } else if (p === 'default' || p === 'default_view') {
-        isWindowViewActive = false; isPictureViewActive = false; isAquariumViewActive = false;
-        targetPivot.set(0, 10, 0);
-        targetYaw = 20;
-        targetPitch = 30;
-        targetDistance = 65;
-      } else if (p === 'window' || p === 'street_window_view') {
-        if (!isWindowViewActive) toggleWindowStreetView();
-      } else if (p === 'picture' || p === 'picture_view') {
-        if (!isPictureViewActive) togglePictureView();
-      } else if (p === 'aquarium' || p === 'aquarium_view') {
-        if (!isAquariumViewActive) toggleAquariumView();
+      isWindowViewActive = false;
+      isPictureViewActive = false;
+      isAquariumViewActive = false;
+      isPropCameraActive = true;
+
+      switch (p) {
+        case 'prop_main_desk':
+        case 'desk':
+        case 'desk_view':
+          targetPivot.set(0.0, 4.2 + WS_DY, BACK_WALL_Z + 4.0);
+          targetYaw = 0; targetPitch = 20; targetDistance = 18;
+          break;
+
+        case 'prop_chair_left':
+        case 'chair_left':
+          targetPivot.set(-6.0, 2.5, BACK_WALL_Z + 8.2);
+          targetYaw = 30; targetPitch = 15; targetDistance = 12;
+          break;
+
+        case 'prop_chair_right':
+        case 'chair_right':
+          targetPivot.set(6.0, 2.5, BACK_WALL_Z + 8.2);
+          targetYaw = -30; targetPitch = 15; targetDistance = 12;
+          break;
+
+        case 'prop_monitor_left':
+        case 'monitor_left':
+          targetPivot.set(-6.0, 6.2 + WS_DY, BACK_WALL_Z + 2.5);
+          targetYaw = 15; targetPitch = 10; targetDistance = 10;
+          break;
+
+        case 'prop_monitor_right':
+        case 'monitor_right':
+          targetPivot.set(6.0, 6.2 + WS_DY, BACK_WALL_Z + 2.5);
+          targetYaw = -15; targetPitch = 10; targetDistance = 10;
+          break;
+
+        case 'prop_mechanical_keyboard_left':
+        case 'keyboard_left':
+          targetPivot.set(-6.6, 4.2 + WS_DY, BACK_WALL_Z + 4.3);
+          targetYaw = 20; targetPitch = 25; targetDistance = 8;
+          break;
+
+        case 'prop_mechanical_keyboard_right':
+        case 'keyboard_right':
+          targetPivot.set(5.4, 4.2 + WS_DY, BACK_WALL_Z + 4.3);
+          targetYaw = -20; targetPitch = 25; targetDistance = 8;
+          break;
+
+        case 'prop_aquarium':
+        case 'aquarium':
+        case 'aquarium_view':
+          targetPivot.set(0.0, 4.95 + WS_DY, BACK_WALL_Z + 2.0);
+          targetYaw = 0; targetPitch = 8; targetDistance = 8;
+          break;
+
+        case 'prop_pegboard':
+        case 'pegboard':
+          targetPivot.set(0.0, 12.8 + WS_DY, BACK_WALL_Z + 0.5);
+          targetYaw = 0; targetPitch = 10; targetDistance = 14;
+          break;
+
+        case 'prop_ps5_pro':
+        case 'ps5_pro':
+        case 'ps5':
+          targetPivot.set(0.0, 10.5 + WS_DY, BACK_WALL_Z + 1.2);
+          targetYaw = 0; targetPitch = 12; targetDistance = 10;
+          break;
+
+        case 'prop_tech_led_bar':
+        case 'tech_led_bar':
+        case 'led_bar':
+          targetPivot.set(0.0, 7.2 + WS_DY, BACK_WALL_Z + 2.4);
+          targetYaw = 0; targetPitch = 15; targetDistance = 10;
+          break;
+
+        case 'prop_wall_switch':
+        case 'wall_switch':
+        case 'switch':
+          targetPivot.set(-69.5, 11.8, 6.8);
+          targetYaw = 90; targetPitch = 10; targetDistance = 12;
+          break;
+
+        case 'prop_window_21_9':
+        case 'window_21_9':
+        case 'window':
+        case 'street_window_view':
+          targetPivot.set(70.0, 16.0, 0.0);
+          targetYaw = -85; targetPitch = 20; targetDistance = 35;
+          break;
+
+        case 'prop_picture_frame':
+        case 'picture_frame':
+        case 'picture':
+        case 'picture_view':
+          targetPivot.set(69.65, 16.0, 28.5);
+          targetYaw = -90; targetPitch = 0; targetDistance = 14;
+          break;
+
+        case 'prop_wall_clock':
+        case 'wall_clock':
+        case 'clock':
+          targetPivot.set(0.0, 28.5, 39.5);
+          targetYaw = 180; targetPitch = 10; targetDistance = 20;
+          break;
+
+        case 'prop_clothing_drawer':
+        case 'clothing_drawer':
+        case 'drawer':
+        case 'wardrobe_view':
+          targetPivot.set(12.0, 5.0, -18.0);
+          targetYaw = 45; targetPitch = 15; targetDistance = 20;
+          break;
+
+        case 'prop_main_door':
+        case 'main_door':
+        case 'door':
+        case 'door_view':
+          targetPivot.set(-70.0, 10.0, 0.0);
+          targetYaw = 90; targetPitch = 10; targetDistance = 25;
+          break;
+
+        case 'prop_ceiling_downlight_front':
+        case 'downlight_front':
+          targetPivot.set(0.0, 32.5, 38.75);
+          targetYaw = 180; targetPitch = 45; targetDistance = 25;
+          break;
+
+        case 'prop_ceiling_downlight_back':
+        case 'downlight_back':
+          targetPivot.set(0.0, 32.5, -38.75);
+          targetYaw = 0; targetPitch = 45; targetDistance = 25;
+          break;
+
+        case 'prop_ceiling_downlight_left':
+        case 'downlight_left':
+          targetPivot.set(-38.75, 32.5, 0.0);
+          targetYaw = 90; targetPitch = 45; targetDistance = 25;
+          break;
+
+        case 'prop_ceiling_downlight_right':
+        case 'downlight_right':
+          targetPivot.set(38.75, 32.5, 0.0);
+          targetYaw = -90; targetPitch = 45; targetDistance = 25;
+          break;
+
+        case 'prop_street_shophouses':
+        case 'street_shophouses':
+          targetPivot.set(70.0, 0.0, 0.0);
+          targetYaw = -90; targetPitch = 25; targetDistance = 45;
+          break;
+
+        case 'prop_building_floor1':
+        case 'floor1':
+          targetPivot.set(0.0, -48.0, 0.0);
+          targetYaw = 20; targetPitch = 25; targetDistance = 60;
+          break;
+
+        case 'prop_building_floor2':
+        case 'floor2':
+          targetPivot.set(0.0, -16.0, 0.0);
+          targetYaw = 20; targetPitch = 25; targetDistance = 60;
+          break;
+
+        case 'prop_building_floor4':
+        case 'floor4':
+          targetPivot.set(0.0, 48.0, 0.0);
+          targetYaw = 20; targetPitch = 25; targetDistance = 60;
+          break;
+
+        case 'prop_building_floor5':
+        case 'floor5':
+          targetPivot.set(0.0, 80.0, 0.0);
+          targetYaw = 20; targetPitch = 25; targetDistance = 60;
+          break;
+
+        case 'prop_street_traffic_lanes':
+        case 'street_traffic_lanes':
+          targetPivot.set(90.0, -2.0, 0.0);
+          targetYaw = -90; targetPitch = 35; targetDistance = 55;
+          break;
+
+        case 'character':
+        case 'character_view':
+          isPropCameraActive = false;
+          const cp = charPivot ? charPivot.getPosition() : new pc.Vec3(0, 0, 0);
+          targetPivot.set(cp.x, cp.y + 5, cp.z);
+          targetYaw = 0; targetPitch = 12; targetDistance = 15;
+          break;
+
+        case 'overhead':
+        case 'overhead_view':
+          isPropCameraActive = false;
+          targetPivot.set(0, 10, 0);
+          targetYaw = 0; targetPitch = 85; targetDistance = 50;
+          break;
+
+        case 'default':
+        case 'default_view':
+        default:
+          if (p !== 'custom') {
+            isPropCameraActive = false;
+            targetPivot.set(0, 10, 0);
+            targetYaw = 20; targetPitch = 30; targetDistance = 65;
+          }
+          break;
       }
     };
     
@@ -1350,6 +1526,112 @@ export class SontinhSceneService implements OnDestroy {
     }
     this._toggleRoomLights = toggleRoomLights;
     
+    const PROP_ENTITY_CONFIG: Record<string, { primary: string; targets: string[] }> = {
+      // 🏢 Kiến trúc Tòa nhà & Phòng 306
+      'prop_building_5story_main': { primary: 'LeftWallBack', targets: ['LowerBuildingBase', 'CorniceFloor1', 'CorniceFloor2', 'CorniceFloor3'] },
+      'prop_room_306_floor': { primary: 'Floor', targets: ['Floor', 'Ceiling', 'BackWall', 'FrontWall', 'LeftWallBack', 'LeftWallFront', 'LeftWallTop'] },
+      'prop_building_floor1': { primary: 'Floor1_Root', targets: ['Floor1_Root', 'F1EntranceFrame', 'F1EntranceGlass', 'CorniceFloor1'] },
+      'prop_building_floor2': { primary: 'Floor2_Root', targets: ['Floor2_Root', 'CorniceFloor2'] },
+      'prop_building_floor4': { primary: 'Floor4_Root', targets: ['Floor4_Root', 'CorniceFloor3'] },
+      'prop_building_floor5': { primary: 'Floor5_Root', targets: ['Floor5_Root'] },
+      'prop_room_marble_floor': { primary: 'Floor', targets: ['Floor'] },
+      'prop_room_walls': { primary: 'BackWall', targets: ['BackWall', 'FrontWall', 'LeftWallBack', 'LeftWallFront', 'LeftWallTop'] },
+      'prop_room_ceiling': { primary: 'Ceiling', targets: ['Ceiling'] },
+      'prop_main_door': { primary: 'DoorPivot', targets: ['DoorPanel', 'DoorFrameBack', 'DoorFrameFront', 'DoorFrameTop', 'DoorThreshold', 'DoorPivot', 'SashTop', 'SashBottom', 'SashLeft', 'SashRight', 'HandleAssembly'] },
+      'prop_window_21_9': { primary: 'WindowOuterFrame', targets: ['WindowOuterFrame', 'WindowPivotLeft', 'WindowPanelLeft', 'WindowPivotRight', 'WindowPanelRight'] },
+
+      // 🪑 Nội thất
+      'prop_main_desk': { primary: 'DeskTop', targets: ['DeskTop', 'LeftLegCurve', 'RightLegCurve', 'DeskFrame'] },
+      'prop_chair_left': { primary: 'Chair1_Pivot', targets: ['Chair1_Pivot'] },
+      'prop_chair_right': { primary: 'Chair2_Pivot', targets: ['Chair2_Pivot'] },
+      'prop_pegboard': { primary: 'PegboardWall', targets: ['PegboardWall', 'PegboardShelf', 'PegboardBacklight'] },
+      'prop_clothing_drawer': { primary: 'ClothingDrawer', targets: ['ClothingDrawer', 'DrawerCabinet'] },
+      'prop_desk_mat_left': { primary: 'LeftDeskMat', targets: ['LeftDeskMat'] },
+      'prop_desk_mat_right': { primary: 'RightDeskMat', targets: ['RightDeskMat'] },
+
+      // 🖥️ Thiết bị Điện tử
+      'prop_monitor_left': { primary: 'LeftMonitorBody', targets: ['LeftMonitorStand', 'LeftMonitorBody', 'LeftMonitorScreen', 'LeftMonitorGlow'] },
+      'prop_monitor_right': { primary: 'RightMonitorBody', targets: ['RightMonitorStand', 'RightMonitorBody', 'RightMonitorScreen', 'RightMonitorGlow'] },
+      'prop_mechanical_keyboard_left': { primary: 'LeftKbd', targets: ['LeftKbd'] },
+      'prop_mechanical_keyboard_right': { primary: 'RightKbd', targets: ['RightKbd'] },
+      'prop_mouse_left': { primary: 'LeftMouse', targets: ['LeftMouse'] },
+      'prop_mouse_right': { primary: 'RightMouse', targets: ['RightMouse'] },
+      'prop_ps5_pro': { primary: 'Ps5Console', targets: ['Ps5Console', 'Ps5Controller', 'Ps5Stand'] },
+
+      // 💡 Đèn & Trang trí
+      'prop_aquarium': { primary: 'AquaBase', targets: ['AquaBase', 'AquaSand', 'AquaWater', 'AquaGlass', 'AquaTopHood', 'AquaLight'] },
+      'prop_picture_frame': { primary: 'FamilyPictureFrame', targets: ['FamilyPictureFrame', 'FamilyFrameBacklight', 'FamilyFrameGlass'] },
+      'prop_wall_clock': { primary: 'WallClockBase', targets: ['WallClockBase', 'WallClockFace', 'WallClockPivot'] },
+      'prop_tech_led_bar': { primary: 'LedBarLeft', targets: ['LedBarLeft', 'LedBarRight'] },
+      'prop_wall_switch': { primary: 'WallSwitchBase', targets: ['WallSwitchBase', 'WallSwitchRocker', 'WallSwitchLedDot', 'WallSwitchBezel', 'WallSwitchGlowLight'] },
+      'prop_ceiling_downlight_front': { primary: 'FrontLedLight', targets: ['FrontLedLight'] },
+      'prop_ceiling_downlight_back': { primary: 'BackLedLight', targets: ['BackLedLight'] },
+      'prop_ceiling_downlight_left': { primary: 'LeftLedLight', targets: ['LeftLedLight'] },
+      'prop_ceiling_downlight_right': { primary: 'RightLedLight', targets: ['RightLedLight'] },
+
+      // 🚗 Cảnh quan Ngoại thất
+      'prop_street_cars': { primary: 'TrafficLanes', targets: ['TrafficLanes', 'TrafficCars'] },
+      'prop_street_trees': { primary: 'StreetTrees', targets: ['StreetTrees', 'BonsaiTree'] },
+      'prop_street_shophouses': { primary: 'LowerBuildingBase', targets: ['LowerBuildingBase', 'ShopHouses'] },
+      'prop_street_traffic_lanes': { primary: 'RoadAsphalt', targets: ['RoadAsphalt'] }
+    };
+
+    this._applyProps = (props: any[]) => {
+      if (!this.app || !props || !Array.isArray(props)) return;
+      for (const prop of props) {
+        if (!prop || !prop.id) continue;
+        const propId = prop.id;
+        const isVisible = prop.visible !== false;
+
+        const cfg = PROP_ENTITY_CONFIG[propId];
+        if (cfg) {
+          // 1. Toggle visibility of target entities
+          for (const name of cfg.targets) {
+            const entity = this.app.root.findByName(name);
+            if (entity) {
+              (entity as any).enabled = isVisible;
+            }
+          }
+          // 2. Update position, rotation, scale on primary pivot ONLY if user explicitly modified coordinates (and not structural floor default 0,0,0)
+          if (prop._modifiedPosition) {
+            const isDefaultZero = prop.position && prop.position.x === 0 && prop.position.y === 0 && prop.position.z === 0;
+            const isStructuralFloor = propId.startsWith('prop_building_floor') || propId === 'prop_building_5story_main' || propId === 'prop_room_306_floor' || propId.startsWith('prop_room_');
+
+            if (!isStructuralFloor || !isDefaultZero) {
+              const primaryEntity = this.app.root.findByName(cfg.primary);
+              if (primaryEntity) {
+                if (prop.position && typeof prop.position.x === 'number') {
+                  (primaryEntity as any).setPosition(prop.position.x, prop.position.y, prop.position.z);
+                }
+                if (prop.rotation && typeof prop.rotation.x === 'number') {
+                  (primaryEntity as any).setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
+                }
+                if (prop.scale && typeof prop.scale.x === 'number') {
+                  (primaryEntity as any).setLocalScale(prop.scale.x, prop.scale.y, prop.scale.z);
+                }
+              }
+            }
+          }
+        } else {
+          const entity = this.app.root.findByName(propId);
+          if (entity) {
+            (entity as any).enabled = isVisible;
+            if (prop._modifiedPosition) {
+              if (prop.position && typeof prop.position.x === 'number') {
+                (entity as any).setPosition(prop.position.x, prop.position.y, prop.position.z);
+              }
+              if (prop.rotation && typeof prop.rotation.x === 'number') {
+                (entity as any).setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
+              }
+              if (prop.scale && typeof prop.scale.x === 'number') {
+                (entity as any).setLocalScale(prop.scale.x, prop.scale.y, prop.scale.z);
+              }
+            }
+          }
+        }
+      }
+    };
+    
     function tryClickLightSwitch(screenX: number, screenY: number) {
       if (!camera.camera) return false;
       const rayFrom = new pc.Vec3();
@@ -1537,6 +1819,39 @@ export class SontinhSceneService implements OnDestroy {
     chillGlassPane.setLocalScale(0.1, WINDOW_21_9_HEIGHT, WINDOW_21_9_WIDTH);
     chillGlassPane.setPosition(ROOM_WIDTH_X / 2, 16.0, 0);
     app.root.addChild(chillGlassPane);
+
+    // 🏢 TẠO CẤU TRÚC KIẾN TRÚC TẦNG NGOẠI THẤT RỖNG (TẦNG 1, 2, 4, 5)
+    function createEmptyFloorStructure(floorPrefix: string, offsetY: number) {
+      const rootEnt = new pc.Entity(`${floorPrefix}_Root`);
+      rootEnt.setPosition(0, offsetY, 0);
+      app.root.addChild(rootEnt);
+
+      // Cửa sổ Minimalist 21:9 chuẩn góc nhìn cho từng tầng
+      const winOuter = new pc.Entity(`${floorPrefix}_WindowOuterFrame`);
+      winOuter.addComponent('render', { type: 'box', material: matTechDisplayBezel });
+      winOuter.setLocalScale(0.6, WINDOW_21_9_HEIGHT + 1.2, WINDOW_21_9_WIDTH + 1.2);
+      winOuter.setPosition(ROOM_WIDTH_X / 2, 16.0, 0);
+      rootEnt.addChild(winOuter);
+
+      const winGlass = new pc.Entity(`${floorPrefix}_WindowGlass`);
+      winGlass.addComponent('render', { type: 'box', material: matGlass });
+      winGlass.setLocalScale(0.1, WINDOW_21_9_HEIGHT, WINDOW_21_9_WIDTH);
+      winGlass.setPosition(ROOM_WIDTH_X / 2 + 0.1, 16.0, 0);
+      rootEnt.addChild(winGlass);
+
+      // Gờ chỉ kiến trúc phân tầng
+      const floorCornice = new pc.Entity(`${floorPrefix}_Cornice`);
+      floorCornice.addComponent('render', { type: 'box', material: matCorniceTrim });
+      floorCornice.setLocalScale(ROOM_WIDTH_X + 1.2, 0.6, ROOM_DEPTH_Z + 1.2);
+      floorCornice.setPosition(0, 0, 0);
+      rootEnt.addChild(floorCornice);
+    }
+
+    // Khởi tạo 4 tầng (Tầng 1, Tầng 2, Tầng 4, Tầng 5) rỗng hoàn toàn giống Tầng 3
+    createEmptyFloorStructure('Floor1', -64.0); // Tầng 1 (Y: -64m)
+    createEmptyFloorStructure('Floor2', -32.0); // Tầng 2 (Y: -32m)
+    createEmptyFloorStructure('Floor4', 32.0);  // Tầng 4 (Y: +32m)
+    createEmptyFloorStructure('Floor5', 64.0);  // Tầng 5 (Y: +64m)
     
     
     // 🖱️ Raycast Click Detection for Window Glass
@@ -3725,8 +4040,10 @@ export class SontinhSceneService implements OnDestroy {
       charPivot.setEulerAngles(0, charCurrentYaw, 0);
       charBodyRoot.setLocalEulerAngles(0, 0, 0);
 
-      // Camera pivot follows character
-      targetPivot.set(charCurrentPos.x, targetPivot.y, charCurrentPos.z);
+      // Camera pivot follows character ONLY when not focusing on a prop or specific view
+      if (!isPropCameraActive && !isWindowViewActive && !isPictureViewActive && !isAquariumViewActive) {
+        targetPivot.set(charCurrentPos.x, targetPivot.y, charCurrentPos.z);
+      }
 
       return true;
     }
@@ -3760,7 +4077,9 @@ export class SontinhSceneService implements OnDestroy {
 
           charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
           charPivot.setEulerAngles(0, charCurrentYaw, 0);
-          targetPivot.set(charCurrentPos.x, targetPivot.y, charCurrentPos.z);
+          if (!isPropCameraActive && !isWindowViewActive && !isPictureViewActive && !isAquariumViewActive) {
+            targetPivot.set(charCurrentPos.x, targetPivot.y, charCurrentPos.z);
+          }
         } else {
           // Hành động Tại chỗ (speed = 0) → đứng yên vị trí
           charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
