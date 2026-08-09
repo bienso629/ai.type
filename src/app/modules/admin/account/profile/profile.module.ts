@@ -8,6 +8,10 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatListModule } from '@angular/material/list';
 import { ProfileComponent } from 'app/modules/admin/account/profile/profile.component';
 import { SontinhSceneService } from 'app/modules/admin/account/profile/sontinh-scene.service';
 import { ProfileDataService } from 'app/modules/admin/account/profile/profile-data.service';
@@ -27,7 +31,11 @@ const routes: Route[] = [
         MatMenuModule,
         MatDividerModule,
         MatTooltipModule,
-        MatSlideToggleModule
+        MatSlideToggleModule,
+        MatSelectModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatListModule
     ],
     providers: [SontinhSceneService, ProfileDataService]
 })

@@ -51,6 +51,18 @@ export class SontinhSceneService implements OnDestroy {
   private _applyCameraPreset: ((preset: string) => void) | null = null;
   private _applyProps: ((props: any[]) => void) | null = null;
 
+  updateProp(prop: any): void {
+    if (this._applyProps && prop) {
+      this._applyProps([prop]);
+    }
+  }
+
+  syncProps(props: any[]): void {
+    if (this._applyProps && Array.isArray(props)) {
+      this._applyProps(props);
+    }
+  }
+
   setDisabledTriggers(triggers: string[]): void {
     this._disabledTriggers = new Set(triggers);
   }
@@ -1584,6 +1596,41 @@ export class SontinhSceneService implements OnDestroy {
         const propId = prop.id;
         const isVisible = prop.visible !== false;
 
+        const updateMaterialProps = (ent: any) => {
+          if (!ent || !ent.render) return;
+          const mat = ent.render.material as pc.StandardMaterial;
+          if (!mat) return;
+          let changed = false;
+          if (prop.color && typeof prop.color === 'string') {
+            mat.diffuse = new pc.Color().fromString(prop.color);
+            changed = true;
+          }
+          if (prop.opacity !== undefined && typeof prop.opacity === 'number') {
+            mat.opacity = prop.opacity;
+            mat.blendType = prop.opacity < 1.0 ? pc.BLEND_NORMAL : pc.BLEND_NONE;
+            changed = true;
+          }
+          if (prop.emissiveColor && typeof prop.emissiveColor === 'string' && prop.emissiveIntensity !== undefined) {
+            const c = new pc.Color().fromString(prop.emissiveColor);
+            const intensity = prop.emissiveIntensity || 0;
+            mat.emissive = new pc.Color(c.r * intensity, c.g * intensity, c.b * intensity);
+            changed = true;
+          }
+          if (prop.metalness !== undefined && typeof prop.metalness === 'number') {
+            mat.useMetalness = true;
+            mat.metalness = prop.metalness;
+            changed = true;
+          }
+          if (prop.roughness !== undefined && typeof prop.roughness === 'number') {
+            mat.gloss = Math.max(0, Math.min(1, 1.0 - prop.roughness));
+            changed = true;
+          }
+          if (prop.castShadow !== undefined) {
+            ent.render.castShadows = prop.castShadow;
+          }
+          if (changed) mat.update();
+        };
+
         const cfg = PROP_ENTITY_CONFIG[propId];
         if (cfg) {
           // 1. Toggle visibility of target entities
@@ -1591,9 +1638,10 @@ export class SontinhSceneService implements OnDestroy {
             const entity = this.app.root.findByName(name);
             if (entity) {
               (entity as any).enabled = isVisible;
+              if (prop._modifiedPosition) updateMaterialProps(entity);
             }
           }
-          // 2. Update position, rotation, scale on primary pivot ONLY if user explicitly modified coordinates (and not structural floor default 0,0,0)
+          // 2. Update position, rotation, scale on primary pivot ONLY if user/AI explicitly modified coordinates
           if (prop._modifiedPosition) {
             const isDefaultZero = prop.position && prop.position.x === 0 && prop.position.y === 0 && prop.position.z === 0;
             const isStructuralFloor = propId.startsWith('prop_building_floor') || propId === 'prop_building_5story_main' || propId === 'prop_room_306_floor' || propId.startsWith('prop_room_');
@@ -1618,6 +1666,7 @@ export class SontinhSceneService implements OnDestroy {
           if (entity) {
             (entity as any).enabled = isVisible;
             if (prop._modifiedPosition) {
+              updateMaterialProps(entity);
               if (prop.position && typeof prop.position.x === 'number') {
                 (entity as any).setPosition(prop.position.x, prop.position.y, prop.position.z);
               }
@@ -2448,7 +2497,7 @@ export class SontinhSceneService implements OnDestroy {
     function createHaigoChair(namePrefix: string, posX: number, posZ: number) {
       const chairPivot = new pc.Entity(`${namePrefix}_Pivot`);
       chairPivot.setPosition(posX, 0, posZ);
-      chairPivot.setEulerAngles(0, 180, 0);
+      chairPivot.setEulerAngles(0, 0, 0);
       app.root.addChild(chairPivot);
     
       // 1. Sleek Leather Seat Cushion with Smooth 4-Corner Rounding ("Bọc tròn 4 góc") - THICKENED SEAT CUSHION (0.52m thick)

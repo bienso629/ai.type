@@ -81,11 +81,6 @@
                 <button mat-icon-button (click)="openPropInspector(prop)" title="Thuộc tính & Phương thức hành động" class="opacity-0 group-hover:opacity-100 transition-opacity">
                   <mat-icon class="icon-size-4 text-slate-400 hover:text-teal-600">tune</mat-icon>
                 </button>
-
-                <!-- Nút Xóa màu đỏ -->
-                <button mat-icon-button (click)="deleteProp($event, prop.id)" title="Xóa đồ vật" class="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <mat-icon class="icon-size-4 text-red-500 hover:text-red-700">delete_outline</mat-icon>
-                </button>
               </div>
             </div>
             <!-- Nút Thêm đồ vật với style 100% giống các item khác, dùng font-normal & màu Primary -->
@@ -193,6 +188,17 @@
 
     <!-- SIDEBAR FOOTER: Prompt Input -->
     <div class="sidebar-footer">
+      <!-- Attached Props Tag Pills Bar -->
+      <div *ngIf="attachedProps.length > 0" class="flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+        <div *ngFor="let prop of attachedProps; let i = index" class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-xs font-semibold">
+          <span class="text-teal-600 dark:text-teal-400">&#64;</span>
+          <span class="truncate max-w-[120px]">{{ prop.name }}</span>
+          <button (click)="removeAttachedProp(i)" class="text-teal-500 hover:text-teal-700 ml-1 focus:outline-none">
+            <mat-icon class="icon-size-3">close</mat-icon>
+          </button>
+        </div>
+      </div>
+
       <!-- Attached Image Thumbnails Bar -->
       <div *ngIf="attachedImages.length > 0" class="flex flex-wrap gap-2.5 p-3">
         <div *ngFor="let img of attachedImages; let i = index" class="relative group w-12 h-12 rounded-xl overflow-hidden shadow-sm bg-slate-100 flex-shrink-0">
@@ -203,18 +209,25 @@
         </div>
       </div>
 
-      <!-- Loading indicator while processing AI prompt -->
-      <div *ngIf="isProcessingPrompt" class="flex items-center space-x-2 px-3.5 py-2 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border-t border-teal-100 dark:border-teal-800 text-base font-medium animate-pulse">
-        <div class="w-3.5 h-3.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin shrink-0"></div>
-        <span class="truncate flex-1">Đang xử lý prompt & cập nhật 3D...</span>
-      </div>
+      <div class="sidebar-prompt-bar relative">
+        <!-- Floating Angular Material @mention Autocomplete Popup Menu -->
+        <div *ngIf="showMentionMenu" class="absolute bottom-full left-3 w-64 mb-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg z-[99999] overflow-hidden">
+          <mat-action-list class="!py-0 max-h-44 overflow-y-auto custom-scrollbar">
+            <button mat-list-item *ngFor="let prop of filteredMentionProps; let i = index"
+                    (click)="selectMentionProp(prop)"
+                    [ngClass]="{'bg-teal-50 dark:bg-teal-900/30': i === mentionSelectedIndex}"
+                    class="!h-8.5 !min-h-0 hover:bg-teal-50/70 transition-colors px-3">
+              <span matListItemTitle class="text-base font-medium text-slate-800 dark:text-slate-100 truncate block">{{ prop.name }}</span>
+            </button>
+          </mat-action-list>
+        </div>
 
-      <div class="sidebar-prompt-bar">
         <textarea
           class="sidebar-prompt-input"
-          placeholder="Tiếp tục chỉnh sửa... (có thể dán ảnh màn hình Ctrl+V)"
+          placeholder="Tiếp tục chỉnh sửa... (gõ @ để chọn đồ vật, Ctrl+V dán ảnh)"
           [(ngModel)]="promptText"
-          (keydown.enter)="onPromptEnter($event)"
+          (input)="onPromptInput($event)"
+          (keydown)="onPromptKeydown($event)"
           (paste)="onPromptPaste($event)"
           [disabled]="isProcessingPrompt"
           [class.opacity-50]="isProcessingPrompt"
@@ -224,14 +237,11 @@
           cdkAutosizeMinRows="2"
           cdkAutosizeMaxRows="5"></textarea>
 
-        <!-- Right Action Buttons Stack (Send top, Attach bottom) -->
+        <!-- Right Action Buttons Stack (Attach only) -->
         <div class="sidebar-prompt-actions">
-          <button mat-icon-button class="sidebar-prompt-send" title="Gửi" (click)="sendPrompt()" [disabled]="isProcessingPrompt || (!promptText?.trim() && attachedImages.length === 0)">
-            <mat-icon class="icon-size-4 text-white" *ngIf="!isProcessingPrompt">send</mat-icon>
-            <div *ngIf="isProcessingPrompt" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          </button>
           <button mat-icon-button class="sidebar-prompt-attach" title="Đính kèm hoặc dán ảnh (Ctrl+V)" (click)="triggerPromptFileUpload()" [disabled]="isProcessingPrompt">
-            <mat-icon class="icon-size-4">attach_file</mat-icon>
+            <mat-icon class="icon-size-4" *ngIf="!isProcessingPrompt">attach_file</mat-icon>
+            <mat-icon class="icon-size-4 text-teal-600 animate-spin" *ngIf="isProcessingPrompt">sync</mat-icon>
           </button>
         </div>
       </div>
@@ -359,152 +369,219 @@
   <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden flex flex-col">
     
     <!-- Header -->
-    <div class="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 flex items-center justify-center">
-          <mat-icon class="icon-size-6">{{ getPropIcon(inspectingProp) }}</mat-icon>
-        </div>
-        <div>
-          <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 m-0">{{ inspectingProp.name }}</h3>
-          <span class="text-base font-mono text-slate-400">ID: {{ inspectingProp.id }}</span>
-        </div>
-      </div>
+    <div class="flex items-center justify-between px-6 pt-6 pb-2">
+      <h2 class="text-xl font-bold tracking-tight m-0 text-slate-800 dark:text-slate-100">{{ inspectingProp.name }}</h2>
       <button mat-icon-button (click)="inspectingProp = null" class="text-slate-400 hover:text-slate-600">
-        <mat-icon>close</mat-icon>
+        <mat-icon class="icon-size-5">close</mat-icon>
       </button>
     </div>
 
     <!-- Body -->
     <div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
       
-      <!-- SECTION 1: BẢNG THUỘC TÍNH (PROPERTIES) -->
+      <!-- FORM INPUTS (chỉnh sửa kiểu fuse-mat-dense fuse-mat-emphasized-affix) -->
       <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <span class="text-base font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">📌 Bảng thuộc tính vật thể</span>
-          <select [(ngModel)]="inspectingProp.category" class="text-base px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium">
-            <option value="furniture">Nội thất (Furniture)</option>
-            <option value="electronics">Điện tử (Electronics)</option>
-            <option value="lighting">Hệ thống Đèn (Lighting)</option>
-            <option value="decoration">Trang trí (Decoration)</option>
-            <option value="architecture">Kiến trúc (Architecture)</option>
-            <option value="environment">Ngoại thất (Environment)</option>
-          </select>
-        </div>
-
-        <!-- Tên đồ vật -->
-        <div>
-          <label class="block text-base font-semibold text-slate-600 dark:text-slate-300 mb-2">Tên hiển thị đồ vật</label>
-          <input type="text" [(ngModel)]="inspectingProp.name" class="w-full px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500">
-        </div>
-
-        <!-- Tọa độ 3D Position: X, Y, Z -->
-        <div>
-          <label class="block text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Tọa độ 3D Position (X, Y, Z)</label>
-          <div class="grid grid-cols-3 gap-3" *ngIf="inspectingProp.position">
-            <div>
-              <span class="text-base text-slate-400">Trục X</span>
-              <input type="number" step="0.1" [(ngModel)]="inspectingProp.position.x" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-            <div>
-              <span class="text-base text-slate-400">Trục Y (Độ cao)</span>
-              <input type="number" step="0.1" [(ngModel)]="inspectingProp.position.y" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-            <div>
-              <span class="text-base text-slate-400">Trục Z</span>
-              <input type="number" step="0.1" [(ngModel)]="inspectingProp.position.z" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-          </div>
-        </div>
-
-        <!-- Góc xoay 3D Rotation (Euler Angles) -->
-        <div>
-          <label class="block text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Góc xoay 3D Rotation (Roll, Pitch, Yaw)</label>
-          <div class="grid grid-cols-3 gap-3" *ngIf="inspectingProp.rotation">
-            <div>
-              <span class="text-base text-slate-400">X (Roll °)</span>
-              <input type="number" step="1" [(ngModel)]="inspectingProp.rotation.x" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-            <div>
-              <span class="text-base text-slate-400">Y (Pitch °)</span>
-              <input type="number" step="1" [(ngModel)]="inspectingProp.rotation.y" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-            <div>
-              <span class="text-base text-slate-400">Z (Yaw °)</span>
-              <input type="number" step="1" [(ngModel)]="inspectingProp.rotation.z" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-          </div>
-        </div>
-
-        <!-- Tỷ lệ kích thước 3D Scale -->
-        <div>
-          <label class="block text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Co giãn 3D Scale (Scale X, Y, Z)</label>
-          <div class="grid grid-cols-3 gap-3" *ngIf="inspectingProp.scale">
-            <div>
-              <span class="text-base text-slate-400">Scale X</span>
-              <input type="number" step="0.1" [(ngModel)]="inspectingProp.scale.x" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-            <div>
-              <span class="text-base text-slate-400">Scale Y</span>
-              <input type="number" step="0.1" [(ngModel)]="inspectingProp.scale.y" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-            <div>
-              <span class="text-base text-slate-400">Scale Z</span>
-              <input type="number" step="0.1" [(ngModel)]="inspectingProp.scale.z" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
-            </div>
-          </div>
-        </div>
-
-        <!-- Tùy chỉnh Màu sắc & Độ mờ -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-base font-semibold text-slate-600 dark:text-slate-300 mb-1">Màu sắc chủ đạo 3D</label>
-            <div class="flex items-center space-x-2">
-              <input type="color" [(ngModel)]="inspectingProp.color" class="w-10 h-10 rounded-lg cursor-pointer border border-slate-200 dark:border-slate-700">
-              <input type="text" [(ngModel)]="inspectingProp.color" class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-mono">
-            </div>
-          </div>
-          <div>
-            <label class="block text-base font-semibold text-slate-600 dark:text-slate-300 mb-1">Độ trong suốt Opacity</label>
-            <input type="number" step="0.05" min="0" max="1" [(ngModel)]="inspectingProp.opacity" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100">
-          </div>
-        </div>
-
-        <!-- Trạng thái Hiển thị -->
-        <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-          <div class="flex items-center space-x-3">
-            <mat-icon class="text-slate-500 icon-size-6">{{ inspectingProp.visible !== false ? 'visibility' : 'visibility_off' }}</mat-icon>
-            <span class="text-base font-medium text-slate-700 dark:text-slate-200">Hiển thị trong không gian 3D</span>
-          </div>
+        
+        <!-- SECTION 1: Thông tin chung & Phân loại -->
+        <div class="space-y-3">
+          <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Thông tin chung</div>
           
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" [checked]="inspectingProp.visible !== false" (change)="onPropVisibilityToggle($any($event.target).checked)" class="sr-only peer">
-            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-          </label>
+          <div class="grid grid-cols-2 gap-3">
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <mat-label>Danh mục</mat-label>
+              <mat-select [(ngModel)]="inspectingProp.category">
+                <mat-option value="furniture">Nội thất</mat-option>
+                <mat-option value="electronics">Điện tử</mat-option>
+                <mat-option value="lighting">Hệ thống Đèn</mat-option>
+                <mat-option value="decoration">Trang trí</mat-option>
+                <mat-option value="architecture">Kiến trúc</mat-option>
+                <mat-option value="environment">Ngoại thất</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <mat-label>Tên hiển thị</mat-label>
+              <input matInput type="text" [(ngModel)]="inspectingProp.name">
+            </mat-form-field>
+          </div>
         </div>
+
+        <!-- SECTION 2: Tọa độ 3D Position -->
+        <div *ngIf="inspectingProp.position">
+          <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tọa độ 3D Position (X, Y, Z)</div>
+          <div class="grid grid-cols-3 gap-2">
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Trục X</mat-label>
+              <input matInput type="number" step="0.1" [(ngModel)]="inspectingProp.position.x">
+            </mat-form-field>
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Trục Y (Cao)</mat-label>
+              <input matInput type="number" step="0.1" [(ngModel)]="inspectingProp.position.y">
+            </mat-form-field>
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Trục Z</mat-label>
+              <input matInput type="number" step="0.1" [(ngModel)]="inspectingProp.position.z">
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- SECTION 3: Góc xoay 3D Rotation -->
+        <div *ngIf="inspectingProp.rotation">
+          <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Góc xoay 3D Rotation (Roll, Pitch, Yaw °)</div>
+          <div class="grid grid-cols-3 gap-2">
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Roll °</mat-label>
+              <input matInput type="number" step="1" [(ngModel)]="inspectingProp.rotation.x">
+            </mat-form-field>
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Pitch °</mat-label>
+              <input matInput type="number" step="1" [(ngModel)]="inspectingProp.rotation.y">
+            </mat-form-field>
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Yaw °</mat-label>
+              <input matInput type="number" step="1" [(ngModel)]="inspectingProp.rotation.z">
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- SECTION 4: Co giãn Scale -->
+        <div *ngIf="inspectingProp.scale">
+          <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Co giãn 3D Scale (Scale X, Y, Z)</div>
+          <div class="grid grid-cols-3 gap-2">
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Scale X</mat-label>
+              <input matInput type="number" step="0.1" [(ngModel)]="inspectingProp.scale.x">
+            </mat-form-field>
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Scale Y</mat-label>
+              <input matInput type="number" step="0.1" [(ngModel)]="inspectingProp.scale.y">
+            </mat-form-field>
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+              <mat-label>Scale Z</mat-label>
+              <input matInput type="number" step="0.1" [(ngModel)]="inspectingProp.scale.z">
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- SECTION 5: Chất liệu & Phát sáng (PBR & Emissive) -->
+        <div>
+          <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Chất liệu & Ánh sáng (PBR & Emissive)</div>
+          
+          <div class="grid grid-cols-2 gap-3 mb-2">
+            <div class="flex items-center space-x-2">
+              <input type="color" [(ngModel)]="inspectingProp.color" class="w-8 h-8 rounded-sm cursor-pointer border border-slate-200 dark:border-slate-700">
+              <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix flex-1" [subscriptSizing]="'dynamic'">
+                <mat-label>Màu 3D (Hex)</mat-label>
+                <input matInput type="text" [(ngModel)]="inspectingProp.color" class="font-mono">
+              </mat-form-field>
+            </div>
+
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <mat-label>Độ trong suốt Opacity (0-1)</mat-label>
+              <input matInput type="number" step="0.05" min="0" max="1" [(ngModel)]="inspectingProp.opacity">
+            </mat-form-field>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mb-2">
+            <div class="flex items-center space-x-2">
+              <input type="color" [(ngModel)]="inspectingProp.emissiveColor" class="w-8 h-8 rounded-sm cursor-pointer border border-slate-200 dark:border-slate-700">
+              <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix flex-1" [subscriptSizing]="'dynamic'">
+                <mat-label>Màu phát sáng (Hex)</mat-label>
+                <input matInput type="text" [(ngModel)]="inspectingProp.emissiveColor" class="font-mono">
+              </mat-form-field>
+            </div>
+
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <mat-label>Cường độ phát sáng (0-10)</mat-label>
+              <input matInput type="number" step="0.5" min="0" max="10" [(ngModel)]="inspectingProp.emissiveIntensity">
+            </mat-form-field>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <mat-label>Độ kim loại Metalness (0-1)</mat-label>
+              <input matInput type="number" step="0.1" min="0" max="1" [(ngModel)]="inspectingProp.metalness">
+            </mat-form-field>
+
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <mat-label>Độ nhám Roughness (0-1)</mat-label>
+              <input matInput type="number" step="0.1" min="0" max="1" [(ngModel)]="inspectingProp.roughness">
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- SECTION 6: Cấu hình Phân tầng & Tương tác -->
+        <div>
+          <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Cấu hình Tương tác & Phân tầng</div>
+          
+          <div class="grid grid-cols-2 gap-3 mb-2">
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <mat-label>Tầng vị trí (Floor Level)</mat-label>
+              <mat-select [(ngModel)]="inspectingProp.floorLevel">
+                <mat-option [value]="1">Tầng 1 (Mặt đường -64m)</mat-option>
+                <mat-option [value]="2">Tầng 2 (-32m)</mat-option>
+                <mat-option [value]="3">Tầng 3 (Phòng 306 Studio 0m)</mat-option>
+                <mat-option [value]="4">Tầng 4 (+32m)</mat-option>
+                <mat-option [value]="5">Tầng 5 (+64m)</mat-option>
+                <mat-option [value]="6">Tầng Thượng (+96m)</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <mat-label>Hành động Click</mat-label>
+              <mat-select [(ngModel)]="inspectingProp.clickAction">
+                <mat-option value="focus">Định vị Camera 3D</mat-option>
+                <mat-option value="toggleLight">Bật/Tắt Đèn LED</mat-option>
+                <mat-option value="toggleDoor">Mở/Đóng Cửa</mat-option>
+                <mat-option value="toggleWindow">Mở/Đóng Cửa sổ</mat-option>
+                <mat-option value="playSound">Phát Âm thanh Tương tác</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 mb-2">
+            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Đổ bóng thực tế 3D (Cast Shadow)</span>
+            <mat-slide-toggle [(ngModel)]="inspectingProp.castShadow" class="fuse-mat-dense fuse-mat-emphasized-affix" color="primary"></mat-slide-toggle>
+          </div>
+        </div>
+
+        <!-- SECTION 7: Ghi chú & Trạng thái Hiển thị -->
+        <div>
+          <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full mb-3" [subscriptSizing]="'dynamic'">
+            <mat-label>Ghi chú / Mô tả chi tiết đồ vật</mat-label>
+            <textarea matInput rows="2" [(ngModel)]="inspectingProp.description" placeholder="Nhập ghi chú cho đồ vật 3D này..."></textarea>
+          </mat-form-field>
+
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center space-x-2">
+              <mat-icon class="text-slate-500 icon-size-5">{{ inspectingProp.visible !== false ? 'visibility' : 'visibility_off' }}</mat-icon>
+              <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Hiển thị trong không gian 3D</span>
+            </div>
+            <mat-slide-toggle [checked]="inspectingProp.visible !== false" (change)="onPropVisibilityToggle($any($event).checked)" class="fuse-mat-dense fuse-mat-emphasized-affix" color="primary"></mat-slide-toggle>
+          </div>
+        </div>
+
       </div>
 
       <mat-divider></mat-divider>
 
-      <!-- SECTION 2: PHƯƠNG THỨC HÀNH ĐỘNG & SỰ KIỆN (METHODS & ACTIONS) -->
+      <!-- PHƯƠNG THỨC HÀNH ĐỘNG & SỰ KIỆN -->
       <div class="space-y-3">
-        <span class="text-base font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">⚡ Phương thức hành động & Sự kiện</span>
-        
+        <span class="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">⚡ Hành động & Sự kiện 3D</span>
         <div class="grid grid-cols-2 gap-3">
-          <!-- Action 1: Focus Camera -->
-          <button (click)="onPropClick(inspectingProp)" class="flex items-center space-x-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 text-slate-700 dark:text-slate-200 transition-colors text-left">
-            <mat-icon class="text-teal-600 shrink-0 icon-size-6">videocam</mat-icon>
+          <button (click)="onPropClick(inspectingProp)" class="flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 text-slate-700 dark:text-slate-200 transition-colors text-left">
+            <mat-icon class="text-teal-600 shrink-0 icon-size-5">videocam</mat-icon>
             <div class="min-w-0 flex-1">
-              <div class="text-base font-bold">Focus Camera</div>
-              <div class="text-base text-slate-400 truncate">Xoay góc nhìn cận cảnh 3D</div>
+              <div class="text-sm font-bold">Focus Camera</div>
+              <div class="text-xs text-slate-400 truncate">Xem cận cảnh đồ vật</div>
             </div>
           </button>
 
-          <!-- Action 2: Trigger Interactive Event -->
-          <button (click)="executePropEvent(inspectingProp)" class="flex items-center space-x-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 text-slate-700 dark:text-slate-200 transition-colors text-left">
-            <mat-icon class="text-amber-500 shrink-0 icon-size-6">touch_app</mat-icon>
+          <button (click)="executePropEvent(inspectingProp)" class="flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 text-slate-700 dark:text-slate-200 transition-colors text-left">
+            <mat-icon class="text-amber-500 shrink-0 icon-size-5">touch_app</mat-icon>
             <div class="min-w-0 flex-1">
-              <div class="text-base font-bold">Trigger Event</div>
-              <div class="text-base text-slate-400 truncate">Bật/Tắt hiệu ứng tương tác</div>
+              <div class="text-sm font-bold">Trigger Event</div>
+              <div class="text-xs text-slate-400 truncate">Thực thi kịch bản</div>
             </div>
           </button>
         </div>
@@ -513,9 +590,15 @@
     </div>
 
     <!-- Footer -->
-    <div class="flex items-center justify-end space-x-3 p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-      <button mat-button (click)="inspectingProp = null">Hủy bỏ</button>
-      <button mat-flat-button color="primary" (click)="savePropInspector()">Lưu thuộc tính</button>
+    <div class="flex items-center justify-between px-6 pb-6 pt-2">
+      <button mat-icon-button (click)="deletePropFromInspector($event, inspectingProp.id)" title="Xóa đồ vật" class="hover:bg-red-50 dark:hover:bg-red-950/30">
+        <mat-icon class="icon-size-5 text-red-500">delete_outline</mat-icon>
+      </button>
+
+      <div class="flex items-center space-x-2">
+        <button mat-button (click)="inspectingProp = null" class="text-slate-500">Hủy</button>
+        <button mat-flat-button color="primary" (click)="savePropInspector()" class="bg-teal-600 text-white hover:bg-teal-700">Lưu thay đổi</button>
+      </div>
     </div>
 
   </div>

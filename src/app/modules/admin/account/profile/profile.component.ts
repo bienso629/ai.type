@@ -322,7 +322,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         (this.profile as any).props = this.roomProps;
 
         try {
-          await this.profileDataService.saveProfile(this.profile);
+          await this.profileDataService.saveProps(this.roomProps).toPromise();
           this.sceneService.applyProfile(this.profile);
           this.toastr.success(`Đã xóa đồ vật "${propName}" thành công!`, 'Xóa đồ vật 3D');
           this.cdr.markForCheck();
@@ -344,6 +344,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (!cloned.color) cloned.color = '#ffffff';
     if (cloned.opacity === undefined) cloned.opacity = 1.0;
     if (!cloned.category) cloned.category = 'furniture';
+    if (!cloned.emissiveColor) cloned.emissiveColor = '#000000';
+    if (cloned.emissiveIntensity === undefined) cloned.emissiveIntensity = 0.0;
+    if (cloned.metalness === undefined) cloned.metalness = 0.0;
+    if (cloned.roughness === undefined) cloned.roughness = 0.5;
+    if (cloned.castShadow === undefined) cloned.castShadow = true;
+    if (cloned.interactive === undefined) cloned.interactive = true;
+    if (!cloned.clickAction) cloned.clickAction = 'focus';
+    if (!cloned.floorLevel) cloned.floorLevel = 3;
+    if (!cloned.description) cloned.description = '';
     this.inspectingProp = cloned;
     this.cdr.markForCheck();
   }
@@ -376,7 +385,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     (this.profile as any).props = this.roomProps;
 
     try {
-      await this.profileDataService.saveProfile(this.profile);
+      await this.profileDataService.saveProps(this.roomProps).toPromise();
       this.sceneService.applyProfile(this.profile);
       this.toastr.success(`Đã cập nhật thuộc tính cho "${this.inspectingProp.name}"!`, 'Thuộc tính Đồ vật 3D');
       this.inspectingProp = null;
@@ -623,21 +632,126 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  attachedProps: any[] = [];
+  showMentionMenu = false;
+  mentionQuery = '';
+  filteredMentionProps: any[] = [];
+  mentionSelectedIndex = 0;
+
+  onPromptInput(event: Event): void {
+    const textarea = event.target as HTMLTextAreaElement;
+    if (!textarea) return;
+    const value = textarea.value || '';
+    const cursor = textarea.selectionStart || 0;
+
+    const textBeforeCursor = value.slice(0, cursor);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex >= 0) {
+      const query = textBeforeCursor.slice(lastAtIndex + 1);
+      if (!query.includes(' ') && !query.includes('\n')) {
+        this.mentionQuery = query.toLowerCase();
+        this.filteredMentionProps = this.roomProps.filter(p =>
+          (p.name && p.name.toLowerCase().includes(this.mentionQuery)) ||
+          (p.id && p.id.toLowerCase().includes(this.mentionQuery))
+        );
+        this.showMentionMenu = this.filteredMentionProps.length > 0;
+        this.mentionSelectedIndex = 0;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+    this.showMentionMenu = false;
+    this.cdr.markForCheck();
+  }
+
+  onPromptKeydown(event: KeyboardEvent): void {
+    if (this.showMentionMenu && this.filteredMentionProps.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        this.mentionSelectedIndex = (this.mentionSelectedIndex + 1) % this.filteredMentionProps.length;
+        this.cdr.markForCheck();
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.mentionSelectedIndex = (this.mentionSelectedIndex - 1 + this.filteredMentionProps.length) % this.filteredMentionProps.length;
+        this.cdr.markForCheck();
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault();
+        this.selectMentionProp(this.filteredMentionProps[this.mentionSelectedIndex]);
+        return;
+      }
+      if (event.key === 'Escape') {
+        this.showMentionMenu = false;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.sendPrompt();
+    }
+  }
+
+  selectMentionProp(prop: any): void {
+    if (!prop) return;
+    const value = this.promptText || '';
+    const lastAtIndex = value.lastIndexOf('@');
+    if (lastAtIndex >= 0) {
+      this.promptText = value.slice(0, lastAtIndex) + `@${prop.name} `;
+    } else {
+      this.promptText = (value ? value.trim() + ' ' : '') + `@${prop.name} `;
+    }
+    if (!this.attachedProps.some(p => p.id === prop.id)) {
+      this.attachedProps.push(prop);
+    }
+    this.showMentionMenu = false;
+    this.cdr.markForCheck();
+  }
+
+  attachPropToPrompt(prop: any): void {
+    if (!this.attachedProps.some(p => p.id === prop.id)) {
+      this.attachedProps.push(prop);
+    }
+    const mentionTag = `@${prop.name}`;
+    if (!this.promptText?.includes(mentionTag)) {
+      this.promptText = (this.promptText ? this.promptText.trim() + ' ' : '') + `${mentionTag} `;
+    }
+    this.cdr.markForCheck();
+  }
+
+  removeAttachedProp(index: number): void {
+    this.attachedProps.splice(index, 1);
+    this.cdr.markForCheck();
+  }
+
   /** Gửi prompt AI để chỉnh sửa chương trình 3D & update realtime lên canvas */
   async sendPrompt(): Promise<void> {
     const text = this.promptText?.trim() || '';
-    if (!text && this.attachedImages.length === 0) return;
+    if (!text && this.attachedImages.length === 0 && this.attachedProps.length === 0) return;
 
     const imagesToProcess = [...this.attachedImages];
+    const propsToProcess = [...this.attachedProps];
     this.promptText = '';
     this.attachedImages = [];
+    this.attachedProps = [];
     this.cdr.markForCheck();
 
-    await this.processAiPrompt(text, imagesToProcess);
+    let fullPromptText = text;
+    if (propsToProcess.length > 0) {
+      const propDetails = propsToProcess.map(p => `[Item: "${p.name}", ID: "${p.id}"]`).join(', ');
+      fullPromptText = `${text} (Đồ vật chỉ định: ${propDetails})`;
+    }
+
+    await this.processAiPrompt(fullPromptText, imagesToProcess, propsToProcess);
   }
 
   /** Xử lý câu lệnh AI prompt và cập nhật tức thì (realtime) lên Canvas 3D */
-  async processAiPrompt(prompt: string, images: Array<{ dataUrl: string; base64: string; mimeType: string }> = []): Promise<void> {
+  async processAiPrompt(prompt: string, images: Array<{ dataUrl: string; base64: string; mimeType: string }> = [], targetProps: any[] = []): Promise<void> {
     const text = prompt.trim();
     if (!text && images.length === 0) return;
 
@@ -645,11 +759,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
 
     try {
-      const statusMsg = images.length > 0
-      ? `Đang phân tích ${images.length} ảnh screenshot & thực thi yêu cầu: "${text || 'Chỉnh sửa 3D'}"...`
-      : `Đang thực thi yêu cầu AI: "${text}"...`;
-
-    this.toastr.info(statusMsg, 'AI 3D Realtime Assistant');
+    this.toastr.info('Đang chỉnh sửa 3D...', 'AI Assistant', { timeOut: 1500 });
     this.cdr.markForCheck();
 
     const lower = text.toLowerCase();
@@ -917,10 +1027,72 @@ Cấu trúc JSON:
       message = `🔍 AI đã thu nhỏ nhân vật (Scale: ${currentProfile.character.scale})!`;
     }
 
-    if (!updated && (lower.includes('xoay') || lower.includes('quay mặt') || lower.includes('quay hướng'))) {
-      currentProfile.character.facingAngle = ((currentProfile.character.facingAngle || 0) + 90) % 360;
-      updated = true;
-      message = `🔄 AI đã xoay hướng nhân vật sang ${currentProfile.character.facingAngle}°!`;
+    // 🎛️ 4. Xoay / Điều chỉnh Đồ vật được chỉ định bằng thẻ @mention hoặc targetProps
+    const activeProps = targetProps && targetProps.length > 0 ? targetProps : this.attachedProps;
+    if (activeProps && activeProps.length > 0) {
+      for (const targetProp of activeProps) {
+        const liveProp = this.roomProps.find(p => p.id === targetProp.id);
+        if (liveProp) {
+          if (lower.includes('xoay') || lower.includes('quay') || lower.includes('ngược') || lower.includes('đổi')) {
+            if (!liveProp.rotation) liveProp.rotation = { x: 0, y: 0, z: 0 };
+            liveProp.rotation.y = (liveProp.rotation.y + 180) % 360;
+            liveProp._modifiedPosition = true;
+            this.sceneService.updateProp(liveProp);
+            updated = true;
+            message = `🔄 AI đã xoay 180° đồ vật chỉ định "${liveProp.name}"!`;
+          }
+          if (lower.includes('phóng to') || lower.includes('lớn')) {
+            if (!liveProp.scale) liveProp.scale = { x: 1, y: 1, z: 1 };
+            liveProp.scale.x *= 1.3;
+            liveProp.scale.y *= 1.3;
+            liveProp.scale.z *= 1.3;
+            liveProp._modifiedPosition = true;
+            this.sceneService.updateProp(liveProp);
+            updated = true;
+            message = `🔍 AI đã phóng to đồ vật chỉ định "${liveProp.name}"!`;
+          }
+        }
+      }
+    } else if (!updated) {
+      // 🔍 Kiểm tra xem tên đồ vật có xuất hiện trực tiếp trong prompt không (ví dụ @Ghế xoay phải)
+      for (const p of this.roomProps) {
+        if (p.name && lower.includes(p.name.toLowerCase())) {
+          if (lower.includes('xoay') || lower.includes('quay') || lower.includes('ngược') || lower.includes('đổi')) {
+            if (!p.rotation) p.rotation = { x: 0, y: 0, z: 0 };
+            p.rotation.y = (p.rotation.y + 180) % 360;
+            p._modifiedPosition = true;
+            this.sceneService.updateProp(p);
+            updated = true;
+            message = `🔄 AI đã xoay 180° đồ vật "${p.name}"!`;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!updated && (lower.includes('ghế') || lower.includes('chair'))) {
+      // Chỉ chạy khi KHÔNG chỉ định đồ vật cụ thể
+      if (lower.includes('quay') || lower.includes('xoay') || lower.includes('ngược') || lower.includes('đổi hướng')) {
+        let chairs = this.roomProps.filter(p =>
+          p.id.includes('chair') || (p.name && p.name.toLowerCase().includes('ghế'))
+        );
+        if (lower.includes('trái') || lower.includes('left')) {
+          chairs = chairs.filter(c => c.id.includes('left') || (c.name && c.name.toLowerCase().includes('trái')));
+        } else if (lower.includes('phải') || lower.includes('right')) {
+          chairs = chairs.filter(c => c.id.includes('right') || (c.name && c.name.toLowerCase().includes('phải')));
+        }
+
+        if (chairs.length > 0) {
+          chairs.forEach(c => {
+            if (!c.rotation) c.rotation = { x: 0, y: 0, z: 0 };
+            c.rotation.y = (c.rotation.y + 180) % 360;
+            c._modifiedPosition = true;
+            this.sceneService.updateProp(c);
+          });
+          updated = true;
+          message = `🪑 AI đã xoay 180° (${chairs.map(c => c.name).join(', ')}) và tự động lưu!`;
+        }
+      }
     }
 
     // Gắn thông báo nếu chưa có hành động cụ thể nào khớp
@@ -929,11 +1101,14 @@ Cấu trúc JSON:
     }
 
     // 🚀 1. CẬP NHẬT TỨC THÌ (REALTIME) LÊN CANVAS 3D PLAYCANVAS
+    (currentProfile as any).props = this.roomProps;
     this.profile = currentProfile;
     this.sceneService.applyProfile(currentProfile);
+    this.sceneService.syncProps(this.roomProps);
 
-    // 💾 2. TỰ ĐỘNG LƯU TRỰC TIẾP VÀO THƯ MỤC Documents/ai.type/data/profiles/{username}/ (character.json, room.json, profile.json)
+    // 💾 2. TỰ ĐỘNG LƯU TRỰC TIẾP VÀO THƯ MỤC Documents/ai.type/data/profiles/{username}/ (props.json, character.json, room.json, profile.json)
     try {
+      await this.profileDataService.saveProps(this.roomProps).toPromise();
       await this.profileDataService.saveProfile(currentProfile).toPromise();
       if (currentProfile.character) {
         await this.profileDataService.saveCharacter(currentProfile.character).toPromise();
@@ -945,7 +1120,7 @@ Cấu trúc JSON:
       console.warn('[Profile] Error auto-saving profile files:', saveErr);
     }
 
-      this.toastr.success(message, 'AI Canvas Updated & Auto-Saved', { timeOut: 4000 });
+      this.toastr.success('Đã cập nhật 3D!', 'Thành công', { timeOut: 1500 });
     } finally {
       this.isProcessingPrompt = false;
       this.cdr.markForCheck();

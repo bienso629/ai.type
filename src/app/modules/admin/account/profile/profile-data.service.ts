@@ -42,6 +42,7 @@ declare const window: Window & {
         saveCharacterGlb: (username: string, buffer: ArrayBuffer) => Promise<{ success: boolean; glbPath: string; data: UserProfile }>;
         checkCharacterGlb: (username: string) => Promise<{ success: boolean; exists: boolean; glbPath: string | null }>;
         readGlb: (glbPath: string) => Promise<{ success: boolean; buffer?: ArrayBuffer; error?: string }>;
+        saveProps: (username: string, props: any[]) => Promise<{ success: boolean }>;
     };
 };
 
@@ -129,6 +130,15 @@ export class ProfileDataService {
         return this.saveProfile({
             customizations: { ...(current?.customizations ?? {}), [key]: value }
         });
+    }
+
+    /** Lưu danh sách đồ vật 3D trực tiếp xuống file props.json */
+    saveProps(props: any[]): Observable<UserProfile> {
+        if (!this._username) this._username = 'admin';
+        if (window.electron?.saveProps) {
+            window.electron.saveProps(this._username, props).catch(e => console.warn('[ProfileDataService] Error saving props.json via IPC:', e));
+        }
+        return this.saveProfile({ props } as any);
     }
 
     /**
