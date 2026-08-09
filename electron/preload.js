@@ -117,6 +117,13 @@ contextBridge.exposeInMainWorld('electron', {
     getRoom:            (username)               => ipcRenderer.invoke('room:get',                   { username }),
     saveRoom:           (username, room)         => ipcRenderer.invoke('room:save',                  { username, room }),
     saveWallPhoto:      (username, buffer)       => ipcRenderer.invoke('wall-photo:save',             { username, buffer }),
+    saveAvatar:         (username, buffer, ext)  => ipcRenderer.invoke('avatar:save',                 { username, buffer, ext }),
+    getAvatar:          (username)               => ipcRenderer.invoke('avatar:get',                  { username }),
+
+    // ── Export Video & Frames ──
+    saveExportVideo:   (username, buffer, filename)                  => ipcRenderer.invoke('exports:save-video',  { username, buffer, filename }),
+    saveExportFrame:   (username, sessionFolder, frameIndex, buffer) => ipcRenderer.invoke('exports:save-frame',  { username, sessionFolder, frameIndex, buffer }),
+    openExportsFolder: (username)                                   => ipcRenderer.invoke('exports:open-folder', { username }),
 
     // ── Props ──
     listProps:          (username)               => ipcRenderer.invoke('props:list',                 { username }),

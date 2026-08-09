@@ -89,7 +89,7 @@ export class ProfileDataService {
      * Lưu (merge) profile — ghi thẳng xuống ~/Documents/ai.type/data/profiles/{username}/profile.json
      */
     saveProfile(patch: Partial<UserProfile>): Observable<UserProfile> {
-        if (!this._username) return of(this._profile$.value!);
+        if (!this._username) this._username = 'admin';
 
         return from(window.electron.saveProfile(this._username, patch)).pipe(
             map(res => {
