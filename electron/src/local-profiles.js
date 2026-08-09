@@ -78,15 +78,29 @@ const DEFAULT_ROOM = {
 };
 
 const DEFAULT_PROPS = [
-    { id: 'prop_main_desk', name: 'Bàn làm việc 306', position: { x: -6.5, y: 0, z: 4.0 }, visible: true },
-    { id: 'prop_swivel_chair', name: 'Ghế xoay văn phòng', position: { x: -6.5, y: 0, z: 2.2 }, visible: true },
-    { id: 'prop_mechanical_keyboard', name: 'Bàn phím cơ 3 màu', position: { x: -6.6, y: 4.12, z: 4.3 }, visible: true },
-    { id: 'prop_wall_switch', name: 'Công tắc đèn tường', position: { x: 19.8, y: 12.0, z: -10.0 }, visible: true },
-    { id: 'prop_window_21_9', name: 'Cửa sổ góc nhìn 21:9', position: { x: 20.0, y: 16.0, z: 0.0 }, visible: true },
-    { id: 'prop_aquarium', name: 'Bể cá cảnh', position: { x: -14.0, y: 5.0, z: -8.0 }, visible: true },
-    { id: 'prop_picture_frame', name: 'Khung ảnh treo tường', position: { x: 0.0, y: 18.0, z: -19.8 }, visible: true },
-    { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo', position: { x: 12.0, y: 0.0, z: -18.0 }, visible: true },
-    { id: 'prop_main_door', name: 'Cửa ra vào căn phòng', position: { x: 19.8, y: 0.0, z: -12.0 }, visible: true }
+    { id: 'prop_main_desk', name: 'Bàn làm việc đôi Haigo BHS230-2', position: { x: 0.0, y: 0.1, z: -39.75 }, visible: true, category: 'furniture' },
+    { id: 'prop_chair_left', name: 'Ghế xoay ergonomic trái', position: { x: -6.0, y: 0.1, z: -31.5 }, visible: true, category: 'furniture' },
+    { id: 'prop_chair_right', name: 'Ghế xoay ergonomic phải', position: { x: 6.0, y: 0.1, z: -31.5 }, visible: true, category: 'furniture' },
+    { id: 'prop_monitor_left', name: 'Màn hình cong ultrawide trái', position: { x: -6.0, y: 5.2, z: -34.75 }, visible: true, category: 'electronics' },
+    { id: 'prop_monitor_right', name: 'Màn hình cong ultrawide phải', position: { x: 6.0, y: 5.2, z: -34.75 }, visible: true, category: 'electronics' },
+    { id: 'prop_mechanical_keyboard_left', name: 'Bàn phím cơ custom trái', position: { x: -6.0, y: 3.2, z: -32.5 }, visible: true, category: 'electronics' },
+    { id: 'prop_mechanical_keyboard_right', name: 'Bàn phím cơ custom phải', position: { x: 6.0, y: 3.2, z: -32.5 }, visible: true, category: 'electronics' },
+    { id: 'prop_aquarium', name: 'Bể cá thủy sinh bàn làm việc', position: { x: 0.0, y: 3.8, z: -37.5 }, visible: true, category: 'decoration' },
+    { id: 'prop_pegboard', name: 'Tủ Pegboard treo tường', position: { x: 0.0, y: 12.8, z: -39.45 }, visible: true, category: 'furniture' },
+    { id: 'prop_ps5_pro', name: 'Máy chơi game PS5 Pro', position: { x: 0.0, y: 10.5, z: -38.55 }, visible: true, category: 'electronics' },
+    { id: 'prop_tech_led_bar', name: 'Đèn LED Bar màn hình', position: { x: 0.0, y: 7.2, z: -34.75 }, visible: true, category: 'lighting' },
+    { id: 'prop_wall_switch', name: 'Công tắc đèn tường dạ quang', position: { x: 19.8, y: 12.0, z: -10.0 }, visible: true, category: 'lighting' },
+    { id: 'prop_window_21_9', name: 'Cửa sổ nhôm kính Minimalist 21:9', position: { x: 40.0, y: 16.0, z: 0.0 }, visible: true, category: 'architecture' },
+    { id: 'prop_picture_frame', name: 'Khung ảnh gia đình treo tường', position: { x: 39.65, y: 16.0, z: 28.5 }, visible: true, category: 'decoration' },
+    { id: 'prop_wall_clock', name: 'Đồng hồ treo tường Gỗ Óc chó', position: { x: 0.0, y: 28.5, z: 39.75 }, visible: true, category: 'decoration' },
+    { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo gỗ', position: { x: 12.0, y: 0.0, z: -18.0 }, visible: true, category: 'furniture' },
+    { id: 'prop_main_door', name: 'Cửa chính ra vào căn phòng', position: { x: 19.8, y: 0.0, z: -12.0 }, visible: true, category: 'architecture' },
+    { id: 'prop_ceiling_downlight_front', name: 'Đèn âm trần LED trước', position: { x: 0.0, y: 32.5, z: 38.75 }, visible: true, category: 'lighting' },
+    { id: 'prop_ceiling_downlight_back', name: 'Đèn âm trần LED sau', position: { x: 0.0, y: 32.5, z: -38.75 }, visible: true, category: 'lighting' },
+    { id: 'prop_ceiling_downlight_left', name: 'Đèn âm trần LED trái', position: { x: -38.75, y: 32.5, z: 0.0 }, visible: true, category: 'lighting' },
+    { id: 'prop_ceiling_downlight_right', name: 'Đèn âm trần LED phải', position: { x: 38.75, y: 32.5, z: 0.0 }, visible: true, category: 'lighting' },
+    { id: 'prop_street_shophouses', name: 'Dãy nhà phố thương mại ngoài sổ', position: { x: 70.0, y: 0.0, z: 0.0 }, visible: true, category: 'environment' },
+    { id: 'prop_street_traffic_lanes', name: 'Làn xe giao thông đường phố', position: { x: 90.0, y: -2.0, z: 0.0 }, visible: true, category: 'environment' }
 ];
 
 // ── IPC Handlers ───────────────────────────────────────────────────────────────

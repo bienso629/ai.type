@@ -18,6 +18,33 @@ import { ProfileDataService, UserProfile } from './profile-data.service';
 import { GenaiService } from 'app/genai.service';
 
 import { ToastrService } from 'ngx-toastr';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
+
+const DEFAULT_PROPS = [
+  { id: 'prop_main_desk', name: 'Bàn làm việc đôi Haigo BHS230-2', category: 'furniture' },
+  { id: 'prop_chair_left', name: 'Ghế xoay ergonomic trái', category: 'furniture' },
+  { id: 'prop_chair_right', name: 'Ghế xoay ergonomic phải', category: 'furniture' },
+  { id: 'prop_monitor_left', name: 'Màn hình cong ultrawide trái', category: 'electronics' },
+  { id: 'prop_monitor_right', name: 'Màn hình cong ultrawide phải', category: 'electronics' },
+  { id: 'prop_mechanical_keyboard_left', name: 'Bàn phím cơ custom trái', category: 'electronics' },
+  { id: 'prop_mechanical_keyboard_right', name: 'Bàn phím cơ custom phải', category: 'electronics' },
+  { id: 'prop_aquarium', name: 'Bể cá thủy sinh bàn làm việc', category: 'decoration' },
+  { id: 'prop_pegboard', name: 'Tủ Pegboard treo tường', category: 'furniture' },
+  { id: 'prop_ps5_pro', name: 'Máy chơi game PS5 Pro', category: 'electronics' },
+  { id: 'prop_tech_led_bar', name: 'Đèn LED Bar màn hình', category: 'lighting' },
+  { id: 'prop_wall_switch', name: 'Công tắc đèn tường dạ quang', category: 'lighting' },
+  { id: 'prop_window_21_9', name: 'Cửa sổ nhôm kính Minimalist 21:9', category: 'architecture' },
+  { id: 'prop_picture_frame', name: 'Khung ảnh gia đình treo tường', category: 'decoration' },
+  { id: 'prop_wall_clock', name: 'Đồng hồ treo tường Gỗ Óc chó', category: 'decoration' },
+  { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo gỗ', category: 'furniture' },
+  { id: 'prop_main_door', name: 'Cửa chính ra vào căn phòng', category: 'architecture' },
+  { id: 'prop_ceiling_downlight_front', name: 'Đèn âm trần LED trước', category: 'lighting' },
+  { id: 'prop_ceiling_downlight_back', name: 'Đèn âm trần LED sau', category: 'lighting' },
+  { id: 'prop_ceiling_downlight_left', name: 'Đèn âm trần LED trái', category: 'lighting' },
+  { id: 'prop_ceiling_downlight_right', name: 'Đèn âm trần LED phải', category: 'lighting' },
+  { id: 'prop_street_shophouses', name: 'Dãy nhà phố thương mại ngoài sổ', category: 'environment' },
+  { id: 'prop_street_traffic_lanes', name: 'Làn xe giao thông đường phố', category: 'environment' }
+];
 
 @Component({
   selector: 'profile',
@@ -43,6 +70,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   loadError: string | null   = null;
   uploadError: string | null = null;
   profile: UserProfile | null = null;
+  roomProps: any[] = DEFAULT_PROPS;
   username = 'admin';
   promptText = '';
   charThumbnail: string | null = null;
@@ -58,7 +86,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     private userService: UserService,
     private cdr: ChangeDetectorRef,
     private toastr: ToastrService,
-    private genaiService: GenaiService
+    private genaiService: GenaiService,
+    private _fuseConfirmationService: FuseConfirmationService
   ) {}
 
   async ngAfterViewInit(): Promise<void> {
@@ -147,7 +176,16 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
       // 5. Subscribe profile changes
       this.profileDataService.profile$.pipe(takeUntil(this._destroy$)).subscribe(p => {
-        if (p) { this.profile = p; this.sceneService.applyProfile(p); this.cdr.markForCheck(); }
+        if (p) {
+          this.profile = p;
+          if (Array.isArray((p as any).props) && (p as any).props.length > 0) {
+            this.roomProps = (p as any).props;
+          } else {
+            this.roomProps = DEFAULT_PROPS;
+          }
+          this.sceneService.applyProfile(p);
+          this.cdr.markForCheck();
+        }
       });
 
       this.isLoading = false;
@@ -158,6 +196,105 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.isLoading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  getPropIcon(prop: any): string {
+    const id = (prop.id || '').toLowerCase();
+    const cat = (prop.category || '').toLowerCase();
+    const name = (prop.name || '').toLowerCase();
+
+    if (id.includes('desk') || name.includes('bàn')) return 'table_restaurant';
+    if (id.includes('chair') || name.includes('ghế')) return 'chair';
+    if (id.includes('monitor') || name.includes('màn hình')) return 'desktop_windows';
+    if (id.includes('keyboard') || name.includes('bàn phím')) return 'keyboard';
+    if (id.includes('aquarium') || name.includes('cá')) return 'water';
+    if (id.includes('pegboard') || name.includes('pegboard')) return 'grid_view';
+    if (id.includes('ps5') || name.includes('game')) return 'videogame_asset';
+    if (id.includes('led') || id.includes('switch') || id.includes('downlight') || cat.includes('lighting')) return 'lightbulb';
+    if (id.includes('window') || name.includes('cửa sổ')) return 'window';
+    if (id.includes('picture') || name.includes('ảnh')) return 'photo';
+    if (id.includes('clock') || name.includes('đồng hồ')) return 'access_time';
+    if (id.includes('drawer') || name.includes('tủ')) return 'inventory_2';
+    if (id.includes('door') || name.includes('cửa')) return 'meeting_room';
+    return 'category';
+  }
+
+  focusOnCharacter(): void {
+    this.setCameraPreset('CHARACTER');
+  }
+
+  onPropClick(prop: any): void {
+    const id = (prop.id || '').toLowerCase();
+    const name = (prop.name || '').toLowerCase();
+
+    if (id.includes('desk') || id.includes('monitor') || id.includes('keyboard') || name.includes('bàn')) {
+      this.setCameraPreset('DESK_VIEW');
+    } else if (id.includes('window') || name.includes('cửa sổ')) {
+      this.setCameraPreset('STREET_WINDOW_VIEW');
+    } else if (id.includes('picture') || name.includes('ảnh')) {
+      this.setCameraPreset('PICTURE_VIEW');
+    } else if (id.includes('aquarium') || name.includes('cá')) {
+      this.setCameraPreset('AQUARIUM_VIEW');
+    } else if (id.includes('door') || name.includes('cửa')) {
+      this.setCameraPreset('door_view');
+    } else if (id.includes('drawer') || name.includes('tủ')) {
+      this.setCameraPreset('wardrobe_view');
+    } else if (id.includes('pegboard') || id.includes('ps5')) {
+      this.setCameraPreset('pegboard');
+    } else if (id.includes('clock') || name.includes('đồng hồ')) {
+      this.setCameraPreset('clock');
+    } else if (id.includes('switch') || name.includes('công tắc')) {
+      this.setCameraPreset('switch');
+    } else if (prop.position) {
+      (this.sceneService as any).setCameraPreset?.('custom', prop.position);
+    }
+  }
+
+  deleteProp(event: MouseEvent, propId: string): void {
+    event.stopPropagation();
+    if (!this.profile) return;
+
+    const targetProp = this.roomProps.find(p => p.id === propId);
+    const propName = targetProp?.name || propId;
+
+    const dialogRef = this._fuseConfirmationService.open({
+      title: 'Xóa đồ vật 3D',
+      message: `Bạn có chắc chắn muốn xóa đồ vật <span class="font-semibold text-red-600">${propName}</span> khỏi Căn phòng 306 không?<br>Hành động này không thể hoàn tác!`,
+      icon: {
+        show: true,
+        name: 'feather:alert-triangle',
+        color: 'warn'
+      },
+      actions: {
+        confirm: {
+          show: true,
+          label: 'Xóa ngay',
+          color: 'warn'
+        },
+        cancel: {
+          show: true,
+          label: 'Hủy bỏ'
+        }
+      },
+      dismissible: true
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result === 'confirmed') {
+        this.roomProps = this.roomProps.filter(p => p.id !== propId);
+        (this.profile as any).props = this.roomProps;
+
+        try {
+          await this.profileDataService.saveProfile(this.profile);
+          this.sceneService.applyProfile(this.profile);
+          this.toastr.success(`Đã xóa đồ vật "${propName}" thành công!`, 'Xóa đồ vật 3D');
+          this.cdr.markForCheck();
+        } catch (err) {
+          console.error('[Profile] Delete prop error:', err);
+          this.toastr.error('Không thể xóa đồ vật.', 'Lỗi');
+        }
+      }
+    });
   }
 
   /** Mở file picker khi click vào upload zone */
@@ -421,6 +558,13 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     try {
       const animListStr = this.userAnimations.map(a => a.name).join(', ');
       const domainSystemPrompt = `Bạn là **Sơn Tinh AI 3D Scene Director**, Chuyên gia AI Agent am hiểu toàn bộ LOGIC NGHIỆP VỤ & CÁCH ĐIỀU CHỈNH 3D CĂN PHÒNG / NHÂN VẬT trong màn hình Profile (/app/modules/admin/account/profile) thuộc hệ thống AI Type.
+
+### 📁 THƯ MỤC DỮ LIỆU PROFILE CHUẨN ĐA NỀN TẢNG (Windows, Linux, macOS):
+- AI Agent luôn tương tác và nạp/ghi trực tiếp vào thư mục dữ liệu profile người dùng:
+  \`Documents/ai.type/data/profiles/${this.username}/\`
+  + Windows OS: \`C:\\Users\\${this.username}\\Documents\\ai.type\\data\\profiles\\${this.username}\\\`
+  + Linux / macOS OS: \`~/Documents/ai.type/data/profiles/${this.username}/\`
+- Các tệp tin dữ liệu 3D bao gồm: \`profile.json\`, \`character.json\`, \`room.json\`, \`animations.json\`, \`events.json\`, \`props.json\`.
 
 ### 🏠 KIẾN THỨC NGHIỆP VỤ CĂN PHÒNG 306 & ĐIỀU KHIỂN NHÂN VẬT 3D (PROFILE 3D DOMAIN LOGIC MANUAL):
 

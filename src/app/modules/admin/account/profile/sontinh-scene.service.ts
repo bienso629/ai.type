@@ -48,6 +48,8 @@ export class SontinhSceneService implements OnDestroy {
   }
 
   private _disabledTriggers: Set<string> = new Set();
+  private _applyCameraPreset: ((preset: string) => void) | null = null;
+  private _applyProps: ((props: any[]) => void) | null = null;
 
   setDisabledTriggers(triggers: string[]): void {
     this._disabledTriggers = new Set(triggers);
@@ -55,6 +57,12 @@ export class SontinhSceneService implements OnDestroy {
 
   isTriggerDisabled(trigger: string): boolean {
     return this._disabledTriggers.has(trigger);
+  }
+
+  setCameraPreset(preset: string): void {
+    if (this._applyCameraPreset) {
+      this._applyCameraPreset(preset);
+    }
   }
 
   /** Thực thi kịch bản chuỗi hành động sự kiện 3D từ events.json */
@@ -114,12 +122,11 @@ export class SontinhSceneService implements OnDestroy {
 
   /**
    * Apply a UserProfile to the live scene:
+   * - set camera preset from profile.scene.cameraPreset
    * - set character position, rotation, scale
    * - toggle lights per scene.lightsOn
+   * - update props from profile.props
    * - switch animation state
-   *
-   * NOTE: KHÔNG tự load GLB từ glbPath — glbPath là đường dẫn đĩa, không phải URL.
-   * Để load GLB mới, dùng loadCharacterFromBlobUrl() sau khi đọc file qua Electron IPC.
    */
   applyProfile(profile: UserProfile): void {
     this._profile = profile;
@@ -127,12 +134,17 @@ export class SontinhSceneService implements OnDestroy {
       this.setDisabledTriggers((profile as any).disabledEvents);
     }
     this.ngZone.runOutsideAngular(() => {
-      // Scene settings
+      // 1. Dynamic Camera Preset from ~/Documents/ai.type/data/profiles/{username}/
+      if (profile.scene?.cameraPreset) {
+        this.setCameraPreset(profile.scene.cameraPreset);
+      }
+
+      // 2. Room Lighting
       if (profile.scene && this._toggleRoomLights) {
         this._toggleRoomLights(profile.scene.lightsOn);
       }
 
-      // Character transform
+      // 3. Character transform
       if (profile.character && this._charBodyRoot) {
         const char = profile.character;
         if (char.position) {
@@ -145,6 +157,11 @@ export class SontinhSceneService implements OnDestroy {
           const s = char.scale;
           this._charBodyRoot.setLocalScale(s, s, s);
         }
+      }
+
+      // 4. Room Props from ~/Documents/ai.type/data/profiles/{username}/props.json
+      if (Array.isArray((profile as any).props) && this._applyProps) {
+        this._applyProps((profile as any).props);
       }
 
       // Animation state (chỉ khi đã có character loaded)
@@ -417,6 +434,42 @@ export class SontinhSceneService implements OnDestroy {
     let lastMouseY = 0;
     let lastTouchX = 0;
     let lastTouchY = 0;
+
+    self._applyCameraPreset = (presetName: string) => {
+      const p = (presetName || '').toLowerCase();
+      if (p === 'desk' || p === 'desk_view') {
+        isWindowViewActive = false; isPictureViewActive = false; isAquariumViewActive = false;
+        targetPivot.copy(DESK_VIEW.pivot);
+        targetYaw = DESK_VIEW.yaw;
+        targetPitch = DESK_VIEW.pitch;
+        targetDistance = DESK_VIEW.distance;
+      } else if (p === 'character' || p === 'character_view') {
+        isWindowViewActive = false; isPictureViewActive = false; isAquariumViewActive = false;
+        const cp = charPivot ? charPivot.getPosition() : new pc.Vec3(0, 0, 0);
+        targetPivot.set(cp.x, cp.y + 5, cp.z);
+        targetYaw = 0;
+        targetPitch = 12;
+        targetDistance = 15;
+      } else if (p === 'overhead' || p === 'overhead_view') {
+        isWindowViewActive = false; isPictureViewActive = false; isAquariumViewActive = false;
+        targetPivot.set(0, 10, 0);
+        targetYaw = 0;
+        targetPitch = 85;
+        targetDistance = 50;
+      } else if (p === 'default' || p === 'default_view') {
+        isWindowViewActive = false; isPictureViewActive = false; isAquariumViewActive = false;
+        targetPivot.set(0, 10, 0);
+        targetYaw = 20;
+        targetPitch = 30;
+        targetDistance = 65;
+      } else if (p === 'window' || p === 'street_window_view') {
+        if (!isWindowViewActive) toggleWindowStreetView();
+      } else if (p === 'picture' || p === 'picture_view') {
+        if (!isPictureViewActive) togglePictureView();
+      } else if (p === 'aquarium' || p === 'aquarium_view') {
+        if (!isAquariumViewActive) toggleAquariumView();
+      }
+    };
     
     function toggleWindowStreetView() {
       isPictureViewActive = false;

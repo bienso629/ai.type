@@ -36,7 +36,7 @@
 
       <!-- Sau khi có character -->
       <div class="sidebar-char-card" *ngIf="profile?.character?.glbPath">
-        <div class="sidebar-char-avatar cursor-pointer relative group" (click)="triggerAvatarUpload()" matTooltip="Nhấn để đổi ảnh đại diện">
+        <div class="sidebar-char-avatar cursor-pointer relative group" (click)="focusOnCharacter()" matTooltip="Nhấn để đổi góc nhìn & ảnh đại diện">
           <img *ngIf="charThumbnail" [src]="charThumbnail" alt="avatar" class="w-full h-full object-cover rounded">
           <div *ngIf="!charThumbnail" class="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold text-base uppercase rounded shadow-inner">
             {{ (profile?.character?.name || username || 'A').slice(0, 1) }}
@@ -45,7 +45,7 @@
             <mat-icon class="icon-size-4">photo_camera</mat-icon>
           </div>
         </div>
-        <div class="sidebar-char-info">
+        <div class="sidebar-char-info cursor-pointer" (click)="focusOnCharacter()">
           <span class="sidebar-char-name">{{ profile?.character?.name || username }}</span>
           <span class="sidebar-char-sub">{{ profile?.character?.animationState || 'Walk' }}</span>
         </div>
@@ -63,33 +63,22 @@
       <!-- ACCORDION MENU -->
       <div class="sidebar-accordion">
 
-        <!-- GÓC NHÌN -->
-        <details class="sidebar-panel">
-          <summary class="sidebar-panel-header">
-            <span class="sidebar-panel-label">GÓC NHÌN</span>
-            <mat-icon class="sidebar-panel-arrow">expand_more</mat-icon>
-          </summary>
-          <div class="sidebar-sub-items">
-            <button class="sidebar-sub-item" (click)="setCameraPreset('WALL_1')"><mat-icon class="sub-icon">crop_square</mat-icon>Góc tường 1</button>
-            <button class="sidebar-sub-item" (click)="setCameraPreset('WALL_2')"><mat-icon class="sub-icon">crop_square</mat-icon>Góc tường 2</button>
-            <button class="sidebar-sub-item" (click)="setCameraPreset('WALL_3')"><mat-icon class="sub-icon">crop_square</mat-icon>Góc tường 3</button>
-            <button class="sidebar-sub-item" (click)="setCameraPreset('WALL_4')"><mat-icon class="sub-icon">crop_square</mat-icon>Góc tường 4</button>
-            <button class="sidebar-sub-item" (click)="setCameraPreset('CHARACTER')"><mat-icon class="sub-icon">person_pin</mat-icon>Góc nhìn từ nhân vật</button>
-            <button class="sidebar-sub-item" (click)="setCameraPreset('DESK_VIEW')"><mat-icon class="sub-icon">desk</mat-icon>Góc bàn làm việc</button>
-          </div>
-        </details>
-
         <!-- ĐỒ VẬT -->
         <details class="sidebar-panel">
           <summary class="sidebar-panel-header">
-            <span class="sidebar-panel-label">ĐỒ VẬT</span>
+            <span class="sidebar-panel-label">ĐỒ VẬT ({{ roomProps.length }})</span>
             <mat-icon class="sidebar-panel-arrow">expand_more</mat-icon>
           </summary>
-          <div class="sidebar-sub-items">
-            <button class="sidebar-sub-item"><mat-icon class="sub-icon">table_restaurant</mat-icon>Cái bàn</button>
-            <button class="sidebar-sub-item"><mat-icon class="sub-icon">water</mat-icon>Bể cá</button>
-            <button class="sidebar-sub-item"><mat-icon class="sub-icon">computer</mat-icon>Máy tính</button>
-            <button class="sidebar-sub-item"><mat-icon class="sub-icon">keyboard</mat-icon>Bàn phím</button>
+          <div class="sidebar-sub-items max-h-64 overflow-y-auto custom-scrollbar">
+            <div *ngFor="let prop of roomProps" class="sidebar-sub-item hover:bg-gray-50 flex items-center justify-between group cursor-pointer" (click)="onPropClick(prop)">
+              <div class="flex items-center space-x-2 truncate flex-1 min-w-0">
+                <mat-icon class="sub-icon shrink-0">{{ getPropIcon(prop) }}</mat-icon>
+                <span class="text-left truncate">{{ prop.name }}</span>
+              </div>
+              <button mat-icon-button (click)="deleteProp($event, prop.id)" title="Xóa đồ vật" class="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-gray-400 hover:text-red-600">
+                <mat-icon class="icon-size-4">delete_outline</mat-icon>
+              </button>
+            </div>
             <button class="sidebar-sub-item sidebar-sub-item--add" (click)="triggerAddProp()"><mat-icon class="sub-icon">add_circle_outline</mat-icon>Thêm đồ vật...</button>
           </div>
         </details>
@@ -104,18 +93,6 @@
             <button class="sidebar-sub-item" [matMenuTriggerFor]="clothesMenu">
               <mat-icon class="sub-icon">checkroom</mat-icon>
               <span class="flex-1">Quần áo</span>
-              <mat-icon class="sub-arrow">chevron_right</mat-icon>
-            </button>
-
-            <button class="sidebar-sub-item" [matMenuTriggerFor]="hairMenu">
-              <mat-icon class="sub-icon">face</mat-icon>
-              <span class="flex-1">Kiểu tóc</span>
-              <mat-icon class="sub-arrow">chevron_right</mat-icon>
-            </button>
-
-            <button class="sidebar-sub-item" [matMenuTriggerFor]="faceMenu">
-              <mat-icon class="sub-icon">face_retouching_natural</mat-icon>
-              <span class="flex-1">Gương mặt</span>
               <mat-icon class="sub-arrow">chevron_right</mat-icon>
             </button>
 
@@ -191,40 +168,6 @@
         <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
           <mat-icon class="icon-size-6 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
           <span class="text-base font-semibold">Thêm trang phục...</span>
-        </button>
-      </mat-menu>
-
-      <!-- Hair Sub-Menu -->
-      <mat-menu #hairMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
-        <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">face</mat-icon>
-          <span class="text-base font-medium">Kiểu tóc ngắn</span>
-        </button>
-        <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">face</mat-icon>
-          <span class="text-base font-medium">Tóc vuốt ngược</span>
-        </button>
-        <mat-divider></mat-divider>
-        <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
-          <mat-icon class="icon-size-6 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
-          <span class="text-base font-semibold">Thêm kiểu tóc...</span>
-        </button>
-      </mat-menu>
-
-      <!-- Face Sub-Menu -->
-      <mat-menu #faceMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
-        <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">sentiment_satisfied_alt</mat-icon>
-          <span class="text-base font-medium">Gương mặt chuẩn</span>
-        </button>
-        <button mat-menu-item class="hover:bg-gray-50">
-          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">mood</mat-icon>
-          <span class="text-base font-medium">Tự nhiên</span>
-        </button>
-        <mat-divider></mat-divider>
-        <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
-          <mat-icon class="icon-size-6 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
-          <span class="text-base font-semibold">Thêm gương mặt...</span>
         </button>
       </mat-menu>
 
