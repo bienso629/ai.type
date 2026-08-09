@@ -73,7 +73,7 @@
             <div *ngFor="let prop of roomProps" class="sidebar-sub-item hover:bg-gray-50 flex items-center justify-between group cursor-pointer" (click)="onPropClick(prop)">
               <div class="flex items-center space-x-2.5 truncate flex-1 min-w-0 pr-2">
                 <mat-icon class="sub-icon shrink-0">{{ getPropIcon(prop) }}</mat-icon>
-                <span class="text-left truncate text-sm font-medium text-slate-700 dark:text-slate-200">{{ prop.name }}</span>
+                <span class="text-left truncate text-base font-medium text-slate-700 dark:text-slate-200">{{ prop.name }}</span>
               </div>
               
               <div class="flex items-center space-x-1 shrink-0 ml-auto" (click)="$event.stopPropagation()">
@@ -88,7 +88,13 @@
                 </button>
               </div>
             </div>
-            <button class="sidebar-sub-item sidebar-sub-item--add" (click)="triggerAddProp()"><mat-icon class="sub-icon">add_circle_outline</mat-icon>Thêm đồ vật...</button>
+            <!-- Nút Thêm đồ vật với style 100% giống các item khác, dùng font-normal & màu Primary -->
+            <div class="sidebar-sub-item hover:bg-teal-50/50 dark:hover:bg-teal-900/20 flex items-center justify-between group cursor-pointer" (click)="triggerAddProp()">
+              <div class="flex items-center space-x-2.5 truncate flex-1 min-w-0 pr-2">
+                <mat-icon class="sub-icon shrink-0 text-teal-600 dark:text-teal-400">add_circle_outline</mat-icon>
+                <span class="text-left truncate text-base font-normal text-teal-600 dark:text-teal-400">Thêm đồ vật...</span>
+              </div>
+            </div>
           </div>
         </details>
 
@@ -101,14 +107,14 @@
           <div class="sidebar-sub-items">
             <button class="sidebar-sub-item" [matMenuTriggerFor]="clothesMenu">
               <mat-icon class="sub-icon">checkroom</mat-icon>
-              <span class="flex-1 text-sm font-medium">Quần áo</span>
+              <span class="flex-1 text-base font-medium">Quần áo</span>
               <mat-icon class="sub-arrow">chevron_right</mat-icon>
             </button>
 
             <!-- CÁC HÀNH ĐỘNG — Angular mat-menu flyout -->
             <button class="sidebar-sub-item" [matMenuTriggerFor]="actionsMenu">
               <mat-icon class="sub-icon">directions_run</mat-icon>
-              <span class="flex-1 text-sm font-medium">Các hành động</span>
+              <span class="flex-1 text-base font-medium">Các hành động</span>
               <mat-icon class="sub-arrow">chevron_right</mat-icon>
             </button>
           </div>
@@ -198,7 +204,7 @@
       </div>
 
       <!-- Loading indicator while processing AI prompt -->
-      <div *ngIf="isProcessingPrompt" class="flex items-center space-x-2 px-3.5 py-2 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border-t border-teal-100 dark:border-teal-800 text-xs font-medium animate-pulse">
+      <div *ngIf="isProcessingPrompt" class="flex items-center space-x-2 px-3.5 py-2 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border-t border-teal-100 dark:border-teal-800 text-base font-medium animate-pulse">
         <div class="w-3.5 h-3.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin shrink-0"></div>
         <span class="truncate flex-1">Đang xử lý prompt & cập nhật 3D...</span>
       </div>
@@ -304,13 +310,13 @@
     <div class="space-y-4">
       <!-- Tên hành động -->
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Tên hành động</label>
-        <input type="text" [(ngModel)]="editingAction.name" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500">
+        <label class="block text-base font-semibold text-gray-600 mb-1">Tên hành động</label>
+        <input type="text" [(ngModel)]="editingAction.name" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-base focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500">
       </div>
 
       <!-- Loại hành động: Di chuyển vs Tại chỗ -->
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-2">Loại chuyển động</label>
+        <label class="block text-base font-semibold text-gray-600 mb-2">Loại chuyển động</label>
         <div class="grid grid-cols-2 gap-3">
           <button type="button" 
                   (click)="editingAction.isMovement = false"
@@ -319,8 +325,8 @@
                   [class.text-teal-700]="!editingAction.isMovement"
                   class="p-3 border rounded-xl flex flex-col items-center gap-1.5 transition-all text-gray-600 border-gray-200 hover:border-teal-200">
             <mat-icon class="icon-size-5">accessibility_new</mat-icon>
-            <span class="text-xs font-semibold">Tại chỗ</span>
-            <span class="text-[10px] text-gray-400">Đứng/Nhảy/Dance</span>
+            <span class="text-base font-semibold">Tại chỗ</span>
+            <span class="text-base text-gray-400">Đứng/Nhảy/Dance</span>
           </button>
 
           <button type="button" 
@@ -330,8 +336,8 @@
                   [class.text-teal-700]="editingAction.isMovement"
                   class="p-3 border rounded-xl flex flex-col items-center gap-1.5 transition-all text-gray-600 border-gray-200 hover:border-teal-200">
             <mat-icon class="icon-size-5">directions_walk</mat-icon>
-            <span class="text-xs font-semibold">Di chuyển</span>
-            <span class="text-[10px] text-gray-400">Đi bộ/Chạy</span>
+            <span class="text-base font-semibold">Di chuyển</span>
+            <span class="text-base text-gray-400">Đi bộ/Chạy</span>
           </button>
         </div>
       </div>
@@ -339,8 +345,8 @@
       <!-- Tốc độ di chuyển (chỉ hiện khi là loại Di chuyển) -->
       <div *ngIf="editingAction.isMovement">
         <div class="flex items-center justify-between mb-1">
-          <label class="text-xs font-semibold text-gray-600">Tốc độ di chuyển</label>
-          <span class="text-xs font-bold text-teal-600">{{ editingAction.speed }} units/s</span>
+          <label class="text-base font-semibold text-gray-600">Tốc độ di chuyển</label>
+          <span class="text-base font-bold text-teal-600">{{ editingAction.speed }} units/s</span>
         </div>
         <input type="range" min="3" max="30" step="0.5" [(ngModel)]="editingAction.speed" class="w-full accent-teal-600 cursor-pointer">
       </div>
@@ -401,15 +407,15 @@
           <label class="block text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Tọa độ 3D Position (X, Y, Z)</label>
           <div class="grid grid-cols-3 gap-3" *ngIf="inspectingProp.position">
             <div>
-              <span class="text-xs text-slate-400">Trục X</span>
+              <span class="text-base text-slate-400">Trục X</span>
               <input type="number" step="0.1" [(ngModel)]="inspectingProp.position.x" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
             <div>
-              <span class="text-xs text-slate-400">Trục Y (Độ cao)</span>
+              <span class="text-base text-slate-400">Trục Y (Độ cao)</span>
               <input type="number" step="0.1" [(ngModel)]="inspectingProp.position.y" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
             <div>
-              <span class="text-xs text-slate-400">Trục Z</span>
+              <span class="text-base text-slate-400">Trục Z</span>
               <input type="number" step="0.1" [(ngModel)]="inspectingProp.position.z" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
           </div>
@@ -420,15 +426,15 @@
           <label class="block text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Góc xoay 3D Rotation (Roll, Pitch, Yaw)</label>
           <div class="grid grid-cols-3 gap-3" *ngIf="inspectingProp.rotation">
             <div>
-              <span class="text-xs text-slate-400">X (Roll °)</span>
+              <span class="text-base text-slate-400">X (Roll °)</span>
               <input type="number" step="1" [(ngModel)]="inspectingProp.rotation.x" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
             <div>
-              <span class="text-xs text-slate-400">Y (Pitch °)</span>
+              <span class="text-base text-slate-400">Y (Pitch °)</span>
               <input type="number" step="1" [(ngModel)]="inspectingProp.rotation.y" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
             <div>
-              <span class="text-xs text-slate-400">Z (Yaw °)</span>
+              <span class="text-base text-slate-400">Z (Yaw °)</span>
               <input type="number" step="1" [(ngModel)]="inspectingProp.rotation.z" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
           </div>
@@ -439,15 +445,15 @@
           <label class="block text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Co giãn 3D Scale (Scale X, Y, Z)</label>
           <div class="grid grid-cols-3 gap-3" *ngIf="inspectingProp.scale">
             <div>
-              <span class="text-xs text-slate-400">Scale X</span>
+              <span class="text-base text-slate-400">Scale X</span>
               <input type="number" step="0.1" [(ngModel)]="inspectingProp.scale.x" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
             <div>
-              <span class="text-xs text-slate-400">Scale Y</span>
+              <span class="text-base text-slate-400">Scale Y</span>
               <input type="number" step="0.1" [(ngModel)]="inspectingProp.scale.y" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
             <div>
-              <span class="text-xs text-slate-400">Scale Z</span>
+              <span class="text-base text-slate-400">Scale Z</span>
               <input type="number" step="0.1" [(ngModel)]="inspectingProp.scale.z" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-base bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500">
             </div>
           </div>
@@ -494,7 +500,7 @@
             <mat-icon class="text-teal-600 shrink-0 icon-size-6">videocam</mat-icon>
             <div class="min-w-0 flex-1">
               <div class="text-base font-bold">Focus Camera</div>
-              <div class="text-xs text-slate-400 truncate">Xoay góc nhìn cận cảnh 3D</div>
+              <div class="text-base text-slate-400 truncate">Xoay góc nhìn cận cảnh 3D</div>
             </div>
           </button>
 
@@ -503,7 +509,7 @@
             <mat-icon class="text-amber-500 shrink-0 icon-size-6">touch_app</mat-icon>
             <div class="min-w-0 flex-1">
               <div class="text-base font-bold">Trigger Event</div>
-              <div class="text-xs text-slate-400 truncate">Bật/Tắt hiệu ứng tương tác</div>
+              <div class="text-base text-slate-400 truncate">Bật/Tắt hiệu ứng tương tác</div>
             </div>
           </button>
         </div>
