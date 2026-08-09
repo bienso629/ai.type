@@ -1674,42 +1674,47 @@ export class SontinhSceneService implements OnDestroy {
     lowerBuildingBase.setPosition(0, -72.0, 0);
     app.root.addChild(lowerBuildingBase);
     
-    // 2. Architectural Floor Black Moldings (Gờ chỉ viền đen phân tầng 1, 2, 3, 4, 5 & Đỉnh mái)
-    const corniceFloor1 = new pc.Entity('CorniceFloor1');
-    corniceFloor1.addComponent('render', { type: 'box', material: matCorniceTrim });
-    corniceFloor1.setLocalScale(ROOM_WIDTH_X + 1.6, 0.8, ROOM_DEPTH_Z + 1.6);
-    corniceFloor1.setPosition(0, -64.4, 0);
-    app.root.addChild(corniceFloor1);
-    
-    const corniceFloor2 = new pc.Entity('CorniceFloor2');
-    corniceFloor2.addComponent('render', { type: 'box', material: matCorniceTrim });
-    corniceFloor2.setLocalScale(ROOM_WIDTH_X + 1.6, 0.8, ROOM_DEPTH_Z + 1.6);
-    corniceFloor2.setPosition(0, -32.4, 0);
-    app.root.addChild(corniceFloor2);
-    
-    const corniceFloor3 = new pc.Entity('CorniceFloor3');
-    corniceFloor3.addComponent('render', { type: 'box', material: matCorniceTrim });
-    corniceFloor3.setLocalScale(ROOM_WIDTH_X + 1.6, 0.8, ROOM_DEPTH_Z + 1.6);
-    corniceFloor3.setPosition(0, -0.4, 0);
-    app.root.addChild(corniceFloor3);
+    // 2. Architectural Floor Black Exterior Moldings (Gờ chỉ viền đen phân tầng ốp mặt ngoài tòa nhà, không chồng lấn sàn trong)
+    function createExteriorFloorCornice(namePrefix: string, yPos: number) {
+      const corniceGroup = new pc.Entity(`${namePrefix}_Group`);
+      corniceGroup.setPosition(0, yPos, 0);
+      app.root.addChild(corniceGroup);
 
-    const corniceFloor4 = new pc.Entity('CorniceFloor4');
-    corniceFloor4.addComponent('render', { type: 'box', material: matCorniceTrim });
-    corniceFloor4.setLocalScale(ROOM_WIDTH_X + 1.6, 0.8, ROOM_DEPTH_Z + 1.6);
-    corniceFloor4.setPosition(0, 31.6, 0);
-    app.root.addChild(corniceFloor4);
+      // Back Exterior Trim
+      const bTrim = new pc.Entity(`${namePrefix}_BackTrim`);
+      bTrim.addComponent('render', { type: 'box', material: matCorniceTrim });
+      bTrim.setLocalScale(ROOM_WIDTH_X + 1.2, 0.6, 0.4);
+      bTrim.setPosition(0, 0, -ROOM_DEPTH_Z / 2 - 0.2);
+      corniceGroup.addChild(bTrim);
 
-    const corniceFloor5 = new pc.Entity('CorniceFloor5');
-    corniceFloor5.addComponent('render', { type: 'box', material: matCorniceTrim });
-    corniceFloor5.setLocalScale(ROOM_WIDTH_X + 1.6, 0.8, ROOM_DEPTH_Z + 1.6);
-    corniceFloor5.setPosition(0, 63.6, 0);
-    app.root.addChild(corniceFloor5);
+      // Front Exterior Trim
+      const fTrim = new pc.Entity(`${namePrefix}_FrontTrim`);
+      fTrim.addComponent('render', { type: 'box', material: matCorniceTrim });
+      fTrim.setLocalScale(ROOM_WIDTH_X + 1.2, 0.6, 0.4);
+      fTrim.setPosition(0, 0, ROOM_DEPTH_Z / 2 + 0.2);
+      corniceGroup.addChild(fTrim);
 
-    const corniceRoof = new pc.Entity('CorniceRoof');
-    corniceRoof.addComponent('render', { type: 'box', material: matCorniceTrim });
-    corniceRoof.setLocalScale(ROOM_WIDTH_X + 1.6, 0.8, ROOM_DEPTH_Z + 1.6);
-    corniceRoof.setPosition(0, 95.6, 0);
-    app.root.addChild(corniceRoof);
+      // Left Exterior Trim
+      const lTrim = new pc.Entity(`${namePrefix}_LeftTrim`);
+      lTrim.addComponent('render', { type: 'box', material: matCorniceTrim });
+      lTrim.setLocalScale(0.4, 0.6, ROOM_DEPTH_Z + 1.2);
+      lTrim.setPosition(-ROOM_WIDTH_X / 2 - 0.2, 0, 0);
+      corniceGroup.addChild(lTrim);
+
+      // Right Exterior Trim
+      const rTrim = new pc.Entity(`${namePrefix}_RightTrim`);
+      rTrim.addComponent('render', { type: 'box', material: matCorniceTrim });
+      rTrim.setLocalScale(0.4, 0.6, ROOM_DEPTH_Z + 1.2);
+      rTrim.setPosition(ROOM_WIDTH_X / 2 + 0.2, 0, 0);
+      corniceGroup.addChild(rTrim);
+    }
+
+    createExteriorFloorCornice('CorniceFloor1', -64.0);
+    createExteriorFloorCornice('CorniceFloor2', -32.0);
+    createExteriorFloorCornice('CorniceFloor3', 0.0);
+    createExteriorFloorCornice('CorniceFloor4', 32.0);
+    createExteriorFloorCornice('CorniceFloor5', 64.0);
+    createExteriorFloorCornice('CorniceRoof', 96.0);
     
     
     const WINDOW_21_9_WIDTH = 37.33; // Z: -18.665m to +18.665m (37.33m / 16.0m = 2.333 ~ 21:9 Ultrawide Aspect Ratio!)
