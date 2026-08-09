@@ -7,6 +7,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ProfileComponent } from 'app/modules/admin/account/profile/profile.component';
 import { SontinhSceneService } from 'app/modules/admin/account/profile/sontinh-scene.service';
 import { ProfileDataService } from 'app/modules/admin/account/profile/profile-data.service';
@@ -25,7 +26,8 @@ const routes: Route[] = [
         MatExpansionModule,
         MatMenuModule,
         MatDividerModule,
-        MatTooltipModule
+        MatTooltipModule,
+        MatSlideToggleModule
     ],
     providers: [SontinhSceneService, ProfileDataService]
 })

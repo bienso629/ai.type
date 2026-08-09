@@ -21,29 +21,53 @@ import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 const DEFAULT_PROPS = [
-  { id: 'prop_main_desk', name: 'Bàn làm việc đôi Haigo BHS230-2', category: 'furniture' },
-  { id: 'prop_chair_left', name: 'Ghế xoay ergonomic trái', category: 'furniture' },
-  { id: 'prop_chair_right', name: 'Ghế xoay ergonomic phải', category: 'furniture' },
-  { id: 'prop_monitor_left', name: 'Màn hình cong ultrawide trái', category: 'electronics' },
-  { id: 'prop_monitor_right', name: 'Màn hình cong ultrawide phải', category: 'electronics' },
-  { id: 'prop_mechanical_keyboard_left', name: 'Bàn phím cơ custom trái', category: 'electronics' },
-  { id: 'prop_mechanical_keyboard_right', name: 'Bàn phím cơ custom phải', category: 'electronics' },
-  { id: 'prop_aquarium', name: 'Bể cá thủy sinh bàn làm việc', category: 'decoration' },
-  { id: 'prop_pegboard', name: 'Tủ Pegboard treo tường', category: 'furniture' },
-  { id: 'prop_ps5_pro', name: 'Máy chơi game PS5 Pro', category: 'electronics' },
-  { id: 'prop_tech_led_bar', name: 'Đèn LED Bar màn hình', category: 'lighting' },
-  { id: 'prop_wall_switch', name: 'Công tắc đèn tường dạ quang', category: 'lighting' },
-  { id: 'prop_window_21_9', name: 'Cửa sổ nhôm kính Minimalist 21:9', category: 'architecture' },
-  { id: 'prop_picture_frame', name: 'Khung ảnh gia đình treo tường', category: 'decoration' },
-  { id: 'prop_wall_clock', name: 'Đồng hồ treo tường Gỗ Óc chó', category: 'decoration' },
-  { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo gỗ', category: 'furniture' },
-  { id: 'prop_main_door', name: 'Cửa chính ra vào căn phòng', category: 'architecture' },
-  { id: 'prop_ceiling_downlight_front', name: 'Đèn âm trần LED trước', category: 'lighting' },
-  { id: 'prop_ceiling_downlight_back', name: 'Đèn âm trần LED sau', category: 'lighting' },
-  { id: 'prop_ceiling_downlight_left', name: 'Đèn âm trần LED trái', category: 'lighting' },
-  { id: 'prop_ceiling_downlight_right', name: 'Đèn âm trần LED phải', category: 'lighting' },
-  { id: 'prop_street_shophouses', name: 'Dãy nhà phố thương mại ngoài sổ', category: 'environment' },
-  { id: 'prop_street_traffic_lanes', name: 'Làn xe giao thông đường phố', category: 'environment' }
+  // 🏢 KIẾN TRÚC TÒA NHÀ & CĂN PHÒNG 306
+  { id: 'prop_building_5story_main', name: 'Tòa nhà chính 5 tầng (Sơn Tinh Tower)', category: 'architecture', visible: true },
+  { id: 'prop_room_306_floor', name: 'Tầng 3 - Căn phòng 306 Studio', category: 'architecture', visible: true },
+  { id: 'prop_building_floor1', name: 'Tầng 1 - Sảnh chính & Cửa kính lớn', category: 'architecture', visible: true },
+  { id: 'prop_building_floor2', name: 'Tầng 2 - Ban công & Khung kính lớn', category: 'architecture', visible: true },
+  { id: 'prop_building_floor4', name: 'Tầng 4 - Khối văn phòng sáng đèn', category: 'architecture', visible: true },
+  { id: 'prop_building_floor5', name: 'Tầng 5 - Áp mái & Tầng thượng Penthouse', category: 'architecture', visible: true },
+  { id: 'prop_room_marble_floor', name: 'Sàn đá Cẩm thạch Marble cao cấp', category: 'architecture', visible: true },
+  { id: 'prop_room_walls', name: 'Tường sơn phẳng liền mạch bao quanh', category: 'architecture', visible: true },
+  { id: 'prop_room_ceiling', name: 'Trần nhà sơn đồng bộ 306', category: 'architecture', visible: true },
+  { id: 'prop_main_door', name: 'Cửa chính gỗ ra vào căn phòng', category: 'architecture', visible: true },
+  { id: 'prop_window_21_9', name: 'Cửa sổ nhôm kính Minimalist 21:9', category: 'architecture', visible: true },
+
+  // 🪑 NỘI THẤT BÀN GHẾ & TỦ
+  { id: 'prop_main_desk', name: 'Bàn làm việc đôi Haigo BHS230-2', category: 'furniture', visible: true },
+  { id: 'prop_chair_left', name: 'Ghế xoay ergonomic trái', category: 'furniture', visible: true },
+  { id: 'prop_chair_right', name: 'Ghế xoay ergonomic phải', category: 'furniture', visible: true },
+  { id: 'prop_pegboard', name: 'Tủ Pegboard treo tường', category: 'furniture', visible: true },
+  { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo gỗ', category: 'furniture', visible: true },
+  { id: 'prop_desk_mat_left', name: 'Thảm lót bàn làm việc trái', category: 'furniture', visible: true },
+  { id: 'prop_desk_mat_right', name: 'Thảm lót bàn làm việc phải', category: 'furniture', visible: true },
+
+  // 🖥️ THIẾT BỊ ĐIỆN TỬ & CÔNG NGHỆ
+  { id: 'prop_monitor_left', name: 'Màn hình cong ultrawide trái', category: 'electronics', visible: true },
+  { id: 'prop_monitor_right', name: 'Màn hình cong ultrawide phải', category: 'electronics', visible: true },
+  { id: 'prop_mechanical_keyboard_left', name: 'Bàn phím cơ custom trái', category: 'electronics', visible: true },
+  { id: 'prop_mechanical_keyboard_right', name: 'Bàn phím cơ custom phải', category: 'electronics', visible: true },
+  { id: 'prop_mouse_left', name: 'Chuột không dây Logitech M185 trái', category: 'electronics', visible: true },
+  { id: 'prop_mouse_right', name: 'Chuột không dây Logitech M185 phải', category: 'electronics', visible: true },
+  { id: 'prop_ps5_pro', name: 'Máy chơi game PS5 Pro', category: 'electronics', visible: true },
+
+  // 💡 ĐÈN & TRANG TRÍ
+  { id: 'prop_aquarium', name: 'Bể cá thủy sinh bàn làm việc', category: 'decoration', visible: true },
+  { id: 'prop_picture_frame', name: 'Khung ảnh gia đình treo tường', category: 'decoration', visible: true },
+  { id: 'prop_wall_clock', name: 'Đồng hồ treo tường Gỗ Óc chó', category: 'decoration', visible: true },
+  { id: 'prop_tech_led_bar', name: 'Đèn LED Bar màn hình', category: 'lighting', visible: true },
+  { id: 'prop_wall_switch', name: 'Công tắc đèn tường dạ quang', category: 'lighting', visible: true },
+  { id: 'prop_ceiling_downlight_front', name: 'Đèn âm trần LED trước', category: 'lighting', visible: true },
+  { id: 'prop_ceiling_downlight_back', name: 'Đèn âm trần LED sau', category: 'lighting', visible: true },
+  { id: 'prop_ceiling_downlight_left', name: 'Đèn âm trần LED trái', category: 'lighting', visible: true },
+  { id: 'prop_ceiling_downlight_right', name: 'Đèn âm trần LED phải', category: 'lighting', visible: true },
+
+  // 🚗 CẢNH QUAN & NGOẠI THẤT
+  { id: 'prop_street_cars', name: 'Các xe ô tô di chuyển đường phố', category: 'environment', visible: true },
+  { id: 'prop_street_trees', name: 'Hàng cây xanh cảnh quan đường phố', category: 'environment', visible: true },
+  { id: 'prop_street_shophouses', name: 'Dãy nhà phố thương mại ngoài sổ', category: 'environment', visible: true },
+  { id: 'prop_street_traffic_lanes', name: 'Làn xe giao thông đường phố', category: 'environment', visible: true }
 ];
 
 @Component({
@@ -66,6 +90,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   isLoading    = true;
   isUploading  = false;
+  isProcessingPrompt = false;
   isFullscreen = false;
   loadError: string | null   = null;
   uploadError: string | null = null;
@@ -178,11 +203,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.profileDataService.profile$.pipe(takeUntil(this._destroy$)).subscribe(p => {
         if (p) {
           this.profile = p;
-          if (Array.isArray((p as any).props) && (p as any).props.length > 0) {
-            this.roomProps = (p as any).props;
-          } else {
-            this.roomProps = DEFAULT_PROPS;
-          }
+          this.roomProps = this.mergeProps((p as any).props);
+          (p as any).props = this.roomProps;
           this.sceneService.applyProfile(p);
           this.cdr.markForCheck();
         }
@@ -196,6 +218,38 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.isLoading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  private mergeProps(savedProps: any[]): any[] {
+    const propsMap = new Map<string, any>();
+
+    for (const defProp of DEFAULT_PROPS) {
+      propsMap.set(defProp.id, JSON.parse(JSON.stringify(defProp)));
+    }
+
+    if (Array.isArray(savedProps)) {
+      for (const saved of savedProps) {
+        if (!saved || !saved.id) continue;
+
+        // Clean stale x=0, y=0, z=0 overrides on structural building floors
+        const isStructural = saved.id.startsWith('prop_building_floor') || saved.id === 'prop_building_5story_main' || saved.id === 'prop_room_306_floor' || saved.id.startsWith('prop_room_');
+        if (isStructural && saved.position && saved.position.x === 0 && saved.position.y === 0 && saved.position.z === 0) {
+          delete saved.position;
+          delete saved.rotation;
+          delete saved.scale;
+          delete saved._modifiedPosition;
+        }
+
+        if (propsMap.has(saved.id)) {
+          const existing = propsMap.get(saved.id);
+          propsMap.set(saved.id, { ...existing, ...saved });
+        } else {
+          propsMap.set(saved.id, saved);
+        }
+      }
+    }
+
+    return Array.from(propsMap.values());
   }
 
   getPropIcon(prop: any): string {
@@ -224,27 +278,10 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   onPropClick(prop: any): void {
-    const id = (prop.id || '').toLowerCase();
-    const name = (prop.name || '').toLowerCase();
-
-    if (id.includes('desk') || id.includes('monitor') || id.includes('keyboard') || name.includes('bàn')) {
-      this.setCameraPreset('DESK_VIEW');
-    } else if (id.includes('window') || name.includes('cửa sổ')) {
-      this.setCameraPreset('STREET_WINDOW_VIEW');
-    } else if (id.includes('picture') || name.includes('ảnh')) {
-      this.setCameraPreset('PICTURE_VIEW');
-    } else if (id.includes('aquarium') || name.includes('cá')) {
-      this.setCameraPreset('AQUARIUM_VIEW');
-    } else if (id.includes('door') || name.includes('cửa')) {
-      this.setCameraPreset('door_view');
-    } else if (id.includes('drawer') || name.includes('tủ')) {
-      this.setCameraPreset('wardrobe_view');
-    } else if (id.includes('pegboard') || id.includes('ps5')) {
-      this.setCameraPreset('pegboard');
-    } else if (id.includes('clock') || name.includes('đồng hồ')) {
-      this.setCameraPreset('clock');
-    } else if (id.includes('switch') || name.includes('công tắc')) {
-      this.setCameraPreset('switch');
+    if (!prop) return;
+    const propId = prop.id || '';
+    if (propId) {
+      this.setCameraPreset(propId);
     } else if (prop.position) {
       (this.sceneService as any).setCameraPreset?.('custom', prop.position);
     }
@@ -295,6 +332,87 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         }
       }
     });
+  }
+
+  inspectingProp: any | null = null;
+
+  openPropInspector(prop: any): void {
+    const cloned = JSON.parse(JSON.stringify(prop));
+    if (!cloned.position) cloned.position = { x: 0, y: 0, z: 0 };
+    if (!cloned.rotation) cloned.rotation = { x: 0, y: 0, z: 0 };
+    if (!cloned.scale) cloned.scale = { x: 1, y: 1, z: 1 };
+    if (!cloned.color) cloned.color = '#ffffff';
+    if (cloned.opacity === undefined) cloned.opacity = 1.0;
+    if (!cloned.category) cloned.category = 'furniture';
+    this.inspectingProp = cloned;
+    this.cdr.markForCheck();
+  }
+
+  onPropVisibilityToggle(visible: boolean): void {
+    if (!this.inspectingProp) return;
+    this.inspectingProp.visible = visible;
+    const idx = this.roomProps.findIndex(p => p.id === this.inspectingProp.id);
+    if (idx >= 0) {
+      this.roomProps[idx].visible = visible;
+    }
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+      this.sceneService.applyProfile(this.profile);
+    }
+    this.cdr.markForCheck();
+  }
+
+  async savePropInspector(): Promise<void> {
+    if (!this.inspectingProp || !this.profile) return;
+    this.inspectingProp._modifiedPosition = true;
+    const propId = this.inspectingProp.id;
+    const idx = this.roomProps.findIndex(p => p.id === propId);
+
+    if (idx >= 0) {
+      this.roomProps[idx] = JSON.parse(JSON.stringify(this.inspectingProp));
+    } else {
+      this.roomProps.push(JSON.parse(JSON.stringify(this.inspectingProp)));
+    }
+    (this.profile as any).props = this.roomProps;
+
+    try {
+      await this.profileDataService.saveProfile(this.profile);
+      this.sceneService.applyProfile(this.profile);
+      this.toastr.success(`Đã cập nhật thuộc tính cho "${this.inspectingProp.name}"!`, 'Thuộc tính Đồ vật 3D');
+      this.inspectingProp = null;
+      this.cdr.markForCheck();
+    } catch (err) {
+      console.error('[Profile] Save prop inspector error:', err);
+      this.toastr.error('Không thể lưu thuộc tính đồ vật.', 'Lỗi');
+    }
+  }
+
+  executePropEvent(prop: any): void {
+    const triggerName = this.getPropTriggerName(prop.id);
+    const executed = this.sceneService.executeEvent(triggerName);
+    if (executed) {
+      this.toastr.info(`Đã thực thi kịch bản sự kiện "${triggerName}"`, 'Thực thi Hành động 3D');
+    } else {
+      this.onPropClick(prop);
+      this.toastr.info(`Đã định vị góc nhìn camera tới "${prop.name}"`, 'Góc nhìn 3D');
+    }
+  }
+
+  getPropTriggerName(propId: string): string {
+    const id = (propId || '').toLowerCase();
+    if (id.includes('switch') || id.includes('led')) return 'clickLightSwitch';
+    if (id.includes('window')) return 'clickWindow';
+    if (id.includes('door')) return 'clickDoor';
+    if (id.includes('aquarium')) return 'clickAquarium';
+    if (id.includes('drawer')) return 'clickDrawer';
+    if (id.includes('picture')) return 'clickPicture';
+    if (id.includes('character')) return 'clickCharacter';
+    return 'clickProp';
+  }
+
+  deletePropFromInspector(event: MouseEvent, propId: string): void {
+    this.inspectingProp = null;
+    this.deleteProp(event, propId);
   }
 
   /** Mở file picker khi click vào upload zone */
@@ -523,7 +641,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     const text = prompt.trim();
     if (!text && images.length === 0) return;
 
-    const statusMsg = images.length > 0
+    this.isProcessingPrompt = true;
+    this.cdr.markForCheck();
+
+    try {
+      const statusMsg = images.length > 0
       ? `Đang phân tích ${images.length} ảnh screenshot & thực thi yêu cầu: "${text || 'Chỉnh sửa 3D'}"...`
       : `Đang thực thi yêu cầu AI: "${text}"...`;
 
@@ -823,8 +945,11 @@ Cấu trúc JSON:
       console.warn('[Profile] Error auto-saving profile files:', saveErr);
     }
 
-    this.toastr.success(message, 'AI Canvas Updated & Auto-Saved', { timeOut: 4000 });
-    this.cdr.markForCheck();
+      this.toastr.success(message, 'AI Canvas Updated & Auto-Saved', { timeOut: 4000 });
+    } finally {
+      this.isProcessingPrompt = false;
+      this.cdr.markForCheck();
+    }
   }
 
   /** Enter = gửi, Shift+Enter = xuống dòng */
