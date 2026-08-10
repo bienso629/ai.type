@@ -50,6 +50,13 @@ export class SontinhSceneService implements OnDestroy {
   private _disabledTriggers: Set<string> = new Set();
   private _applyCameraPreset: ((preset: string) => void) | null = null;
   private _applyProps: ((props: any[]) => void) | null = null;
+  private _toggleWindowTvIframe: ((show?: boolean, url?: string) => void) | null = null;
+
+  toggleWindowTvIframe(show?: boolean, url?: string): void {
+    if (this._toggleWindowTvIframe) {
+      this._toggleWindowTvIframe(show, url);
+    }
+  }
 
   updateProp(prop: any): void {
     if (this._applyProps && prop) {
@@ -729,9 +736,11 @@ export class SontinhSceneService implements OnDestroy {
             if (!tryClickAquarium(e.x, e.y)) {
               if (!tryClickPicture(e.x, e.y)) {
                 if (!tryClickCharacter(e.x, e.y)) {
-                  if (!tryClickWindow(e.x, e.y)) {
-                    if (!tryClickDoor(e.x, e.y)) {
-                      tryClickLightSwitch(e.x, e.y);
+                  if (!tryClickSubDevice(e.x, e.y)) {
+                    if (!tryClickWindow(e.x, e.y)) {
+                      if (!tryClickDoor(e.x, e.y)) {
+                        tryClickLightSwitch(e.x, e.y);
+                      }
                     }
                   }
                 }
@@ -802,9 +811,11 @@ export class SontinhSceneService implements OnDestroy {
             if (!tryClickAquarium(touch.x, touch.y)) {
               if (!tryClickPicture(touch.x, touch.y)) {
                 if (!tryClickCharacter(touch.x, touch.y)) {
-                  if (!tryClickWindow(touch.x, touch.y)) {
-                    if (!tryClickDoor(touch.x, touch.y)) {
-                      tryClickLightSwitch(touch.x, touch.y);
+                  if (!tryClickSubDevice(touch.x, touch.y)) {
+                    if (!tryClickWindow(touch.x, touch.y)) {
+                      if (!tryClickDoor(touch.x, touch.y)) {
+                        tryClickLightSwitch(touch.x, touch.y);
+                      }
                     }
                   }
                 }
@@ -1597,48 +1608,60 @@ export class SontinhSceneService implements OnDestroy {
         const isVisible = prop.visible !== false;
 
         const updateMaterialProps = (ent: any) => {
-          if (!ent || !ent.render) return;
-          const mat = ent.render.material as pc.StandardMaterial;
-          if (!mat) return;
-          let changed = false;
-          if (prop.color && typeof prop.color === 'string') {
-            mat.diffuse = new pc.Color().fromString(prop.color);
-            changed = true;
-          }
-          if (prop.opacity !== undefined && typeof prop.opacity === 'number') {
-            mat.opacity = prop.opacity;
-            mat.blendType = prop.opacity < 1.0 ? pc.BLEND_NORMAL : pc.BLEND_NONE;
-            changed = true;
-          }
-          if (prop.emissiveColor && typeof prop.emissiveColor === 'string' && prop.emissiveIntensity !== undefined) {
-            const c = new pc.Color().fromString(prop.emissiveColor);
-            const intensity = prop.emissiveIntensity || 0;
-            mat.emissive = new pc.Color(c.r * intensity, c.g * intensity, c.b * intensity);
-            changed = true;
-          }
-          if (prop.metalness !== undefined && typeof prop.metalness === 'number') {
-            mat.useMetalness = true;
-            mat.metalness = prop.metalness;
-            changed = true;
-          }
-          if (prop.roughness !== undefined && typeof prop.roughness === 'number') {
-            mat.gloss = Math.max(0, Math.min(1, 1.0 - prop.roughness));
-            changed = true;
-          }
-          if (prop.castShadow !== undefined) {
-            ent.render.castShadows = prop.castShadow;
-          }
-          if (changed) mat.update();
+          if (!ent) return;
+          const applyToMesh = (node: any) => {
+            if (node.render) {
+              if (prop.castShadow !== undefined) {
+                node.render.castShadows = prop.castShadow;
+              }
+              const mat = node.render.material as pc.StandardMaterial;
+              if (mat) {
+                let changed = false;
+                if (prop.color && typeof prop.color === 'string') {
+                  mat.diffuse = new pc.Color().fromString(prop.color);
+                  changed = true;
+                }
+                if (prop.opacity !== undefined && typeof prop.opacity === 'number') {
+                  mat.opacity = prop.opacity;
+                  mat.blendType = prop.opacity < 1.0 ? pc.BLEND_NORMAL : pc.BLEND_NONE;
+                  changed = true;
+                }
+                if (prop.emissiveColor && typeof prop.emissiveColor === 'string' && prop.emissiveIntensity !== undefined) {
+                  const c = new pc.Color().fromString(prop.emissiveColor);
+                  const intensity = prop.emissiveIntensity || 0;
+                  mat.emissive = new pc.Color(c.r * intensity, c.g * intensity, c.b * intensity);
+                  changed = true;
+                }
+                if (prop.metalness !== undefined && typeof prop.metalness === 'number') {
+                  mat.useMetalness = true;
+                  mat.metalness = prop.metalness;
+                  changed = true;
+                }
+                if (prop.roughness !== undefined && typeof prop.roughness === 'number') {
+                  mat.useMetalness = true;
+                  mat.gloss = Math.max(0, Math.min(1, 1.0 - prop.roughness));
+                  changed = true;
+                }
+                if (changed) mat.update();
+              }
+            }
+            if (node.children && Array.isArray(node.children)) {
+              for (const child of node.children) {
+                applyToMesh(child);
+              }
+            }
+          };
+          applyToMesh(ent);
         };
 
         const cfg = PROP_ENTITY_CONFIG[propId];
         if (cfg) {
-          // 1. Toggle visibility of target entities
+          // 1. Toggle visibility & update PBR material properties of target entities
           for (const name of cfg.targets) {
             const entity = this.app.root.findByName(name);
             if (entity) {
               (entity as any).enabled = isVisible;
-              if (prop._modifiedPosition) updateMaterialProps(entity);
+              updateMaterialProps(entity);
             }
           }
           // 2. Update position, rotation, scale on primary pivot ONLY if user/AI explicitly modified coordinates
@@ -1679,8 +1702,140 @@ export class SontinhSceneService implements OnDestroy {
             }
           }
         }
+
+        // 🔹 Render & Realtime Sync 3D Sub-Devices / Buttons attached to props
+        const activeSubEntIds = new Set<string>();
+        const matSubButton = createMat(new pc.Color(0.02, 0.85, 0.75), new pc.Color(0.2, 0.9, 0.8));
+
+        for (const prop of props) {
+          if (!prop || !prop.id) continue;
+          if (prop.visible !== false && Array.isArray(prop.subDevices) && prop.subDevices.length > 0) {
+            for (let i = 0; i < prop.subDevices.length; i++) {
+              const sub = prop.subDevices[i];
+              if (sub.enabled === false) continue;
+
+              const subEntName = `sub_btn_${prop.id}_${sub.id || i}`;
+              activeSubEntIds.add(subEntName);
+
+              const shapeType = (sub.shape === 'sphere' || (sub.customScript && sub.customScript.toLowerCase().includes('tròn'))) ? 'sphere' : 'box';
+
+              let subEnt = app.root.findByName(subEntName) as pc.Entity;
+              if (!subEnt) {
+                subEnt = new pc.Entity(subEntName);
+                subEnt.addComponent('render', { type: shapeType, material: matSubButton });
+                if (shapeType === 'sphere') {
+                  subEnt.setLocalScale(0.4, 0.4, 0.4);
+                } else {
+                  subEnt.setLocalScale(0.4, 0.2, 0.7);
+                }
+
+                const isWindow = prop.id.includes('window') || (prop.name && prop.name.toLowerCase().includes('cửa sổ'));
+                if (isWindow) {
+                  subEnt.setPosition(ROOM_WIDTH_X / 2 - 0.35, 16.0 - WINDOW_21_9_HEIGHT / 2 - 0.45, (i - (prop.subDevices.length - 1) / 2) * 1.3);
+                } else if (prop.position && typeof prop.position.x === 'number') {
+                  subEnt.setPosition(prop.position.x, prop.position.y + 0.6, prop.position.z + i * 0.8);
+                } else {
+                  subEnt.setPosition(0, 1.0 + i * 0.5, 0);
+                }
+                subEnt.tags.add('sub_device_button');
+                (subEnt as any)._subDeviceData = sub;
+                (subEnt as any)._parentProp = prop;
+                app.root.addChild(subEnt);
+              }
+              (subEnt as any).enabled = true;
+            }
+          }
+        }
+
+        // Realtime Cleanup: Remove 3D sub-button entities that no longer exist in props/subDevices
+        const existingSubBtns = app.root.findByTag('sub_device_button') as pc.Entity[];
+        for (const btnEnt of existingSubBtns) {
+          if (!activeSubEntIds.has(btnEnt.name)) {
+            btnEnt.enabled = false;
+            btnEnt.destroy();
+          }
+        }
       }
     };
+
+    let isTvOverlayOpen = false;
+    function toggleWindowTvIframe(show?: boolean, url?: string) {
+      const targetState = show !== undefined ? show : !isTvOverlayOpen;
+      isTvOverlayOpen = targetState;
+
+      let existingOverlay = document.getElementById('sontinh-window-tv-overlay') as HTMLDivElement;
+      if (!targetState) {
+        if (existingOverlay) {
+          existingOverlay.style.display = 'none';
+        }
+        return;
+      }
+
+      const targetUrl = url || 'https://type.vn';
+      if (!existingOverlay) {
+        existingOverlay = document.createElement('div');
+        existingOverlay.id = 'sontinh-window-tv-overlay';
+        existingOverlay.className = 'absolute inset-x-4 top-16 bottom-16 z-[9999] bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-500/40 shadow-2xl flex flex-col overflow-hidden animate-fadeIn';
+        existingOverlay.innerHTML = `
+          <div class="h-10 bg-slate-950/80 px-4 flex items-center justify-between border-b border-slate-800 text-xs font-semibold text-slate-200">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+              <span class="ml-2 text-teal-400 font-mono">📺 MÀN HÌNH TV CỬA SỔ 21:9 (${targetUrl})</span>
+            </div>
+            <button id="close-tv-overlay-btn" class="px-2.5 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded transition-colors text-xs font-medium cursor-pointer">
+              ✕ Tắt TV (Quay lại Cửa Sổ)
+            </button>
+          </div>
+          <iframe src="${targetUrl}" class="w-full h-full border-0 bg-white" allow="autoplay; fullscreen"></iframe>
+        `;
+        const container = canvas.parentElement || document.body;
+        if (getComputedStyle(container).position === 'static') {
+          container.style.position = 'relative';
+        }
+        container.appendChild(existingOverlay);
+
+        const closeBtn = existingOverlay.querySelector('#close-tv-overlay-btn');
+        if (closeBtn) {
+          closeBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            toggleWindowTvIframe(false);
+          });
+        }
+      } else {
+        const iframe = existingOverlay.querySelector('iframe');
+        if (iframe && targetUrl) iframe.src = targetUrl;
+        existingOverlay.style.display = 'flex';
+      }
+    }
+
+    self.toggleWindowTvIframe = toggleWindowTvIframe;
+    this._toggleWindowTvIframe = toggleWindowTvIframe;
+
+    function tryClickSubDevice(screenX: number, screenY: number): boolean {
+      if (!camera.camera) return false;
+      const rayFrom = new pc.Vec3();
+      const rayTo = new pc.Vec3();
+      camera.camera.screenToWorld(screenX, screenY, camera.camera.nearClip, rayFrom);
+      camera.camera.screenToWorld(screenX, screenY, camera.camera.farClip, rayTo);
+      const rayDir = rayTo.clone().sub(rayFrom).normalize();
+      const ray = new pc.Ray(rayFrom, rayDir);
+
+      const subButtons = app.root.findByTag('sub_device_button') as pc.Entity[];
+      for (const btn of subButtons) {
+        if (!btn.enabled || !btn.render || btn.render.meshInstances.length === 0) continue;
+        const aabb = btn.render.meshInstances[0].aabb;
+        const hitPoint = new pc.Vec3();
+        if (aabb.intersectsRay(ray, hitPoint)) {
+          const subData = (btn as any)._subDeviceData;
+          console.log('[SontinhScene] Clicked 3D Sub-Button:', subData?.name);
+          toggleWindowTvIframe();
+          return true;
+        }
+      }
+      return false;
+    }
     
     function tryClickLightSwitch(screenX: number, screenY: number) {
       if (!camera.camera) return false;
