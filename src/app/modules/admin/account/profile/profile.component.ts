@@ -453,8 +453,38 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   openSubDeviceInspector(prop: any, sub: any, event?: MouseEvent): void {
     if (event) event.stopPropagation();
+    if (!sub.position) sub.position = { x: 0, y: 0, z: 0 };
+    if (!sub.rotation) sub.rotation = { x: 0, y: 0, z: 0 };
+    if (!sub.scale) sub.scale = { x: 0.4, y: 0.4, z: 0.4 };
+    if (!sub.color) sub.color = '#05dac6';
+    if (sub.opacity === undefined) sub.opacity = 1;
+    if (!sub.emissiveColor) sub.emissiveColor = '#00ffff';
+    if (sub.emissiveIntensity === undefined) sub.emissiveIntensity = 0.8;
+    if (sub.metalness === undefined) sub.metalness = 0.1;
+    if (sub.roughness === undefined) sub.roughness = 0.3;
+    if (sub.castShadow === undefined) sub.castShadow = true;
+    if (sub.visible === undefined) sub.visible = sub.enabled !== false;
+    if (!sub.events) sub.events = [];
+
     this.inspectingSubDevice = { prop, sub };
     this.cdr.markForCheck();
+  }
+
+  addSubDeviceEvent(sub: any): void {
+    if (!sub.events) sub.events = [];
+    sub.events.push({
+      id: 'sub_evt_' + Date.now(),
+      name: 'Sự kiện thành phần con mới',
+      customScript: ''
+    });
+    this.cdr.markForCheck();
+  }
+
+  removeSubDeviceEvent(sub: any, index: number): void {
+    if (sub.events && sub.events[index]) {
+      sub.events.splice(index, 1);
+      this.cdr.markForCheck();
+    }
   }
 
   closeSubDeviceInspector(): void {
