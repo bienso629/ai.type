@@ -1723,12 +1723,17 @@ export class SontinhSceneService implements OnDestroy {
               if (!subEnt) {
                 subEnt = new pc.Entity(subEntName);
                 subEnt.addComponent('render', { type: shapeType, material: matSubButton });
-                if (shapeType === 'sphere') {
-                  subEnt.setLocalScale(0.4, 0.4, 0.4);
-                } else {
-                  subEnt.setLocalScale(0.4, 0.2, 0.7);
-                }
+                subEnt.tags.add('sub_device_button');
+                app.root.addChild(subEnt);
+              }
+              (subEnt as any).enabled = sub.visible !== false;
+              (subEnt as any)._subDeviceData = sub;
+              (subEnt as any)._parentProp = prop;
 
+              // 1. Tọa độ 3D Position
+              if (sub.position && (sub.position.x !== 0 || sub.position.y !== 0 || sub.position.z !== 0)) {
+                subEnt.setPosition(sub.position.x, sub.position.y, sub.position.z);
+              } else {
                 const isWindow = prop.id.includes('window') || (prop.name && prop.name.toLowerCase().includes('cửa sổ'));
                 if (isWindow) {
                   subEnt.setPosition(ROOM_WIDTH_X / 2 - 0.35, 16.0 - WINDOW_21_9_HEIGHT / 2 - 0.45, (i - (prop.subDevices.length - 1) / 2) * 1.3);
@@ -1737,12 +1742,48 @@ export class SontinhSceneService implements OnDestroy {
                 } else {
                   subEnt.setPosition(0, 1.0 + i * 0.5, 0);
                 }
-                subEnt.tags.add('sub_device_button');
-                (subEnt as any)._subDeviceData = sub;
-                (subEnt as any)._parentProp = prop;
-                app.root.addChild(subEnt);
               }
-              (subEnt as any).enabled = true;
+
+              // 2. Góc xoay 3D Rotation
+              if (sub.rotation) {
+                subEnt.setEulerAngles(sub.rotation.x || 0, sub.rotation.y || 0, sub.rotation.z || 0);
+              }
+
+              // 3. Co giãn 3D Scale
+              if (sub.scale) {
+                subEnt.setLocalScale(sub.scale.x || 0.4, sub.scale.y || 0.4, sub.scale.z || 0.4);
+              } else if (shapeType === 'sphere') {
+                subEnt.setLocalScale(0.4, 0.4, 0.4);
+              } else {
+                subEnt.setLocalScale(0.4, 0.2, 0.7);
+              }
+
+              // 4. Chất liệu PBR, Màu sắc, Phát sáng & Đổ bóng Realtime
+              if (subEnt.render) {
+                subEnt.render.castShadows = sub.castShadow !== false;
+                const mat = subEnt.render.material as pc.StandardMaterial;
+                if (mat) {
+                  if (sub.color) mat.diffuse = new pc.Color().fromString(sub.color);
+                  if (sub.opacity !== undefined) {
+                    mat.opacity = sub.opacity;
+                    mat.blendType = sub.opacity < 1.0 ? pc.BLEND_NORMAL : pc.BLEND_NONE;
+                  }
+                  if (sub.emissiveColor) {
+                    const c = new pc.Color().fromString(sub.emissiveColor);
+                    const intensity = sub.emissiveIntensity !== undefined ? sub.emissiveIntensity : 0.8;
+                    mat.emissive = new pc.Color(c.r * intensity, c.g * intensity, c.b * intensity);
+                  }
+                  if (sub.metalness !== undefined) {
+                    mat.useMetalness = true;
+                    mat.metalness = sub.metalness;
+                  }
+                  if (sub.roughness !== undefined) {
+                    mat.useMetalness = true;
+                    mat.gloss = Math.max(0, Math.min(1, 1.0 - sub.roughness));
+                  }
+                  mat.update();
+                }
+              }
             }
           }
         }
