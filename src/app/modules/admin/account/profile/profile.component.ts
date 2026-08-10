@@ -96,6 +96,45 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   uploadError: string | null = null;
   profile: UserProfile | null = null;
   roomProps: any[] = DEFAULT_PROPS;
+  propSearchQuery = '';
+
+  get filteredRoomProps(): any[] {
+    let queryStr = '';
+    if (typeof this.propSearchQuery === 'string') {
+      queryStr = this.propSearchQuery;
+    } else if (this.propSearchQuery && typeof this.propSearchQuery === 'object' && (this.propSearchQuery as any).name) {
+      queryStr = (this.propSearchQuery as any).name;
+    }
+
+    if (!queryStr || !queryStr.trim()) {
+      return this.roomProps || [];
+    }
+    const q = queryStr.toLowerCase().trim();
+    return (this.roomProps || []).filter(p => p && p.name && p.name.toLowerCase().includes(q));
+  }
+
+  onSearchChange(): void {
+    this.cdr.markForCheck();
+  }
+
+  clearSearch(): void {
+    this.propSearchQuery = '';
+    this.cdr.markForCheck();
+  }
+
+  onPropSelectFromAuto(event: any): void {
+    const selectedProp = event.option?.value;
+    if (selectedProp) {
+      this.onPropClick(selectedProp);
+    }
+  }
+
+  displayPropName(prop: any): string {
+    if (!prop) return '';
+    if (typeof prop === 'string') return prop;
+    return prop.name || '';
+  }
+
   username = 'admin';
   promptText = '';
   charThumbnail: string | null = null;
@@ -353,8 +392,63 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (!cloned.clickAction) cloned.clickAction = 'focus';
     if (!cloned.floorLevel) cloned.floorLevel = 3;
     if (!cloned.description) cloned.description = '';
+    if (!cloned.events) cloned.events = [];
     this.inspectingProp = cloned;
     this.cdr.markForCheck();
+  }
+
+  addPropEvent(): void {
+    if (!this.inspectingProp) return;
+    if (!this.inspectingProp.events) {
+      this.inspectingProp.events = [];
+    }
+    const defaultType = this.inspectingProp.clickAction || 'focus';
+    const eventNames: Record<string, string> = {
+      focus: 'Định vị Camera 3D',
+      toggleLight: 'Bật/Tắt Đèn LED',
+      toggleDoor: 'Mở/Đóng Cửa',
+      toggleWindow: 'Mở/Đóng Cửa sổ',
+      playSound: 'Phát Âm thanh Tương tác'
+    };
+    const newEvt = {
+      id: 'evt_' + Date.now(),
+      name: eventNames[defaultType] || 'Sự kiện 3D mới',
+      type: defaultType,
+      createdAt: new Date().toISOString()
+    };
+    this.inspectingProp.events.push(newEvt);
+    this.cdr.markForCheck();
+    this.toastr.success(`Đã thêm sự kiện "${newEvt.name}"`, 'Sự kiện 3D');
+  }
+
+  removePropEvent(index: number): void {
+    if (!this.inspectingProp || !this.inspectingProp.events) return;
+    const removed = this.inspectingProp.events.splice(index, 1);
+    this.cdr.markForCheck();
+    if (removed.length > 0) {
+      this.toastr.info(`Đã xoá sự kiện "${removed[0].name}"`, 'Sự kiện 3D');
+    }
+  }
+
+  runSpecificPropEvent(evt: any): void {
+    if (!evt) return;
+    if (evt.type === 'focus') {
+      this.onPropClick(this.inspectingProp);
+    } else {
+      this.executePropEvent(this.inspectingProp);
+    }
+    this.toastr.info(`Đã thực thi sự kiện: ${evt.name}`, 'Chạy kịch bản 3D');
+  }
+
+  getEventTypeName(type: string): string {
+    const types: Record<string, string> = {
+      focus: 'Focus Camera 3D',
+      toggleLight: 'Bật/Tắt Đèn LED',
+      toggleDoor: 'Mở/Đóng Cửa',
+      toggleWindow: 'Mở/Đóng Cửa sổ',
+      playSound: 'Phát Âm thanh Tương tác'
+    };
+    return types[type] || type || 'Sự kiện 3D';
   }
 
   onPropVisibilityToggle(visible: boolean): void {
