@@ -363,6 +363,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         try {
           await this.profileDataService.saveProps(this.roomProps).toPromise();
           this.sceneService.applyProfile(this.profile);
+          this.sceneService.syncProps(this.roomProps);
+          this.onSearchChange();
           this.toastr.success(`Đã xóa đồ vật "${propName}" thành công!`, 'Xóa đồ vật 3D');
           this.cdr.markForCheck();
         } catch (err) {
@@ -393,8 +395,282 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (!cloned.floorLevel) cloned.floorLevel = 3;
     if (!cloned.description) cloned.description = '';
     if (!cloned.events) cloned.events = [];
+    if (!cloned.subDevices) cloned.subDevices = [];
     this.inspectingProp = cloned;
     this.cdr.markForCheck();
+  }
+
+  // ==========================================
+  // QUẢN LÝ SUB-DEVICES (THÀNH PHẦN CON) TOÀN CỤC
+  // ==========================================
+  subDeviceSearchQuery = '';
+  isSubDevicesModalOpen = false;
+
+  getAllSubDevices(): { sub: any; prop: any; index: number }[] {
+    const list: { sub: any; prop: any; index: number }[] = [];
+    if (!this.roomProps) return list;
+    for (const prop of this.roomProps) {
+      if (Array.isArray(prop.subDevices)) {
+        prop.subDevices.forEach((sub: any, index: number) => {
+          list.push({ sub, prop, index });
+        });
+      }
+    }
+    return list;
+  }
+
+  // ==========================================
+  // TREE VIEW SCENE NODE SYSTEM
+  // ==========================================
+  expandedPropIds: Set<string> = new Set<string>();
+
+  togglePropTree(propId: string, event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    if (this.expandedPropIds.has(propId)) {
+      this.expandedPropIds.delete(propId);
+    } else {
+      this.expandedPropIds.add(propId);
+    }
+    this.cdr.markForCheck();
+  }
+
+  isPropExpanded(propId: string): boolean {
+    if (!this.expandedPropIds.has(propId)) {
+      const prop = this.roomProps?.find(p => p.id === propId);
+      if (prop && Array.isArray(prop.subDevices) && prop.subDevices.length > 0) {
+        this.expandedPropIds.add(propId);
+        return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // ==========================================
+  // SUB-DEVICE INSPECTOR (THUỘC TÍNH & PHƯƠNG THỨC)
+  // ==========================================
+  inspectingSubDevice: { sub: any; prop: any } | null = null;
+
+  openSubDeviceInspector(prop: any, sub: any, event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.inspectingSubDevice = { prop, sub };
+    this.cdr.markForCheck();
+  }
+
+  closeSubDeviceInspector(): void {
+    this.inspectingSubDevice = null;
+    this.cdr.markForCheck();
+  }
+
+  async saveSubDeviceInspector(): Promise<void> {
+    if (!this.inspectingSubDevice) return;
+    const { prop, sub } = this.inspectingSubDevice;
+
+    const idx = this.roomProps.findIndex(p => p.id === prop.id);
+    if (idx >= 0) {
+      this.roomProps[idx] = JSON.parse(JSON.stringify(prop));
+    }
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    await this.profileDataService.saveProps(this.roomProps).toPromise();
+    this.sceneService.syncProps(this.roomProps);
+
+    this.inspectingSubDevice = null;
+    this.cdr.markForCheck();
+    this.toastr.success(`Đã lưu Thuộc tính & Phương thức cho "${sub.name}"!`, 'Thành Phần Con');
+  }
+
+  get activeSubDevicesCount(): number {
+    return this.getAllSubDevices().filter(i => i.sub && i.sub.enabled !== false).length;
+  }
+
+  get propsWithSubDevicesCount(): number {
+    return this.roomProps ? this.roomProps.filter(p => Array.isArray(p.subDevices) && p.subDevices.length > 0).length : 0;
+  }
+
+  get filteredAllSubDevices(): { sub: any; prop: any; index: number }[] {
+    const all = this.getAllSubDevices();
+    if (!this.subDeviceSearchQuery || !this.subDeviceSearchQuery.trim()) {
+      return all;
+    }
+    const q = this.subDeviceSearchQuery.toLowerCase().trim();
+    return all.filter(item =>
+      (item.sub.name && item.sub.name.toLowerCase().includes(q)) ||
+      (item.sub.customScript && item.sub.customScript.toLowerCase().includes(q)) ||
+      (item.prop.name && item.prop.name.toLowerCase().includes(q))
+    );
+  }
+
+  openAllSubDevicesModal(): void {
+    this.isSubDevicesModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeAllSubDevicesModal(): void {
+    this.isSubDevicesModalOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  removeSubDeviceFromGlobal(prop: any, subIndex: number): void {
+    if (!prop || !Array.isArray(prop.subDevices)) return;
+    const removed = prop.subDevices.splice(subIndex, 1);
+
+    const idx = this.roomProps.findIndex(p => p.id === prop.id);
+    if (idx >= 0) {
+      this.roomProps[idx] = JSON.parse(JSON.stringify(prop));
+    }
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    this.profileDataService.saveProps(this.roomProps).subscribe();
+    this.sceneService.syncProps(this.roomProps);
+
+    this.cdr.markForCheck();
+    if (removed.length > 0) {
+      this.toastr.info(`Đã xoá thành phần "${removed[0].name}"`, 'Thành Phần Con');
+    }
+  }
+
+  toggleSubDeviceStateFromGlobal(prop: any, sub: any): void {
+    if (!sub || !prop) return;
+    sub.enabled = !sub.enabled;
+
+    const idx = this.roomProps.findIndex(p => p.id === prop.id);
+    if (idx >= 0) {
+      this.roomProps[idx] = JSON.parse(JSON.stringify(prop));
+    }
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    this.profileDataService.saveProps(this.roomProps).subscribe();
+    this.sceneService.syncProps(this.roomProps);
+
+    this.cdr.markForCheck();
+    const status = sub.enabled ? 'Bật' : 'Tắt';
+    this.toastr.info(`Đã ${status} "${sub.name}"`, 'Điều khiển Thành phần');
+  }
+
+  addSubDevice(type: string = 'button', defaultName?: string): void {
+    if (!this.inspectingProp) return;
+    if (!this.inspectingProp.subDevices) {
+      this.inspectingProp.subDevices = [];
+    }
+    const typeNames: Record<string, string> = {
+      button: 'Nút bấm gắn thêm',
+      light: 'Đèn LED trang trí',
+      curtain: 'Rèm cửa tự động',
+      sensor: 'Cảm biến an ninh',
+      tv: 'Màn hình TV chạm',
+      custom: 'Thành phần / Đồ vật con'
+    };
+    const name = defaultName || typeNames[type] || 'Đồ vật con';
+    const count = this.inspectingProp.subDevices.length + 1;
+    const sub = {
+      id: 'sub_' + Date.now(),
+      name: `${name} #${count}`,
+      type: type || 'button',
+      enabled: true,
+      color: '#ffaa00',
+      intensity: 5,
+      openPercentage: 100,
+      customScript: '',
+      createdAt: new Date().toISOString()
+    };
+    this.inspectingProp.subDevices.push(sub);
+    this.cdr.markForCheck();
+    this.toastr.success(`Đã thêm đồ vật con "${sub.name}"!`, 'Thêm Đồ Vật Con');
+  }
+
+  removeSubDevice(index: number): void {
+    if (!this.inspectingProp || !this.inspectingProp.subDevices) return;
+    const removed = this.inspectingProp.subDevices.splice(index, 1);
+    
+    // Realtime Sync to roomProps, Profile data, and 3D Canvas
+    const idx = this.roomProps.findIndex(p => p.id === this.inspectingProp.id);
+    if (idx >= 0) {
+      this.roomProps[idx] = JSON.parse(JSON.stringify(this.inspectingProp));
+    }
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    this.profileDataService.saveProps(this.roomProps).subscribe();
+    this.sceneService.syncProps(this.roomProps);
+
+    this.cdr.markForCheck();
+    if (removed.length > 0) {
+      this.toastr.info(`Đã xoá thành phần "${removed[0].name}"`, 'Thành Phần Con');
+    }
+  }
+
+  toggleSubDeviceState(sub: any, parentProp?: any): void {
+    if (!sub) return;
+    sub.enabled = !sub.enabled;
+
+    // Realtime Sync to roomProps, Profile data, and 3D Canvas
+    if (this.inspectingProp) {
+      const idx = this.roomProps.findIndex(p => p.id === this.inspectingProp.id);
+      if (idx >= 0) {
+        this.roomProps[idx] = JSON.parse(JSON.stringify(this.inspectingProp));
+      }
+    }
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    this.profileDataService.saveProps(this.roomProps).subscribe();
+    this.sceneService.syncProps(this.roomProps);
+
+    this.cdr.markForCheck();
+    const status = sub.enabled ? 'Bật' : 'Tắt';
+    this.toastr.info(`Đã ${status} "${sub.name}"`, 'Điều khiển Thành phần');
+  }
+
+  async executeSubDevicePrompt(sub: any, parentProp?: any): Promise<void> {
+    if (!sub) return;
+    const text = (sub.customScript || sub.name || '').trim();
+    if (!text) return;
+
+    this.toastr.info(`Đang tạo/cập nhật 3D cho "${sub.name}"...`, 'AI Agent 3D');
+
+    const lower = text.toLowerCase();
+    if (lower.includes('tròn') || lower.includes('hình tròn') || lower.includes('circle') || lower.includes('sphere')) {
+      sub.shape = 'sphere';
+    } else if (lower.includes('vuông') || lower.includes('box')) {
+      sub.shape = 'box';
+    }
+
+    if (lower.includes('tivi') || lower.includes('tv') || lower.includes('màn hình cảm ứng') || lower.includes('iframe')) {
+      sub.type = 'tv';
+      this.sceneService.toggleWindowTvIframe(true, 'https://type.vn');
+    }
+
+    // Realtime Sync to roomProps, Profile data, and 3D Canvas
+    if (this.inspectingProp) {
+      const idx = this.roomProps.findIndex(p => p.id === this.inspectingProp.id);
+      if (idx >= 0) {
+        this.roomProps[idx] = JSON.parse(JSON.stringify(this.inspectingProp));
+      }
+    }
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    await this.profileDataService.saveProps(this.roomProps).toPromise();
+    this.sceneService.syncProps(this.roomProps);
+
+    this.cdr.markForCheck();
+    this.toastr.success(`Đã tạo/cập nhật 3D thành công cho "${sub.name}"!`, 'Tạo Thành Phần Con');
+  }
+
+  getSubDeviceIcon(type: string): string {
+    switch (type) {
+      case 'light': return 'lightbulb';
+      case 'curtain': return 'curtains';
+      case 'sensor': return 'sensors';
+      case 'button': return 'smart_button';
+      case 'tv': return 'tv';
+      case 'speaker': return 'volume_up';
+      default: return 'widgets';
+    }
   }
 
   addPropEvent(): void {
@@ -402,23 +678,17 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (!this.inspectingProp.events) {
       this.inspectingProp.events = [];
     }
-    const defaultType = this.inspectingProp.clickAction || 'focus';
-    const eventNames: Record<string, string> = {
-      focus: 'Định vị Camera 3D',
-      toggleLight: 'Bật/Tắt Đèn LED',
-      toggleDoor: 'Mở/Đóng Cửa',
-      toggleWindow: 'Mở/Đóng Cửa sổ',
-      playSound: 'Phát Âm thanh Tương tác'
-    };
+    const count = (this.inspectingProp.events.length || 0) + 1;
     const newEvt = {
-      id: 'evt_' + Date.now(),
-      name: eventNames[defaultType] || 'Sự kiện 3D mới',
-      type: defaultType,
+      id: 'btn_' + Date.now(),
+      name: `Sự kiện #${count}`,
+      type: 'custom',
+      customScript: '',
       createdAt: new Date().toISOString()
     };
     this.inspectingProp.events.push(newEvt);
     this.cdr.markForCheck();
-    this.toastr.success(`Đã thêm sự kiện "${newEvt.name}"`, 'Sự kiện 3D');
+    this.toastr.success(`Đã thêm sự kiện mới "${newEvt.name}"!`, 'Thêm Sự Kiện Động');
   }
 
   removePropEvent(index: number): void {
@@ -426,18 +696,22 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     const removed = this.inspectingProp.events.splice(index, 1);
     this.cdr.markForCheck();
     if (removed.length > 0) {
-      this.toastr.info(`Đã xoá sự kiện "${removed[0].name}"`, 'Sự kiện 3D');
+      this.toastr.info(`Đã xoá sự kiện "${removed[0].name}"`, 'Quản lý Sự Kiện');
     }
   }
 
-  runSpecificPropEvent(evt: any): void {
+  runSpecificPropEvent(evt: any, parentProp?: any): void {
     if (!evt) return;
+    const targetProp = parentProp || this.inspectingProp;
     if (evt.type === 'focus') {
-      this.onPropClick(this.inspectingProp);
+      this.onPropClick(targetProp);
+    } else if (evt.type === 'custom' || evt.customScript) {
+      const scriptText = evt.customScript || evt.name || 'Thực thi hành động 3D';
+      this.processAiPrompt(scriptText, [], [targetProp]);
+      this.toastr.info(`Đã kích hoạt kịch bản: "${scriptText}"`, 'Kịch bản 3D Tuỳ chỉnh');
     } else {
-      this.executePropEvent(this.inspectingProp);
+      this.executePropEvent(targetProp);
     }
-    this.toastr.info(`Đã thực thi sự kiện: ${evt.name}`, 'Chạy kịch bản 3D');
   }
 
   getEventTypeName(type: string): string {
@@ -446,6 +720,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       toggleLight: 'Bật/Tắt Đèn LED',
       toggleDoor: 'Mở/Đóng Cửa',
       toggleWindow: 'Mở/Đóng Cửa sổ',
+      custom: 'Kịch bản Lệnh tự do (Custom Script)',
       playSound: 'Phát Âm thanh Tương tác'
     };
     return types[type] || type || 'Sự kiện 3D';
@@ -491,6 +766,17 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   executePropEvent(prop: any): void {
+    if (!prop) return;
+    if (prop.clickAction === 'toggleTouchTV') {
+      this.setCameraPreset('desk');
+      this.toastr.success('📺 Đã chuyển sang Chế độ Tivi màn hình chạm!', 'Tivi Màn Hình Chạm');
+      return;
+    }
+    if (prop.clickAction === 'custom' && prop.customScript) {
+      this.processAiPrompt(prop.customScript, [], [prop]);
+      this.toastr.info(`Đã kích hoạt kịch bản mặc định: "${prop.customScript}"`, 'Kịch bản 3D Tuỳ chỉnh');
+      return;
+    }
     const triggerName = this.getPropTriggerName(prop.id);
     const executed = this.sceneService.executeEvent(triggerName);
     if (executed) {
@@ -853,92 +1139,65 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
 
     try {
-    this.toastr.info('Đang chỉnh sửa 3D...', 'AI Assistant', { timeOut: 1500 });
-    this.cdr.markForCheck();
+      this.toastr.info('Đang chỉnh sửa 3D...', 'AI Assistant', { timeOut: 1500 });
+      this.cdr.markForCheck();
 
-    const lower = text.toLowerCase();
-    let updated = false;
-    let message = 'Đã áp dụng chỉnh sửa AI trực tiếp lên 3D Canvas!';
+      const lower = text.toLowerCase();
+      let updated = false;
+      let message = 'Đã áp dụng chỉnh sửa AI trực tiếp lên 3D Canvas!';
 
-    // Tạo bản sao profile hiện tại
-    const currentProfile: UserProfile = JSON.parse(JSON.stringify(this.profile || {
-      username: this.username,
-      character: { name: this.username, skin: 'default', glbPath: null, scale: 1.0, facingAngle: 0, animationState: 'Walk' },
-      scene: { cameraPreset: 'default', lightsOn: true },
-      customizations: {},
-      createdAt: null,
-      updatedAt: null
-    }));
+      // Tạo bản sao profile hiện tại
+      const currentProfile: UserProfile = JSON.parse(JSON.stringify(this.profile || {
+        username: this.username,
+        character: { name: this.username, skin: 'default', glbPath: null, scale: 1.0, facingAngle: 0, animationState: 'Walk' },
+        scene: { cameraPreset: 'default', lightsOn: true },
+        customizations: {},
+        createdAt: null,
+        updatedAt: null
+      }));
 
-    if (!currentProfile.character) {
-      currentProfile.character = { name: this.username, skin: 'default', glbPath: null, scale: 1.0, facingAngle: 0, animationState: 'Walk' };
-    }
-    if (!currentProfile.scene) {
-      currentProfile.scene = { cameraPreset: 'default', lightsOn: true };
-    }
+      if (!currentProfile.character) {
+        currentProfile.character = { name: this.username, skin: 'default', glbPath: null, scale: 1.0, facingAngle: 0, animationState: 'Walk' };
+      }
+      if (!currentProfile.scene) {
+        currentProfile.scene = { cameraPreset: 'default', lightsOn: true };
+      }
 
-    // 🤖 GỌI AI THÔNG QUA GENAI SERVICE (TUÂN THỦ QUY TẮC BẮT BUỘC TRONG thu_tu_su_dung_ai_agent_2026.md)
-    // Tầng 1: Sơn Tinh Agent (https://sontinh.type.vn)
-    // Tầng 2: Mì Tôm AI (Backend ChatGPT)
-    // Tầng 3: Gemini API Key Miễn Phí
-    try {
-      const animListStr = this.userAnimations.map(a => a.name).join(', ');
-      const domainSystemPrompt = `Bạn là **Sơn Tinh AI 3D Scene Director**, Chuyên gia AI Agent am hiểu toàn bộ LOGIC NGHIỆP VỤ & CÁCH ĐIỀU CHỈNH 3D CĂN PHÒNG / NHÂN VẬT trong màn hình Profile (/app/modules/admin/account/profile) thuộc hệ thống AI Type.
+      try {
+        const animListStr = this.userAnimations.map(a => a.name).join(', ');
+        const domainSystemPrompt = `Bạn là **Sơn Tinh AI 3D Scene Director**, Chuyên gia AI Agent am hiểu toàn bộ LOGIC NGHIỆP VỤ & CÁCH ĐIỀU CHỈNH 3D CĂN PHÒNG / NHÂN VẬT.
 
-### 📁 THƯ MỤC DỮ LIỆU PROFILE CHUẨN ĐA NỀN TẢNG (Windows, Linux, macOS):
-- AI Agent luôn tương tác và nạp/ghi trực tiếp vào thư mục dữ liệu profile người dùng:
-  \`Documents/ai.type/data/profiles/${this.username}/\`
-  + Windows OS: \`C:\\Users\\${this.username}\\Documents\\ai.type\\data\\profiles\\${this.username}\\\`
-  + Linux / macOS OS: \`~/Documents/ai.type/data/profiles/${this.username}/\`
-- Các tệp tin dữ liệu 3D bao gồm: \`profile.json\`, \`character.json\`, \`room.json\`, \`animations.json\`, \`events.json\`, \`props.json\`.
+### 📁 DỮ LIỆU PROFILE
+- Thư mục: Documents/ai.type/data/profiles/${this.username}/
 
-### 🏠 KIẾN THỨC NGHIỆP VỤ CĂN PHÒNG 306 & ĐIỀU KHIỂN NHÂN VẬT 3D (PROFILE 3D DOMAIN LOGIC MANUAL):
+### 🏠 KIẾN THỨC NGHIỆP VỤ 306
+1. **HỆ THỐNG ĐÈN**: lightsOn = true/false (Bật/tắt đèn phòng).
+2. **ĐIỀU KHIỂN NHÂN VẬT**: position, facingAngle, scale (0.4 - 2.5), animationName. Động tác khả dụng: [${animListStr}].
+3. **CAMERA**: "default", "desk", "character", "overhead".
+4. **ĐỒ VẬT TƯƠNG TÁC**: Bàn, Ghế, Bàn phím, Bể cá, Tủ, Khung ảnh, Cửa.
+5. **TẠO / THÊM ĐỒ VẬT MỚI & ĐỒ VẬT CON VIA AI**:
+   - Thêm đồ vật chính mới ('newProp'): { "name": string, "category": string, "color": string, "position": {x,y,z} }
+   - Gắn thêm đồ vật con / nút bấm lên đồ vật hiện có ('attachSubDeviceToProp'):
+     { "targetPropName": string, "subDevice": { "name": string, "type": "button" | "light" | "curtain" | "sensor" | "tv" | "custom", "customScript"?: string } }
 
-1. **HỆ THỐNG ĐÈN & ÁNH SÁNG PHÒNG (Room Lighting Operations)**:
-   - \`lightsOn\` = true: Bật sáng hệ thống đèn trần & đèn bàn trong Căn phòng 306 (chế độ ban ngày / bật đèn làm việc).
-   - \`lightsOn\` = false: Tắt đèn phòng 3D (chế độ ban đêm, ánh sáng mờ dịu).
-   - Công tắc đèn 3D (\`tryClickLightSwitch\`): Bật/tắt công tắc bên cạnh cửa ra vào.
-
-2. **ĐIỀU KHIỂN VỊ TRÍ & BIẾN ĐỔI NHÂN VẬT (Character Spatial Movement & Transform)**:
-   - Di chuyển vị trí bằng bàn phím phím WASD / Phím mũi tên (Arrow keys):
-     + W / Up Arrow: Tiến lên phía trước (-Z).
-     + S / Down Arrow: Lùi lại (+Z).
-     + A / Left Arrow: Xoay nhân vật sang trái.
-     + D / Right Arrow: Xoay nhân vật sang phải.
-   - \`position\`: Tọa độ 3D trong Căn phòng 306 dạng \`{ x: number, y: number, z: number }\`.
-   - \`facingAngle\`: Góc xoay hướng mặt nhân vật từ 0° đến 360° (0° = nhìn thẳng, 90° = quay phải, 180° = quay lưng, 270° = quay trái).
-   - \`scale\`: Kích thước phóng to / thu nhỏ nhân vật từ 0.4 đến 2.5 (Mặc định là 1.0).
-
-3. **CỬ ĐỘNG & HÀNH ĐỘNG NHÂN VẬT (Character Animation Operations)**:
-   - Động tác mặc định: "Walk" (Đi bộ), "Idle" (Đứng yên), "Dance" (Nhảy/Múa), "Run" (Chạy), "Wave" (Vẫy tay), "Kick" (Cú đá).
-   - Động tác custom GLB người dùng đã tải lên: [${animListStr}]
-   - Khi nhận lệnh như "múa", "đi bộ", "đứng lại", "chạy", hãy gán \`animationName\` tương ứng.
-
-4. **GÓC NHÌN CAMERA 3D (Camera Presets & Angles)**:
-   - \`cameraPreset\`:
-     + "default": Góc nhìn toàn cảnh bao quát Căn phòng 306.
-     + "desk": Góc nhìn cận cảnh Bàn làm việc & Bàn phím cơ.
-     + "character": Góc nhìn cận cảnh khuôn mặt nhân vật.
-     + "overhead": Góc nhìn từ trên cao xuống.
-
-5. **ĐỒ VẬT TƯƠNG TÁC TRONG PHÒNG 3D (Interactive 3D Objects)**:
-   - Bàn làm việc, Ghế xoay, Bàn phím cơ 3 màu, Bể cá cảnh (\`tryClickAquarium\`), Tủ đồ quần áo (\`tryClickDrawer\`), Khung ảnh treo tường (\`tryClickPicture\`), Cửa sổ phòng (\`tryClickWindow\`), Cửa ra vào (\`tryClickDoor\`).
+6. **XOÁ / BỚT ĐỒ VẬT & ĐỒ VẬT CON VIA AI**:
+   - Xoá đồ vật chính ('removePropName'): Tên đồ vật cần xoá.
+   - Xoá đồ vật con / nút bấm ('removeSubDeviceName'): Tên đồ vật con cần xoá.
 
 ---
-### 📊 TRẠNG THÁI CĂN PHÒNG & NHÂN VẬT HIỆN TẠI (LIVE PROFILE STATE):
+### 📊 TRẠNG THÁI CĂN PHÒNG & NHÂN VẬT:
 ${JSON.stringify({
   username: this.username,
   character: currentProfile.character,
-  scene: currentProfile.scene
+  scene: currentProfile.scene,
+  props: this.roomProps.map(p => ({ id: p.id, name: p.name, subDevices: p.subDevices || [] }))
 }, null, 2)}
 
 ---
-### 💬 LỆNH TỰ NHIÊN CỦA NGƯỜI DÙNG: "${text || 'Chỉnh sửa không gian 3D dựa trên ảnh screenshot gửi kèm'}"
+### 💬 LỆNH NGƯỜI DÙNG: "${text}"
 
 ---
 ### 📤 YÊU CẦU ĐẦU RA (JSON ONLY):
-Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG dùng markdown, KHÔNG bọc trong \`\`\`json, KHÔNG có text dư thừa bên ngoài).
-Cấu trúc JSON:
 {
   "lightsOn": boolean | null,
   "animationName": string | null,
@@ -946,97 +1205,162 @@ Cấu trúc JSON:
   "facingAngle": number | null,
   "position": { "x": number, "y": number, "z": number } | null,
   "cameraPreset": "default" | "desk" | "character" | "overhead" | null,
-  "disableTrigger": "clickCharacter" | "clickLightSwitch" | "clickDoor" | "clickAquarium" | "clickDrawer" | "clickPicture" | "clickWindow" | null,
+  "disableTrigger": string | null,
   "enableTrigger": string | null,
-  "explanation": "Lời giải thích nghiệp vụ ngắn gọn bằng tiếng Việt về thay đổi AI vừa thực hiện"
+  "newProp": { "name": string, "category": string, "color": string, "position": { "x": number, "y": number, "z": number }, "subDevices": Array<{ name: string, type: string, enabled: boolean, color?: string }> } | null,
+  "attachSubDeviceToProp": { "targetPropName": string, "subDevice": { "name": string, "type": string, "customScript"?: string } } | null,
+  "removePropName": string | null,
+  "removeSubDeviceName": string | null,
+  "explanation": string
 }`;
 
-      const parts: any[] = [{ text: domainSystemPrompt }];
-      if (images && images.length > 0) {
-        for (const img of images) {
-          parts.push({
-            inlineData: {
-              mimeType: img.mimeType || 'image/png',
-              data: img.base64
-            }
-          });
-        }
-      }
-
-      const aiRes = await this.genaiService.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: [{ role: 'user', parts }]
-      });
-
-      let jsonText = aiRes?.text || '';
-      const firstBrace = jsonText.indexOf('{');
-      const lastBrace = jsonText.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        jsonText = jsonText.substring(firstBrace, lastBrace + 1);
-      }
-
-      if (jsonText.startsWith('{') && jsonText.endsWith('}')) {
-        const parsed = JSON.parse(jsonText);
-        if (parsed) {
-          if (typeof parsed.lightsOn === 'boolean') {
-            currentProfile.scene.lightsOn = parsed.lightsOn;
-            this.sceneService.clickLightSwitch(parsed.lightsOn);
-            updated = true;
-          }
-          if (parsed.animationName) {
-            const targetAnim = parsed.animationName;
-            const foundUser = this.userAnimations.find(a => a.name.toLowerCase() === targetAnim.toLowerCase() || a.name.toLowerCase().includes(targetAnim.toLowerCase()));
-            if (foundUser) {
-              this.setAnimation(foundUser.name, foundUser.glbPath, foundUser.isMovement, foundUser.speed);
-              currentProfile.character.animationState = foundUser.name;
-              updated = true;
-            } else {
-              this.setAnimation(targetAnim);
-              currentProfile.character.animationState = targetAnim;
-              updated = true;
-            }
-          }
-          if (typeof parsed.scale === 'number') {
-            currentProfile.character.scale = Math.max(0.4, Math.min(2.5, +parsed.scale.toFixed(2)));
-            updated = true;
-          }
-          if (typeof parsed.facingAngle === 'number') {
-            currentProfile.character.facingAngle = Math.abs(parsed.facingAngle) % 360;
-            updated = true;
-          }
-          if (parsed.position && typeof parsed.position.x === 'number') {
-            currentProfile.character.position = parsed.position;
-            updated = true;
-          }
-          if (parsed.cameraPreset) {
-            currentProfile.scene.cameraPreset = parsed.cameraPreset;
-            updated = true;
-          }
-          if (parsed.disableTrigger) {
-            if (!Array.isArray((currentProfile as any).disabledEvents)) {
-              (currentProfile as any).disabledEvents = [];
-            }
-            if (!(currentProfile as any).disabledEvents.includes(parsed.disableTrigger)) {
-              (currentProfile as any).disabledEvents.push(parsed.disableTrigger);
-            }
-            this.sceneService.setDisabledTriggers((currentProfile as any).disabledEvents);
-            updated = true;
-          }
-          if (parsed.enableTrigger) {
-            if (Array.isArray((currentProfile as any).disabledEvents)) {
-              (currentProfile as any).disabledEvents = (currentProfile as any).disabledEvents.filter((t: string) => t !== parsed.enableTrigger);
-            }
-            this.sceneService.setDisabledTriggers((currentProfile as any).disabledEvents);
-            updated = true;
-          }
-          if (parsed.explanation) {
-            message = parsed.explanation;
+        const parts: any[] = [{ text: domainSystemPrompt }];
+        if (images && images.length > 0) {
+          for (const img of images) {
+            parts.push({
+              inlineData: {
+                mimeType: img.mimeType || 'image/png',
+                data: img.base64
+              }
+            });
           }
         }
+
+        const aiRes: any = await this.genaiService.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: parts
+        });
+
+        if (aiRes && aiRes.text) {
+          let cleanJson = aiRes.text.trim();
+          if (cleanJson.startsWith('```json')) cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+          if (cleanJson.startsWith('```')) cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
+
+          const parsed = JSON.parse(cleanJson);
+          if (parsed) {
+            if (parsed.lightsOn !== null && parsed.lightsOn !== undefined) {
+              currentProfile.scene.lightsOn = parsed.lightsOn;
+              this.sceneService.clickLightSwitch(parsed.lightsOn);
+              updated = true;
+            }
+            if (parsed.animationName) {
+              const anim = this.userAnimations.find(a => a.name.toLowerCase() === parsed.animationName.toLowerCase());
+              if (anim) {
+                this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
+                currentProfile.character.animationState = anim.name;
+                updated = true;
+              }
+            }
+            if (parsed.scale !== null && parsed.scale !== undefined) {
+              currentProfile.character.scale = parsed.scale;
+              updated = true;
+            }
+            if (parsed.facingAngle !== null && parsed.facingAngle !== undefined) {
+              currentProfile.character.facingAngle = parsed.facingAngle;
+              updated = true;
+            }
+            if (parsed.position) {
+              currentProfile.character.position = parsed.position;
+              updated = true;
+            }
+            if (parsed.cameraPreset) {
+              this.setCameraPreset(parsed.cameraPreset);
+              updated = true;
+            }
+            if (parsed.disableTrigger) {
+              if (!Array.isArray((currentProfile as any).disabledEvents)) {
+                (currentProfile as any).disabledEvents = [];
+              }
+              if (!(currentProfile as any).disabledEvents.includes(parsed.disableTrigger)) {
+                (currentProfile as any).disabledEvents.push(parsed.disableTrigger);
+              }
+              this.sceneService.setDisabledTriggers((currentProfile as any).disabledEvents);
+              updated = true;
+            }
+            if (parsed.enableTrigger) {
+              if (Array.isArray((currentProfile as any).disabledEvents)) {
+                (currentProfile as any).disabledEvents = (currentProfile as any).disabledEvents.filter((t: string) => t !== parsed.enableTrigger);
+              }
+              this.sceneService.setDisabledTriggers((currentProfile as any).disabledEvents);
+              updated = true;
+            }
+            if (parsed.newProp) {
+              const propObj = parsed.newProp;
+              const newProp = {
+                id: 'prop_' + Date.now(),
+                name: propObj.name || 'Đồ vật mới AI',
+                category: propObj.category || 'button',
+                color: propObj.color || '#06b6d4',
+                position: propObj.position || { x: 0, y: 1.2, z: 0 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 0.4, y: 0.4, z: 0.4 },
+                visible: true,
+                events: Array.isArray(propObj.events) && propObj.events.length > 0
+                  ? propObj.events
+                  : (propObj.customScript ? [{ id: 'evt_' + Date.now(), name: 'Sự kiện click', type: 'custom', customScript: propObj.customScript, createdAt: new Date().toISOString() }] : []),
+                subDevices: propObj.subDevices || []
+              };
+              this.roomProps.push(newProp);
+              (this.profile as any).props = this.roomProps;
+              this.profileDataService.saveProps(this.roomProps).subscribe();
+              this.sceneService.syncProps(this.roomProps);
+              this.onSearchChange();
+              this.cdr.markForCheck();
+              updated = true;
+            }
+            if (parsed.attachSubDeviceToProp) {
+              const targetName = parsed.attachSubDeviceToProp.targetPropName || '';
+              const targetProp = this.roomProps.find(p => p.name && p.name.toLowerCase().includes(targetName.toLowerCase())) || this.roomProps[0];
+              if (targetProp) {
+                if (!targetProp.subDevices) targetProp.subDevices = [];
+                const subObj = parsed.attachSubDeviceToProp.subDevice || {};
+                const newSub = {
+                  id: 'sub_' + Date.now(),
+                  name: subObj.name || 'Nút bấm gắn thêm',
+                  type: subObj.type || 'button',
+                  enabled: true,
+                  customScript: subObj.customScript || '',
+                  createdAt: new Date().toISOString()
+                };
+                targetProp.subDevices.push(newSub);
+                this.profileDataService.saveProps(this.roomProps).subscribe();
+                this.sceneService.syncProps(this.roomProps);
+                this.cdr.markForCheck();
+                updated = true;
+              }
+            }
+            if (parsed.removePropName) {
+              const propIndex = this.roomProps.findIndex(p => p.name && p.name.toLowerCase().includes(parsed.removePropName.toLowerCase()));
+              if (propIndex !== -1) {
+                const deleted = this.roomProps.splice(propIndex, 1);
+                this.profileDataService.saveProps(this.roomProps).subscribe();
+                this.onSearchChange();
+                this.cdr.markForCheck();
+                updated = true;
+              }
+            }
+            if (parsed.removeSubDeviceName) {
+              for (const p of this.roomProps) {
+                if (p.subDevices && p.subDevices.length > 0) {
+                  const subIdx = p.subDevices.findIndex((s: any) => s.name && s.name.toLowerCase().includes(parsed.removeSubDeviceName.toLowerCase()));
+                  if (subIdx !== -1) {
+                    p.subDevices.splice(subIdx, 1);
+                    this.profileDataService.saveProps(this.roomProps).subscribe();
+                    this.cdr.markForCheck();
+                    updated = true;
+                    break;
+                  }
+                }
+              }
+            }
+            if (parsed.explanation) {
+              message = parsed.explanation;
+            }
+          }
+        }
+      } catch (aiErr: any) {
+        console.warn('[Profile] AI Agent Service call error:', aiErr?.message || aiErr);
       }
-    } catch (aiErr: any) {
-      console.warn('[Profile] AI Agent Service call error:', aiErr?.message || aiErr);
-    }
 
     // 1. Điều khiển ánh sáng đèn (Bật/tắt đèn căn phòng - Fallback local rule)
     if (!updated && (lower.includes('tắt đèn') || lower.includes('tắt ánh sáng') || lower.includes('tối đi') || lower.includes('dark'))) {
@@ -1121,8 +1445,81 @@ Cấu trúc JSON:
       message = `🔍 AI đã thu nhỏ nhân vật (Scale: ${currentProfile.character.scale})!`;
     }
 
-    // 🎛️ 4. Xoay / Điều chỉnh Đồ vật được chỉ định bằng thẻ @mention hoặc targetProps
+    // 🎛️ 4. Xoay / Điều chỉnh Đồ vật hoặc Tạo nút bấm / Kịch bản sự kiện cho Đồ vật được chỉ định (@mention)
     const activeProps = targetProps && targetProps.length > 0 ? targetProps : this.attachedProps;
+    if (!updated && (lower.includes('nút') || lower.includes('bấm') || lower.includes('sự kiện') || lower.includes('chuyển đổi') || lower.includes('màn hình cảm ứng') || lower.includes('tivi'))) {
+      const liveProp = (activeProps && activeProps.length > 0)
+        ? this.roomProps.find(p => p.id === activeProps[0].id)
+        : this.roomProps.find(p => p.name && (lower.includes(p.name.toLowerCase()) || (p.name.toLowerCase().includes('cửa sổ') && lower.includes('cửa sổ'))));
+      
+      if (liveProp) {
+        if (!liveProp.events) liveProp.events = [];
+        if (!liveProp.subDevices) liveProp.subDevices = [];
+
+        const scriptText = lower.includes('màn hình cảm ứng') ? 'Chuyển đổi Cửa sổ thành màn hình cảm ứng' : text;
+        const btnName = lower.includes('tivi') || lower.includes('tv') ? 'Nút Tắt/Mở TV Cửa Sổ 21:9' : 'Nút bấm tuỳ chỉnh AI';
+
+        const newEvt = {
+          id: 'btn_' + Date.now(),
+          name: btnName,
+          type: 'custom',
+          customScript: scriptText,
+          createdAt: new Date().toISOString()
+        };
+        liveProp.events.push(newEvt);
+
+        const subBtn = {
+          id: 'sub_' + Date.now(),
+          name: btnName,
+          type: 'button',
+          enabled: true,
+          customScript: scriptText,
+          createdAt: new Date().toISOString()
+        };
+        liveProp.subDevices.push(subBtn);
+
+        this.profileDataService.saveProps(this.roomProps).subscribe();
+        this.sceneService.syncProps(this.roomProps);
+        if (lower.includes('tivi') || lower.includes('tv') || lower.includes('iframe') || lower.includes('màn hình')) {
+          this.sceneService.toggleWindowTvIframe(true, 'https://type.vn');
+        }
+        this.cdr.markForCheck();
+        updated = true;
+        message = `✨ AI Agent đã tạo 3D Sub-button & kịch bản "${btnName}" trên "${liveProp.name}"!`;
+      } else if (lower.includes('tạo') || lower.includes('thêm')) {
+        const scriptText = lower.includes('màn hình cảm ứng') ? 'Chuyển đổi Cửa sổ thành màn hình cảm ứng' : text;
+        const btnName = lower.includes('màn hình cảm ứng') ? 'Nút bấm Tivi cảm ứng' : 'Đồ vật/Nút bấm mới AI';
+        const newProp = {
+          id: 'prop_' + Date.now(),
+          name: btnName,
+          category: 'button',
+          color: '#06b6d4',
+          position: { x: 0, y: 1.2, z: 0 },
+          rotation: { x: 0, y: 0, z: 0 },
+          scale: { x: 0.4, y: 0.4, z: 0.4 },
+          visible: true,
+          events: [
+            {
+              id: 'btn_' + Date.now(),
+              name: 'Sự kiện click',
+              type: 'custom',
+              customScript: scriptText,
+              createdAt: new Date().toISOString()
+            }
+          ],
+          subDevices: []
+        };
+        this.roomProps.push(newProp);
+        (this.profile as any).props = this.roomProps;
+        this.profileDataService.saveProps(this.roomProps).subscribe();
+        this.sceneService.syncProps(this.roomProps);
+        this.onSearchChange();
+        this.cdr.markForCheck();
+        updated = true;
+        message = `✨ AI Agent đã tự động tạo Đồ vật/Nút bấm mới "${btnName}" kèm kịch bản sự kiện "${scriptText}"!`;
+      }
+    }
+
     if (activeProps && activeProps.length > 0) {
       for (const targetProp of activeProps) {
         const liveProp = this.roomProps.find(p => p.id === targetProp.id);
