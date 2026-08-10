@@ -88,6 +88,23 @@ hr {
     border-radius: 6px !important;
 }
 
+.faint-shadow-menu,
+.mat-mdc-menu-panel.faint-shadow-menu,
+.mat-menu-panel.faint-shadow-menu,
+.mat-mdc-menu-surface,
+.mdc-menu-surface,
+.faint-shadow-menu .mat-mdc-menu-surface,
+.faint-shadow-menu .mdc-menu-surface,
+.cdk-overlay-pane:has(.faint-shadow-menu),
+.cdk-overlay-pane:has(.faint-shadow-menu) * {
+    box-shadow: none !important;
+    filter: none !important;
+    -webkit-box-shadow: none !important;
+    --mdc-menu-container-elevation-shadow: none !important;
+    --mdc-elevation-box-shadow-for-gss: none !important;
+    --mat-menu-container-elevation-shadow: none !important;
+}
+
 .custom-dialog-bulk .mdc-dialog__surface,
 .custom-dialog-bulk .mat-mdc-dialog-surface,
 .custom-dialog-bulk .mat-dialog-container {

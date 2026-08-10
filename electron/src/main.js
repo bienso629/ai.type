@@ -1,3 +1,4 @@
+const { autoUpdater } = require("electron-updater");
 const {
     app,
     protocol,
@@ -1837,7 +1838,7 @@ function createTargetWindow(
     callback,
     uniqueID,
     winWidth = 1000,
-    winHeight = 800,
+    winHeight = null,
     show = true,
 ) {
     if (targetWindow && !targetWindow.isDestroyed()) {
@@ -1855,7 +1856,7 @@ function createTargetWindow(
     const { width: screenW, height: screenH } = display.workArea;
 
     const finalWidth = Math.min(winWidth, Math.floor(screenW * 0.95));
-    const finalHeight = Math.min(winHeight, Math.floor(screenH * 0.95));
+    const finalHeight = Math.min(winHeight || screenH, Math.floor(screenH * 0.95));
     const finalX = Math.max(0, Math.floor((screenW - finalWidth) / 2));
     const finalY = Math.max(0, Math.floor((screenH - finalHeight) / 2));
 

@@ -322,10 +322,25 @@
 }
 
 ::ng-deep .mat-mdc-menu-panel,
-::ng-deep .faint-shadow-menu {
+::ng-deep .mat-menu-panel,
+::ng-deep .mat-mdc-menu-surface,
+::ng-deep .mdc-menu-surface,
+::ng-deep .faint-shadow-menu,
+::ng-deep .faint-shadow-menu .mat-mdc-menu-surface,
+::ng-deep .faint-shadow-menu .mdc-menu-surface,
+::ng-deep .cdk-overlay-pane:has(.faint-shadow-menu),
+::ng-deep .cdk-overlay-pane:has(.faint-shadow-menu) * {
   box-shadow: none !important;
   filter: none !important;
+  -webkit-box-shadow: none !important;
   --mdc-menu-container-elevation-shadow: none !important;
+  --mdc-elevation-box-shadow-for-gss: none !important;
+  --mat-menu-container-elevation-shadow: none !important;
+}
+
+::ng-deep .mat-mdc-menu-panel,
+::ng-deep .mat-menu-panel,
+::ng-deep .faint-shadow-menu {
   border: 1px solid var(--fuse-border, #e2e8f0) !important;
   border-radius: 12px !important;
   width: 256px !important;

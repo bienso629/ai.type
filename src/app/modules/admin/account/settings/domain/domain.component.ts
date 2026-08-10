@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation, TemplateRef, ViewChild } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
@@ -22,6 +22,7 @@ import { Router } from '@angular/router';
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SettingsDomainComponent implements OnInit, OnDestroy {
+    @ViewChild('editDialogTemplate') editDialogTemplate: TemplateRef<any>;
     user: User;
 
     editing = {};
@@ -149,20 +150,52 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     addNewForm() {
-        this.rows.push({
+        const newRow = {
             "name": "",
             "domain": "",
             "username": "",
             "password": "",
             "monthlyTarget": 0,
             "ga4PropertyId": "",
+            "note": "",
+            "writingStyle": "",
             "addnew": true
+        };
+        this.openEditDialog(newRow, this.rows.length, true);
+    }
+
+    openEditDialog(row: any, rowIndex: number, isNew: boolean = false) {
+        const data = { ...row };
+        const dialogRef = this._dialog.open(this.editDialogTemplate, {
+            width: '560px',
+            panelClass: 'dlg-primary',
+            data: data
         });
 
-        this.rows = [...this.rows];
-
-        // lam moi lai giao dien
-        this.cd.markForCheck();
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                const oldMonthlyTarget = row.monthlyTarget;
+                const oldWritingStyle = row.writingStyle;
+                
+                if (isNew) {
+                    this.rows.push(result);
+                    this.add(this.rows.length - 1);
+                } else {
+                    Object.assign(this.rows[rowIndex], result);
+                    this.rows = [...this.rows];
+                    
+                    if (result.monthlyTarget !== oldMonthlyTarget) {
+                        this.saveTarget(result.domain, Number(result.monthlyTarget));
+                    }
+                    if (result.writingStyle !== oldWritingStyle) {
+                        this.saveWritingStyle(result.domain, result.writingStyle);
+                    }
+                    
+                    this.edit(rowIndex);
+                }
+                this.cd.markForCheck();
+            }
+        });
     }
 
     onMonthChange() {

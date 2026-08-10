@@ -69,10 +69,42 @@
             <span class="sidebar-panel-label">ĐỒ VẬT ({{ roomProps.length }})</span>
             <mat-icon class="sidebar-panel-arrow">expand_more</mat-icon>
           </summary>
+
+          <!-- Search Bar chuẩn Angular Material mat-form-field -->
+          <div class="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40">
+            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+              <button type="button" 
+                      mat-icon-button 
+                      matPrefix 
+                      (click)="triggerAddProp()" 
+                      title="Thêm đồ vật..." 
+                      [matTooltip]="'Thêm đồ vật...'" 
+                      class="text-teal-600 dark:text-teal-400">
+                <mat-icon class="icon-size-3.5">add</mat-icon>
+              </button>
+
+              <input matInput 
+                     type="text" 
+                     [(ngModel)]="propSearchQuery" 
+                     (ngModelChange)="onSearchChange()" 
+                     (input)="onSearchChange()" 
+                     placeholder="Tìm kiếm đồ vật..." 
+                     class="text-base">
+
+              <button type="button" 
+                      mat-icon-button 
+                      matSuffix 
+                      *ngIf="propSearchQuery" 
+                      (click)="clearSearch()" 
+                      class="text-gray-400">
+                <mat-icon class="icon-size-3.5">close</mat-icon>
+              </button>
+            </mat-form-field>
+          </div>
+
           <div class="sidebar-sub-items max-h-64 overflow-y-auto custom-scrollbar">
-            <div *ngFor="let prop of roomProps" class="sidebar-sub-item hover:bg-gray-50 flex items-center justify-between group cursor-pointer" (click)="onPropClick(prop)">
-              <div class="flex items-center space-x-2.5 truncate flex-1 min-w-0 pr-2">
-                <mat-icon class="sub-icon shrink-0">{{ getPropIcon(prop) }}</mat-icon>
+            <div *ngFor="let prop of filteredRoomProps" class="sidebar-sub-item hover:bg-gray-50 flex items-center justify-between group cursor-pointer" (click)="onPropClick(prop)">
+              <div class="flex items-center truncate flex-1 min-w-0 pr-2">
                 <span class="text-left truncate text-base font-medium text-slate-700 dark:text-slate-200">{{ prop.name }}</span>
               </div>
               
@@ -83,12 +115,9 @@
                 </button>
               </div>
             </div>
-            <!-- Nút Thêm đồ vật với style 100% giống các item khác, dùng font-normal & màu Primary -->
-            <div class="sidebar-sub-item hover:bg-teal-50/50 dark:hover:bg-teal-900/20 flex items-center justify-between group cursor-pointer" (click)="triggerAddProp()">
-              <div class="flex items-center space-x-2.5 truncate flex-1 min-w-0 pr-2">
-                <mat-icon class="sub-icon shrink-0 text-teal-600 dark:text-teal-400">add_circle_outline</mat-icon>
-                <span class="text-left truncate text-base font-normal text-teal-600 dark:text-teal-400">Thêm đồ vật...</span>
-              </div>
+
+            <div *ngIf="filteredRoomProps.length === 0" class="p-3 text-xs text-gray-400 italic text-center">
+              Không tìm thấy đồ vật nào
             </div>
           </div>
         </details>
@@ -101,15 +130,13 @@
           </summary>
           <div class="sidebar-sub-items">
             <button class="sidebar-sub-item" [matMenuTriggerFor]="clothesMenu">
-              <mat-icon class="sub-icon">checkroom</mat-icon>
-              <span class="flex-1 text-base font-medium">Quần áo</span>
+              <span class="flex-1 text-left text-base font-medium">Quần áo</span>
               <mat-icon class="sub-arrow">chevron_right</mat-icon>
             </button>
 
             <!-- CÁC HÀNH ĐỘNG — Angular mat-menu flyout -->
             <button class="sidebar-sub-item" [matMenuTriggerFor]="actionsMenu">
-              <mat-icon class="sub-icon">directions_run</mat-icon>
-              <span class="flex-1 text-base font-medium">Các hành động</span>
+              <span class="flex-1 text-left text-base font-medium">Các hành động</span>
               <mat-icon class="sub-arrow">chevron_right</mat-icon>
             </button>
           </div>
@@ -301,7 +328,7 @@
 
 <!-- Modal Cấu hình hành động -->
 <div *ngIf="editingAction" class="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
-  <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-full max-w-md animate-in fade-in zoom-in-95 duration-150">
+  <div class="bg-white rounded-sm shadow-2xl border border-gray-100 p-6 w-full max-w-md animate-in fade-in zoom-in-95 duration-150">
     <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
       <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
         <mat-icon class="text-teal-600">tune</mat-icon>
@@ -316,7 +343,7 @@
       <!-- Tên hành động -->
       <div>
         <label class="block text-base font-semibold text-gray-600 mb-1">Tên hành động</label>
-        <input type="text" [(ngModel)]="editingAction.name" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-base focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500">
+        <input type="text" [(ngModel)]="editingAction.name" class="w-full px-3 py-2 border border-gray-200 rounded-sm text-base focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500">
       </div>
 
       <!-- Loại hành động: Di chuyển vs Tại chỗ -->
@@ -328,7 +355,7 @@
                   [class.border-teal-500]="!editingAction.isMovement"
                   [class.bg-teal-50]="!editingAction.isMovement"
                   [class.text-teal-700]="!editingAction.isMovement"
-                  class="p-3 border rounded-xl flex flex-col items-center gap-1.5 transition-all text-gray-600 border-gray-200 hover:border-teal-200">
+                  class="p-3 border rounded-sm flex flex-col items-center gap-1.5 transition-all text-gray-600 border-gray-200 hover:border-teal-200">
             <mat-icon class="icon-size-5">accessibility_new</mat-icon>
             <span class="text-base font-semibold">Tại chỗ</span>
             <span class="text-base text-gray-400">Đứng/Nhảy/Dance</span>
@@ -339,7 +366,7 @@
                   [class.border-teal-500]="editingAction.isMovement"
                   [class.bg-teal-50]="editingAction.isMovement"
                   [class.text-teal-700]="editingAction.isMovement"
-                  class="p-3 border rounded-xl flex flex-col items-center gap-1.5 transition-all text-gray-600 border-gray-200 hover:border-teal-200">
+                  class="p-3 border rounded-sm flex flex-col items-center gap-1.5 transition-all text-gray-600 border-gray-200 hover:border-teal-200">
             <mat-icon class="icon-size-5">directions_walk</mat-icon>
             <span class="text-base font-semibold">Di chuyển</span>
             <span class="text-base text-gray-400">Đi bộ/Chạy</span>
@@ -366,7 +393,7 @@
 
 <!-- MODAL CẤU HÌNH THUỘC TÍNH & PHƯƠNG THỨC HÀNH ĐỘNG ĐỒ VẬT 3D -->
 <div *ngIf="inspectingProp" class="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-6 animate-fade-in">
-  <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden flex flex-col">
+  <div class="bg-white dark:bg-slate-900 rounded-sm shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden flex flex-col">
     
     <!-- Header -->
     <div class="flex items-center justify-between px-6 pt-6 pb-2">
@@ -539,7 +566,7 @@
             </mat-form-field>
           </div>
 
-          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 mb-2">
+          <div class="flex items-center justify-between p-3 rounded-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 mb-2">
             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Đổ bóng thực tế 3D (Cast Shadow)</span>
             <mat-slide-toggle [(ngModel)]="inspectingProp.castShadow" class="fuse-mat-dense fuse-mat-emphasized-affix" color="primary"></mat-slide-toggle>
           </div>
@@ -547,12 +574,12 @@
 
         <!-- SECTION 7: Ghi chú & Trạng thái Hiển thị -->
         <div>
-          <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full mb-3" [subscriptSizing]="'dynamic'">
+          <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full mb-3 custom-textarea" [subscriptSizing]="'dynamic'">
             <mat-label>Ghi chú / Mô tả chi tiết đồ vật</mat-label>
             <textarea matInput rows="2" [(ngModel)]="inspectingProp.description" placeholder="Nhập ghi chú cho đồ vật 3D này..."></textarea>
           </mat-form-field>
 
-          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+          <div class="flex items-center justify-between p-3 rounded-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
             <div class="flex items-center space-x-2">
               <mat-icon class="text-slate-500 icon-size-5">{{ inspectingProp.visible !== false ? 'visibility' : 'visibility_off' }}</mat-icon>
               <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Hiển thị trong không gian 3D</span>
@@ -567,23 +594,56 @@
 
       <!-- PHƯƠNG THỨC HÀNH ĐỘNG & SỰ KIỆN -->
       <div class="space-y-3">
-        <span class="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">⚡ Hành động & Sự kiện 3D</span>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">⚡ Danh sách Hành động & Sự kiện 3D</span>
+          <button type="button" mat-icon-button color="primary" (click)="addPropEvent()" title="Thêm sự kiện" [matTooltip]="'Thêm sự kiện'">
+            <mat-icon class="icon-size-4">add</mat-icon>
+          </button>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
-          <button (click)="onPropClick(inspectingProp)" class="flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 text-slate-700 dark:text-slate-200 transition-colors text-left">
+          <button type="button" (click)="onPropClick(inspectingProp)" class="flex items-center space-x-3 p-2.5 rounded-sm border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 text-slate-700 dark:text-slate-200 transition-colors text-left">
             <mat-icon class="text-teal-600 shrink-0 icon-size-5">videocam</mat-icon>
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold">Focus Camera</div>
-              <div class="text-xs text-slate-400 truncate">Xem cận cảnh đồ vật</div>
+              <div class="text-xs font-bold">Focus Camera</div>
+              <div class="text-[11px] text-slate-400 truncate">Xem cận cảnh đồ vật</div>
             </div>
           </button>
 
-          <button (click)="executePropEvent(inspectingProp)" class="flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 text-slate-700 dark:text-slate-200 transition-colors text-left">
+          <button type="button" (click)="executePropEvent(inspectingProp)" class="flex items-center space-x-3 p-2.5 rounded-sm border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 text-slate-700 dark:text-slate-200 transition-colors text-left">
             <mat-icon class="text-amber-500 shrink-0 icon-size-5">touch_app</mat-icon>
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold">Trigger Event</div>
-              <div class="text-xs text-slate-400 truncate">Thực thi kịch bản</div>
+              <div class="text-xs font-bold">Trigger Default Event</div>
+              <div class="text-[11px] text-slate-400 truncate">Thực thi kịch bản mặc định</div>
             </div>
           </button>
+        </div>
+
+        <!-- Managed Events List -->
+        <div class="border rounded-sm divide-y dark:divide-slate-800 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
+          <div *ngFor="let evt of (inspectingProp.events || []); let idx = index" class="p-2.5 flex items-center justify-between gap-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+              <span class="w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400 flex items-center justify-center text-xs font-bold shrink-0">
+                {{ idx + 1 }}
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{{ evt.name || 'Sự kiện #' + (idx + 1) }}</div>
+                <div class="text-[11px] text-slate-400 truncate">{{ getEventTypeName(evt.type) }}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" mat-icon-button class="w-7 h-7 p-0 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30" (click)="runSpecificPropEvent(evt)" title="Chạy thử sự kiện">
+                <mat-icon class="icon-size-4">play_arrow</mat-icon>
+              </button>
+              <button type="button" mat-icon-button class="w-7 h-7 p-0 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30" (click)="removePropEvent(idx)" title="Xoá sự kiện">
+                <mat-icon class="icon-size-4">delete_outline</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div *ngIf="!inspectingProp.events || inspectingProp.events.length === 0" class="p-3 text-center text-xs text-slate-400 italic">
+            Chưa có sự kiện tuỳ chỉnh nào. Bấm "+ Thêm sự kiện" để tạo mới.
+          </div>
         </div>
       </div>
 

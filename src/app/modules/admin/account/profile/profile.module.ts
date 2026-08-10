@@ -12,6 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { ProfileComponent } from 'app/modules/admin/account/profile/profile.component';
 import { SontinhSceneService } from 'app/modules/admin/account/profile/sontinh-scene.service';
 import { ProfileDataService } from 'app/modules/admin/account/profile/profile-data.service';
@@ -35,7 +36,8 @@ const routes: Route[] = [
         MatSelectModule,
         MatFormFieldModule,
         MatInputModule,
-        MatListModule
+        MatListModule,
+        MatAutocompleteModule
     ],
     providers: [SontinhSceneService, ProfileDataService]
 })
