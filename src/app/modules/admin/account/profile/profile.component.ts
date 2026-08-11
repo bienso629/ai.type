@@ -447,6 +447,24 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (!cloned.description) cloned.description = '';
     if (!cloned.events) cloned.events = [];
     if (!cloned.subDevices) cloned.subDevices = [];
+
+    const isMonitor = (cloned.id && cloned.id.includes('monitor')) || (cloned.name && cloned.name.toLowerCase().includes('màn hình'));
+    if (isMonitor && cloned.activeScreenState === 'clock') {
+      const hasEvt = cloned.events.some((e: any) => {
+        const t = ((e.customScript || '') + ' ' + (e.name || '')).toLowerCase();
+        return t.includes('giờ') || t.includes('thời gian') || t.includes('đồng hồ') || t.includes('clock');
+      });
+      if (!hasEvt) {
+        cloned.events.push({
+          id: 'evt_clock',
+          name: 'Hiển thị Ngày & Giờ Realtime Hệ thống',
+          type: 'custom',
+          customScript: 'Hiển thị Ngày & Giờ thời gian thực lên màn hình 3D',
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+
     this.inspectingProp = cloned;
     this.cdr.markForCheck();
   }
@@ -793,7 +811,20 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     const removed = this.inspectingProp.events.splice(index, 1);
     this.cdr.markForCheck();
     if (removed.length > 0) {
-      this.toastr.info(`Đã xoá sự kiện "${removed[0].name}"`, 'Quản lý Sự Kiện');
+      const rm = removed[0];
+      const txt = ((rm.customScript || '') + ' ' + (rm.name || '')).toLowerCase();
+      const isClockEvt = txt.includes('ngày') || txt.includes('giờ') || txt.includes('thời gian') || txt.includes('clock') || txt.includes('time') || txt.includes('date');
+      const isMonitor = (this.inspectingProp.id && this.inspectingProp.id.includes('monitor')) || (this.inspectingProp.name && this.inspectingProp.name.toLowerCase().includes('màn hình'));
+
+      if (isMonitor && isClockEvt) {
+        this.inspectingProp.activeScreenState = 'none';
+        let side: 'left' | 'right' | 'both' = 'both';
+        if (this.inspectingProp.id && this.inspectingProp.id.includes('left')) side = 'left';
+        else if (this.inspectingProp.id && this.inspectingProp.id.includes('right')) side = 'right';
+        this.sceneService.clearMonitorDisplay(side);
+      }
+
+      this.toastr.info(`Đã xoá sự kiện "${rm.name}"`, 'Quản lý Sự Kiện');
     }
   }
 
@@ -804,37 +835,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.onPropClick(targetProp);
     } else if (evt.type === 'custom' || evt.customScript) {
       const scriptText = evt.customScript || evt.name || 'Thực thi hành động 3D';
-      const lower = scriptText.toLowerCase();
-      if (lower.includes('ngày') || lower.includes('giờ') || lower.includes('thời gian') || lower.includes('màn hình') || lower.includes('clock') || lower.includes('date') || lower.includes('time') || lower.includes('screen') || lower.includes('display')) {
-        let side: 'left' | 'right' | 'both' = 'both';
-        if (targetProp && targetProp.id && targetProp.id.includes('left')) side = 'left';
-        else if (targetProp && targetProp.id && targetProp.id.includes('right')) side = 'right';
-        
-        const options = {
-          textColor: lower.includes('màu đen') || lower.includes('black') ? '#000000' : '#ffffff'
-        };
-
-        this.sceneService.showDateTimeOnMonitor(side, options);
-
-        if (targetProp) {
-          targetProp.activeScreenState = 'clock';
-          targetProp.screenOptions = options;
-          const idx = this.roomProps.findIndex(p => p.id === targetProp.id);
-          if (idx >= 0) {
-            this.roomProps[idx].activeScreenState = 'clock';
-            this.roomProps[idx].screenOptions = options;
-          }
-          if (this.profile) {
-            (this.profile as any).props = this.roomProps;
-          }
-          this.profileDataService.saveProps(this.roomProps).subscribe();
-        }
-
-        this.toastr.success(`Đã hiển thị Ngày & Giờ thời gian thực lên màn hình 3D!`, 'Màn hình 3D Realtime');
-      } else {
-        this.processAiPrompt(scriptText, [], [targetProp]);
-        this.toastr.info(`Đã kích hoạt kịch bản: "${scriptText}"`, 'Kịch bản 3D Tuỳ chỉnh');
-      }
+      this.processAiPrompt(scriptText, [], targetProp ? [targetProp] : []);
     } else {
       this.executePropEvent(targetProp);
     }
@@ -869,6 +870,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   async savePropInspector(): Promise<void> {
     if (!this.inspectingProp || !this.profile) return;
+    const propId = this.inspectingProp.id || '';
     
     if (this.inspectingProp.position && typeof this.inspectingProp.position.x === 'number') {
       this.inspectingProp._customPositionSet = true;
@@ -880,22 +882,27 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.inspectingProp._customScaleSet = true;
     }
 
-    if (this.inspectingProp.color && this.inspectingProp.color.toLowerCase() !== '#ffffff') {
-      this.inspectingProp._customColorSet = true;
-    } else if (this.inspectingProp.id && this.inspectingProp.id.includes('monitor')) {
-      this.inspectingProp._customColorSet = false;
-    }
-
-    // Auto-detect date/time clock event in inspectingProp events array
+    const isMonitor = (propId && propId.includes('monitor')) || (this.inspectingProp.name && this.inspectingProp.name.toLowerCase().includes('màn hình'));
     if (this.inspectingProp.events && Array.isArray(this.inspectingProp.events)) {
       const hasClockEvent = this.inspectingProp.events.some((e: any) => {
         const txt = ((e.customScript || '') + ' ' + (e.name || '')).toLowerCase();
         return txt.includes('ngày') || txt.includes('giờ') || txt.includes('thời gian') || txt.includes('clock') || txt.includes('time') || txt.includes('date');
       });
-      if (hasClockEvent) {
+      if (hasClockEvent && isMonitor) {
         this.inspectingProp.activeScreenState = 'clock';
+      } else if (isMonitor && !hasClockEvent) {
+        this.inspectingProp.activeScreenState = 'none';
       }
+    } else if (isMonitor) {
+      this.inspectingProp.activeScreenState = 'none';
     }
+
+    if (isMonitor) {
+      this.inspectingProp._customColorSet = false;
+    } else if (this.inspectingProp.color && this.inspectingProp.color.toLowerCase() !== '#ffffff') {
+      this.inspectingProp._customColorSet = true;
+    }
+
     if (this.inspectingProp.opacity !== undefined && typeof this.inspectingProp.opacity === 'number' && this.inspectingProp.opacity < 1.0) {
       this.inspectingProp._customOpacitySet = true;
     }
@@ -909,7 +916,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.inspectingProp._customRoughnessSet = true;
     }
 
-    const propId = this.inspectingProp.id;
     const idx = this.roomProps.findIndex(p => p.id === propId);
 
     if (idx >= 0) {
@@ -922,6 +928,19 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     try {
       await this.profileDataService.saveProps(this.roomProps).toPromise();
       this.sceneService.applyProfile(this.profile);
+
+      if (isMonitor) {
+        let side: 'left' | 'right' | 'both' = 'both';
+        if (propId.includes('left')) side = 'left';
+        else if (propId.includes('right')) side = 'right';
+
+        if (this.inspectingProp.activeScreenState === 'clock') {
+          this.sceneService.showDateTimeOnMonitor(side, this.inspectingProp.screenOptions);
+        } else {
+          this.sceneService.clearMonitorDisplay(side);
+        }
+      }
+
       this.toastr.success(`Đã cập nhật thuộc tính cho "${this.inspectingProp.name}"!`, 'Thuộc tính Đồ vật 3D');
       this.inspectingProp = null;
       this.cdr.markForCheck();
@@ -1428,6 +1447,18 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
       try {
         const animListStr = this.userAnimations.map(a => a.name).join(', ');
+        let targetPropInstruction = '';
+        if (targetProps && targetProps.length > 0) {
+          const names = targetProps.map(p => `"${p.name}" (ID: "${p.id}")`).join(', ');
+          targetPropInstruction = `
+⚠️ CHÚ Ý QUAN TRỌNG VỀ TARGET SCOPE:
+Người dùng đang ĐÍNH KÈM / @MENTION ĐỒ VẬT CHỈ ĐỊNH: [${names}].
+- Bạn CHỈ ĐƯỢC PHÉP trả về 'modifyProp' để chỉnh sửa thuộc tính JSON Data (như \`activeScreenState: "clock"\`, \`screenOptions\`, \`color\`, \`position\`, \`rotation\`, \`scale\`, \`visible\`,...) CỦA ĐÚNG MÓN ĐỒ VẬT ĐƯỢC MENTION NÀY!
+- Trả về object \`modifyProp\` chứa \`targetPropId\` (hoặc \`targetPropName\`) và \`patch\` chứa ĐÚNG CÁC KEY & GIÁ TRỊ CẦN SỬA (ví dụ khi người dùng yêu cầu đổi màu nền màn hình, hãy sửa \`activeScreenState: "clock"\` và \`screenOptions: { "bgColor": "#HexColor" }\`).
+- ĐẶC BIỆT DÀNH CHO MÀN HÌNH (MONITOR): Nếu người dùng yêu cầu hiển thị HÌNH ẢNH / FILE ẢNH (chứa đường dẫn file ảnh .png, .jpg, .webp hoặc url), hãy đặt \`activeScreenState: "image"\` và \`screenOptions: { "imageUrl": "đường_dẫn_file_ảnh" }\`.
+- TUYỆT ĐỐI KHÔNG thay đổi nhân vật (animationName, scale nhân vật, position nhân vật) hay hệ thống đèn (lightsOn) khi người dùng đang chỉ định đồ vật!`;
+        }
+
         const domainSystemPrompt = `Bạn là **Sơn Tinh AI 3D Scene Director**, Chuyên gia AI Agent am hiểu toàn bộ LOGIC NGHIỆP VỤ & CÁCH ĐIỀU CHỈNH 3D CĂN PHÒNG / NHÂN VẬT.
 
 ### 📁 DỮ LIỆU PROFILE
@@ -1441,6 +1472,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 5. **THAY ĐỔI / CẬP NHẬT THUỘC TÍNH ĐỒ VẬT VIA AI ('modifyProp')**:
    - Bạn xem toàn bộ các key hiện có của đồ vật trong DỮ LIỆU PROFILE (như \`activeScreenState\`, \`screenOptions\` bao gồm \`screenOptions.bgColor\`, \`screenOptions.textColor\`, \`screenOptions.screenText\`, \`color\`, \`position\`, \`rotation\`, \`scale\`, \`visible\`, v.v.).
    - Trả về object \`modifyProp\` chứa \`targetPropId\` (hoặc \`targetPropName\`) và \`patch\` chứa ĐÚNG CÁC KEY & GIÁ TRỊ CẦN SỬA (ví dụ khi người dùng yêu cầu đổi màu nền màn hình, hãy sửa \`activeScreenState: "clock"\` và \`screenOptions: { "bgColor": "#HexColor" }\`).
+${targetPropInstruction}
 
 6. **TẠO / THÊM ĐỒ VẬT MỚI & ĐỒ VẬT CON VIA AI**:
    - Thêm đồ vật chính mới ('newProp'): { "name": string, "category": string, "color": string, "position": {x,y,z} }
@@ -1519,36 +1551,40 @@ ${JSON.stringify({
           if (cleanJson.startsWith('```json')) cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
           if (cleanJson.startsWith('```')) cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
 
+          const hasTargetProps = targetProps && targetProps.length > 0;
           const parsed = JSON.parse(cleanJson);
           if (parsed) {
-            if (parsed.lightsOn !== null && parsed.lightsOn !== undefined) {
-              currentProfile.scene.lightsOn = parsed.lightsOn;
-              this.sceneService.clickLightSwitch(parsed.lightsOn);
-              updated = true;
-            }
-            if (parsed.animationName) {
-              const anim = this.userAnimations.find(a => a.name.toLowerCase() === parsed.animationName.toLowerCase());
-              if (anim) {
-                this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
-                currentProfile.character.animationState = anim.name;
+            // ONLY update global scene / character IF NO target prop was mentioned (@mention)
+            if (!hasTargetProps) {
+              if (parsed.lightsOn !== null && parsed.lightsOn !== undefined) {
+                currentProfile.scene.lightsOn = parsed.lightsOn;
+                this.sceneService.clickLightSwitch(parsed.lightsOn);
                 updated = true;
               }
-            }
-            if (parsed.scale !== null && parsed.scale !== undefined) {
-              currentProfile.character.scale = parsed.scale;
-              updated = true;
-            }
-            if (parsed.facingAngle !== null && parsed.facingAngle !== undefined) {
-              currentProfile.character.facingAngle = parsed.facingAngle;
-              updated = true;
-            }
-            if (parsed.position) {
-              currentProfile.character.position = parsed.position;
-              updated = true;
-            }
-            if (parsed.cameraPreset) {
-              this.setCameraPreset(parsed.cameraPreset);
-              updated = true;
+              if (parsed.animationName) {
+                const anim = this.userAnimations.find(a => a.name.toLowerCase() === parsed.animationName.toLowerCase());
+                if (anim) {
+                  this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
+                  currentProfile.character.animationState = anim.name;
+                  updated = true;
+                }
+              }
+              if (parsed.scale !== null && parsed.scale !== undefined) {
+                currentProfile.character.scale = parsed.scale;
+                updated = true;
+              }
+              if (parsed.facingAngle !== null && parsed.facingAngle !== undefined) {
+                currentProfile.character.facingAngle = parsed.facingAngle;
+                updated = true;
+              }
+              if (parsed.position) {
+                currentProfile.character.position = parsed.position;
+                updated = true;
+              }
+              if (parsed.cameraPreset) {
+                this.setCameraPreset(parsed.cameraPreset);
+                updated = true;
+              }
             }
             if (parsed.disableTrigger) {
               if (!Array.isArray((currentProfile as any).disabledEvents)) {
@@ -1582,6 +1618,39 @@ ${JSON.stringify({
                 delete patch.patch;
 
                 this.deepMergeProp(liveProp, patch);
+
+                if (!Array.isArray(liveProp.events)) liveProp.events = [];
+                const isMonitor = (liveProp.id && liveProp.id.includes('monitor')) || (liveProp.name && liveProp.name.toLowerCase().includes('màn hình'));
+                
+                // Extract image file path if prompt contains a local file path / URL
+                const imgMatch = text.match(/([a-zA-Z0-9_\-\/\\.]+\.(?:png|jpg|jpeg|webp|gif))/i);
+                if (isMonitor && imgMatch) {
+                  const pathFound = imgMatch[1];
+                  liveProp.activeScreenState = 'image';
+                  if (!liveProp.screenOptions) liveProp.screenOptions = {};
+                  liveProp.screenOptions.imageUrl = pathFound;
+                }
+
+                if (isMonitor && (liveProp.activeScreenState === 'image' || liveProp.screenOptions?.imageUrl)) {
+                  let side: 'left' | 'right' | 'both' = 'both';
+                  if (liveProp.id && liveProp.id.includes('left')) side = 'left';
+                  else if (liveProp.id && liveProp.id.includes('right')) side = 'right';
+                  this.sceneService.showDateTimeOnMonitor(side, liveProp.screenOptions);
+                } else if (isMonitor && liveProp.activeScreenState === 'clock') {
+                  const hasEvt = liveProp.events.some((e: any) => {
+                    const t = ((e.customScript || '') + ' ' + (e.name || '')).toLowerCase();
+                    return t.includes('giờ') || t.includes('thời gian') || t.includes('đồng hồ') || t.includes('clock');
+                  });
+                  if (!hasEvt) {
+                    liveProp.events.push({
+                      id: 'evt_' + Date.now(),
+                      name: 'Hiển thị Ngày & Giờ Realtime Hệ thống',
+                      type: 'custom',
+                      customScript: text || 'Hiển thị Ngày & Giờ thời gian thực lên màn hình 3D',
+                      createdAt: new Date().toISOString()
+                    });
+                  }
+                }
 
                 if (patch.color) liveProp._customColorSet = true;
 
@@ -1672,87 +1741,27 @@ ${JSON.stringify({
         console.warn('[Profile] AI Agent Service call error:', aiErr?.message || aiErr);
       }
 
-    // 1. Điều khiển ánh sáng đèn (Bật/tắt đèn căn phòng - Fallback local rule)
-    if (!updated && (lower.includes('tắt đèn') || lower.includes('tắt ánh sáng') || lower.includes('tối đi') || lower.includes('dark'))) {
-      currentProfile.scene.lightsOn = false;
-      this.sceneService.clickLightSwitch(false);
-      updated = true;
-      message = '💡 AI đã tắt hệ thống đèn phòng 3D!';
-    } else if (!updated && (lower.includes('bật đèn') || lower.includes('mở đèn') || lower.includes('bật sáng') || lower.includes('light'))) {
-      currentProfile.scene.lightsOn = true;
-      this.sceneService.clickLightSwitch(true);
-      updated = true;
-      message = '💡 AI đã bật sáng hệ thống đèn phòng 3D!';
-    }
+    const hasTargetProps = targetProps && targetProps.length > 0;
 
-    // Tắt / Bỏ sự kiện click tương tác (Fallback local rule)
-    if (!updated && (lower.includes('bỏ') || lower.includes('tắt') || lower.includes('xóa') || lower.includes('hủy') || lower.includes('không cho')) && (lower.includes('click') || lower.includes('bấm') || lower.includes('sự kiện'))) {
-      let trig = 'clickCharacter';
-      if (lower.includes('cửa sổ')) trig = 'clickWindow';
-      else if (lower.includes('cửa phòng') || lower.includes('cửa ra vào')) trig = 'clickDoor';
-      else if (lower.includes('bể cá')) trig = 'clickAquarium';
-      else if (lower.includes('tủ đồ')) trig = 'clickDrawer';
-      else if (lower.includes('khung ảnh')) trig = 'clickPicture';
-      else if (lower.includes('công tắc')) trig = 'clickLightSwitch';
-
-      if (!Array.isArray((currentProfile as any).disabledEvents)) {
-        (currentProfile as any).disabledEvents = [];
-      }
-      if (!(currentProfile as any).disabledEvents.includes(trig)) {
-        (currentProfile as any).disabledEvents.push(trig);
-      }
-      this.sceneService.setDisabledTriggers((currentProfile as any).disabledEvents);
-      updated = true;
-      message = `🚫 AI đã tắt sự kiện click vào ${trig}!`;
-    }
-
-    // 2. Chuyển đổi cử động / hành động nhân vật (Animation - Fallback local rule)
-    if (!updated && (lower.includes('nhảy') || lower.includes('dance') || lower.includes('múa'))) {
-      const anim = this.userAnimations.find(a => a.name.toLowerCase().includes('múa') || a.name.toLowerCase().includes('dance') || a.name.toLowerCase().includes('nhảy'));
-      if (anim) {
-        this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
-        currentProfile.character.animationState = anim.name;
-        updated = true;
-        message = `💃 AI đã đổi hành động nhân vật sang: ${anim.name}!`;
-      }
-    } else if (!updated && (lower.includes('đi bộ') || lower.includes('walk') || lower.includes('đi'))) {
-      const anim = this.userAnimations.find(a => a.name.toLowerCase().includes('đi bộ') || a.name.toLowerCase().includes('walk'));
-      if (anim) {
-        this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
-        currentProfile.character.animationState = anim.name;
-        updated = true;
-        message = `🏃 AI đã đổi hành động nhân vật sang: ${anim.name}!`;
-      }
-    } else if (!updated && (lower.includes('đứng') || lower.includes('idle') || lower.includes('dừng lại'))) {
-      const anim = this.userAnimations.find(a => a.name.toLowerCase().includes('đứng') || a.name.toLowerCase().includes('idle'));
-      if (anim) {
-        this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
-        currentProfile.character.animationState = anim.name;
-        updated = true;
-        message = `🧍 AI đã chuyển nhân vật sang trạng thái đứng yên!`;
-      }
-    } else if (!updated) {
-      // Tìm theo tên hành động khớp trong danh sách
-      for (const anim of this.userAnimations) {
-        if (lower.includes(anim.name.toLowerCase())) {
+    // Local fallback rules run ONLY when NO target prop is mentioned (@mention)
+    if (!updated && !hasTargetProps) {
+      if (lower.includes('đi bộ') || lower.includes('walk')) {
+        const anim = this.userAnimations.find(a => a.name.toLowerCase().includes('đi bộ') || a.name.toLowerCase().includes('walk'));
+        if (anim) {
           this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
           currentProfile.character.animationState = anim.name;
           updated = true;
-          message = `🎭 AI đã đổi hành động nhân vật sang: ${anim.name}!`;
-          break;
+          message = `🏃 AI đã đổi hành động nhân vật sang: ${anim.name}!`;
+        }
+      } else if (lower.includes('đứng') || lower.includes('idle') || lower.includes('dừng lại')) {
+        const anim = this.userAnimations.find(a => a.name.toLowerCase().includes('đứng') || a.name.toLowerCase().includes('idle'));
+        if (anim) {
+          this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
+          currentProfile.character.animationState = anim.name;
+          updated = true;
+          message = `🧍 AI đã chuyển nhân vật sang trạng thái đứng yên!`;
         }
       }
-    }
-
-    // 3. Tùy chỉnh kích thước / góc xoay nhân vật (Scale & Rotation - Fallback local rule)
-    if (!updated && (lower.includes('phóng to') || lower.includes('lớn hơn') || lower.includes('to hơn') || lower.includes('phóng'))) {
-      currentProfile.character.scale = Math.min(2.5, +( (currentProfile.character.scale || 1.0) + 0.3 ).toFixed(2));
-      updated = true;
-      message = `🔍 AI đã phóng to nhân vật (Scale: ${currentProfile.character.scale})!`;
-    } else if (!updated && (lower.includes('thu nhỏ') || lower.includes('nhỏ hơn') || lower.includes('bé lại') || lower.includes('nhỏ'))) {
-      currentProfile.character.scale = Math.max(0.4, +( (currentProfile.character.scale || 1.0) - 0.3 ).toFixed(2));
-      updated = true;
-      message = `🔍 AI đã thu nhỏ nhân vật (Scale: ${currentProfile.character.scale})!`;
     }
 
     // 🎛️ 4. Xoay / Điều chỉnh Đồ vật hoặc Tạo nút bấm / Kịch bản sự kiện cho Đồ vật được chỉ định (@mention)
@@ -1837,7 +1846,18 @@ ${JSON.stringify({
           const isMonitor = liveProp.id.includes('monitor') || (liveProp.name && liveProp.name.toLowerCase().includes('màn hình'));
           const hasColorIntent = lower.includes('màu') || lower.includes('nền') || lower.includes('color') || lower.includes('bg') || lower.includes('sơn');
 
-          if (hasColorIntent || isMonitor) {
+          if (isMonitor && (lower.includes('nhảy') || lower.includes('đồng hồ') || lower.includes('thời gian') || lower.includes('chạy'))) {
+            let side: 'left' | 'right' | 'both' = 'both';
+            if (liveProp.id.includes('left') || (liveProp.name && liveProp.name.toLowerCase().includes('trái'))) side = 'left';
+            else if (liveProp.id.includes('right') || (liveProp.name && liveProp.name.toLowerCase().includes('phải'))) side = 'right';
+
+            liveProp.activeScreenState = 'clock';
+            this.sceneService.showDateTimeOnMonitor(side, liveProp.screenOptions);
+            this.sceneService.updateProp(liveProp);
+            this.profileDataService.saveProps(this.roomProps).subscribe();
+            updated = true;
+            message = `⏰ AI đã kích hoạt & phát đồng hồ nhảy số realtime trên "${liveProp.name}"!`;
+          } else if (hasColorIntent || isMonitor) {
             const colorInfo = this.extractColorAndBgFromText(text);
             if (isMonitor) {
               let side: 'left' | 'right' | 'both' = 'both';

@@ -1,8 +1,0 @@
-{
-  "plugins": [
-    "preset-default",
-    "convertStyleToAttrs",
-    "removeViewBox",
-    "removeDimensions"
-  ]
-}
