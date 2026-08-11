@@ -1839,16 +1839,6 @@ ${JSON.stringify({
         };
         liveProp.events.push(newEvt);
 
-        const subBtn = {
-          id: 'sub_' + Date.now(),
-          name: btnName,
-          type: 'button',
-          enabled: true,
-          customScript: scriptText,
-          createdAt: new Date().toISOString()
-        };
-        liveProp.subDevices.push(subBtn);
-
         this.profileDataService.saveProps(this.roomProps).subscribe();
         this.sceneService.syncProps(this.roomProps);
         if (lower.includes('tivi') || lower.includes('tv') || lower.includes('iframe') || lower.includes('màn hình')) {

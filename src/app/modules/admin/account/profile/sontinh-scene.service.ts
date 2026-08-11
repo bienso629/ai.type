@@ -1064,60 +1064,53 @@ export class SontinhSceneService implements OnDestroy {
       const ctx = canvas.getContext('2d');
     
       if (ctx) {
-        // Fill background with Dark Slate Grout Line color (#08090b)
-        ctx.fillStyle = '#08090b';
+        // Grout line background color (Đường ron gạch xi măng xám chuẩn)
+        ctx.fillStyle = '#334155';
         ctx.fillRect(0, 0, 1024, 1024);
     
-        // Render 2x2 Grid of 4 Distinct Black Square Ceramic Tiles (each 504x504 pixels with 8px grout gap)
-        const tileSize = 504;
-        const groutGap = 8;
+        // Render 2x2 Grid of 4 Luxury Polished Jet Black Square Ceramic Tiles (each 498x498px with 14px grout gap)
+        const tileSize = 498;
+        const groutGap = 14;
     
         const tileShades = [
-          { start: '#14171f', end: '#0c0e14' }, // Tile (0,0) - Deep Obsidian Black
-          { start: '#101219', end: '#08090e' }, // Tile (1,0) - Midnight Jet Black
-          { start: '#161922', end: '#0e1016' }, // Tile (0,1) - Charcoal Onyx
-          { start: '#12141c', end: '#0a0c11' }, // Tile (1,1) - Dark Granite
+          { start: '#161b26', end: '#090b10' }, // Tile (0,0) - Deep Obsidian Black
+          { start: '#121620', end: '#06070b' }, // Tile (1,0) - Jet Midnight Black
+          { start: '#181e2b', end: '#0a0d13' }, // Tile (0,1) - Charcoal Onyx
+          { start: '#141823', end: '#07090e' }, // Tile (1,1) - Dark Obsidian
         ];
     
         let tileIdx = 0;
         for (let r = 0; r < 2; r++) {
           for (let c = 0; c < 2; c++) {
-            const tx = c * (tileSize + groutGap) + 4;
-            const ty = r * (tileSize + groutGap) + 4;
+            const tx = c * (tileSize + groutGap) + 7;
+            const ty = r * (tileSize + groutGap) + 7;
             const shade = tileShades[tileIdx++];
     
-            // Tile base gradient
+            // Square Tile Base Fill - Luxury Jet Black Gradient
             const tGrad = ctx.createLinearGradient(tx, ty, tx + tileSize, ty + tileSize);
             tGrad.addColorStop(0, shade.start);
             tGrad.addColorStop(1, shade.end);
             ctx.fillStyle = tGrad;
             ctx.fillRect(tx, ty, tileSize, tileSize);
     
-            // Tile bevel border highlight for sharp, crisp 3D black ceramic tile edge
-            ctx.strokeStyle = 'rgba(200, 215, 235, 0.18)';
+            // Square Tile Bevel Border Highlight for crisp 3D black ceramic square tile edges
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
             ctx.lineWidth = 4;
             ctx.strokeRect(tx + 2, ty + 2, tileSize - 4, tileSize - 4);
     
-            // Crisp silver fine marble veining inside each black tile
-            ctx.strokeStyle = 'rgba(180, 195, 220, 0.22)';
-            ctx.lineWidth = 3;
+            // Fine Silver Marble Veining Inside Each Black Tile
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+            ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(tx + 40, ty + 60);
             ctx.bezierCurveTo(tx + 180, ty + 120, tx + 280, ty + 80, tx + 460, ty + 320);
             ctx.stroke();
-    
-            ctx.strokeStyle = 'rgba(140, 160, 190, 0.16)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(tx + 400, ty + 100);
-            ctx.bezierCurveTo(tx + 300, ty + 250, tx + 180, ty + 350, tx + 50, ty + 450);
-            ctx.stroke();
           }
         }
     
-        // Outer perimeter grout border (Light Slate Contrast for clear tile grid separation)
-        ctx.strokeStyle = '#485060';
-        ctx.lineWidth = 6;
+        // Outer Grout Grid Line Border (Slate contrast for 100% visible black square tiles)
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 14;
         ctx.strokeRect(0, 0, 1024, 1024);
       }
     
@@ -1136,14 +1129,13 @@ export class SontinhSceneService implements OnDestroy {
     
       const mat = new pc.StandardMaterial();
       mat.useLighting = true;
-      mat.diffuse = new pc.Color(0.02, 0.02, 0.03); // Pure jet obsidian black tile floor
-      mat.specular = new pc.Color(0.15, 0.15, 0.18); // Elegant polished ceramic tile sheen
+      mat.diffuse = new pc.Color(0.20, 0.22, 0.28); // Luxury obsidian jet black tile tone
+      mat.specular = new pc.Color(0.28, 0.30, 0.35); // Elegant polished ceramic tile sheen
       mat.diffuseMap = texture;
-      // ROOM_WIDTH_X = 140m, ROOM_DEPTH_Z = 80m
-      // Tiling (17.5, 10) renders smooth, clean luxury obsidian marble floor slabs without moiré noise!
-      mat.diffuseMapTiling = new pc.Vec2(17.5, 10); 
+      // 140m X x 80m Z -> Tiling (35, 20) yields exactly 2m x 2m square tiles everywhere!
+      mat.diffuseMapTiling = new pc.Vec2(35, 20);
       mat.useMetalness = false;
-      mat.gloss = 0.45; // Balanced polished ceramic tile gloss
+      mat.gloss = 0.60;
       mat.update();
     
       return mat;
@@ -1573,9 +1565,9 @@ export class SontinhSceneService implements OnDestroy {
     floor.setPosition(0, -0.2, 0); // Top surface sits flush at exactly Y = 0.0m!
     app.root.addChild(floor);
     
-    // 🏛️ CEILING (TRẦN NHÀ SƠN ĐỒNG BỘ 100% VỚI 4 BỨC TƯỜNG BAO QUANH RỘNG 140M X 80M)
-    const matCeiling = createMat(new pc.Color(0.15, 0.18, 0.26), new pc.Color(0.1, 0.1, 0.1));
-    matCeiling.emissive = new pc.Color(0.15, 0.18, 0.26);
+    // 🏛️ CEILING (TRẦN NHÀ MÀU ĐEN TUYỀN SANG TRỌNG - MATTE JET BLACK CEILING)
+    const matCeiling = createMat(new pc.Color(0.05, 0.06, 0.08), new pc.Color(0.1, 0.1, 0.1));
+    matCeiling.emissive = new pc.Color(0.05, 0.06, 0.08);
     matCeiling.useLighting = false;
     matCeiling.update();
 
@@ -1860,7 +1852,7 @@ export class SontinhSceneService implements OnDestroy {
       'prop_room_walls': { primary: 'BackWall', targets: ['BackWall', 'FrontWall', 'LeftWallBack', 'LeftWallFront', 'LeftWallTop', 'RightWallB', 'RightWallT', 'RightWallL', 'RightWallR'] },
       'prop_room_ceiling': { primary: 'Ceiling', targets: ['Ceiling'] },
       'prop_main_door': { primary: 'DoorPivot', targets: ['DoorPanel', 'DoorFrameBack', 'DoorFrameFront', 'DoorFrameTop', 'DoorThreshold', 'DoorPivot', 'SashTop', 'SashBottom', 'SashLeft', 'SashRight', 'HandleAssembly', 'PlateInside', 'PlateOutside', 'LeverInsideStem', 'LeverInsideBar', 'LeverOutsideStem', 'LeverOutsideBar'] },
-      'prop_window_21_9': { primary: 'ChillWindowFrameTop', targets: ['ChillWindowFrameTop', 'ChillWindowFrameBottom', 'ChillWindowFrameLeft', 'ChillWindowFrameRight', 'WindowGlassPane'] },
+      'prop_window_21_9': { primary: 'ChillWindowOuterFrame', targets: ['ChillWindowOuterFrame', 'ChillWindowFrameTop', 'ChillWindowFrameBottom', 'ChillWindowFrameLeft', 'ChillWindowFrameRight', 'ChillGlassPane', 'WindowGlassPane'] },
 
       // 🪑 Nội thất
       'prop_main_desk': { primary: 'DeskTop', targets: ['DeskTop', 'LeftLegCurve', 'RightLegCurve', 'DeskFrame'] },
@@ -1993,10 +1985,11 @@ export class SontinhSceneService implements OnDestroy {
 
         const cfg = PROP_ENTITY_CONFIG[propId];
         if (cfg) {
-          if (propId.includes('monitor')) {
+          if (propId.includes('monitor') || propId.includes('window') || propId.includes('door') || propId.includes('building') || propId.includes('room')) {
             prop._customPositionSet = false;
             prop._customRotationSet = false;
             prop._customScaleSet = false;
+            delete prop.position;
           }
           // 1. Toggle visibility on primary root entity
           const primaryEntity = this.app.root.findByName(cfg.primary);
@@ -2102,7 +2095,7 @@ export class SontinhSceneService implements OnDestroy {
               } else {
                 const isWindow = prop.id.includes('window') || (prop.name && prop.name.toLowerCase().includes('cửa sổ'));
                 if (isWindow) {
-                  subEnt.setPosition(ROOM_WIDTH_X / 2 - 0.35, 16.0 - WINDOW_21_9_HEIGHT / 2 - 0.45, (i - (prop.subDevices.length - 1) / 2) * 1.3);
+                  subEnt.setPosition(ROOM_WIDTH_X / 2 - 0.05, 16.0 - WINDOW_21_9_HEIGHT / 2 + 0.2, (i - (prop.subDevices.length - 1) / 2) * 1.3);
                 } else if (prop.position && typeof prop.position.x === 'number') {
                   subEnt.setPosition(prop.position.x, prop.position.y + 0.6, prop.position.z + i * 0.8);
                 } else {
@@ -2160,11 +2153,12 @@ export class SontinhSceneService implements OnDestroy {
         }
       }
 
-      // Realtime Cleanup: Disable sub-button entities that are inactive
+      // Realtime Cleanup: Disable & Destroy sub-button entities that are inactive
       const existingSubBtns = app.root.findByTag('sub_device_button') as pc.Entity[];
       for (const btnEnt of existingSubBtns) {
         if (!activeSubEntIds.has(btnEnt.name)) {
           btnEnt.enabled = false;
+          try { btnEnt.destroy(); } catch (_) {}
         }
       }
     };
@@ -2361,74 +2355,17 @@ export class SontinhSceneService implements OnDestroy {
     rightWallR.setPosition(ROOM_WIDTH_X / 2, 16.0, 18.665 + rightWallSideLen / 2);
     app.root.addChild(rightWallR);
     
-    // 💻 KHUNG CỬA SỔ PHONG CÁCH CÔNG NGHỆ VUÔNG VẮN NHƯ MÀN HÌNH (HIGH-TECH FLUSH MONITOR SCREEN BEZEL FRAME)
-    const TECH_BEZEL_THICKNESS = 0.6;
-    const TECH_BEZEL_DEPTH = 0.6;
-    
-    // 1. Top Bezel (Flush 90° Spanning Full Width)
-    const chillWindowFrameTop = new pc.Entity('ChillWindowFrameTop');
-    chillWindowFrameTop.addComponent('render', { type: 'box', material: matTechDisplayBezel });
-    chillWindowFrameTop.setLocalScale(TECH_BEZEL_DEPTH, TECH_BEZEL_THICKNESS, WINDOW_21_9_WIDTH + 2 * TECH_BEZEL_THICKNESS);
-    chillWindowFrameTop.setPosition(ROOM_WIDTH_X / 2, 16.0 + WINDOW_21_9_HEIGHT / 2 + TECH_BEZEL_THICKNESS / 2, 0);
-    app.root.addChild(chillWindowFrameTop);
-    
-    // 2. Bottom Bezel (Flush 90° Spanning Full Width)
-    const chillWindowFrameBottom = new pc.Entity('ChillWindowFrameBottom');
-    chillWindowFrameBottom.addComponent('render', { type: 'box', material: matTechDisplayBezel });
-    chillWindowFrameBottom.setLocalScale(TECH_BEZEL_DEPTH, TECH_BEZEL_THICKNESS, WINDOW_21_9_WIDTH + 2 * TECH_BEZEL_THICKNESS);
-    chillWindowFrameBottom.setPosition(ROOM_WIDTH_X / 2, 16.0 - WINDOW_21_9_HEIGHT / 2 - TECH_BEZEL_THICKNESS / 2, 0);
-    app.root.addChild(chillWindowFrameBottom);
-    
-    // 3. Left Bezel (Flush 90° Height Fitting Between Top & Bottom)
-    const chillWindowFrameLeft = new pc.Entity('ChillWindowFrameLeft');
-    chillWindowFrameLeft.addComponent('render', { type: 'box', material: matTechDisplayBezel });
-    chillWindowFrameLeft.setLocalScale(TECH_BEZEL_DEPTH, WINDOW_21_9_HEIGHT, TECH_BEZEL_THICKNESS);
-    chillWindowFrameLeft.setPosition(ROOM_WIDTH_X / 2, 16.0, -WINDOW_21_9_WIDTH / 2 - TECH_BEZEL_THICKNESS / 2);
-    app.root.addChild(chillWindowFrameLeft);
-    
-    // 4. Right Bezel (Flush 90° Height Fitting Between Top & Bottom)
-    const chillWindowFrameRight = new pc.Entity('ChillWindowFrameRight');
-    chillWindowFrameRight.addComponent('render', { type: 'box', material: matTechDisplayBezel });
-    chillWindowFrameRight.setLocalScale(TECH_BEZEL_DEPTH, WINDOW_21_9_HEIGHT, TECH_BEZEL_THICKNESS);
-    chillWindowFrameRight.setPosition(ROOM_WIDTH_X / 2, 16.0, WINDOW_21_9_WIDTH / 2 + TECH_BEZEL_THICKNESS / 2);
-    app.root.addChild(chillWindowFrameRight);
-    
-    // 5. Sleek Inner Metallic Chamfer Trim (Dual-Layer Tech Screen Bezel Border)
-    const techInnerTrimT = new pc.Entity('TechInnerTrimT');
-    techInnerTrimT.addComponent('render', { type: 'box', material: matTechBezelTrim });
-    techInnerTrimT.setLocalScale(TECH_BEZEL_DEPTH + 0.05, 0.15, WINDOW_21_9_WIDTH);
-    techInnerTrimT.setPosition(ROOM_WIDTH_X / 2, 16.0 + WINDOW_21_9_HEIGHT / 2 - 0.075, 0);
-    app.root.addChild(techInnerTrimT);
-    
-    const techInnerTrimB = new pc.Entity('TechInnerTrimB');
-    techInnerTrimB.addComponent('render', { type: 'box', material: matTechBezelTrim });
-    techInnerTrimB.setLocalScale(TECH_BEZEL_DEPTH + 0.05, 0.15, WINDOW_21_9_WIDTH);
-    techInnerTrimB.setPosition(ROOM_WIDTH_X / 2, 16.0 - WINDOW_21_9_HEIGHT / 2 + 0.075, 0);
-    app.root.addChild(techInnerTrimB);
-    
-    const techInnerTrimL = new pc.Entity('TechInnerTrimL');
-    techInnerTrimL.addComponent('render', { type: 'box', material: matTechBezelTrim });
-    techInnerTrimL.setLocalScale(TECH_BEZEL_DEPTH + 0.05, WINDOW_21_9_HEIGHT - 0.30, 0.15);
-    techInnerTrimL.setPosition(ROOM_WIDTH_X / 2, 16.0, -WINDOW_21_9_WIDTH / 2 + 0.075);
-    app.root.addChild(techInnerTrimL);
-    
-    const techInnerTrimR = new pc.Entity('TechInnerTrimR');
-    techInnerTrimR.addComponent('render', { type: 'box', material: matTechBezelTrim });
-    techInnerTrimR.setLocalScale(TECH_BEZEL_DEPTH + 0.05, WINDOW_21_9_HEIGHT - 0.30, 0.15);
-    techInnerTrimR.setPosition(ROOM_WIDTH_X / 2, 16.0, WINDOW_21_9_WIDTH / 2 - 0.075);
-    app.root.addChild(techInnerTrimR);
-    
-    // 6. Monitor Screen Status / Power LED Indicator Dot (Tech Detail at Bottom Center)
-    const techScreenLed = new pc.Entity('TechScreenLed');
-    techScreenLed.addComponent('render', { type: 'sphere', material: matTechScreenLed });
-    techScreenLed.setLocalScale(0.15, 0.15, 0.15);
-    techScreenLed.setPosition(ROOM_WIDTH_X / 2 - 0.32, 16.0 - WINDOW_21_9_HEIGHT / 2 - TECH_BEZEL_THICKNESS / 2, 0);
-    app.root.addChild(techScreenLed);
-    
+    // 💻 KHUNG CỬA SỔ 21:9 THIẾT KẾ CÔNG NGHỆ CAO PHẲNG ĐẸP CHUẨN XÁC (HIGH-TECH 21:9 FLUSH WINDOW BEZEL ASSEMBLY)
+    const chillWindowOuterFrame = new pc.Entity('ChillWindowOuterFrame');
+    chillWindowOuterFrame.addComponent('render', { type: 'box', material: matTechDisplayBezel });
+    chillWindowOuterFrame.setLocalScale(0.50, WINDOW_21_9_HEIGHT, WINDOW_21_9_WIDTH);
+    chillWindowOuterFrame.setPosition(ROOM_WIDTH_X / 2, 16.0, 0);
+    app.root.addChild(chillWindowOuterFrame);
+
     // 🪟 MẶT KÍNH CỬA SỔ MINIMALIST 21:9 (PURE MINIMALIST CLEAR GLASS PANE)
     const chillGlassPane = new pc.Entity('ChillGlassPane');
     chillGlassPane.addComponent('render', { type: 'box', material: matGlass });
-    chillGlassPane.setLocalScale(0.1, WINDOW_21_9_HEIGHT, WINDOW_21_9_WIDTH);
+    chillGlassPane.setLocalScale(0.08, WINDOW_21_9_HEIGHT - 0.2, WINDOW_21_9_WIDTH - 0.2);
     chillGlassPane.setPosition(ROOM_WIDTH_X / 2, 16.0, 0);
     app.root.addChild(chillGlassPane);
 
@@ -2580,11 +2517,11 @@ export class SontinhSceneService implements OnDestroy {
 
     }
 
-    // Khởi tạo 5 tầng kiến trúc tòa nhà với chiều cao 32m đồng nhất 100%
-    createEmptyFloorStructure('Floor1', -64.0, 32.0); // Tầng 1 (Y: -64m đến -32m)
-    createEmptyFloorStructure('Floor2', -32.0, 32.0); // Tầng 2 (Y: -32m đến 0m)
-    createEmptyFloorStructure('Floor4', 32.0,  32.0); // Tầng 4 (Y: +32m đến +64m)
-    createEmptyFloorStructure('Floor5', 64.0,  32.0); // Tầng 5 (Y: +64m đến +96m)
+    // Khởi tạo 5 tầng kiến trúc tòa nhà với chiều cao WALL_H (35m) đồng nhất 100%
+    createEmptyFloorStructure('Floor1', -WALL_H * 2, WALL_H);
+    createEmptyFloorStructure('Floor2', -WALL_H, WALL_H);
+    createEmptyFloorStructure('Floor4', WALL_H, WALL_H);
+    createEmptyFloorStructure('Floor5', WALL_H * 2, WALL_H);
     
     
     // 🖱️ Raycast Click Detection for Window Glass
@@ -4611,40 +4548,8 @@ export class SontinhSceneService implements OnDestroy {
     let charCurrentYaw  = 0;
     let charWaitTimer   = 0.0;
     let charIsWalking   = true;
-    let lastGlowTime = 0;
     function spawnStepGlowRipple(x: number, z: number) {
-      const now = Date.now();
-      if (now - lastGlowTime < 280) return;
-      lastGlowTime = now;
-
-      try {
-        const glow = new pc.Entity('StepGlow');
-        glow.addComponent('render', { type: 'cylinder' });
-        glow.setLocalScale(2.2, 0.02, 2.2);
-        glow.setPosition(x, 0.05, z);
-
-        const matGlow = new pc.StandardMaterial();
-        matGlow.diffuse = new pc.Color(0, 0, 0);
-        matGlow.emissive = new pc.Color(0.2, 0.85, 1.0);
-        matGlow.useLighting = false;
-        matGlow.update();
-        glow.render.material = matGlow;
-        app.root.addChild(glow);
-
-        let step = 0;
-        const animInterval = setInterval(() => {
-          step++;
-          const alpha = Math.max(0, 1.0 - step / 20);
-          matGlow.emissive = new pc.Color(0.2 * alpha, 0.85 * alpha, 1.0 * alpha);
-          matGlow.update();
-          glow.setLocalScale(2.2 + step * 0.18, 0.02, 2.2 + step * 0.18);
-
-          if (step >= 20) {
-            clearInterval(animInterval);
-            glow.destroy();
-          }
-        }, 30);
-      } catch (e) {}
+      // Hiệu ứng tỏa sáng dưới chân nhân vật đã được tắt theo yêu cầu người dùng
     }
 
     // ── WASD PLAYER CONTROL ───────────────────────────────────────────────────────
