@@ -52,6 +52,14 @@ export class SontinhSceneService implements OnDestroy {
   private _applyProps: ((props: any[]) => void) | null = null;
   private _toggleWindowTvIframe: ((show?: boolean, url?: string) => void) | null = null;
 
+  private _showDateTimeOnMonitorFn: ((targetSide?: 'left' | 'right' | 'both', options?: { textColor?: string; bgColor?: string; screenText?: string }) => void) | null = null;
+
+  showDateTimeOnMonitor(targetSide: 'left' | 'right' | 'both' = 'both', options?: { textColor?: string; bgColor?: string; screenText?: string }): void {
+    if (this._showDateTimeOnMonitorFn) {
+      this._showDateTimeOnMonitorFn(targetSide, options);
+    }
+  }
+
   toggleWindowTvIframe(show?: boolean, url?: string): void {
     if (this._toggleWindowTvIframe) {
       this._toggleWindowTvIframe(show, url);
@@ -1282,8 +1290,147 @@ export class SontinhSceneService implements OnDestroy {
     matSwitchLedOff.update();
     
     const matDeskMat = createMat(new pc.Color(0.1, 0.1, 0.12), new pc.Color(0.2, 0.2, 0.2));
-    const matScreenLeft = createMat(new pc.Color(0.08, 0.25, 0.45), new pc.Color(0.8, 0.95, 1.0));
-    const matScreenRight = createMat(new pc.Color(0.35, 0.1, 0.45), new pc.Color(1.0, 0.7, 1.0));
+    const matCRTPlastic = createMat(new pc.Color(0.87, 0.84, 0.78), new pc.Color(0.25, 0.24, 0.22));
+    const matScreenLeft = createMat(new pc.Color(0.05, 0.05, 0.08), new pc.Color(0.02, 0.02, 0.02));
+    const matScreenRight = createMat(new pc.Color(0.05, 0.05, 0.08), new pc.Color(0.02, 0.02, 0.02));
+
+    let clockCanvasTimer: any = null;
+    let clockCanvasTexture: pc.Texture | null = null;
+
+    const showDateTimeOnMonitorFn = (targetSide: 'left' | 'right' | 'both' = 'both', options?: { textColor?: string; bgColor?: string; screenText?: string }) => {
+      if (clockCanvasTimer) {
+        clearInterval(clockCanvasTimer);
+        clockCanvasTimer = null;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const device = app.graphicsDevice;
+      const tex = new pc.Texture(device, {
+        width: 1024,
+        height: 512,
+        format: pc.PIXELFORMAT_R8_G8_B8_A8,
+        mipmaps: false
+      });
+      clockCanvasTexture = tex;
+
+      const daysOfWeek = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+      const renderCanvas = () => {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const dayName = daysOfWeek[now.getDay()];
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = now.getFullYear();
+
+        const textColor = options?.textColor || '#00f0ff';
+        const isBlackText = textColor.toLowerCase() === '#000000' || textColor.toLowerCase() === 'black';
+
+        // Background Gradient (Deep Cyberpunk Dark Glass)
+        const grad = ctx.createLinearGradient(0, 0, 1024, 512);
+        if (options?.bgColor) {
+          grad.addColorStop(0, options.bgColor);
+          grad.addColorStop(1, options.bgColor);
+        } else {
+          grad.addColorStop(0, '#0a2040');
+          grad.addColorStop(0.5, '#122d55');
+          grad.addColorStop(1, '#1a3a70');
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1024, 512);
+
+        // Tech grid lines
+        ctx.strokeStyle = isBlackText ? 'rgba(0, 0, 0, 0.08)' : 'rgba(6, 182, 212, 0.12)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < 1024; x += 40) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke();
+        }
+        for (let y = 0; y < 512; y += 40) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1024, y); ctx.stroke();
+        }
+
+        // Top Status Header Bar
+        ctx.fillStyle = isBlackText ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.8)';
+        ctx.fillRect(40, 30, 944, 50);
+        ctx.fillStyle = isBlackText ? '#0f172a' : '#06b6d4';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillText('SƠN TINH AI 3D WORKSTATION OS v2.5', 60, 62);
+        ctx.fillStyle = isBlackText ? '#059669' : '#10b981';
+        ctx.font = '18px monospace';
+        ctx.fillText('● SYSTEM ONLINE | REALTIME 3D', 680, 62);
+
+        // Main Clock / Content Display Box
+        ctx.fillStyle = isBlackText ? 'rgba(255, 255, 255, 0.95)' : 'rgba(30, 41, 59, 0.85)';
+        ctx.strokeStyle = isBlackText ? '#0284c7' : '#06b6d4';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        if ((ctx as any).roundRect) {
+          (ctx as any).roundRect(160, 110, 704, 250, 24);
+        } else {
+          ctx.rect(160, 110, 704, 250);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        // Main Text Display (Clock or Custom Text)
+        ctx.shadowColor = isBlackText ? 'rgba(0, 0, 0, 0.15)' : '#06b6d4';
+        ctx.shadowBlur = isBlackText ? 4 : 20;
+        ctx.fillStyle = textColor;
+        ctx.font = options?.screenText ? 'bold 54px sans-serif' : 'bold 110px monospace';
+        ctx.textAlign = 'center';
+
+        if (options?.screenText) {
+          ctx.fillText(options.screenText, 512, 230);
+        } else {
+          ctx.fillText(`${hours}:${minutes}:${seconds}`, 512, 260);
+        }
+
+        // Date Sub-header
+        ctx.shadowColor = isBlackText ? 'transparent' : '#3b82f6';
+        ctx.shadowBlur = isBlackText ? 0 : 10;
+        ctx.fillStyle = isBlackText ? '#0369a1' : '#38bdf8';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.fillText(`${dayName}, ${day}/${month}/${year}`, 512, 320);
+
+        // Bottom Metrics Info
+        ctx.shadowBlur = 0;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = isBlackText ? '#334155' : 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '16px monospace';
+        ctx.fillText('CPU: 14% | RAM: 12.8GB / 64GB | GPU: RTX 4090 (42°C)', 180, 410);
+
+        tex.setSource(canvas);
+        tex.upload();
+      };
+
+      renderCanvas();
+      clockCanvasTimer = setInterval(renderCanvas, 1000);
+
+      const applyToMat = (mat: pc.StandardMaterial) => {
+        if (!mat) return;
+        mat.diffuse = new pc.Color(0, 0, 0);
+        mat.specular = new pc.Color(0.02, 0.02, 0.02);
+        mat.emissive = new pc.Color(1.0, 1.0, 1.0);
+        mat.emissiveMap = tex;
+        mat.useLighting = false;
+        mat.update();
+      };
+
+      if (targetSide === 'left' || targetSide === 'both') {
+        applyToMat(matScreenLeft);
+      }
+      if (targetSide === 'right' || targetSide === 'both') {
+        applyToMat(matScreenRight);
+      }
+    };
+    self._showDateTimeOnMonitorFn = showDateTimeOnMonitorFn;
     const matChairMesh = createMat(new pc.Color(0.15, 0.17, 0.2), new pc.Color(0.3, 0.3, 0.3));
     const matChairFrame = createMat(new pc.Color(0.08, 0.08, 0.1), new pc.Color(0.5, 0.5, 0.5));
     const matChairLeatherSeat = createMat(new pc.Color(0.12, 0.13, 0.15), new pc.Color(0.4, 0.4, 0.4));
@@ -1572,40 +1719,40 @@ export class SontinhSceneService implements OnDestroy {
     
     const PROP_ENTITY_CONFIG: Record<string, { primary: string; targets: string[] }> = {
       // 🏢 Kiến trúc Tòa nhà & Phòng 306
-      'prop_building_5story_main': { primary: 'LeftWallBack', targets: ['LowerBuildingBase', 'CorniceFloor1', 'CorniceFloor2', 'CorniceFloor3'] },
-      'prop_room_306_floor': { primary: 'Floor', targets: ['Floor', 'Ceiling', 'BackWall', 'FrontWall', 'LeftWallBack', 'LeftWallFront', 'LeftWallTop'] },
-      'prop_building_floor1': { primary: 'Floor1_Root', targets: ['Floor1_Root', 'CorniceFloor1'] },
-      'prop_building_floor2': { primary: 'Floor2_Root', targets: ['Floor2_Root', 'CorniceFloor2'] },
-      'prop_building_floor4': { primary: 'Floor4_Root', targets: ['Floor4_Root', 'CorniceFloor3'] },
-      'prop_building_floor5': { primary: 'Floor5_Root', targets: ['Floor5_Root'] },
+      'prop_building_5story_main': { primary: 'LeftWallBack', targets: ['LowerBuildingBase', 'CorniceFloor1_Group', 'CorniceFloor2_Group', 'CorniceFloor3_Group', 'CorniceFloor4_Group', 'CorniceFloor5_Group'] },
+      'prop_room_306_floor': { primary: 'Floor', targets: ['Floor', 'Ceiling', 'BackWall', 'FrontWall', 'LeftWallBack', 'LeftWallFront', 'LeftWallTop', 'RightWallB', 'RightWallT', 'RightWallL', 'RightWallR'] },
+      'prop_building_floor1': { primary: 'CorniceFloor1_Group', targets: ['CorniceFloor1_Group', 'Floor1_WindowOuterFrame', 'Floor1_WindowGlass'] },
+      'prop_building_floor2': { primary: 'CorniceFloor2_Group', targets: ['CorniceFloor2_Group', 'Floor2_WindowOuterFrame', 'Floor2_WindowGlass'] },
+      'prop_building_floor4': { primary: 'CorniceFloor4_Group', targets: ['CorniceFloor4_Group', 'Floor4_WindowOuterFrame', 'Floor4_WindowGlass'] },
+      'prop_building_floor5': { primary: 'CorniceFloor5_Group', targets: ['CorniceFloor5_Group', 'Floor5_WindowOuterFrame', 'Floor5_WindowGlass'] },
       'prop_room_marble_floor': { primary: 'Floor', targets: ['Floor'] },
-      'prop_room_walls': { primary: 'BackWall', targets: ['BackWall', 'FrontWall', 'LeftWallBack', 'LeftWallFront', 'LeftWallTop'] },
+      'prop_room_walls': { primary: 'BackWall', targets: ['BackWall', 'FrontWall', 'LeftWallBack', 'LeftWallFront', 'LeftWallTop', 'RightWallB', 'RightWallT', 'RightWallL', 'RightWallR'] },
       'prop_room_ceiling': { primary: 'Ceiling', targets: ['Ceiling'] },
-      'prop_main_door': { primary: 'DoorPivot', targets: ['DoorPanel', 'DoorFrameBack', 'DoorFrameFront', 'DoorFrameTop', 'DoorThreshold', 'DoorPivot', 'SashTop', 'SashBottom', 'SashLeft', 'SashRight', 'HandleAssembly'] },
-      'prop_window_21_9': { primary: 'WindowOuterFrame', targets: ['WindowOuterFrame', 'WindowPivotLeft', 'WindowPanelLeft', 'WindowPivotRight', 'WindowPanelRight'] },
+      'prop_main_door': { primary: 'DoorPivot', targets: ['DoorPanel', 'DoorFrameBack', 'DoorFrameFront', 'DoorFrameTop', 'DoorThreshold', 'DoorPivot', 'SashTop', 'SashBottom', 'SashLeft', 'SashRight', 'HandleAssembly', 'PlateInside', 'PlateOutside', 'LeverInsideStem', 'LeverInsideBar', 'LeverOutsideStem', 'LeverOutsideBar'] },
+      'prop_window_21_9': { primary: 'ChillWindowFrameTop', targets: ['ChillWindowFrameTop', 'ChillWindowFrameBottom', 'ChillWindowFrameLeft', 'ChillWindowFrameRight', 'WindowGlassPane'] },
 
       // 🪑 Nội thất
       'prop_main_desk': { primary: 'DeskTop', targets: ['DeskTop', 'LeftLegCurve', 'RightLegCurve', 'DeskFrame'] },
-      'prop_chair_left': { primary: 'Chair1_Pivot', targets: ['Chair1_Pivot'] },
-      'prop_chair_right': { primary: 'Chair2_Pivot', targets: ['Chair2_Pivot'] },
+      'prop_chair_left': { primary: 'Chair1_Pivot', targets: ['Chair1_Pivot', 'Chair1_SeatCenter', 'Chair1_SeatCorner_FL', 'Chair1_SeatCorner_FR', 'Chair1_SeatCorner_BL', 'Chair1_SeatCorner_BR', 'Chair1_SeatSide_F', 'Chair1_SeatSide_B', 'Chair1_SeatSide_L', 'Chair1_SeatSide_R', 'Chair1_BackMeshMain', 'Chair1_BackFrameMain', 'Chair1_HeadrestCenter', 'Chair1_HeadrestLeft', 'Chair1_HeadrestRight', 'Chair1_ArmLeftPad', 'Chair1_ArmRightPad'] },
+      'prop_chair_right': { primary: 'Chair2_Pivot', targets: ['Chair2_Pivot', 'Chair2_SeatCenter', 'Chair2_SeatCorner_FL', 'Chair2_SeatCorner_FR', 'Chair2_SeatCorner_BL', 'Chair2_SeatCorner_BR', 'Chair2_SeatSide_F', 'Chair2_SeatSide_B', 'Chair2_SeatSide_L', 'Chair2_SeatSide_R', 'Chair2_BackMeshMain', 'Chair2_BackFrameMain', 'Chair2_HeadrestCenter', 'Chair2_HeadrestLeft', 'Chair2_HeadrestRight', 'Chair2_ArmLeftPad', 'Chair2_ArmRightPad'] },
       'prop_pegboard': { primary: 'PegboardWall', targets: ['PegboardWall', 'PegboardShelf', 'PegboardBacklight'] },
       'prop_clothing_drawer': { primary: 'ClothingDrawer', targets: ['ClothingDrawer', 'DrawerCabinet'] },
       'prop_desk_mat_left': { primary: 'LeftDeskMat', targets: ['LeftDeskMat'] },
       'prop_desk_mat_right': { primary: 'RightDeskMat', targets: ['RightDeskMat'] },
 
       // 🖥️ Thiết bị Điện tử
-      'prop_monitor_left': { primary: 'LeftMonitorBody', targets: ['LeftMonitorStand', 'LeftMonitorBody', 'LeftMonitorScreen', 'LeftMonitorGlow'] },
-      'prop_monitor_right': { primary: 'RightMonitorBody', targets: ['RightMonitorStand', 'RightMonitorBody', 'RightMonitorScreen', 'RightMonitorGlow'] },
+      'prop_monitor_left': { primary: 'LeftMonitorBody', targets: ['LeftMonitorStand', 'LeftMonitorBody', 'LeftMonitorScreen'] },
+      'prop_monitor_right': { primary: 'RightMonitorBody', targets: ['RightMonitorStand', 'RightMonitorBody', 'RightMonitorScreen'] },
       'prop_mechanical_keyboard_left': { primary: 'LeftKbd', targets: ['LeftKbd'] },
       'prop_mechanical_keyboard_right': { primary: 'RightKbd', targets: ['RightKbd'] },
       'prop_mouse_left': { primary: 'LeftMouse', targets: ['LeftMouse'] },
       'prop_mouse_right': { primary: 'RightMouse', targets: ['RightMouse'] },
-      'prop_ps5_pro': { primary: 'Ps5Console', targets: ['Ps5Console', 'Ps5Controller', 'Ps5Stand'] },
+      'prop_ps5_pro': { primary: 'ShelfPS5Pro_Pivot', targets: ['ShelfPS5Pro_Pivot', 'ShelfPS5Pro_StandBase', 'ShelfPS5Pro_CoreTower', 'ShelfPS5Pro_LeftPlateLower', 'ShelfPS5Pro_LeftPlateUpper', 'ShelfPS5Pro_RightPlateLower', 'ShelfPS5Pro_RightPlateUpper', 'ShelfPS5Pro_FrontLedStrip', 'ShelfPS5Pro_CtrlPivot'] },
 
       // 💡 Đèn & Trang trí
       'prop_aquarium': { primary: 'AquaBase', targets: ['AquaBase', 'AquaSand', 'AquaWater', 'AquaGlass', 'AquaTopHood', 'AquaLight'] },
       'prop_picture_frame': { primary: 'FamilyPictureFrame', targets: ['FamilyPictureFrame', 'FamilyFrameBacklight', 'FamilyFrameGlass'] },
-      'prop_wall_clock': { primary: '3DWallClock_Pivot', targets: ['3DWallClock_Pivot', 'ClockOuterFrame', 'ClockFace', 'ClockCenterCap', 'HourHandBody', 'MinuteHandBody', 'SecondHandBody', 'HourHandPivot', 'MinuteHandPivot', 'SecondHandPivot'] },
+      'prop_wall_clock': { primary: '3DWallClock_Pivot', targets: ['3DWallClock_Pivot', 'ClockOuterFrame', 'ClockFace', 'ClockCenterCap', 'HourHandBody', 'MinuteHandBody', 'SecondHandBody', 'HourHandPivot', 'MinuteHandPivot', 'SecondHandPivot', 'ClockTicks'] },
       'prop_tech_led_bar': { primary: 'LedBarLeft', targets: ['LedBarLeft', 'LedBarRight'] },
       'prop_wall_switch': { primary: 'WallSwitchBase', targets: ['WallSwitchBase', 'WallSwitchRocker', 'WallSwitchLedDot', 'WallSwitchBezel', 'WallSwitchGlowLight'] },
       'prop_ceiling_downlight_front': { primary: 'FrontLedLight', targets: ['FrontLedLight'] },
@@ -1639,37 +1786,68 @@ export class SontinhSceneService implements OnDestroy {
               }
               let mat = node.render.material as pc.StandardMaterial;
               if (mat) {
-                if (!(mat as any)._isClonedInstance) {
-                  mat = mat.clone() as pc.StandardMaterial;
-                  (mat as any)._isClonedInstance = true;
-                  node.render.material = mat;
-                }
                 let changed = false;
-                if (prop.color && typeof prop.color === 'string' && prop.color.toLowerCase() !== '#ffffff' && (prop._customColorSet || prop.color !== '#ffffff')) {
+
+                // 🎨 Custom Diffuse Color (Apply ONLY when explicitly customized by user and not default #ffffff)
+                if (prop._customColorSet && prop.color && typeof prop.color === 'string' && prop.color.toLowerCase() !== '#ffffff') {
+                  if (!(mat as any)._isClonedInstance) {
+                    mat = mat.clone() as pc.StandardMaterial;
+                    (mat as any)._isClonedInstance = true;
+                    node.render.material = mat;
+                  }
                   mat.diffuse = new pc.Color().fromString(prop.color);
                   changed = true;
                 }
-                if (prop.opacity !== undefined && typeof prop.opacity === 'number') {
+
+                // 💧 Custom Opacity (Apply ONLY when explicitly set < 1.0)
+                if (prop._customOpacitySet && prop.opacity !== undefined && typeof prop.opacity === 'number' && prop.opacity < 1.0) {
+                  if (!(mat as any)._isClonedInstance) {
+                    mat = mat.clone() as pc.StandardMaterial;
+                    (mat as any)._isClonedInstance = true;
+                    node.render.material = mat;
+                  }
                   mat.opacity = prop.opacity;
-                  mat.blendType = prop.opacity < 1.0 ? pc.BLEND_NORMAL : pc.BLEND_NONE;
+                  mat.blendType = pc.BLEND_NORMAL;
                   changed = true;
                 }
-                if (prop.emissiveColor && typeof prop.emissiveColor === 'string' && prop.emissiveIntensity !== undefined) {
+
+                // 💡 Custom Emissive (Apply ONLY when emissiveColor is provided and intensity > 0)
+                if (prop._customEmissiveSet && prop.emissiveColor && prop.emissiveIntensity && prop.emissiveIntensity > 0) {
+                  if (!(mat as any)._isClonedInstance) {
+                    mat = mat.clone() as pc.StandardMaterial;
+                    (mat as any)._isClonedInstance = true;
+                    node.render.material = mat;
+                  }
                   const c = new pc.Color().fromString(prop.emissiveColor);
                   const intensity = prop.emissiveIntensity || 0;
                   mat.emissive = new pc.Color(c.r * intensity, c.g * intensity, c.b * intensity);
                   changed = true;
                 }
-                if (prop.metalness !== undefined && typeof prop.metalness === 'number') {
+
+                // ⚙️ Custom Metalness (Apply ONLY when explicitly customized)
+                if (prop._customMetalnessSet && prop.metalness !== undefined && typeof prop.metalness === 'number') {
+                  if (!(mat as any)._isClonedInstance) {
+                    mat = mat.clone() as pc.StandardMaterial;
+                    (mat as any)._isClonedInstance = true;
+                    node.render.material = mat;
+                  }
                   mat.useMetalness = true;
                   mat.metalness = prop.metalness;
                   changed = true;
                 }
-                if (prop.roughness !== undefined && typeof prop.roughness === 'number') {
+
+                // ⚙️ Custom Roughness (Apply ONLY when explicitly customized)
+                if (prop._customRoughnessSet && prop.roughness !== undefined && typeof prop.roughness === 'number') {
+                  if (!(mat as any)._isClonedInstance) {
+                    mat = mat.clone() as pc.StandardMaterial;
+                    (mat as any)._isClonedInstance = true;
+                    node.render.material = mat;
+                  }
                   mat.useMetalness = true;
                   mat.gloss = Math.max(0, Math.min(1, 1.0 - prop.roughness));
                   changed = true;
                 }
+
                 if (changed) mat.update();
               }
             }
@@ -1684,7 +1862,24 @@ export class SontinhSceneService implements OnDestroy {
 
         const cfg = PROP_ENTITY_CONFIG[propId];
         if (cfg) {
-          // 1. Toggle visibility & update PBR material properties of target entities
+          // 1. Toggle visibility on primary root entity
+          const primaryEntity = this.app.root.findByName(cfg.primary);
+          if (primaryEntity) {
+            (primaryEntity as any).enabled = isVisible;
+            if (!propId.includes('monitor')) {
+              updateMaterialProps(primaryEntity);
+            }
+            if (prop._customPositionSet && prop.position && typeof prop.position.x === 'number') {
+              (primaryEntity as any).setPosition(prop.position.x, prop.position.y, prop.position.z);
+            }
+            if (prop._customRotationSet && prop.rotation && typeof prop.rotation.x === 'number') {
+              (primaryEntity as any).setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
+            }
+            if (prop._customScaleSet && prop.scale && typeof prop.scale.x === 'number') {
+              (primaryEntity as any).setLocalScale(prop.scale.x, prop.scale.y, prop.scale.z);
+            }
+          }
+          // 2. Toggle visibility & update PBR material properties of target entities
           for (const name of cfg.targets) {
             const entity = this.app.root.findByName(name);
             if (entity) {
@@ -1692,24 +1887,13 @@ export class SontinhSceneService implements OnDestroy {
               updateMaterialProps(entity);
             }
           }
-          if (prop._modifiedPosition) {
-            const isDefaultZero = prop.position && prop.position.x === 0 && prop.position.y === 0 && prop.position.z === 0;
-            const isStructuralFloor = propId.startsWith('prop_building_floor') || propId === 'prop_building_5story_main' || propId === 'prop_room_306_floor' || propId.startsWith('prop_room_');
 
-            if (!isStructuralFloor || !isDefaultZero) {
-              const primaryEntity = this.app.root.findByName(cfg.primary);
-              if (primaryEntity) {
-                if (prop.position && typeof prop.position.x === 'number') {
-                  (primaryEntity as any).setPosition(prop.position.x, prop.position.y, prop.position.z);
-                }
-                if (prop.rotation && typeof prop.rotation.x === 'number') {
-                  (primaryEntity as any).setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
-                }
-                if (prop.scale && typeof prop.scale.x === 'number') {
-                  (primaryEntity as any).setLocalScale(prop.scale.x, prop.scale.y, prop.scale.z);
-                }
-              }
-            }
+          // Restores active screen state (e.g. Realtime Clock Display) on page load / F5 refresh
+          if (prop.activeScreenState === 'clock') {
+            let side: 'left' | 'right' | 'both' = 'both';
+            if (propId.includes('left')) side = 'left';
+            else if (propId.includes('right')) side = 'right';
+            this.showDateTimeOnMonitor(side, prop.screenOptions);
           }
         } else {
           // Fallback entity lookup by propId or name
@@ -1719,17 +1903,15 @@ export class SontinhSceneService implements OnDestroy {
           }
           if (entity) {
             (entity as any).enabled = isVisible;
-            if (prop._modifiedPosition) {
-              updateMaterialProps(entity);
-              if (prop.position && typeof prop.position.x === 'number') {
-                (entity as any).setPosition(prop.position.x, prop.position.y, prop.position.z);
-              }
-              if (prop.rotation && typeof prop.rotation.x === 'number') {
-                (entity as any).setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
-              }
-              if (prop.scale && typeof prop.scale.x === 'number') {
-                (entity as any).setLocalScale(prop.scale.x, prop.scale.y, prop.scale.z);
-              }
+            updateMaterialProps(entity);
+            if (prop._customPositionSet && prop.position && typeof prop.position.x === 'number') {
+              (entity as any).setPosition(prop.position.x, prop.position.y, prop.position.z);
+            }
+            if (prop._customRotationSet && prop.rotation && typeof prop.rotation.x === 'number') {
+              (entity as any).setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
+            }
+            if (prop._customScaleSet && prop.scale && typeof prop.scale.x === 'number') {
+              (entity as any).setLocalScale(prop.scale.x, prop.scale.y, prop.scale.z);
             }
           }
         }
@@ -3297,10 +3479,10 @@ export class SontinhSceneService implements OnDestroy {
     
     const leftMonitorScreen = new pc.Entity('LeftMonitorScreen');
     leftMonitorScreen.addComponent('render', { type: 'box', material: matScreenLeft });
-    leftMonitorScreen.setLocalScale(7.0, 3.6, 0.05);
-    leftMonitorScreen.setPosition(-6.0, 6.2 + WS_DY, BACK_WALL_Z + 2.55);
+    leftMonitorScreen.setLocalScale(7.12, 3.72, 0.05);
+    leftMonitorScreen.setPosition(-6.0, 6.2 + WS_DY, BACK_WALL_Z + 2.51);
     app.root.addChild(leftMonitorScreen);
-    
+
     const leftDeskMat = new pc.Entity('LeftDeskMat');
     leftDeskMat.addComponent('render', { type: 'box', material: matDeskMat });
     leftDeskMat.setLocalScale(6.5, 0.02, 2.6);
@@ -3325,11 +3507,11 @@ export class SontinhSceneService implements OnDestroy {
     app.root.addChild(rightMonitorBody);
     
     const rightMonitorScreen = new pc.Entity('RightMonitorScreen');
-    rightMonitorScreen.addComponent('render', { type: 'box', material: materialScreenRight() });
-    rightMonitorScreen.setLocalScale(7.0, 3.6, 0.05);
-    rightMonitorScreen.setPosition(6.0, 6.2 + WS_DY, BACK_WALL_Z + 2.55);
+    rightMonitorScreen.addComponent('render', { type: 'box', material: matScreenRight });
+    rightMonitorScreen.setLocalScale(7.12, 3.72, 0.05);
+    rightMonitorScreen.setPosition(6.0, 6.2 + WS_DY, BACK_WALL_Z + 2.51);
     app.root.addChild(rightMonitorScreen);
-    
+
     function materialScreenRight() { return matScreenRight; }
     
     const rightDeskMat = new pc.Entity('RightDeskMat');
@@ -3591,7 +3773,7 @@ export class SontinhSceneService implements OnDestroy {
     pegboardShelf.setLocalScale(7.5, 0.18, 1.8);
     pegboardShelf.setPosition(0.0, 10.4 + WS_DY, BACK_WALL_Z + 1.2);
     app.root.addChild(pegboardShelf);
-    
+
     // 🎮 PLAYSTATION 5 PRO CONSOLE & DUAL-TONE WHITE/BLACK DUALSENSE CONTROLLER
     createPS5ProConsole3D('ShelfPS5Pro', 0.0, 10.5 + WS_DY, BACK_WALL_Z + 1.2);
     
@@ -3603,17 +3785,18 @@ export class SontinhSceneService implements OnDestroy {
     clockPivot.setEulerAngles(0, 180, 0);
     app.root.addChild(clockPivot);
     
-    // Outer Ring Frame (Dark Walnut Wood)
+    // Outer Ring Frame (Dark Walnut Wood Backing Board & Rim)
     const clockOuterFrame = new pc.Entity('ClockOuterFrame');
     clockOuterFrame.addComponent('render', { type: 'cylinder', material: matWalnut });
-    clockOuterFrame.setLocalScale(2.6, 0.22, 2.6);
+    clockOuterFrame.setLocalScale(2.6, 0.05, 2.6);
     clockOuterFrame.setEulerAngles(90, 0, 0);
     clockPivot.addChild(clockOuterFrame);
     
     // Clock Face Dial (Off-White Porcelain)
     const clockFace = new pc.Entity('ClockFace');
     clockFace.addComponent('render', { type: 'cylinder', material: matKbdOffWhiteKey });
-    clockFace.setLocalScale(2.35, 0.24, 2.35);
+    clockFace.setLocalScale(2.35, 0.02, 2.35);
+    clockFace.setPosition(0, 0, -0.035);
     clockFace.setEulerAngles(90, 0, 0);
     clockPivot.addChild(clockFace);
     
@@ -3628,7 +3811,7 @@ export class SontinhSceneService implements OnDestroy {
       tick.addComponent('render', { type: 'box', material: matBlackMetal });
       const isMajor = (i % 3 === 0);
       tick.setLocalScale(isMajor ? 0.08 : 0.04, isMajor ? 0.25 : 0.14, 0.04);
-      tick.setPosition(tx, ty, 0.13);
+      tick.setPosition(tx, ty, -0.06);
       tick.setEulerAngles(0, 0, -i * 30);
       clockPivot.addChild(tick);
     }
@@ -3636,14 +3819,14 @@ export class SontinhSceneService implements OnDestroy {
     // Center Cap (Gold Metallic)
     const clockCenterCap = new pc.Entity('ClockCenterCap');
     clockCenterCap.addComponent('render', { type: 'cylinder', material: matDoorHandleGold });
-    clockCenterCap.setLocalScale(0.20, 0.28, 0.20);
-    clockCenterCap.setPosition(0, 0, 0.14);
+    clockCenterCap.setLocalScale(0.20, 0.06, 0.20);
+    clockCenterCap.setPosition(0, 0, -0.07);
     clockCenterCap.setEulerAngles(90, 0, 0);
     clockPivot.addChild(clockCenterCap);
     
     // Hour Hand Pivot
     const hourHandPivot = new pc.Entity('HourHandPivot');
-    hourHandPivot.setPosition(0, 0, 0.15);
+    hourHandPivot.setPosition(0, 0, -0.08);
     clockPivot.addChild(hourHandPivot);
     
     const hourHand = new pc.Entity('HourHandBody');
@@ -3654,7 +3837,7 @@ export class SontinhSceneService implements OnDestroy {
     
     // Minute Hand Pivot
     const minuteHandPivot = new pc.Entity('MinuteHandPivot');
-    minuteHandPivot.setPosition(0, 0, 0.17);
+    minuteHandPivot.setPosition(0, 0, -0.10);
     clockPivot.addChild(minuteHandPivot);
     
     const minuteHand = new pc.Entity('MinuteHandBody');
@@ -3665,7 +3848,7 @@ export class SontinhSceneService implements OnDestroy {
     
     // Second Hand Pivot
     const secondHandPivot = new pc.Entity('SecondHandPivot');
-    secondHandPivot.setPosition(0, 0, 0.19);
+    secondHandPivot.setPosition(0, 0, -0.12);
     clockPivot.addChild(secondHandPivot);
     
     const secondHand = new pc.Entity('SecondHandBody');
