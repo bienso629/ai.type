@@ -883,22 +883,29 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
 
     const isMonitor = (propId && propId.includes('monitor')) || (this.inspectingProp.name && this.inspectingProp.name.toLowerCase().includes('màn hình'));
-    if (this.inspectingProp.events && Array.isArray(this.inspectingProp.events)) {
-      const hasClockEvent = this.inspectingProp.events.some((e: any) => {
-        const txt = ((e.customScript || '') + ' ' + (e.name || '')).toLowerCase();
-        return txt.includes('ngày') || txt.includes('giờ') || txt.includes('thời gian') || txt.includes('clock') || txt.includes('time') || txt.includes('date');
-      });
-      if (hasClockEvent && isMonitor) {
-        this.inspectingProp.activeScreenState = 'clock';
-      } else if (isMonitor && !hasClockEvent) {
-        this.inspectingProp.activeScreenState = 'none';
-      }
-    } else if (isMonitor) {
-      this.inspectingProp.activeScreenState = 'none';
-    }
 
     if (isMonitor) {
       this.inspectingProp._customColorSet = false;
+      this.inspectingProp._customPositionSet = false;
+      this.inspectingProp._customRotationSet = false;
+      this.inspectingProp._customScaleSet = false;
+
+      if (this.inspectingProp.events && Array.isArray(this.inspectingProp.events) && this.inspectingProp.events.length > 0) {
+        const lastEvt = this.inspectingProp.events[this.inspectingProp.events.length - 1];
+        const txt = ((lastEvt.customScript || '') + ' ' + (lastEvt.name || '')).toLowerCase();
+        const isClock = txt.includes('ngày') || txt.includes('giờ') || txt.includes('thời gian') || txt.includes('đồng hồ') || txt.includes('clock');
+
+        if (isClock) {
+          this.inspectingProp.activeScreenState = 'clock';
+          if (this.inspectingProp.screenOptions) delete this.inspectingProp.screenOptions.screenText;
+        } else {
+          this.inspectingProp.activeScreenState = 'display';
+          if (!this.inspectingProp.screenOptions) this.inspectingProp.screenOptions = {};
+          this.inspectingProp.screenOptions.screenText = lastEvt.customScript || lastEvt.name;
+        }
+      } else if (!this.inspectingProp.activeScreenState || this.inspectingProp.activeScreenState === 'none') {
+        this.inspectingProp.activeScreenState = 'clock';
+      }
     } else if (this.inspectingProp.color && this.inspectingProp.color.toLowerCase() !== '#ffffff') {
       this.inspectingProp._customColorSet = true;
     }
@@ -934,7 +941,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         if (propId.includes('left')) side = 'left';
         else if (propId.includes('right')) side = 'right';
 
-        if (this.inspectingProp.activeScreenState === 'clock') {
+        if (this.inspectingProp.activeScreenState === 'clock' || this.inspectingProp.activeScreenState === 'display' || this.inspectingProp.activeScreenState === 'image' || this.inspectingProp.screenOptions?.screenText || this.inspectingProp.screenOptions?.imageUrl) {
           this.sceneService.showDateTimeOnMonitor(side, this.inspectingProp.screenOptions);
         } else {
           this.sceneService.clearMonitorDisplay(side);
@@ -952,24 +959,49 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   executePropEvent(prop: any): void {
     if (!prop) return;
-    if (prop.clickAction === 'toggleTouchTV') {
-      this.setCameraPreset('desk');
-      this.toastr.success('📺 Đã chuyển sang Chế độ Tivi màn hình chạm!', 'Tivi Màn Hình Chạm');
-      return;
-    }
-    if (prop.clickAction === 'custom' && prop.customScript) {
-      this.processAiPrompt(prop.customScript, [], [prop]);
-      this.toastr.info(`Đã kích hoạt kịch bản mặc định: "${prop.customScript}"`, 'Kịch bản 3D Tuỳ chỉnh');
-      return;
-    }
-    const triggerName = this.getPropTriggerName(prop.id);
-    const executed = this.sceneService.executeEvent(triggerName);
-    if (executed) {
-      this.toastr.info(`Đã thực thi kịch bản sự kiện "${triggerName}"`, 'Thực thi Hành động 3D');
-    } else {
+    const action = prop.clickAction || 'focus';
+
+    if (action === 'focus') {
       this.onPropClick(prop);
       this.toastr.info(`Đã định vị góc nhìn camera tới "${prop.name}"`, 'Góc nhìn 3D');
+      return;
     }
+
+    if (action === 'toggle') {
+      prop.visible = !prop.visible;
+      const idx = this.roomProps.findIndex(p => p.id === prop.id);
+      if (idx >= 0) this.roomProps[idx].visible = prop.visible;
+      this.profileDataService.saveProps(this.roomProps).subscribe();
+      this.sceneService.syncProps(this.roomProps);
+      this.toastr.info(`Đã ${prop.visible ? 'bật hiển thị' : 'ẩn'} đồ vật "${prop.name}"`, 'Bật/Tắt Đồ vật');
+      return;
+    }
+
+    if (action === 'custom' && (prop.customScript || (prop.events && prop.events.length > 0))) {
+      const scriptText = prop.customScript || (prop.events[0].customScript || prop.events[0].name);
+      this.processAiPrompt(scriptText, [], [prop]);
+      this.toastr.info(`Đã kích hoạt kịch bản: "${scriptText}"`, 'Kịch bản 3D Tuỳ chỉnh');
+      return;
+    }
+
+    if (action === 'trigger_event' || action === 'toggleTouchTV') {
+      if (action === 'toggleTouchTV') {
+        this.setCameraPreset('desk');
+        this.toastr.success('📺 Đã chuyển sang Chế độ Tivi màn hình chạm!', 'Tivi Màn Hình Chạm');
+        return;
+      }
+      const triggerName = this.getPropTriggerName(prop.id);
+      const executed = this.sceneService.executeEvent(triggerName);
+      if (executed) {
+        this.toastr.info(`Đã thực thi kịch bản sự kiện "${triggerName}"`, 'Thực thi Hành động 3D');
+      } else {
+        this.onPropClick(prop);
+      }
+      return;
+    }
+
+    this.onPropClick(prop);
+    this.toastr.info(`Đã định vị góc nhìn camera tới "${prop.name}"`, 'Góc nhìn 3D');
   }
 
   getPropTriggerName(propId: string): string {
@@ -1216,10 +1248,28 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       const query = textBeforeCursor.slice(lastAtIndex + 1);
       if (!query.includes(' ') && !query.includes('\n')) {
         this.mentionQuery = query.toLowerCase();
-        this.filteredMentionProps = this.roomProps.filter(p =>
-          (p.name && p.name.toLowerCase().includes(this.mentionQuery)) ||
-          (p.id && p.id.toLowerCase().includes(this.mentionQuery))
+
+        const allMentionables: any[] = [];
+        for (const p of this.roomProps) {
+          allMentionables.push(p);
+          if (p.subDevices && Array.isArray(p.subDevices)) {
+            for (const sub of p.subDevices) {
+              allMentionables.push({
+                ...sub,
+                isSubDevice: true,
+                parentProp: p,
+                displayName: `${sub.name || 'Thành phần con'} (${p.name})`
+              });
+            }
+          }
+        }
+
+        this.filteredMentionProps = allMentionables.filter(item =>
+          (item.name && item.name.toLowerCase().includes(this.mentionQuery)) ||
+          (item.displayName && item.displayName.toLowerCase().includes(this.mentionQuery)) ||
+          (item.id && item.id.toLowerCase().includes(this.mentionQuery))
         );
+
         this.showMentionMenu = this.filteredMentionProps.length > 0;
         this.mentionSelectedIndex = 0;
         this.cdr.markForCheck();
@@ -1262,18 +1312,23 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  selectMentionProp(prop: any): void {
-    if (!prop) return;
+  selectMentionProp(item: any): void {
+    if (!item) return;
     const value = this.promptText || '';
     const lastAtIndex = value.lastIndexOf('@');
+    const nameToInsert = item.name;
+
     if (lastAtIndex >= 0) {
-      this.promptText = value.slice(0, lastAtIndex) + `@${prop.name} `;
+      this.promptText = value.slice(0, lastAtIndex) + `@${nameToInsert} `;
     } else {
-      this.promptText = (value ? value.trim() + ' ' : '') + `@${prop.name} `;
+      this.promptText = (value ? value.trim() + ' ' : '') + `@${nameToInsert} `;
     }
-    if (!this.attachedProps.some(p => p.id === prop.id)) {
-      this.attachedProps.push(prop);
+
+    const targetPropToAttach = item.isSubDevice ? item.parentProp : item;
+    if (!this.attachedProps.some(p => p.id === targetPropToAttach.id)) {
+      this.attachedProps.push(targetPropToAttach);
     }
+
     this.showMentionMenu = false;
     this.cdr.markForCheck();
 
@@ -1621,6 +1676,16 @@ ${JSON.stringify({
 
                 if (!Array.isArray(liveProp.events)) liveProp.events = [];
                 const isMonitor = (liveProp.id && liveProp.id.includes('monitor')) || (liveProp.name && liveProp.name.toLowerCase().includes('màn hình'));
+                const txtLower = text.toLowerCase();
+
+                // If user prompt explicitly requests date/time clock ("ngày", "giờ", "thời gian", "đồng hồ", "clock", "time"):
+                if (isMonitor && (txtLower.includes('giờ') || txtLower.includes('thời gian') || txtLower.includes('đồng hồ') || txtLower.includes('clock') || txtLower.includes('time'))) {
+                  liveProp.activeScreenState = 'clock';
+                  if (liveProp.screenOptions) {
+                    delete liveProp.screenOptions.screenText;
+                    delete liveProp.screenOptions.imageUrl;
+                  }
+                }
                 
                 // Extract image file path if prompt contains a local file path / URL
                 const imgMatch = text.match(/([a-zA-Z0-9_\-\/\\.]+\.(?:png|jpg|jpeg|webp|gif))/i);
@@ -1629,27 +1694,14 @@ ${JSON.stringify({
                   liveProp.activeScreenState = 'image';
                   if (!liveProp.screenOptions) liveProp.screenOptions = {};
                   liveProp.screenOptions.imageUrl = pathFound;
+                  delete liveProp.screenOptions.screenText;
                 }
 
-                if (isMonitor && (liveProp.activeScreenState === 'image' || liveProp.screenOptions?.imageUrl)) {
+                if (isMonitor) {
                   let side: 'left' | 'right' | 'both' = 'both';
                   if (liveProp.id && liveProp.id.includes('left')) side = 'left';
                   else if (liveProp.id && liveProp.id.includes('right')) side = 'right';
                   this.sceneService.showDateTimeOnMonitor(side, liveProp.screenOptions);
-                } else if (isMonitor && liveProp.activeScreenState === 'clock') {
-                  const hasEvt = liveProp.events.some((e: any) => {
-                    const t = ((e.customScript || '') + ' ' + (e.name || '')).toLowerCase();
-                    return t.includes('giờ') || t.includes('thời gian') || t.includes('đồng hồ') || t.includes('clock');
-                  });
-                  if (!hasEvt) {
-                    liveProp.events.push({
-                      id: 'evt_' + Date.now(),
-                      name: 'Hiển thị Ngày & Giờ Realtime Hệ thống',
-                      type: 'custom',
-                      customScript: text || 'Hiển thị Ngày & Giờ thời gian thực lên màn hình 3D',
-                      createdAt: new Date().toISOString()
-                    });
-                  }
                 }
 
                 if (patch.color) liveProp._customColorSet = true;

@@ -106,8 +106,13 @@
             <ng-container *ngFor="let prop of filteredRoomProps">
               
               <!-- LEVEL 1: ĐỒ VẬT MẸ (STANDARD ITEM) -->
-              <div class="sidebar-sub-item hover:bg-gray-50 flex items-center justify-between group cursor-pointer" (click)="onPropClick(prop)">
-                <span class="text-left truncate text-base font-medium text-slate-700 dark:text-slate-200 flex-1 min-w-0 pr-2">{{ prop.name }}</span>
+              <div class="sidebar-sub-item hover:bg-gray-50 flex items-center justify-between group cursor-pointer"
+                   [class.opacity-60]="prop.visible === false"
+                   (click)="onPropClick(prop)">
+                <span class="text-left truncate text-base font-medium flex-1 min-w-0 pr-2"
+                      [ngClass]="prop.visible === false ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'">
+                  {{ prop.name }}
+                </span>
                 
                 <div class="flex items-center space-x-1 shrink-0 ml-auto" (click)="$event.stopPropagation()">
                   <!-- Nút Thuộc tính & Phương thức hành động -->
@@ -120,8 +125,14 @@
               <!-- LEVEL 2: THÀNH PHẦN CON (STANDARD ITEM INDENTED) -->
               <ng-container *ngIf="prop.subDevices && prop.subDevices.length > 0">
                 <ng-container *ngFor="let sub of prop.subDevices">
-                  <div *ngIf="isSubDeviceMatchingSearch(prop, sub)" class="sidebar-sub-item !pl-8 hover:bg-gray-50 flex items-center justify-between group cursor-pointer" (click)="openSubDeviceInspector(prop, sub, $event)">
-                    <span class="text-left truncate text-base font-normal text-slate-600 dark:text-slate-400 flex-1 min-w-0 pr-2">{{ sub.name }}</span>
+                  <div *ngIf="isSubDeviceMatchingSearch(prop, sub)"
+                       class="sidebar-sub-item !pl-8 hover:bg-gray-50 flex items-center justify-between group cursor-pointer"
+                       [class.opacity-60]="sub.enabled === false || prop.visible === false"
+                       (click)="openSubDeviceInspector(prop, sub, $event)">
+                    <span class="text-left truncate text-base font-normal flex-1 min-w-0 pr-2"
+                          [ngClass]="(sub.enabled === false || prop.visible === false) ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-400'">
+                      {{ sub.name }}
+                    </span>
 
                     <div class="flex items-center space-x-1 shrink-0 ml-auto" (click)="$event.stopPropagation()">
                       <!-- Nút Thuộc tính & Phương thức hành động cho subDevice -->
@@ -263,7 +274,7 @@
                     (click)="selectMentionProp(prop)"
                     [ngClass]="{'bg-teal-50 dark:bg-teal-900/30': i === mentionSelectedIndex}"
                     class="!h-8.5 !min-h-0 hover:bg-teal-50/70 transition-colors px-3">
-              <span matListItemTitle class="text-base font-medium text-slate-800 dark:text-slate-100 truncate block">{{ prop.name }}</span>
+              <span matListItemTitle class="text-base font-medium text-slate-800 dark:text-slate-100 truncate block">{{ prop.displayName || prop.name }}</span>
             </button>
           </mat-action-list>
         </div>
@@ -987,23 +998,6 @@
             </div>
             <mat-slide-toggle [checked]="inspectingSubDevice.sub.enabled !== false" (change)="toggleSubDeviceStateFromGlobal(inspectingSubDevice.prop, inspectingSubDevice.sub)" class="fuse-mat-dense fuse-mat-emphasized-affix" color="primary"></mat-slide-toggle>
           </div>
-        </div>
-
-        <mat-divider class="my-4"></mat-divider>
-
-        <!-- SECTION 7: PHƯƠNG THỨC & LỆNH AI (METHODS & ACTIONS) -->
-        <div class="space-y-3">
-          <div class="text-base font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-2">Phương thức & Kịch bản Lệnh</div>
-
-          <!-- Input Prompt / Action Script -->
-          <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
-            <mat-label>Kịch bản Lệnh / Phương thức AI Prompt</mat-label>
-            <input matInput type="text" [(ngModel)]="inspectingSubDevice.sub.customScript" (keydown.enter)="executeSubDevicePrompt(inspectingSubDevice.sub, inspectingSubDevice.prop)" placeholder="Nhập kịch bản hoặc lệnh tự do..." class="text-base font-normal pr-2">
-            <button type="button" mat-icon-button matSuffix (click)="executeSubDevicePrompt(inspectingSubDevice.sub, inspectingSubDevice.prop)" [disabled]="isProcessingPrompt" title="Chạy phương thức AI Prompt" class="mr-1">
-              <mat-icon *ngIf="!isProcessingPrompt" class="icon-size-5 text-teal-600 dark:text-teal-400">send</mat-icon>
-              <mat-icon *ngIf="isProcessingPrompt" class="icon-size-5 text-teal-600 animate-spin">autorenew</mat-icon>
-            </button>
-          </mat-form-field>
         </div>
 
         <mat-divider class="my-4"></mat-divider>
