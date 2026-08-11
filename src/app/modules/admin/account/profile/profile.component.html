@@ -35,9 +35,9 @@
       </div>
 
       <!-- Sau khi có character -->
-      <div class="sidebar-char-card" *ngIf="profile?.character?.glbPath">
-        <div class="sidebar-char-avatar cursor-pointer relative group" (click)="focusOnCharacter()" matTooltip="Nhấn để đổi góc nhìn & ảnh đại diện">
-          <img *ngIf="charThumbnail" [src]="charThumbnail" alt="avatar" class="w-full h-full object-cover rounded">
+      <div class="sidebar-char-card shrink-0" *ngIf="profile?.character?.glbPath">
+        <div class="sidebar-char-avatar !w-10 !h-10 !min-w-[40px] !min-h-[40px] !max-w-[40px] !max-h-[40px] shrink-0 cursor-pointer relative group overflow-hidden rounded" (click)="focusOnCharacter()" matTooltip="Nhấn để đổi góc nhìn & ảnh đại diện">
+          <img *ngIf="charThumbnail" [src]="charThumbnail" alt="avatar" class="!w-10 !h-10 !max-w-[40px] !max-h-[40px] object-cover rounded block">
           <div *ngIf="!charThumbnail" class="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold text-base uppercase rounded shadow-inner">
             {{ (profile?.character?.name || username || 'A').slice(0, 1) }}
           </div>
@@ -45,12 +45,12 @@
             <mat-icon class="icon-size-4">photo_camera</mat-icon>
           </div>
         </div>
-        <div class="sidebar-char-info cursor-pointer" (click)="focusOnCharacter()">
-          <span class="sidebar-char-name">{{ profile?.character?.name || username }}</span>
-          <span class="sidebar-char-sub">{{ profile?.character?.animationState || 'Walk' }}</span>
+        <div class="sidebar-char-info cursor-pointer min-w-0 flex-1" (click)="focusOnCharacter()">
+          <span class="sidebar-char-name truncate block">{{ profile?.character?.name || username }}</span>
+          <span class="sidebar-char-sub truncate block">{{ profile?.character?.animationState || 'Walk' }}</span>
         </div>
         <input #glbFileInput type="file" accept=".glb" style="display:none" (change)="onGlbSelected($event)">
-        <button mat-icon-button class="sidebar-char-replace" (click)="triggerUpload()" title="Thay nhân vật">
+        <button mat-icon-button class="sidebar-char-replace shrink-0 ml-auto" (click)="triggerUpload()" title="Thay nhân vật">
           <mat-icon>file_upload</mat-icon>
         </button>
       </div>
@@ -64,7 +64,7 @@
       <div class="sidebar-accordion">
 
         <!-- ĐỒ VẬT -->
-        <details class="sidebar-panel">
+        <details class="sidebar-panel" open>
           <summary class="sidebar-panel-header">
             <span class="sidebar-panel-label">ĐỒ VẬT ({{ roomProps.length }})</span>
             <mat-icon class="sidebar-panel-arrow">expand_more</mat-icon>
@@ -102,7 +102,7 @@
             </mat-form-field>
           </div>
 
-          <div class="sidebar-sub-items max-h-80 overflow-y-auto custom-scrollbar">
+          <div class="sidebar-sub-items">
             <ng-container *ngFor="let prop of filteredRoomProps">
               
               <!-- LEVEL 1: ĐỒ VẬT MẸ (STANDARD ITEM) -->
@@ -345,7 +345,7 @@
 
 <!-- Modal Cấu hình hành động -->
 <div *ngIf="editingAction" class="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
-  <div class="bg-white rounded-sm shadow-2xl border border-gray-100 p-6 w-full max-w-md animate-in fade-in zoom-in-95 duration-150">
+  <div class="bg-white rounded-sm border border-gray-100 p-6 w-full max-w-md animate-in fade-in zoom-in-95 duration-150">
     <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
       <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
         <mat-icon class="text-teal-600">tune</mat-icon>
@@ -413,7 +413,7 @@
 
 <!-- MODAL CẤU HÌNH THUỘC TÍNH & PHƯƠNG THỨC HÀNH ĐỘNG ĐỒ VẬT 3D -->
 <div *ngIf="inspectingProp" class="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-  <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden text-base">
+  <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden text-base">
     
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 shrink-0">
@@ -444,6 +444,11 @@
               <input matInput type="text" [(ngModel)]="inspectingProp.name" class="text-base">
             </mat-form-field>
           </div>
+
+          <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full mt-3" [subscriptSizing]="'dynamic'">
+            <mat-label>Mô tả chi tiết đồ vật</mat-label>
+            <input matInput type="text" [(ngModel)]="inspectingProp.description" placeholder="Nhập mô tả đồ vật..." class="text-base font-normal">
+          </mat-form-field>
         </div>
 
         <!-- SECTION 2: Tọa độ 3D Position -->
@@ -550,7 +555,7 @@
           </div>
         </div>
 
-        <!-- SECTION 6: Đổ bóng & Trạng thái Hiển thị -->
+        <!-- SECTION 6: Đổ bóng, Trạng thái Hiển thị & Tương tác 3D -->
         <div class="space-y-3">
           <div class="flex items-center justify-between p-3 rounded-md bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
             <span class="text-base font-medium text-slate-700 dark:text-slate-200">Đổ bóng thực tế 3D (Cast Shadow)</span>
@@ -564,6 +569,24 @@
             </div>
             <mat-slide-toggle [checked]="inspectingProp.visible !== false" (change)="onPropVisibilityToggle($any($event).checked)" class="fuse-mat-dense fuse-mat-emphasized-affix" color="primary"></mat-slide-toggle>
           </div>
+
+          <div class="flex items-center justify-between p-3 rounded-md bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center space-x-2">
+              <mat-icon class="text-slate-500 icon-size-5">touch_app</mat-icon>
+              <span class="text-base font-medium text-slate-700 dark:text-slate-200">Cho phép tương tác nhấp chuột 3D</span>
+            </div>
+            <mat-slide-toggle [(ngModel)]="inspectingProp.interactive" class="fuse-mat-dense fuse-mat-emphasized-affix" color="primary"></mat-slide-toggle>
+          </div>
+
+          <mat-form-field *ngIf="inspectingProp.interactive !== false" class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
+            <mat-label>Hành động khi nhấp chuột (Click Action)</mat-label>
+            <mat-select [(ngModel)]="inspectingProp.clickAction" class="text-base font-normal">
+              <mat-option value="focus">Focus phóng to Camera tới đồ vật</mat-option>
+              <mat-option value="toggle">Bật / Tắt trạng thái hiển thị</mat-option>
+              <mat-option value="trigger_event">Kích hoạt sự kiện mặc định</mat-option>
+              <mat-option value="custom">Chạy kịch bản Lệnh tự do / AI Prompt</mat-option>
+            </mat-select>
+          </mat-form-field>
         </div>
 
       </div>
@@ -695,7 +718,7 @@
 <!-- MODAL DIALOG QUẢN LÝ THÀNH PHẦN CON (SUB-DEVICES MANAGER) -->
 <!-- ========================================== -->
 <div *ngIf="isSubDevicesModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-  <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+  <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
     
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
@@ -802,7 +825,7 @@
 <!-- MODAL DIALOG CHỈNH SỬA THUỘC TÍNH & PHƯƠNG THỨC SUBDEVICE -->
 <!-- ========================================== -->
 <div *ngIf="inspectingSubDevice" class="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-  <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden text-base">
+  <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden text-base">
     
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 shrink-0">

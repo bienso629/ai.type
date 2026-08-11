@@ -31,7 +31,7 @@ const DEFAULT_PROPS = [
   { id: 'prop_room_marble_floor', name: 'Sàn đá Cẩm thạch Marble cao cấp', category: 'architecture', visible: true },
   { id: 'prop_room_walls', name: 'Tường sơn phẳng liền mạch bao quanh', category: 'architecture', visible: true },
   { id: 'prop_room_ceiling', name: 'Trần nhà sơn đồng bộ 306', category: 'architecture', visible: true },
-  { id: 'prop_main_door', name: 'Cửa chính gỗ ra vào căn phòng', category: 'architecture', visible: true },
+  { id: 'prop_main_door', name: 'Cửa chính ra vào căn phòng', category: 'architecture', visible: true },
   { id: 'prop_window_21_9', name: 'Cửa sổ nhôm kính Minimalist 21:9', category: 'architecture', visible: true },
 
   // 🪑 NỘI THẤT BÀN GHẾ & TỦ
@@ -260,13 +260,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   private mergeProps(savedProps: any[]): any[] {
-    const propsMap = new Map<string, any>();
-
+    const defaultMap = new Map<string, any>();
     for (const defProp of DEFAULT_PROPS) {
-      propsMap.set(defProp.id, JSON.parse(JSON.stringify(defProp)));
+      defaultMap.set(defProp.id, JSON.parse(JSON.stringify(defProp)));
     }
 
-    if (Array.isArray(savedProps)) {
+    const resultProps: any[] = [];
+    const seenIds = new Set<string>();
+
+    if (Array.isArray(savedProps) && savedProps.length > 0) {
       for (const saved of savedProps) {
         if (!saved || !saved.id) continue;
 
@@ -279,16 +281,26 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           delete saved._modifiedPosition;
         }
 
-        if (propsMap.has(saved.id)) {
-          const existing = propsMap.get(saved.id);
-          propsMap.set(saved.id, { ...existing, ...saved });
-        } else {
-          propsMap.set(saved.id, saved);
-        }
+        const def = defaultMap.get(saved.id) || {};
+        const mergedProp = { ...def, ...saved };
+        resultProps.push(mergedProp);
+        seenIds.add(saved.id);
       }
     }
 
-    return Array.from(propsMap.values());
+    let missingAdded = false;
+    for (const defProp of DEFAULT_PROPS) {
+      if (!seenIds.has(defProp.id)) {
+        resultProps.push(JSON.parse(JSON.stringify(defProp)));
+        missingAdded = true;
+      }
+    }
+
+    if (missingAdded && (window as any).electron?.saveProps) {
+      this.profileDataService.saveProps(resultProps).subscribe();
+    }
+
+    return resultProps;
   }
 
   getPropIcon(prop: any): string {

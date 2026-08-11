@@ -88,21 +88,25 @@ hr {
     border-radius: 6px !important;
 }
 
-.faint-shadow-menu,
-.mat-mdc-menu-panel.faint-shadow-menu,
-.mat-menu-panel.faint-shadow-menu,
-.mat-mdc-menu-surface,
-.mdc-menu-surface,
-.faint-shadow-menu .mat-mdc-menu-surface,
-.faint-shadow-menu .mdc-menu-surface,
-.cdk-overlay-pane:has(.faint-shadow-menu),
-.cdk-overlay-pane:has(.faint-shadow-menu) * {
+.mat-mdc-select-panel,
+.mat-select-panel,
+.mat-mdc-menu-panel,
+.mat-menu-panel {
+    border: 1px solid var(--fuse-border, #cbd5e1) !important;
     box-shadow: none !important;
     filter: none !important;
-    -webkit-box-shadow: none !important;
-    --mdc-menu-container-elevation-shadow: none !important;
-    --mdc-elevation-box-shadow-for-gss: none !important;
-    --mat-menu-container-elevation-shadow: none !important;
+    border-radius: 8px !important;
+    background-color: var(--fuse-bg-card, #ffffff) !important;
+}
+
+.dark .mat-mdc-select-panel,
+.dark .mat-select-panel,
+.dark .mat-mdc-menu-panel,
+.dark .mat-menu-panel {
+    border-color: #334155 !important;
+    background-color: #0f172a !important;
+    box-shadow: none !important;
+    filter: none !important;
 }
 
 .custom-dialog-bulk .mdc-dialog__surface,
