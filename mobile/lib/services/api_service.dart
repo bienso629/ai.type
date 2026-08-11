@@ -1779,6 +1779,56 @@ class ApiService {
     return null;
   }
 
+  static Future<dynamic> archiveUpdate(Map<String, dynamic> dataForm) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) return null;
+
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/crawl/node/archive/update');
+
+    dataForm['server'] = server;
+    dataForm['year'] = dataForm['year'] ?? 2023;
+    dataForm['appId'] = 'ai.typing';
+    dataForm['appToken'] = activeInfo['user']['appToken'];
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
+
+  static Future<bool> deleteTaskArchive(String username, String uuid) async {
+    try {
+      final detailRes = await getTaskDetail(username, uuid);
+      if (detailRes != null && detailRes['success'] == true && detailRes['data'] != null) {
+        final fullDoc = Map<String, dynamic>.from(detailRes['data']);
+        fullDoc['username'] = username;
+        fullDoc['uuid'] = fullDoc['uuid'] ?? uuid;
+        fullDoc['_deleted'] = true;
+        fullDoc['trash'] = true;
+        fullDoc['new_version'] = -1;
+        final res = await archiveUpdate(fullDoc);
+        return res != null && res['success'] == true;
+      }
+    } catch (e) {
+      print('Error deleting task archive: $e');
+    }
+    return false;
+  }
+
+
   static Future<dynamic> getForumCategory(int type) async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
