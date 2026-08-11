@@ -596,25 +596,25 @@ export class SontinhSceneService implements OnDestroy {
 
         case 'prop_ceiling_downlight_front':
         case 'downlight_front':
-          targetPivot.set(0.0, 32.5, 38.75);
+          targetPivot.set(0.0, 34.5, 38.75);
           targetYaw = 180; targetPitch = 45; targetDistance = 25;
           break;
 
         case 'prop_ceiling_downlight_back':
         case 'downlight_back':
-          targetPivot.set(0.0, 32.5, -38.75);
+          targetPivot.set(0.0, 34.5, -38.75);
           targetYaw = 0; targetPitch = 45; targetDistance = 25;
           break;
 
         case 'prop_ceiling_downlight_left':
         case 'downlight_left':
-          targetPivot.set(-38.75, 32.5, 0.0);
+          targetPivot.set(-38.75, 34.5, 0.0);
           targetYaw = 90; targetPitch = 45; targetDistance = 25;
           break;
 
         case 'prop_ceiling_downlight_right':
         case 'downlight_right':
-          targetPivot.set(38.75, 32.5, 0.0);
+          targetPivot.set(38.75, 34.5, 0.0);
           targetYaw = -90; targetPitch = 45; targetDistance = 25;
           break;
 
@@ -1574,10 +1574,15 @@ export class SontinhSceneService implements OnDestroy {
     app.root.addChild(floor);
     
     // 🏛️ CEILING (TRẦN NHÀ SƠN ĐỒNG BỘ 100% VỚI 4 BỨC TƯỜNG BAO QUANH RỘNG 140M X 80M)
+    const matCeiling = createMat(new pc.Color(0.15, 0.18, 0.26), new pc.Color(0.1, 0.1, 0.1));
+    matCeiling.emissive = new pc.Color(0.15, 0.18, 0.26);
+    matCeiling.useLighting = false;
+    matCeiling.update();
+
     const ceiling = new pc.Entity('Ceiling');
-    ceiling.addComponent('render', { type: 'box', material: matWall });
-    ceiling.setLocalScale(ROOM_WIDTH_X, 0.5, ROOM_DEPTH_Z);
-    ceiling.setPosition(0, WALL_H + 0.25, 0);
+    ceiling.addComponent('render', { type: 'box', material: matCeiling });
+    ceiling.setLocalScale(ROOM_WIDTH_X + 2.0, 0.5, ROOM_DEPTH_Z + 2.0);
+    ceiling.setPosition(0, WALL_H - 0.25, 0);
     app.root.addChild(ceiling);
     
     // 1. BACK WALL (TƯỜNG SƠN PHẲNG LIỀN MẠCH RỘNG 140M Z: -40.0M)
