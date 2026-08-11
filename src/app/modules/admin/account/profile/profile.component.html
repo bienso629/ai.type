@@ -119,16 +119,18 @@
 
               <!-- LEVEL 2: THÀNH PHẦN CON (STANDARD ITEM INDENTED) -->
               <ng-container *ngIf="prop.subDevices && prop.subDevices.length > 0">
-                <div *ngFor="let sub of prop.subDevices" class="sidebar-sub-item !pl-8 hover:bg-gray-50 flex items-center justify-between group cursor-pointer" (click)="openSubDeviceInspector(prop, sub, $event)">
-                  <span class="text-left truncate text-base font-normal text-slate-600 dark:text-slate-400 flex-1 min-w-0 pr-2">{{ sub.name }}</span>
+                <ng-container *ngFor="let sub of prop.subDevices">
+                  <div *ngIf="isSubDeviceMatchingSearch(prop, sub)" class="sidebar-sub-item !pl-8 hover:bg-gray-50 flex items-center justify-between group cursor-pointer" (click)="openSubDeviceInspector(prop, sub, $event)">
+                    <span class="text-left truncate text-base font-normal text-slate-600 dark:text-slate-400 flex-1 min-w-0 pr-2">{{ sub.name }}</span>
 
-                  <div class="flex items-center space-x-1 shrink-0 ml-auto" (click)="$event.stopPropagation()">
-                    <!-- Nút Thuộc tính & Phương thức hành động cho subDevice -->
-                    <button mat-icon-button (click)="openSubDeviceInspector(prop, sub, $event)" title="Thuộc tính & Phương thức hành động" class="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <mat-icon class="icon-size-4 text-slate-400 hover:text-teal-600">tune</mat-icon>
-                    </button>
+                    <div class="flex items-center space-x-1 shrink-0 ml-auto" (click)="$event.stopPropagation()">
+                      <!-- Nút Thuộc tính & Phương thức hành động cho subDevice -->
+                      <button mat-icon-button (click)="openSubDeviceInspector(prop, sub, $event)" title="Thuộc tính & Phương thức hành động" class="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <mat-icon class="icon-size-4 text-slate-400 hover:text-teal-600">tune</mat-icon>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </ng-container>
               </ng-container>
 
             </ng-container>

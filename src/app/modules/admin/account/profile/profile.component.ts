@@ -110,7 +110,45 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       return this.roomProps || [];
     }
     const q = queryStr.toLowerCase().trim();
-    return (this.roomProps || []).filter(p => p && p.name && p.name.toLowerCase().includes(q));
+
+    return (this.roomProps || []).filter(p => {
+      if (!p) return false;
+      const matchParent = (p.name && p.name.toLowerCase().includes(q)) || (p.id && p.id.toLowerCase().includes(q));
+      if (matchParent) return true;
+
+      if (Array.isArray(p.subDevices) && p.subDevices.length > 0) {
+        return p.subDevices.some((sub: any) =>
+          (sub.name && sub.name.toLowerCase().includes(q)) ||
+          (sub.id && sub.id.toLowerCase().includes(q)) ||
+          (sub.type && sub.type.toLowerCase().includes(q)) ||
+          (sub.customScript && sub.customScript.toLowerCase().includes(q))
+        );
+      }
+      return false;
+    });
+  }
+
+  isSubDeviceMatchingSearch(prop: any, sub: any): boolean {
+    if (!this.propSearchQuery || (typeof this.propSearchQuery === 'string' && !this.propSearchQuery.trim())) return true;
+    let q = '';
+    if (typeof this.propSearchQuery === 'string') {
+      q = this.propSearchQuery.toLowerCase().trim();
+    } else if (this.propSearchQuery && typeof this.propSearchQuery === 'object' && (this.propSearchQuery as any).name) {
+      q = (this.propSearchQuery as any).name.toLowerCase().trim();
+    }
+    if (!q) return true;
+
+    // If parent prop matches, show all sub devices
+    if ((prop.name && prop.name.toLowerCase().includes(q)) || (prop.id && prop.id.toLowerCase().includes(q))) {
+      return true;
+    }
+    // Otherwise check if sub device matches
+    return (
+      (sub.name && sub.name.toLowerCase().includes(q)) ||
+      (sub.id && sub.id.toLowerCase().includes(q)) ||
+      (sub.type && sub.type.toLowerCase().includes(q)) ||
+      (sub.customScript && sub.customScript.toLowerCase().includes(q))
+    );
   }
 
   onSearchChange(): void {
@@ -401,7 +439,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (cloned.emissiveIntensity === undefined) cloned.emissiveIntensity = 0.0;
     if (cloned.metalness === undefined) cloned.metalness = 0.0;
     if (cloned.roughness === undefined) cloned.roughness = 0.5;
-    if (cloned.castShadow === undefined) cloned.castShadow = true;
+    if (cloned.castShadow === undefined) cloned.castShadow = false;
     if (cloned.interactive === undefined) cloned.interactive = true;
     if (!cloned.clickAction) cloned.clickAction = 'focus';
     if (!cloned.floorLevel) cloned.floorLevel = 3;
@@ -474,7 +512,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (sub.emissiveIntensity === undefined) sub.emissiveIntensity = 0.8;
     if (sub.metalness === undefined) sub.metalness = 0.1;
     if (sub.roughness === undefined) sub.roughness = 0.3;
-    if (sub.castShadow === undefined) sub.castShadow = true;
+    if (sub.castShadow === undefined) sub.castShadow = false;
     if (sub.visible === undefined) sub.visible = sub.enabled !== false;
     if (!sub.events) sub.events = [];
 
@@ -576,11 +614,19 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   toggleSubDeviceStateFromGlobal(prop: any, sub: any): void {
     if (!sub || !prop) return;
-    sub.enabled = !sub.enabled;
+    const nextState = (sub.enabled === false || sub.visible === false) ? true : false;
+    sub.enabled = nextState;
+    sub.visible = nextState;
 
     const idx = this.roomProps.findIndex(p => p.id === prop.id);
     if (idx >= 0) {
-      this.roomProps[idx] = JSON.parse(JSON.stringify(prop));
+      if (Array.isArray(this.roomProps[idx].subDevices)) {
+        const subIdx = this.roomProps[idx].subDevices.findIndex((s: any) => s.id === sub.id);
+        if (subIdx >= 0) {
+          this.roomProps[idx].subDevices[subIdx].enabled = nextState;
+          this.roomProps[idx].subDevices[subIdx].visible = nextState;
+        }
+      }
     }
     if (this.profile) {
       (this.profile as any).props = this.roomProps;
@@ -589,8 +635,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.sceneService.syncProps(this.roomProps);
 
     this.cdr.markForCheck();
-    const status = sub.enabled ? 'Bật' : 'Tắt';
-    this.toastr.info(`Đã ${status} "${sub.name}"`, 'Điều khiển Thành phần');
+    const status = nextState ? 'Bật' : 'Tắt';
+    this.toastr.info(`Đã ${status} "${sub.name}" trong không gian 3D`, 'Điều khiển Thành phần');
   }
 
   addSubDevice(type: string = 'button', defaultName?: string): void {
@@ -777,8 +823,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
     if (this.profile) {
       (this.profile as any).props = this.roomProps;
-      this.sceneService.applyProfile(this.profile);
     }
+    this.profileDataService.saveProps(this.roomProps).subscribe();
+    this.sceneService.syncProps(this.roomProps);
     this.cdr.markForCheck();
   }
 

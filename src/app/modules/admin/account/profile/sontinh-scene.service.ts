@@ -758,11 +758,14 @@ export class SontinhSceneService implements OnDestroy {
         lastMouseY = e.y;
     
         targetYaw -= dx * 0.35;
-        targetPitch = Math.max(5, Math.min(88, targetPitch + dy * 0.35));
+        targetPitch = Math.max(-20, Math.min(80, targetPitch + dy * 0.35));
       });
     
       app.mouse.on(pc.EVENT_MOUSEWHEEL, (e: pc.MouseEvent) => {
-        targetDistance = Math.max(8, Math.min(180, targetDistance + e.wheelDelta * 4));
+        let delta = e.wheelDelta || 0;
+        if (Math.abs(delta) > 10) delta = Math.sign(delta) * 2;
+        // Smooth proportional zoom
+        targetDistance = Math.max(3.5, Math.min(48.0, targetDistance - delta * 0.8));
       });
     }
     
@@ -793,12 +796,19 @@ export class SontinhSceneService implements OnDestroy {
       if (key) wasdKeys[key] = false;
     });
     
+    let lastPinchDist = 0;
+
     app.touch?.on(pc.EVENT_TOUCHSTART, (e: pc.TouchEvent) => {
       if (e.touches.length === 1) {
         lastTouchX = e.touches[0].x;
         lastTouchY = e.touches[0].y;
         mouseDownPos.x = e.touches[0].x;
         mouseDownPos.y = e.touches[0].y;
+      } else if (e.touches.length === 2) {
+        lastPinchDist = Math.hypot(
+          e.touches[0].x - e.touches[1].x,
+          e.touches[0].y - e.touches[1].y
+        );
       }
     });
     
@@ -835,7 +845,17 @@ export class SontinhSceneService implements OnDestroy {
         lastTouchY = e.touches[0].y;
     
         targetYaw -= dx * 0.4;
-        targetPitch = Math.max(5, Math.min(88, targetPitch + dy * 0.4));
+        targetPitch = Math.max(-20, Math.min(80, targetPitch + dy * 0.4));
+      } else if (e.touches.length === 2) {
+        const currentDist = Math.hypot(
+          e.touches[0].x - e.touches[1].x,
+          e.touches[0].y - e.touches[1].y
+        );
+        if (lastPinchDist > 0) {
+          const pinchDelta = lastPinchDist - currentDist;
+          targetDistance = Math.max(3.5, Math.min(48.0, targetDistance + pinchDelta * 0.08));
+        }
+        lastPinchDist = currentDist;
       }
     });
     
@@ -1585,7 +1605,7 @@ export class SontinhSceneService implements OnDestroy {
       // 💡 Đèn & Trang trí
       'prop_aquarium': { primary: 'AquaBase', targets: ['AquaBase', 'AquaSand', 'AquaWater', 'AquaGlass', 'AquaTopHood', 'AquaLight'] },
       'prop_picture_frame': { primary: 'FamilyPictureFrame', targets: ['FamilyPictureFrame', 'FamilyFrameBacklight', 'FamilyFrameGlass'] },
-      'prop_wall_clock': { primary: 'WallClockBase', targets: ['WallClockBase', 'WallClockFace', 'WallClockPivot'] },
+      'prop_wall_clock': { primary: '3DWallClock_Pivot', targets: ['3DWallClock_Pivot', 'ClockOuterFrame', 'ClockFace', 'ClockCenterCap', 'HourHandBody', 'MinuteHandBody', 'SecondHandBody', 'HourHandPivot', 'MinuteHandPivot', 'SecondHandPivot'] },
       'prop_tech_led_bar': { primary: 'LedBarLeft', targets: ['LedBarLeft', 'LedBarRight'] },
       'prop_wall_switch': { primary: 'WallSwitchBase', targets: ['WallSwitchBase', 'WallSwitchRocker', 'WallSwitchLedDot', 'WallSwitchBezel', 'WallSwitchGlowLight'] },
       'prop_ceiling_downlight_front': { primary: 'FrontLedLight', targets: ['FrontLedLight'] },
@@ -1602,6 +1622,7 @@ export class SontinhSceneService implements OnDestroy {
 
     this._applyProps = (props: any[]) => {
       if (!this.app || !props || !Array.isArray(props)) return;
+
       for (const prop of props) {
         if (!prop || !prop.id) continue;
         const propId = prop.id;
@@ -1613,11 +1634,18 @@ export class SontinhSceneService implements OnDestroy {
             if (node.render) {
               if (prop.castShadow !== undefined) {
                 node.render.castShadows = prop.castShadow;
+              } else {
+                node.render.castShadows = false;
               }
-              const mat = node.render.material as pc.StandardMaterial;
+              let mat = node.render.material as pc.StandardMaterial;
               if (mat) {
+                if (!(mat as any)._isClonedInstance) {
+                  mat = mat.clone() as pc.StandardMaterial;
+                  (mat as any)._isClonedInstance = true;
+                  node.render.material = mat;
+                }
                 let changed = false;
-                if (prop.color && typeof prop.color === 'string') {
+                if (prop.color && typeof prop.color === 'string' && prop.color.toLowerCase() !== '#ffffff' && (prop._customColorSet || prop.color !== '#ffffff')) {
                   mat.diffuse = new pc.Color().fromString(prop.color);
                   changed = true;
                 }
@@ -1664,7 +1692,6 @@ export class SontinhSceneService implements OnDestroy {
               updateMaterialProps(entity);
             }
           }
-          // 2. Update position, rotation, scale on primary pivot ONLY if user/AI explicitly modified coordinates
           if (prop._modifiedPosition) {
             const isDefaultZero = prop.position && prop.position.x === 0 && prop.position.y === 0 && prop.position.z === 0;
             const isStructuralFloor = propId.startsWith('prop_building_floor') || propId === 'prop_building_5story_main' || propId === 'prop_room_306_floor' || propId.startsWith('prop_room_');
@@ -1685,7 +1712,11 @@ export class SontinhSceneService implements OnDestroy {
             }
           }
         } else {
-          const entity = this.app.root.findByName(propId);
+          // Fallback entity lookup by propId or name
+          let entity = this.app.root.findByName(propId);
+          if (!entity && prop.name) {
+            entity = this.app.root.findByName(prop.name);
+          }
           if (entity) {
             (entity as any).enabled = isVisible;
             if (prop._modifiedPosition) {
@@ -1702,19 +1733,22 @@ export class SontinhSceneService implements OnDestroy {
             }
           }
         }
+      }
 
-        // 🔹 Render & Realtime Sync 3D Sub-Devices / Buttons attached to props
-        const activeSubEntIds = new Set<string>();
-        const matSubButton = createMat(new pc.Color(0.02, 0.85, 0.75), new pc.Color(0.2, 0.9, 0.8));
+      // 🔹 Render & Realtime Sync 3D Sub-Devices / Buttons attached to props
+      const activeSubEntIds = new Set<string>();
+      const matSubButton = createMat(new pc.Color(0.02, 0.85, 0.75), new pc.Color(0.2, 0.9, 0.8));
 
-        for (const prop of props) {
-          if (!prop || !prop.id) continue;
-          if (prop.visible !== false && Array.isArray(prop.subDevices) && prop.subDevices.length > 0) {
-            for (let i = 0; i < prop.subDevices.length; i++) {
-              const sub = prop.subDevices[i];
-              if (sub.enabled === false) continue;
+      for (const prop of props) {
+        if (!prop || !prop.id) continue;
+        const parentVisible = prop.visible !== false;
+        if (Array.isArray(prop.subDevices) && prop.subDevices.length > 0) {
+          for (let i = 0; i < prop.subDevices.length; i++) {
+            const sub = prop.subDevices[i];
+            const isSubVisible = parentVisible && (sub.enabled !== false) && (sub.visible !== false);
 
-              const subEntName = `sub_btn_${prop.id}_${sub.id || i}`;
+            const subEntName = `sub_btn_${prop.id}_${sub.id || i}`;
+            if (isSubVisible) {
               activeSubEntIds.add(subEntName);
 
               const shapeType = (sub.shape === 'sphere' || (sub.customScript && sub.customScript.toLowerCase().includes('tròn'))) ? 'sphere' : 'box';
@@ -1726,7 +1760,7 @@ export class SontinhSceneService implements OnDestroy {
                 subEnt.tags.add('sub_device_button');
                 app.root.addChild(subEnt);
               }
-              (subEnt as any).enabled = sub.visible !== false;
+              (subEnt as any).enabled = true;
               (subEnt as any)._subDeviceData = sub;
               (subEnt as any)._parentProp = prop;
 
@@ -1760,7 +1794,7 @@ export class SontinhSceneService implements OnDestroy {
 
               // 4. Chất liệu PBR, Màu sắc, Phát sáng & Đổ bóng Realtime
               if (subEnt.render) {
-                subEnt.render.castShadows = sub.castShadow !== false;
+                subEnt.render.castShadows = sub.castShadow === true;
                 const mat = subEnt.render.material as pc.StandardMaterial;
                 if (mat) {
                   if (sub.color) mat.diffuse = new pc.Color().fromString(sub.color);
@@ -1784,17 +1818,21 @@ export class SontinhSceneService implements OnDestroy {
                   mat.update();
                 }
               }
+            } else {
+              const existingSubEnt = app.root.findByName(subEntName) as pc.Entity;
+              if (existingSubEnt) {
+                existingSubEnt.enabled = false;
+              }
             }
           }
         }
+      }
 
-        // Realtime Cleanup: Remove 3D sub-button entities that no longer exist in props/subDevices
-        const existingSubBtns = app.root.findByTag('sub_device_button') as pc.Entity[];
-        for (const btnEnt of existingSubBtns) {
-          if (!activeSubEntIds.has(btnEnt.name)) {
-            btnEnt.enabled = false;
-            btnEnt.destroy();
-          }
+      // Realtime Cleanup: Disable sub-button entities that are inactive
+      const existingSubBtns = app.root.findByTag('sub_device_button') as pc.Entity[];
+      for (const btnEnt of existingSubBtns) {
+        if (!activeSubEntIds.has(btnEnt.name)) {
+          btnEnt.enabled = false;
         }
       }
     };
@@ -2691,6 +2729,15 @@ export class SontinhSceneService implements OnDestroy {
     
     // HELPER: BUILD CLEAN, MODERN, MINIMALIST ERGONOMIC SWIVEL CHAIR 3D WITH 4-CORNER ROUNDED SEAT CUSHION
     function createHaigoChair(namePrefix: string, posX: number, posZ: number) {
+      const localMatLeatherSeat = matChairLeatherSeat.clone() as pc.StandardMaterial;
+      (localMatLeatherSeat as any)._isClonedInstance = true;
+
+      const localMatMesh = matChairMesh.clone() as pc.StandardMaterial;
+      (localMatMesh as any)._isClonedInstance = true;
+
+      const localMatFrame = matChairFrame.clone() as pc.StandardMaterial;
+      (localMatFrame as any)._isClonedInstance = true;
+
       const chairPivot = new pc.Entity(`${namePrefix}_Pivot`);
       chairPivot.setPosition(posX, 0, posZ);
       chairPivot.setEulerAngles(0, 0, 0);
@@ -2698,7 +2745,7 @@ export class SontinhSceneService implements OnDestroy {
     
       // 1. Sleek Leather Seat Cushion with Smooth 4-Corner Rounding ("Bọc tròn 4 góc") - THICKENED SEAT CUSHION (0.52m thick)
       const seatCenter = new pc.Entity(`${namePrefix}_SeatCenter`);
-      seatCenter.addComponent('render', { type: 'box', material: matChairLeatherSeat });
+      seatCenter.addComponent('render', { type: 'box', material: localMatLeatherSeat });
       seatCenter.setLocalScale(2.0, 0.52, 1.9);
       seatCenter.setPosition(0, 2.2 + CHAIR_LIFT, 0);
       chairPivot.addChild(seatCenter);
@@ -2713,7 +2760,7 @@ export class SontinhSceneService implements OnDestroy {
     
       cornerPos.forEach(c => {
         const corner = new pc.Entity(`${namePrefix}_SeatCorner_${c.name}`);
-        corner.addComponent('render', { type: 'cylinder', material: matChairLeatherSeat });
+        corner.addComponent('render', { type: 'cylinder', material: localMatLeatherSeat });
         corner.setLocalScale(0.70, 0.52, 0.70);
         corner.setPosition(c.x, 2.2 + CHAIR_LIFT, c.z);
         chairPivot.addChild(corner);
@@ -2721,25 +2768,25 @@ export class SontinhSceneService implements OnDestroy {
     
       // 4 Side Infill Bars between Corners
       const sideF = new pc.Entity(`${namePrefix}_SeatSide_F`);
-      sideF.addComponent('render', { type: 'box', material: matChairLeatherSeat });
+      sideF.addComponent('render', { type: 'box', material: localMatLeatherSeat });
       sideF.setLocalScale(1.9, 0.52, 0.70);
       sideF.setPosition(0, 2.2 + CHAIR_LIFT, 0.90);
       chairPivot.addChild(sideF);
     
       const sideB = new pc.Entity(`${namePrefix}_SeatSide_B`);
-      sideB.addComponent('render', { type: 'box', material: matChairLeatherSeat });
+      sideB.addComponent('render', { type: 'box', material: localMatLeatherSeat });
       sideB.setLocalScale(1.9, 0.52, 0.70);
       sideB.setPosition(0, 2.2 + CHAIR_LIFT, -0.90);
       chairPivot.addChild(sideB);
     
       const sideL = new pc.Entity(`${namePrefix}_SeatSide_L`);
-      sideL.addComponent('render', { type: 'box', material: matChairLeatherSeat });
+      sideL.addComponent('render', { type: 'box', material: localMatLeatherSeat });
       sideL.setLocalScale(0.70, 0.52, 1.8);
       sideL.setPosition(-0.95, 2.2 + CHAIR_LIFT, 0);
       chairPivot.addChild(sideL);
     
       const sideR = new pc.Entity(`${namePrefix}_SeatSide_R`);
-      sideR.addComponent('render', { type: 'box', material: matChairLeatherSeat });
+      sideR.addComponent('render', { type: 'box', material: localMatLeatherSeat });
       sideR.setLocalScale(0.70, 0.52, 1.8);
       sideR.setPosition(0.95, 2.2 + CHAIR_LIFT, 0);
       chairPivot.addChild(sideR);
@@ -2752,34 +2799,34 @@ export class SontinhSceneService implements OnDestroy {
     
       // Mesh Panel
       const backMeshMain = new pc.Entity(`${namePrefix}_BackMeshMain`);
-      backMeshMain.addComponent('render', { type: 'box', material: matChairMesh });
+      backMeshMain.addComponent('render', { type: 'box', material: localMatMesh });
       backMeshMain.setLocalScale(2.3, 2.5, 0.12);
       backMeshMain.setPosition(0, -0.1, 0);
       backPivot.addChild(backMeshMain);
     
       // Outer Minimalist Frame Trim
       const backFrameMain = new pc.Entity(`${namePrefix}_BackFrameMain`);
-      backFrameMain.addComponent('render', { type: 'box', material: matChairFrame });
+      backFrameMain.addComponent('render', { type: 'box', material: localMatFrame });
       backFrameMain.setLocalScale(2.42, 2.62, 0.10);
       backFrameMain.setPosition(0, -0.1, -0.02);
       backPivot.addChild(backFrameMain);
     
       // 🛋️ TOP LEATHER HEADREST CUSHION ("Nệm dày ra một chút nữa")
       const headrestCenter = new pc.Entity(`${namePrefix}_HeadrestCenter`);
-      headrestCenter.addComponent('render', { type: 'box', material: matChairLeatherSeat });
+      headrestCenter.addComponent('render', { type: 'box', material: localMatLeatherSeat });
       headrestCenter.setLocalScale(1.6, 0.58, 0.38);
       headrestCenter.setPosition(0, 1.32, 0.11);
       backPivot.addChild(headrestCenter);
     
       const headrestLeft = new pc.Entity(`${namePrefix}_HeadrestLeft`);
-      headrestLeft.addComponent('render', { type: 'cylinder', material: matChairLeatherSeat });
+      headrestLeft.addComponent('render', { type: 'cylinder', material: localMatLeatherSeat });
       headrestLeft.setLocalScale(0.58, 0.38, 0.58);
       headrestLeft.setPosition(-0.8, 1.32, 0.11);
       headrestLeft.setLocalEulerAngles(90, 0, 0);
       backPivot.addChild(headrestLeft);
     
       const headrestRight = new pc.Entity(`${namePrefix}_HeadrestRight`);
-      headrestRight.addComponent('render', { type: 'cylinder', material: matChairLeatherSeat });
+      headrestRight.addComponent('render', { type: 'cylinder', material: localMatLeatherSeat });
       headrestRight.setLocalScale(0.58, 0.38, 0.58);
       headrestRight.setPosition(0.8, 1.32, 0.11);
       headrestRight.setLocalEulerAngles(90, 0, 0);
@@ -2788,26 +2835,26 @@ export class SontinhSceneService implements OnDestroy {
       // 3. Simple T-Bar Armrests with Soft Pads
       // Left Armrest
       const armLeftStem = new pc.Entity(`${namePrefix}_ArmLeftStem`);
-      armLeftStem.addComponent('render', { type: 'box', material: matChairFrame });
+      armLeftStem.addComponent('render', { type: 'box', material: localMatFrame });
       armLeftStem.setLocalScale(0.12, 0.9, 0.12);
       armLeftStem.setPosition(-1.35, 2.65 + CHAIR_LIFT, 0.0);
       chairPivot.addChild(armLeftStem);
     
       const armLeftPad = new pc.Entity(`${namePrefix}_ArmLeftPad`);
-      armLeftPad.addComponent('render', { type: 'box', material: matChairLeatherSeat });
+      armLeftPad.addComponent('render', { type: 'box', material: localMatLeatherSeat });
       armLeftPad.setLocalScale(0.35, 0.12, 1.8);
       armLeftPad.setPosition(-1.35, 3.15 + CHAIR_LIFT, 0.0);
       chairPivot.addChild(armLeftPad);
     
       // Right Armrest
       const armRightStem = new pc.Entity(`${namePrefix}_ArmRightStem`);
-      armRightStem.addComponent('render', { type: 'box', material: matChairFrame });
+      armRightStem.addComponent('render', { type: 'box', material: localMatFrame });
       armRightStem.setLocalScale(0.12, 0.9, 0.12);
       armRightStem.setPosition(1.35, 2.65 + CHAIR_LIFT, 0.0);
       chairPivot.addChild(armRightStem);
     
       const armRightPad = new pc.Entity(`${namePrefix}_ArmRightPad`);
-      armRightPad.addComponent('render', { type: 'box', material: matChairLeatherSeat });
+      armRightPad.addComponent('render', { type: 'box', material: localMatLeatherSeat });
       armRightPad.setLocalScale(0.35, 0.12, 1.8);
       armRightPad.setPosition(1.35, 3.15 + CHAIR_LIFT, 0.0);
       chairPivot.addChild(armRightPad);
@@ -4435,57 +4482,57 @@ export class SontinhSceneService implements OnDestroy {
       const d = new Date();
       return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
     }
-    
+
     function updateRealTimeClockUI() {
       const now = new Date();
       const sec = now.getSeconds() + now.getMilliseconds() / 1000;
       const min = now.getMinutes() + sec / 60;
       const hr = (now.getHours() % 12) + min / 60;
-    
+
       const secAngle = sec * 6;
       const minAngle = min * 6;
       const hrAngle = hr * 30;
-    
+
       secondHandPivot.setLocalEulerAngles(0, 0, -secAngle);
       minuteHandPivot.setLocalEulerAngles(0, 0, -minAngle);
       hourHandPivot.setLocalEulerAngles(0, 0, -hrAngle);
     }
-    
+
     function updateRealTimeSunAndSky(dt: number) {
       const hr = getRealTimeHour();
-    
+
       let targetSkyR = 0, targetSkyG = 0, targetSkyB = 0;
       let targetAmbR = 0, targetAmbG = 0, targetAmbB = 0;
       let targetSunR = 0, targetSunG = 0, targetSunB = 0;
       let targetSunIntensity = 0;
       let targetSunPitch = 0, targetSunYaw = 120;
       let targetWindowIntensity = 0;
-    
+
       let bgR = 0, bgG = 0, bgB = 0; // Sky Backdrop Emissive Color
-    
+
       if (hr >= 5.0 && hr < 7.0) {
         // 🌄 DAWN / SUNRISE (5:00 AM - 7:00 AM - NGẮM TRỜI MỌC)
         const dawnProgress = (hr - 5.0) / 2.0;
         targetSkyR = pc.math.lerp(0.015, 0.18, dawnProgress);
         targetSkyG = pc.math.lerp(0.020, 0.12, dawnProgress);
         targetSkyB = pc.math.lerp(0.035, 0.16, dawnProgress);
-    
+
         targetAmbR = pc.math.lerp(0.05, 0.18, dawnProgress);
         targetAmbG = pc.math.lerp(0.06, 0.16, dawnProgress);
         targetAmbB = pc.math.lerp(0.09, 0.22, dawnProgress);
-    
+
         targetSunR = 1.0;
         targetSunG = pc.math.lerp(0.50, 0.75, dawnProgress);
         targetSunB = pc.math.lerp(0.20, 0.40, dawnProgress);
-    
+
         targetSunIntensity = pc.math.lerp(0.6, 2.2, dawnProgress);
         targetSunPitch = pc.math.lerp(5, 20, dawnProgress);
         targetWindowIntensity = pc.math.lerp(3.0, 8.0, dawnProgress);
-    
+
         bgR = pc.math.lerp(0.02, 1.0, dawnProgress);
         bgG = pc.math.lerp(0.03, 0.50, dawnProgress);
         bgB = pc.math.lerp(0.06, 0.30, dawnProgress);
-    
+
       } else if (hr >= 7.0 && hr < 17.0) {
         // ☀️ DAYTIME (7:00 AM - 5:00 PM - TRỜI SÁNG RỰC RỠ)
         const dayProgress = (hr - 7.0) / 10.0;
@@ -4495,32 +4542,32 @@ export class SontinhSceneService implements OnDestroy {
         targetSunIntensity = 1.2;
         targetSunPitch = 20 + Math.sin(dayProgress * Math.PI) * 40;
         targetWindowIntensity = 1.8;
-    
+
         bgR = 0.25; bgG = 0.60; bgB = 0.95;
-    
+
       } else if (hr >= 17.0 && hr < 19.0) {
         // 🌇 SUNSET / TWILIGHT (5:00 PM - 7:00 PM - NGẮM HOÀNG HÔN / CHẠM HOÀNG HÔN - Current time ~ 18:08!)
         const duskProgress = (hr - 17.0) / 2.0;
         targetSkyR = pc.math.lerp(0.08, 0.02, duskProgress);
         targetSkyG = pc.math.lerp(0.14, 0.025, duskProgress);
         targetSkyB = pc.math.lerp(0.28, 0.05, duskProgress);
-    
+
         targetAmbR = pc.math.lerp(0.24, 0.07, duskProgress);
         targetAmbG = pc.math.lerp(0.26, 0.06, duskProgress);
         targetAmbB = pc.math.lerp(0.35, 0.10, duskProgress);
-    
+
         targetSunR = 1.0;
         targetSunG = pc.math.lerp(0.70, 0.35, duskProgress);
         targetSunB = pc.math.lerp(0.40, 0.10, duskProgress);
-    
+
         targetSunIntensity = pc.math.lerp(1.2, 0.4, duskProgress);
         targetSunPitch = pc.math.lerp(20, 5, duskProgress);
         targetWindowIntensity = pc.math.lerp(1.8, 0.6, duskProgress);
-    
+
         bgR = pc.math.lerp(0.12, 0.03, duskProgress);
         bgG = pc.math.lerp(0.25, 0.05, duskProgress);
         bgB = pc.math.lerp(0.55, 0.15, duskProgress);
-    
+
       } else {
         // 🌙 NIGHTTIME (7:00 PM - 5:00 AM - TRỜI TỐI ĐÊM KHUYA)
         targetSkyR = 0.015; targetSkyG = 0.02; targetSkyB = 0.035;
@@ -4529,13 +4576,10 @@ export class SontinhSceneService implements OnDestroy {
         targetSunIntensity = 0.5;
         targetSunPitch = 25;
         targetWindowIntensity = 2.5;
-    
+
         bgR = 0.015; bgG = 0.025; bgB = 0.06;
       }
-    
-    
-      // (Real-time illuminated signboards use HD canvas textures with 1.4x emissive intensity)
-    
+
       // Smoothly dim environment when room wall lights are switched off
       if (!isHighWallLedOn) {
         targetAmbR *= 0.25;
@@ -4544,48 +4588,41 @@ export class SontinhSceneService implements OnDestroy {
         targetSunIntensity *= 0.3;
         targetWindowIntensity *= 0.2;
       }
-    
-      app.scene.ambientLight.lerp(app.scene.ambientLight, new pc.Color(targetAmbR, targetAmbG, targetAmbB), dt * 3.0);
-    
-      if (camera.camera) {
-        camera.camera.clearColor.lerp(camera.camera.clearColor, new pc.Color(targetSkyR, targetSkyG, targetSkyB), dt * 3.0);
-      }
-    
+
       if (sunLight.light) {
         const curColor = sunLight.light.color;
         curColor.lerp(curColor, new pc.Color(targetSunR, targetSunG, targetSunB), dt * 3.0);
         sunLight.light.color = curColor;
         sunLight.light.intensity = pc.math.lerp(sunLight.light.intensity, targetSunIntensity, dt * 3.0);
       }
-    
+
       if (window2Light.light) {
         window2Light.light.intensity = pc.math.lerp(window2Light.light.intensity, targetWindowIntensity, dt * 3.0);
       }
-    
+
       sunLight.setEulerAngles(targetSunPitch, targetSunYaw, 0);
     }
     
     // 🛡️ CAMERA WALL ANTI-CLIPPING / ROOM BOUNDARY COLLISION SYSTEM
     function clampCameraPositionInsideRoom(pivot: pc.Vec3, targetCamPos: pc.Vec3): pc.Vec3 {
-      // Safety buffers to keep camera lens and near clip plane safely inside room interior
-      const marginX = 1.8; // 1.8m away from Left/Right walls
-      const marginZ = 1.8; // 1.8m away from Back/Front walls
+      const marginX = 2.0; // 2.0m away from Left/Right walls
+      const marginZ = 2.0; // 2.0m away from Back/Front walls
       const marginY = 1.2; // 1.2m away from Floor/Ceiling
-    
-      const minX = -ROOM_WIDTH_X / 2 + marginX; // -70.0 + 1.8 = -68.2
-      const maxX =  ROOM_WIDTH_X / 2 - marginX; //  70.0 - 1.8 =  68.2
-      const minZ = -ROOM_DEPTH_Z / 2 + marginZ; // -40.0 + 1.8 = -38.2
-      const maxZ =  ROOM_DEPTH_Z / 2 - marginZ; //  40.0 - 1.8 =  38.2
-      const minY = 1.2;                         // 1.2m above floor
-      const maxY = WALL_H - marginY;            // 35.0 - 1.2 = 33.8
-    
+
+      const minX = -ROOM_WIDTH_X / 2 + marginX; // -68.0
+      const maxX =  ROOM_WIDTH_X / 2 - marginX; //  68.0
+      const minZ = -ROOM_DEPTH_Z / 2 + marginZ; // -38.0
+      const maxZ =  ROOM_DEPTH_Z / 2 - marginZ; //  38.0
+      const minY = 1.2;                         // 1.2m floor height
+      const maxY = WALL_H - marginY;            // 33.8m ceiling height
+
       const vx = targetCamPos.x - pivot.x;
       const vy = targetCamPos.y - pivot.y;
       const vz = targetCamPos.z - pivot.z;
-    
+
       let minT = 1.0;
-    
-      // Intersect X planes
+
+      // Outer Room X planes
       if (vx > 0.0001) {
         const t = (maxX - pivot.x) / vx;
         if (t > 0 && t < minT) minT = t;
@@ -4593,8 +4630,8 @@ export class SontinhSceneService implements OnDestroy {
         const t = (minX - pivot.x) / vx;
         if (t > 0 && t < minT) minT = t;
       }
-    
-      // Intersect Y planes
+
+      // Outer Room Y planes
       if (vy > 0.0001) {
         const t = (maxY - pivot.y) / vy;
         if (t > 0 && t < minT) minT = t;
@@ -4602,8 +4639,8 @@ export class SontinhSceneService implements OnDestroy {
         const t = (minY - pivot.y) / vy;
         if (t > 0 && t < minT) minT = t;
       }
-    
-      // Intersect Z planes
+
+      // Intersect Outer Room Z planes
       if (vz > 0.0001) {
         const t = (maxZ - pivot.z) / vz;
         if (t > 0 && t < minT) minT = t;
@@ -4611,14 +4648,14 @@ export class SontinhSceneService implements OnDestroy {
         const t = (minZ - pivot.z) / vz;
         if (t > 0 && t < minT) minT = t;
       }
-    
-      minT = Math.max(0.02, Math.min(1.0, minT));
-    
-      return new pc.Vec3(
-        pivot.x + vx * minT,
-        pivot.y + vy * minT,
-        pivot.z + vz * minT
-      );
+
+      minT = Math.max(0.1, Math.min(1.0, minT));
+
+      const cx = pc.math.clamp(pivot.x + vx * minT, minX, maxX);
+      const cy = pc.math.clamp(pivot.y + vy * minT, minY, maxY);
+      const cz = pc.math.clamp(pivot.z + vz * minT, minZ, maxZ);
+
+      return new pc.Vec3(cx, cy, cz);
     }
     
     // -------------------------------------------------------------
@@ -4640,10 +4677,10 @@ export class SontinhSceneService implements OnDestroy {
       if (!wasdHandled) updateCharacterWalkingAI(dt);
     
       // Orbit camera smooth control
-      orbitYaw = pc.math.lerp(orbitYaw, targetYaw, dt * 8);
-      orbitPitch = pc.math.lerp(orbitPitch, targetPitch, dt * 8);
-      orbitDistance = pc.math.lerp(orbitDistance, targetDistance, dt * 8);
-      currentPivot.lerp(currentPivot, targetPivot, dt * 8);
+      orbitYaw = pc.math.lerp(orbitYaw, targetYaw, dt * 10);
+      orbitPitch = pc.math.lerp(orbitPitch, targetPitch, dt * 10);
+      orbitDistance = pc.math.lerp(orbitDistance, targetDistance, dt * 10);
+      currentPivot.lerp(currentPivot, targetPivot, dt * 10);
     
       const pitchRad = orbitPitch * pc.math.DEG_TO_RAD;
       const yawRad = orbitYaw * pc.math.DEG_TO_RAD;
