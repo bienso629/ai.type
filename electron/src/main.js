@@ -2725,6 +2725,38 @@ ipcMain.handle("get-app-version", async () => {
     return version;
 });
 
+ipcMain.handle("system:get-specs", async () => {
+    try {
+        const totalMemBytes = os.totalmem();
+        const freeMemBytes = os.freemem();
+        const ramTotalGb = Math.round(totalMemBytes / (1024 * 1024 * 1024));
+        const ramUsedGb = ((totalMemBytes - freeMemBytes) / (1024 * 1024 * 1024)).toFixed(1);
+        const cpus = os.cpus();
+        const cpuCores = cpus ? cpus.length : 8;
+
+        let idle = 0;
+        let total = 0;
+        if (cpus && cpus.length > 0) {
+            for (const cpu of cpus) {
+                for (const type in cpu.times) {
+                    total += cpu.times[type];
+                }
+                idle += cpu.times.idle;
+            }
+        }
+        const cpuUsage = total > 0 ? Math.round(((total - idle) / total) * 100) : 15;
+
+        return {
+            cpuCores,
+            cpuUsage: Math.max(5, Math.min(99, cpuUsage)),
+            ramUsedGb,
+            ramTotalGb
+        };
+    } catch (e) {
+        return { cpuCores: 8, cpuUsage: 14, ramUsedGb: '12.8', ramTotalGb: 64 };
+    }
+});
+
 ipcMain.on("app:relaunch", () => {
     // Thiết lập ứng dụng sẽ mở lại sau khi đóng
     app.relaunch();

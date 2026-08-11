@@ -52,11 +52,18 @@ export class SontinhSceneService implements OnDestroy {
   private _applyProps: ((props: any[]) => void) | null = null;
   private _toggleWindowTvIframe: ((show?: boolean, url?: string) => void) | null = null;
 
-  private _showDateTimeOnMonitorFn: ((targetSide?: 'left' | 'right' | 'both', options?: { textColor?: string; bgColor?: string; screenText?: string }) => void) | null = null;
+  private _showDateTimeOnMonitorFn: ((targetSide?: 'left' | 'right' | 'both', options?: { textColor?: string; bgColor?: string; screenText?: string; imageUrl?: string }) => void) | null = null;
+  private _clearMonitorDisplayFn: ((targetSide?: 'left' | 'right' | 'both') => void) | null = null;
 
-  showDateTimeOnMonitor(targetSide: 'left' | 'right' | 'both' = 'both', options?: { textColor?: string; bgColor?: string; screenText?: string }): void {
+  showDateTimeOnMonitor(targetSide: 'left' | 'right' | 'both' = 'both', options?: { textColor?: string; bgColor?: string; screenText?: string; imageUrl?: string }): void {
     if (this._showDateTimeOnMonitorFn) {
       this._showDateTimeOnMonitorFn(targetSide, options);
+    }
+  }
+
+  clearMonitorDisplay(targetSide: 'left' | 'right' | 'both' = 'both'): void {
+    if (this._clearMonitorDisplayFn) {
+      this._clearMonitorDisplayFn(targetSide);
     }
   }
 
@@ -1297,7 +1304,7 @@ export class SontinhSceneService implements OnDestroy {
     let clockCanvasTimer: any = null;
     let clockCanvasTexture: pc.Texture | null = null;
 
-    const showDateTimeOnMonitorFn = (targetSide: 'left' | 'right' | 'both' = 'both', options?: { textColor?: string; bgColor?: string; screenText?: string }) => {
+    const showDateTimeOnMonitorFn = (targetSide: 'left' | 'right' | 'both' = 'both', options?: { textColor?: string; bgColor?: string; screenText?: string; imageUrl?: string }) => {
       if (clockCanvasTimer) {
         clearInterval(clockCanvasTimer);
         clockCanvasTimer = null;
@@ -1318,22 +1325,56 @@ export class SontinhSceneService implements OnDestroy {
       });
       clockCanvasTexture = tex;
 
+      if (options?.imageUrl) {
+        let imgPath = options.imageUrl;
+        if (!imgPath.startsWith('http') && !imgPath.startsWith('file://')) {
+          imgPath = 'file://' + imgPath;
+        }
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          ctx.fillStyle = options?.bgColor || '#050814';
+          ctx.fillRect(0, 0, 1024, 512);
+
+          const scale = Math.min(1024 / img.width, 512 / img.height);
+          const nw = img.width * scale;
+          const nh = img.height * scale;
+          const nx = (1024 - nw) / 2;
+          const ny = (512 - nh) / 2;
+
+          ctx.drawImage(img, nx, ny, nw, nh);
+
+          tex.setSource(canvas);
+          tex.upload();
+
+          const applyMat = (mat: pc.StandardMaterial) => {
+            if (!mat) return;
+            mat.diffuse = new pc.Color(0, 0, 0);
+            mat.specular = new pc.Color(0.02, 0.02, 0.02);
+            mat.emissive = new pc.Color(1.0, 1.0, 1.0);
+            mat.emissiveMap = tex;
+            mat.useLighting = false;
+            mat.update();
+          };
+
+          if (targetSide === 'left' || targetSide === 'both') applyMat(matScreenLeft);
+          if (targetSide === 'right' || targetSide === 'both') applyMat(matScreenRight);
+        };
+        img.onerror = () => {
+          console.warn('[MonitorImage] Error loading image:', imgPath);
+        };
+        img.src = imgPath;
+        return;
+      }
+
       const daysOfWeek = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
       const renderCanvas = () => {
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const dayName = daysOfWeek[now.getDay()];
-        const day = String(now.getDate()).padStart(2, '0');
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const year = now.getFullYear();
-
         const textColor = options?.textColor || '#00f0ff';
         const isBlackText = textColor.toLowerCase() === '#000000' || textColor.toLowerCase() === 'black';
 
-        // Background Gradient (Deep Cyberpunk Dark Glass)
+        // Background Fill
         const grad = ctx.createLinearGradient(0, 0, 1024, 512);
         if (options?.bgColor) {
           grad.addColorStop(0, options.bgColor);
@@ -1346,7 +1387,7 @@ export class SontinhSceneService implements OnDestroy {
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 1024, 512);
 
-        // Tech grid lines
+        // Grid lines background texture
         ctx.strokeStyle = isBlackText ? 'rgba(0, 0, 0, 0.08)' : 'rgba(6, 182, 212, 0.12)';
         ctx.lineWidth = 1;
         for (let x = 0; x < 1024; x += 40) {
@@ -1356,58 +1397,123 @@ export class SontinhSceneService implements OnDestroy {
           ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1024, y); ctx.stroke();
         }
 
-        // Top Status Header Bar
-        ctx.fillStyle = isBlackText ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.8)';
-        ctx.fillRect(40, 30, 944, 50);
-        ctx.fillStyle = isBlackText ? '#0f172a' : '#06b6d4';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.fillText('SƠN TINH AI 3D WORKSTATION OS v2.5', 60, 62);
-        ctx.fillStyle = isBlackText ? '#059669' : '#10b981';
-        ctx.font = '18px monospace';
-        ctx.fillText('● SYSTEM ONLINE | REALTIME 3D', 680, 62);
-
-        // Main Clock / Content Display Box
-        ctx.fillStyle = isBlackText ? 'rgba(255, 255, 255, 0.95)' : 'rgba(30, 41, 59, 0.85)';
-        ctx.strokeStyle = isBlackText ? '#0284c7' : '#06b6d4';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        if ((ctx as any).roundRect) {
-          (ctx as any).roundRect(160, 110, 704, 250, 24);
-        } else {
-          ctx.rect(160, 110, 704, 250);
-        }
-        ctx.fill();
-        ctx.stroke();
-
-        // Main Text Display (Clock or Custom Text)
-        ctx.shadowColor = isBlackText ? 'rgba(0, 0, 0, 0.15)' : '#06b6d4';
-        ctx.shadowBlur = isBlackText ? 4 : 20;
-        ctx.fillStyle = textColor;
-        ctx.font = options?.screenText ? 'bold 54px sans-serif' : 'bold 110px monospace';
-        ctx.textAlign = 'center';
-
         if (options?.screenText) {
-          ctx.fillText(options.screenText, 512, 230);
+          // ==========================================
+          // PURE CUSTOM CONTENT MODE (Clean Full-Screen Display)
+          // No clock OS headers, dates, or CPU/RAM clutter!
+          // ==========================================
+          const txt = options.screenText;
+          const fontSize = txt.length > 30 ? 40 : (txt.length > 15 ? 56 : 76);
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          ctx.shadowColor = isBlackText ? 'rgba(0, 0, 0, 0.2)' : textColor;
+          ctx.shadowBlur = 24;
+          ctx.fillStyle = textColor;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(txt, 512, 256);
         } else {
+          // ==========================================
+          // CLOCK OS SYSTEM DASHBOARD MODE
+          // ==========================================
+          const now = new Date();
+          const hours = String(now.getHours()).padStart(2, '0');
+          const minutes = String(now.getMinutes()).padStart(2, '0');
+          const seconds = String(now.getSeconds()).padStart(2, '0');
+          const dayName = daysOfWeek[now.getDay()];
+          const day = String(now.getDate()).padStart(2, '0');
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          const year = now.getFullYear();
+
+          // Top Status Header Bar
+          ctx.fillStyle = isBlackText ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.8)';
+          ctx.fillRect(40, 30, 944, 50);
+          ctx.fillStyle = isBlackText ? '#0f172a' : '#06b6d4';
+          ctx.font = 'bold 22px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('SƠN TINH AI 3D WORKSTATION OS v2.5', 60, 62);
+          ctx.fillStyle = isBlackText ? '#059669' : '#10b981';
+          ctx.font = '18px monospace';
+          ctx.fillText('● SYSTEM ONLINE | REALTIME 3D', 680, 62);
+
+          // Main Clock Box
+          ctx.fillStyle = isBlackText ? 'rgba(255, 255, 255, 0.95)' : 'rgba(30, 41, 59, 0.85)';
+          ctx.strokeStyle = isBlackText ? '#0284c7' : '#06b6d4';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          if ((ctx as any).roundRect) {
+            (ctx as any).roundRect(160, 110, 704, 250, 24);
+          } else {
+            ctx.rect(160, 110, 704, 250);
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          // Clock Digits
+          ctx.shadowColor = isBlackText ? 'rgba(0, 0, 0, 0.15)' : '#06b6d4';
+          ctx.shadowBlur = isBlackText ? 4 : 20;
+          ctx.fillStyle = textColor;
+          ctx.font = 'bold 110px monospace';
+          ctx.textAlign = 'center';
           ctx.fillText(`${hours}:${minutes}:${seconds}`, 512, 260);
+
+          // Date Sub-header
+          ctx.shadowColor = isBlackText ? 'transparent' : '#3b82f6';
+          ctx.shadowBlur = isBlackText ? 0 : 10;
+          ctx.fillStyle = isBlackText ? '#0369a1' : '#38bdf8';
+          ctx.font = 'bold 36px sans-serif';
+          ctx.fillText(`${dayName}, ${day}/${month}/${year}`, 512, 320);
+
+          // Hardware Specs Footer
+          let gpuName = 'RTX 4090';
+          try {
+            const gl = (app.graphicsDevice as any).gl || (app.graphicsDevice as any).device;
+            if (gl && gl.getExtension) {
+              const ext = gl.getExtension('WEBGL_debug_renderer_info');
+              if (ext) {
+                const vendor = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+                if (vendor) {
+                  gpuName = vendor
+                    .replace(/ANGLE \((.*)\)/, '$1')
+                    .split(',')[0]
+                    .replace(/^NVIDIA Corporation /i, '')
+                    .replace(/^AMD /i, '')
+                    .replace(/^Mesa /i, '')
+                    .replace(/Direct3D11.*$/i, '')
+                    .trim();
+                }
+              }
+            }
+          } catch (e) {}
+
+          let cpuUsage = 14;
+          let ramUsed = '12.8';
+          let ramTotal = (navigator as any).deviceMemory || 64;
+
+          if ((window as any).electron?.invoke) {
+            (window as any).electron.invoke('system:get-specs').then((specs: any) => {
+              if (specs) {
+                if (specs.cpuUsage) cpuUsage = specs.cpuUsage;
+                if (specs.ramUsedGb) ramUsed = specs.ramUsedGb;
+                if (specs.ramTotalGb) ramTotal = specs.ramTotalGb;
+              }
+            }).catch(() => {});
+          }
+
+          ctx.shadowBlur = 0;
+          ctx.textAlign = 'center';
+          ctx.fillStyle = isBlackText ? '#334155' : 'rgba(255, 255, 255, 0.7)';
+          ctx.font = '16px monospace';
+          ctx.fillText(`CPU: ${cpuUsage}% | RAM: ${ramUsed}GB / ${ramTotal}GB | GPU: ${gpuName}`, 512, 410);
         }
-
-        // Date Sub-header
-        ctx.shadowColor = isBlackText ? 'transparent' : '#3b82f6';
-        ctx.shadowBlur = isBlackText ? 0 : 10;
-        ctx.fillStyle = isBlackText ? '#0369a1' : '#38bdf8';
-        ctx.font = 'bold 36px sans-serif';
-        ctx.fillText(`${dayName}, ${day}/${month}/${year}`, 512, 320);
-
-        // Bottom Metrics Info
-        ctx.shadowBlur = 0;
-        ctx.textAlign = 'left';
-        ctx.fillStyle = isBlackText ? '#334155' : 'rgba(255, 255, 255, 0.7)';
-        ctx.font = '16px monospace';
-        ctx.fillText('CPU: 14% | RAM: 12.8GB / 64GB | GPU: RTX 4090 (42°C)', 180, 410);
 
         tex.setSource(canvas);
         tex.upload();
+        if (targetSide === 'left' || targetSide === 'both') {
+          matScreenLeft.update();
+        }
+        if (targetSide === 'right' || targetSide === 'both') {
+          matScreenRight.update();
+        }
       };
 
       renderCanvas();
@@ -1431,6 +1537,26 @@ export class SontinhSceneService implements OnDestroy {
       }
     };
     self._showDateTimeOnMonitorFn = showDateTimeOnMonitorFn;
+
+    const clearMonitorDisplayFn = (targetSide: 'left' | 'right' | 'both' = 'both') => {
+      if (clockCanvasTimer) {
+        clearInterval(clockCanvasTimer);
+        clockCanvasTimer = null;
+      }
+      const resetMat = (mat: pc.StandardMaterial) => {
+        if (!mat) return;
+        mat.diffuse = new pc.Color(0.05, 0.05, 0.08);
+        mat.specular = new pc.Color(0.02, 0.02, 0.02);
+        mat.emissive = new pc.Color(0.0, 0.0, 0.0);
+        mat.emissiveMap = null;
+        mat.diffuseMap = null;
+        mat.useLighting = false;
+        mat.update();
+      };
+      if (targetSide === 'left' || targetSide === 'both') resetMat(matScreenLeft);
+      if (targetSide === 'right' || targetSide === 'both') resetMat(matScreenRight);
+    };
+    self._clearMonitorDisplayFn = clearMonitorDisplayFn;
     const matChairMesh = createMat(new pc.Color(0.15, 0.17, 0.2), new pc.Color(0.3, 0.3, 0.3));
     const matChairFrame = createMat(new pc.Color(0.08, 0.08, 0.1), new pc.Color(0.5, 0.5, 0.5));
     const matChairLeatherSeat = createMat(new pc.Color(0.12, 0.13, 0.15), new pc.Color(0.4, 0.4, 0.4));
@@ -1862,6 +1988,11 @@ export class SontinhSceneService implements OnDestroy {
 
         const cfg = PROP_ENTITY_CONFIG[propId];
         if (cfg) {
+          if (propId.includes('monitor')) {
+            prop._customPositionSet = false;
+            prop._customRotationSet = false;
+            prop._customScaleSet = false;
+          }
           // 1. Toggle visibility on primary root entity
           const primaryEntity = this.app.root.findByName(cfg.primary);
           if (primaryEntity) {
@@ -1884,7 +2015,21 @@ export class SontinhSceneService implements OnDestroy {
             const entity = this.app.root.findByName(name);
             if (entity) {
               (entity as any).enabled = isVisible;
-              updateMaterialProps(entity);
+              if (!name.includes('Screen')) {
+                updateMaterialProps(entity);
+              }
+            }
+          }
+
+          if (propId.includes('monitor')) {
+            let side: 'left' | 'right' | 'both' = 'both';
+            if (propId.includes('left')) side = 'left';
+            else if (propId.includes('right')) side = 'right';
+
+            if (prop.activeScreenState === 'clock' || prop.activeScreenState === 'display' || prop.activeScreenState === 'image' || prop.screenOptions?.imageUrl) {
+              showDateTimeOnMonitorFn(side, prop.screenOptions);
+            } else if (prop.activeScreenState === 'none') {
+              clearMonitorDisplayFn(side);
             }
           }
 
@@ -4461,7 +4606,42 @@ export class SontinhSceneService implements OnDestroy {
     let charCurrentYaw  = 0;
     let charWaitTimer   = 0.0;
     let charIsWalking   = true;
-    
+    let lastGlowTime = 0;
+    function spawnStepGlowRipple(x: number, z: number) {
+      const now = Date.now();
+      if (now - lastGlowTime < 280) return;
+      lastGlowTime = now;
+
+      try {
+        const glow = new pc.Entity('StepGlow');
+        glow.addComponent('render', { type: 'cylinder' });
+        glow.setLocalScale(2.2, 0.02, 2.2);
+        glow.setPosition(x, 0.05, z);
+
+        const matGlow = new pc.StandardMaterial();
+        matGlow.diffuse = new pc.Color(0, 0, 0);
+        matGlow.emissive = new pc.Color(0.2, 0.85, 1.0);
+        matGlow.useLighting = false;
+        matGlow.update();
+        glow.render.material = matGlow;
+        app.root.addChild(glow);
+
+        let step = 0;
+        const animInterval = setInterval(() => {
+          step++;
+          const alpha = Math.max(0, 1.0 - step / 20);
+          matGlow.emissive = new pc.Color(0.2 * alpha, 0.85 * alpha, 1.0 * alpha);
+          matGlow.update();
+          glow.setLocalScale(2.2 + step * 0.18, 0.02, 2.2 + step * 0.18);
+
+          if (step >= 20) {
+            clearInterval(animInterval);
+            glow.destroy();
+          }
+        }, 30);
+      } catch (e) {}
+    }
+
     // ── WASD PLAYER CONTROL ───────────────────────────────────────────────────────
     // Camera-relative: W=forward, S=back, A=left, D=right.
     // Returns true if WASD is active (caller should skip AI update).
@@ -4517,9 +4697,14 @@ export class SontinhSceneService implements OnDestroy {
         charCurrentYaw += dyaw * Math.min(1.0, dt * 12);
       }
 
-      charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
-      charPivot.setEulerAngles(0, charCurrentYaw, 0);
-      charBodyRoot.setLocalEulerAngles(0, 0, 0);
+    charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
+    charPivot.setEulerAngles(0, charCurrentYaw, 0);
+    charBodyRoot.setLocalEulerAngles(0, 0, 0);
+
+    // Trigger footstep glow on floor
+    if (moveX !== 0 || moveZ !== 0) {
+      spawnStepGlowRipple(charCurrentPos.x, charCurrentPos.z);
+    }
 
       // Camera pivot stays static until user clicks a prop item
 
@@ -4555,6 +4740,7 @@ export class SontinhSceneService implements OnDestroy {
 
           charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
           charPivot.setEulerAngles(0, charCurrentYaw, 0);
+          spawnStepGlowRipple(charCurrentPos.x, charCurrentPos.z);
         } else {
           // Hành động Tại chỗ (speed = 0) → đứng yên vị trí
           charPivot.setPosition(charCurrentPos.x, 0, charCurrentPos.z);
