@@ -642,6 +642,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
           final detailRes = results[4];
           if (detailRes != null && detailRes['success'] == true) {
             _taskData = detailRes['data'];
+            _currentUuid = widget.uuid;
           }
         } else {
           final results = await Future.wait([
@@ -871,40 +872,88 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     setState(() => _isSaving = true);
 
     try {
-      final String taskUuid = widget.uuid ?? _taskData?['uuid'] ?? '';
+      final String initialUuid = widget.uuid ?? '';
+      String taskUuid = initialUuid.isNotEmpty ? initialUuid : (_currentUuid ?? _taskData?['uuid'] ?? '');
+      final bool isNewTask = taskUuid.isEmpty;
+      if (isNewTask) {
+        taskUuid = DateTime.now().millisecondsSinceEpoch.toString();
+      }
       final String taskId = _taskData?['_id'] ?? _taskData?['id'] ?? '';
       final String taskRev = _taskData?['_rev'] ?? '';
 
       final Map<String, dynamic> payload = {
-        if (taskUuid.isNotEmpty) 'uuid': taskUuid,
+        'uuid': taskUuid,
         if (taskId.isNotEmpty) '_id': taskId,
         if (taskId.isNotEmpty) 'id': taskId,
         if (taskRev.isNotEmpty) '_rev': taskRev,
         'title': title,
         'name': title,
+        'description': _descController.text.trim(),
         'meta': _descController.text.trim(),
         'thumbnail': _thumbnailController.text.trim(),
         'picture': _thumbnailController.text.trim(),
-        'style': _selectedStyle,
-        'domain': _selectedDomain,
+        'style': _selectedStyle ?? '',
+        'domain': _selectedDomain ?? '',
         'mainkey': _mainkeyController.text.trim(),
         'source': _source,
+        'done': _done,
         'updatedAt': DateTime.now().toIso8601String(),
       };
 
-      dynamic response;
-      if (taskUuid.isNotEmpty || taskId.isNotEmpty) {
-        response = await ApiService.editTask(payload);
+      dynamic saveRes;
+      if (!isNewTask) {
+        // Update existing article
+        saveRes = await ApiService.archiveUpdate(payload);
+        await ApiService.editTask(payload);
       } else {
-        response = await ApiService.addTask(payload);
+        // Store new article
+        saveRes = await ApiService.storeArchive(payload);
+        await ApiService.addTask(payload);
+
+        // Associate new task UUID with user collections
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final activeInfoStr = prefs.getString('active_info');
+          if (activeInfoStr != null) {
+            final activeInfo = jsonDecode(activeInfoStr);
+            final username = activeInfo['user']['name']?.toString() ?? '';
+            if (username.isNotEmpty) {
+              final colRes = await ApiService.getTasksCollections(username);
+              if (colRes != null && colRes['data'] is List) {
+                final cols = List<dynamic>.from(colRes['data']);
+                for (var col in cols) {
+                  final cId = col['_id'] ?? col['id'];
+                  if (cId != null && cId.toString() != 'all') {
+                    await ApiService.storeCollection(
+                      collectionId: cId.toString(),
+                      uuid: taskUuid,
+                      username: username,
+                    );
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error attaching task to collection: $e');
+        }
       }
 
       if (mounted) {
         setState(() {
           _isSaving = false;
-          if (response != null && response is Map) {
-            _taskData = Map<String, dynamic>.from(response);
+          _currentUuid = taskUuid;
+
+          final Map<String, dynamic> merged = Map<String, dynamic>.from(payload);
+          if (saveRes is Map) {
+            final resObj = saveRes['data'] is Map ? saveRes['data'] : saveRes;
+            if (resObj['_id'] != null) merged['_id'] = resObj['_id'];
+            if (resObj['id'] != null) merged['_id'] = resObj['id'];
+            if (resObj['_rev'] != null) merged['_rev'] = resObj['_rev'];
+            if (resObj['rev'] != null) merged['_rev'] = resObj['rev'];
+            if (resObj['uuid'] != null) merged['uuid'] = resObj['uuid'];
           }
+          _taskData = merged;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -87,6 +87,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('avatarFileInput') avatarFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('actionFileInput') actionFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('promptFileInput') promptFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('promptInputArea') promptInputArea?: ElementRef<HTMLTextAreaElement>;
 
   isLoading    = true;
   isUploading  = false;
@@ -732,6 +733,14 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.sceneService.toggleWindowTvIframe(true, 'https://type.vn');
     }
 
+    if (lower.includes('ngày') || lower.includes('giờ') || lower.includes('thời gian') || lower.includes('màn hình') || lower.includes('clock') || lower.includes('date') || lower.includes('time') || lower.includes('screen') || lower.includes('display')) {
+      let side: 'left' | 'right' | 'both' = 'both';
+      if (parentProp && parentProp.id && parentProp.id.includes('left')) side = 'left';
+      else if (parentProp && parentProp.id && parentProp.id.includes('right')) side = 'right';
+      this.sceneService.showDateTimeOnMonitor(side);
+      this.toastr.success(`Đã hiển thị Ngày & Giờ thời gian thực lên màn hình 3D!`, 'Màn hình 3D Realtime');
+    }
+
     // Realtime Sync to roomProps, Profile data, and 3D Canvas
     if (this.inspectingProp) {
       const idx = this.roomProps.findIndex(p => p.id === this.inspectingProp.id);
@@ -795,8 +804,37 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.onPropClick(targetProp);
     } else if (evt.type === 'custom' || evt.customScript) {
       const scriptText = evt.customScript || evt.name || 'Thực thi hành động 3D';
-      this.processAiPrompt(scriptText, [], [targetProp]);
-      this.toastr.info(`Đã kích hoạt kịch bản: "${scriptText}"`, 'Kịch bản 3D Tuỳ chỉnh');
+      const lower = scriptText.toLowerCase();
+      if (lower.includes('ngày') || lower.includes('giờ') || lower.includes('thời gian') || lower.includes('màn hình') || lower.includes('clock') || lower.includes('date') || lower.includes('time') || lower.includes('screen') || lower.includes('display')) {
+        let side: 'left' | 'right' | 'both' = 'both';
+        if (targetProp && targetProp.id && targetProp.id.includes('left')) side = 'left';
+        else if (targetProp && targetProp.id && targetProp.id.includes('right')) side = 'right';
+        
+        const options = {
+          textColor: lower.includes('màu đen') || lower.includes('black') ? '#000000' : '#ffffff'
+        };
+
+        this.sceneService.showDateTimeOnMonitor(side, options);
+
+        if (targetProp) {
+          targetProp.activeScreenState = 'clock';
+          targetProp.screenOptions = options;
+          const idx = this.roomProps.findIndex(p => p.id === targetProp.id);
+          if (idx >= 0) {
+            this.roomProps[idx].activeScreenState = 'clock';
+            this.roomProps[idx].screenOptions = options;
+          }
+          if (this.profile) {
+            (this.profile as any).props = this.roomProps;
+          }
+          this.profileDataService.saveProps(this.roomProps).subscribe();
+        }
+
+        this.toastr.success(`Đã hiển thị Ngày & Giờ thời gian thực lên màn hình 3D!`, 'Màn hình 3D Realtime');
+      } else {
+        this.processAiPrompt(scriptText, [], [targetProp]);
+        this.toastr.info(`Đã kích hoạt kịch bản: "${scriptText}"`, 'Kịch bản 3D Tuỳ chỉnh');
+      }
     } else {
       this.executePropEvent(targetProp);
     }
@@ -831,7 +869,46 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   async savePropInspector(): Promise<void> {
     if (!this.inspectingProp || !this.profile) return;
-    this.inspectingProp._modifiedPosition = true;
+    
+    if (this.inspectingProp.position && typeof this.inspectingProp.position.x === 'number') {
+      this.inspectingProp._customPositionSet = true;
+    }
+    if (this.inspectingProp.rotation && typeof this.inspectingProp.rotation.x === 'number') {
+      this.inspectingProp._customRotationSet = true;
+    }
+    if (this.inspectingProp.scale && typeof this.inspectingProp.scale.x === 'number') {
+      this.inspectingProp._customScaleSet = true;
+    }
+
+    if (this.inspectingProp.color && this.inspectingProp.color.toLowerCase() !== '#ffffff') {
+      this.inspectingProp._customColorSet = true;
+    } else if (this.inspectingProp.id && this.inspectingProp.id.includes('monitor')) {
+      this.inspectingProp._customColorSet = false;
+    }
+
+    // Auto-detect date/time clock event in inspectingProp events array
+    if (this.inspectingProp.events && Array.isArray(this.inspectingProp.events)) {
+      const hasClockEvent = this.inspectingProp.events.some((e: any) => {
+        const txt = ((e.customScript || '') + ' ' + (e.name || '')).toLowerCase();
+        return txt.includes('ngày') || txt.includes('giờ') || txt.includes('thời gian') || txt.includes('clock') || txt.includes('time') || txt.includes('date');
+      });
+      if (hasClockEvent) {
+        this.inspectingProp.activeScreenState = 'clock';
+      }
+    }
+    if (this.inspectingProp.opacity !== undefined && typeof this.inspectingProp.opacity === 'number' && this.inspectingProp.opacity < 1.0) {
+      this.inspectingProp._customOpacitySet = true;
+    }
+    if (this.inspectingProp.emissiveColor && this.inspectingProp.emissiveIntensity && this.inspectingProp.emissiveIntensity > 0) {
+      this.inspectingProp._customEmissiveSet = true;
+    }
+    if (this.inspectingProp.metalness !== undefined && typeof this.inspectingProp.metalness === 'number' && this.inspectingProp.metalness > 0) {
+      this.inspectingProp._customMetalnessSet = true;
+    }
+    if (this.inspectingProp.roughness !== undefined && typeof this.inspectingProp.roughness === 'number' && this.inspectingProp.roughness !== 0.5) {
+      this.inspectingProp._customRoughnessSet = true;
+    }
+
     const propId = this.inspectingProp.id;
     const idx = this.roomProps.findIndex(p => p.id === propId);
 
@@ -1180,6 +1257,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
     this.showMentionMenu = false;
     this.cdr.markForCheck();
+
+    setTimeout(() => {
+      if (this.promptInputArea?.nativeElement) {
+        const el = this.promptInputArea.nativeElement;
+        el.focus();
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      }
+    }, 0);
   }
 
   attachPropToPrompt(prop: any): void {
@@ -1191,6 +1277,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.promptText = (this.promptText ? this.promptText.trim() + ' ' : '') + `${mentionTag} `;
     }
     this.cdr.markForCheck();
+
+    setTimeout(() => {
+      if (this.promptInputArea?.nativeElement) {
+        const el = this.promptInputArea.nativeElement;
+        el.focus();
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      }
+    }, 0);
   }
 
   removeAttachedProp(index: number): void {
@@ -1217,6 +1312,85 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
 
     await this.processAiPrompt(fullPromptText, imagesToProcess, propsToProcess);
+  }
+
+  private extractColorAndBgFromText(text: string): { color: string | null; bgColor: string | null; colorName: string | null } {
+    const lower = text.toLowerCase();
+
+    // Check hex code first
+    const hexMatch = lower.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})/);
+    if (hexMatch) {
+      const hex = hexMatch[0];
+      if (lower.includes('nền') || lower.includes('background') || lower.includes('bg')) {
+        return { color: null, bgColor: hex, colorName: hex };
+      }
+      return { color: hex, bgColor: hex, colorName: hex };
+    }
+
+    const colorMap: Array<{ keywords: string[]; hex: string; bgHex: string; name: string }> = [
+      { keywords: ['hồng', 'pink'], hex: '#ec4899', bgHex: '#831843', name: 'Hồng' },
+      { keywords: ['xanh lá', 'xanh cây', 'green'], hex: '#22c55e', bgHex: '#064e3b', name: 'Xanh lá' },
+      { keywords: ['xanh dương', 'xanh biển', 'blue'], hex: '#3b82f6', bgHex: '#1e3a8a', name: 'Xanh dương' },
+      { keywords: ['xanh cyan', 'cyan', 'xanh ngọc', 'xanh lơ'], hex: '#06b6d4', bgHex: '#164e63', name: 'Xanh cyan' },
+      { keywords: ['đỏ', 'red'], hex: '#ef4444', bgHex: '#7f1d1d', name: 'Đỏ' },
+      { keywords: ['vàng', 'yellow'], hex: '#eab308', bgHex: '#713f12', name: 'Vàng' },
+      { keywords: ['cam', 'orange'], hex: '#f97316', bgHex: '#7c2d12', name: 'Cam' },
+      { keywords: ['tím', 'purple'], hex: '#a855f7', bgHex: '#581c87', name: 'Tím' },
+      { keywords: ['nâu', 'brown'], hex: '#78350f', bgHex: '#451a03', name: 'Nâu' },
+      { keywords: ['đen', 'black', 'tối'], hex: '#0f172a', bgHex: '#020617', name: 'Đen' },
+      { keywords: ['trắng', 'white', 'sáng'], hex: '#ffffff', bgHex: '#f8fafc', name: 'Trắng' },
+      { keywords: ['xám', 'gray', 'grey'], hex: '#64748b', bgHex: '#1e293b', name: 'Xám' }
+    ];
+
+    for (const item of colorMap) {
+      if (item.keywords.some(kw => lower.includes(kw))) {
+        if (lower.includes('nền') || lower.includes('background') || lower.includes('bg')) {
+          return { color: item.hex, bgColor: item.bgHex, colorName: item.name };
+        }
+        return { color: item.hex, bgColor: item.bgHex, colorName: item.name };
+      }
+    }
+
+    if (lower.includes('thay màu nền') || lower.includes('đổi màu nền') || lower.includes('màu nền khác') || lower.includes('nền khác')) {
+      return { color: '#ec4899', bgColor: '#831843', colorName: 'Hồng Cyberpunk' };
+    }
+
+    return { color: null, bgColor: null, colorName: null };
+  }
+
+  private syncPropTo3DScene(prop: any): void {
+    if (!prop) return;
+
+    // 1. Transform / Material / Visibility update in PlayCanvas
+    this.sceneService.updateProp(prop);
+
+    // 2. Monitor Screen state / Clock display update
+    const isMonitor = prop.id.includes('monitor') || (prop.name && prop.name.toLowerCase().includes('màn hình'));
+    if (isMonitor && (prop.activeScreenState === 'clock' || prop.screenOptions)) {
+      let side: 'left' | 'right' | 'both' = 'both';
+      if (prop.id.includes('left') || (prop.name && prop.name.toLowerCase().includes('trái'))) side = 'left';
+      else if (prop.id.includes('right') || (prop.name && prop.name.toLowerCase().includes('phải'))) side = 'right';
+
+      this.sceneService.showDateTimeOnMonitor(side, prop.screenOptions);
+    }
+  }
+
+  private deepMergeProp(target: any, source: any): void {
+    if (!source || typeof source !== 'object') return;
+    for (const key of Object.keys(source)) {
+      if (key === 'targetPropId' || key === 'targetPropName') continue;
+      const val = source[key];
+      if (val === null || val === undefined) continue;
+
+      if (typeof val === 'object' && !Array.isArray(val)) {
+        if (!target[key] || typeof target[key] !== 'object') {
+          target[key] = {};
+        }
+        this.deepMergeProp(target[key], val);
+      } else {
+        target[key] = val;
+      }
+    }
   }
 
   /** Xử lý câu lệnh AI prompt và cập nhật tức thì (realtime) lên Canvas 3D */
@@ -1264,22 +1438,38 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 2. **ĐIỀU KHIỂN NHÂN VẬT**: position, facingAngle, scale (0.4 - 2.5), animationName. Động tác khả dụng: [${animListStr}].
 3. **CAMERA**: "default", "desk", "character", "overhead".
 4. **ĐỒ VẬT TƯƠNG TÁC**: Bàn, Ghế, Bàn phím, Bể cá, Tủ, Khung ảnh, Cửa.
-5. **TẠO / THÊM ĐỒ VẬT MỚI & ĐỒ VẬT CON VIA AI**:
+5. **THAY ĐỔI / CẬP NHẬT THUỘC TÍNH ĐỒ VẬT VIA AI ('modifyProp')**:
+   - Bạn xem toàn bộ các key hiện có của đồ vật trong DỮ LIỆU PROFILE (như \`activeScreenState\`, \`screenOptions\` bao gồm \`screenOptions.bgColor\`, \`screenOptions.textColor\`, \`screenOptions.screenText\`, \`color\`, \`position\`, \`rotation\`, \`scale\`, \`visible\`, v.v.).
+   - Trả về object \`modifyProp\` chứa \`targetPropId\` (hoặc \`targetPropName\`) và \`patch\` chứa ĐÚNG CÁC KEY & GIÁ TRỊ CẦN SỬA (ví dụ khi người dùng yêu cầu đổi màu nền màn hình, hãy sửa \`activeScreenState: "clock"\` và \`screenOptions: { "bgColor": "#HexColor" }\`).
+
+6. **TẠO / THÊM ĐỒ VẬT MỚI & ĐỒ VẬT CON VIA AI**:
    - Thêm đồ vật chính mới ('newProp'): { "name": string, "category": string, "color": string, "position": {x,y,z} }
    - Gắn thêm đồ vật con / nút bấm lên đồ vật hiện có ('attachSubDeviceToProp'):
      { "targetPropName": string, "subDevice": { "name": string, "type": "button" | "light" | "curtain" | "sensor" | "tv" | "custom", "customScript"?: string } }
 
-6. **XOÁ / BỚT ĐỒ VẬT & ĐỒ VẬT CON VIA AI**:
+7. **XOÁ / BỚT ĐỒ VẬT & ĐỒ VẬT CON VIA AI**:
    - Xoá đồ vật chính ('removePropName'): Tên đồ vật cần xoá.
    - Xoá đồ vật con / nút bấm ('removeSubDeviceName'): Tên đồ vật con cần xoá.
 
 ---
-### 📊 TRẠNG THÁI CĂN PHÒNG & NHÂN VẬT:
+### 📊 TRẠNG THÁI CĂN PHÒNG & NHÂN VẬT (FULL PROPS SCHEMA & LIVE STATE):
 ${JSON.stringify({
   username: this.username,
   character: currentProfile.character,
   scene: currentProfile.scene,
-  props: this.roomProps.map(p => ({ id: p.id, name: p.name, subDevices: p.subDevices || [] }))
+  props: this.roomProps.map(p => ({
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    visible: p.visible,
+    activeScreenState: p.activeScreenState,
+    screenOptions: p.screenOptions,
+    color: p.color,
+    position: p.position,
+    rotation: p.rotation,
+    scale: p.scale,
+    subDevices: p.subDevices || []
+  }))
 }, null, 2)}
 
 ---
@@ -1296,6 +1486,10 @@ ${JSON.stringify({
   "cameraPreset": "default" | "desk" | "character" | "overhead" | null,
   "disableTrigger": string | null,
   "enableTrigger": string | null,
+  "modifyProp": {
+    "targetPropId": string,
+    "patch": object
+  } | null,
   "newProp": { "name": string, "category": string, "color": string, "position": { "x": number, "y": number, "z": number }, "subDevices": Array<{ name: string, type: string, enabled: boolean, color?: string }> } | null,
   "attachSubDeviceToProp": { "targetPropName": string, "subDevice": { "name": string, "type": string, "customScript"?: string } } | null,
   "removePropName": string | null,
@@ -1373,6 +1567,33 @@ ${JSON.stringify({
               this.sceneService.setDisabledTriggers((currentProfile as any).disabledEvents);
               updated = true;
             }
+            if (parsed.modifyProp) {
+              const mod = parsed.modifyProp;
+              const targetId = mod.targetPropId || mod.targetPropName || '';
+              const targetName = targetId.toLowerCase();
+              const liveProp = (targetProps && targetProps.length > 0)
+                ? this.roomProps.find(p => p.id === targetProps[0].id)
+                : this.roomProps.find(p => p.id === targetId || (p.name && p.name.toLowerCase().includes(targetName)));
+
+              if (liveProp) {
+                const patch = mod.patch || { ...mod };
+                delete patch.targetPropId;
+                delete patch.targetPropName;
+                delete patch.patch;
+
+                this.deepMergeProp(liveProp, patch);
+
+                if (patch.color) liveProp._customColorSet = true;
+
+                this.syncPropTo3DScene(liveProp);
+
+                this.profileDataService.saveProps(this.roomProps).subscribe();
+                this.cdr.markForCheck();
+                updated = true;
+                message = parsed.explanation || `✨ AI Agent đã cập nhật đồ vật "${liveProp.name}"!`;
+              }
+            }
+
             if (parsed.newProp) {
               const propObj = parsed.newProp;
               const newProp = {
@@ -1613,6 +1834,38 @@ ${JSON.stringify({
       for (const targetProp of activeProps) {
         const liveProp = this.roomProps.find(p => p.id === targetProp.id);
         if (liveProp) {
+          const isMonitor = liveProp.id.includes('monitor') || (liveProp.name && liveProp.name.toLowerCase().includes('màn hình'));
+          const hasColorIntent = lower.includes('màu') || lower.includes('nền') || lower.includes('color') || lower.includes('bg') || lower.includes('sơn');
+
+          if (hasColorIntent || isMonitor) {
+            const colorInfo = this.extractColorAndBgFromText(text);
+            if (isMonitor) {
+              let side: 'left' | 'right' | 'both' = 'both';
+              if (liveProp.id.includes('left') || (liveProp.name && liveProp.name.toLowerCase().includes('trái'))) side = 'left';
+              else if (liveProp.id.includes('right') || (liveProp.name && liveProp.name.toLowerCase().includes('phải'))) side = 'right';
+
+              const newBgColor = colorInfo.bgColor || colorInfo.color || '#831843';
+              const screenOpts = {
+                ...(liveProp.screenOptions || {}),
+                bgColor: newBgColor
+              };
+              liveProp.activeScreenState = 'clock';
+              liveProp.screenOptions = screenOpts;
+              this.sceneService.showDateTimeOnMonitor(side, screenOpts);
+              this.sceneService.updateProp(liveProp);
+              this.profileDataService.saveProps(this.roomProps).subscribe();
+              updated = true;
+              message = `🎨 AI đã đổi màu nền màn hình 3D "${liveProp.name}" sang màu ${colorInfo.colorName || 'mới'}!`;
+            } else if (colorInfo.color) {
+              liveProp.color = colorInfo.color;
+              liveProp._customColorSet = true;
+              this.sceneService.updateProp(liveProp);
+              this.profileDataService.saveProps(this.roomProps).subscribe();
+              updated = true;
+              message = `🎨 AI đã đổi màu đồ vật 3D "${liveProp.name}" sang màu ${colorInfo.colorName || colorInfo.color}!`;
+            }
+          }
+
           if (lower.includes('xoay') || lower.includes('quay') || lower.includes('ngược') || lower.includes('đổi')) {
             if (!liveProp.rotation) liveProp.rotation = { x: 0, y: 0, z: 0 };
             liveProp.rotation.y = (liveProp.rotation.y + 180) % 360;

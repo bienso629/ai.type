@@ -269,6 +269,7 @@
         </div>
 
         <textarea
+          #promptInputArea
           class="sidebar-prompt-input"
           placeholder="Tiếp tục chỉnh sửa... (gõ @ để chọn đồ vật, Ctrl+V dán ảnh)"
           [(ngModel)]="promptText"
@@ -676,15 +677,17 @@
             <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
               <mat-label>Kịch bản Lệnh tự do / AI Prompt</mat-label>
               <input matInput type="text" [(ngModel)]="evt.customScript" (keydown.enter)="runSpecificPropEvent(evt)" placeholder="Nhập kịch bản hoặc lệnh tự do..." class="text-base font-normal pr-2">
-              <button type="button" mat-icon-button matSuffix (click)="runSpecificPropEvent(evt)" title="Chạy thử sự kiện" class="mr-1">
-                <mat-icon class="icon-size-5 text-teal-600 dark:text-teal-400">play_arrow</mat-icon>
+              <button type="button" mat-icon-button matSuffix (click)="runSpecificPropEvent(evt)" [disabled]="isProcessingPrompt" title="Chạy thử sự kiện" class="mr-1">
+                <mat-icon *ngIf="!isProcessingPrompt" class="icon-size-5 text-teal-600 dark:text-teal-400">play_arrow</mat-icon>
+                <mat-icon *ngIf="isProcessingPrompt" class="icon-size-5 text-teal-600 animate-spin">autorenew</mat-icon>
               </button>
             </mat-form-field>
 
             <!-- Nút bấm Chạy thử & Xóa ở dưới cùng -->
             <div class="flex items-center justify-end gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/60">
-              <button type="button" mat-icon-button color="accent" (click)="runSpecificPropEvent(evt)" title="Chạy thử sự kiện">
-                <mat-icon class="icon-size-5">play_arrow</mat-icon>
+              <button type="button" mat-icon-button color="accent" (click)="runSpecificPropEvent(evt)" [disabled]="isProcessingPrompt" title="Chạy thử sự kiện">
+                <mat-icon *ngIf="!isProcessingPrompt" class="icon-size-5">play_arrow</mat-icon>
+                <mat-icon *ngIf="isProcessingPrompt" class="icon-size-5 animate-spin">autorenew</mat-icon>
               </button>
               <button type="button" mat-icon-button color="warn" (click)="removePropEvent(idx)" title="Xoá sự kiện">
                 <mat-icon class="icon-size-5">delete_outline</mat-icon>
@@ -996,8 +999,9 @@
           <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
             <mat-label>Kịch bản Lệnh / Phương thức AI Prompt</mat-label>
             <input matInput type="text" [(ngModel)]="inspectingSubDevice.sub.customScript" (keydown.enter)="executeSubDevicePrompt(inspectingSubDevice.sub, inspectingSubDevice.prop)" placeholder="Nhập kịch bản hoặc lệnh tự do..." class="text-base font-normal pr-2">
-            <button type="button" mat-icon-button matSuffix (click)="executeSubDevicePrompt(inspectingSubDevice.sub, inspectingSubDevice.prop)" title="Chạy phương thức AI Prompt" class="mr-1">
-              <mat-icon class="icon-size-5 text-teal-600 dark:text-teal-400">send</mat-icon>
+            <button type="button" mat-icon-button matSuffix (click)="executeSubDevicePrompt(inspectingSubDevice.sub, inspectingSubDevice.prop)" [disabled]="isProcessingPrompt" title="Chạy phương thức AI Prompt" class="mr-1">
+              <mat-icon *ngIf="!isProcessingPrompt" class="icon-size-5 text-teal-600 dark:text-teal-400">send</mat-icon>
+              <mat-icon *ngIf="isProcessingPrompt" class="icon-size-5 text-teal-600 animate-spin">autorenew</mat-icon>
             </button>
           </mat-form-field>
         </div>
@@ -1032,15 +1036,17 @@
               <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [subscriptSizing]="'dynamic'">
                 <mat-label>Kịch bản Lệnh tự do / AI Prompt</mat-label>
                 <input matInput type="text" [(ngModel)]="evt.customScript" (keydown.enter)="executeSubDevicePrompt(evt, inspectingSubDevice.prop)" placeholder="Nhập kịch bản hoặc lệnh tự do..." class="text-base font-normal pr-2">
-                <button type="button" mat-icon-button matSuffix (click)="executeSubDevicePrompt(evt, inspectingSubDevice.prop)" title="Chạy thử sự kiện" class="mr-1">
-                  <mat-icon class="icon-size-5 text-teal-600 dark:text-teal-400">play_arrow</mat-icon>
+                <button type="button" mat-icon-button matSuffix (click)="executeSubDevicePrompt(evt, inspectingSubDevice.prop)" [disabled]="isProcessingPrompt" title="Chạy thử sự kiện" class="mr-1">
+                  <mat-icon *ngIf="!isProcessingPrompt" class="icon-size-5 text-teal-600 dark:text-teal-400">play_arrow</mat-icon>
+                  <mat-icon *ngIf="isProcessingPrompt" class="icon-size-5 text-teal-600 animate-spin">autorenew</mat-icon>
                 </button>
               </mat-form-field>
 
               <!-- Nút bấm Chạy thử & Xóa ở dưới cùng -->
               <div class="flex items-center justify-end gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/60">
-                <button type="button" mat-icon-button color="accent" (click)="executeSubDevicePrompt(evt, inspectingSubDevice.prop)" title="Chạy thử sự kiện">
-                  <mat-icon class="icon-size-5">play_arrow</mat-icon>
+                <button type="button" mat-icon-button color="accent" (click)="executeSubDevicePrompt(evt, inspectingSubDevice.prop)" [disabled]="isProcessingPrompt" title="Chạy thử sự kiện">
+                  <mat-icon *ngIf="!isProcessingPrompt" class="icon-size-5">play_arrow</mat-icon>
+                  <mat-icon *ngIf="isProcessingPrompt" class="icon-size-5 animate-spin">autorenew</mat-icon>
                 </button>
                 <button type="button" mat-icon-button color="warn" (click)="removeSubDeviceEvent(inspectingSubDevice.sub, idx)" title="Xoá sự kiện">
                   <mat-icon class="icon-size-5">delete_outline</mat-icon>
