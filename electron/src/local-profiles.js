@@ -78,27 +78,46 @@ const DEFAULT_ROOM = {
 };
 
 const DEFAULT_PROPS = [
+    { id: 'prop_building_5story_main', name: 'Tòa nhà chính 5 tầng (Sơn Tinh Tower)', category: 'architecture', visible: true },
+    { id: 'prop_room_306_floor', name: 'Tầng 3 - Căn phòng 306 Studio', category: 'architecture', visible: true },
+    { id: 'prop_building_floor1', name: 'Tầng 1 - Sảnh chính & Cửa kính lớn', category: 'architecture', visible: true },
+    { id: 'prop_building_floor2', name: 'Tầng 2 - Ban công & Khung kính lớn', category: 'architecture', visible: true },
+    { id: 'prop_building_floor4', name: 'Tầng 4 - Khối văn phòng sáng đèn', category: 'architecture', visible: true },
+    { id: 'prop_building_floor5', name: 'Tầng 5 - Áp mái & Tầng thượng Penthouse', category: 'architecture', visible: true },
+    { id: 'prop_room_marble_floor', name: 'Sàn đá Cẩm thạch Marble cao cấp', category: 'architecture', visible: true },
+    { id: 'prop_room_walls', name: 'Tường sơn phẳng liền mạch bao quanh', category: 'architecture', visible: true },
+    { id: 'prop_room_ceiling', name: 'Trần nhà sơn đồng bộ 306', category: 'architecture', visible: true },
+    { id: 'prop_main_door', name: 'Cửa chính ra vào căn phòng', position: { x: 19.8, y: 0.0, z: -12.0 }, visible: true, category: 'architecture' },
+    { id: 'prop_window_21_9', name: 'Cửa sổ nhôm kính Minimalist 21:9', position: { x: 40.0, y: 16.0, z: 0.0 }, visible: true, category: 'architecture' },
+
     { id: 'prop_main_desk', name: 'Bàn làm việc đôi Haigo BHS230-2', position: { x: 0.0, y: 0.1, z: -39.75 }, visible: true, category: 'furniture' },
     { id: 'prop_chair_left', name: 'Ghế xoay ergonomic trái', position: { x: -6.0, y: 0.1, z: -31.5 }, visible: true, category: 'furniture' },
     { id: 'prop_chair_right', name: 'Ghế xoay ergonomic phải', position: { x: 6.0, y: 0.1, z: -31.5 }, visible: true, category: 'furniture' },
+    { id: 'prop_pegboard', name: 'Tủ Pegboard treo tường', position: { x: 0.0, y: 12.8, z: -39.45 }, visible: true, category: 'furniture' },
+    { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo gỗ', position: { x: 12.0, y: 0.0, z: -18.0 }, visible: true, category: 'furniture' },
+    { id: 'prop_desk_mat_left', name: 'Thảm lót bàn làm việc trái', category: 'furniture', visible: true },
+    { id: 'prop_desk_mat_right', name: 'Thảm lót bàn làm việc phải', category: 'furniture', visible: true },
+
     { id: 'prop_monitor_left', name: 'Màn hình cong ultrawide trái', position: { x: -6.0, y: 5.2, z: -34.75 }, visible: true, category: 'electronics' },
     { id: 'prop_monitor_right', name: 'Màn hình cong ultrawide phải', position: { x: 6.0, y: 5.2, z: -34.75 }, visible: true, category: 'electronics' },
     { id: 'prop_mechanical_keyboard_left', name: 'Bàn phím cơ custom trái', position: { x: -6.0, y: 3.2, z: -32.5 }, visible: true, category: 'electronics' },
     { id: 'prop_mechanical_keyboard_right', name: 'Bàn phím cơ custom phải', position: { x: 6.0, y: 3.2, z: -32.5 }, visible: true, category: 'electronics' },
-    { id: 'prop_aquarium', name: 'Bể cá thủy sinh bàn làm việc', position: { x: 0.0, y: 3.8, z: -37.5 }, visible: true, category: 'decoration' },
-    { id: 'prop_pegboard', name: 'Tủ Pegboard treo tường', position: { x: 0.0, y: 12.8, z: -39.45 }, visible: true, category: 'furniture' },
+    { id: 'prop_mouse_left', name: 'Chuột không dây Logitech M185 trái', category: 'electronics', visible: true },
+    { id: 'prop_mouse_right', name: 'Chuột không dây Logitech M185 phải', category: 'electronics', visible: true },
     { id: 'prop_ps5_pro', name: 'Máy chơi game PS5 Pro', position: { x: 0.0, y: 10.5, z: -38.55 }, visible: true, category: 'electronics' },
-    { id: 'prop_tech_led_bar', name: 'Đèn LED Bar màn hình', position: { x: 0.0, y: 7.2, z: -34.75 }, visible: true, category: 'lighting' },
-    { id: 'prop_wall_switch', name: 'Công tắc đèn tường dạ quang', position: { x: 19.8, y: 12.0, z: -10.0 }, visible: true, category: 'lighting' },
-    { id: 'prop_window_21_9', name: 'Cửa sổ nhôm kính Minimalist 21:9', position: { x: 40.0, y: 16.0, z: 0.0 }, visible: true, category: 'architecture' },
+
+    { id: 'prop_aquarium', name: 'Bể cá thủy sinh bàn làm việc', position: { x: 0.0, y: 3.8, z: -37.5 }, visible: true, category: 'decoration' },
     { id: 'prop_picture_frame', name: 'Khung ảnh gia đình treo tường', position: { x: 39.65, y: 16.0, z: 28.5 }, visible: true, category: 'decoration' },
     { id: 'prop_wall_clock', name: 'Đồng hồ treo tường Gỗ Óc chó', position: { x: 0.0, y: 28.5, z: 39.75 }, visible: true, category: 'decoration' },
-    { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo gỗ', position: { x: 12.0, y: 0.0, z: -18.0 }, visible: true, category: 'furniture' },
-    { id: 'prop_main_door', name: 'Cửa chính ra vào căn phòng', position: { x: 19.8, y: 0.0, z: -12.0 }, visible: true, category: 'architecture' },
+    { id: 'prop_tech_led_bar', name: 'Đèn LED Bar màn hình', position: { x: 0.0, y: 7.2, z: -34.75 }, visible: true, category: 'lighting' },
+    { id: 'prop_wall_switch', name: 'Công tắc đèn tường dạ quang', position: { x: 19.8, y: 12.0, z: -10.0 }, visible: true, category: 'lighting' },
     { id: 'prop_ceiling_downlight_front', name: 'Đèn âm trần LED trước', position: { x: 0.0, y: 32.5, z: 38.75 }, visible: true, category: 'lighting' },
     { id: 'prop_ceiling_downlight_back', name: 'Đèn âm trần LED sau', position: { x: 0.0, y: 32.5, z: -38.75 }, visible: true, category: 'lighting' },
     { id: 'prop_ceiling_downlight_left', name: 'Đèn âm trần LED trái', position: { x: -38.75, y: 32.5, z: 0.0 }, visible: true, category: 'lighting' },
     { id: 'prop_ceiling_downlight_right', name: 'Đèn âm trần LED phải', position: { x: 38.75, y: 32.5, z: 0.0 }, visible: true, category: 'lighting' },
+
+    { id: 'prop_street_cars', name: 'Các xe ô tô di chuyển đường phố', category: 'environment', visible: true },
+    { id: 'prop_street_trees', name: 'Hàng cây xanh cảnh quan đường phố', category: 'environment', visible: true },
     { id: 'prop_street_shophouses', name: 'Dãy nhà phố thương mại ngoài sổ', position: { x: 70.0, y: 0.0, z: 0.0 }, visible: true, category: 'environment' },
     { id: 'prop_street_traffic_lanes', name: 'Làn xe giao thông đường phố', position: { x: 90.0, y: -2.0, z: 0.0 }, visible: true, category: 'environment' }
 ];

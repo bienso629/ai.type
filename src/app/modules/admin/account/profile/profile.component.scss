@@ -26,13 +26,14 @@
 .profile-sidebar {
   display: flex;
   flex-direction: column;
-  width: 280px;
-  min-width: 280px;
+  width: 280px !important;
+  min-width: 280px !important;
+  max-width: 280px !important;
   align-self: stretch;
   background: var(--fuse-bg-card, #ffffff);
   border-right: 1px solid var(--fuse-border, #e2e8f0);
-  overflow: hidden;
-  flex-shrink: 0;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
 }
 
 .sidebar-header {
@@ -321,31 +322,17 @@
   }
 }
 
-::ng-deep .mat-mdc-menu-panel,
-::ng-deep .mat-menu-panel,
-::ng-deep .mat-mdc-menu-surface,
-::ng-deep .mdc-menu-surface,
-::ng-deep .faint-shadow-menu,
-::ng-deep .faint-shadow-menu .mat-mdc-menu-surface,
-::ng-deep .faint-shadow-menu .mdc-menu-surface,
-::ng-deep .cdk-overlay-pane:has(.faint-shadow-menu),
-::ng-deep .cdk-overlay-pane:has(.faint-shadow-menu) * {
-  box-shadow: none !important;
-  filter: none !important;
-  -webkit-box-shadow: none !important;
-  --mdc-menu-container-elevation-shadow: none !important;
-  --mdc-elevation-box-shadow-for-gss: none !important;
-  --mat-menu-container-elevation-shadow: none !important;
-}
-
+::ng-deep .mat-mdc-select-panel,
+::ng-deep .mat-select-panel,
 ::ng-deep .mat-mdc-menu-panel,
 ::ng-deep .mat-menu-panel,
 ::ng-deep .faint-shadow-menu {
-  border: 1px solid var(--fuse-border, #e2e8f0) !important;
+  border: 1px solid var(--fuse-border, #cbd5e1) !important;
+  box-shadow: none !important;
+  filter: none !important;
   border-radius: 12px !important;
-  width: 256px !important;
-  max-width: 256px !important;
   overflow: hidden !important;
+  background-color: var(--fuse-bg-card, #ffffff) !important;
 
   .mat-mdc-menu-content {
     padding: 4px 0 !important;
@@ -418,6 +405,16 @@
   }
 }
 
+:host-context(.dark) ::ng-deep .mat-mdc-select-panel,
+:host-context(.dark) ::ng-deep .mat-select-panel,
+:host-context(.dark) ::ng-deep .mat-mdc-menu-panel,
+:host-context(.dark) ::ng-deep .mat-menu-panel {
+  border-color: #334155 !important;
+  background-color: #0f172a !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
 /* ── Character Upload Zone ── */
 .char-upload-zone {
   margin: 4px 4px 12px;
@@ -476,23 +473,37 @@
   background: var(--fuse-primary-50, #f0fdf4);
   border: 1px solid var(--fuse-primary-200, #a7f3d0);
   border-radius: 4px;
+  width: calc(100% - 8px) !important;
+  max-width: 264px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
 }
 
 .sidebar-char-avatar {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  flex-shrink: 0 !important;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: hidden !important;
   background: var(--fuse-primary-100, #dcfce7);
   display: flex;
   align-items: center;
   justify-content: center;
 
   img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    object-fit: cover !important;
+    display: block !important;
   }
 
   .char-fallback-icon {
