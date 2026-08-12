@@ -310,7 +310,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
             width: '600px',
             maxWidth: '98vw',
             height: 'auto',
-            maxHeight: '98vh',
+            maxHeight: '90vh',
             disableClose: true,
             data: {
                 char: char,

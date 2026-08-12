@@ -225,7 +225,7 @@ export class AIImageComponent
         const dialogRef = this._matDialog.open(ImageEditorDialogComponent, {
             panelClass: 'custom-dialog',
             maxWidth: '100vw',
-            maxHeight: '100vh',
+            maxHeight: '90vh',
             data: { imageUrl: url, username: this.user.name },
         });
 

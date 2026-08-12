@@ -149,6 +149,17 @@ hr {
     }
 }
 
+/* Global Dialog Max Height: 90vh for all dialogs in the project */
+.cdk-overlay-pane:has(.mat-mdc-dialog-container),
+.cdk-overlay-pane:has(.mat-dialog-container),
+.mat-mdc-dialog-container,
+.mat-dialog-container,
+.mdc-dialog__container,
+.mdc-dialog__surface,
+.mat-mdc-dialog-surface {
+    max-height: 90vh !important;
+}
+
 /* styles.css (global) */
 .cdk-overlay-pane .mat-mdc-dialog-container.dlg-stacked .mdc-dialog__surface {
     box-shadow: 0 12px 32px rgba(0, 0, 0, .28);

@@ -2238,7 +2238,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const dialogRef = this.dialog.open(AddSceneComponent, {
       width: '650px',
       maxWidth: '95vw',
-      maxHeight: '95vh',
+      maxHeight: '90vh',
       disableClose: true,
       data: {
         selectedClip: null,
@@ -3290,7 +3290,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const dialogRef = this.dialog.open(MagicPromptDialogComponent, {
         width: '500px',
         maxWidth: '95vw',
-        maxHeight: '95vh',
+        maxHeight: '90vh',
         data: {
             currentPrompt: this.globalPromptText,
             type: this.editingType,
@@ -3310,7 +3310,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const dialogRef = this.dialog.open(CharacterDialogComponent, {
       width: '800px',
       maxWidth: '95vw',
-      maxHeight: '95vh',
+      maxHeight: '90vh',
       disableClose: true,
       data: {
         char: null,
@@ -3652,7 +3652,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const dialogRef = this.dialog.open(DirectorModeComponent, {
       width: '650px',
       maxWidth: '95vw',
-      maxHeight: '95vh',
+      maxHeight: '90vh',
       data: {
         prompt: promptText,
         targetName: target,

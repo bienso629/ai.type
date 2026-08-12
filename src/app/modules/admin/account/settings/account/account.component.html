@@ -118,6 +118,44 @@
                         <mat-hint>{{ 'account.lite.cookie_hint' | transloco }}</mat-hint>
                     </mat-form-field>
                 </div>
+
+                <!-- Section: Search Engine & N8N -->
+                <div class="w-full mt-10">
+                    <div class="text-secondary">{{ 'account.automation.title' | transloco }}</div>
+                </div>
+
+                <!-- Divider -->
+                <div class="mt-2 mb-2 border-t"></div>
+
+                <div class="w-full mt-4">
+                    <!-- Search API Key -->
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'">
+                        <mat-label>{{ 'account.automation.search_engine' | transloco }}</mat-label>
+                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
+                        <input [formControlName]="'searchAPIKey'" [type]="showSearchAPIKey ? 'text' : 'password'"
+                            matInput>
+                        <button mat-icon-button type="button" matSuffix
+                            (click)="showSearchAPIKey = !showSearchAPIKey">
+                            <mat-icon class="icon-size-4">{{ showSearchAPIKey ? 'visibility_off' : 'visibility'
+                                }}</mat-icon>
+                        </button>
+                    </mat-form-field>
+                    <div class="mt-1 text-md text-hint" [innerHTML]="'account.automation.search_api_hint_here' | transloco"></div>
+                </div>
+
+                <div class="w-full mt-2">
+                    <!-- N8N -->
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'">
+                        <mat-label>{{ 'account.automation.n8n' | transloco }}</mat-label>
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
+                        <input [formControlName]="'n8n'" [type]="showN8N ? 'text' : 'password'" matInput>
+                        <button mat-icon-button type="button" matSuffix (click)="showN8N = !showN8N">
+                            <mat-icon class="icon-size-4">{{ showN8N ? 'visibility_off' : 'visibility' }}</mat-icon>
+                        </button>
+                    </mat-form-field>
+                </div>
             </mat-tab>
 
             <mat-tab label="{{ 'account.tabs.jobs' | transloco }}">
@@ -198,47 +236,6 @@
                     <div class="mt-1 text-md text-hint">{{ 'account.jobs.mxhauto_hint' | transloco }}</div>
                 </div>
 
-                <ng-container *ngIf="user.reputation >= 100000000">
-                    <!-- Section -->
-                    <div class="w-full mt-10">
-                        <div class="text-secondary">{{ 'account.automation.title' | transloco }}</div>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="mt-2 mb-2 border-t"></div>
-
-                    <div class="w-full mt-4">
-                        <!-- Search API Key -->
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.automation.search_engine' | transloco }}</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
-                            <input [formControlName]="'searchAPIKey'" [type]="showSearchAPIKey ? 'text' : 'password'"
-                                matInput>
-                            <button mat-icon-button type="button" matSuffix
-                                (click)="showSearchAPIKey = !showSearchAPIKey">
-                                <mat-icon class="icon-size-4">{{ showSearchAPIKey ? 'visibility_off' : 'visibility'
-                                    }}</mat-icon>
-                            </button>
-                        </mat-form-field>
-                        <div class="mt-1 text-md text-hint" [innerHTML]="'account.automation.search_api_hint_here' | transloco"></div>
-                    </div>
-
-                    <div class="w-full mt-2" *ngIf="user.reputation >= 4000000">
-                        <!-- Search API Key -->
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.automation.n8n' | transloco }}</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
-                            <input [formControlName]="'n8n'" [type]="showN8N ? 'text' : 'password'" matInput>
-                            <button mat-icon-button type="button" matSuffix (click)="showN8N = !showN8N">
-                                <mat-icon class="icon-size-4">{{ showN8N ? 'visibility_off' : 'visibility' }}</mat-icon>
-                            </button>
-                        </mat-form-field>
-                    </div>
-
-
-                </ng-container>
             </mat-tab>
 
             <mat-tab label="{{ 'account.tabs.ai' | transloco }}">
@@ -337,14 +334,14 @@
                                 <mat-label>{{ 'account.ai.text_model' | transloco }}</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'"
                                     matPrefix></mat-icon>
-                                <mat-select [formControlName]="'umodelverseChatModel'"
-                                    placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
-                                    <mat-optgroup *ngFor="let group of chatModels" [label]="group.name">
-                                        <mat-option *ngFor="let model of group.models" [value]="model">
-                                            {{model}}
-                                        </mat-option>
-                                    </mat-optgroup>
-                                </mat-select>
+                                <input type="text" matInput [formControlName]="'umodelverseChatModel'"
+                                    [matAutocomplete]="autoChat"
+                                    placeholder="Tìm kiếm model Text (VD: gpt-4o, deepseek-v3, kimi...)">
+                                <mat-autocomplete #autoChat="matAutocomplete">
+                                    <mat-option *ngFor="let model of filteredChatModels$ | async" [value]="model">
+                                        {{model}}
+                                    </mat-option>
+                                </mat-autocomplete>
                             </mat-form-field>
                             <div class="mt-1 text-md text-hint">{{ 'account.ai.text_model_hint' | transloco }}</div>
                         </div>
@@ -355,14 +352,14 @@
                                 <mat-label>{{ 'account.ai.image_model' | transloco }}</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'"
                                     matPrefix></mat-icon>
-                                <mat-select [formControlName]="'umodelverseImageModel'"
-                                    placeholder="VD: flux, qwen-vl, dall-e-3">
-                                    <mat-optgroup *ngFor="let group of imageModels" [label]="group.name">
-                                        <mat-option *ngFor="let model of group.models" [value]="model">
-                                            {{model}}
-                                        </mat-option>
-                                    </mat-optgroup>
-                                </mat-select>
+                                <input type="text" matInput [formControlName]="'umodelverseImageModel'"
+                                    [matAutocomplete]="autoImage"
+                                    placeholder="Tìm kiếm model Tạo Ảnh (VD: flux, seedream, qwen-image...)">
+                                <mat-autocomplete #autoImage="matAutocomplete">
+                                    <mat-option *ngFor="let model of filteredImageModels$ | async" [value]="model">
+                                        {{model}}
+                                    </mat-option>
+                                </mat-autocomplete>
                             </mat-form-field>
                             <div class="mt-1 text-md text-hint">{{ 'account.ai.image_model_hint' | transloco }}</div>
                         </div>
@@ -373,14 +370,14 @@
                                 <mat-label>{{ 'account.ai.video_model' | transloco }}</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'"
                                     matPrefix></mat-icon>
-                                <mat-select [formControlName]="'umodelverseVideoModel'"
-                                    placeholder="VD: cogvideox-5b, luma-dream-machine">
-                                    <mat-optgroup *ngFor="let group of videoModels" [label]="group.name">
-                                        <mat-option *ngFor="let model of group.models" [value]="model">
-                                            {{model}}
-                                        </mat-option>
-                                    </mat-optgroup>
-                                </mat-select>
+                                <input type="text" matInput [formControlName]="'umodelverseVideoModel'"
+                                    [matAutocomplete]="autoVideo"
+                                    placeholder="Tìm kiếm model Tạo Video (VD: kling-v3, wan2.7-i2v...)">
+                                <mat-autocomplete #autoVideo="matAutocomplete">
+                                    <mat-option *ngFor="let model of filteredVideoModels$ | async" [value]="model">
+                                        {{model}}
+                                    </mat-option>
+                                </mat-autocomplete>
                             </mat-form-field>
                             <div class="mt-1 text-md text-hint">{{ 'account.ai.video_model_hint' | transloco }}</div>
                         </div>
