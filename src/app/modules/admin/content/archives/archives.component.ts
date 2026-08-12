@@ -757,22 +757,39 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
     /**
      * onChangeCollection: Trích xuất đúng UUID từ mảng selectedCollections
+    /**
+     * onChangeCollection: Trích xuất đúng UUID từ mảng selectedCollections
      */
     onChangeCollection() {
         // 1. Trích xuất tất cả UUID bài viết từ các tập đã chọn
-        this.uuids = [
-            ...new Set(
-                (this.selectedCollections || []).flatMap((item: any) => {
-                    // item.uuid bây giờ là 1 mảng các string ID bài viết
-                    return Array.isArray(item.uuid) ? item.uuid : (item.uuid ? [item.uuid] : []);
-                }),
-            ),
-        ];
+        const rawUuids: string[] = [];
+        if (Array.isArray(this.selectedCollections)) {
+            for (const item of this.selectedCollections) {
+                if (!item) continue;
+                const u = item.uuid || item.uuids || item.nodes || item.articles;
+                if (Array.isArray(u)) {
+                    rawUuids.push(...u.map((x: any) => typeof x === 'string' ? x : (x?.uuid || x?._id || x?.id)));
+                } else if (typeof u === 'string' && u.trim()) {
+                    rawUuids.push(u.trim());
+                }
+            }
+        } else if (this.selectedCollections) {
+            const item = this.selectedCollections;
+            const u = item.uuid || item.uuids || item.nodes || item.articles;
+            if (Array.isArray(u)) {
+                rawUuids.push(...u.map((x: any) => typeof x === 'string' ? x : (x?.uuid || x?._id || x?.id)));
+            } else if (typeof u === 'string' && u.trim()) {
+                rawUuids.push(u.trim());
+            }
+        }
+        this.uuids = Array.from(new Set(rawUuids)).filter((u: string) => !!u);
 
-        // 2. Reset toàn bộ trạng thái UI và mốc phân trang
+        // 2. Reset toàn bộ trạng thái UI, mảng bài viết đã load và mốc phân trang
         this.isLoading = false;
         if (this.table) this.table.offset = 0;
         this.selected = [];
+        this.masterLoadedRows = []; // BẮT BUỘC: Reset mảng chứa bài viết gốc để loại bỏ dữ liệu cũ!
+        this.allRowsBackup = null;
         this.rows = [];
         this.rows = [...this.rows]; // force empty array update for datatable
         this.currentBookmark = null; // BẮT BUỘC: Bookmark cũ không dùng được cho tập UUIDs mới
@@ -786,8 +803,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             // Nếu không chọn collection nào, lấy tổng số từ statistics (Tất cả bài viết)
             let temp = localStorage.getItem('statistics');
             if (temp && temp !== 'undefined') {
-                const stats = JSON.parse(temp);
-                this.totalElements = stats['archives'] || 0;
+                try {
+                    const stats = JSON.parse(temp);
+                    this.totalElements = stats['archives'] || 0;
+                } catch (e) {
+                    this.totalElements = 0;
+                }
             }
 
             // Luôn luôn gọi API để đảm bảo tổng số là chính xác
@@ -804,6 +825,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         if (total === undefined) total = res?.data?.data?.total;
                         if (total !== undefined) {
                             this.actualTotalElements = total;
+                            this.totalElements = total;
                             this.cd.markForCheck();
                         }
                     }
@@ -811,6 +833,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         } else {
             // Nếu chọn collection, tổng số chính là số lượng UUIDs đã trích xuất
             this.actualTotalElements = this.uuids.length;
+            this.totalElements = this.uuids.length;
         }
 
         // 4. Kích hoạt lấy dữ liệu trang đầu tiên
@@ -876,7 +899,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     onClearCollection() {
-        console.log('onClear');
+        this.selectedCollections = [];
+        this.onChangeCollection();
     }
 
     /**
