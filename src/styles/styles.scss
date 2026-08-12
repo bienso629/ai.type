@@ -149,15 +149,55 @@ hr {
     }
 }
 
-/* Global Dialog Max Height: 90vh for all dialogs in the project */
+/* Global Dialog Layout: 90vh Max Height, Fixed Header/Footer, Body-Only Scroll */
 .cdk-overlay-pane:has(.mat-mdc-dialog-container),
 .cdk-overlay-pane:has(.mat-dialog-container),
 .mat-mdc-dialog-container,
 .mat-dialog-container,
 .mdc-dialog__container,
-.mdc-dialog__surface,
 .mat-mdc-dialog-surface {
     max-height: 90vh !important;
+    overflow: hidden !important;
+}
+
+.mat-mdc-dialog-container .mdc-dialog__surface,
+.mat-dialog-container .mdc-dialog__surface {
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+
+    > * {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
+}
+
+/* Ensure dialog body/content is the ONLY scrollable area */
+.mat-mdc-dialog-content,
+.mat-dialog-content,
+[mat-dialog-content],
+.dialog-body,
+.dialog-content {
+    max-height: none !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+/* Fixed Header & Footer elements */
+.mat-mdc-dialog-title,
+.mat-dialog-title,
+.mat-mdc-dialog-actions,
+.mat-dialog-actions,
+.dialog-header,
+.dialog-footer {
+    flex-shrink: 0 !important;
 }
 
 /* styles.css (global) */

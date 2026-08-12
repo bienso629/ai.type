@@ -109,22 +109,26 @@
 </div>
 
 <ng-template #editDialogTemplate let-data>
-
-    <!-- Header -->
-        <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center">
-                <mat-icon class="icon-size-7 text-primary mr-3 -rotate-45" [svgIcon]="'heroicons_outline:key'"></mat-icon>
-                <h2 class="text-xl font-semibold m-0">{{ data.addnew ? 'Thêm tên miền mới' : 'Chỉnh sửa tên miền' }}</h2>
+    <div class="flex flex-col max-h-[calc(90vh-48px)] overflow-hidden">
+        <!-- Header -->
+        <div class="shrink-0 pb-2">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100">
+                    <mat-icon [svgIcon]="'heroicons_outline:key'" class="text-emerald-500 icon-size-6"></mat-icon>
+                    <span>{{ data.addnew ? 'Thêm tên miền mới' : 'Chỉnh sửa tên miền' }}</span>
+                </div>
+                <button type="button" mat-icon-button mat-dialog-close class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400">
+                    <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                </button>
             </div>
-            <button type="button" mat-icon-button mat-dialog-close class="-mr-2">
-                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
-            </button>
+
+            <p class="text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                Vui lòng điền đầy đủ thông tin tên miền để hệ thống có thể kết nối và đăng bài tự động.
+            </p>
         </div>
 
-        <p class="text-secondary text-base mb-6">Vui lòng điền đầy đủ thông tin tên miền để hệ thống có thể kết nối và đăng bài tự động.</p>
-
-        <!-- Form -->
-        <div class="flex flex-col gap-4">
+        <!-- Form (Scrollable) -->
+        <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
 
             <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <mat-label>Tên miền*</mat-label>
@@ -166,7 +170,7 @@
             </mat-form-field>
 
             <!-- Server -->
-            <div class="text-sm font-semibold text-secondary uppercase tracking-wide pt-1">Thông tin Server</div>
+            <div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider pt-2">Thông tin Server</div>
 
             <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <mat-label>IP Server</mat-label>
@@ -195,12 +199,12 @@
         </div>
 
         <!-- Footer -->
-        <div class="flex items-center justify-end mt-6">
-            <button mat-button mat-dialog-close class="mr-2">Hủy</button>
+        <div class="shrink-0 flex items-center justify-end gap-3 mt-6">
+            <button mat-button mat-dialog-close class="text-gray-600 dark:text-gray-300 font-medium">Hủy</button>
             <button mat-flat-button [color]="'primary'" [mat-dialog-close]="data">
                 <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:lock-closed'"></mat-icon>
                 <mat-label class="ml-2">{{ data.addnew ? 'Thêm tên miền' : 'Lưu lại' }}</mat-label>
             </button>
         </div>
-
+    </div>
 </ng-template>

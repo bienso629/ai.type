@@ -6156,6 +6156,13 @@ ipcMain.handle('upload-to-archive-org', async (event, payload) => {
             return { success: false, error: 'Không có file audio nào để upload.' };
         }
 
+        const toHeaderLatin1 = (val) => {
+            if (!val) return '';
+            const str = String(val).trim();
+            if (!str) return '';
+            return Buffer.from(str, 'utf-8').toString('latin1');
+        };
+
         const cleanTitle = (title || 'audio')
             .toLowerCase()
             .normalize('NFD')
@@ -6170,9 +6177,10 @@ ipcMain.handle('upload-to-archive-org', async (event, payload) => {
         const fs = require('fs');
         const path = require('path');
 
-        console.log(`[Archive.org] Bắt đầu upload item identifier: ${identifier}`);
+        console.log(`[Archive.org] Bắt đầu upload tất cả ${clips.length} file audio cho item: ${identifier}`);
 
         let uploadedCount = 0;
+        const uploadedFiles = [];
         for (let i = 0; i < clips.length; i++) {
             const clip = clips[i];
             let filePath = clip.localFilePath;
@@ -6187,35 +6195,43 @@ ipcMain.handle('upload-to-archive-org', async (event, payload) => {
                 continue;
             }
 
-            const fileName = clip.audioFileName || path.basename(filePath);
+            const rawFileName = clip.audioFileName || path.basename(filePath);
+            const safeFileName = encodeURIComponent(rawFileName);
             const fileStats = fs.statSync(filePath);
-            const uploadUrl = `https://s3.us.archive.org/${identifier}/${fileName}`;
+            const uploadUrl = `https://s3.us.archive.org/${identifier}/${safeFileName}`;
+            const directDownloadUrl = `https://archive.org/download/${identifier}/${safeFileName}`;
 
-            console.log(`[Archive.org] Uploading file ${i + 1}/${clips.length}: ${fileName} (${fileStats.size} bytes)...`);
+            console.log(`[Archive.org] Uploading file ${i + 1}/${clips.length}: ${rawFileName} (${fileStats.size} bytes)...`);
 
             await new Promise((resolve, reject) => {
                 const req = https.request(uploadUrl, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `LOW ${accessKey}:${secretKey}`,
+                        'Authorization': `LOW ${accessKey.trim()}:${secretKey.trim()}`,
                         'Content-Length': fileStats.size,
                         'x-archive-auto-make-bucket': '1',
                         'x-archive-meta-mediatype': 'audio',
-                        'x-archive-meta-title': title || 'Giọng đọc AI',
-                        'x-archive-meta-creator': creator || 'AI.Type',
-                        'x-archive-meta-collection': collection || 'opensource_audio'
+                        'x-archive-meta-title': toHeaderLatin1(title || 'Giọng đọc AI'),
+                        'x-archive-meta-creator': toHeaderLatin1(creator || 'AI.Type'),
+                        'x-archive-meta-collection': toHeaderLatin1(collection || 'opensource_audio')
                     }
                 }, (res) => {
                     let resData = '';
                     res.on('data', chunk => resData += chunk);
                     res.on('end', () => {
                         if (res.statusCode >= 200 && res.statusCode < 300) {
-                            console.log(`[Archive.org] Upload thành công: ${fileName}`);
+                            console.log(`[Archive.org] Upload thành công file ${i + 1}/${clips.length}: ${rawFileName}`);
                             uploadedCount++;
+                            uploadedFiles.push({
+                                fileName: rawFileName,
+                                directUrl: directDownloadUrl
+                            });
                             resolve(true);
                         } else {
+                            let cleanMsg = resData.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                            if (cleanMsg.length > 200) cleanMsg = cleanMsg.substring(0, 200) + '...';
                             console.error(`[Archive.org] Upload thất bại status ${res.statusCode}: ${resData}`);
-                            reject(new Error(`Server Archive.org trả về HTTP ${res.statusCode}: ${resData}`));
+                            reject(new Error(`Server Archive.org trả về HTTP ${res.statusCode}: ${cleanMsg || 'Lỗi từ Server Archive.org'}`));
                         }
                     });
                 });
@@ -6237,7 +6253,9 @@ ipcMain.handle('upload-to-archive-org', async (event, payload) => {
                 identifier: identifier,
                 itemUrl: itemUrl,
                 uploadedCount: uploadedCount,
-                message: `Đã upload thành công ${uploadedCount} file lên Archive.org!`
+                files: uploadedFiles,
+                directAudioUrls: uploadedFiles.map(f => f.directUrl),
+                message: `Đã upload thành công ${uploadedCount} file audio lên Archive.org!`
             };
         } else {
             return { success: false, error: 'Không thể upload file nào lên Archive.org.' };

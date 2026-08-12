@@ -23,63 +23,65 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
         MatTooltipModule,
     ],
     template: `
-        <div class="min-w-[460px] p-1 bg-white rounded-lg">
-            <div class="flex items-center justify-between mb-4 border-b pb-3">
-                <div class="flex items-center text-emerald-700">
-                    <mat-icon class="mr-2 icon-size-6 text-emerald-700" [svgIcon]="'heroicons_outline:cloud-upload'"></mat-icon>
-                    <h2 class="text-xl font-bold m-0 text-gray-800">Upload lên Archive.org</h2>
+        <div class="flex flex-col min-w-[460px] max-h-[calc(90vh-48px)] overflow-hidden">
+            <!-- Header -->
+            <div class="shrink-0 pb-2">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100">
+                        <mat-icon [svgIcon]="'heroicons_outline:cloud-upload'" class="text-emerald-500 icon-size-6"></mat-icon>
+                        <span>Upload lên Archive.org</span>
+                    </div>
+                    <button type="button" mat-icon-button (click)="onCancel()" class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400">
+                        <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                    </button>
                 </div>
-                <button mat-icon-button (click)="onCancel()" class="text-gray-400 hover:text-gray-600">
-                    <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
-                </button>
-            </div>
 
-            <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-xs text-emerald-900 leading-relaxed flex items-start">
-                <mat-icon class="icon-size-5 text-emerald-600 mr-2 mt-0.5 shrink-0" [svgIcon]="'heroicons_outline:information-circle'"></mat-icon>
-                <div>
+                <p class="text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
                     Để upload trực tiếp lên tài khoản Internet Archive (Archive.org), bạn vui lòng nhập <strong>Access Key</strong> và <strong>Secret Key</strong> lấy từ 
-                    <a href="https://archive.org/account/s3.php" target="_blank" class="text-emerald-700 font-semibold underline hover:text-emerald-900 ml-1">archive.org/account/s3.php</a>.
-                </div>
+                    <a href="https://archive.org/account/s3.php" target="_blank" class="text-emerald-600 font-semibold underline hover:text-emerald-800">archive.org/account/s3.php</a>.
+                </p>
             </div>
 
-            <div class="flex flex-col gap-3">
+            <!-- Form (Scrollable) -->
+            <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
                 <mat-form-field appearance="outline" class="w-full fuse-mat-dense">
-                    <mat-label>S3 Access Key</mat-label>
+                    <mat-label>S3 Access Key*</mat-label>
                     <input matInput [(ngModel)]="accessKey" placeholder="Nhập S3 Access Key..." required />
                     <mat-icon matSuffix class="icon-size-5 text-gray-400">key</mat-icon>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="w-full fuse-mat-dense">
-                    <mat-label>S3 Secret Key</mat-label>
+                    <mat-label>S3 Secret Key*</mat-label>
                     <input matInput type="password" [(ngModel)]="secretKey" placeholder="Nhập S3 Secret Key..." required />
                     <mat-icon matSuffix class="icon-size-5 text-gray-400">lock</mat-icon>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="w-full fuse-mat-dense">
-                    <mat-label>Tiêu đề tác phẩm (Title)</mat-label>
+                    <mat-label>Tiêu đề tác phẩm (Title)*</mat-label>
                     <input matInput [(ngModel)]="title" placeholder="Nhập tiêu đề tác phẩm..." required />
                 </mat-form-field>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <mat-form-field appearance="outline" class="w-full fuse-mat-dense">
+                <div class="flex gap-4">
+                    <mat-form-field appearance="outline" class="flex-1 fuse-mat-dense">
                         <mat-label>Tác giả (Creator)</mat-label>
                         <input matInput [(ngModel)]="creator" placeholder="Tên tác giả..." />
                     </mat-form-field>
 
-                    <mat-form-field appearance="outline" class="w-full fuse-mat-dense">
+                    <mat-form-field appearance="outline" class="flex-1 fuse-mat-dense">
                         <mat-label>Bộ sưu tập (Collection)</mat-label>
                         <input matInput [(ngModel)]="collection" placeholder="Mặc định: opensource_audio" />
                     </mat-form-field>
                 </div>
             </div>
 
-            <div mat-dialog-actions class="flex justify-end gap-2 mt-6 pt-3 border-t border-gray-100">
-                <button mat-button (click)="onCancel()" class="text-gray-600">Hủy bỏ</button>
+            <!-- Footer -->
+            <div class="shrink-0 flex items-center justify-end gap-3 mt-6">
+                <button mat-button (click)="onCancel()" class="text-gray-600 dark:text-gray-300 font-medium">Hủy bỏ</button>
                 <button mat-flat-button class="!bg-emerald-700 hover:!bg-emerald-800 !text-white"
                         [disabled]="!accessKey?.trim() || !secretKey?.trim() || !title?.trim()"
                         (click)="onSubmit()">
-                    <mat-icon class="icon-size-4 mr-1 text-white" [svgIcon]="'heroicons_outline:cloud-upload'"></mat-icon>
-                    <span>Bắt đầu Upload</span>
+                    <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:cloud-upload'"></mat-icon>
+                    <mat-label class="ml-2">Bắt đầu Upload</mat-label>
                 </button>
             </div>
         </div>
