@@ -57,6 +57,9 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         }
         return this.actualTotalElements > 0 ? this.actualTotalElements : realDocs.length;
     }
+    get selectedCountReal(): number {
+        return (this.selected || []).filter(item => item && !item.isGroupHeader && item.uuid).length;
+    }
     apiFetchedCount: number = 0;
     pageNumber: number;
     isLoading: boolean = false;
