@@ -1972,7 +1972,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             },
             width: '75vw',
             maxWidth: '90vw',
-            maxHeight: '95vh',
+            maxHeight: '90vh',
             disableClose: true
         });
 
@@ -2543,7 +2543,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '650px',
             maxWidth: '95vw',
-            maxHeight: '95vh',
+            maxHeight: '90vh',
             disableClose: true,
             data: {
                 selectedClip: null,
@@ -2886,7 +2886,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const dialogRef = this.dialog.open(DirectorModeComponent, {
             width: '650px',
             maxWidth: '95vw',
-            maxHeight: '95vh',
+            maxHeight: '90vh',
             panelClass: 'dark-theme-dialog',
             data: { 
                 prompt: this.projectData?.masterPrompt || '', 

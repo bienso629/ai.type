@@ -1,4 +1,5 @@
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MAT_DIALOG_DEFAULT_OPTIONS } from '@angular/material/dialog';
 import { TranslocoModule } from '@ngneat/transloco';
 import { APP_INITIALIZER, importProvidersFrom, NgModule, CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA } from '@angular/core';
 import { BrowserModule, DomSanitizer, Title } from '@angular/platform-browser';
@@ -91,6 +92,7 @@ import { CustomRouteReuseStrategy } from './core/custom-route-reuse-strategy';
             multi: true
         },
         importProvidersFrom(TranslocoCoreModule),
+        { provide: MAT_DIALOG_DEFAULT_OPTIONS, useValue: { maxHeight: '90vh' } },
         UserClientService,
         CrawlService,
         DomainService,

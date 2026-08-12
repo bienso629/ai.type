@@ -38,11 +38,6 @@
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <input type="file" #fileInput accept=".xml" (change)="readFile($event)" style="display: none;">
-            <button mat-flat-button class="ml-2" color="primary" (click)="fileInput.click()">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:upload'"></mat-icon>
-                <span class="ml-2">Nhập file XML</span>
-            </button>
 
             <mat-form-field class="ml-2 w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
                 appearance="fill">
@@ -118,8 +113,14 @@
 
                         <!-- Actions -->
                         <div class="flex shrink-0 items-center pr-4">
+                            <input type="file" #fileInput accept=".xml" (change)="readFile($event)" style="display: none;">
+                            <a href="javascript:void(0)" (click)="fileInput.click()" class="text-primary-600 dark:text-primary-400 hover:underline font-medium cursor-pointer inline-flex items-center">
+                                <mat-icon class="icon-size-4 mr-1 text-primary-600 dark:text-primary-400" style="color: inherit;" [svgIcon]="'feather:upload'"></mat-icon>
+                                <span>Nhập XML</span>
+                            </a>
+
                             <a [href]="downloadJsonHref" [download]="user.name + '.links.json'"
-                                *ngIf="selected.length > 0" [color]="'primary'" class="ml-0">
+                                *ngIf="selected.length > 0" [color]="'primary'" class="ml-4">
                                 {{ 'app.export_data' | transloco }}
                             </a>
                         </div>

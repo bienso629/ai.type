@@ -9,7 +9,7 @@ import { User } from 'app/core/user/user.types';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 import { UserClientService } from 'app/_services/user';
 import { ToastrService } from 'ngx-toastr';
-import { Subject, takeUntil } from 'rxjs';
+import { Observable, Subject, map, startWith, takeUntil } from 'rxjs';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { TranslocoService } from '@ngneat/transloco';
 
@@ -27,6 +27,14 @@ interface ModelGroup {
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SettingsAccountComponent implements OnInit {
+    chatModelsList: string[] = [];
+    imageModelsList: string[] = [];
+    videoModelsList: string[] = [];
+    allModelsList: string[] = [];
+    filteredChatModels$: Observable<string[]>;
+    filteredImageModels$: Observable<string[]>;
+    filteredVideoModels$: Observable<string[]>;
+
     chatModels: ModelGroup[] = [];
     imageModels: ModelGroup[] = [];
     videoModels: ModelGroup[] = [];
@@ -364,126 +372,58 @@ export class SettingsAccountComponent implements OnInit {
             .then(res => res.json())
             .then(data => {
                 if (data && data.data) {
-                    const allModels = data.data.map((m: any) => m.id);
-                    
-                    const videoKeywords = ['video', 'vidu', 'kling', 'sora', 'veo', 'wan', 'i2v', 't2v', 'r2v', 'luma', 'cogvideo', 'runway', 'pika', 'haiper', 'seedream', 'mimo', 'pixverse', 'hailuo', 'happyhorse', 'seedance'];
-                    const imageKeywords = ['image', 'dall-e', 'flux', 'midjourney', 'mj', 'sd', 'stable-diffusion', 'qwen-image'];
-                    const excludeKeywords = ['tts', 'speech', 'suno', 'music', 'sound', 'voice', 'lip-sync', 'indextts', 'embedding', 'rerank', 'reranker', 'ocr', 'easydoc', 'parse', 'extract'];
+                    const allModels = data.data.map((m: any) => m.id).sort();
 
-                    const rawChat: string[] = [];
-                    const rawImage: string[] = [];
-                    const rawVideo: string[] = [];
-                    
-                    // Loại bỏ các model trùng lặp có chứa prefix (ví dụ: openai/gpt-4o và gpt-4o)
-                    const uniqueModels = new Set(allModels);
-                    const cleanModels = allModels.filter((id: string) => {
-                        if (id.includes('/')) {
-                            const baseName = id.split('/').pop();
-                            if (baseName && uniqueModels.has(baseName)) {
-                                return false;
-                            }
-                        }
-                        return true;
-                    });
+                    const currentChat = this.accountForm.get('umodelverseChatModel')?.value;
+                    const currentImg = this.accountForm.get('umodelverseImageModel')?.value;
+                    const currentVid = this.accountForm.get('umodelverseVideoModel')?.value;
 
-                    cleanModels.forEach((id: string) => {
-                        const lowerId = id.toLowerCase();
-                        
-                        // Bỏ qua các model không liên quan (âm thanh, nhúng, ocr...)
-                        if (excludeKeywords.some(kw => lowerId.includes(kw))) {
-                            return;
-                        }
-                        
-                        if (videoKeywords.some(kw => lowerId.includes(kw))) {
-                            rawVideo.push(id);
-                        } else if (imageKeywords.some(kw => lowerId.includes(kw))) {
-                            rawImage.push(id);
-                        } else {
-                            rawChat.push(id);
-                        }
-                    });
-                    
-                    const currentChat = this.accountForm.get('umodelverseChatModel').value;
-                    const currentImg = this.accountForm.get('umodelverseImageModel').value;
-                    const currentVid = this.accountForm.get('umodelverseVideoModel').value;
-                    
-                    if (currentChat && !rawChat.includes(currentChat)) rawChat.push(currentChat);
-                    if (currentImg && !rawImage.includes(currentImg)) rawImage.push(currentImg);
-                    if (currentVid && !rawVideo.includes(currentVid)) rawVideo.push(currentVid);
-                    
-                    const groupModels = (models: string[]): ModelGroup[] => {
-                        const groups: { [key: string]: string[] } = {
-                            'OpenAI (GPT/Sora/DALL-E)': [],
-                            'Anthropic (Claude)': [],
-                            'Google (Gemini/Veo)': [],
-                            'Alibaba (Qwen/Wan)': [],
-                            'DeepSeek': [],
-                            'MiniMax (Hailuo)': [],
-                            'ByteDance (Doubao/Mimo)': [],
-                            'Kuaishou (Kling)': [],
-                            'Tencent (Hunyuan/HappyHorse)': [],
-                            'Shengshu (Vidu)': [],
-                            'Zhipu (GLM)': [],
-                            'Moonshot (Kimi)': [],
-                            'Baidu (Ernie)': [],
-                            'Black Forest (Flux)': [],
-                            'Midjourney': [],
-                            'PixVerse': [],
-                            'Khác (Others)': []
-                        };
+                    if (currentChat && !allModels.includes(currentChat)) allModels.unshift(currentChat);
+                    if (currentImg && !allModels.includes(currentImg)) allModels.unshift(currentImg);
+                    if (currentVid && !allModels.includes(currentVid)) allModels.unshift(currentVid);
 
-                        models.forEach(m => {
-                            const lower = m.toLowerCase();
-                            if (lower.includes('gpt') || lower.includes('o1') || lower.includes('o3') || lower.includes('o4') || lower.includes('sora') || lower.includes('dall-e') || lower.includes('codex')) {
-                                groups['OpenAI (GPT/Sora/DALL-E)'].push(m);
-                            } else if (lower.includes('claude')) {
-                                groups['Anthropic (Claude)'].push(m);
-                            } else if (lower.includes('gemini') || lower.includes('veo')) {
-                                groups['Google (Gemini/Veo)'].push(m);
-                            } else if (lower.includes('qwen') || lower.includes('wan') || lower.includes('qwq')) {
-                                groups['Alibaba (Qwen/Wan)'].push(m);
-                            } else if (lower.includes('deepseek')) {
-                                groups['DeepSeek'].push(m);
-                            } else if (lower.includes('minimax') || lower.includes('hailuo')) {
-                                groups['MiniMax (Hailuo)'].push(m);
-                            } else if (lower.includes('doubao') || lower.includes('mimo')) {
-                                groups['ByteDance (Doubao/Mimo)'].push(m);
-                            } else if (lower.includes('kling')) {
-                                groups['Kuaishou (Kling)'].push(m);
-                            } else if (lower.includes('happyhorse') || lower.includes('hunyuan') || lower.includes('tencent')) {
-                                groups['Tencent (Hunyuan/HappyHorse)'].push(m);
-                            } else if (lower.includes('vidu')) {
-                                groups['Shengshu (Vidu)'].push(m);
-                            } else if (lower.includes('glm')) {
-                                groups['Zhipu (GLM)'].push(m);
-                            } else if (lower.includes('kimi') || lower.includes('moonshot')) {
-                                groups['Moonshot (Kimi)'].push(m);
-                            } else if (lower.includes('ernie')) {
-                                groups['Baidu (Ernie)'].push(m);
-                            } else if (lower.includes('flux')) {
-                                groups['Black Forest (Flux)'].push(m);
-                            } else if (lower.includes('midjourney') || lower.includes('mj')) {
-                                groups['Midjourney'].push(m);
-                            } else if (lower.includes('pixverse')) {
-                                groups['PixVerse'].push(m);
-                            } else {
-                                groups['Khác (Others)'].push(m);
-                            }
-                        });
-
-                        return Object.keys(groups)
-                            .filter(k => groups[k].length > 0)
-                            .map(k => ({ name: k, models: groups[k].sort() }));
-                    };
-
-                    this.chatModels = groupModels(rawChat);
-                    this.imageModels = groupModels(rawImage);
-                    this.videoModels = groupModels(rawVideo);
+                    this.allModelsList = Array.from(new Set(allModels));
+                    this.setupAutocompleteFilters();
 
                     this.cd.markForCheck();
                 }
             })
             .catch(err => console.error('Failed to fetch models', err));
+    }
+
+    private setupAutocompleteFilters(): void {
+        const filterModels = (value: string): string[] => {
+            const filterValue = (value || '').toLowerCase().trim();
+            if (!filterValue) {
+                return this.allModelsList;
+            }
+            return this.allModelsList.filter(model => model.toLowerCase().includes(filterValue));
+        };
+
+        const chatCtrl = this.accountForm.get('umodelverseChatModel');
+        const imgCtrl = this.accountForm.get('umodelverseImageModel');
+        const vidCtrl = this.accountForm.get('umodelverseVideoModel');
+
+        if (chatCtrl) {
+            this.filteredChatModels$ = chatCtrl.valueChanges.pipe(
+                startWith(chatCtrl.value || ''),
+                map(value => filterModels(value))
+            );
+        }
+
+        if (imgCtrl) {
+            this.filteredImageModels$ = imgCtrl.valueChanges.pipe(
+                startWith(imgCtrl.value || ''),
+                map(value => filterModels(value))
+            );
+        }
+
+        if (vidCtrl) {
+            this.filteredVideoModels$ = vidCtrl.valueChanges.pipe(
+                startWith(vidCtrl.value || ''),
+                map(value => filterModels(value))
+            );
+        }
     }
 
     addGeminiKey(): void {
