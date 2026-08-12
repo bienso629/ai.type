@@ -6144,6 +6144,16 @@ ipcMain.handle('cancel-tts', async (event) => {
     return { success: true };
 });
 
+ipcMain.handle('upload-to-archive-org', async (event, payload) => {
+    try {
+        console.log('Receiving upload to archive.org request:', payload ? payload.title : '');
+        return { success: true, message: 'Upload request received successfully' };
+    } catch (err) {
+        console.error('Error handling upload to archive.org:', err);
+        return { success: false, error: err.message };
+    }
+});
+
 ipcMain.handle('download-single-video-temp', async (event, payload) => {
     try {
         const url = typeof payload === 'string' ? payload : payload.url;

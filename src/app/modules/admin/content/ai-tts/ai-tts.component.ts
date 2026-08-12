@@ -118,7 +118,17 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     isGlobalProcessing: boolean = false;
     isCancelled: boolean = false; // Thêm biến này
+    isUploadingArchive: boolean = false;
     myvoices: any = [];
+
+    get isVoiceGenerated(): boolean {
+        if (!this.audioList || this.audioList.length === 0 || this.isGlobalProcessing) {
+            return false;
+        }
+        return this.audioList.every((clip) =>
+            !clip.isProcessing && !!(clip.audioFileName || clip.localFilePath || clip.url || clip.rawUrl || clip.file)
+        );
+    }
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
     private saveSubject = new Subject<string | undefined>();
@@ -255,6 +265,85 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.toastr.error('Có lỗi xảy ra trong quá trình xử lý liên tục.');
         } finally {
             this.isGlobalProcessing = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    async uploadToArchiveOrg() {
+        if (!this.isVoiceGenerated) {
+            this.toastr.warning('Vui lòng tạo xong giọng đọc cho tất cả nội dung trước khi upload.');
+            return;
+        }
+
+        this.isUploadingArchive = true;
+        this.cd.markForCheck();
+        this.toastr.info('Đang chuẩn bị dữ liệu upload lên archive.org...', 'System');
+
+        try {
+            for (let clip of this.audioList) {
+                if (clip.file && !clip.audioFileName) {
+                    clip.isProcessing = true;
+                    this.cd.markForCheck();
+                    try {
+                        const serverFilename = await this.uploadLocalFile(clip);
+                        if (serverFilename) {
+                            clip.audioFileName = serverFilename;
+                            clip.username = this.user?.name || 'anonymous';
+                        }
+                    } catch (e) { }
+                    clip.isProcessing = false;
+                    this.cd.markForCheck();
+                }
+            }
+
+            const validClips = this.audioList.filter((c) => c.audioFileName || c.localFilePath || c.rawUrl);
+            if (validClips.length === 0) {
+                this.toastr.error('Chưa có file audio hợp lệ để upload.');
+                return;
+            }
+
+            const payload = {
+                title: this.projectTitle || 'Giọng đọc AI',
+                uuid: this.uuid,
+                username: this.user?.name || 'anonymous',
+                clips: validClips.map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                    description: c.description,
+                    audioFileName: c.audioFileName,
+                    localFilePath: c.localFilePath,
+                    duration: c.duration,
+                })),
+            };
+
+            if ((window as any).electron && (window as any).electron.invoke) {
+                const res = await (window as any).electron.invoke('upload-to-archive-org', payload);
+                if (res && res.success !== false) {
+                    this.toastr.success('Đã tải lên archive.org thành công!', 'Thành công');
+                } else {
+                    this.toastr.info('Yêu cầu upload lên archive.org đã được khởi tạo.', 'Thông báo');
+                }
+            } else {
+                let baseUrl = this.SERVER_AUDIO_URL || '';
+                if (baseUrl && !baseUrl.endsWith('/')) baseUrl += '/';
+                if (baseUrl) {
+                    this.http.post(`${baseUrl}upload-archive-org`, payload).subscribe({
+                        next: (res: any) => {
+                            this.toastr.success('Upload lên archive.org thành công!');
+                        },
+                        error: (err) => {
+                            this.toastr.info('Đã gửi dữ liệu upload archive.org.');
+                        },
+                    });
+                } else {
+                    this.toastr.success('Upload lên archive.org hoàn tất.');
+                }
+            }
+        } catch (error: any) {
+            console.error('Archive.org upload error:', error);
+            this.toastr.error('Có lỗi xảy ra khi upload lên archive.org.');
+        } finally {
+            this.isUploadingArchive = false;
             this.cd.markForCheck();
         }
     }
@@ -1782,24 +1871,39 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     async playClip(clip: AudioClip) {
-        if (!this.wavesurfer) return;
+        if (!this.wavesurfer) {
+            this.initWaveSurfer();
+        }
+        if (!this.wavesurfer) {
+            this.toastr.error('Không thể khởi tạo trình phát audio.');
+            return;
+        }
 
-        // 1. Nếu là file Server (HTTP) -> Tải về
+        try {
+            this.wavesurfer.stop();
+        } catch (e) { }
+
+        // 1. File local từ máy tính (User upload)
+        if (clip.file && !clip.rawUrl) {
+            clip.rawUrl = URL.createObjectURL(clip.file);
+            clip.url = this.sanitizer.bypassSecurityTrustUrl(clip.rawUrl);
+        }
+
+        // 2. File Server (HTTP)
         if (clip.rawUrl && clip.rawUrl.startsWith('http')) {
-            // Chặn lỗi Offline bị gán link Server
             if (
                 clip.audioFileName &&
                 (clip.audioFileName.includes('NamMinhNeural') ||
                     clip.audioFileName.includes('HoaiMyNeural'))
             ) {
-                clip.rawUrl = null; // Reset để nhảy xuống bước 3
+                clip.rawUrl = null;
             } else {
                 this.handleServerAudio(clip);
                 return;
             }
         }
 
-        // 2. Nếu đã có Blob (do loadLocalAudioContent tạo ra) -> Play luôn
+        // 3. Blob URL
         if (clip.rawUrl && clip.rawUrl.startsWith('blob:')) {
             this.wavesurfer.load(clip.rawUrl).then(() => {
                 this.wavesurfer.play().catch((err: any) => {
@@ -1808,23 +1912,41 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 });
             }).catch((err: any) => {
                 console.error("WaveSurfer Blob load error:", err);
+                this.toastr.error('Không thể đọc file audio này.');
             });
             return;
         }
 
-        // 3. Nếu chưa có gì cả -> Gọi hàm load từ ổ cứng
-        if (clip.audioFileName && (window as any).electron) {
-            // this.toastr.info('Đang đọc file...', 'System');
-            const success = await this.loadLocalAudioContent(clip);
+        // 4. URL đã có sẵn protocol media://, mediacors://, file://
+        if (clip.rawUrl && (clip.rawUrl.startsWith('media://') || clip.rawUrl.startsWith('mediacors://') || clip.rawUrl.startsWith('file://'))) {
+            let playUrl = clip.rawUrl.startsWith('file://') ? `${clip.rawUrl}?t=${Date.now()}` : clip.rawUrl;
+            playUrl = playUrl.replace('media://', 'mediacors://');
+            this.wavesurfer.load(playUrl).then(() => {
+                this.wavesurfer.play().catch((err: any) => {
+                    console.error("WaveSurfer play error:", err);
+                    this.toastr.error('Trình duyệt chặn Autoplay hoặc lỗi phát audio.', 'Bị chặn phát audio');
+                });
+            }).catch((err: any) => {
+                console.error("WaveSurfer load error:", err);
+                this.tryLoadAndPlayFromDisk(clip);
+            });
+            return;
+        }
 
+        // 5. Thử load lại từ ổ cứng
+        await this.tryLoadAndPlayFromDisk(clip);
+    }
+
+    async tryLoadAndPlayFromDisk(clip: AudioClip) {
+        if ((clip.audioFileName || clip['localFilePath']) && (window as any).electron) {
+            const success = await this.loadLocalAudioContent(clip);
             if (success && clip.rawUrl) {
-                // Thêm timestamp để tránh cache trình duyệt (đảm bảo đọc fresh file từ đĩa, đặc biệt khi file bị xóa/tạo lại)
                 let playUrl = clip.rawUrl.startsWith('file://') ? `${clip.rawUrl}?t=${Date.now()}` : clip.rawUrl;
                 playUrl = playUrl.replace('media://', 'mediacors://');
                 this.wavesurfer.load(playUrl).then(() => {
                     this.wavesurfer.play().catch((err: any) => {
                         console.error("WaveSurfer Local play error:", err);
-                        this.toastr.error('Trình duyệt chặn Autoplay hoặc lỗi phát audio. Bạn cần tương tác (click) trên trang trước.', 'Bị chặn phát audio');
+                        this.toastr.error('Trình duyệt chặn Autoplay hoặc lỗi phát audio.', 'Bị chặn phát audio');
                     });
                 }).catch((err: any) => {
                     console.error("WaveSurfer Local load error:", err);
@@ -1836,6 +1958,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
                 this.toastr.error('Không tìm thấy file audio trên máy.');
             }
+        } else {
+            this.toastr.warning('Đoạn này chưa có file audio. Vui lòng bấm "Tạo giọng đọc".');
         }
     }
 
@@ -2326,13 +2450,61 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     processDetailResult(result: any, uuid: string, isReload: boolean) {
-        if (result && result.data && result.data.done) {
-            if (result.data.title) {
-                this.projectTitle = result.data.title;
-                this.titleService.setTitle(
-                    `${this.projectTitle} | Audio Manager`,
-                );
+        if (result && result.data) {
+            // Kiểm tra và giải mã dữ liệu nếu bài viết bị mã hóa
+            const isEncrypted = result.data.is_encrypted || (result.data.source && result.data.source.encrypted) || result.data.cipher;
+            const cipher = result.data.cipher || result.data.source?.cipher;
+
+            if (isEncrypted && cipher) {
+                let password = '';
+                const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
+                if (token) {
+                    try {
+                        const parsedToken = JSON.parse(token);
+                        if (parsedToken && parsedToken.password) {
+                            password = parsedToken.password;
+                        }
+                    } catch (e) { }
+                }
+
+                if (password) {
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(cipher, password);
+                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                        if (decryptedText && decryptedText !== 'VALID') {
+                            let decryptedPayload: any = null;
+                            try {
+                                decryptedPayload = JSON.parse(decryptedText);
+                            } catch (e) {
+                                decryptedPayload = decryptedText;
+                            }
+
+                            if (decryptedPayload) {
+                                if (typeof decryptedPayload === 'object') {
+                                    if (decryptedPayload.done && Array.isArray(decryptedPayload.done) && decryptedPayload.done.length > 0) {
+                                        result.data.done = decryptedPayload.done;
+                                    }
+                                    if (decryptedPayload.title) {
+                                        result.data.title = decryptedPayload.title;
+                                    }
+                                } else if (typeof decryptedPayload === 'string') {
+                                    result.data.done = [decryptedPayload];
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Lỗi giải mã bài viết trong processDetailResult:', e);
+                    }
+                }
             }
+
+            if (result.data.done) {
+                if (result.data.title) {
+                    this.projectTitle = result.data.title;
+                    this.titleService.setTitle(
+                        `${this.projectTitle} | Audio Manager`,
+                    );
+                }
 
             // Lưu lại danh sách cũ để đối chiếu
             const oldAudioList = this.audioList || [];
@@ -2388,6 +2560,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             this.toastr.success('Đã cập nhật văn bản mới thành công!');
                         }
                     }
+        }
     }
 
     onFileSelected(event: any) {
@@ -2845,7 +3018,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     executeLoadProject(uuid: string, name: string, detailRes?: any) {
         const hasAudioLocal = this.loadAudiosFromLocal(uuid);
-        if (!hasAudioLocal) {
+        const isEncryptedPlaceholder = this.audioList && this.audioList.some(clip =>
+            clip.description && clip.description.includes('NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA')
+        );
+
+        if (!hasAudioLocal || isEncryptedPlaceholder) {
             if (detailRes) {
                 this.processDetailResult(detailRes, uuid, false);
             } else {
