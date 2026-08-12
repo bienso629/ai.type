@@ -99,66 +99,44 @@ export class CollectionComponent implements OnInit, OnDestroy {
         const colId = col._id || col.id;
 
         if (col.is_encrypted) {
-            const openUnlockDialog = () => {
-                const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-                    data: {
-                        mode: 'unlock',
-                        type: 'collection',
-                        title: colName
-                    },
-                    width: '450px',
-                    disableClose: true
-                });
-
-                dialogRef.afterClosed().subscribe((res: any) => {
-                    if (res && res.password) {
+            const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+                data: {
+                    mode: 'unlock',
+                    type: 'collection',
+                    title: colName,
+                    validator: (pwd: string) => {
                         const cipher = col.cipher;
-                        let isValid = false;
                         if (cipher) {
                             try {
-                                const bytes = CryptoJS.AES.decrypt(cipher, res.password);
-                                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                                if (decryptedText === 'VALID') {
-                                    isValid = true;
-                                }
+                                const bytes = CryptoJS.AES.decrypt(cipher, pwd);
+                                return bytes.toString(CryptoJS.enc.Utf8) === 'VALID';
                             } catch (e) {
-                                isValid = false;
+                                return false;
                             }
-                        } else {
-                            isValid = true;
                         }
-
-                        if (isValid) {
-                            localStorage.removeItem('password_failed_attempts');
-                            localStorage.removeItem('password_lockout_until');
-                            col.is_encrypted = false;
-                            col.cipher = null;
-                            localStorage.removeItem('collection_encrypted_' + colId);
-                            this._crawlService.updateCollection({
-                                _id: colId,
-                                is_encrypted: false,
-                                password: res.password,
-                                username: this.user.name
-                            }).subscribe(() => {
-                                this.toastr.success(`Đã hủy mã hóa thành công cho Collection: "${colName}"!`);
-                                this.cd.markForCheck();
-                            });
-                        } else {
-                            let attempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10) + 1;
-                            if (attempts >= 5) {
-                                localStorage.setItem('password_lockout_until', String(Date.now() + 5 * 60 * 1000));
-                                localStorage.setItem('password_failed_attempts', '0');
-                                this.toastr.error('Bạn đã nhập sai 5 lần! Hệ thống tạm dừng 5 phút.');
-                            } else {
-                                localStorage.setItem('password_failed_attempts', String(attempts));
-                                this.toastr.error(`Mật khẩu giải mã không chính xác! (Đã nhập sai ${attempts}/5 lần)`);
-                            }
-                            openUnlockDialog();
-                        }
+                        return pwd && pwd.length > 0;
                     }
-                });
-            };
-            openUnlockDialog();
+                },
+                width: '450px',
+                disableClose: true
+            });
+
+            dialogRef.afterClosed().subscribe((res: any) => {
+                if (res && res.password) {
+                    col.is_encrypted = false;
+                    col.cipher = null;
+                    localStorage.removeItem('collection_encrypted_' + colId);
+                    this._crawlService.updateCollection({
+                        _id: colId,
+                        is_encrypted: false,
+                        password: res.password,
+                        username: this.user.name
+                    }).subscribe(() => {
+                        this.toastr.success(`Đã hủy mã hóa thành công cho Collection: "${colName}"!`);
+                        this.cd.markForCheck();
+                    });
+                }
+            });
             return;
         }
 
@@ -388,47 +366,36 @@ export class CollectionComponent implements OnInit, OnDestroy {
         if (event) event.stopPropagation();
         const colId = collection._id || collection.id;
         if (collection.is_encrypted && !this.collectionUnlockedPasswords[colId]) {
-            const openDialog = () => {
-                const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-                    data: {
-                        mode: 'unlock',
-                        type: 'collection',
-                        title: collection.title
-                    },
-                    width: '450px',
-                    disableClose: true
-                });
-
-                dialogRef.afterClosed().subscribe((res: any) => {
-                    if (res && res.password) {
+            const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+                data: {
+                    mode: 'unlock',
+                    type: 'collection',
+                    title: collection.title,
+                    validator: (pwd: string) => {
                         const cipher = collection.cipher;
-                        let isValid = true;
-                        
                         if (cipher) {
                             try {
-                                const bytes = CryptoJS.AES.decrypt(cipher, res.password);
-                                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                                if (decryptedText !== 'VALID') {
-                                    isValid = false;
-                                }
+                                const bytes = CryptoJS.AES.decrypt(cipher, pwd);
+                                return bytes.toString(CryptoJS.enc.Utf8) === 'VALID';
                             } catch (e) {
-                                isValid = false;
+                                return false;
                             }
                         }
-
-                        if (isValid) {
-                            this.collectionUnlockedPasswords[colId] = res.password;
-                            this.editingCollectionId = colId;
-                            this.editingCollectionTitle = collection.title;
-                            this.cd.markForCheck();
-                        } else {
-                            this.toastr.error('Mật khẩu mở khóa Collection không chính xác!');
-                            openDialog();
-                        }
+                        return pwd && pwd.length > 0;
                     }
-                });
-            };
-            openDialog();
+                },
+                width: '450px',
+                disableClose: true
+            });
+
+            dialogRef.afterClosed().subscribe((res: any) => {
+                if (res && res.password) {
+                    this.collectionUnlockedPasswords[colId] = res.password;
+                    this.editingCollectionId = colId;
+                    this.editingCollectionTitle = collection.title;
+                    this.cd.markForCheck();
+                }
+            });
             return;
         }
 
@@ -440,63 +407,47 @@ export class CollectionComponent implements OnInit, OnDestroy {
     openArticle(row: any) {
         if (!row || !row.uuid) return;
         const colIsEncrypted = (this.selectedCollection && this.selectedCollection.is_encrypted) || row.is_encrypted || (row.source && row.source.encrypted);
-        const colId = this.selectedCollection?._id || this.selectedCollection?.id;
 
         if (colIsEncrypted) {
-            const openDialog = () => {
-                const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-                    data: {
-                        mode: 'unlock',
-                        type: 'article',
-                        title: row.title || 'Bài viết'
-                    },
-                    width: '450px',
-                    disableClose: true
-                });
-
-                dialogRef.afterClosed().subscribe((res: any) => {
-                    if (res && res.password) {
-                        const cipher = this.selectedCollection?.cipher || row.cipher || row.source?.cipher;
-                        let isValid = false;
-                        
+            const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+                data: {
+                    mode: 'unlock',
+                    type: 'article',
+                    title: row.title || 'Bài viết',
+                    validator: async (pwd: string) => {
+                        let cipher = this.selectedCollection?.cipher || row.cipher || row.source?.cipher;
+                        if (!cipher && row.uuid) {
+                            try {
+                                const res: any = await firstValueFrom(this._crawlService.detail({ uuid: row.uuid, username: this.user.name }));
+                                if (res && res.success && res.data) {
+                                    cipher = res.data.cipher || res.data.source?.cipher;
+                                }
+                            } catch (e) {}
+                        }
                         if (cipher) {
                             try {
-                                const bytes = CryptoJS.AES.decrypt(cipher, res.password);
-                                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                                if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                                    isValid = true;
-                                }
+                                const bytes = CryptoJS.AES.decrypt(cipher, pwd);
+                                const text = bytes.toString(CryptoJS.enc.Utf8);
+                                return !!text && text.length > 0;
                             } catch (e) {
-                                isValid = false;
+                                return false;
                             }
-                        } else {
-                            isValid = true;
                         }
-
-                        if (isValid) {
-                            localStorage.removeItem('password_failed_attempts');
-                            localStorage.removeItem('password_lockout_until');
-                            if (row.uuid) {
-                                sessionStorage.setItem('nav_handshake_pwd_' + row.uuid, JSON.stringify({ password: res.password, ts: Date.now() }));
-                            }
-                            this.toastr.success('Giải mã mở khóa thành công!');
-                            this.router.navigate(['/ai-writer', this.user.name, row.uuid]);
-                        } else {
-                            let attempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10) + 1;
-                            if (attempts >= 5) {
-                                localStorage.setItem('password_lockout_until', String(Date.now() + 5 * 60 * 1000));
-                                localStorage.setItem('password_failed_attempts', '0');
-                                this.toastr.error('Bạn đã nhập sai 5 lần! Hệ thống tạm dừng 5 phút.');
-                            } else {
-                                localStorage.setItem('password_failed_attempts', String(attempts));
-                                this.toastr.error(`Mật khẩu mở khóa không chính xác! (Đã nhập sai ${attempts}/5 lần)`);
-                            }
-                            openDialog();
-                        }
+                        return pwd && pwd.length > 0;
                     }
-                });
-            };
-            openDialog();
+                },
+                width: '450px',
+                disableClose: true
+            });
+
+            dialogRef.afterClosed().subscribe((res: any) => {
+                if (res && res.password) {
+                    if (row.uuid) {
+                        sessionStorage.setItem('nav_handshake_pwd_' + row.uuid, JSON.stringify({ password: res.password, ts: Date.now() }));
+                    }
+                    this.router.navigate(['/ai-writer', this.user.name, row.uuid]);
+                }
+            });
             return;
         }
 
