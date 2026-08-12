@@ -47,6 +47,16 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     rows = [];
     totalElements: number;
     actualTotalElements: number = 0;
+    get realTotalCount(): number {
+        const realDocs = (this.masterLoadedRows || []).filter((doc: any) => doc && !doc.isGroupHeader && doc.uuid);
+        if (this.selectedCollections && this.selectedCollections.length > 0) {
+            return realDocs.length;
+        }
+        if (this.keyword && this.keyword.toString().trim().length > 0) {
+            return realDocs.length;
+        }
+        return this.actualTotalElements > 0 ? this.actualTotalElements : realDocs.length;
+    }
     apiFetchedCount: number = 0;
     pageNumber: number;
     isLoading: boolean = false;
