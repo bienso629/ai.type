@@ -172,11 +172,6 @@
                                             [disabled]="isGeneratingImage">
                                             <mat-icon class="icon-size-4" [class.animate-spin]="isGeneratingImage" [svgIcon]="isGeneratingImage ? 'feather:loader' : 'heroicons_outline:sparkles'"></mat-icon>
                                         </button>
-                                        <button mat-icon-button (click)="openRefreshOutlineDialog()" type="button"
-                                            [color]="'primary'" matTooltip="Làm mới lại Dàn ý"
-                                            [disabled]="isRefreshingOutline">
-                                            <mat-icon class="icon-size-4" [class.animate-spin]="isRefreshingOutline" [svgIcon]="isRefreshingOutline ? 'feather:loader' : 'feather:refresh-cw'"></mat-icon>
-                                        </button>
                                         <button mat-icon-button (click)="fileInput.click()" type="button"
                                             [color]="'primary'" [matTooltip]="'app.add_media_file' | transloco">
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>

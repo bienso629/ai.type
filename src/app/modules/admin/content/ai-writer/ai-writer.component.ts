@@ -38,6 +38,7 @@ import {
 } from 'rxjs';
 import { ActivatedRoute, Params } from '@angular/router';
 import { Router } from '@angular/router';
+import { Location } from '@angular/common';
 import {
     CdkDragDrop,
     moveItemInArray,
@@ -313,12 +314,22 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             confirmDialog.afterClosed().subscribe((result) => {
                 if (result === 'confirmed') {
                     this.articlePassword = '';
+                    const targetUuid = this.uuid || this.details?.uuid;
+                    if (targetUuid) {
+                        localStorage.removeItem('article_encrypted_' + targetUuid);
+                        sessionStorage.removeItem('nav_handshake_pwd_' + targetUuid);
+                    }
                     if (this.details) {
                         this.details.is_encrypted = false;
+                        delete this.details.cipher;
                         if (this.details.source) {
                             this.details.source.encrypted = false;
                             delete this.details.source.cipher;
                         }
+                    }
+                    if (this.source) {
+                        this.source.encrypted = false;
+                        delete this.source.cipher;
                     }
                     this.toastr.success('Đã hủy mã hóa bài viết! Đang lưu nội dung dạng tiêu chuẩn lên Server...', 'Hủy Mã Hóa');
                     this.cd.markForCheck();
@@ -4169,18 +4180,37 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             this.source.style = this.style;
         }
 
-        let sourceToSend = this.source;
+        let sourceToSend = this.source ? JSON.parse(JSON.stringify(this.source)) : {};
         let doneToSend = this.done;
         let trashToSend = this.trash;
         let isEncrypted = false;
 
-        if (this.articlePassword || (this.details && this.details.is_encrypted)) {
-            if (this.articlePassword) {
-                isEncrypted = true;
-                const encryptedObj = this.encryptPayload(this.source, this.done, this.trash, this.articlePassword);
-                sourceToSend = encryptedObj.source;
-                doneToSend = encryptedObj.done;
-                trashToSend = encryptedObj.trash;
+        if (this.articlePassword) {
+            isEncrypted = true;
+            const encryptedObj = this.encryptPayload(this.source, this.done, this.trash, this.articlePassword);
+            sourceToSend = encryptedObj.source;
+            doneToSend = encryptedObj.done;
+            trashToSend = encryptedObj.trash;
+        } else {
+            isEncrypted = false;
+            if (sourceToSend) {
+                sourceToSend.encrypted = false;
+                delete sourceToSend.cipher;
+            }
+            if (this.source) {
+                this.source.encrypted = false;
+                delete this.source.cipher;
+            }
+            if (this.details) {
+                this.details.is_encrypted = false;
+                delete this.details.cipher;
+                if (this.details.source) {
+                    this.details.source.encrypted = false;
+                    delete this.details.source.cipher;
+                }
+            }
+            if (this.uuid) {
+                localStorage.removeItem('article_encrypted_' + this.uuid);
             }
         }
 
@@ -4443,7 +4473,11 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                                             }
                                         } else {
                                             this.toastr.warning('Bài viết đã bị khóa. Vui lòng nhập mật khẩu để xem/sửa!');
-                                            this.router.navigate(['/collection']);
+                                            if (window.history.length > 1) {
+                                                this.location.back();
+                                            } else {
+                                                this.router.navigate(['/archives']);
+                                            }
                                         }
                                     });
                                 };
@@ -6093,6 +6127,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
         private _youtubeService: YoutubeService,
         private route: ActivatedRoute,
         private router: Router,
+        private location: Location,
         private _bottomSheet: MatBottomSheet,
         private multiAccountService: MultiAccountService,
         private sanitizer: DomSanitizer,

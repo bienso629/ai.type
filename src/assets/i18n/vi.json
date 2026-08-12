@@ -100,7 +100,7 @@
     "nav": {
         "dashboard": {
             "title": "Thống kê",
-            "subtitle": "Thống kê công việc."
+            "subtitle": "Thống kê tác vụ."
         },
         "revenue": {
             "title": "Nhuận bút",
@@ -111,7 +111,7 @@
             "subtitle": "Công cụ tạo nội dung AI."
         },
         "jobs": {
-            "title": "Công việc"
+            "title": "Tác vụ"
         },
         "archives": {
             "subtitle": "Nội dung đang soạn của bạn."
@@ -145,7 +145,7 @@
     "account": {
         "tabs": {
             "personal": "Cá nhân",
-            "jobs": "Công việc",
+            "jobs": "Tác vụ",
             "ai": "AI"
         },
         "personal": {
@@ -174,12 +174,12 @@
             "paste_cookies": "Dán nội dung file cookies.txt vào đây"
         },
         "jobs": {
-            "title": "Tích hợp các module cho công việc",
+            "title": "Tích hợp các module cho tác vụ",
             "tts_hint": "Đổi văn bản thành giọng nói.",
             "sst_title": "Làm phụ đề cho video",
             "sst_hint": "Tự động viết bài dựa vào video.",
             "mxhauto_title": "Tự động chơi Tiktok",
-            "mxhauto_hint": "Tự động hóa công việc của bạn như: Nhắc lịch, tự động đăng bài, viết comment,..."
+            "mxhauto_hint": "Tự động hóa tác vụ của bạn như: Nhắc lịch, tự động đăng bài, viết comment,..."
         },
         "ai": {
             "title": "Cấu hình của AI",
@@ -353,7 +353,7 @@
         "advanced_tools": "Công cụ nâng cao",
         "formula": "Công thức",
         "typing_co_ltd": "Công ty TNHH Typing",
-        "tasks": "Công việc",
+        "tasks": "Tác vụ",
         "basic": "Cơ bản",
         "settings": "Cấu hình",
         "camera_angle_lighting_settings": "Cấu hình Góc máy & Ánh sáng",
@@ -363,10 +363,10 @@
         "scan_synonyms": "Quét từ đồng nghĩa",
         "manage_analyze_data_automatically": "Quản lý & phân tích dữ liệu bằng AI tự\n                                            động của\n                                            bạn.",
         "manage_automation_workflows": "Quản lý Automation Workflows",
-        "manage_your_active_domains": "Quản lý tên miền hoạt động của bạn\n                                            phục vụ cho công\n                                            việc",
+        "manage_your_active_domains": "Quản lý tên miền hoạt động của bạn\n                                            phục vụ cho tác\n                                            vụ",
         "country": "Quốc gia",
         "hard_reset": "Reset gốc",
-        "reset_task": "Reset lại công việc",
+        "reset_task": "Reset lại tác vụ",
         "width_px": "Rộng (px)",
         "copy": "Sao chép",
         "search_volume_google_ads": "Search volume (Google Ads) cho keyword đang chọn",
@@ -418,7 +418,7 @@
         "add_new_video": "Thêm video mới",
         "add_reference_image": "Thêm ảnh tham chiếu",
         "post_information": "Thông tin bài viết",
-        "task_information": "Thông tin công việc",
+        "task_information": "Thông tin tác vụ",
         "heart": "Thả tim",
         "lowest": "Thấp nhất",
         "statistics": "Thống kê:",
@@ -437,7 +437,7 @@
         "continue_editing_content": "Tiếp tục sửa nội dung",
         "your_new_token": "Token mới của bạn",
         "lookup": "Tra\n                                cứu",
-        "lookup_define_vietnamese_words": "Tra cứu & giải nghĩa các từ tiếng Việt\n                                            phục vụ cho\n                                            công việc",
+        "lookup_define_vietnamese_words": "Tra cứu & giải nghĩa các từ tiếng Việt\n                                            phục vụ cho\n                                            tác vụ",
         "access_this_address": "Truy cập vào địa chỉ này",
         "comic": "Truyện tranh",
         "editor": "Trình chỉnh\n                                sửa",
@@ -448,7 +448,7 @@
         "your_document": "Tài liệu của bạn",
         "split_paragraph": "Tách đoạn văn",
         "post_title": "Tên bài viết",
-        "task_name": "Tên công việc",
+        "task_name": "Tên tác vụ",
         "domain": "Tên miền",
         "domain_used_during_content": "Tên miền được sử dụng trong quá trình tạo content. Hiện tại chúng tôi chỉ phục vụ 2 nền tảng CMS chính là\n                Wordpress và NodeBB.",
         "sender_name": "Tên người gửi",
@@ -522,9 +522,9 @@
         "footer_unverified": "tài khoản chưa xác thực",
         "footer_verify_now": "Xác thực ngay",
         "footer_policies": "Chính sách khi sử dụng AI TYPE",
-        "your_current_work": "công việc đang làm của bạn",
-        "search_tasks": "Tìm kiếm việc đang làm",
-        "task_id": "Mã công việc",
+        "your_current_work": "tác vụ đang làm của bạn",
+        "search_tasks": "Tìm kiếm tác vụ đang làm",
+        "task_id": "Mã tác vụ",
         "usage": "Sử dụng",
         "last_modified": "Ngày chỉnh sửa",
         "collaborators": "Viết cùng",
@@ -645,11 +645,11 @@
     "app.prompt_suggestions": "Gợi ý Prompt cho bạn",
     "app.knowledge_dict": "Từ điển kiến thức",
     "app.other_sources": "Nguồn khác",
-    "app.your_current_work_lc": "công việc đang làm của bạn",
+    "app.your_current_work_lc": "tác vụ đang làm của bạn",
     "app.copy_text": "Copy",
     "app.delete_paragraph": "Xoá đoạn văn",
     "app.delete_outline": "Xóa dàn ý",
-    "app.task_description": "Mô tả về công việc",
+    "app.task_description": "Mô tả về tác vụ của bạn",
     "app.image_video": "Thumbnail",
     "app.no_file_selected": "No file selected",
     "app.upload_related_media": "Upload related image/video",
@@ -1114,7 +1114,7 @@
     "app.auto_available": "có sẵn",
     "app.auto_write_a_blog_quickly": "Viết blog nhanh",
     "app.auto_delete_photo": "Xoá ảnh",
-    "app.auto_seconds_frame": "giây/frame",
+    "app.auto_seconds_frame": "s/f",
     "app.auto_complete": "Hoàn tất",
     "app.auto_video_analysis": "Phân tích video",
     "app.auto_delete_link": "Xoá link",

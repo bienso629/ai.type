@@ -63,7 +63,7 @@
             [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
             [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
             [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows" [rowClass]="getRowClass"
-            [messages]="{emptyMessage: 'Không có dữ liệu', totalMessage: 'công việc'}">
+            [messages]="{emptyMessage: 'Không có dữ liệu', totalMessage: 'tác vụ'}">
 
             <!-- Column Templates -->
             <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
@@ -95,7 +95,7 @@
                     <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
                         <div class="flex items-center w-full gap-2 my-auto cursor-pointer" (click)="openRowArticle(row)">
                             <span *ngIf="row.is_local" class="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-700" [matTooltip]="'Bài viết lưu cục bộ trên ổ đĩa máy tính'">Local</span>
-                            <mat-icon *ngIf="row.is_encrypted" class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto" [svgIcon]="'feather:lock'" [matTooltip]="'Nội dung đã được mã hóa AES-256'"></mat-icon>
+                            <mat-icon *ngIf="isRowEncrypted(row)" class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto" [svgIcon]="'feather:lock'" [matTooltip]="'Nội dung đã được mã hóa AES-256'"></mat-icon>
                             <p class="font-normal truncate flex-1 my-auto leading-normal hover:underline" [matTooltip]="row.title">{{row.title}}</p>
                         </div>
                     </ng-container>
@@ -245,7 +245,7 @@
 
                             <div class="page-count font-medium text-secondary">
                                 Đã chọn {{ (selectedCountReal) ? selectedCountReal.toLocaleString() : 0 }} trong {{ (realTotalCount) ?
-                                realTotalCount.toLocaleString() : 0 }} {{ 'app.work' | transloco }}
+                                realTotalCount.toLocaleString() : 0 }} tác vụ
                             </div>
                         </div>
 
