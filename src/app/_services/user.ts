@@ -86,14 +86,31 @@ export class UserClientService {
     }
 
     public updateProfile(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+        let activeInfoStr = this.multiAccountService.getItem('active_info');
+        if (!activeInfoStr) {
+            try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }
+        }
+        if (!activeInfoStr) return of(null);
 
+        const activeInfoObj = AuthUtils._getActiveInfo(activeInfoStr);
+        if (!activeInfoObj || !activeInfoObj['user']) return of(null);
+
+        const activeUser = activeInfoObj['user'];
+        const appToken = activeUser['appToken'];
+        const activeOwner = activeUser['username'] || activeUser['name'] || activeUser['email'];
+
+        dataForm = dataForm || {};
         dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.appToken = appToken;
 
-        const url = `${this.config.settings.api[this.user.server]}/user/profile/update`;
+        const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
+        const targetUsername = (dataForm && (dataForm.username || dataForm.name)) || sessionUser?.name || activeOwner;
+        dataForm.username = targetUsername;
+        dataForm.name = targetUsername;
+
+        const server = (sessionUser && sessionUser.server) ? sessionUser.server : 'server1';
+        const url = `${this.config.settings.api[server]}/user/profile/update`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -111,14 +128,31 @@ export class UserClientService {
     }
 
     public profile(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+        let activeInfoStr = this.multiAccountService.getItem('active_info');
+        if (!activeInfoStr) {
+            try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }
+        }
+        if (!activeInfoStr) return of(null);
 
+        const activeInfoObj = AuthUtils._getActiveInfo(activeInfoStr);
+        if (!activeInfoObj || !activeInfoObj['user']) return of(null);
+
+        const activeUser = activeInfoObj['user'];
+        const appToken = activeUser['appToken'];
+        const activeOwner = activeUser['username'] || activeUser['name'] || activeUser['email'];
+
+        dataForm = dataForm || {};
         dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.appToken = appToken;
 
-        const url = `${this.config.settings.api[this.user.server]}/user/profile/${dataForm.name}`;
+        const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
+        const targetUsername = (dataForm && (dataForm.name || dataForm.username)) || sessionUser?.name || activeOwner;
+        dataForm.name = targetUsername;
+        dataForm.username = targetUsername;
+
+        const server = (sessionUser && sessionUser.server) ? sessionUser.server : 'server1';
+        const url = `${this.config.settings.api[server]}/user/profile/${encodeURIComponent(targetUsername)}`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)

@@ -31,6 +31,7 @@ import { MyKeysService } from 'app/_services/mykey';
 import { SharedService } from 'app/shared.service';
 import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-editor-settings-dialog/video-editor-settings-dialog.component';
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
+import { ArchiveOrgDialogComponent } from './tools/archive-org-dialog.component';
 import * as CryptoJS from 'crypto-js';
 
 export interface AudioClip {
@@ -275,77 +276,101 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        this.isUploadingArchive = true;
-        this.cd.markForCheck();
-        this.toastr.info('Đang chuẩn bị dữ liệu upload lên archive.org...', 'System');
-
-        try {
-            for (let clip of this.audioList) {
-                if (clip.file && !clip.audioFileName) {
-                    clip.isProcessing = true;
-                    this.cd.markForCheck();
-                    try {
-                        const serverFilename = await this.uploadLocalFile(clip);
-                        if (serverFilename) {
-                            clip.audioFileName = serverFilename;
-                            clip.username = this.user?.name || 'anonymous';
-                        }
-                    } catch (e) { }
-                    clip.isProcessing = false;
-                    this.cd.markForCheck();
-                }
-            }
-
-            const validClips = this.audioList.filter((c) => c.audioFileName || c.localFilePath || c.rawUrl);
-            if (validClips.length === 0) {
-                this.toastr.error('Chưa có file audio hợp lệ để upload.');
-                return;
-            }
-
-            const payload = {
+        const dialogRef = this.dialog.open(ArchiveOrgDialogComponent, {
+            data: {
                 title: this.projectTitle || 'Giọng đọc AI',
-                uuid: this.uuid,
-                username: this.user?.name || 'anonymous',
-                clips: validClips.map((c) => ({
-                    id: c.id,
-                    name: c.name,
-                    description: c.description,
-                    audioFileName: c.audioFileName,
-                    localFilePath: c.localFilePath,
-                    duration: c.duration,
-                })),
-            };
+                username: this.user?.name || 'AI.Type User',
+            },
+            width: '520px',
+            disableClose: false,
+        });
 
-            if ((window as any).electron && (window as any).electron.invoke) {
-                const res = await (window as any).electron.invoke('upload-to-archive-org', payload);
-                if (res && res.success !== false) {
-                    this.toastr.success('Đã tải lên archive.org thành công!', 'Thành công');
-                } else {
-                    this.toastr.info('Yêu cầu upload lên archive.org đã được khởi tạo.', 'Thông báo');
-                }
-            } else {
-                let baseUrl = this.SERVER_AUDIO_URL || '';
-                if (baseUrl && !baseUrl.endsWith('/')) baseUrl += '/';
-                if (baseUrl) {
-                    this.http.post(`${baseUrl}upload-archive-org`, payload).subscribe({
-                        next: (res: any) => {
-                            this.toastr.success('Upload lên archive.org thành công!');
-                        },
-                        error: (err) => {
-                            this.toastr.info('Đã gửi dữ liệu upload archive.org.');
-                        },
-                    });
-                } else {
-                    this.toastr.success('Upload lên archive.org hoàn tất.');
-                }
-            }
-        } catch (error: any) {
-            console.error('Archive.org upload error:', error);
-            this.toastr.error('Có lỗi xảy ra khi upload lên archive.org.');
-        } finally {
-            this.isUploadingArchive = false;
+        dialogRef.afterClosed().subscribe(async (credentials: any) => {
+            if (!credentials) return;
+
+            this.isUploadingArchive = true;
             this.cd.markForCheck();
-        }
+            this.toastr.info('Đang kết nối và upload audio lên tài khoản Archive.org...', 'Archive.org Upload');
+
+            try {
+                for (let clip of this.audioList) {
+                    if (clip.file && !clip.audioFileName) {
+                        clip.isProcessing = true;
+                        this.cd.markForCheck();
+                        try {
+                            const serverFilename = await this.uploadLocalFile(clip);
+                            if (serverFilename) {
+                                clip.audioFileName = serverFilename;
+                                clip.username = this.user?.name || 'anonymous';
+                            }
+                        } catch (e) { }
+                        clip.isProcessing = false;
+                        this.cd.markForCheck();
+                    }
+                }
+
+                const validClips = this.audioList.filter((c) => c.audioFileName || c.localFilePath || c.rawUrl);
+                if (validClips.length === 0) {
+                    this.toastr.error('Chưa có file audio hợp lệ để upload.');
+                    return;
+                }
+
+                const payload = {
+                    accessKey: credentials.accessKey,
+                    secretKey: credentials.secretKey,
+                    title: credentials.title || this.projectTitle || 'Giọng đọc AI',
+                    creator: credentials.creator || this.user?.name || 'AI.Type',
+                    collection: credentials.collection || 'opensource_audio',
+                    uuid: this.uuid,
+                    username: this.user?.name || 'anonymous',
+                    clips: validClips.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        description: c.description,
+                        audioFileName: c.audioFileName,
+                        localFilePath: c.localFilePath,
+                        duration: c.duration,
+                    })),
+                };
+
+                if ((window as any).electron && (window as any).electron.invoke) {
+                    const res = await (window as any).electron.invoke('upload-to-archive-org', payload);
+                    if (res && res.success) {
+                        this.toastr.success(`Đã upload thành công ${res.uploadedCount || validClips.length} file lên Archive.org!`, 'Thành công');
+                        if (res.itemUrl) {
+                            window.open(res.itemUrl, '_blank');
+                        }
+                    } else {
+                        const errMsg = res?.error || 'Không thể upload lên Archive.org.';
+                        this.toastr.error(errMsg, 'Upload thất bại');
+                    }
+                } else {
+                    let baseUrl = this.SERVER_AUDIO_URL || '';
+                    if (baseUrl && !baseUrl.endsWith('/')) baseUrl += '/';
+                    if (baseUrl) {
+                        this.http.post(`${baseUrl}upload-archive-org`, payload).subscribe({
+                            next: (res: any) => {
+                                this.toastr.success('Upload lên archive.org thành công!');
+                                if (res && res.itemUrl) {
+                                    window.open(res.itemUrl, '_blank');
+                                }
+                            },
+                            error: (err) => {
+                                this.toastr.error('Lỗi kết nối tới Server Upload Archive.org.');
+                            },
+                        });
+                    } else {
+                        this.toastr.success('Khởi tạo yêu cầu upload lên archive.org hoàn tất.');
+                    }
+                }
+            } catch (error: any) {
+                console.error('Archive.org upload error:', error);
+                this.toastr.error('Có lỗi xảy ra khi kết nối và upload lên archive.org.');
+            } finally {
+                this.isUploadingArchive = false;
+                this.cd.markForCheck();
+            }
+        });
     }
 
     // Tìm đến hàm generateAudio và sửa lại như sau:

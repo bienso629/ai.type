@@ -186,7 +186,6 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
 
                     // Store the user on the user service
                     this._userService.user = user;
-                    this.save(user);
 
                     const redirectURL =
                         this._activatedRoute.snapshot.queryParamMap.get(

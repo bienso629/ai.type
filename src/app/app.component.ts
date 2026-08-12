@@ -87,10 +87,26 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
+    private isSyncingLicense: boolean = false;
+    private lastSyncUser: string = '';
+    private lastSyncTime: number = 0;
+
     private syncActiveInfo(activeInfoStr: string): void {
+        if (this.isSyncingLicense) return;
+
         const activeInfoObj = AuthUtils._getActiveInfo(activeInfoStr);
         if (!activeInfoObj || !activeInfoObj.user || !activeInfoObj.user.licenseKey) return;
         if (!this.user || !this.user.name) return;
+
+        const now = Date.now();
+        // Tránh gọi trùng lặp API activate liên tục cho cùng 1 user trong vòng 10 giây
+        if (this.lastSyncUser === this.user.name && (now - this.lastSyncTime) < 10000) {
+            return;
+        }
+
+        this.isSyncingLicense = true;
+        this.lastSyncUser = this.user.name;
+        this.lastSyncTime = now;
 
         const du = new DeviceUUID().parse();
         this._licenseKeyService.activate({
@@ -103,20 +119,26 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             licensekey: activeInfoObj.user.licenseKey
         })
         .pipe(take(1))
-        .subscribe(async (result) => {
-            if (result && result.success && result.data) {
-                const newActiveInfo = AuthUtils._generateActiveInfo(result.data, this.uuid);
-                if (newActiveInfo) {
-                    await this.multiAccountService.setItem('active_info', newActiveInfo);
-                    if ((window as any).electron) {
-                        await (window as any).electron.invoke('register-license', newActiveInfo);
+        .subscribe({
+            next: async (result) => {
+                this.isSyncingLicense = false;
+                if (result && result.success && result.data) {
+                    const newActiveInfo = AuthUtils._generateActiveInfo(result.data, this.uuid);
+                    if (newActiveInfo) {
+                        await this.multiAccountService.setItem('active_info', newActiveInfo);
+                        if ((window as any).electron) {
+                            await (window as any).electron.invoke('register-license', newActiveInfo);
+                        }
                     }
+                } else if (result && result.success === false && result.status === 403) {
+                    // Key trên server đã bị xóa hoặc không hợp lệ -> Xóa bộ nhớ tạm và bắt nhập lại
+                    await this.multiAccountService.removeItem('active_info');
+                    this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
+                    this._translocoService.selectTranslate('app.software_not_activated').pipe(take(1)).subscribe(t => this.error(t));
                 }
-            } else if (result && result.success === false && result.status === 403) {
-                // Key trên server đã bị xóa hoặc không hợp lệ -> Xóa bộ nhớ tạm và bắt nhập lại
-                await this.multiAccountService.removeItem('active_info');
-                this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
-                this._translocoService.selectTranslate('app.software_not_activated').pipe(take(1)).subscribe(t => this.error(t));
+            },
+            error: (err) => {
+                this.isSyncingLicense = false;
             }
         });
     }

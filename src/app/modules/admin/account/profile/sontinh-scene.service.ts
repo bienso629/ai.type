@@ -1337,8 +1337,12 @@ export class SontinhSceneService implements OnDestroy {
 
           ctx.drawImage(img, nx, ny, nw, nh);
 
-          tex.setSource(canvas);
-          tex.upload();
+          if (!this._destroyed && app && app.graphicsDevice && (app.graphicsDevice as any).gl && tex && tex.device) {
+            try {
+              tex.setSource(canvas);
+              tex.upload();
+            } catch (_) {}
+          }
 
           const applyMat = (mat: pc.StandardMaterial) => {
             if (!mat) return;
@@ -1498,13 +1502,28 @@ export class SontinhSceneService implements OnDestroy {
           ctx.fillText(`CPU: ${cpuUsage}% | RAM: ${ramUsed}GB / ${ramTotal}GB | GPU: ${gpuName}`, 512, 410);
         }
 
-        tex.setSource(canvas);
-        tex.upload();
-        if (targetSide === 'left' || targetSide === 'both') {
-          matScreenLeft.update();
+        if (this._destroyed || !app || !app.graphicsDevice || !(app.graphicsDevice as any).gl || !tex || !tex.device || !(tex.device as any).gl) {
+          if (clockCanvasTimer) {
+            clearInterval(clockCanvasTimer);
+            clockCanvasTimer = null;
+          }
+          return;
         }
-        if (targetSide === 'right' || targetSide === 'both') {
-          matScreenRight.update();
+
+        try {
+          tex.setSource(canvas);
+          tex.upload();
+          if (targetSide === 'left' || targetSide === 'both') {
+            matScreenLeft?.update();
+          }
+          if (targetSide === 'right' || targetSide === 'both') {
+            matScreenRight?.update();
+          }
+        } catch (err) {
+          if (clockCanvasTimer) {
+            clearInterval(clockCanvasTimer);
+            clockCanvasTimer = null;
+          }
         }
       };
 
