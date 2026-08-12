@@ -1008,6 +1008,41 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
     }
 
+    async verifyPasswordForArticles(encryptedItems: any[], password: string): Promise<boolean> {
+        if (!password || !encryptedItems || encryptedItems.length === 0) return false;
+
+        for (const item of encryptedItems) {
+            let cipher = item?.cipher || item?.source?.cipher;
+
+            // Nếu cipher chưa có sẵn trên row object trong datatable list, nạp chi tiết bài viết
+            if (!cipher && item && item.uuid) {
+                try {
+                    const res: any = await firstValueFrom(this._crawlService.detail({ uuid: item.uuid, username: this.user.name }));
+                    if (res && res.success && res.data) {
+                        cipher = res.data.cipher || res.data.source?.cipher;
+                    }
+                } catch (e) {}
+            }
+
+            if (cipher) {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(cipher, password);
+                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                    if (!decryptedText || decryptedText.length === 0) {
+                        return false; // Mật khẩu không giải mã được cipher
+                    }
+                } catch (e) {
+                    return false; // Mật khẩu sai
+                }
+            } else {
+                // Nếu bài viết được đánh dấu mã hóa nhưng không có cipher, yêu cầu mật khẩu không rỗng
+                if (!password || password.trim().length === 0) return false;
+            }
+        }
+
+        return true;
+    }
+
     ensureMultipleUnlocked(items: any[], callback: (unlocked: boolean, password?: string) => void) {
         if (!items || items.length === 0) {
             callback(true);
@@ -1029,18 +1064,20 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         });
 
         if (unhandledEncrypted.length === 0) {
-            // Tất cả đã có token giải mã hợp lệ trong phiên làm việc
+            // Tất cả đã được mở khóa hợp lệ trong phiên làm việc
             callback(true);
             return;
         }
 
-        // Lấy bài viết mã hóa đầu tiên chưa mở khóa để mở Dialog
         const targetRow = unhandledEncrypted[0];
         const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
             data: {
                 mode: 'unlock',
                 type: 'article',
-                title: targetRow.title || `Danh sách bài viết đã chọn (${encryptedItems.length} bài mã hóa)`
+                title: targetRow.title || `Danh sách bài viết đã chọn (${encryptedItems.length} bài mã hóa)`,
+                validator: async (pwd: string) => {
+                    return await this.verifyPasswordForArticles(encryptedItems, pwd);
+                }
             },
             width: '450px',
             disableClose: true
@@ -1048,36 +1085,13 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
         dialogRef.afterClosed().subscribe((res: any) => {
             if (res && res.password) {
-                let allValid = true;
-                for (const r of encryptedItems) {
-                    const cipher = r.cipher || r.source?.cipher;
-                    if (cipher) {
-                        try {
-                            const bytes = CryptoJS.AES.decrypt(cipher, res.password);
-                            const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                            if (decryptedText !== 'VALID' && decryptedText.length === 0) {
-                                allValid = false;
-                                break;
-                            }
-                        } catch (e) {
-                            allValid = false;
-                            break;
-                        }
+                encryptedItems.forEach(r => {
+                    const targetUuid = r.uuid || r._id || r.id;
+                    if (targetUuid) {
+                        sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
                     }
-                }
-
-                if (allValid) {
-                    encryptedItems.forEach(r => {
-                        const targetUuid = r.uuid || r._id || r.id;
-                        if (targetUuid) {
-                            sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
-                        }
-                    });
-                    callback(true, res.password);
-                } else {
-                    this.toastr.error('Mật khẩu giải mã không chính xác hoặc không khớp với các bài viết mã hóa đã chọn!', 'Truy cập bị từ chối');
-                    callback(false);
-                }
+                });
+                callback(true, res.password);
             } else {
                 callback(false);
             }
@@ -1114,7 +1128,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             data: {
                 mode: 'unlock',
                 type: 'article',
-                title: row.title || 'Bài viết'
+                title: row.title || 'Bài viết',
+                validator: async (pwd: string) => {
+                    return await this.verifyPasswordForArticles([row], pwd);
+                }
             },
             width: '450px',
             disableClose: true
@@ -1122,31 +1139,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
         dialogRef.afterClosed().subscribe((res: any) => {
             if (res && res.password) {
-                const cipher = row.cipher || row.source?.cipher;
-                let isValid = false;
-                if (cipher) {
-                    try {
-                        const bytes = CryptoJS.AES.decrypt(cipher, res.password);
-                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                            isValid = true;
-                        }
-                    } catch (e) {
-                        isValid = false;
-                    }
-                } else {
-                    isValid = true;
+                if (targetUuid) {
+                    sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
                 }
-
-                if (isValid) {
-                    if (targetUuid) {
-                        sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
-                    }
-                    callback(true, res.password);
-                } else {
-                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
-                    callback(false);
-                }
+                callback(true, res.password);
             } else {
                 callback(false);
             }
