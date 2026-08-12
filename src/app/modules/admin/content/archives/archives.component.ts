@@ -714,6 +714,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     if (resData && resData.docs && resData.docs.length > 0) {
                         const docsWithGroup = resData.docs.map((doc: any) => ({
                             ...doc,
+                            is_encrypted: this.isRowEncrypted(doc),
                             dateGroup: this.getDateGroup(doc)
                         }));
                         if (!this.masterLoadedRows) this.masterLoadedRows = [];
@@ -722,6 +723,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                                 this.masterLoadedRows.push(doc);
                             }
                         });
+                        this.verifyLoadedRowsEncryption();
 
                         if (this.selectedDateGroup && this.selectedDateGroup !== 'Tất cả thời gian') {
                             this.applyDateFilter();
@@ -1056,13 +1058,56 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         return true;
     }
 
+    isRowEncrypted(row: any): boolean {
+        if (!row || row.isGroupHeader) return false;
+        if (row.is_encrypted || row.encrypted) return true;
+        if (row.cipher) return true;
+        if (row.source) {
+            if (row.source.encrypted || row.source.is_encrypted || row.source.cipher) return true;
+        }
+        const uuid = row.uuid || row._id || row.id;
+        if (uuid) {
+            if (localStorage.getItem('article_encrypted_' + uuid) === 'true') return true;
+            if (sessionStorage.getItem('nav_handshake_pwd_' + uuid)) return true;
+        }
+        return false;
+    }
+
+    verifyLoadedRowsEncryption() {
+        if (!this.masterLoadedRows || this.masterLoadedRows.length === 0) return;
+        this.masterLoadedRows.forEach((row: any) => {
+            if (row && row.uuid && !row.isGroupHeader) {
+                if (this.isRowEncrypted(row)) {
+                    row.is_encrypted = true;
+                    localStorage.setItem('article_encrypted_' + row.uuid, 'true');
+                } else {
+                    this._crawlService.detail({ uuid: row.uuid, username: this.user.name })
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe((res: any) => {
+                            if (res && res.success && res.data) {
+                                const fullDoc = res.data;
+                                const isEnc = !!(fullDoc.is_encrypted || fullDoc.cipher || (fullDoc.source && (fullDoc.source.encrypted || fullDoc.source.cipher)));
+                                if (isEnc) {
+                                    row.is_encrypted = true;
+                                    if (!row.source) row.source = {};
+                                    row.source.encrypted = true;
+                                    localStorage.setItem('article_encrypted_' + row.uuid, 'true');
+                                    this.cd.markForCheck();
+                                }
+                            }
+                        });
+                }
+            }
+        });
+    }
+
     ensureMultipleUnlocked(items: any[], callback: (unlocked: boolean, password?: string) => void) {
         if (!items || items.length === 0) {
             callback(true);
             return;
         }
 
-        const encryptedItems = items.filter(r => r && (r.is_encrypted || (r.source && r.source.encrypted)));
+        const encryptedItems = items.filter(r => this.isRowEncrypted(r));
         if (encryptedItems.length === 0) {
             callback(true);
             return;
@@ -1117,7 +1162,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             return;
         }
 
-        const isEncrypted = row.is_encrypted || (row.source && row.source.encrypted);
+        const isEncrypted = this.isRowEncrypted(row);
         if (!isEncrypted) {
             callback(true);
             return;

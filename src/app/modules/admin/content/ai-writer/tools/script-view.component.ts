@@ -35,7 +35,7 @@ interface ScreenplayLine {
                     </div>
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500 cursor-pointer" (click)="goBack()">công việc đang làm của bạn</a>
+                        <a class="ml-1 text-base text-primary-500 cursor-pointer" (click)="goBack()">tác vụ đang làm của bạn</a>
                     </div>
                     <div class="flex items-center ml-1 whitespace-nowrap relative">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
