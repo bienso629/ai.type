@@ -105,29 +105,32 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     deleteSelected() {
         if (!this.selected || this.selected.length === 0) return;
         
-        const dialogRef = this._fuseConfirmationService.open({
-            title: 'Xác nhận xóa',
-            message: `Bạn có chắc muốn xóa <b>${this.selected.length}</b> bài viết đã chọn? Hành động này không thể hoàn tác.`,
-            icon: {
-                show: true,
-                name: 'heroicons_outline:exclamation',
-                color: 'warn',
-            },
-            actions: {
-                confirm: {
+        this.ensureMultipleUnlocked(this.selected, (unlocked) => {
+            if (!unlocked) return;
+
+            const dialogRef = this._fuseConfirmationService.open({
+                title: 'Xác nhận xóa',
+                message: `Bạn có chắc muốn xóa <b>${this.selected.length}</b> bài viết đã chọn? Hành động này không thể hoàn tác.`,
+                icon: {
                     show: true,
-                    label: 'Xóa ngay',
+                    name: 'heroicons_outline:exclamation',
                     color: 'warn',
                 },
-                cancel: {
-                    show: true,
-                    label: 'Hủy',
+                actions: {
+                    confirm: {
+                        show: true,
+                        label: 'Xóa ngay',
+                        color: 'warn',
+                    },
+                    cancel: {
+                        show: true,
+                        label: 'Hủy',
+                    },
                 },
-            },
-            dismissible: true,
-        });
+                dismissible: true,
+            });
 
-        dialogRef.afterClosed().subscribe((result) => {
+            dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
                 const uuids = this.selected.map((r: any) => r.uuid);
                 
@@ -204,20 +207,27 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 }
             }
         });
+        });
     }
 
     // Bulk Edit Logic
     openBulkEditDialog() {
-        this.bulkEditPrompt = '';
-        this.bulkEditImageBase64 = null;
-        this.bulkEditInProgress = false;
-        this.bulkEditProgress = 0;
-        this.bulkEditTotal = 0;
-        this.bulkEditStatusText = '';
-        this.bulkEditDialogRef = this._matDialog.open(this.bulkEditDialogTemplate, {
-            width: '600px',
-            panelClass: 'custom-dialog-bulk',
-            disableClose: false
+        if (!this.selected || this.selected.length === 0) return;
+
+        this.ensureMultipleUnlocked(this.selected, (unlocked) => {
+            if (!unlocked) return;
+
+            this.bulkEditPrompt = '';
+            this.bulkEditImageBase64 = null;
+            this.bulkEditInProgress = false;
+            this.bulkEditProgress = 0;
+            this.bulkEditTotal = 0;
+            this.bulkEditStatusText = '';
+            this.bulkEditDialogRef = this._matDialog.open(this.bulkEditDialogTemplate, {
+                width: '600px',
+                panelClass: 'custom-dialog-bulk',
+                disableClose: false
+            });
         });
     }
 
@@ -996,6 +1006,82 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 console.error('Lỗi khi nạp bài viết cục bộ:', e);
             }
         }
+    }
+
+    ensureMultipleUnlocked(items: any[], callback: (unlocked: boolean, password?: string) => void) {
+        if (!items || items.length === 0) {
+            callback(true);
+            return;
+        }
+
+        const encryptedItems = items.filter(r => r && (r.is_encrypted || (r.source && r.source.encrypted)));
+        if (encryptedItems.length === 0) {
+            callback(true);
+            return;
+        }
+
+        // Kiểm tra xem tất cả bài viết mã hóa đã có token giải mã trong sessionStorage hay chưa
+        const unhandledEncrypted = encryptedItems.filter(r => {
+            const uuid = r.uuid || r._id || r.id;
+            if (!uuid) return false;
+            const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
+            return !token;
+        });
+
+        if (unhandledEncrypted.length === 0) {
+            // Tất cả đã có token giải mã hợp lệ trong phiên làm việc
+            callback(true);
+            return;
+        }
+
+        // Lấy bài viết mã hóa đầu tiên chưa mở khóa để mở Dialog
+        const targetRow = unhandledEncrypted[0];
+        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'unlock',
+                type: 'article',
+                title: targetRow.title || `Danh sách bài viết đã chọn (${encryptedItems.length} bài mã hóa)`
+            },
+            width: '450px',
+            disableClose: true
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                let allValid = true;
+                for (const r of encryptedItems) {
+                    const cipher = r.cipher || r.source?.cipher;
+                    if (cipher) {
+                        try {
+                            const bytes = CryptoJS.AES.decrypt(cipher, res.password);
+                            const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                            if (decryptedText !== 'VALID' && decryptedText.length === 0) {
+                                allValid = false;
+                                break;
+                            }
+                        } catch (e) {
+                            allValid = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (allValid) {
+                    encryptedItems.forEach(r => {
+                        const targetUuid = r.uuid || r._id || r.id;
+                        if (targetUuid) {
+                            sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
+                        }
+                    });
+                    callback(true, res.password);
+                } else {
+                    this.toastr.error('Mật khẩu giải mã không chính xác hoặc không khớp với các bài viết mã hóa đã chọn!', 'Truy cập bị từ chối');
+                    callback(false);
+                }
+            } else {
+                callback(false);
+            }
+        });
     }
 
     ensureUnlocked(row: any, callback: (unlocked: boolean, password?: string) => void) {
