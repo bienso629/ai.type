@@ -113,7 +113,6 @@ export class SettingsAccountComponent implements OnInit {
                     error: () => {
                     },
                     complete: () => {
-                        this.connecting12345();
                     }
                 });
         }
