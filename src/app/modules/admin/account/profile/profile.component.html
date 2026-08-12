@@ -8,9 +8,14 @@
   <input #actionFileInput type="file" accept=".glb" style="display:none" (change)="onActionFileSelected($event)">
 
   <!-- LEFT SIDEBAR -->
-  <div class="profile-sidebar">
+  <div class="profile-sidebar" [class.is-collapsed]="isSidebarCollapsed">
     <div class="sidebar-header">
       <h2 class="sidebar-title">Căn phòng của {{ username }}</h2>
+      <button mat-icon-button (click)="toggleSidebar()" class="sidebar-toggle-btn ml-auto" [matTooltip]="isSidebarCollapsed ? 'Mở sidebar' : 'Thu gọn sidebar'">
+        <mat-icon class="icon-size-5">
+          {{ isSidebarCollapsed ? 'menu' : 'format_indent_decrease' }}
+        </mat-icon>
+      </button>
     </div>
 
     <div class="sidebar-body">
@@ -312,6 +317,11 @@
 
     <!-- Inner padded container — canvas fills this, not the outer wrap -->
     <div class="scene-inner" #sceneContainer>
+
+      <!-- Floating Sidebar Re-open Button (Top-Left, visible when sidebar collapsed) -->
+      <button *ngIf="isSidebarCollapsed" mat-icon-button (click)="toggleSidebar()" class="floating-sidebar-toggle-btn" matTooltip="Mở sidebar">
+        <mat-icon class="icon-size-5">format_indent_increase</mat-icon>
+      </button>
 
       <!-- Floating Scene Toolbar (Top-Right) -->
       <div class="scene-floating-toolbar">

@@ -93,11 +93,20 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   isUploading  = false;
   isProcessingPrompt = false;
   isFullscreen = false;
+  isSidebarCollapsed = false;
   loadError: string | null   = null;
   uploadError: string | null = null;
   profile: UserProfile | null = null;
   roomProps: any[] = DEFAULT_PROPS;
   propSearchQuery = '';
+
+  toggleSidebar(): void {
+    this.isSidebarCollapsed = !this.isSidebarCollapsed;
+    try {
+      localStorage.setItem('profile_sidebar_collapsed', String(this.isSidebarCollapsed));
+    } catch (_) {}
+    this.cdr.markForCheck();
+  }
 
   get filteredRoomProps(): any[] {
     let queryStr = '';
@@ -207,6 +216,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           }
         } catch (_) {}
       }
+      const savedSidebarState = localStorage.getItem('profile_sidebar_collapsed');
+      if (savedSidebarState !== null) {
+        this.isSidebarCollapsed = savedSidebarState === 'true';
+      }
+
       if (!this.charThumbnail) {
         const savedAvatar = localStorage.getItem(`profile_avatar_${this.username}`);
         if (savedAvatar) {
