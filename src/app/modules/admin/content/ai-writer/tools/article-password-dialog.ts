@@ -6,6 +6,7 @@ export interface ArticlePasswordDialogData {
     mode: 'set' | 'unlock';
     title?: string;
     type?: 'collection' | 'article';
+    validator?: (password: string) => boolean | Promise<boolean>;
 }
 
 @Component({
@@ -50,7 +51,7 @@ export interface ArticlePasswordDialogData {
         <form [formGroup]="passForm" (ngSubmit)="submit()">
             <mat-form-field class="w-full fuse-mat-dense fuse-mat-no-subscript" appearance="fill" subscriptSizing="dynamic">
                 <mat-label>Mật khẩu bảo vệ</mat-label>
-                <input matInput [type]="hidePassword ? 'password' : 'text'" [formControlName]="'password'" placeholder="Nhập mật khẩu..." required autofocus [disabled]="isLockedOut" />
+                <input matInput [type]="hidePassword ? 'password' : 'text'" [formControlName]="'password'" placeholder="Nhập mật khẩu..." required autofocus [disabled]="isLockedOut || isSubmitting" />
                 <button type="button" mat-icon-button matSuffix (click)="hidePassword = !hidePassword">
                     <mat-icon [svgIcon]="hidePassword ? 'heroicons_outline:eye-off' : 'heroicons_outline:eye'"></mat-icon>
                 </button>
@@ -64,11 +65,11 @@ export interface ArticlePasswordDialogData {
     </div>
 
     <div mat-dialog-actions class="p-0 mt-6 flex justify-end gap-2">
-        <button mat-button type="button" mat-dialog-close>Hủy</button>
-        <button mat-flat-button color="primary" (click)="submit()" [disabled]="isLockedOut || passForm.invalid">
-            <mat-icon [svgIcon]="data.mode === 'set' ? 'feather:shield' : 'feather:unlock'"></mat-icon>
-            <span class="ml-2" *ngIf="data.type === 'collection'">{{ data.mode === 'set' ? 'Mã hóa & Lưu Collection' : 'Giải mã Collection' }}</span>
-            <span class="ml-2" *ngIf="data.type !== 'collection'">{{ data.mode === 'set' ? 'Mã hóa & Lưu bài viết' : 'Giải mã bài viết' }}</span>
+        <button mat-button type="button" mat-dialog-close [disabled]="isSubmitting">Hủy</button>
+        <button mat-flat-button color="primary" (click)="submit()" [disabled]="isLockedOut || passForm.invalid || isSubmitting">
+            <mat-icon [svgIcon]="data.mode === 'set' ? 'feather:shield' : 'feather:unlock'" *ngIf="!isSubmitting"></mat-icon>
+            <span class="ml-2" *ngIf="data.type === 'collection'">{{ data.mode === 'set' ? 'Mã hóa & Lưu Collection' : (isSubmitting ? 'Đang giải mã...' : 'Giải mã Collection') }}</span>
+            <span class="ml-2" *ngIf="data.type !== 'collection'">{{ data.mode === 'set' ? 'Mã hóa & Lưu bài viết' : (isSubmitting ? 'Đang giải mã...' : 'Giải mã bài viết') }}</span>
         </button>
     </div>
     `
@@ -78,6 +79,7 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
     hidePassword = true;
     errorMessage = '';
     isLockedOut = false;
+    isSubmitting = false;
     lockCountdownText = '';
     failedAttempts = 0;
     private timerInterval: any;
@@ -130,8 +132,8 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
         }
     }
 
-    submit(): void {
-        if (this.isLockedOut || this.passForm.invalid) return;
+    async submit(): Promise<void> {
+        if (this.isLockedOut || this.passForm.invalid || this.isSubmitting) return;
 
         const password = this.passForm.get('password')?.value;
         if (this.data.mode === 'set') {
@@ -140,8 +142,33 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
                 this.errorMessage = 'Mật khẩu xác nhận không trùng khớp!';
                 return;
             }
+        } else if (this.data.mode === 'unlock' && this.data.validator) {
+            this.isSubmitting = true;
+            this.errorMessage = '';
+            try {
+                const isValid = await this.data.validator(password);
+                this.isSubmitting = false;
+                if (!isValid) {
+                    this.failedAttempts = (parseInt(localStorage.getItem('password_failed_attempts') || '0', 10)) + 1;
+                    localStorage.setItem('password_failed_attempts', this.failedAttempts.toString());
+                    
+                    if (this.failedAttempts >= 5) {
+                        localStorage.setItem('password_lockout_until', (Date.now() + 5 * 60 * 1000).toString());
+                        this.checkLockout();
+                    } else {
+                        this.errorMessage = `Mật khẩu mã hóa không chính xác! (Đã thử sai ${this.failedAttempts}/5 lần)`;
+                    }
+                    this.passForm.get('password')?.setValue('');
+                    return;
+                }
+            } catch (e) {
+                this.isSubmitting = false;
+                this.errorMessage = 'Lỗi xác thực mật khẩu. Vui lòng thử lại!';
+                return;
+            }
         }
 
+        localStorage.removeItem('password_failed_attempts');
         this.dialogRef.close({ password });
     }
 }
