@@ -179,7 +179,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
         private _translocoService: TranslocoService,
         private _cdr: ChangeDetectorRef
     ) {
-        this.titleService.setTitle(this._translocoService.translate('app.activate_software_title'));
+        this.titleService.setTitle(`kích hoạt phần mềm | ai.type - công cụ tạo content`);
 
         const activeInfoStr = this.multiAccountService.getItem('active_info');
         if (activeInfoStr && activeInfoStr != 'null' && activeInfoStr != 'undefined') {
