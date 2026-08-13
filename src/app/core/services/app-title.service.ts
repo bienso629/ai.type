@@ -23,6 +23,8 @@ const titleTranslations: { [key: string]: string } = {
     "node từ wordpress": "WordPress Nodes",
     "link tốt": "Good Links",
     "thống kê": "Analytics",
+    "nav.dashboard.title": "Analytics",
+    "app.activate_software_title": "Activate Software",
     "wordpress importer": "WordPress Importer",
     "đang đọc": "Reading",
     "nhân đôi sản phẩm": "Clone Product",
@@ -57,6 +59,13 @@ export class AppTitleService extends Title {
                 this.updateTitle();
             }
         });
+        if (this.translocoService.events$) {
+            this.translocoService.events$.subscribe((event: any) => {
+                if (event && event.type === 'translationLoadSuccess' && this.currentTitle) {
+                    this.updateTitle();
+                }
+            });
+        }
     }
 
     override setTitle(newTitle: string) {
@@ -66,6 +75,14 @@ export class AppTitleService extends Title {
 
     private updateTitle() {
         if (!this.currentTitle) return;
+
+        if (this.currentTitle.includes('.')) {
+            const trans = this.translocoService.translate(this.currentTitle);
+            if (trans && trans !== this.currentTitle) {
+                super.setTitle(trans);
+                return;
+            }
+        }
 
         const lang = this.translocoService.getActiveLang();
         

@@ -386,7 +386,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         private _domainService: DomainService,
         private toastr: ToastrService
     ) {
-        this.titleService.setTitle(this.translocoService.translate('nav.dashboard.title'));
+        this.titleService.setTitle(`thống kê | ai.type - công cụ tạo content`);
 
         // Subscribe to config changes
         this._fuseConfigService.config$
