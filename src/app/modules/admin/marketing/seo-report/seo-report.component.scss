@@ -73,3 +73,13 @@
     overflow-x: hidden !important;
     max-width: 100%;
 }
+
+::ng-deep {
+    .mat-mdc-tab .mdc-tab__text-label {
+        font-size: 1rem !important;
+    }
+    .ngx-datatable.material .datatable-body-cell,
+    .ngx-datatable.material .datatable-header-cell {
+        font-size: 1rem !important;
+    }
+}
