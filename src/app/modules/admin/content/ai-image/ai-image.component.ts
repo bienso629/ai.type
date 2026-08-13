@@ -460,11 +460,22 @@ export class AIImageComponent
         const selectedRatio = this.form.get('aspectRatio')?.value || "16:9";
         const modelId = this.form.get('modelId')?.value;
 
+        let qualityTag = '';
+        if (modelId === 'gemini-3.1-flash-image-preview') {
+            qualityTag = ', chất lượng 1K';
+        } else if (modelId === 'imagen-3.0-generate-002') {
+            qualityTag = ', chất lượng 2K';
+        } else if (modelId === 'gemini-3-pro-image-preview') {
+            qualityTag = ', chất lượng 4K';
+        }
+
+        const finalPromptText = promptValue.trim() + (promptValue.toLowerCase().includes('1k') || promptValue.toLowerCase().includes('2k') || promptValue.toLowerCase().includes('4k') ? '' : qualityTag);
+
         try {
             // 1. Cấu hình gửi đi chuẩn SDK v2 (@google/genai)
             const generateOptions = {
                 model: modelId,
-                contents: [{ role: 'user', parts: [{ text: promptValue }] }],
+                contents: [{ role: 'user', parts: [{ text: finalPromptText }] }],
                 config: {
                     responseModalities: ['TEXT', 'IMAGE'],
                     imageConfig: {
