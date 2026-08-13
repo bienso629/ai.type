@@ -805,7 +805,7 @@ export class AIImageComponent
         this.form = this._formBuilder.group({
             prompt: [''],
             aspectRatio: ['16:9'],
-            modelId: ['imagen-3.0-generate-001'],
+            modelId: ['imagen-3.0-generate-002'],
             // ... các field cũ của bạn ...
         });
     }
