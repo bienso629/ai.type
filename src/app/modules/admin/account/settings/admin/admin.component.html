@@ -144,51 +144,51 @@
                 <div class="mt-4">
                     <ngx-datatable [virtualization]="false" class="material shadow-none border rounded-lg" [headerHeight]="50"
                         [columnMode]="ColumnMode.force" [footerHeight]="50" rowHeight="50" [scrollbarV]="false"
-                        [scrollbarH]="false" [rows]="transactions" [loadingIndicator]="transactionsLoading" [limit]="10">
+                        [scrollbarH]="true" [rows]="transactions" [loadingIndicator]="transactionsLoading" [limit]="10">
                         
-                        <ngx-datatable-column name="Mã GD" prop="transactionId" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Mã GD" prop="transactionId" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 {{ value }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Email khách hàng" prop="username" [width]="200" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Email khách hàng" prop="username" [width]="160" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 {{ value }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="App ID" prop="appId" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="App ID" prop="appId" [width]="90" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 {{ value || 'ai.typing' }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Version" prop="appVersion" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Version" prop="appVersion" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 {{ value || '1.2.3' }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Gói (tháng)" prop="months" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Gói (tháng)" prop="months" [width]="90" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 <span class="text-green-600 font-semibold">{{ value }}</span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Nội dung" prop="content" [width]="250" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Nội dung" prop="content" [width]="180" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 {{ value }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Số tiền" prop="amount" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Số tiền" prop="amount" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 <span class="text-green-600 font-semibold">{{ value | number }} đ</span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Thời gian" prop="createdAt" [width]="200" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Thời gian" prop="createdAt" [width]="140" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 {{ value | date:'dd/MM/yyyy HH:mm' }}
                             </ng-template>
