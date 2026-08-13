@@ -16,28 +16,28 @@
     <!-- CONTENT GOES HERE -->
     <ngx-datatable [virtualization]="false" #mydatatable class="material shadow-none border rounded-lg" [headerHeight]="50"
         [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight" [scrollbarV]="false"
-        [scrollbarH]="false" [rows]="rows" [selected]="selected" [selectionType]="SelectionType.checkbox"
+        [scrollbarH]="true" [rows]="rows" [selected]="selected" [selectionType]="SelectionType.checkbox"
         [selectAllRowsOnPage]="false" (select)="onSelect($event)">
-        <ngx-datatable-column [width]="50" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+        <ngx-datatable-column [width]="45" [sortable]="false" [canAutoResize]="false" [draggable]="false"
             [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true">
         </ngx-datatable-column>
 
         <ngx-datatable-column name="App ID" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="200">
+            [resizeable]="false" [width]="90">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 {{ row.appId }}
             </ng-template>
         </ngx-datatable-column>
 
         <ngx-datatable-column name="Version" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="80">
+            [resizeable]="false" [width]="70">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 {{ row.appVersion }}
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="Người mua" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="200">
+        <ngx-datatable-column name="Người mua" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+            [resizeable]="true" [width]="150">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 <ng-container *ngIf="row.activationInfo && row.activationInfo.length >= 1; else elseTemplate">
                     <div class="flex items-center justify-self-stretch">
@@ -53,15 +53,15 @@
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="Liên hệ" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="250">
+        <ngx-datatable-column name="Liên hệ" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+            [resizeable]="true" [width]="180">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 {{ row.info.email }}
             </ng-template>
         </ngx-datatable-column>
 
         <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="100">
+            [resizeable]="false" [width]="50">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 <button mat-icon-button color="primary" (click)="copy(row.licenseKey)" matTooltipPosition="above"
                     matTooltip="{{ row.licenseKey }}">
@@ -71,14 +71,14 @@
         </ngx-datatable-column>
 
         <ngx-datatable-column name="Ngày hết hạn" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="150">
+            [resizeable]="false" [width]="110">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 {{ row.expirationDate | date: 'dd/MM/yyyy' }}
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="Tính năng" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="300">
+        <ngx-datatable-column name="Tính năng" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+            [resizeable]="true" [width]="200">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 <div class="flex items-center justify-self-stretch">
                     <mat-label matTooltipPosition="above" [matTooltip]="'app.auto_extend_usage' | transloco"

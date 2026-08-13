@@ -10,6 +10,7 @@ import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
 import { RemoveHTMLPipe } from "app/app.pipe";
 import { CrawlService } from 'app/_services/crawl';
+import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
 
 @Component({
     selector: 'n8n',
@@ -22,6 +23,7 @@ import { CrawlService } from 'app/_services/crawl';
 export class AMXHComponent implements OnInit, OnDestroy {
     config: AppConfig;
     user: User;
+    isCompact: boolean = false;
 
     captions: { index: number; text: string }[] = [];
     articleData: any = null;
@@ -107,6 +109,17 @@ export class AMXHComponent implements OnInit, OnDestroy {
         }
     }
 
+    toggleCompact(): void {
+        this.isCompact = !this.isCompact;
+        this._changeDetectorRef.markForCheck();
+        setTimeout(() => {
+            if (this.drawer && (this.drawer as any).container) {
+                (this.drawer as any).container.updateContentMargins();
+            }
+            window.dispatchEvent(new Event('resize'));
+        }, 50);
+    }
+
     /**
      * Get the details of the panel
      *
@@ -137,7 +150,8 @@ export class AMXHComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private activatedRoute: ActivatedRoute,
         private router: Router,
-        private _fuseMediaWatcherService: FuseMediaWatcherService
+        private _fuseMediaWatcherService: FuseMediaWatcherService,
+        private _fuseNavigationService: FuseNavigationService
     ) {
         this.activatedRoute.queryParams.subscribe((params: Params) => {
             if (params && params.uuid && params.tab && params.user) {

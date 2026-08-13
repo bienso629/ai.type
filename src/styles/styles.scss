@@ -5,7 +5,8 @@
 
 html,
 body {
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    max-width: 100vw;
 }
 
 body {

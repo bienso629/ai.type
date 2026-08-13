@@ -9,6 +9,8 @@ import { UserService } from 'app/core/user/user.service';
 import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
 
+import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
+
 @Component({
     selector: 'settings',
     templateUrl: './settings.component.html',
@@ -19,6 +21,7 @@ import { User } from 'app/core/user/user.types';
 export class SettingsComponent implements OnInit, OnDestroy {
     config: AppConfig;
     user: User;
+    isCompact: boolean = false;
 
     @ViewChild('drawer') drawer: MatDrawer;
     drawerMode: 'over' | 'side' = 'side';
@@ -96,6 +99,17 @@ export class SettingsComponent implements OnInit, OnDestroy {
         }
     }
 
+    toggleCompact(): void {
+        this.isCompact = !this.isCompact;
+        this._changeDetectorRef.markForCheck();
+        setTimeout(() => {
+            if (this.drawer && (this.drawer as any).container) {
+                (this.drawer as any).container.updateContentMargins();
+            }
+            window.dispatchEvent(new Event('resize'));
+        }, 50);
+    }
+
     /**
      * Get the details of the panel
      *
@@ -125,7 +139,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private activatedRoute: ActivatedRoute,
         private router: Router,
-        private _fuseMediaWatcherService: FuseMediaWatcherService
+        private _fuseMediaWatcherService: FuseMediaWatcherService,
+        private _fuseNavigationService: FuseNavigationService
     ) {
         this.activatedRoute.queryParams.subscribe((params: Params) => {
             if (params && params.tab) {

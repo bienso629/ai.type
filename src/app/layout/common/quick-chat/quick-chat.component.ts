@@ -6,6 +6,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
+import { AddToolDialog } from './add-tool-dialog.component';
+
 export interface ToolItem {
     id: string;
     name: string;
@@ -161,9 +163,24 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     openAddDialog(): void {
-        this.dialogRef = this._matDialog.open(this.addDialogTemplate, {
-            width: '400px',
+        const dialogRef = this._matDialog.open(AddToolDialog, {
+            width: '450px',
             disableClose: false
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.name && res.url) {
+                const newTool: ToolItem = {
+                    id: Date.now().toString(),
+                    name: res.name,
+                    url: res.url,
+                    icon: res.icon || ''
+                };
+
+                this.tools.push(newTool);
+                this.multiAccountService.setItem('tools_urls', this.tools);
+                this.cd.detectChanges();
+            }
         });
     }
 

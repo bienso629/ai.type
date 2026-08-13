@@ -1,23 +1,20 @@
 quick-chat {
     z-index: 399;
+    overflow: hidden !important;
 
     >div {
-        overflow: hidden;
+        overflow: hidden !important;
     }
 
     &.quick-chat-opened {
-
         >div {
             overflow: visible;
         }
     }
 
     &:not(.quick-chat-opened) {
-
         >div {
-            overflow: visible;
-            animation: addOverflowHidden 1ms linear 400ms;
-            animation-fill-mode: forwards;
+            overflow: hidden !important;
         }
     }
 }

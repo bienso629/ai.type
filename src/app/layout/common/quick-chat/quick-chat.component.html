@@ -63,13 +63,12 @@
                         <div class="flex flex-col h-auto" cdkDropList (cdkDropListDropped)="drop($event)">
                             <ng-container *ngFor="let tool of tools">
                                 <div cdkDrag class="flex items-center px-4 py-3 border-b last:border-none hover:bg-gray-50 cursor-move bg-white dark:bg-transparent">
-                                    <div class="flex items-center mr-3 shrink-0 gap-1">
-                                        <img [src]="getFavicon(tool)" class="w-7 h-7 rounded-lg object-cover"
-                                            onerror="this.src='./assets/images/logo/favicon.svg'" />
+                                    <div class="flex items-center mr-3 shrink-0">
                                         <input #editFileInput type="file" class="hidden" accept="image/*" (change)="onEditIconSelected($event, tool)">
-                                        <button type="button" mat-icon-button (click)="editFileInput.click()" class="w-6 h-6 min-h-6 p-0 text-gray-400 hover:text-blue-600" [matTooltip]="'Thay đổi Icon'">
-                                            <mat-icon class="icon-size-3.5" [svgIcon]="'feather:image'"></mat-icon>
-                                        </button>
+                                        <img [src]="getFavicon(tool)" class="w-8 h-8 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                            (click)="editFileInput.click()"
+                                            matTooltip="Nhấp để thay đổi Icon"
+                                            onerror="this.src='./assets/images/logo/favicon.svg'" />
                                     </div>
                                     <div class="flex-auto min-w-0">
                                         <div class="font-medium truncate">{{ tool.name }}</div>
@@ -96,48 +95,6 @@
                             {{ 'app.auto_delete_cookie' | transloco }}
                         </button>
                     </div>
-
-                    <ng-template #addDialogTemplate>
-                        <h2 class="text-lg p-0 py-3">{{ 'app.auto_add_new_tool' | transloco }}</h2>
-                        <mat-dialog-content class="p-0">
-                            <mat-form-field class="w-full mt-2 mb-4 fuse-mat-dense fuse-mat-emphasized-affix"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'app.auto_display_name' | transloco }}</mat-label>
-                                <input matInput [(ngModel)]="newToolName" placeholder="VD: Facebook, Capcut..." />
-                            </mat-form-field>
-
-                            <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'app.auto_path_url' | transloco }}</mat-label>
-                                <input matInput [(ngModel)]="newToolUrl" placeholder="https://..." />
-                            </mat-form-field>
-
-                            <div class="flex items-center gap-3 mb-3 p-2.5 bg-gray-50 dark:bg-hover rounded-xl border">
-                                <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0">
-                                    <img *ngIf="newToolIcon" [src]="newToolIcon" class="w-full h-full object-cover" />
-                                    <mat-icon *ngIf="!newToolIcon" class="icon-size-5 text-gray-400" [svgIcon]="'feather:image'"></mat-icon>
-                                </div>
-                                <div class="flex-auto">
-                                    <input #newIconFileInput type="file" class="hidden" accept="image/*" (change)="onNewIconSelected($event)">
-                                    <button type="button" mat-stroked-button class="text-xs" (click)="newIconFileInput.click()">
-                                        <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:upload'"></mat-icon>
-                                        Tải Icon tùy chỉnh
-                                    </button>
-                                    <button type="button" mat-button color="warn" class="text-xs ml-1" *ngIf="newToolIcon" (click)="newToolIcon = ''">
-                                        Xóa
-                                    </button>
-                                </div>
-                            </div>
-                        </mat-dialog-content>
-                        <mat-dialog-actions align="end" class="p-0 mt-2 gap-2">
-                            <button mat-button color="acent" mat-dialog-close>{{ 'app.auto_cancel' | transloco }}</button>
-                            <button mat-flat-button color="primary" [disabled]="!newToolName || !newToolUrl"
-                                (click)="saveTool()">
-                                {{ 'app.auto_add_to_list' | transloco }}
-                            </button>
-                        </mat-dialog-actions>
-                    </ng-template>
-
                 </div>
             </div>
         </div>
