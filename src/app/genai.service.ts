@@ -513,15 +513,19 @@ export class GenaiService {
             }
         }
         
+        const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
+
         let configRatio = (params.config as any)?.aspectRatio || (params.config as any)?.imageConfig?.aspectRatio;
         if (configRatio) {
             finalPrompt += `\n[Yêu cầu kỹ thuật: Tỉ lệ khung hình (Aspect Ratio) là ${configRatio}]`;
         }
-        if (params.config && (params.config as any).imageConfig) {
-            const imgConfig = (params.config as any).imageConfig;
-            if (imgConfig.imageSize) {
-                finalPrompt += `\n[Yêu cầu kỹ thuật: Kích thước là ${imgConfig.imageSize}]`;
-            }
+
+        let imageSize = (params.config as any)?.imageConfig?.imageSize || (params.config as any)?.quality;
+        if (isImageRequest && (!imageSize || imageSize.toLowerCase() === '4k')) {
+            imageSize = '4k';
+        }
+        if (imageSize && !finalPrompt.includes('kích thước là')) {
+            finalPrompt += `\n[Yêu cầu kỹ thuật: Kích thước là ${imageSize}]`;
         }
         
         formData.append('prompt', finalPrompt);
@@ -565,7 +569,6 @@ export class GenaiService {
         this.localAgentAbortController = new AbortController();
         let isAiAgentActive = false;
         let secretApiKey = 'type-vn-local-agent-2026';
-        const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
         const targetEndpoint = isImageRequest ? '/api/image' : '/api/chat';
         let apiUrl = `https://sontinh.type.vn${targetEndpoint}`; // Fallback for Web/Mobile
 
