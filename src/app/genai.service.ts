@@ -565,7 +565,9 @@ export class GenaiService {
         this.localAgentAbortController = new AbortController();
         let isAiAgentActive = false;
         let secretApiKey = 'type-vn-local-agent-2026';
-        let apiUrl = 'https://sontinh.type.vn/api/chat'; // Fallback for Web/Mobile
+        const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
+        const targetEndpoint = isImageRequest ? '/api/image' : '/api/chat';
+        let apiUrl = `https://sontinh.type.vn${targetEndpoint}`; // Fallback for Web/Mobile
 
         if (settings.enableAiAgent !== false) {
             isAiAgentActive = true;
@@ -587,10 +589,11 @@ export class GenaiService {
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
                 // Giả định cú pháp setting là: URL|API_KEY (VD: https://sontinh.type.vn|my-secret)
                 const parts = secretApiKey.split('|');
-                apiUrl = parts[0] + (parts[0].endsWith('/api/chat') ? '' : '/api/chat');
+                const baseUrlClean = parts[0].replace(/\/api\/(chat|image)\/?$/, '');
+                apiUrl = baseUrlClean + targetEndpoint;
                 secretApiKey = parts[1] || 'type-vn-local-agent-2026';
             } else {
-                apiUrl = 'https://sontinh.type.vn/api/chat';
+                apiUrl = `https://sontinh.type.vn${targetEndpoint}`;
             }
         } else {
             // Web / Mobile / Another Account fallback logic
@@ -598,7 +601,8 @@ export class GenaiService {
             
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
                 const parts = secretApiKey.split('|');
-                apiUrl = parts[0] + (parts[0].endsWith('/api/chat') ? '' : '/api/chat');
+                const baseUrlClean = parts[0].replace(/\/api\/(chat|image)\/?$/, '');
+                apiUrl = baseUrlClean + targetEndpoint;
                 secretApiKey = parts[1] || 'type-vn-local-agent-2026';
             }
         }

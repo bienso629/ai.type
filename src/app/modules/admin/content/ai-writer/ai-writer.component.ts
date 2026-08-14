@@ -3107,31 +3107,17 @@ ${contentFromDone || '(Chưa có văn bản)'}
         }
 
         this.isGeneratingImage = true;
-        this.toastr.info('Đang phân tích dàn ý để viết prompt tạo ảnh...', 'Đang xử lý');
+        this.toastr.info('Đang tiến hành tạo ảnh qua API...', 'Tạo hình ảnh');
         this.cd.markForCheck();
 
         try {
-            // 1. Dùng Gemini dịch dàn ý thành visual prompt tiếng Anh
-            let promptForPrompt = `Dưới đây là dàn ý của một bài viết:
-"${outlineText}"`;
-
+            let imagePrompt = '';
             if (this.customImagePrompt && this.customImagePrompt.trim()) {
-                promptForPrompt += `\nYÊU CẦU / CHỈ DẪN THÊM TỪ NGƯỜI DÙNG VỀ HÌNH ẢNH:\n"${this.customImagePrompt.trim()}"`;
+                imagePrompt = this.customImagePrompt.trim();
+            } else {
+                imagePrompt = `Tạo hình ảnh minh họa cho dàn ý: "${outlineText.substring(0, 300)}". Phong cách nghệ thuật hiện đại.`;
             }
-
-            promptForPrompt += `\nHãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
-Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong cách nghệ thuật hiện đại (illustrative, clean vector art, hoặc 3D render style).
-Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
-
-            const promptResponse = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
-                contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
-            });
-
-            let imagePrompt = promptResponse.text ? promptResponse.text.trim() : (this.customImagePrompt || outlineText.substring(0, 100));
             imagePrompt += ', if there is any text in the image, it MUST be written in Vietnamese language.';
-
-            this.toastr.info('Đang tiến hành tạo ảnh bằng Gemini AI...', 'Tạo hình ảnh');
 
             const partsForImage: any[] = [{ text: imagePrompt }];
 
@@ -3149,7 +3135,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 });
             }
 
-            // 2. Tạo hình ảnh bằng Gemini
+            // Gửi trực tiếp tới endpoint /api/image
             const imageResponse = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: partsForImage }],
@@ -3225,29 +3211,17 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         }
 
         this.isGeneratingImage = true;
-        this.toastr.info('Đang phân tích đoạn văn để viết prompt tạo ảnh...', 'Đang xử lý');
+        this.toastr.info('Đang tiến hành tạo ảnh qua API...', 'Tạo hình ảnh');
         this.cd.markForCheck();
 
         try {
-            // 1. Tạo visual prompt tiếng Anh bằng Gemini
-            let promptForPrompt = `Dưới đây là một đoạn văn:
-"${paragraphText}"`;
-
+            let imagePrompt = '';
             if (this.customImagePrompt && this.customImagePrompt.trim()) {
-                promptForPrompt += `\nYÊU CẦU / CHỈ DẪN THÊM TỪ NGƯỜI DÙNG VỀ HÌNH ẢNH:\n"${this.customImagePrompt.trim()}"`;
+                imagePrompt = this.customImagePrompt.trim();
+            } else {
+                imagePrompt = `Tạo hình ảnh minh họa cho đoạn văn: "${paragraphText.substring(0, 300)}". Phong cách nghệ thuật hiện đại.`;
             }
-
-            promptForPrompt += `\nHãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
-Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong cách nghệ thuật hiện đại (illustrative, clean vector art, hoặc 3D render style).
-Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
-
-            const promptResponse = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
-                contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
-            });
-
-            const imagePrompt = promptResponse.text ? promptResponse.text.trim() : (this.customImagePrompt || paragraphText.substring(0, 100));
-            this.toastr.info('Đang tiến hành tạo ảnh bằng Gemini AI...', 'Tạo hình ảnh');
+            imagePrompt += ', if there is any text in the image, it MUST be written in Vietnamese language.';
 
             const partsForImage: any[] = [{ text: imagePrompt }];
 
@@ -3265,7 +3239,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 });
             }
 
-            // 2. Tạo hình ảnh bằng Gemini
+            // Gửi trực tiếp tới endpoint /api/image
             const imageResponse = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: partsForImage }],
