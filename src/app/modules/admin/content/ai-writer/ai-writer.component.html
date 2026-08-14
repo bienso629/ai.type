@@ -2553,14 +2553,7 @@
                                     <div class="mt-4 flex flex-col">
                                         <!-- Tuyển tập -->
                                         <div class="mb-4">
-                                            <div class="flex items-center justify-between mb-1">
-                                                <mat-label class="font-semibold text-sm block">{{ 'app.your_episode' | transloco }}</mat-label>
-                                                <button mat-icon-button type="button" class="w-6 h-6 min-h-6 p-0" (click)="openEncryptionDialog()"
-                                                    [color]="(articlePassword || (details && details.is_encrypted)) ? 'warn' : 'accent'"
-                                                    [matTooltip]="(articlePassword || (details && details.is_encrypted)) ? 'Collection & Bài viết đã được mã hóa (Bấm để Hủy khóa)' : 'Đặt mật khẩu mã hóa AES-256 cho Collection này'">
-                                                    <mat-icon class="icon-size-3.5" [svgIcon]="(articlePassword || (details && details.is_encrypted)) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
-                                                </button>
-                                            </div>
+                                            <mat-label class="font-semibold text-sm block mb-1">{{ 'app.your_episode' | transloco }}</mat-label>
                                             <ng-select class="custom-select-ai-writer w-full" [placeholder]="'app.select_episode' | transloco"
                                                 [items]="collections" [addTag]="addCollection"
                                                 [readonly]="(name !== user.name)" (clear)="onClearCollection()"

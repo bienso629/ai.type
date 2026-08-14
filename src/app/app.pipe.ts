@@ -156,10 +156,17 @@ export class HTML2Paragraph implements PipeTransform {
 export class SEOScorePipe implements PipeTransform {
     transform(data: any): any {
         if (data) {
-            let html = data.done.join(' ');
-            let mainkey = (data.mainkey) ? data.mainkey.replace(/(<([^>]+)>)/gi, "") : '';
-            let title = data.title.replace(/(<([^>]+)>)/gi, "");
-            let description = data.description.replace(/(<([^>]+)>)/gi, "");
+            let html = Array.isArray(data.done) ? data.done.join(' ') : (typeof data.done === 'string' ? data.done : '');
+
+            let rawMainkey = typeof data.mainkey === 'string' ? data.mainkey : (data.mainkey?.text || data.mainkey?.name || '');
+            let mainkey = rawMainkey ? String(rawMainkey).replace(/(<([^>]+)>)/gi, "") : '';
+
+            let rawTitle = typeof data.title === 'string' ? data.title : (data.title?.text || data.title?.name || '');
+            let title = rawTitle ? String(rawTitle).replace(/(<([^>]+)>)/gi, "") : '';
+
+            let rawDesc = typeof data.description === 'string' ? data.description : (data.description?.text || data.seo?.description?.text || '');
+            let description = rawDesc ? String(rawDesc).replace(/(<([^>]+)>)/gi, "") : '';
+
             let h1 = html.match(/<h1[^>]*>(.*?)<\/h1>/gi);
             let h2 = html.match(/<h2[^>]*>(.*?)<\/h2>/gi);
             let links = html.match(/<a[^>]*>(.*?)<\/a>/gi);
@@ -169,33 +176,38 @@ export class SEOScorePipe implements PipeTransform {
             word_count = title ? title.split(/\s+/) : [];
             let total_title = word_count ? word_count.length : 0;
             let title_characters = word_count.join(" ").length;
-            let find_title_mainkey = title.toLowerCase().indexOf(mainkey.toLowerCase());
+            let find_title_mainkey = mainkey ? title.toLowerCase().indexOf(mainkey.toLowerCase()) : -1;
 
             word_count = description ? description.split(/\s+/) : [];
             let total_description = word_count ? word_count.length : 0;
             let description_characters = word_count.join(" ").length;
-            let find_description_mainkey = description.toLowerCase().indexOf(mainkey.toLowerCase());
+            let find_description_mainkey = mainkey ? description.toLowerCase().indexOf(mainkey.toLowerCase()) : -1;
 
             let total_h1 = h1 ? h1.length : 0;
             let h1_words = (h1) ? h1[0].replace(/(<([^>]+)>)/gi, "").split(/\s+/).length : 0;
             let h1_characters = (h1) ? h1[0].replace(/(<([^>]+)>)/gi, "").length : 0;
-            let find_h1_mainkey = (h1) ? h1[0].replace(/(<([^>]+)>)/gi, "").toLowerCase().indexOf(mainkey.toLowerCase()) : -1;
+            let find_h1_mainkey = (h1 && mainkey) ? h1[0].replace(/(<([^>]+)>)/gi, "").toLowerCase().indexOf(mainkey.toLowerCase()) : -1;
 
             let total_h2 = h2 ? h2.length : 0;
 
-            let first_paragraph = data.done[0];
+            let doneArr = Array.isArray(data.done) ? data.done : (data.done ? [String(data.done)] : []);
+            let first_paragraph = doneArr[0] || '';
             let text = html.replace(/(<([^>]+)>)/gi, "");
             let total_words = text ? text.split(/\s+/).length : 0;
-            let find_words_mainkey_in_first_paragraph = (first_paragraph) ? first_paragraph.replace(/(<([^>]+)>)/gi, "").toLowerCase().indexOf(mainkey.toLowerCase()) : -1;
+            let find_words_mainkey_in_first_paragraph = (first_paragraph && mainkey) ? String(first_paragraph).replace(/(<([^>]+)>)/gi, "").toLowerCase().indexOf(mainkey.toLowerCase()) : -1;
             let find_words_mainkey = 0;
-            data.done.map((i: string) => {
-                var re = new RegExp(mainkey.toLowerCase(), 'gi');
-                let result = i.replace(/(<([^>]+)>)/gi, "").toLowerCase().match(re);
-                if (i.replace(/(<([^>]+)>)/gi, "").toLowerCase().indexOf(mainkey.toLowerCase()) >= 0) {
-                    find_words_mainkey = find_words_mainkey + result.length;
-                }
-            });
-            let mainkey_percent_in_words = ((find_words_mainkey * (mainkey.split(/\s+/).length)) / total_words) * 100;
+            if (mainkey) {
+                doneArr.forEach((i: any) => {
+                    let str = typeof i === 'string' ? i : (i ? String(i) : '');
+                    var re = new RegExp(mainkey.toLowerCase(), 'gi');
+                    let cleanStr = str.replace(/(<([^>]+)>)/gi, "").toLowerCase();
+                    let result = cleanStr.match(re);
+                    if (cleanStr.indexOf(mainkey.toLowerCase()) >= 0 && result) {
+                        find_words_mainkey = find_words_mainkey + result.length;
+                    }
+                });
+            }
+            let mainkey_percent_in_words = (total_words > 0 && mainkey) ? ((find_words_mainkey * (mainkey.split(/\s+/).length)) / total_words) * 100 : 0;
 
             let total_links = links ? links.length : 0;
 
