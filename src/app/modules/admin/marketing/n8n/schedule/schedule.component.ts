@@ -206,6 +206,140 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     ];
     filteredMentionOptions: any[] = [];
 
+    cleanDomain(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    }
+
+    isResolvingSingleTask: boolean = false;
+
+    async resolveTask(taskItem?: any): Promise<void> {
+        const task = taskItem || this.editingItem;
+        if (!task || this.isResolvingSingleTask) return;
+
+        this.isResolvingSingleTask = true;
+        this.toastr.info(`Đang dùng AI giải quyết công việc "${task.name}"...`);
+        this.cd.markForCheck();
+
+        try {
+            const domainName = this.editingItemDomain || task.domain || 'website';
+            const styleInstructions = this.editingItemWritingStyle ? `\n- Phong cách viết: ${this.editingItemWritingStyle}` : '';
+            
+            const prompt = `Bạn là chuyên gia Content SEO. Hãy viết một bài blog chi tiết cho website ${domainName} với chủ đề/nhiệm vụ: "${task.name}".
+Yêu cầu:${styleInstructions}
+- Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ giải thích nào khác:
+{
+  "title": "Tiêu đề bài viết",
+  "content": "Nội dung bài viết (HTML, có thẻ h2, h3)",
+  "description": "Mô tả ngắn gọn",
+  "image_prompt": "Gợi ý ảnh tiếng Anh cho bài viết"
+}`;
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.6-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: { ttsVoice: 'none' } as any
+            });
+
+            let jsonText = response.text || (response as any).response?.text() || '';
+            let articleData: any = null;
+            if (jsonText) {
+                try {
+                    const jsonMatch = jsonText.match(/```json([\s\S]*?)```/);
+                    if (jsonMatch) jsonText = jsonMatch[1];
+                    articleData = JSON.parse(jsonText.trim());
+                } catch (e) {
+                    articleData = { title: task.name, content: jsonText };
+                }
+            }
+
+            const pendingArticles = this.multiAccountService.getItem('pending_articles') || [];
+            let archivePayload = {
+                title: articleData?.title || task.name,
+                url: task._id || task.id || Math.random().toString(36).substring(7),
+                source: {
+                    title: [], description: [], url: [], domain: [],
+                    img: [], h: [], a: [], p: [], source: [],
+                    iframe: [], pre: [ articleData?.image_prompt || '' ], type: 'html', prompt: [ task.name ],
+                    synonyms: [], keyword: '', wp_post_id: null,
+                    wp_domain: domainName, wpPosts: [],
+                    nodes: [], totalNodes: 1, wp_task_id: task._id || task.id
+                },
+                done: [ articleData?.content || '' ],
+                trash: [],
+                seo: {
+                    description: { length: 0, text: articleData?.description || '' },
+                    title: { length: 0, text: articleData?.title || task.name },
+                    links: 0, words: { basic: 0, total: 0 },
+                    images: { total: 0, alt: 0 },
+                    heading: {
+                        h1: { total: 0, keys: [] }, h2: { total: 0, keys: [] },
+                        h3: { total: 0, keys: [] }, h4: { total: 0, keys: [] }
+                    }, kw: []
+                },
+                arr_keyword: [],
+                domain: domainName,
+                username: this.user.name,
+                thumbnail: articleData?.image_prompt || ''
+            };
+
+            // 1. Save to Crawl Service archive
+            try {
+                await firstValueFrom(this._crawlService.storeArchive(archivePayload)).catch(() => null);
+            } catch (e) {}
+
+            // 2. Save to pending_articles in MultiAccountService
+            pendingArticles.push(archivePayload);
+            this.multiAccountService.setItem('pending_articles', pendingArticles);
+
+            // 3. Mark task as DONE in RAM and CouchDB!
+            task.done = true;
+            task.status = 'done';
+            task.meta = (task.meta ? task.meta.replace(/done/gi, '').trim() + ' ' : '') + 'Done';
+            if (task.originalTask) {
+                task.originalTask.done = true;
+                task.originalTask.status = 'done';
+                task.originalTask.meta = task.meta;
+            }
+
+            let matchedItem = this.items?.find((item: any) => item.name === domainName || item.name === task.domain);
+            let planTask = matchedItem?.domainData?.plan?.find((t: any) => (t._id || t.id) === (task._id || task.id) || t.name === task.name);
+            if (!planTask && matchedItem?.childrenItems?.[0]?.streamItems) {
+                planTask = matchedItem.childrenItems[0].streamItems.find((t: any) => (t._id || t.id) === (task._id || task.id) || t.name === task.name);
+            }
+            if (planTask) {
+                planTask.done = true;
+                planTask.status = 'done';
+                planTask.meta = task.meta;
+                
+                const isRealCouchDbTask = planTask._id && planTask._rev && String(planTask._rev).includes('-');
+                if (isRealCouchDbTask) {
+                    this._tasksService.edit({ username: this.user.name, task: planTask }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                } else {
+                    this._tasksService.add({ username: this.user.name, task: planTask }).pipe(takeUntil(this._unsubscribeAll)).subscribe((res: any) => {
+                        if (res) {
+                            if (res.id || res._id) planTask._id = res.id || res._id;
+                            if (res.rev || res._rev) planTask._rev = res.rev || res._rev;
+                        }
+                    });
+                }
+            }
+
+            if (matchedItem) {
+                const plan = matchedItem.domainData?.plan || matchedItem.childrenItems?.[0]?.streamItems || [];
+                this.applyPackedTasks(matchedItem, plan);
+            }
+
+            this.items = [...this.items];
+            this.toastr.success(`Đã giải quyết thành công công việc "${task.name}"!`);
+        } catch (err: any) {
+            this.toastr.error(`Lỗi khi giải quyết công việc: ${err.message || err}`);
+        } finally {
+            this.isResolvingSingleTask = false;
+            this.cd.markForCheck();
+        }
+    }
+
     // [NEW] Biến trạng thái Slide Chat rộng (Hover & Pin)
     isChatHovered: boolean = false;
     isChatFocused: boolean = false;

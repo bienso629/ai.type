@@ -75,7 +75,7 @@
                          [class.bg-amber-50]="item.isTotalRow"
                          style="width: 100%; display: flex; align-items: center; border-bottom: 1px solid #e9eef4; padding: 0 16px;">
                         <div class='item-content flex items-center justify-between w-full min-w-0'>
-                            <span class='item-name font-medium text-gray-800 truncate' [class.font-bold]="item.isTotalRow" [class.text-amber-900]="item.isTotalRow" title="{{item.name}}">{{item.name}}</span>
+                            <span class='item-name font-medium text-gray-800 truncate' [class.font-bold]="item.isTotalRow" [class.text-amber-900]="item.isTotalRow" [title]="cleanDomain(item.name)">{{cleanDomain(item.name)}}</span>
                             <ng-container *ngIf="!item.isTotalRow">
                                 <span class="ml-2 px-2 py-0.5 text-xs font-semibold rounded bg-indigo-50 text-indigo-700 shrink-0" title="Chỉ tiêu tháng">
                                     {{ (item.domainData?.monthlyTarget || getResolvedTarget(item.name)) ? ((item.domainData?.monthlyTarget || getResolvedTarget(item.name)) + ' bài') : '0 bài' }}
@@ -272,7 +272,7 @@
         </button>
 
         <div class="flex flex-col pr-8 shrink-0">
-            <div class="text-xs font-semibold text-primary mb-1 uppercase tracking-wider">{{ editingItemDomain }}</div>
+            <div class="text-xs font-semibold text-primary mb-1 uppercase tracking-wider">{{ cleanDomain(editingItemDomain) }}</div>
             <h2 class="text-xl font-bold m-0 text-gray-800 leading-snug">
                 <span class="mr-1 opacity-80" *ngIf="editingItem?.taskIndex">#{{ editingItem.taskIndex }}</span>
                 {{ editingItem?.name }}
@@ -297,6 +297,15 @@
                     {{ (!editingItem?.meta || editingItem.meta === '') ? 'Không có mô tả chi tiết' : '' }}
                 </div>
             </div>
+        </div>
+
+        <!-- Action Footer -->
+        <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0">
+            <button mat-flat-button color="primary" (click)="resolveTask(editingItem)" [disabled]="isResolvingSingleTask" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
+                <mat-icon *ngIf="!isResolvingSingleTask" [svgIcon]="'heroicons_solid:sparkles'" class="icon-size-4"></mat-icon>
+                <mat-icon *ngIf="isResolvingSingleTask" [svgIcon]="'heroicons_outline:refresh'" class="icon-size-4 animate-spin"></mat-icon>
+                <span class="ml-2">{{ isResolvingSingleTask ? 'Đang AI xử lý...' : 'Giải quyết công việc bằng AI' }}</span>
+            </button>
         </div>
     </div>
 </ng-template>
@@ -594,7 +603,7 @@
                         Domain: {{ selectedGroupDomainCount || 1 }} • {{ (selectedGroupStartDate || selectedGroupItem?.startDate) | date:'dd/MM/yyyy' }} - {{ (selectedGroupEndDate || selectedGroupItem?.endDate) | date:'dd/MM/yyyy' }}
                     </div>
                     <div class="text-xs text-gray-500 font-medium mt-0.5" *ngIf="!selectedGroupItem?.isMonthlyTotalBar">
-                        Domain: {{ selectedGroupDomain }} • {{ selectedGroupItem?.startDate | date:'dd/MM/yyyy' }}
+                        Domain: {{ cleanDomain(selectedGroupDomain) }} • {{ selectedGroupItem?.startDate | date:'dd/MM/yyyy' }}
                     </div>
                 </div>
             </div>
