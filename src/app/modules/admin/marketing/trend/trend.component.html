@@ -147,7 +147,7 @@
                                             <mat-option *ngFor="let item of domains" [value]="item" class="py-2 mb-2">
                                                 <label class="line-clamp-1 text-gray-300">{{ item.name || 'Tiêu đề'
                                                     }}</label>
-                                                <label class="line-clamp-1">{{ item.domain }}</label>
+                                                <label class="line-clamp-1">{{ cleanDomain(item.domain) }}</label>
                                             </mat-option>
                                         </mat-autocomplete>
                                     </mat-form-field>

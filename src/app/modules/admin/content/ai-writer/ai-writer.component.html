@@ -70,7 +70,7 @@
                 <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
                 <mat-select [compareWith]="compareDomainFn" (selectionChange)="connect($event)" [(ngModel)]="domain">
                     <ng-container *ngFor="let item of domains; let i = index">
-                        <mat-option [value]="item">{{item.domain}}</mat-option>
+                        <mat-option [value]="item">{{cleanDomain(item.domain)}}</mat-option>
                     </ng-container>
                 </mat-select>
 

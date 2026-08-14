@@ -881,26 +881,11 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             newRow.conversation_id = (result as any).conversation_id;
                         }
 
-                        // Tự động upload ảnh lên server nếu có để lưu vào CSDL (CHỈ KHI CHƯA CÓ ẢNH NÀO TRONG TEXT)
-                        if (!hasAnyImageTag && modelMsg.inlineData && modelMsg.inlineData.mimeType && modelMsg.inlineData.mimeType.startsWith('image/')) {
-                            try {
-                                let ext = 'png';
-                                if (modelMsg.inlineData.mimeType.includes('jpeg') || modelMsg.inlineData.mimeType.includes('jpg')) ext = 'jpg';
-                                
-                                const cdnUrl = await this._genaiService.uploadBase64ToCdn(
-                                    modelMsg.inlineData.data,
-                                    `chatgpt_${Date.now()}.${ext}`,
-                                    this.user.name
-                                );
-                                
-                                if (cdnUrl) {
-                                    finalDisplayText += `\n\n![Generated Image](${cdnUrl})`;
-                                    newRow.answer = finalDisplayText;
-                                }
-                            } catch(e) {
-                                console.warn('Lỗi khi upload ảnh từ chat lên server', e);
-                            }
-                        }
+                        // Tự động upload ảnh (base64, local file path) lên CDN server và cập nhật hiển thị/CSDL
+                        await this.uploadImagesInMessageToCdn(modelMsg, newRow);
+                        newRow.messages[1] = { ...modelMsg };
+                        newRow.messages = [...newRow.messages];
+                        finalDisplayText = newRow.answer || finalDisplayText;
 
                         this.chatgptStore(finalDisplayText, question, newRow);
                     } else {
@@ -1122,6 +1107,11 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         if (extractedInlineData) {
                             msgObj.inlineData = extractedInlineData;
                         }
+                        this.uploadImagesInMessageToCdn(msgObj, this.activeChatRow).then((updated) => {
+                            if (updated) {
+                                this.cdref.detectChanges();
+                            }
+                        });
                         this.activeChatRow.messages.push(msgObj);
                     }
                     this.cdref.detectChanges();
@@ -1141,10 +1131,19 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 ans = ans.replace(match[0], '').trim();
             }
 
+            const modelMsg = { role: 'model', text: ans, inlineData: inlineData };
             row.messages = [
                 { role: 'user', text: row.question || '' },
-                { role: 'model', text: ans, inlineData: inlineData }
+                modelMsg
             ];
+
+            this.uploadImagesInMessageToCdn(modelMsg, row).then((updated) => {
+                if (updated) {
+                    row.messages[1] = { ...modelMsg };
+                    row.messages = [...row.messages];
+                    this.cdref.detectChanges();
+                }
+            });
         }
         return row.messages;
     }
@@ -1367,26 +1366,13 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                     row.conversation_id = (result as any).conversation_id;
                 }
                 
-                // Tự động upload ảnh lên server nếu có để lưu vào CSDL
-                if (!hasAnyImageTag && modelMsgRef.inlineData && modelMsgRef.inlineData.mimeType && modelMsgRef.inlineData.mimeType.startsWith('image/')) {
-                    try {
-                        let ext = 'png';
-                        if (modelMsgRef.inlineData.mimeType.includes('jpeg') || modelMsgRef.inlineData.mimeType.includes('jpg')) ext = 'jpg';
-                        
-                        const cdnUrl = await this._genaiService.uploadBase64ToCdn(
-                            modelMsgRef.inlineData.data,
-                            `chatgpt_${Date.now()}.${ext}`,
-                            this.user.name
-                        );
-                        
-                        if (cdnUrl) {
-                            finalDisplayText += `\n\n![Generated Image](${cdnUrl})`;
-                            row.answer = finalDisplayText;
-                        }
-                    } catch(e) {
-                        console.warn('Lỗi khi upload ảnh từ chat lên server', e);
-                    }
+                // Tự động upload ảnh (base64, local file path) lên CDN server và cập nhật hiển thị/CSDL
+                await this.uploadImagesInMessageToCdn(modelMsgRef, row);
+                if (row.messages && row.messages.length > 0) {
+                    row.messages[row.messages.length - 1] = { ...modelMsgRef };
+                    row.messages = [...row.messages];
                 }
+                finalDisplayText = row.answer || finalDisplayText;
                 
                 this._chatGPTService.store({
                     _id: row._id,
@@ -1501,6 +1487,152 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      */
     closePanel(): void {
         this._overlayRef.detach();
+    }
+
+    public async uploadImagesInMessageToCdn(msgObj: any, rowObj?: any): Promise<boolean> {
+        if (!msgObj) return false;
+        let updated = false;
+        try {
+            // 1. Inline base64 image data from Gemini API
+            if (msgObj.inlineData && msgObj.inlineData.mimeType && msgObj.inlineData.mimeType.startsWith('image/') && msgObj.inlineData.data) {
+                let ext = 'png';
+                if (msgObj.inlineData.mimeType.includes('jpeg') || msgObj.inlineData.mimeType.includes('jpg')) ext = 'jpg';
+                else if (msgObj.inlineData.mimeType.includes('webp')) ext = 'webp';
+
+                const cdnUrl = await this._genaiService.uploadBase64ToCdn(
+                    msgObj.inlineData.data,
+                    `chatgpt_${Date.now()}.${ext}`,
+                    this.user?.name
+                );
+
+                if (cdnUrl) {
+                    delete msgObj.inlineData;
+                    let text = msgObj.text || '';
+                    if (!text.includes(cdnUrl)) {
+                        text = (text.trim() + `\n\n![Generated Image](${cdnUrl})`).trim();
+                    }
+                    msgObj.text = text;
+                    updated = true;
+                }
+            }
+
+            // 2. Base64 markdown/HTML images or local file paths in msgObj.text
+            if (msgObj.text && typeof msgObj.text === 'string') {
+                let text = msgObj.text;
+
+                // 2a. Base64 markdown image: ![alt](data:image/...;base64,...)
+                const mdBase64Matches = [...text.matchAll(/!\[(.*?)\]\((data:(image\/[^;]+);base64,([^\)]+))\)/gs)];
+                for (const match of mdBase64Matches) {
+                    const alt = match[1] || 'Generated Image';
+                    const mimeType = match[3];
+                    const base64Data = match[4];
+                    let ext = 'png';
+                    if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+
+                    const cdnUrl = await this._genaiService.uploadBase64ToCdn(
+                        base64Data,
+                        `chatgpt_${Date.now()}.${ext}`,
+                        this.user?.name
+                    );
+
+                    if (cdnUrl) {
+                        text = text.replace(match[0], `![${alt}](${cdnUrl})`);
+                        updated = true;
+                    }
+                }
+
+                // 2b. Base64 HTML image: <img ... src="data:image/...;base64,..." ...>
+                const htmlBase64Matches = [...text.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gis)];
+                for (const match of htmlBase64Matches) {
+                    const mimeType = match[2];
+                    const base64Data = match[3];
+                    let ext = 'png';
+                    if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+
+                    const cdnUrl = await this._genaiService.uploadBase64ToCdn(
+                        base64Data,
+                        `chatgpt_${Date.now()}.${ext}`,
+                        this.user?.name
+                    );
+
+                    if (cdnUrl) {
+                        text = text.replace(match[1], cdnUrl);
+                        updated = true;
+                    }
+                }
+
+                // 2c. Local file paths (vd: Documents/ai.type/data/profiles/.../wall_photo.jpg, /home/..., file://...)
+                const localPathRegex = /(?:!\[(.*?)\]\((?:file:\/\/)?([^)]+\.(?:png|jpg|jpeg|webp|gif))\)|<img[^>]*src=["'](?:file:\/\/)?([^"']+\.(?:png|jpg|jpeg|webp|gif))["'][^>]*>|(?:^|\s|`|\()((?:[a-zA-Z]:\\|\/|Documents\/)[^\s\)`]+\.(?:png|jpg|jpeg|webp|gif))(?:\s|`|\)|$))/gi;
+                const localMatches = [...text.matchAll(localPathRegex)];
+
+                for (const match of localMatches) {
+                    const alt = match[1] || 'Local Image';
+                    let filePath = match[2] || match[3] || match[4];
+                    if (filePath && !filePath.startsWith('http://') && !filePath.startsWith('https://') && !filePath.startsWith('data:')) {
+                        let fullPath = filePath;
+                        if (filePath.startsWith('Documents/')) {
+                            fullPath = '/home/yenai/' + filePath;
+                        }
+
+                        let b64: string | null = null;
+                        if ((window as any).electronAPI && (window as any).electronAPI.readFileBase64) {
+                            try {
+                                b64 = await (window as any).electronAPI.readFileBase64(fullPath);
+                            } catch(e) {}
+                        }
+
+                        if (!b64) {
+                            try {
+                                const resp = await fetch('file://' + fullPath);
+                                const blob = await resp.blob();
+                                b64 = await new Promise<string>((resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        const res = reader.result as string;
+                                        resolve(res ? res.split(',')[1] : '');
+                                    };
+                                    reader.readAsDataURL(blob);
+                                });
+                            } catch(e) {}
+                        }
+
+                        if (b64) {
+                            let ext = filePath.split('.').pop()?.toLowerCase() || 'jpg';
+                            const cdnUrl = await this._genaiService.uploadBase64ToCdn(
+                                b64,
+                                `chatgpt_${Date.now()}.${ext}`,
+                                this.user?.name
+                            );
+                            if (cdnUrl) {
+                                if (match[0].startsWith('![')) {
+                                    text = text.replace(match[0], `![${alt}](${cdnUrl})`);
+                                } else if (match[0].startsWith('<img')) {
+                                    text = text.replace(match[0], `<img src="${cdnUrl}" class="rounded-xl object-contain max-h-96 shadow-sm" />`);
+                                } else {
+                                    const orig = match[4];
+                                    if (orig) {
+                                        text = text.replace(orig, cdnUrl);
+                                    }
+                                    if (!text.includes(`![${alt}](${cdnUrl})`)) {
+                                        text += `\n\n![${alt}](${cdnUrl})`;
+                                    }
+                                }
+                                updated = true;
+                            }
+                        }
+                    }
+                }
+
+                msgObj.text = text;
+            }
+
+            if (updated && rowObj) {
+                rowObj.answer = msgObj.text;
+            }
+        } catch (e) {
+            console.warn('[CDN Upload] Error processing message images:', e);
+        }
+        return updated;
     }
 
     downloadImage(msg: any) {

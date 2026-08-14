@@ -3,7 +3,7 @@
         <!-- Drawer -->
         <mat-drawer class="dark:bg-gray-900 transition-all duration-300 ease-in-out !overflow-x-hidden"
             [style.width]="isCompact ? '80px' : '320px'"
-            [autoFocus]="false" [mode]="drawerMode" [opened]="drawerOpened"
+            [autoFocus]="false" mode="side" [opened]="true"
             #drawer>
             <!-- Header -->
             <div class="flex items-center w-full"
@@ -57,11 +57,6 @@
             <div class="flex-auto px-6 pt-9 pb-12 md:p-8 md:pb-12 lg:p-12">
                 <!-- Panel header -->
                 <div class="flex items-center">
-                    <!-- Drawer toggle -->
-                    <button class="lg:hidden -ml-2 mr-2" mat-icon-button (click)="drawer.toggle()" [matTooltip]="'Ẩn/Hiện cột Cài đặt'">
-                        <mat-icon [svgIcon]="'heroicons_outline:menu'"></mat-icon>
-                    </button>
-
                     <!-- Panel title -->
                     <div class="text-3xl font-semibold tracking-tight leading-none">
                         {{getPanelInfo(selectedPanel)?.title | transloco}}

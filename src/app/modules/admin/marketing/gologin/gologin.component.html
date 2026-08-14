@@ -91,7 +91,7 @@
                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
                         <mat-autocomplete #auto="matAutocomplete">
                             <mat-option *ngFor="let item of domains" [value]="item.domain">
-                                {{ item.domain }}
+                                {{ cleanDomain(item.domain) }}
                             </mat-option>
                         </mat-autocomplete>
                     </mat-form-field>

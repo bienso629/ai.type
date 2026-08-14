@@ -56,6 +56,11 @@ export class SitemapComponent implements OnInit, OnDestroy {
         return cleanD1 === cleanD2;
     }
 
+    cleanDomain(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    }
+
     onDomainChange(event: any) {
         this.selectedDomain = event.value;
         localStorage.setItem('sitemap_selected_domain', this.selectedDomain.domain);
