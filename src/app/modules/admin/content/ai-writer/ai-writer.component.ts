@@ -217,6 +217,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ');
     }
 
+    cleanDomain(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    }
+
     @ViewChild('stepper') stepper: any;
     @ViewChild('generateImageDialog') generateImageDialog: TemplateRef<any>;
     generateImageDialogRef: MatDialogRef<any>;

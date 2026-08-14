@@ -451,6 +451,11 @@ export class AIImageComponent
         return 'FILE';
     }
 
+    cleanDomain(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    }
+
     async createImg() {
         const promptValue = this.form.get('prompt')?.value;
         if (!promptValue || this.loading) return;

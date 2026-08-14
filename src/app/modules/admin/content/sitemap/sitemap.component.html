@@ -57,7 +57,7 @@
                 <mat-select [compareWith]="compareDomainFn" (selectionChange)="onDomainChange($event)"
                     [(ngModel)]="selectedDomain">
                     <ng-container *ngFor="let item of domains; let i = index">
-                        <mat-option [value]="item">{{item.domain}}</mat-option>
+                        <mat-option [value]="item">{{cleanDomain(item.domain)}}</mat-option>
                     </ng-container>
                 </mat-select>
             </mat-form-field>

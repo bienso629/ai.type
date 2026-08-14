@@ -88,6 +88,11 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
     ColumnMode = ColumnMode;
     SelectionType = SelectionType;
 
+    cleanDomain(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    }
+
     private unsubscribeLog: () => void;
     private unsubscribeRes: () => void;
 

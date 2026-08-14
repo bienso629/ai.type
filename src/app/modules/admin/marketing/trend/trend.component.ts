@@ -128,6 +128,11 @@ export class AIFacePostComponent
 
     trendResult: any[] = []; // Biến lưu kết quả trend
 
+    cleanDomain(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    }
+
     private unsubscribeLog: () => void;
     private unsubscribeRes: () => void;
 

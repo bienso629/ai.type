@@ -110,7 +110,7 @@
                         style="scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%);">
                         <ng-container *ngIf="row?.source?.wpPosts && row?.source?.wpPosts?.length > 0; else singleWP">
                             <span *ngFor="let wp of row?.source?.wpPosts; let i = index" matTooltipPosition="above"
-                                [matTooltip]="('app.synced_wordpress' | transloco) + ' ' + (wp.domain ? '(' + wp.domain + ')' : '')"
+                                [matTooltip]="('app.synced_wordpress' | transloco) + ' ' + (wp.domain ? '(' + cleanDomain(wp.domain) + ')' : '')"
                                 (click)="$event.stopPropagation(); openWPPost(row, wp)"
                                 class="shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-pointer hover:opacity-85 transition-opacity group flex items-center gap-1">
                                 WP: {{wp.id || wp.wp_post_id}}
@@ -119,7 +119,7 @@
                         </ng-container>
                         <ng-template #singleWP>
                             <span *ngIf="row?.source?.wp_post_id" matTooltipPosition="above"
-                                [matTooltip]="('app.synced_wordpress' | transloco) + ' ' + (row?.source?.wp_domain ? '(' + row?.source?.wp_domain + ')' : (row?.domain ? '(' + row?.domain + ')' : ''))"
+                                [matTooltip]="('app.synced_wordpress' | transloco) + ' ' + (row?.source?.wp_domain ? '(' + cleanDomain(row?.source?.wp_domain) + ')' : (row?.domain ? '(' + cleanDomain(row?.domain) + ')' : ''))"
                                 (click)="$event.stopPropagation(); openWPPost(row)"
                                 class="shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-pointer hover:opacity-85 transition-opacity group flex items-center gap-1">
                                 WP: {{row?.source?.wp_post_id}}

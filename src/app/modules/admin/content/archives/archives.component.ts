@@ -455,15 +455,24 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             });
     }
 
+    cleanDomain(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    }
+
     getDomainString(row: any): string {
         if (!row) return '';
         const d = row?.source?.wp_domain || row?.domain;
         if (!d) return '';
-        if (typeof d === 'string') return d;
-        if (typeof d === 'object') {
-            return d.domain || d.name || d.url || d.host || '';
+        let domainStr = '';
+        if (typeof d === 'string') {
+            domainStr = d;
+        } else if (typeof d === 'object') {
+            domainStr = d.domain || d.name || d.url || d.host || '';
+        } else {
+            domainStr = String(d);
         }
-        return String(d);
+        return this.cleanDomain(domainStr);
     }
 
     openWPPost(row: any, wpItem?: any) {

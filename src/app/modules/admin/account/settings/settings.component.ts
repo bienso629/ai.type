@@ -101,6 +101,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     toggleCompact(): void {
         this.isCompact = !this.isCompact;
+        this.drawerOpened = true;
         this._changeDetectorRef.markForCheck();
         setTimeout(() => {
             if (this.drawer && (this.drawer as any).container) {
@@ -186,18 +187,19 @@ export class SettingsComponent implements OnInit, OnDestroy {
      * On init
      */
     ngOnInit(): void {
+        this.drawerMode = 'side';
+        this.drawerOpened = true;
         // Subscribe to media changes
         this._fuseMediaWatcherService.onMediaChange$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe(({ matchingAliases }) => {
-                // Set the drawerMode and drawerOpened
+                this.drawerMode = 'side';
+                this.drawerOpened = true;
                 if (matchingAliases.includes('lg')) {
-                    this.drawerMode = 'side';
-                    this.drawerOpened = true;
+                    this.isCompact = false;
                 }
                 else {
-                    this.drawerMode = 'over';
-                    this.drawerOpened = false;
+                    this.isCompact = true;
                 }
 
                 // Mark for check
