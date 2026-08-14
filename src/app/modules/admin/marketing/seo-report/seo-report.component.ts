@@ -1107,15 +1107,17 @@ Quy định định dạng:
             const bpScore = this.getPageSpeedScore('best-practices');
             const seoScore = this.getPageSpeedScore('seo');
 
-            // 2. Tạo Đánh giá Tổng quan bằng AI
+            // 2. Tạo Đánh giá Rõ ràng & Súc tích từ AI Agent
             let aiSummaryText = '';
+
             if (this._genaiService) {
                 try {
-                    const prompt = `Bạn là Chuyên gia SEO & Performance hàng đầu. Hãy phân tích ngắn gọn trong 3 dòng (tối đa 120 từ) các số liệu sau của website ${this.siteUrl} (${this.startDate} đến ${this.endDate}):
-1. Search Console: ${gscClicks} lượt nhấp, ${gscImpressions} hiển thị, CTR ${gscCtr}%, Vị trí trung bình ${gscPos}. Từ khóa: ${topKeywords}.
-2. GA4: ${gaUsers} người dùng, ${gaSessions} phiên, ${gaViews} lượt xem trang, Tỷ lệ tương tác ${gaEngage}%.
-3. PageSpeed: Điểm Hiệu năng ${perfScore}/100, Trải nghiệm ${accScore}/100, Chuẩn ${bpScore}/100, SEO ${seoScore}/100.
-Đưa ra nhận xét tổng thể về sức khỏe website và 2 hành động cần làm ưu tiên nhất. Viết bằng tiếng Việt chuyên nghiệp, súc tích.`;
+                    const prompt = `Phân tích hiệu suất website ${this.siteUrl} (${this.startDate} đến ${this.endDate}):
+- Search Console: ${gscClicks} lượt nhấp, ${gscImpressions} hiển thị, CTR ${gscCtr}%, Vị trí TB ${gscPos}.
+- Analytics GA4: ${gaUsers} người dùng, ${gaSessions} phiên, ${gaViews} lượt xem, Tương tác ${gaEngage}%.
+- PageSpeed: Hiệu năng ${perfScore}/100, Trải nghiệm ${accScore}/100, Chuẩn SEO ${seoScore}/100.
+
+Viết nhận xét 2-3 câu bằng Tiếng Việt cực kỳ rõ ràng, đi thẳng vào trọng tâm về sức khỏe website và 2 hành động cần làm ngay. Không dùng từ ngữ rườm rà.`;
 
                     const response = await this._genaiService.generateContent({
                         model: 'gemini-3.6-flash',
@@ -1125,156 +1127,157 @@ Quy định định dạng:
                         aiSummaryText = response.text;
                     }
                 } catch (err) {
-                    console.warn("AI generation fallback for Image Report:", err);
+                    console.warn("AI text generation fallback for Image Report:", err);
                 }
             }
 
             if (!aiSummaryText) {
-                aiSummaryText = `📊 **Đánh giá tổng thể từ AI Agent**: Website **${this.siteUrl}** ghi nhận tổng cộng **${gscClicks.toLocaleString()}** lượt nhấp từ tìm kiếm tự nhiên và **${gaUsers.toLocaleString()}** người dùng truy cập trong kỳ báo cáo. Điểm số tối ưu tốc độ đạt **${perfScore}/100** (Hiệu năng) và **${seoScore}/100** (Chuẩn SEO).\n💡 **Hành động ưu tiên**: Tiếp tục tối ưu tốc độ tải trang, tập trung đẩy mạnh bài viết cho các từ khóa đạt vị trí cao để gia tăng lượng truy cập tự nhiên.`;
+                aiSummaryText = `Website **${this.siteUrl}** ghi nhận **${gscClicks.toLocaleString()}** lượt nhấp tự nhiên và **${gaUsers.toLocaleString()}** người dùng truy cập. Điểm hiệu năng tốc độ đạt **${perfScore}/100** và chuẩn SEO **${seoScore}/100**.\n• Ưu tiên 1: Tối ưu lại tốc độ tải trang trên di động.\n• Ưu tiên 2: Cập nhật nội dung cho các bài viết có CTR cao để tăng lượng chuyển đổi.`;
             }
 
-            const getScoreBadgeStyle = (score: any) => {
+            const getScoreColor = (score: any) => {
                 const val = Number(score);
-                if (isNaN(val)) return 'background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;';
-                if (val >= 90) return 'background: #10b981; color: #ffffff;';
-                if (val >= 50) return 'background: #f59e0b; color: #ffffff;';
-                return 'background: #ef4444; color: #ffffff;';
+                if (isNaN(val)) return '#64748b';
+                if (val >= 90) return '#10b981';
+                if (val >= 50) return '#f59e0b';
+                return '#ef4444';
             };
 
-            // 3. Khung Infographic DOM siêu nét (1200px wide card)
+            // 3. Thiết kế Báo cáo Infographic 2 Cột Rộng Rãi - Tuyệt Đối Không Dính Chữ & Số (Wide 2-Column Grid)
             const reportContainer = document.createElement('div');
             reportContainer.id = 'ai-image-report-card';
             reportContainer.style.position = 'fixed';
             reportContainer.style.left = '-9999px';
             reportContainer.style.top = '-9999px';
-            reportContainer.style.width = '1200px';
-            reportContainer.style.padding = '40px';
-            reportContainer.style.backgroundColor = '#f8fafc';
+            reportContainer.style.width = '1080px';
+            reportContainer.style.minHeight = '1920px';
+            reportContainer.style.padding = '0px';
+            reportContainer.style.backgroundColor = '#ffffff';
             reportContainer.style.fontFamily = 'Inter, Roboto, system-ui, -apple-system, sans-serif';
             reportContainer.style.boxSizing = 'border-box';
             reportContainer.style.color = '#0f172a';
+            reportContainer.style.display = 'flex';
+            reportContainer.style.flexDirection = 'column';
+            reportContainer.style.justifyContent = 'space-between';
 
             reportContainer.innerHTML = `
-                <div style="background: white; border-radius: 20px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0;">
-                    <!-- HEADER -->
-                    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 40px; color: white; position: relative;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="display: inline-flex; align-items: center; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 9999px; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.2);">
-                                    ✨ BÁO CÁO TỔNG HỢP EXECUTIVE (AI POWERED)
-                                </div>
-                                <h1 style="font-size: 32px; font-weight: 800; margin: 0; letter-spacing: -0.5px; color: white;">
-                                    ${this.siteUrl}
-                                </h1>
+                <div style="background: #ffffff; display: flex; flex-direction: column; height: 100%;">
+                    
+                    <!-- HERO HEADER -->
+                    <div style="background: #0f172a; padding: 48px 48px; color: white; border-bottom: 4px solid #3b82f6;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                            <div style="font-size: 15px; font-weight: 700; color: #93c5fd; letter-spacing: 0.5px;">
+                                📱 BÁO CÁO EXECUTIVE MOBILE (9:16)
                             </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 14px; color: #c7d2fe; font-weight: 500;">Khoảng thời gian</div>
-                                <div style="font-size: 18px; font-weight: 700; color: white; margin-top: 4px;">${this.startDate} → ${this.endDate}</div>
-                                <div style="font-size: 12px; color: #a5b4fc; margin-top: 6px;">Xuất báo cáo: ${new Date().toLocaleDateString('vi-VN')}</div>
+                            <div style="font-size: 14px; font-weight: 700; color: #cbd5e1;">
+                                ai.type
                             </div>
+                        </div>
+                        <h1 style="font-size: 46px; font-weight: 900; margin: 0 0 12px 0; color: #ffffff; letter-spacing: -1px; line-height: 1.15; word-break: break-word;">
+                            ${this.siteUrl}
+                        </h1>
+                        <div style="font-size: 16px; color: #cbd5e1; font-weight: 600;">
+                            Thời gian: ${this.startDate} — ${this.endDate}
                         </div>
                     </div>
 
-                    <div style="padding: 36px 40px;">
-                        <!-- GRID 3 TABS -->
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 32px;">
-                            
-                            <!-- TAB 1: GSC -->
-                            <div style="background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px;">
-                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #3b82f6;">
-                                    <div style="width: 12px; height: 12px; border-radius: 9999px; background: #3b82f6;"></div>
-                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">1. Google Search Console</h3>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px;">
-                                        <div style="font-size: 12px; color: #2563eb; font-weight: 600;">Lượt nhấp</div>
-                                        <div style="font-size: 22px; font-weight: 800; color: #1e40af; margin-top: 4px;">${gscClicks.toLocaleString()}</div>
-                                    </div>
-                                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px;">
-                                        <div style="font-size: 12px; color: #16a34a; font-weight: 600;">Lượt hiển thị</div>
-                                        <div style="font-size: 22px; font-weight: 800; color: #166534; margin-top: 4px;">${gscImpressions.toLocaleString()}</div>
-                                    </div>
-                                    <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 12px; padding: 12px;">
-                                        <div style="font-size: 12px; color: #9333ea; font-weight: 600;">CTR trung bình</div>
-                                        <div style="font-size: 22px; font-weight: 800; color: #6b21a8; margin-top: 4px;">${gscCtr}%</div>
-                                    </div>
-                                    <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px;">
-                                        <div style="font-size: 12px; color: #ea580c; font-weight: 600;">Vị trí trung bình</div>
-                                        <div style="font-size: 22px; font-weight: 800; color: #9a3412; margin-top: 4px;">${gscPos}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- TAB 2: GA4 -->
-                            <div style="background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px;">
-                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #10b981;">
-                                    <div style="width: 12px; height: 12px; border-radius: 9999px; background: #10b981;"></div>
-                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">2. Google Analytics 4</h3>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px;">
-                                        <div style="font-size: 12px; color: #2563eb; font-weight: 600;">Người dùng</div>
-                                        <div style="font-size: 22px; font-weight: 800; color: #1e40af; margin-top: 4px;">${gaUsers.toLocaleString()}</div>
-                                    </div>
-                                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px;">
-                                        <div style="font-size: 12px; color: #16a34a; font-weight: 600;">Phiên truy cập</div>
-                                        <div style="font-size: 22px; font-weight: 800; color: #166534; margin-top: 4px;">${gaSessions.toLocaleString()}</div>
-                                    </div>
-                                    <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 12px; padding: 12px;">
-                                        <div style="font-size: 12px; color: #9333ea; font-weight: 600;">Lượt xem trang</div>
-                                        <div style="font-size: 22px; font-weight: 800; color: #6b21a8; margin-top: 4px;">${gaViews.toLocaleString()}</div>
-                                    </div>
-                                    <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px;">
-                                        <div style="font-size: 12px; color: #ea580c; font-weight: 600;">Tỷ lệ tương tác</div>
-                                        <div style="font-size: 22px; font-weight: 800; color: #9a3412; margin-top: 4px;">${gaEngage}%</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- TAB 3: PAGESPEED -->
-                            <div style="background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px;">
-                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #8b5cf6;">
-                                    <div style="width: 12px; height: 12px; border-radius: 9999px; background: #8b5cf6;"></div>
-                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">3. PageSpeed Insights</h3>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center;">
-                                        <div style="font-size: 11px; color: #64748b; font-weight: 600;">Hiệu năng</div>
-                                        <div style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 18px; font-weight: 800; margin-top: 6px; ${getScoreBadgeStyle(perfScore)}">${perfScore}</div>
-                                    </div>
-                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center;">
-                                        <div style="font-size: 11px; color: #64748b; font-weight: 600;">Trải nghiệm</div>
-                                        <div style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 18px; font-weight: 800; margin-top: 6px; ${getScoreBadgeStyle(accScore)}">${accScore}</div>
-                                    </div>
-                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center;">
-                                        <div style="font-size: 11px; color: #64748b; font-weight: 600;">Chuẩn hóa</div>
-                                        <div style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 18px; font-weight: 800; margin-top: 6px; ${getScoreBadgeStyle(bpScore)}">${bpScore}</div>
-                                    </div>
-                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center;">
-                                        <div style="font-size: 11px; color: #64748b; font-weight: 600;">Chuẩn SEO</div>
-                                        <div style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 18px; font-weight: 800; margin-top: 6px; ${getScoreBadgeStyle(seoScore)}">${seoScore}</div>
-                                    </div>
-                                </div>
-                            </div>
-
+                    <!-- AI STRATEGIC SUMMARY SECTION -->
+                    <div style="background: #f0fdf4; padding: 36px 48px; border-bottom: 3px solid #bbf7d0;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+                            <span style="font-size: 28px;">💡</span>
+                            <h2 style="margin: 0; font-size: 24px; font-weight: 800; color: #065f46; letter-spacing: -0.3px;">
+                                Đánh giá & Định hướng từ AI Agent
+                            </h2>
                         </div>
+                        <div style="font-size: 18px; line-height: 1.8; color: #047857; font-weight: 600; white-space: pre-line;">
+                            ${aiSummaryText}
+                        </div>
+                    </div>
 
-                        <!-- AI STRATEGIC ANALYSIS -->
-                        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1.5px solid #a7f3d0; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                                <span style="font-size: 20px;">🤖</span>
-                                <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #065f46;">ĐÁNH GIÁ CHUYÊN SÂU & HÀNH ĐỘNG TỪ AI AGENT</h3>
+                    <!-- STRUCTURED TABLE GRID: 2 WIDE COLUMNS PER ROW -->
+                    <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: space-evenly;">
+                        
+                        <!-- DÒNG 1: GOOGLE SEARCH CONSOLE -->
+                        <div style="border-bottom: 3px solid #cbd5e1;">
+                            <div style="background: #eff6ff; padding: 16px 48px; font-size: 16px; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #bfdbfe;">
+                                🔍 DÒNG 1: GOOGLE SEARCH CONSOLE
                             </div>
-                            <div style="font-size: 14px; line-height: 1.7; color: #047857; font-weight: 500; whitespace-pre-line;">
-                                ${aiSummaryText}
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #e2e8f0;">
+                                <div style="padding: 28px 48px; border-right: 1px solid #e2e8f0;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Tổng lượt nhấp</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #1e40af; line-height: 1.1;">${gscClicks.toLocaleString()}</div>
+                                </div>
+                                <div style="padding: 28px 48px;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Lượt hiển thị</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #0f172a; line-height: 1.1;">${gscImpressions.toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                                <div style="padding: 28px 48px; border-right: 1px solid #e2e8f0;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">CTR Trung bình</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #7c3aed; line-height: 1.1;">${gscCtr}%</div>
+                                </div>
+                                <div style="padding: 28px 48px;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Vị trí Trung bình</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #ea580c; line-height: 1.1;">${gscPos}</div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- FOOTER -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
-                            <div>Nền tảng Tự động hóa & Sáng tạo Nội dung AI - <strong>ai.type</strong></div>
-                            <div>Báo cáo được kết xuất tự động ở độ phân giải Ultra-HD</div>
+                        <!-- DÒNG 2: GOOGLE ANALYTICS 4 -->
+                        <div style="border-bottom: 3px solid #cbd5e1;">
+                            <div style="background: #f0fdf4; padding: 16px 48px; font-size: 16px; font-weight: 800; color: #065f46; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #bbf7d0;">
+                                📈 DÒNG 2: GOOGLE ANALYTICS 4
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #e2e8f0;">
+                                <div style="padding: 28px 48px; border-right: 1px solid #e2e8f0;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Người dùng</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #047857; line-height: 1.1;">${gaUsers.toLocaleString()}</div>
+                                </div>
+                                <div style="padding: 28px 48px;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Lượt xem trang</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #0f172a; line-height: 1.1;">${gaViews.toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                                <div style="padding: 28px 48px; border-right: 1px solid #e2e8f0;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Phiên truy cập</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #0284c7; line-height: 1.1;">${gaSessions.toLocaleString()}</div>
+                                </div>
+                                <div style="padding: 28px 48px;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Tỷ lệ tương tác</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #16a34a; line-height: 1.1;">${gaEngage}%</div>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- DÒNG 3: PAGESPEED INSIGHTS TỐC ĐỘ -->
+                        <div>
+                            <div style="background: #faf5ff; padding: 16px 48px; font-size: 16px; font-weight: 800; color: #5b21b6; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #e9d5ff;">
+                                ⚡ DÒNG 3: PAGESPEED INSIGHTS TỐC ĐỘ
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #e2e8f0;">
+                                <div style="padding: 28px 48px; border-right: 1px solid #e2e8f0;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Hiệu năng Tốc độ</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: ${getScoreColor(perfScore)}; line-height: 1.1;">${perfScore} / 100</div>
+                                </div>
+                                <div style="padding: 28px 48px;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Chuẩn SEO Website</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: ${getScoreColor(seoScore)}; line-height: 1.1;">${seoScore} / 100</div>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                                <div style="padding: 28px 48px; border-right: 1px solid #e2e8f0;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Trải nghiệm Người dùng</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #0f172a; line-height: 1.1;">${accScore} / 100</div>
+                                </div>
+                                <div style="padding: 28px 48px;">
+                                    <div style="font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Tối ưu Chuẩn hóa</div>
+                                    <div style="font-size: 44px; font-weight: 900; color: #0f172a; line-height: 1.1;">${bpScore} / 100</div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             `;
@@ -1283,10 +1286,11 @@ Quy định định dạng:
 
             await new Promise(resolve => setTimeout(resolve, 200));
 
+            // Xuất ảnh chuẩn 9:16 Mobile 4K (Width: 1080px * 2 = 2160px, Height: ~1920px * 2 = 3840px)
             const canvas = await html2canvas(reportContainer, {
-                scale: 2,
+                scale: 2.0,
                 useCORS: true,
-                backgroundColor: '#f8fafc'
+                backgroundColor: '#0f172a'
             });
 
             const base64Image = canvas.toDataURL('image/png');
