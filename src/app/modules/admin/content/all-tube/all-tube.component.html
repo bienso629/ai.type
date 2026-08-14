@@ -53,7 +53,7 @@
 
                 <!-- Content -->
                 <div
-                    class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
+                    class="px-6 p-6 pb-4 relative flex flex-col flex-auto overflow-y-auto overflow-x-hidden bg-card">
                     <mat-form-field
                         class="w-full custom-textarea field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
                         appearance="fill">
@@ -62,13 +62,11 @@
                         <mat-hint>{{ 'app.enter_to_newline' | transloco }}</mat-hint>
                     </mat-form-field>
 
-                    <div class="inline-flex items-center justify-between w-full">
-                        <mat-checkbox class="-ml-2" (click)="$event.stopPropagation()" [color]="'primary'" [(ngModel)]="cbCreatePost">
-                            {{ 'app.auto_create_post' | transloco }}
-                        </mat-checkbox>
-                        <a class="text-md font-medium text-primary-500 hover:underline" href="javascript:void(0)"
-                            (click)="download()">{{ 'app.download_video_1' | transloco }} <mat-label *ngIf="cbCreatePost">{{ 'app.and_write_post' | transloco }}</mat-label> ngay
-                        </a>
+                    <div class="flex items-center justify-end w-full mt-4">
+                        <button mat-flat-button color="primary" (click)="download()">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:arrow-down'"></mat-icon>
+                            <span class="ml-2">{{ 'app.download_video_1' | transloco }} ngay</span>
+                        </button>
                     </div>
                 </div>
             </mat-menu>

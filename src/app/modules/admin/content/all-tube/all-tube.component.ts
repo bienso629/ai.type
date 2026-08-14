@@ -26,7 +26,6 @@ export class AllTubeComponent implements OnInit, OnDestroy {
     downloadJsonHref: any;
     quality = 'medium';
 
-    cbCreatePost: boolean = false;
     strLinks: string = '';
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
@@ -34,56 +33,36 @@ export class AllTubeComponent implements OnInit, OnDestroy {
     async download() {
         const value = this.strLinks;
         const urlRegex = /(((https?:\/\/)|(www\.))[^\s]+)/g;
-        const urls = value.match(urlRegex);
+        const urls = value ? value.match(urlRegex) : null;
 
-        if (this.cbCreatePost) {
-            this._youtubeService.video2Post({
-                urls: urls,
-                username: this.user.name
-            })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: async (data) => {
-                        if (data && data.results && data.results.length > 0) {
-                            const requests = data.results.map((item: any) => this.transcriptDetails(item.transcript_id, true));
-                            const transcripts = await Promise.all(requests);
-                            transcripts.forEach(transcript => {
-                                if (transcript) {
-                                    console.log('transcript', transcript);
-                                }
-                            });
-                        }
-                    },
-                    error: (e: any) => {
-                        this.toastr.warning('Tải video thất bại.');
-                    },
-                    complete: () => { }
-                });
-        } else {
-            if ((window as any).electron) {
-                this.toastr.info('Đang bắt đầu tải video...');
-                const settingsStr = localStorage.getItem('settings');
-                let customCookies = '';
-                if (settingsStr) {
-                    try {
-                        customCookies = JSON.parse(settingsStr).customCookies || '';
-                    } catch (e) {}
-                }
-                (window as any).electron.invoke('download-video', {
-                    urls: urls,
-                    customCookies: customCookies
-                }).then((result: any) => {
-                    if (result && result.success) {
-                        this.toastr.success('Tải video về thành công!');
-                    } else {
-                        this.toastr.warning('Tải video thất bại: ' + (result?.error || 'Unknown error'));
-                    }
-                }).catch((e: any) => {
-                    this.toastr.error('Có lỗi xảy ra: ' + e);
-                });
-            } else {
-                this.toastr.warning('Vui lòng chạy trên app Desktop để tải video!');
+        if (!urls || urls.length === 0) {
+            this.toastr.warning('Vui lòng nhập ít nhất một đường dẫn video hợp lệ!');
+            return;
+        }
+
+        if ((window as any).electron) {
+            this.toastr.info('Đang bắt đầu tải video...');
+            const settingsStr = localStorage.getItem('settings');
+            let customCookies = '';
+            if (settingsStr) {
+                try {
+                    customCookies = JSON.parse(settingsStr).customCookies || '';
+                } catch (e) {}
             }
+            (window as any).electron.invoke('download-video', {
+                urls: urls,
+                customCookies: customCookies
+            }).then((result: any) => {
+                if (result && result.success) {
+                    this.toastr.success('Tải video về thành công!');
+                } else {
+                    this.toastr.warning('Tải video thất bại: ' + (result?.error || 'Unknown error'));
+                }
+            }).catch((e: any) => {
+                this.toastr.error('Có lỗi xảy ra: ' + e);
+            });
+        } else {
+            this.toastr.warning('Vui lòng chạy trên app Desktop để tải video!');
         }
     }
 

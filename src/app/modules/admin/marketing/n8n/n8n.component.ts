@@ -12,6 +12,8 @@ import { RemoveHTMLPipe } from "app/app.pipe";
 import { CrawlService } from 'app/_services/crawl';
 import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
 
+import { MultiAccountService } from 'app/_services/multi-account.service';
+
 @Component({
     selector: 'n8n',
     templateUrl: './n8n.component.html',
@@ -32,7 +34,8 @@ export class AMXHComponent implements OnInit, OnDestroy {
     @ViewChild('drawer') drawer: MatDrawer;
     drawerMode: 'over' | 'side' = 'side';
     drawerOpened: boolean = true;
-    panels: any[] = [
+
+    allPanels: any[] = [
         {
             id: 'profiles',
             icon: 'feather:smartphone',
@@ -43,7 +46,7 @@ export class AMXHComponent implements OnInit, OnDestroy {
             id: 'script',
             icon: 'feather:sliders',
             title: 'Tiktok',
-            description: 'Xem livstream, bấm like, viết comment tự động',
+            description: 'Xem livestream, bấm like, viết comment tự động',
         },
         {
             id: 'schedule',
@@ -59,12 +62,51 @@ export class AMXHComponent implements OnInit, OnDestroy {
         }
     ];
 
+    panels: any[] = [];
+
     selectedPanel: string = 'profiles';
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
+    updatePanels(): void {
+        let settings: any = null;
+        if (this._multiAccountService) {
+            settings = this._multiAccountService.getItem('settings');
+        }
+        if (!settings && typeof localStorage !== 'undefined') {
+            try {
+                settings = JSON.parse(localStorage.getItem('settings') || '{}');
+            } catch (e) {}
+        }
+        if (!settings && (this.user as any)?.settings) {
+            settings = (this.user as any).settings;
+        }
+
+        let mxhautoVal = '';
+        if (settings && settings.mxhauto !== undefined && settings.mxhauto !== null) {
+            mxhautoVal = String(settings.mxhauto).trim();
+        } else if ((this.user as any)?.settings?.mxhauto !== undefined) {
+            mxhautoVal = String((this.user as any).settings.mxhauto).trim();
+        }
+
+        const hasTiktok = !!(mxhautoVal && mxhautoVal !== '' && mxhautoVal !== 'http://localhost:404');
+
+        this.panels = this.allPanels.filter(p => {
+            if (p.id === 'profiles' || p.id === 'script') {
+                return hasTiktok;
+            }
+            return true;
+        });
+
+        if (!this.panels.some(p => p.id === this.selectedPanel)) {
+            this.selectedPanel = this.panels[0]?.id || 'schedule';
+        }
+
+        this._changeDetectorRef.markForCheck();
+    }
+
     detail(uuid: string, name: string, tab: string) {
         this._crawlService.detail({ uuid: uuid, username: name }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
             next: async (result: any) => {
@@ -152,8 +194,11 @@ export class AMXHComponent implements OnInit, OnDestroy {
         private activatedRoute: ActivatedRoute,
         private router: Router,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
-        private _fuseNavigationService: FuseNavigationService
+        private _fuseNavigationService: FuseNavigationService,
+        private _multiAccountService: MultiAccountService
     ) {
+        this.updatePanels();
+
         this.activatedRoute.queryParams.subscribe((params: Params) => {
             if (params && params.uuid && params.tab && params.user) {
                 this.detail(params.uuid, params.user, params.tab);
@@ -174,6 +219,7 @@ export class AMXHComponent implements OnInit, OnDestroy {
             .subscribe((config: AppConfig) => {
                 // Store the config
                 this.config = config;
+                this.updatePanels();
             });
 
         // Subscribe to user changes
@@ -181,8 +227,7 @@ export class AMXHComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
+                this.updatePanels();
             });
     }
 
@@ -196,6 +241,8 @@ export class AMXHComponent implements OnInit, OnDestroy {
     ngOnInit(): void {
         this.drawerMode = 'side';
         this.drawerOpened = true;
+        this.updatePanels();
+
         // Subscribe to media changes
         this._fuseMediaWatcherService.onMediaChange$
             .pipe(takeUntil(this._unsubscribeAll))
