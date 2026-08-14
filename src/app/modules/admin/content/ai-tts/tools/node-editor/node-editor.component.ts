@@ -1586,7 +1586,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           } else if (lowerModel.includes('image') || lowerModel.includes('dall-e')) {
               targetModality = 'IMAGE';
           } else {
-              targetModality = (this.editingType === 'scene' || this.editingType === 'master') ? 'VIDEO' : 'IMAGE';
+              targetModality = this.globalActiveModality || 'IMAGE';
           }
       }
 

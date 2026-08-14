@@ -133,16 +133,6 @@ declare var TurndownService: any;
                     <mat-label class="ml-2">Chỉnh xong</mat-label>
                 </button>
 
-                <button mat-stroked-button color="accent" (click)="saveToLocalDisk($event)" [matTooltip]="'Lưu bài viết thành file Markdown/JSON trực tiếp trên ổ đĩa máy tính (Bảo mật & Không lưu Server)'">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:hard-drive'"></mat-icon>
-                    <mat-label class="ml-2">Lưu Cục Bộ (Local)</mat-label>
-                </button>
-
-                <button mat-stroked-button color="warn" (click)="saveToLocalDiskWithEncryption($event)" [matTooltip]="'Mã hóa AES-256 toàn bộ nội dung bài viết/kịch bản bằng mật khẩu'">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:lock'"></mat-icon>
-                    <mat-label class="ml-2">Mã Hóa Mật Khẩu</mat-label>
-                </button>
-
                 <button mat-flat-button *ngIf="data.function === 'new'" color="primary" (click)="save($event)">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:save'"></mat-icon>
                     <mat-label class="ml-2">Lưu nội dung</mat-label>
