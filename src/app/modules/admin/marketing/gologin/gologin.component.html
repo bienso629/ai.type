@@ -111,6 +111,10 @@
             <a mat-icon-button [color]="'warn'" class="ml-1" matTooltipPosition="above" [matTooltip]="'app.hard_stop' | transloco" [disabled]="selected.length === 0" (click)="stopAll()">
                 <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:slash'"></mat-icon>
             </a>
+
+            <a mat-icon-button [color]="'warn'" class="ml-1 text-red-600 hover:text-red-700" matTooltipPosition="above" [matTooltip]="'Xóa hẳn profiles đã chọn'" [disabled]="selected.length === 0" (click)="deleteProfiles()">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+            </a>
         </div>
     </div>
 
@@ -202,6 +206,15 @@
                     <ng-select [clearable]="false" [readonly]="true" [multiple]="true" bindLabel="title" [items]="row.tags" [(ngModel)]="row.tags" [placeholder]="'app.no_tags' | transloco"
                         class="w-full min-w-50 max-w-60 custom-select-archives">
                     </ng-select>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <!-- Thao tác xóa -->
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="Thao tác" [width]="90">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <button mat-icon-button (click)="deleteSingleProfile(row)" [matTooltip]="'Xóa hẳn profile'" class="text-red-500 hover:text-red-700">
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                    </button>
                 </ng-template>
             </ngx-datatable-column>
         </ngx-datatable>

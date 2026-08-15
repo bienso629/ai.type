@@ -348,6 +348,20 @@ export class GoLoginService {
         );
     }
 
+    public deleteProfile(token: string, profileId: string): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        const url = `${this.config.settings.gologin_api}/browser/${profileId}`;
+        return this.http.delete<any>(url, {
+            headers: new HttpHeaders({
+                'Authorization': `Bearer ${token}`
+            })
+        }).pipe(
+            catchError(this.handleError('deleteProfile', null))
+        );
+    }
+
     // tslint:disable-next-line: typedef
     private handleError<T>(operation = 'operation', result?: T) {
         return (error: any): Observable<T> => {

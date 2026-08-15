@@ -44,3 +44,7 @@
 .mat-mdc-tab-group .mat-mdc-tab-body-content {
     background-color: transparent !important;
 }
+
+::ng-deep .vpn-select-panel {
+    min-width: 320px !important;
+}

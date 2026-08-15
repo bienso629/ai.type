@@ -1,3 +1,17 @@
+amxh-schedule {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    position: absolute;
+    inset: 0;
+    background-color: #ffffff !important;
+}
+
 .zoom-container {
     display: flex;
     align-items: center;
@@ -34,37 +48,35 @@
 }
 
 .timeline-container {
+    background-color: #ffffff !important;
+
     .timeline-element {
         overflow: visible !important;
     }
 
     timeline-scale-header {
-        background-color: #fff !important;
+        background-color: #ffffff !important;
     }
 
     .label {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         border-bottom: 1px solid #e9eef4 !important;
         font-weight: 600;
-        font-size: 16px;
     }
 
     .panel {
         display: inline-table !important;
-        background: #fff;
+        background: #ffffff !important;
         border-right: 1px solid #e9eef4 !important;
-        background-color: #fff !important;
-
-        .item-name {
-            font-size: 12px;
-        }
+        background-color: #ffffff !important;
     }
 
     .columns {
         border-bottom: 1px solid #e9eef4 !important;
+        background-color: #ffffff !important;
 
         .column {
-            font-size: 12px;
+            background-color: #ffffff !important;
             container-type: inline-size;
             container-name: timeline-column;
 
@@ -116,7 +128,6 @@
         .default-content {
             padding: 2px 16px !important;
             border-radius: 50px !important;
-            font-size: 12px;
         }
 
         .timeline-item {

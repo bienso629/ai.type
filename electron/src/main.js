@@ -1648,7 +1648,7 @@ function openChromeApp(url, width = 400, height = 800) {
     if (chromeAppProcess && chromeAppProcess.killed) chromeAppProcess = null;
 
     if (sttWsClients.size > 0) {
-        sendToRenderer("tools-log", `[ChromeApp] �?ang chạy rồi, không mở lại.`);
+        sendToRenderer("tools-log", `[ChromeApp] Đang chạy rồi, không mở lại.`);
         return;
     }
 
@@ -1679,16 +1679,15 @@ function openChromeApp(url, width = 400, height = 800) {
             "--ignore-certificate-errors",
             "--disable-web-security",
             "--disable-site-isolation-trials",
-
+            "--unsafely-treat-insecure-origin-as-secure=http://localhost:7171,http://127.0.0.1:7171",
+            "--use-fake-ui-for-media-stream",
+            "--enable-speech-input",
+            "--enable-features=SpeechRecognition",
             // Tắt dịch & popup thừa
             "--disable-features=IsolateOrigins,site-per-process,Translate,OptimizationGuideModelDownloading,OptimizationHints",
             "--disable-translate",
-
             `--user-data-dir=${userDataDir}`,
             "--autoplay-policy=no-user-gesture-required",
-            "--use-fake-ui-for-media-stream",
-            "--enable-speech-input",
-
         ];
 
         sendToRenderer(

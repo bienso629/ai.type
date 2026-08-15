@@ -85,6 +85,19 @@ export class MXHAutoService {
             });
     }
 
+    public getBaseUrl(): string {
+        let base = (this.config && this.config.settings && this.config.settings.mxhauto)
+            ? String(this.config.settings.mxhauto).trim()
+            : 'http://localhost:8000';
+        if (!base || base === 'undefined' || base === 'null') {
+            base = 'http://localhost:8000';
+        }
+        if (!/^https?:\/\//i.test(base)) {
+            base = `http://${base}`;
+        }
+        return base;
+    }
+
     public profiles(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
@@ -93,7 +106,11 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/opera/profiles/list?profiles_root=${dataForm.profiles_root}&host=${dataForm.host}${(dataForm.verify) ? "&verify=" + dataForm.verify : ""}${(dataForm.filter) ? "&filter=" + dataForm.filter : ""}${(dataForm.include_accounts) ? "&include_accounts=" + dataForm.include_accounts : ""}${(dataForm.platform) ? "&platform=" + dataForm.platform : ""}`;
+        const profilesRootParam = (dataForm.profiles_root && dataForm.profiles_root !== 'undefined' && dataForm.profiles_root !== 'null')
+            ? `profiles_root=${encodeURIComponent(dataForm.profiles_root)}&`
+            : '';
+
+        let url = `${this.getBaseUrl()}/v1/opera/profiles/list?${profilesRootParam}host=${dataForm.host}${(dataForm.verify) ? "&verify=" + dataForm.verify : ""}${(dataForm.filter) ? "&filter=" + dataForm.filter : ""}${(dataForm.include_accounts) ? "&include_accounts=" + dataForm.include_accounts : ""}${(dataForm.platform) ? "&platform=" + dataForm.platform : ""}`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -118,7 +135,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/opera/profiles/start-profiles`;
+        let url = `${this.getBaseUrl()}/v1/opera/profiles/start-profiles`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -143,7 +160,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/opera/profiles/start-range`;
+        let url = `${this.getBaseUrl()}/v1/opera/profiles/start-range`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -168,7 +185,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/tiktok/captions/live-watch/start`;
+        let url = `${this.getBaseUrl()}/v1/tiktok/captions/live-watch/start`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -193,7 +210,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/tiktok/captions/live-watch/stop-all?close_opera=true`;
+        let url = `${this.getBaseUrl()}/v1/tiktok/captions/live-watch/stop-all?close_opera=true`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -218,7 +235,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/tiktok/captions/live-list`;
+        let url = `${this.getBaseUrl()}/v1/tiktok/captions/live-list`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -243,7 +260,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/tiktok/captions/direct-stream/start`;
+        let url = `${this.getBaseUrl()}/v1/tiktok/captions/direct-stream/start`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -261,7 +278,7 @@ export class MXHAutoService {
     }
 
     public streamSse<T = any>(sessionId: string) {
-        const url = `${this.config.settings.mxhauto}/v1/tiktok/captions/direct-stream/sse?session_id=${encodeURIComponent(sessionId)}`;
+        const url = `${this.getBaseUrl()}/v1/tiktok/captions/direct-stream/sse?session_id=${encodeURIComponent(sessionId)}`;
         return this.stream<T>(url); // hàm stream<EventSource> bạn đã có
     }
 
@@ -273,7 +290,11 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/opera/captcha-auto/stream?profiles_root=${dataForm.profiles_root}&profiles=${dataForm.profiles}&ontop_on_detect=${dataForm.ontop_on_detect}&topmost_ms=${dataForm.topmost_ms}`;
+        const profilesRootParam = (dataForm.profiles_root && dataForm.profiles_root !== 'undefined' && dataForm.profiles_root !== 'null')
+            ? `profiles_root=${encodeURIComponent(dataForm.profiles_root)}&`
+            : '';
+
+        let url = `${this.getBaseUrl()}/v1/opera/captcha-auto/stream?${profilesRootParam}profiles=${dataForm.profiles}&ontop_on_detect=${dataForm.ontop_on_detect}&topmost_ms=${dataForm.topmost_ms}`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -298,7 +319,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/search/click`;
+        let url = `${this.getBaseUrl()}/v1/search/click`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -323,7 +344,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/like/click`;
+        let url = `${this.getBaseUrl()}/v1/like/click`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -348,7 +369,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/comment/click`;
+        let url = `${this.getBaseUrl()}/v1/comment/click`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -373,7 +394,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/opera/session/keepalive`;
+        let url = `${this.getBaseUrl()}/v1/opera/session/keepalive`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -398,7 +419,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/opera/profiles/kill-all`;
+        let url = `${this.getBaseUrl()}/v1/opera/profiles/kill-all`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -423,7 +444,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.mxhauto}/v1/opera/profiles/kill-profiles`;
+        let url = `${this.getBaseUrl()}/v1/opera/profiles/kill-profiles`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
@@ -448,7 +469,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.mxhauto}/v1/opera/accounts/sqlite/upsert`;
+        const url = `${this.getBaseUrl()}/v1/opera/accounts/sqlite/upsert`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -473,7 +494,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.mxhauto}/v1/opera/accounts/sqlite/update`;
+        const url = `${this.getBaseUrl()}/v1/opera/accounts/sqlite/update`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -498,7 +519,7 @@ export class MXHAutoService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.mxhauto}/v1/opera/accounts/sqlite/delete`;
+        const url = `${this.getBaseUrl()}/v1/opera/accounts/sqlite/delete`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -512,6 +533,72 @@ export class MXHAutoService {
                 // this.log('login');
             }),
             catchError(this.handleError('server', []))
+        );
+    }
+
+    public deleteProfiles(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        let url = `${this.getBaseUrl()}/v1/opera/profiles/delete-profiles`;
+
+        return this.http.post<any>(url, dataForm, options).pipe(
+            map(data => {
+                return data;
+            }),
+            tap(_ => {
+            }),
+            catchError(this.handleError('server', []))
+        );
+    }
+
+    /** Lấy cấu hình mặc định từ hệ thống (profiles_root, opera_exe, system, cdp_port) */
+    public getConfig(): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/profiles/config`;
+        return this.http.get<any>(url, options).pipe(
+            catchError(this.handleError('getConfig', null))
+        );
+    }
+
+    /** Opera AI (Aria AI Automation) - Hỏi Aria AI */
+    public askOperaAi(dataForm: any): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/ai/ask`;
+        return this.http.post<any>(url, dataForm, options).pipe(
+            catchError((err: any) => {
+                const detail = err?.error?.detail || err?.error?.message || err?.message || 'Không thể kết nối Opera AI. Vui lòng kiểm tra Opera profile.';
+                return of({ ok: false, message: detail });
+            })
+        );
+    }
+
+    /** Opera AI (Aria AI Automation) - Click gợi ý của AI */
+    public clickAiSuggestion(dataForm: any): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/ai/click-suggestion`;
+        return this.http.post<any>(url, dataForm, options).pipe(
+            catchError((err: any) => {
+                const detail = err?.error?.detail || err?.error?.message || err?.message || 'Lỗi khi gửi yêu cầu tới Opera AI.';
+                return of({ ok: false, message: detail });
+            })
+        );
+    }
+
+    /** Quản Lý Cấu Hình VPN Opera - Đổi vị trí VPN cho 1 profile */
+    public setProfileVpn(profile: string, dataForm: any): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/profiles/${encodeURIComponent(profile)}/vpn`;
+        return this.http.post<any>(url, dataForm, options).pipe(
+            catchError(this.handleError('setProfileVpn', null))
+        );
+    }
+
+    /** Quản Lý Cấu Hình VPN Opera - Đổi vị trí VPN dải profile */
+    public setVpnRange(dataForm: any): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/profiles/vpn-range`;
+        return this.http.post<any>(url, dataForm, options).pipe(
+            catchError(this.handleError('setVpnRange', null))
         );
     }
 

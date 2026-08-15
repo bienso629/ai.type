@@ -30,6 +30,8 @@ import { settingsRoutes } from 'app/modules/admin/marketing/n8n/n8n.routing';
 
 import { AddAccountDialog } from 'app/modules/admin/marketing/n8n/profile/dialogs/add-dialog';
 import { EditAccountDialog } from 'app/modules/admin/marketing/n8n/profile/dialogs/edit-dialog';
+import { OperaAiDialog } from 'app/modules/admin/marketing/n8n/profile/dialogs/opera-ai-dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AMXHScheduleComponent } from 'app/modules/admin/marketing/n8n/schedule/schedule.component';
@@ -42,11 +44,13 @@ import { AMXHScheduleComponent } from 'app/modules/admin/marketing/n8n/schedule/
         AMXHShareAppComponent,
         AMXHScheduleComponent,
         AddAccountDialog,
-        EditAccountDialog
+        EditAccountDialog,
+        OperaAiDialog
     ],
     imports: [
         TranslocoModule,
         MatTooltipModule,
+        MatMenuModule,
         RouterModule.forChild(settingsRoutes),
         MatButtonModule,
         MatFormFieldModule,
