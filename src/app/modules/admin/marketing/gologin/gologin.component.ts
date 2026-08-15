@@ -418,6 +418,101 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
+    deleteProfiles() {
+        if (!this.selected || this.selected.length === 0) {
+            this.toastr.warning('Vui lòng chọn profile cần xóa');
+            return;
+        }
+
+        const confirmDialog = this._fuseConfirmationService.open({
+            title: 'Xóa vĩnh viễn Profile',
+            message: `Bạn có chắc chắn muốn xóa hẳn ${this.selected.length} profile đã chọn? Hành động này không thể hoàn tác.`,
+            actions: {
+                confirm: {
+                    label: 'Xóa vĩnh viễn',
+                    color: 'warn'
+                },
+                cancel: {
+                    label: 'Hủy'
+                }
+            }
+        });
+
+        confirmDialog.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                const toDelete = [...this.selected];
+                let count = 0;
+
+                toDelete.forEach((profile: any) => {
+                    if (profile.token && profile.id) {
+                        this._goLoginService.deleteProfile(profile.token, profile.id)
+                            .pipe(takeUntil(this._unsubscribeAll))
+                            .subscribe({
+                                next: () => {
+                                    count++;
+                                    this.rows = this.rows.filter(r => r.id !== profile.id);
+                                    this.data = this.data.filter(d => d.id !== profile.id);
+                                    if (count === toDelete.length) {
+                                        this.toastr.success(`Đã xóa hẳn ${count} profile thành công`);
+                                        this.selected = [];
+                                        this.cd.markForCheck();
+                                    }
+                                }
+                            });
+                    } else {
+                        this.rows = this.rows.filter(r => r.id !== profile.id);
+                        this.data = this.data.filter(d => d.id !== profile.id);
+                    }
+                });
+                this.selected = [];
+                this.cd.markForCheck();
+            }
+        });
+    }
+
+    deleteSingleProfile(row: any) {
+        if (!row || !row.id) return;
+
+        const confirmDialog = this._fuseConfirmationService.open({
+            title: 'Xóa vĩnh viễn Profile',
+            message: `Bạn có chắc chắn muốn xóa hẳn profile "${row.name || row.id}"? Hành động này không thể hoàn tác.`,
+            actions: {
+                confirm: {
+                    label: 'Xóa vĩnh viễn',
+                    color: 'warn'
+                },
+                cancel: {
+                    label: 'Hủy'
+                }
+            }
+        });
+
+        confirmDialog.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                if (row.token && row.id) {
+                    this._goLoginService.deleteProfile(row.token, row.id)
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe({
+                            next: () => {
+                                this.toastr.success(`Đã xóa hẳn profile ${row.name || row.id}`);
+                                this.rows = this.rows.filter(r => r.id !== row.id);
+                                this.data = this.data.filter(d => d.id !== row.id);
+                                this.cd.markForCheck();
+                            },
+                            error: () => {
+                                this.toastr.error('Có lỗi xảy ra khi xóa profile');
+                            }
+                        });
+                } else {
+                    this.rows = this.rows.filter(r => r.id !== row.id);
+                    this.data = this.data.filter(d => d.id !== row.id);
+                    this.toastr.success(`Đã xóa profile`);
+                    this.cd.markForCheck();
+                }
+            }
+        });
+    }
+
     /**
      * click vào kết quả tìm kiếm của Google
      */

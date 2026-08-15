@@ -1,116 +1,149 @@
-<ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force"
-    [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-    [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
-    [count]="totalProfiles" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
-    [rows]="profiles">
+<div class="flex flex-col h-full w-full">
+    <!-- Table -->
+    <div class="flex-auto relative overflow-hidden">
+        <ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force"
+            [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
+            [count]="totalProfiles" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
+            [rows]="profiles">
 
-    <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-        [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+            <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
 
-    <ngx-datatable-column name="Ảnh" [width]="80" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-        [resizeable]="false">
-        <ng-template let-row="row" ngx-datatable-cell-template>
-            <img [src]="'file:///' + row.avatar" class="w-8 h-8 rounded-full bg-gray-200"
-                (error)="onImgError($event)" />
-        </ng-template>
-    </ngx-datatable-column>
+            <ngx-datatable-column name="Ảnh" [width]="80" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div class="relative inline-block">
+                        <img [src]="getAccountAvatar(row)" class="w-8 h-8 rounded-full bg-gray-200 object-cover"
+                            (error)="onImgError($event)" />
+                        <mat-icon *ngIf="row.profile === 'Profile000'" [svgIcon]="'feather:check-circle'"
+                            class="absolute -top-0.5 -right-0.5 icon-size-3 text-emerald-500 bg-white rounded-full"
+                            matTooltip="Profile gốc (Master Profile)">
+                        </mat-icon>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
 
-    <ngx-datatable-column name="Profile" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-        [resizeable]="false">
-        <ng-template let-row="row" ngx-datatable-cell-template>
-            <span class="font-normal">{{row.profile}}</span>
-        </ng-template>
-    </ngx-datatable-column>
+            <ngx-datatable-column name="Profile" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <span class="font-normal">{{row.profile}}</span>
+                </ng-template>
+            </ngx-datatable-column>
 
-    <ngx-datatable-column name="Tài khoản" [width]="220" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-        [resizeable]="false">
-        <ng-template let-row="row" ngx-datatable-cell-template>
-            <ng-container *ngIf="row.accounts && row.accounts.length > 0">
-                <div class="flex flex-col">
-                    <!-- <span class="text-sm font-medium truncate"
-                        title="{{row.accounts[0].email}}">{{row.accounts[0].email}}</span> -->
-                    <span class="text-green-500 truncate">{{row.accounts[0].alias}}</span>
-                </div>
-            </ng-container>
-            <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
-                <span class="text-gray-400">{{ 'app.unassigned' | transloco }}</span>
-            </ng-container>
-        </ng-template>
-    </ngx-datatable-column>
-
-    <ngx-datatable-column name="Nhân cách (Persona)" [width]="250" [sortable]="false" [canAutoResize]="true"
-        [draggable]="false" [resizeable]="true">
-        <ng-template let-row="row" ngx-datatable-cell-template>
-            <ng-container *ngIf="row.accounts && row.accounts.length > 0">
-                <div class="text-base" [innerHTML]="getPersonaDisplay(row.accounts[0].note)"></div>
-            </ng-container>
-        </ng-template>
-    </ngx-datatable-column>
-
-    <ngx-datatable-column name="Trạng thái" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-        [resizeable]="false">
-        <ng-template let-row="row" ngx-datatable-cell-template>
-            <ng-container *ngIf="row.running === true; else stopNow">
-                <div class="flex items-center">
-                    <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                    <span class="text-green-600 font-medium">Running</span>
-                </div>
-            </ng-container>
-            <ng-template #stopNow>
-                <div class="flex items-center">
-                    <div class="w-2 h-2 rounded-full bg-gray-300 mr-2"></div>
-                    <span class="text-gray-400">Stopped</span>
-                </div>
-            </ng-template>
-        </ng-template>
-    </ngx-datatable-column>
-
-    <ngx-datatable-column name="" [width]="80" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-        [resizeable]="false">
-        <ng-template let-row="row" ngx-datatable-cell-template>
-            <div class="flex items-center justify-end">
-                <ng-container *ngIf="row.accounts && row.accounts.length > 0">
-                    <button mat-icon-button (click)="editAcc(row.accounts[0])" [matTooltip]="'app.edit_persona_account' | transloco">
-                        <mat-icon class="icon-size-4 text-primary-600" [svgIcon]="'feather:edit-3'"></mat-icon>
-                    </button>
-                </ng-container>
-
-                <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
-                    <button mat-icon-button (click)="addAcc(row)" [matTooltip]="'app.add_account' | transloco">
-                        <mat-icon class="icon-size-4 text-gray-400 hover:text-primary-500"
-                            [svgIcon]="'feather:plus-circle'"></mat-icon>
-                    </button>
-                </ng-container>
-            </div>
-        </ng-template>
-    </ngx-datatable-column>
-
-    <ngx-datatable-footer>
-        <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-            let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset" let-isVisible="isVisible">
-            <div class="flex w-full sm:items-center sm:justify-between px-4">
-                <div class="flex-1 min-w-0 flex items-center">
-                    <ng-container *ngIf="selectedCount > 0">
-                        <!-- <span class="font-medium text-gray-600 mr-4">Đã chọn: {{ selectedCount }}</span> -->
-
-                        <button mat-flat-button color="primary" (click)="run()">
-                            <mat-icon [svgIcon]="'feather:play'" class="icon-size-4"></mat-icon>
-                            <span class="ml-2">{{ 'app.run_profile' | transloco }}</span>
-                        </button>
-
-                        <button mat-flat-button color="warn" (click)="killProfiles()" class="ml-2">
-                            <mat-icon [svgIcon]="'feather:x-circle'" class="icon-size-4"></mat-icon>
-                            <span class="ml-2">{{ 'app.auto_stop_profile' | transloco }}</span>
-                        </button>
+            <ngx-datatable-column name="Tài khoản" [width]="220" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <ng-container *ngIf="row.accounts && row.accounts.length > 0">
+                        <div class="flex flex-col">
+                            <!-- <span class="text-sm font-medium truncate"
+                                title="{{row.accounts[0].email}}">{{row.accounts[0].email}}</span> -->
+                            <span class="text-green-500 truncate">{{row.accounts[0].alias}}</span>
+                        </div>
                     </ng-container>
-                </div>
+                    <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
+                        <span class="text-gray-400">{{ 'app.unassigned' | transloco }}</span>
+                    </ng-container>
+                </ng-template>
+            </ngx-datatable-column>
 
-                <div class="flex shrink-0 items-center">
-                    <button mat-icon-button (click)="refresh()">
-                        <mat-icon [svgIcon]="'feather:refresh-cw'" class="icon-size-4"></mat-icon>
-                    </button>
-                </div>
-            </div>
-        </ng-template>
-    </ngx-datatable-footer>
-</ngx-datatable>
+            <ngx-datatable-column name="Nhân cách (Persona)" [width]="250" [sortable]="false" [canAutoResize]="true"
+                [draggable]="false" [resizeable]="true">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <ng-container *ngIf="row.accounts && row.accounts.length > 0">
+                        <div class="text-base" [innerHTML]="getPersonaDisplay(row.accounts[0].note)"></div>
+                    </ng-container>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="VPN Opera" [width]="190" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full text-xs" [subscriptSizing]="'dynamic'">
+                        <mat-select [value]="getVpnValue(row)" (selectionChange)="onVpnChange(row, $event.value)" panelClass="vpn-select-panel min-w-[240px]">
+                            <mat-option value="optimal">🎯 Tự động (Optimal)</mat-option>
+                            <mat-divider></mat-divider>
+                            <mat-option value="asia">🌏 Châu Á (Asia)</mat-option>
+                            <mat-option value="americas">🌎 Châu Mỹ (Americas)</mat-option>
+                            <mat-option value="europe">🌍 Châu Âu (Europe)</mat-option>
+                            <mat-divider></mat-divider>
+                            <mat-option value="off">🚫 Tắt VPN</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="Trạng thái" [width]="110" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <ng-container *ngIf="row.running === true; else stopNow">
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                            <span class="text-green-600 font-medium text-base">Running</span>
+                        </div>
+                    </ng-container>
+                    <ng-template #stopNow>
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 rounded-full bg-gray-300 mr-2"></div>
+                            <span class="text-gray-400 text-base">Stopped</span>
+                        </div>
+                    </ng-template>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="Thao tác" [width]="180" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div class="flex items-center justify-start space-x-1">
+                        <ng-container *ngIf="row.accounts && row.accounts.length > 0">
+                            <button mat-icon-button (click)="editAcc(row.accounts[0])" [matTooltip]="'app.edit_persona_account' | transloco">
+                                <mat-icon class="icon-size-4 text-primary-600" [svgIcon]="'feather:edit-3'"></mat-icon>
+                            </button>
+                        </ng-container>
+
+                        <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
+                            <button mat-icon-button (click)="addAcc(row)" [matTooltip]="'app.add_account' | transloco">
+                                <mat-icon class="icon-size-4 text-gray-400 hover:text-primary-500"
+                                    [svgIcon]="'feather:plus-circle'"></mat-icon>
+                            </button>
+                        </ng-container>
+
+                        <button mat-icon-button (click)="deleteSingleProfile(row)" [matTooltip]="'Xóa hẳn profile'" class="text-red-500 hover:text-red-700">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                        </button>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-footer>
+                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
+                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset" let-isVisible="isVisible">
+                    <div class="flex w-full sm:items-center sm:justify-between px-4">
+                        <div class="flex-1 min-w-0 flex items-center flex-wrap gap-2 py-1">
+                            <ng-container *ngIf="selectedCount > 0">
+                                <button mat-flat-button color="primary" (click)="run()">
+                                    <mat-icon [svgIcon]="'feather:play'" class="icon-size-4"></mat-icon>
+                                    <span class="ml-2">{{ 'app.run_profile' | transloco }}</span>
+                                </button>
+
+                                <button mat-flat-button color="warn" (click)="killProfiles()">
+                                    <mat-icon [svgIcon]="'feather:x-circle'" class="icon-size-4"></mat-icon>
+                                    <span class="ml-2">{{ 'app.auto_stop_profile' | transloco }}</span>
+                                </button>
+
+                                <mat-checkbox [(ngModel)]="isHeadless" class="ml-1 text-xs font-medium">
+                                    Chạy ẩn (Headless)
+                                </mat-checkbox>
+                            </ng-container>
+                        </div>
+
+                        <div class="flex shrink-0 items-center">
+                            <button mat-icon-button (click)="refresh()" [matTooltip]="'Tải lại'">
+                                <mat-icon [svgIcon]="'feather:refresh-cw'" class="icon-size-4"></mat-icon>
+                            </button>
+                        </div>
+                    </div>
+                </ng-template>
+            </ngx-datatable-footer>
+        </ngx-datatable>
+    </div>
+</div>

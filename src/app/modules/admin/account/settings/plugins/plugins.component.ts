@@ -6,6 +6,7 @@ import { UserClientService } from 'app/_services/user';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
+import { Title } from '@angular/platform-browser';
 
 @Component({
     selector: 'settings-plugins',
@@ -27,13 +28,16 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
+        private titleService: Title,
         private _fuseConfirmationService: FuseConfirmationService,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
         private _userService: UserService,
         private _userClientService: UserClientService
-    ) {}
+    ) {
+        this.titleService.setTitle(`plugins | ai.type - công cụ tạo content`);
+    }
 
     ngOnInit(): void {
         this._userService.user$

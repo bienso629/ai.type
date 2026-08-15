@@ -109,6 +109,7 @@ export const appRoutes: Route[] = [
             { path: 'profiles', loadChildren: () => import('app/modules/admin/marketing/gologin/gologin.module').then(m => m.ProfilesModule) },
             { path: 'chatbot', loadChildren: () => import('app/modules/admin/marketing/chatbot/chatbot.module').then(m => m.ChatBotModule) },
             { path: 'amxh', loadChildren: () => import('app/modules/admin/marketing/n8n/n8n.module').then(m => m.AMXHModule) },
+            { path: 'schedule', redirectTo: 'amxh/schedule', pathMatch: 'full' },
             { path: 'customers', loadChildren: () => import('app/modules/admin/marketing/x-cms/x-cms.module').then(m => m.XCmsModule) },
             { path: 'data', loadChildren: () => import('app/modules/admin/marketing/bigdata/bigdata.module').then(m => m.BigDataModule) },
             { path: 'zalo', loadChildren: () => import('app/modules/admin/marketing/zalo/zalo.module').then(m => m.ZaloModule) },
