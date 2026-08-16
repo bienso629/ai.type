@@ -166,7 +166,7 @@
                                                 <div class="flex items-center gap-1">
                                                     <span *ngIf="room.is_analyzing" class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-teal-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                                                        🤖 AI STREAM
+                                                        AI STREAM
                                                     </span>
                                                     <span *ngIf="!room.is_analyzing && room.is_live !== false" class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
@@ -179,7 +179,7 @@
                                                 </div>
                                                 <span class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-xs">
                                                     <mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:eye'"></mat-icon>
-                                                    {{ room["user_count"] || 0 }}
+                                                    {{ getRoomViewerCount(room) }}
                                                 </span>
                                             </div>
 
@@ -262,11 +262,11 @@
                             <div class="flex items-center h-full">
                                 <span *ngIf="row.is_analyzing" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold">
                                     <span class="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"></span>
-                                    🤖 AI STREAM
+                                    AI STREAM
                                 </span>
                                 <span *ngIf="!row.is_analyzing && row.is_live !== false" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
                                     <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                                    LIVE ({{ row.user_count || 0 }})
+                                    LIVE ({{ getRoomViewerCount(row) }})
                                 </span>
                                 <span *ngIf="row.is_live === false" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold">
                                     <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
@@ -305,28 +305,32 @@
 <mat-menu #roomMenu="matMenu" xPosition="before">
     <ng-template matMenuContent let-room="room">
         <button mat-menu-item (click)="startContinuousAnalysis(room)" *ngIf="!room?.is_analyzing">
-            <mat-icon class="text-teal-600" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
-            <span class="font-medium text-teal-700">Phân tích nội dung (Realtime AI)</span>
+            <mat-icon class="icon-size-4 text-teal-600" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
+            <span class="font-medium text-teal-700">Phân tích nội dung</span>
         </button>
         <button mat-menu-item (click)="stopContinuousAnalysis(room)" *ngIf="room?.is_analyzing">
-            <mat-icon class="text-red-600" [svgIcon]="'feather:stop-circle'"></mat-icon>
+            <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:stop-circle'"></mat-icon>
             <span class="text-red-600 font-semibold">Tắt phân tích</span>
         </button>
         <button mat-menu-item (click)="selectRoom(room)">
-            <mat-icon class="text-blue-600" [svgIcon]="'feather:check-circle'"></mat-icon>
+            <mat-icon class="icon-size-4 text-blue-600" [svgIcon]="'feather:check-circle'"></mat-icon>
             <span>Chọn video này</span>
         </button>
         <button mat-menu-item (click)="loadAnalysisHistoryForRoom(room)">
-            <mat-icon class="text-amber-600" [svgIcon]="'feather:clock'"></mat-icon>
-            <span>Đọc lịch sử phân tích (Database)</span>
+            <mat-icon class="icon-size-4 text-amber-600" [svgIcon]="'feather:clock'"></mat-icon>
+            <span>Đọc lịch sử phân tích</span>
         </button>
         <button mat-menu-item (click)="generateLike()">
-            <mat-icon class="text-pink-600" [svgIcon]="'feather:heart'"></mat-icon>
+            <mat-icon class="icon-size-4 text-pink-600" [svgIcon]="'feather:heart'"></mat-icon>
             <span>Tự động thích</span>
         </button>
         <button mat-menu-item (click)="generateComment()">
-            <mat-icon class="text-indigo-600" [svgIcon]="'feather:message-square'"></mat-icon>
+            <mat-icon class="icon-size-4 text-indigo-600" [svgIcon]="'feather:message-square'"></mat-icon>
             <span>Tự động bình luận</span>
+        </button>
+        <button mat-menu-item (click)="generateLowestPrice(room)">
+            <mat-icon class="icon-size-4 text-emerald-600" [svgIcon]="'feather:tag'"></mat-icon>
+            <span>Tìm giá thấp nhất</span>
         </button>
     </ng-template>
 </mat-menu>
