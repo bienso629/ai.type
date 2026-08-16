@@ -224,6 +224,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         }
     }
 
+    aiFilteredRoomIds: Set<string> | null = null;
+
     async sendChatMessage(): Promise<void> {
         if (!this.chatInput || !this.chatInput.trim()) return;
         const text = this.chatInput.trim();
@@ -233,11 +235,74 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
 
         const loadingMsg: { role: 'user' | 'assistant'; content: string } = {
             role: 'assistant',
-            content: '<b>Trợ lý phân tích</b> đang suy nghĩ và phân tích...'
+            content: '<b>Trợ lý phân tích AI</b> đang xử lý yêu cầu và phân tích danh sách...'
         };
         this.chatMessages.push(loadingMsg);
         this.cd.markForCheck();
+        this.scrollToBottom();
 
+        // 1. Gửi toàn bộ dữ liệu phiên Livestream cho Gemini AI để phân tích và lọc thông minh
+        const roomSummaries = (this.rooms || []).map((r, idx) => ({
+            id: String(r.id || r.room_id || r.unique_id || r.nickname || idx),
+            nickname: r.nickname || r.owner?.nickname || 'Streamer',
+            unique_id: r.unique_id || r.owner?.unique_id || '',
+            title: r.title || '',
+            viewer_count: r.user_count || r.viewer_count || r.stats?.user_count || 0,
+            like_count: r.like_count || r.stats?.like_count || 0,
+            is_live: r.is_live !== false
+        }));
+
+        if (roomSummaries.length > 0) {
+            try {
+                const promptAiSearch = `
+Dưới đây là danh sách ${roomSummaries.length} phiên Livestream hiện có:
+${JSON.stringify(roomSummaries, null, 2)}
+
+YÊU CẦU / CÂU HỎI CỦA NGUỜI DÙNG: "${text}"
+
+Nhiệm vụ của bạn:
+1. Phân tích yêu cầu tìm kiếm/lọc của người dùng (theo tên streamer, từ khóa tiêu đề, lượt mắt xem, lượt thích, trạng thái live...).
+2. Xác định các "id" phiên livestream khớp nhất với yêu cầu.
+3. Trả về kết quả dưới dạng JSON duy nhất (không bọc trong \`\`\`json):
+{
+  "matched_ids": ["id1", "id2"],
+  "explanation": "Nội dung phản hồi trả lời bằng HTML sạch sẽ ngắn gọn giải thích kết quả tìm kiếm/lọc."
+}
+`.trim();
+
+                const aiRes: any = await this._genaiService.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: [{ role: 'user', parts: [{ text: promptAiSearch }] }],
+                    config: {
+                        systemInstruction: 'Bạn là Trợ lý AI tìm kiếm và lọc danh sách Livestream thông minh. Phản hồi JSON chính xác.'
+                    }
+                });
+
+                const rawText = aiRes?.text || aiRes?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const cleanJson = rawText.replace(/```json|```/g, '').trim();
+                const parsed = JSON.parse(cleanJson);
+
+                if (parsed && Array.isArray(parsed.matched_ids) && parsed.matched_ids.length > 0) {
+                    this.aiFilteredRoomIds = new Set(parsed.matched_ids.map((id: any) => String(id)));
+                    this.rebuildGridRows();
+                }
+
+                if (parsed && parsed.explanation) {
+                    let htmlExp = this.formatAiResponse(parsed.explanation);
+                    htmlExp = this.enhanceClickableRoomLinks(htmlExp);
+                    loadingMsg.content = htmlExp;
+                } else {
+                    loadingMsg.content = `Đã dùng AI phân tích và lọc được <b>${this.aiFilteredRoomIds ? this.aiFilteredRoomIds.size : 0}</b> phiên phát phù hợp.`;
+                }
+                this.cd.markForCheck();
+                this.scrollToBottom();
+                return;
+            } catch (aiErr) {
+                console.warn('[AI Smart Search fallback]:', aiErr);
+            }
+        }
+
+        // 2. Chế độ AI trả lời thông thường nếu không phải câu lệnh lọc
         try {
             const response: any = await this._genaiService.generateContent({
                 model: 'gemini-2.5-flash',
@@ -248,12 +313,63 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             });
 
             const replyText = response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || 'Đã xử lý xong yêu cầu của bạn.';
-            loadingMsg.content = this.formatAiResponse(replyText);
+            let formatted = this.formatAiResponse(replyText);
+            formatted = this.enhanceClickableRoomLinks(formatted);
+            loadingMsg.content = formatted;
         } catch (err: any) {
             console.error('Lỗi khi gọi Trợ lý phân tích:', err);
             loadingMsg.content = `Không thể kết nối tới Trợ lý phân tích: ${err?.message || 'Đã có lỗi xảy ra'}`;
         }
         this.cd.markForCheck();
+        this.scrollToBottom();
+    }
+
+    onChatBubbleClick(event: MouseEvent): void {
+        const target = event.target as HTMLElement;
+        if (!target) return;
+
+        const clickableEl = target.closest('[data-room-id], [data-room-nick], [data-room-unique-id]') as HTMLElement;
+        if (!clickableEl) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const roomId = clickableEl.getAttribute('data-room-id') || clickableEl.dataset.roomId;
+        const roomNick = clickableEl.getAttribute('data-room-nick') || clickableEl.dataset.roomNick;
+        const uniqueId = clickableEl.getAttribute('data-room-unique-id') || clickableEl.dataset.roomUniqueId;
+
+        if (!this.rooms || !this.rooms.length) return;
+
+        const targetRoom = this.rooms.find(r => {
+            const keys = this.getRoomKeys(r);
+            if (roomId && keys.includes(String(roomId))) return true;
+            if (roomNick && keys.includes(String(roomNick))) return true;
+            if (uniqueId && keys.includes(String(uniqueId))) return true;
+            return false;
+        });
+
+        if (targetRoom) {
+            this.selectRoom(targetRoom);
+            const name = targetRoom.nickname || targetRoom.owner?.nickname || 'Streamer';
+            this.toastr.success(`Đã chọn phiên livestream của @${name}`);
+        }
+    }
+
+    enhanceClickableRoomLinks(htmlContent: string): string {
+        if (!htmlContent || !this.rooms || this.rooms.length === 0) return htmlContent;
+
+        let result = htmlContent;
+        for (const room of this.rooms) {
+            const rId = String(room.id || room.room_id || room.unique_id || '');
+            const rNick = room.nickname || room.owner?.nickname || '';
+
+            if (rNick && rNick.length > 1) {
+                const escapedNick = rNick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const nickRegex = new RegExp(`(?<!data-room-id=["'][^"']*)\\b(${escapedNick})\\b`, 'gi');
+                result = result.replace(nickRegex, `<a data-room-id="${rId}" data-room-nick="${rNick}" class="font-bold text-teal-600 hover:text-teal-700 hover:underline cursor-pointer px-1.5 py-0.5 rounded bg-teal-50 border border-teal-200 shadow-2xs">$1</a>`);
+            }
+        }
+        return result;
     }
 
     selectedRoom: any = null;
@@ -1528,12 +1644,32 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
         this.rowHeight = Math.round(cellWidth) + 12;
     }
 
+    get displayedRooms(): any[] {
+        if (!this.rooms || !this.rooms.length) return [];
+
+        // Chỉ lọc danh sách khi người dùng gửi câu hỏi và AI đã trả về danh sách lọc (aiFilteredRoomIds)
+        if (this.aiFilteredRoomIds && this.aiFilteredRoomIds.size > 0) {
+            const filtered = this.rooms.filter(room => {
+                const keys = this.getRoomKeys(room);
+                return keys.some(k => this.aiFilteredRoomIds!.has(k));
+            });
+            if (filtered.length > 0) return filtered;
+        }
+
+        return this.rooms;
+    }
+
+    onChatInputSearch(): void {
+        // Không tự động lọc khi người dùng đang gõ
+    }
+
     rebuildGridRows(): void {
         this.detectGrid();
         const out: any[] = [];
-        if (this.rooms && this.rooms.length > 0) {
-            for (let i = 0; i < this.rooms.length; i += this.gridSize) {
-                out.push({ rooms: this.rooms.slice(i, i + this.gridSize) });
+        const activeRooms = this.displayedRooms;
+        if (activeRooms && activeRooms.length > 0) {
+            for (let i = 0; i < activeRooms.length; i += this.gridSize) {
+                out.push({ rooms: activeRooms.slice(i, i + this.gridSize) });
             }
         }
         this.gridRows = out;
