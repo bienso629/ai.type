@@ -90,10 +90,20 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Thao tác" [width]="180" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            <ngx-datatable-column name="Thao tác" [width]="210" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-start space-x-1">
+                        <!-- Nút Play (Hiện khi Profile chưa Running) -->
+                        <button *ngIf="!row.running" mat-icon-button (click)="runSingleProfile(row)" [matTooltip]="'Chạy profile này'">
+                            <mat-icon class="icon-size-4 text-green-600 hover:text-green-700" [svgIcon]="'feather:play'"></mat-icon>
+                        </button>
+
+                        <!-- Nút Stop (Hiện khi Profile đang Running) -->
+                        <button *ngIf="row.running" mat-icon-button (click)="stopSingleProfile(row)" [matTooltip]="'Tắt profile này'">
+                            <mat-icon class="icon-size-4 text-red-600 hover:text-red-700" [svgIcon]="'feather:square'"></mat-icon>
+                        </button>
+
                         <ng-container *ngIf="row.accounts && row.accounts.length > 0">
                             <button mat-icon-button (click)="editAcc(row.accounts[0])" [matTooltip]="'app.edit_persona_account' | transloco">
                                 <mat-icon class="icon-size-4 text-primary-600" [svgIcon]="'feather:edit-3'"></mat-icon>

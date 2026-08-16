@@ -148,6 +148,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     segmentSec = 10;
 
     rooms: any[] = [];
+    viewMode: 'grid' | 'list' = 'grid';
 
     turnOffLiveStream = false;
 
@@ -2494,18 +2495,129 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         return '';
     }
 
+    isProfileRunning = false;
+
     getProfileName(): string {
         const stored = localStorage.getItem('selected_opera_profile');
         if (stored && stored.trim()) return stored.trim();
         return 'Profile000';
     }
 
+    checkProfileRunningStatus(): void {
+        const targetProfile = this.getProfileName();
+        this._mxhautoService.profiles({
+            profiles_root: this.getProfilesRoot(),
+            host: '127.0.0.1',
+            verify: true,
+            username: this.user?.name || 'admin'
+        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+            next: (res: any) => {
+                if (res && res.results && Array.isArray(res.results)) {
+                    const p = res.results.find((x: any) => x.profile === targetProfile || x.name === targetProfile);
+                    this.isProfileRunning = !!(p && (p.running || p.launched_new || p.ok));
+                } else {
+                    this.isProfileRunning = false;
+                }
+                if (!this.isProfileRunning && this.turnOffLiveStream) {
+                    this.turnOffLiveStream = false;
+                    this.liveStop$.next();
+                }
+                this.cd.markForCheck();
+            },
+            error: () => {
+                this.isProfileRunning = false;
+                this.cd.markForCheck();
+            }
+        });
+    }
+
+    updateRoomsList(newRooms: any[]): void {
+        if (!newRooms || !Array.isArray(newRooms)) return;
+        if (!this.rooms || !this.rooms.length) {
+            this.rooms = [...newRooms];
+            this.cd.markForCheck();
+            return;
+        }
+
+        const existingMap = new Map<string, any>();
+        for (const room of this.rooms) {
+            const key = room?.id || room?.unique_id || room?.owner?.unique_id || room?.nickname;
+            if (key) existingMap.set(String(key), room);
+        }
+
+        for (const newRoom of newRooms) {
+            const key = newRoom?.id || newRoom?.unique_id || newRoom?.owner?.unique_id || newRoom?.nickname;
+            if (key) {
+                const keyStr = String(key);
+                if (existingMap.has(keyStr)) {
+                    Object.assign(existingMap.get(keyStr), newRoom);
+                } else {
+                    existingMap.set(keyStr, newRoom);
+                }
+            } else {
+                this.rooms.push(newRoom);
+            }
+        }
+
+        this.rooms = Array.from(existingMap.values());
+        this.cd.markForCheck();
+    }
+
     listLiveStream() { this._mxhautoService.listLiveStreasm({ "profile": this.getProfileName(), "profiles_root": this.getProfilesRoot(), "launch_if_needed": true, "live_url": "https://www.tiktok.com/live", "timeout": 0, "max_items": 500, "idle_sec": 10, "max_duration": 60, "username": this.user?.name || "admin" }); }
-    liveWatchStart() { this._mxhautoService.liveWatchStart({ "profile": this.getProfileName(), "profiles_root": this.getProfilesRoot(), "launch_if_needed": true, "live_url": "https://www.tiktok.com/live", "interval_sec": 180 }).pipe(takeUntil(this._unsubscribeAll)).subscribe({ next: async (result: any) => { if (result && result.ok && result.watch_id) { this.toastr.success("Mở danh sách LiveStream."); localStorage.setItem('tiktok_watch_id', result.watch_id); this.liveStop$.next(); const totalSec = this.REFRESH_MS / 1000; const tick$ = timer(0, this.REFRESH_MS).pipe(shareReplay({ bufferSize: 1, refCount: true })); const data$ = tick$.pipe(switchMap(() => this.listLiveStream$().pipe(catchError(() => of({ rooms: [] })))), shareReplay({ bufferSize: 1, refCount: true })); data$.pipe(takeUntil(this.liveStop$), takeUntil(this._unsubscribeAll)).subscribe((res: any) => { if (res?.rooms) { this.rooms = [...res.rooms]; this.cd.markForCheck(); } }); this.countdown$ = data$.pipe(switchMap(() => interval(1000).pipe(startWith(0), map(i => Math.max(0, totalSec - i)), take(totalSec + 1))), shareReplay({ bufferSize: 1, refCount: true }), takeUntil(this.liveStop$), takeUntil(this._unsubscribeAll)) as Observable<number>; } }, error: () => { }, complete: () => { } }); }
+    liveWatchStart() { this._mxhautoService.liveWatchStart({ "profile": this.getProfileName(), "profiles_root": this.getProfilesRoot(), "launch_if_needed": true, "live_url": "https://www.tiktok.com/live", "interval_sec": 30 }).pipe(takeUntil(this._unsubscribeAll)).subscribe({ next: async (result: any) => { if (result && result.ok && result.watch_id) { this.toastr.success("Mở danh sách LiveStream."); localStorage.setItem('tiktok_watch_id', result.watch_id); this.liveStop$.next(); const totalSec = this.REFRESH_MS / 1000; const tick$ = timer(0, this.REFRESH_MS).pipe(shareReplay({ bufferSize: 1, refCount: true })); const data$ = tick$.pipe(switchMap(() => this.listLiveStream$().pipe(catchError(() => of({ rooms: [] })))), shareReplay({ bufferSize: 1, refCount: true })); data$.pipe(takeUntil(this.liveStop$), takeUntil(this._unsubscribeAll)).subscribe((res: any) => { if (res?.rooms && res.rooms.length > 0) { this.updateRoomsList(res.rooms); } }); this.countdown$ = data$.pipe(switchMap(() => interval(1000).pipe(startWith(0), map(i => Math.max(0, totalSec - i)), take(totalSec + 1))), shareReplay({ bufferSize: 1, refCount: true }), takeUntil(this.liveStop$), takeUntil(this._unsubscribeAll)) as Observable<number>; } }, error: () => { }, complete: () => { } }); }
     liveWatchStop(autorun?: boolean) { this.liveStop$.next(); this._mxhautoService.liveWatchStop({ "watch_id": localStorage.getItem('tiktok_watch_id'), "username": this.user?.name || "admin" }).pipe(takeUntil(this._unsubscribeAll)).subscribe({ next: async (result: any) => { if (result && result.ok) { this.job = null; this.toastr.warning("Tắt danh sách LiveStream."); if (autorun) { this.liveWatchStart(); } } }, error: () => { }, complete: () => { } }); }
     listLiveStream$() { return this._mxhautoService.listLiveStreasm({ "profile": this.getProfileName(), "profiles_root": this.getProfilesRoot(), "launch_if_needed": true, "live_url": "https://www.tiktok.com/live", "timeout": 0, "max_items": 500, "idle_sec": 10, "max_duration": 60, "username": this.user?.name || "admin" }); }
-    playLiveStream(room: any) { const hlsUrl = this.pickHlsUrlFromRoom(room); if (!hlsUrl) { console.error('Không tìm thấy HLS URL trong room'); return; } this.openSseTranscribe(hlsUrl); }
-    startLivestream(hlsUrl: string) { if (this.ipcRenderer) { this.ipcRenderer.send('stt-send-to-chrome', { type: 'set-source', source: hlsUrl }); } }
+    activeHoverHls?: Hls;
+    activeHoverRoom?: any;
+
+    onRoomMouseEnter(room: any, videoEl: HTMLVideoElement): void {
+        if (!room || !videoEl) return;
+        this.onRoomMouseLeave(room);
+
+        const hlsUrl = this.pickHlsUrlFromRoom(room);
+        if (!hlsUrl) return;
+
+        room._hovering = true;
+        this.activeHoverRoom = room;
+
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                debug: false,
+                enableWorker: true,
+                lowLatencyMode: true,
+                backBufferLength: 30
+            });
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(videoEl);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                videoEl.muted = false;
+                videoEl.play().catch(() => {
+                    videoEl.muted = true;
+                    videoEl.play().catch(() => {});
+                });
+            });
+            this.activeHoverHls = hls;
+        } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+            videoEl.src = hlsUrl;
+            videoEl.muted = false;
+            videoEl.play().catch(() => {
+                videoEl.muted = true;
+                videoEl.play().catch(() => {});
+            });
+        }
+    }
+
+    onRoomMouseLeave(room: any): void {
+        if (room) room._hovering = false;
+        if (this.activeHoverHls) {
+            try { this.activeHoverHls.destroy(); } catch (e) {}
+            this.activeHoverHls = undefined;
+        }
+        this.activeHoverRoom = undefined;
+    }
+
+    playLiveStream(room: any) { }
+    startLivestream(hlsUrl: string) { }
     stopPlayer() { this.destroyPlayer(); }
 
     // Video Helper
