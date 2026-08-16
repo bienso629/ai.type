@@ -33,6 +33,7 @@
                 <!-- Assistant Message Bubble -->
                 <div *ngIf="msg.role === 'assistant'" class="flex flex-col gap-1 max-w-[95%]">
                     <div class="ai-chat-bubble bg-gray-100/80 border border-gray-200/50 rounded-xl p-4 text-base text-gray-800 leading-relaxed shadow-2xs"
+                         (click)="onChatBubbleClick($event)"
                          [innerHTML]="msg.content">
                     </div>
                 </div>
@@ -107,16 +108,16 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <div class="flex items-center bg-gray-100 p-1 rounded-lg">
+                <div class="flex items-center gap-1 bg-gray-100/90 p-1 rounded-full border border-gray-200/40">
                     <button mat-icon-button (click)="viewMode = 'grid'" matTooltip="Xem dạng Video Grid"
-                            [class.bg-white]="viewMode === 'grid'" [class.shadow-sm]="viewMode === 'grid'" [class.text-primary]="viewMode === 'grid'"
-                            class="rounded-full !w-9 !h-9 !min-w-9">
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:view-grid'"></mat-icon>
+                            [class.bg-white]="viewMode === 'grid'" [class.shadow-2xs]="viewMode === 'grid'" [class.text-primary-600]="viewMode === 'grid'" [class.text-gray-500]="viewMode !== 'grid'"
+                            class="rounded-full !w-7.5 !h-7.5 !min-w-7.5 flex items-center justify-center transition-all">
+                        <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_outline:view-grid'"></mat-icon>
                     </button>
                     <button mat-icon-button (click)="viewMode = 'list'" matTooltip="Xem dạng Danh sách"
-                            [class.bg-white]="viewMode === 'list'" [class.shadow-sm]="viewMode === 'list'" [class.text-primary]="viewMode === 'list'"
-                            class="rounded-full !w-9 !h-9 !min-w-9">
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:view-list'"></mat-icon>
+                            [class.bg-white]="viewMode === 'list'" [class.shadow-2xs]="viewMode === 'list'" [class.text-primary-600]="viewMode === 'list'" [class.text-gray-500]="viewMode !== 'list'"
+                            class="rounded-full !w-7.5 !h-7.5 !min-w-7.5 flex items-center justify-center transition-all">
+                        <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_outline:view-list'"></mat-icon>
                     </button>
                 </div>
             </div>
@@ -210,7 +211,7 @@
                                #roomsTable 
                                class="material flex-auto h-full w-full" 
                                [columnMode]="ColumnMode.force"
-                               [rows]="rooms" 
+                               [rows]="displayedRooms" 
                                [rowHeight]="70" 
                                [headerHeight]="40" 
                                [footerHeight]="0" 
