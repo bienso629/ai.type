@@ -365,6 +365,59 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             });
     }
 
+    runSingleProfile(row: any) {
+        if (!row || !row.profile) return;
+        const payload: any = {
+            "profiles": [row.profile],
+            "base_debug_port": 0,
+            "opera_path": this.getOperaPath(),
+            "devtools_ready_timeout_ms": 8000,
+            "close_tabs_on_start": true,
+            "leave_one_tab": true,
+            "new_tab_url": "https://www.tiktok.com",
+            "mode": "skip",
+            "window_state": "maximized",
+            "headless": this.isHeadless,
+            "prefix_title_with_profile": true,
+            "title_prefix_apply_all_tabs": true,
+            "post_open_wait_ms": 800,
+            "activate_opened_tab": true,
+            "username": this.user ? this.user.name : ''
+        };
+        const root = this.getProfilesRoot();
+        if (root) payload.profiles_root = root;
+
+        this._mxhautoService.run(payload)
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    if (result && result.results) {
+                        row.running = true;
+                        this.toastr.success(`Đã khởi động ${row.profile} ${this.isHeadless ? '(Headless)' : ''}`);
+                    }
+                },
+                complete: () => this.cd.markForCheck()
+            });
+    }
+
+    stopSingleProfile(row: any) {
+        if (!row || !row.profile) return;
+        this._mxhautoService.killProfiles({
+            "profiles_root": this.getProfilesRoot(),
+            "profiles": [row.profile],
+            "mode": "force",
+            "force": true,
+            "cache_action": "prune",
+            "username": this.user ? this.user.name : ''
+        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+            next: (result: any) => {
+                row.running = false;
+                this.toastr.warning(`Đã tắt ${row.profile}`);
+                this.cd.markForCheck();
+            }
+        });
+    }
+
     deleteProfiles() {
         const profiles = _.map(this.selected, 'profile');
         if (profiles.length === 0) {

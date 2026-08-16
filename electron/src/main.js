@@ -1640,8 +1640,35 @@ function getChromePath() {
     return null;
 }
 
-// Trong file main.js
-// Thêm tham số width, height vào hàm
+function prepareChromeSttProfile(userDataDir) {
+    try {
+        const defaultDir = path.join(userDataDir, "Default");
+        if (!fs.existsSync(defaultDir)) {
+            fs.mkdirSync(defaultDir, { recursive: true });
+        }
+        const prefPath = path.join(defaultDir, "Preferences");
+        let prefs = {};
+        if (fs.existsSync(prefPath)) {
+            try {
+                prefs = JSON.parse(fs.readFileSync(prefPath, "utf8"));
+            } catch (e) {}
+        }
+        if (!prefs.profile) prefs.profile = {};
+        if (!prefs.profile.content_settings) prefs.profile.content_settings = {};
+        if (!prefs.profile.content_settings.exceptions) prefs.profile.content_settings.exceptions = {};
+        
+        prefs.profile.content_settings.exceptions.media_stream_mic = {
+            "http://localhost:7171,*": { setting: 1 },
+            "http://127.0.0.1:7171,*": { setting: 1 },
+            "http://localhost:7171": { setting: 1 },
+            "http://127.0.0.1:7171": { setting: 1 }
+        };
+        fs.writeFileSync(prefPath, JSON.stringify(prefs, null, 2), "utf8");
+    } catch (err) {
+        console.error("[ChromeApp] Lỗi tạo preferences cho STT:", err);
+    }
+}
+
 function openChromeApp(url, width = 400, height = 800) {
     const targetUrl = url || "http://localhost:7171/";
 
@@ -1656,22 +1683,18 @@ function openChromeApp(url, width = 400, height = 800) {
     if (!chromePath) {
         sendToRenderer(
             "tools-log",
-            `[ChromeApp] �?� Không tìm thấy Google Chrome!`,
+            `[ChromeApp] ❌ Không tìm thấy Google Chrome!`,
         );
         return;
     }
 
     try {
-        const userDataDir = path.join(os.tmpdir(), "chrome-stt-" + Date.now());
+        const userDataDir = path.join(os.homedir(), ".config", "ai-type-chrome-stt");
+        prepareChromeSttProfile(userDataDir);
 
         const args = [
             `--app=${targetUrl}`,
-            // --- THÊM DÒNG NÀY �?Ể CHỈNH K�?CH THƯỚC ---
             `--window-size=${width},${height}`,
-
-            // Nếu muốn chỉnh vị trí xuất hiện (tùy ch�?n):
-            // `--window-position=100,100`,
-
             "--new-window",
             "--no-first-run",
             "--no-default-browser-check",
@@ -3143,8 +3166,69 @@ function startSttServer() {
             };
         }
 
+        function startStt() {
+            if (!window.webkitSpeechRecognition) return log('❌ Trình duyệt không hỗ trợ STT', 'err');
+            
+            const initRecognition = () => {
+                if (recognition) {
+                    try { recognition.abort(); } catch(e){}
+                }
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'vi-VN';
+
+                recognition.onstart = () => log('🎙️ STT đang lắng nghe tiếng...', 'info');
+                recognition.onerror = (e) => {
+                    if (e.error !== 'no-speech') log('⚠️ Lỗi Mic: ' + e.error, 'err');
+                    if (e.error === 'not-allowed' || e.error === 'audio-capture') {
+                        setTimeout(() => {
+                            try { recognition.start(); } catch(err) { initRecognition(); }
+                        }, 1000);
+                    }
+                };
+                recognition.onend = () => setTimeout(() => {
+                    try { recognition.start(); } catch(err) { initRecognition(); }
+                }, 800);
+                
+                recognition.onresult = (e) => {
+                    let finalRaw = '';
+                    let interimRaw = '';
+                    for (let i = e.resultIndex; i < e.results.length; ++i) {
+                        if (e.results[i].isFinal) finalRaw += e.results[i][0].transcript;
+                        else interimRaw += e.results[i][0].transcript;
+                    }
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        if (finalRaw) {
+                            const processedFinal = processText(finalRaw);
+                            ws.send(JSON.stringify({ type:'caption', text: processedFinal, isFinal: true, source: video.src }));
+                            log('💬 ' + processedFinal, 'final');
+                        }
+                        if (interimRaw) {
+                            ws.send(JSON.stringify({ type:'caption', text: interimRaw, isFinal: false, source: video.src }));
+                        }
+                    }
+                };
+                try { recognition.start(); } catch(e) {
+                    setTimeout(initRecognition, 1000);
+                }
+            };
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(() => {
+                    log('🎙️ Micro đã sẵn sàng', 'info');
+                }).catch((err) => {
+                    log('ℹ️ getUserMedia: ' + err.message, 'info');
+                }).finally(() => {
+                    initRecognition();
+                });
+            } else {
+                initRecognition();
+            }
+        }
+
         function loadVideo(url) {
-            log('▶�? �?ang tải nguồn: ' + url, 'info');
+            log('▶? ?ang tải nguồn: ' + url, 'info');
             if(hls) { hls.destroy(); hls = null; }
 
             if (Hls.isSupported()) {
@@ -3152,7 +3236,7 @@ function startSttServer() {
                 hls.loadSource(url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    log('✅ �?ã nhận tín hiệu Video', 'info');
+                    log('✅ ?ã nhận tín hiệu Video', 'info');
                     video.muted = false; 
                     video.play().catch(() => {
                         video.muted = true; 
