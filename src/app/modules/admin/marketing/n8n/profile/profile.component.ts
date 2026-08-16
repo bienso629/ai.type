@@ -375,9 +375,9 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             "close_tabs_on_start": true,
             "leave_one_tab": true,
             "new_tab_url": "https://www.tiktok.com",
-            "mode": "skip",
+            "mode": "replace",
             "window_state": "maximized",
-            "headless": this.isHeadless,
+            "headless": true,
             "prefix_title_with_profile": true,
             "title_prefix_apply_all_tabs": true,
             "post_open_wait_ms": 800,
@@ -391,10 +391,14 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
-                    if (result && result.results) {
-                        row.running = true;
-                        this.toastr.success(`Đã khởi động ${row.profile} ${this.isHeadless ? '(Headless)' : ''}`);
-                    }
+                    row.running = true;
+                    this.toastr.success(`Đã khởi động ${row.profile} (Headless)`);
+                    setTimeout(() => this.getProfiles(true), 1000);
+                    this.cd.markForCheck();
+                },
+                error: (err: any) => {
+                    this.toastr.error(`Không thể khởi động ${row.profile}`);
+                    this.cd.markForCheck();
                 },
                 complete: () => this.cd.markForCheck()
             });
