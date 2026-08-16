@@ -23,14 +23,6 @@ import { Router } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 import { BlogService } from 'app/_services/blog';
 import { ToastrService } from 'ngx-toastr';
-import {
-    ITimelineItem,
-    TimelineComponent,
-    IItemTimeChangedEvent,
-    TimelineViewMode,
-} from "angular-calendar-timeline";
-import localeVi from "@angular/common/locales/vi";
-import { registerLocaleData } from '@angular/common';
 import { MXHAutoService } from 'app/_services/mxhauto';
 import { MatSelectionList } from "@angular/material/list";
 import { MatSlideToggleChange } from '@angular/material/slide-toggle';
@@ -41,20 +33,8 @@ import { HttpClient } from '@angular/common/http';
 import Hls from 'hls.js';
 
 // --- IMPORT SERVICE N8N ---
-import { N8nService } from 'app/_services/n8n.service'; // Bạn kiểm tra lại đường dẫn này nhé
+import { N8nService } from 'app/_services/n8n.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
-
-registerLocaleData(localeVi);
-
-export interface ICustomTimelineItem extends ITimelineItem {
-    persona?: {
-        role: string;
-        style: string;
-        gender: string;
-        age: string;
-        alias?: string;
-    };
-}
 
 interface CommentGroup {
     key: string;
@@ -77,7 +57,6 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     secretKey: any;
     searchAPIKey: any;
 
-    // ai: any;
     private chatHistory: any[] = [];
 
     private hls?: Hls;
@@ -86,30 +65,6 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     profiles: any[] = [];
     profile: any = {};
     totalProfiles: number = 0;
-
-    minZoomIndex: number;
-    maxZoomIndex: number;
-    currentZoomIndex: number;
-
-    items: ICustomTimelineItem[] = [];
-
-    @ViewChild("timeline") timelineComponent: TimelineComponent;
-    
-    private _timelineElement!: ElementRef;
-    @ViewChild("timeline", { read: ElementRef }) set timelineElement(el: ElementRef) {
-        if (el && !this._timelineElement) {
-            this._timelineElement = el;
-            setTimeout(() => this.setupDragToScroll(), 0);
-        } else {
-            this._timelineElement = el;
-        }
-    }
-    
-    private isDraggingTimeline = false;
-    private timelineStartX = 0;
-    private timelineStartY = 0;
-    private timelineScrollLeft = 0;
-    private timelineScrollTop = 0;
 
     readonly REFRESH_MS = 30_000;
     countdown$!: Observable<number>;
@@ -132,26 +87,87 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     chatInput: string = '';
     chatMessages: { role: 'user' | 'assistant'; content: string }[] = [];
 
+    items: any[] = [];
+
     quickActionChips = [
         { label: 'Phân tích video đã chọn', icon: 'heroicons_outline:sparkles', action: 'analyze' },
         { label: 'Tự động thích video của bạn', icon: 'feather:heart', action: 'like' },
         { label: 'Tự động bình luận cho video của bạn', icon: 'feather:message-square', action: 'comment' }
     ];
 
-    sendChatMessage(): void {
+    formatAiResponse(rawText: string): string {
+        if (!rawText) return '';
+        let clean = rawText;
+
+        // 1. Loại bỏ markdown code blocks ```html và ```
+        clean = clean.replace(/```html/gi, '');
+        clean = clean.replace(/```/g, '');
+
+        // 2. Thay thế AI Agent và sontinh.type.vn bằng "Trợ lý phân tích"
+        clean = clean.replace(/AI Agent/gi, 'Trợ lý phân tích');
+        clean = clean.replace(/sontinh\.type\.vn/gi, 'Trợ lý phân tích');
+        clean = clean.replace(/sontinh/gi, 'Trợ lý phân tích');
+
+        // 3. Gom nhiều xuống dòng liên tiếp thành 1 xuống dòng để tránh thưa mét
+        clean = clean.replace(/\r\n/g, '\n');
+        clean = clean.replace(/\n{2,}/g, '\n');
+        clean = clean.trim();
+
+        // 4. Chuyển \n thành <br/>
+        clean = clean.replace(/\n/g, '<br/>');
+
+        // 5. Xóa bớt <br/> sau các thẻ đóng khối HTML
+        clean = clean.replace(/(<\/(?:p|div|h[1-6]|ul|ol|li|table|tr|td|th)>)\s*(?:<br\s*\/?>)+/gi, '$1');
+
+        return clean;
+    }
+
+    async sendChatMessage(): Promise<void> {
         if (!this.chatInput || !this.chatInput.trim()) return;
         const text = this.chatInput.trim();
         this.chatMessages.push({ role: 'user', content: text });
         this.chatInput = '';
         this.cd.markForCheck();
 
-        setTimeout(() => {
-            this.chatMessages.push({
-                role: 'assistant',
-                content: `🤖 Trợ lý AI đang tiếp nhận yêu cầu: "<b>${text}</b>". Đang lên kịch bản tự động...`
+        const loadingMsg: { role: 'user' | 'assistant'; content: string } = {
+            role: 'assistant',
+            content: '⏳ <b>Trợ lý phân tích</b> đang suy nghĩ và phân tích...'
+        };
+        this.chatMessages.push(loadingMsg);
+        this.cd.markForCheck();
+
+        try {
+            const response: any = await this._genaiService.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: [{ role: 'user', parts: [{ text }] }],
+                config: {
+                    systemInstruction: `Bạn là Trợ lý phân tích chuyên nghiệp hỗ trợ xây dựng kịch bản livestream, phân tích video và tự động hóa tương tác MXH. Hãy phản hồi ngắn gọn, trình bày HTML sạch sẽ, không dùng code block markdown và không ghi chữ AI Agent hay sontinh.type.vn.`
+                }
             });
-            this.cd.markForCheck();
-        }, 800);
+
+            const replyText = response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || 'Đã xử lý xong yêu cầu của bạn.';
+            loadingMsg.content = this.formatAiResponse(replyText);
+        } catch (err: any) {
+            console.error('Lỗi khi gọi Trợ lý phân tích:', err);
+            loadingMsg.content = `❌ Không thể kết nối tới Trợ lý phân tích: ${err?.message || 'Đã có lỗi xảy ra'}`;
+        }
+        this.cd.markForCheck();
+    }
+
+    selectedRoom: any = null;
+
+    selectRoom(room: any): void {
+        if (!room) return;
+        this.rooms.forEach(r => r.is_selected = false);
+        room.is_selected = true;
+        this.selectedRoom = room;
+
+        // Đưa video được chọn lên đầu danh sách
+        this.rooms = [room, ...this.rooms.filter(r => r !== room)];
+        this.rebuildGridRows();
+
+        this.toastr.info(`Đã chọn & đưa Livestream của @${room.nickname || 'Tiktoker'} lên đầu danh sách`);
+        this.cd.markForCheck();
     }
 
     sendQuickAction(chip: any): void {
@@ -159,9 +175,142 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             this.generateLike();
         } else if (chip.action === 'comment') {
             this.generateComment();
+        } else if (chip.action === 'analyze') {
+            this.analyzeSelectedRoom();
         } else {
             this.chatInput = chip.label;
             this.sendChatMessage();
+        }
+    }
+
+    private analysisIntervals = new Map<string, any>();
+
+    startContinuousAnalysis(room: any): void {
+        if (!room) return;
+        this.selectRoom(room);
+        room.is_analyzing = true;
+
+        const nickname = room.nickname || room.owner?.nickname || 'Streamer';
+        const roomId = String(room.id || room.unique_id || nickname);
+
+        // Giữ luồng phát video liên tục
+        room._hovering = true;
+        this.cd.markForCheck();
+
+        this.toastr.success(`Đã bật Phân tích Realtime cho @${nickname}`);
+
+        this.chatMessages.push({
+            role: 'user',
+            content: `🔴 <b>Bắt đầu phân tích trực tiếp:</b> @${nickname}`
+        });
+
+        const loadingMsg: { role: 'user' | 'assistant'; content: string } = {
+            role: 'assistant',
+            content: `📡 <b>Trợ lý phân tích</b> đang duy trì phát luồng video liên tục và phân tích dữ liệu trực tiếp...`
+        };
+        this.chatMessages.push(loadingMsg);
+        this.cd.markForCheck();
+
+        // Chạy phân tích bước đầu tiên
+        this.runStreamAnalysisStep(room, loadingMsg);
+
+        // Thiết lập interval phân tích liên tục mỗi 15 giây
+        if (this.analysisIntervals.has(roomId)) {
+            clearInterval(this.analysisIntervals.get(roomId));
+        }
+
+        const intervalId = setInterval(() => {
+            if (!room.is_analyzing || room.is_live === false) {
+                this.stopContinuousAnalysis(room);
+                return;
+            }
+            // Giữ cho video tiếp tục phát liên tục
+            room._hovering = true;
+            this.runStreamAnalysisStep(room);
+        }, 15000);
+
+        this.analysisIntervals.set(roomId, intervalId);
+    }
+
+    async runStreamAnalysisStep(room: any, targetMsg?: { role: 'user' | 'assistant'; content: string }): Promise<void> {
+        const nickname = room.nickname || room.owner?.nickname || 'Streamer';
+        const title = room.title || 'Phiên phát trực tiếp';
+        const viewers = room.user_count || 0;
+        const hlsUrl = this.pickHlsUrlFromRoom(room) || '';
+        const timeNow = new Date().toLocaleTimeString('vi-VN');
+
+        const promptText = `
+[THỜI GIAN REALTIME: ${timeNow}]
+Phân tích cập nhật luồng phát trực tiếp của @${nickname}:
+- Tiêu đề: ${title}
+- Mắt xem hiện tại: ${viewers}
+- Luồng HLS: ${hlsUrl || 'N/A'}
+
+Hãy cập nhật kết quả phân tích theo thời gian thực:
+1. Tóm tắt diễn biến kịch bản vừa diễn ra.
+2. Đánh giá thái độ/tương tác khán giả.
+3. Đề xuất 2 câu comment Seeding phù hợp ngay thời điểm này.
+        `.trim();
+
+        try {
+            const response: any = await this._genaiService.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: [{ role: 'user', parts: [{ text: promptText }] }],
+                config: {
+                    systemInstruction: `Bạn là Trợ lý phân tích duy trì phân tích luồng Livestream liên tục. Định dạng HTML thuần cực kỳ gọn gàng, tuyệt đối KHÔNG bao bọc bằng mã markdown (\`\`\`html), không khoảng cách dòng thưa mét, không ghi chữ AI Agent hay sontinh.type.vn, báo cáo rõ mốc thời gian [${timeNow}].`
+                }
+            });
+
+            const replyText = response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || 'Đã phân tích luồng thành công.';
+            const formattedContent = this.formatAiResponse(replyText);
+
+            if (targetMsg) {
+                targetMsg.content = formattedContent;
+            } else {
+                this.chatMessages.push({
+                    role: 'assistant',
+                    content: `⏱️ <b>[${timeNow}] Cập nhật luồng @${nickname}:</b><br/>${formattedContent}`
+                });
+            }
+        } catch (err: any) {
+            console.error('Lỗi phân tích stream:', err);
+            if (targetMsg) {
+                targetMsg.content = `❌ Tạm thời mất kết nối Trợ lý phân tích: ${err?.message || 'Lỗi mạng'}`;
+            }
+        }
+        this.cd.markForCheck();
+    }
+
+    stopContinuousAnalysis(room: any): void {
+        if (!room) return;
+        room.is_analyzing = false;
+        const nickname = room.nickname || room.owner?.nickname || 'Streamer';
+        const roomId = String(room.id || room.unique_id || nickname);
+
+        if (this.analysisIntervals.has(roomId)) {
+            clearInterval(this.analysisIntervals.get(roomId));
+            this.analysisIntervals.delete(roomId);
+        }
+
+        this.toastr.warning(`Đã tắt phân tích trực tiếp cho @${nickname}`);
+        this.chatMessages.push({
+            role: 'assistant',
+            content: `🛑 <b>Đã dừng phân tích luồng trực tiếp của @${nickname}.</b>`
+        });
+        this.cd.markForCheck();
+    }
+
+    async analyzeSelectedRoom(): Promise<void> {
+        const targetRoom = this.selectedRoom || (this.rooms && this.rooms.length > 0 ? this.rooms[0] : null);
+        if (!targetRoom) {
+            this.toastr.warning('Chưa có Livestream nào trong danh sách để phân tích.');
+            return;
+        }
+
+        if (targetRoom.is_analyzing) {
+            this.stopContinuousAnalysis(targetRoom);
+        } else {
+            this.startContinuousAnalysis(targetRoom);
         }
     }
 
@@ -302,17 +451,6 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     }
 
     ngAfterViewInit() {
-        this.minZoomIndex = this.timelineComponent.zoomsHandler.getFirstZoom().index;
-        this.maxZoomIndex = this.timelineComponent.zoomsHandler.getLastZoom().index;
-        this.currentZoomIndex = this.maxZoomIndex;
-
-        this.timelineComponent.zoomsHandler.activeZoom$.subscribe(
-            (zoom) => (this.currentZoomIndex = zoom.index)
-        );
-
-        this.zoomAndFitToContent();
-
-        // nếu truyền data captions từ bên ngoài
         if (this.data) {
             this.captions = this.data || [];
         }
@@ -321,6 +459,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     ngAfterViewChecked(): void { }
 
     ngOnDestroy(): void {
+        this.analysisIntervals.forEach(intervalId => clearInterval(intervalId));
+        this.analysisIntervals.clear();
         this.sttCaptionUnsubscribe?.();
         this.sttCaptionUnsubscribe = undefined;
         this._unsubscribeAll.next(null);
@@ -328,34 +468,6 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.liveStop$.next();
         this.liveStop$.complete();
     }
-
-    // --- TIMELINE & ZOOM ---
-    zoomIn(): void { this.timelineComponent.zoomIn(); }
-    zoomOut(): void { this.timelineComponent.zoomOut(); }
-    scrollToToday(): void { this.timelineComponent.zoomFullIn(); this.timelineComponent.attachCameraToDate(new Date()); }
-    zoomAndFitToContent(): void { this.timelineComponent.fitToContent(50); }
-    changeZoom(event: Event): void { this.timelineComponent.changeZoomByIndex(+(event.target as HTMLInputElement).value); }
-
-    onItemTimeChanged(event: IItemTimeChangedEvent): void {
-        const item = event.item;
-        item.startDate = event.newStartDate ?? item.startDate;
-        item.endDate = event.newEndDate ?? item.endDate;
-        this.items = [...this.items];
-    }
-
-    getViewModeName(): string {
-        switch (this.timelineComponent?.zoom?.viewMode) {
-            case TimelineViewMode.Day: return "Day";
-            case TimelineViewMode.Week: return "Week";
-            case TimelineViewMode.Month: return "Month";
-            default: return "Unknown";
-        }
-    }
-
-    addEvent(event: any) { console.log('event', event); }
-    trackByIndex = (_: number, c: { index: number }) => c.index;
-    changeEvent(item: any) { console.log('item', item); }
-    getRowHeight(row: any & { height: number }) { if (!row) return 50; if (row.height === undefined) return 50; return row.height; }
 
     // --- MAIN TABLE (CAPTIONS) ---
     onSelect({ selected }) {
@@ -932,36 +1044,13 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         } catch (e) { console.error(e); }
     }
 
-    loadScriptState() {
-        try {
-            const savedJson = localStorage.getItem(this.STORAGE_KEY);
-            if (!savedJson) return;
-            const savedState = JSON.parse(savedJson);
-            let hasData = false;
-            savedState.forEach((savedItem: any) => {
-                const currentItem = this.items.find(i => i.id === savedItem.id);
-                if (currentItem && savedItem.comments.length > 0) {
-                    const stream = currentItem.streamItems.find(s => s.name === 'Viết comment trong Live');
-                    if (stream) {
-                        stream.meta = savedItem.comments.map((c: any) => ({ ...c, start: new Date(c.start) }));
-                        hasData = true;
-                    }
-                }
-            });
-            if (hasData) this.items = [...this.items];
-        } catch (e) { console.error(e); }
-    }
+    loadScriptState() { }
 
     resetScriptContext() {
         this.chatHistory = [];
         this.selected = [];
         this.captions.forEach(c => c.selected = false);
-        localStorage.removeItem(this.STORAGE_KEY);
-        this.items.forEach(item => {
-            const commentStream = item.streamItems.find(s => s.name === 'Viết comment trong Live');
-            if (commentStream) commentStream.meta = [];
-        });
-        this.items = [...this.items];
+        this.clearChatMessages();
         this.cd.markForCheck();
         this.toastr.info('Đã xóa ngữ cảnh AI và kịch bản cũ.');
     }
@@ -1041,35 +1130,82 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.cd.markForCheck();
     }
 
+    getRoomKeys(room: any): string[] {
+        const keys: string[] = [];
+        if (!room) return keys;
+        if (room.id) keys.push(String(room.id));
+        if (room.room_id) keys.push(String(room.room_id));
+        if (room.unique_id) keys.push(String(room.unique_id));
+        if (room.owner?.unique_id) keys.push(String(room.owner.unique_id));
+        if (room.nickname) keys.push(String(room.nickname));
+        if (room.owner?.nickname) keys.push(String(room.owner.nickname));
+        return keys;
+    }
+
     updateRoomsList(newRooms: any[]): void {
         if (!newRooms || !Array.isArray(newRooms)) return;
+
+        const activeKeysSet = new Set<string>();
+        const newRoomsMap = new Map<string, any>();
+
+        for (const newRoom of newRooms) {
+            newRoom.is_live = true;
+            const keys = this.getRoomKeys(newRoom);
+            for (const k of keys) {
+                activeKeysSet.add(k);
+                if (!newRoomsMap.has(k)) {
+                    newRoomsMap.set(k, newRoom);
+                }
+            }
+        }
+
         if (!this.rooms || !this.rooms.length) {
-            this.rooms = [...newRooms];
+            this.rooms = newRooms.map(r => ({ ...r, is_live: true, miss_count: 0 }));
             this.rebuildGridRows();
             return;
         }
 
-        const existingMap = new Map<string, any>();
+        // Cập nhật trạng thái từng phòng trong danh sách hiện tại
         for (const room of this.rooms) {
-            const key = room?.id || room?.unique_id || room?.owner?.unique_id || room?.nickname;
-            if (key) existingMap.set(String(key), room);
-        }
+            const keys = this.getRoomKeys(room);
+            const matchedKey = keys.find(k => activeKeysSet.has(k));
 
-        for (const newRoom of newRooms) {
-            const key = newRoom?.id || newRoom?.unique_id || newRoom?.owner?.unique_id || newRoom?.nickname;
-            if (key) {
-                const keyStr = String(key);
-                if (existingMap.has(keyStr)) {
-                    Object.assign(existingMap.get(keyStr), newRoom);
-                } else {
-                    existingMap.set(keyStr, newRoom);
-                }
+            if (matchedKey) {
+                const freshData = newRoomsMap.get(matchedKey);
+                Object.assign(room, freshData, { is_live: true, miss_count: 0 });
             } else {
-                this.rooms.push(newRoom);
+                // Nếu không xuất hiện trong lần poll này (có thể do phân trang API)
+                room.miss_count = (room.miss_count || 0) + 1;
+
+                // Chỉ đánh dấu ĐÃ TẮT nếu vắng mặt liên tiếp từ 3 lần poll trở lên (90s) và không phải phòng đang được chọn / AI phân tích
+                if (room.miss_count >= 3 && !room.is_analyzing && this.selectedRoom !== room) {
+                    room.is_live = false;
+                } else {
+                    room.is_live = true;
+                }
             }
         }
 
-        this.rooms = Array.from(existingMap.values());
+        // Bổ sung các phòng livestream mới phát chưa có trong danh sách
+        for (const newRoom of newRooms) {
+            const newKeys = this.getRoomKeys(newRoom);
+            const exists = this.rooms.some(r => {
+                const rKeys = this.getRoomKeys(r);
+                return rKeys.some(rk => newKeys.includes(rk));
+            });
+
+            if (!exists) {
+                this.rooms.unshift({ ...newRoom, is_live: true, miss_count: 0 });
+            }
+        }
+
+        // Ưu tiên đưa các video được chọn hoặc đang phân tích lên vị trí đầu tiên
+        this.rooms.sort((a, b) => {
+            const aSel = (a === this.selectedRoom || a.is_selected || a.is_analyzing) ? 1 : 0;
+            const bSel = (b === this.selectedRoom || b.is_selected || b.is_analyzing) ? 1 : 0;
+            return bSel - aSel;
+        });
+
         this.rebuildGridRows();
     }
 
@@ -1150,47 +1286,5 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             dismissible: false
         });
         dialogRef.afterClosed().subscribe((_) => { this.router.navigate(['/tools']); });
-    }
-
-    setupDragToScroll() {
-        if (!this._timelineElement) return;
-        const ele = this._timelineElement.nativeElement as HTMLElement;
-        
-        ele.style.cursor = 'grab';
-
-        ele.addEventListener('mousedown', (e: MouseEvent) => {
-            const target = e.target as HTMLElement;
-            if (target.closest('.timeline-item') || target.closest('.panel-item') || target.closest('button') || target.closest('.item-content') || target.closest('[mwlResizeHandle]')) {
-                return;
-            }
-            
-            this.isDraggingTimeline = true;
-            ele.style.cursor = 'grabbing';
-            this.timelineStartX = e.pageX - ele.offsetLeft;
-            this.timelineStartY = e.pageY - ele.offsetTop;
-            this.timelineScrollLeft = ele.scrollLeft;
-            this.timelineScrollTop = ele.scrollTop;
-        });
-
-        ele.addEventListener('mouseleave', () => {
-            this.isDraggingTimeline = false;
-            ele.style.cursor = 'grab';
-        });
-
-        ele.addEventListener('mouseup', () => {
-            this.isDraggingTimeline = false;
-            ele.style.cursor = 'grab';
-        });
-
-        ele.addEventListener('mousemove', (e: MouseEvent) => {
-            if (!this.isDraggingTimeline) return;
-            e.preventDefault();
-            const x = e.pageX - ele.offsetLeft;
-            const y = e.pageY - ele.offsetTop;
-            const walkX = (x - this.timelineStartX) * 1.5;
-            const walkY = (y - this.timelineStartY) * 1.5;
-            ele.scrollLeft = this.timelineScrollLeft - walkX;
-            ele.scrollTop = this.timelineScrollTop - walkY;
-        });
     }
 }
