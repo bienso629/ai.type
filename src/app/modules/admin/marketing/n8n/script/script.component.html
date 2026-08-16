@@ -1,69 +1,87 @@
 <div class="flex flex-col sm:flex-row flex-0 h-full bg-transparent overflow-hidden">
-    <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
-        <div class="flex-1 min-h-0 overflow-y-auto hover-scroll relative" cdkScrollable>
-            <div class="timeline-container h-full">
-                <timeline-calendar #timeline locale="vi" [showDateMarket]="true" [isPanelResizable]="false"
-                    [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
-                    [panelLabel]="'Thao tác'" (itemTimeChanged)="onItemTimeChanged($event)"
-                    [itemContentTemplate]="customItemTemplate"></timeline-calendar>
-
-                <ng-template #customItemTemplate let-item let-locale="locale">
-                    <div (click)="changeEvent(item)" class="flex flex-row cursor-pointer">
-                        <div class="flex-1 text-base">{{ item.name }}</div>
-                        <div class="flex-0 ml-1">
-                            <span>({{ item.meta.length }})</span>
-                        </div>
-                    </div>
-                </ng-template>
-
-                <ng-template #customPanelItemTemplate let-item="item" let-index="index" let-depth="depth">
-                    <div [style.height.px]="
-                            rowHeight *
-                            (item.streamItems
-                                ? item?._streamLevels?.length || 1
-                                : 1)
-                        " [style.width.px]="width" [class.can-collapse]="
-                            item.childrenItems && item.childrenItems.length
-                        " class="panel-item">
-                        <div class="item-content">
-                            <span class="item-name" title="{{ item.name }}">{{
-                                item.name
-                                }}</span>
-                        </div>
-                    </div>
-                </ng-template>
+    <!-- Left Panel: Trợ lý AI - Lên kịch bản (Matching Screenshot 15-07-08.png) -->
+    <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white">
+        <!-- Header Bar (Explicit 72px height matching right panel header) -->
+        <div class="flex flex-row h-[72px] min-h-[72px] max-h-[72px] px-6 border-b items-center justify-between bg-white shrink-0">
+            <div class="flex items-center">
+                <h3 class="text-base font-bold text-gray-900 m-0">Trợ lý AI - Lên kịch bản</h3>
+            </div>
+            <div class="flex items-center gap-1 text-gray-400">
+                <button mat-icon-button (click)="clearChatMessages()" matTooltip="Xóa trò chuyện">
+                    <mat-icon class="icon-size-4.5 text-gray-500" [svgIcon]="'feather:trash-2'"></mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Lưu kịch bản">
+                    <mat-icon class="icon-size-4.5 text-gray-500" [svgIcon]="'feather:bookmark'"></mat-icon>
+                </button>
             </div>
         </div>
 
-        <!-- Action Footer Bar for Calendar -->
-        <div class="border-t p-3 px-6 bg-white flex items-center justify-between shrink-0 z-20 shadow-md">
-            <div class="flex items-center gap-3">
-                <button mat-flat-button color="primary" (click)="n8nComments()">
-                    {{ 'app.auto_rehearsal' | transloco }}
-                </button>
-                <ng-container *ngIf="comments && comments.length === 0; else nextComment">
-                    <a class="cursor-pointer text-blue-600 hover:underline text-sm font-medium" (click)="generateComment()">
-                        {{ 'app.create_comment' | transloco }}
-                    </a>
-                    <span class="text-gray-300">|</span>
-                    <a class="cursor-pointer text-blue-600 hover:underline text-sm font-medium" (click)="generateLike()">
-                        {{ 'app.heart' | transloco }}
-                    </a>
-                </ng-container>
-                <ng-template #nextComment>
-                    <a class="cursor-pointer text-blue-600 hover:underline text-sm font-medium" (click)="generatNextComment()">
-                        {{ 'app.continue_commenting' | transloco }}
-                    </a>
-                </ng-template>
+        <!-- Chat Messages Area -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-4 hover-scroll bg-white">
+            <!-- Empty State Placeholder -->
+            <div *ngIf="!chatMessages || chatMessages.length === 0" class="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400">
+                <div class="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-3 text-teal-600">
+                    <mat-icon class="icon-size-8" [svgIcon]="'heroicons_outline:chat-alt-2'"></mat-icon>
+                </div>
+                <h4 class="text-base font-bold text-gray-700 m-0 mb-1">Chưa có nội dung trao đổi</h4>
+                <p class="text-sm text-gray-400 m-0 max-w-xs">
+                    Hãy chọn một trong các thao tác bên dưới hoặc nhập câu hỏi để bắt đầu lên kịch bản với Trợ lý AI.
+                </p>
             </div>
-            <button mat-icon-button color="warn" (click)="resetScriptContext()" [matTooltip]="'app.auto_delete_ai_script_and_context' | transloco">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:trash-2'"></mat-icon>
-            </button>
+
+            <ng-container *ngFor="let msg of chatMessages">
+                <!-- Assistant Message Bubble -->
+                <div *ngIf="msg.role === 'assistant'" class="flex flex-col gap-1 max-w-[95%]">
+                    <div class="bg-gray-100/80 border border-gray-200/50 rounded-xl p-4 text-base text-gray-800 leading-relaxed space-y-1.5 shadow-2xs"
+                         [innerHTML]="msg.content">
+                    </div>
+                </div>
+
+                <!-- User Message Bubble -->
+                <div *ngIf="msg.role === 'user'" class="flex flex-col items-end gap-1 max-w-[85%] ml-auto">
+                    <div class="bg-primary-600 text-white rounded-xl rounded-tr-xs p-3.5 px-4 text-base leading-relaxed shadow-2xs">
+                        {{ msg.content }}
+                    </div>
+                </div>
+            </ng-container>
+        </div>
+
+        <!-- Quick Action Chip Buttons (Above Input) -->
+        <div class="p-4 pt-2 pb-3 bg-white shrink-0">
+            <div class="flex flex-wrap gap-2">
+                <button type="button" 
+                        *ngFor="let chip of quickActionChips" 
+                        (click)="sendQuickAction(chip)"
+                        class="px-3.5 py-2 rounded-lg bg-white border border-gray-200 hover:border-gray-300 text-base font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all shadow-2xs cursor-pointer">
+                    <mat-icon class="icon-size-4 text-primary-500" [svgIcon]="chip.icon"></mat-icon>
+                    <span>{{ chip.label }}</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Input Box Area -->
+        <div class="p-4 pt-0 bg-white shrink-0">
+            <div class="flex items-center gap-3 border border-gray-300 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 rounded-xl px-4 py-2.5 bg-white shadow-2xs transition-all">
+                <button type="button" mat-icon-button class="text-gray-400 hover:text-gray-600">
+                    <mat-icon class="icon-size-5" [svgIcon]="'feather:paperclip'"></mat-icon>
+                </button>
+                <input type="text" 
+                       [(ngModel)]="chatInput" 
+                       (keyup.enter)="sendChatMessage()"
+                       placeholder="Hỏi tiếp từ prompt này..." 
+                       class="flex-1 border-0 outline-none focus:ring-0 text-base text-gray-800 placeholder-gray-400 bg-transparent py-1" />
+                <button type="button" 
+                        (click)="sendChatMessage()"
+                        [disabled]="!chatInput || !chatInput.trim()"
+                        class="text-gray-400 hover:text-primary-600 disabled:opacity-40 transition-colors p-1">
+                    <mat-icon class="icon-size-5 text-primary-500" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="flex flex-col shrink-0 border-l w-[750px] h-full bg-white">
-        <div class="flex flex-row p-6 py-4 border-b items-center justify-between">
+    <div class="relative flex flex-col shrink-0 border-l w-[750px] h-full bg-white overflow-hidden">
+        <div class="flex flex-row h-[72px] min-h-[72px] max-h-[72px] px-6 border-b items-center justify-between bg-white shrink-0">
             <div class="flex flex-1 flex-col">
                 <p class="text-base font-bold text-gray-800"><b>{{ 'app.auto_off_on' | transloco }}</b> {{ 'app.auto_livestream_list' | transloco }}</p>
                 <div class="flex items-center gap-2 mt-0.5">
@@ -78,73 +96,91 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <div class="flex items-center bg-gray-100 p-0.5 rounded-lg">
-                    <button mat-icon-button (click)="viewMode = 'grid'" matTooltip="Xem dạng Video Grid">
+                <div class="flex items-center bg-gray-100 p-1 rounded-lg">
+                    <button mat-icon-button (click)="viewMode = 'grid'" matTooltip="Xem dạng Video Grid"
+                            [class.bg-white]="viewMode === 'grid'" [class.shadow-sm]="viewMode === 'grid'" [class.text-primary]="viewMode === 'grid'"
+                            class="rounded-full !w-9 !h-9 !min-w-9">
                         <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:view-grid'"></mat-icon>
                     </button>
-                    <button mat-icon-button (click)="viewMode = 'list'" matTooltip="Xem dạng Danh sách">
+                    <button mat-icon-button (click)="viewMode = 'list'" matTooltip="Xem dạng Danh sách"
+                            [class.bg-white]="viewMode === 'list'" [class.shadow-sm]="viewMode === 'list'" [class.text-primary]="viewMode === 'list'"
+                            class="rounded-full !w-9 !h-9 !min-w-9">
                         <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:view-list'"></mat-icon>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Video Grid Viewer View (Gallery Grid style matching screenshot 13-17-38) -->
+        <!-- Video Grid Viewer View (ngx-datatable grid engine matching ai-image / screenshot 13-17-38) -->
         <ng-container *ngIf="rooms.length > 0">
-            <div *ngIf="viewMode === 'grid'" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 p-6 overflow-y-auto hover-scroll flex-1">
-                <div *ngFor="let room of rooms; let i = index" 
-                     (mouseenter)="onRoomMouseEnter(room, hoverVideoGrid)"
-                     (mouseleave)="onRoomMouseLeave(room)"
-                     class="group relative flex flex-col bg-slate-900 rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer hover:-translate-y-1 aspect-square shrink-0">
-                    
-                    <div class="relative w-full h-full overflow-hidden bg-slate-950">
-                        <div class="absolute inset-0 bg-cover bg-center transition-opacity duration-300 group-hover:scale-105"
-                             [class.opacity-0]="room._hovering"
-                             [ngStyle]="{ 'background-image': 'url(' + (room['cover']?.['url_list']?.[0] || '') + ')' }">
-                        </div>
-                        
-                        <video #hoverVideoGrid 
-                               class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-                               [class.opacity-0]="!room._hovering"
-                               autoplay playsinline loop></video>
+            <div *ngIf="viewMode === 'grid'" class="relative flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden p-0">
+                <ngx-datatable #gridDatatable 
+                               class="material grid image-thumbnails flex-auto h-full w-full" 
+                               [rows]="gridRows" 
+                               [virtualization]="true" 
+                               [scrollbarV]="true" 
+                               [rowHeight]="rowHeight"
+                               [headerHeight]="0" 
+                               [footerHeight]="0" 
+                               [columnMode]="'force'">
+                    <ngx-datatable-column [flexGrow]="1">
+                        <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
+                            <div class="row-grid w-full flex flex-wrap">
+                                <div class="thumb-wrap p-1 box-border"
+                                     *ngFor="let room of row.rooms; let i = index"
+                                     [ngStyle]="{ flex: '0 0 ' + (100 / gridSize) + '%' }"
+                                     (mouseenter)="onRoomMouseEnter(room, hoverVideoGrid)"
+                                     (mouseleave)="onRoomMouseLeave(room)">
+                                    
+                                    <div class="group relative flex flex-col bg-slate-900 rounded-2xl transition-all duration-200 overflow-hidden cursor-pointer aspect-square w-full">
+                                        <div class="relative w-full h-full overflow-hidden bg-slate-950">
+                                            <div class="absolute inset-0 bg-cover bg-center transition-opacity duration-300 group-hover:scale-105"
+                                                 [class.opacity-0]="room._hovering"
+                                                 [ngStyle]="{ 'background-image': 'url(' + (room['cover']?.['url_list']?.[0] || '') + ')' }">
+                                            </div>
+                                            
+                                            <video #hoverVideoGrid 
+                                                   class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                                                   [class.opacity-0]="!room._hovering"
+                                                   autoplay playsinline loop></video>
 
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/25 pointer-events-none"></div>
+                                            <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none"></div>
 
-                        <!-- Top LIVE & Viewer Pill -->
-                        <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10 pointer-events-none">
-                            <span class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600/90 text-white text-[10px] font-bold tracking-wide uppercase backdrop-blur-xs shadow-xs">
-                                <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                                LIVE
-                            </span>
-                            <span class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 text-white text-[11px] font-semibold backdrop-blur-xs shadow-xs">
-                                <mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:eye'"></mat-icon>
-                                {{ room["user_count"] }}
-                            </span>
-                        </div>
+                                            <!-- Top LIVE & Viewer Pill -->
+                                            <div class="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
+                                                <span class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                                                    LIVE
+                                                </span>
+                                                <span class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-xs">
+                                                    <mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:eye'"></mat-icon>
+                                                    {{ room["user_count"] }}
+                                                </span>
+                                            </div>
 
-                        <!-- Bottom Title & Handle Info -->
-                        <div class="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col gap-1 z-10 pointer-events-none">
-                            <h4 class="text-xs font-bold leading-snug line-clamp-1 text-white drop-shadow-md" [title]="room['title']">
-                                {{ room["title"] || "Không tiêu đề" }}
-                            </h4>
-                            <div class="flex items-center justify-between">
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/90 text-white truncate max-w-[80%] backdrop-blur-xs shadow-2xs">
-                                    &#64;{{ room["nickname"] }}
-                                </span>
-                                <div class="w-6 h-6 rounded-full bg-white/30 backdrop-blur-xs flex items-center justify-center text-white">
-                                    <mat-icon class="icon-size-3.5 text-white" [svgIcon]="'feather:more-vertical'"></mat-icon>
+                                            <!-- Bottom Handle Info & Circular 3-Dot Button -->
+                                            <div class="absolute bottom-2 left-2 right-2 flex items-end justify-between z-10 pointer-events-none">
+                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white truncate max-w-[70%] backdrop-blur-xs">
+                                                    &#64;{{ room["nickname"] }}
+                                                </span>
+                                                <div class="w-7 h-7 rounded-full bg-white/70 hover:bg-white text-gray-800 backdrop-blur-xs flex items-center justify-center transition-colors pointer-events-auto">
+                                                    <mat-icon class="icon-size-3.5 text-gray-800" [svgIcon]="'feather:more-vertical'"></mat-icon>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
+                        </ng-template>
+                    </ngx-datatable-column>
+                </ngx-datatable>
             </div>
 
             <!-- List View using ngx-datatable -->
-            <div *ngIf="viewMode === 'list'" class="flex flex-col flex-1 w-full h-full overflow-hidden p-6">
+            <div *ngIf="viewMode === 'list'" class="relative flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden p-0">
                 <ngx-datatable [virtualization]="true" 
                                #roomsTable 
-                               class="material fullscreen flex-auto" 
+                               class="material flex-auto h-full w-full" 
                                [columnMode]="ColumnMode.force"
                                [rows]="rooms" 
                                [rowHeight]="70" 
@@ -155,7 +191,7 @@
                     <!-- Column Ảnh -->
                     <ngx-datatable-column name="Ảnh" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                         <ng-template let-row="row" ngx-datatable-cell-template>
-                            <div class="relative w-12 h-12 rounded-xl overflow-hidden shadow-xs cursor-pointer group my-auto"
+                            <div class="relative w-12 h-12 rounded-xl overflow-hidden cursor-pointer group my-auto"
                                  (mouseenter)="onRoomMouseEnter(row, listHoverVideo)"
                                  (mouseleave)="onRoomMouseLeave(row)">
                                 <div class="absolute inset-0 bg-cover bg-center transition-opacity duration-300"

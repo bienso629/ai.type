@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation, AfterViewInit, AfterViewChecked, ElementRef, NgZone, ChangeDetectionStrategy, TemplateRef, Input } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation, AfterViewInit, AfterViewChecked, ElementRef, NgZone, ChangeDetectionStrategy, TemplateRef, Input, HostListener } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
@@ -120,10 +120,55 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     segmentSec = 10;
 
     rooms: any[] = [];
+    gridRows: any[] = [];
+    gridSize: number = 3;
+    rowHeight: number = 220;
     viewMode: 'grid' | 'list' = 'grid';
 
     turnOffLiveStream = false;
     isProfileRunning = false;
+
+    // AI Chat Assistant State
+    chatInput: string = '';
+    chatMessages: { role: 'user' | 'assistant'; content: string }[] = [];
+
+    quickActionChips = [
+        { label: 'Phân tích video đã chọn', icon: 'heroicons_outline:sparkles', action: 'analyze' },
+        { label: 'Tự động thích video của bạn', icon: 'feather:heart', action: 'like' },
+        { label: 'Tự động bình luận cho video của bạn', icon: 'feather:message-square', action: 'comment' }
+    ];
+
+    sendChatMessage(): void {
+        if (!this.chatInput || !this.chatInput.trim()) return;
+        const text = this.chatInput.trim();
+        this.chatMessages.push({ role: 'user', content: text });
+        this.chatInput = '';
+        this.cd.markForCheck();
+
+        setTimeout(() => {
+            this.chatMessages.push({
+                role: 'assistant',
+                content: `🤖 Trợ lý AI đang tiếp nhận yêu cầu: "<b>${text}</b>". Đang lên kịch bản tự động...`
+            });
+            this.cd.markForCheck();
+        }, 800);
+    }
+
+    sendQuickAction(chip: any): void {
+        if (chip.action === 'like') {
+            this.generateLike();
+        } else if (chip.action === 'comment') {
+            this.generateComment();
+        } else {
+            this.chatInput = chip.label;
+            this.sendChatMessage();
+        }
+    }
+
+    clearChatMessages(): void {
+        this.chatMessages = [];
+        this.cd.markForCheck();
+    }
 
     @ViewChild('livestreamtiktok') livestreamtiktok: MatSelectionList;
     @ViewChild('sttVideo', { static: false }) sttVideo?: ElementRef<HTMLVideoElement>;
@@ -968,11 +1013,39 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         });
     }
 
+    @HostListener('window:resize', ['$event'])
+    onResize(event: any) {
+        this.rebuildGridRows();
+    }
+
+    detectGrid(): void {
+        const w = window.innerWidth;
+        if (w >= 1280) this.gridSize = 4;
+        else if (w >= 768) this.gridSize = 3;
+        else this.gridSize = 2;
+
+        const containerW = 750;
+        const cellWidth = (containerW - 32) / this.gridSize;
+        this.rowHeight = Math.round(cellWidth) + 12;
+    }
+
+    rebuildGridRows(): void {
+        this.detectGrid();
+        const out: any[] = [];
+        if (this.rooms && this.rooms.length > 0) {
+            for (let i = 0; i < this.rooms.length; i += this.gridSize) {
+                out.push({ rooms: this.rooms.slice(i, i + this.gridSize) });
+            }
+        }
+        this.gridRows = out;
+        this.cd.markForCheck();
+    }
+
     updateRoomsList(newRooms: any[]): void {
         if (!newRooms || !Array.isArray(newRooms)) return;
         if (!this.rooms || !this.rooms.length) {
             this.rooms = [...newRooms];
-            this.cd.markForCheck();
+            this.rebuildGridRows();
             return;
         }
 
@@ -997,7 +1070,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         }
 
         this.rooms = Array.from(existingMap.values());
-        this.cd.markForCheck();
+        this.rebuildGridRows();
     }
 
     listLiveStream() { this._mxhautoService.listLiveStreasm({ "profile": this.getProfileName(), "profiles_root": this.getProfilesRoot(), "launch_if_needed": true, "live_url": "https://www.tiktok.com/live", "timeout": 0, "max_items": 500, "idle_sec": 10, "max_duration": 60, "username": this.user?.name || "admin" }); }
