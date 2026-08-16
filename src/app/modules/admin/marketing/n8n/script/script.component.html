@@ -39,8 +39,8 @@
 
                 <!-- User Message Bubble -->
                 <div *ngIf="msg.role === 'user'" class="flex flex-col items-end gap-1 max-w-[85%] ml-auto">
-                    <div class="bg-primary-600 text-white rounded-xl rounded-tr-xs p-3.5 px-4 text-base leading-relaxed shadow-2xs">
-                        {{ msg.content }}
+                    <div class="bg-primary-600 text-white rounded-xl rounded-tr-xs p-3.5 px-4 text-base leading-relaxed shadow-2xs"
+                         [innerHTML]="msg.content">
                     </div>
                 </div>
             </ng-container>
@@ -132,7 +132,10 @@
                                      (mouseenter)="onRoomMouseEnter(room, hoverVideoGrid)"
                                      (mouseleave)="onRoomMouseLeave(room)">
                                     
-                                    <div class="group relative flex flex-col bg-slate-900 rounded-2xl transition-all duration-200 overflow-hidden cursor-pointer aspect-square w-full">
+                                    <div (click)="selectRoom(room)"
+                                         class="group relative flex flex-col bg-slate-900 rounded-2xl transition-all duration-200 overflow-hidden cursor-pointer aspect-square w-full"
+                                         [class.ring-4]="selectedRoom === room"
+                                         [class.ring-teal-500]="selectedRoom === room">
                                         <div class="relative w-full h-full overflow-hidden bg-slate-950">
                                             <div class="absolute inset-0 bg-cover bg-center transition-opacity duration-300 group-hover:scale-105"
                                                  [class.opacity-0]="room._hovering"
@@ -146,15 +149,25 @@
 
                                             <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none"></div>
 
-                                            <!-- Top LIVE & Viewer Pill -->
+                                            <!-- Top LIVE / ĐÃ TẮT / AI ANALYZING & Viewer Pill -->
                                             <div class="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
-                                                <span class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                                                    LIVE
-                                                </span>
+                                                <div class="flex items-center gap-1">
+                                                    <span *ngIf="room.is_analyzing" class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-teal-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                                                        🤖 AI STREAM
+                                                    </span>
+                                                    <span *ngIf="!room.is_analyzing && room.is_live !== false" class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                                                        LIVE
+                                                    </span>
+                                                    <span *ngIf="room.is_live === false" class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gray-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                                        ĐÃ TẮT
+                                                    </span>
+                                                </div>
                                                 <span class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-xs">
                                                     <mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:eye'"></mat-icon>
-                                                    {{ room["user_count"] }}
+                                                    {{ room["user_count"] || 0 }}
                                                 </span>
                                             </div>
 
@@ -163,9 +176,13 @@
                                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white truncate max-w-[70%] backdrop-blur-xs">
                                                     &#64;{{ room["nickname"] }}
                                                 </span>
-                                                <div class="w-7 h-7 rounded-full bg-white/70 hover:bg-white text-gray-800 backdrop-blur-xs flex items-center justify-center transition-colors pointer-events-auto">
+                                                <button mat-icon-button
+                                                        [matMenuTriggerFor]="roomMenu"
+                                                        [matMenuTriggerData]="{room: room}"
+                                                        (click)="$event.stopPropagation()"
+                                                        class="w-7 h-7 min-w-7 min-h-7 rounded-full bg-white/80 hover:bg-white text-gray-800 backdrop-blur-xs flex items-center justify-center transition-colors pointer-events-auto p-0 border-0">
                                                     <mat-icon class="icon-size-3.5 text-gray-800" [svgIcon]="'feather:more-vertical'"></mat-icon>
-                                                </div>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -227,14 +244,37 @@
                         </ng-template>
                     </ngx-datatable-column>
 
-                    <!-- Column Người xem -->
-                    <ngx-datatable-column name="Người xem" [width]="110" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                    <!-- Column Trạng thái & Người xem -->
+                    <ngx-datatable-column name="Trạng thái" [width]="130" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                         <ng-template let-row="row" ngx-datatable-cell-template>
                             <div class="flex items-center h-full">
-                                <span class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                                    {{ row.user_count }} xem
+                                <span *ngIf="row.is_analyzing" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"></span>
+                                    🤖 AI STREAM
                                 </span>
+                                <span *ngIf="!row.is_analyzing && row.is_live !== false" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
+                                    LIVE ({{ row.user_count || 0 }})
+                                </span>
+                                <span *ngIf="row.is_live === false" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                    ĐÃ TẮT
+                                </span>
+                            </div>
+                        </ng-template>
+                    </ngx-datatable-column>
+
+                    <!-- Column Thao tác -->
+                    <ngx-datatable-column name="Thao tác" [width]="80" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ng-template let-row="row" ngx-datatable-cell-template>
+                            <div class="flex items-center justify-center h-full">
+                                <button mat-icon-button
+                                        [matMenuTriggerFor]="roomMenu"
+                                        [matMenuTriggerData]="{room: row}"
+                                        (click)="$event.stopPropagation()"
+                                        class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-700">
+                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:more-vertical'"></mat-icon>
+                                </button>
                             </div>
                         </ng-template>
                     </ngx-datatable-column>
@@ -248,6 +288,32 @@
         </div>
     </div>
 </div>
+
+<!-- MENU THAO TÁC LIVESTREAM (3 CHẤM) -->
+<mat-menu #roomMenu="matMenu" xPosition="before">
+    <ng-template matMenuContent let-room="room">
+        <button mat-menu-item (click)="startContinuousAnalysis(room)" *ngIf="!room?.is_analyzing">
+            <mat-icon class="text-teal-600" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
+            <span class="font-medium text-teal-700">Phân tích nội dung (Realtime AI)</span>
+        </button>
+        <button mat-menu-item (click)="stopContinuousAnalysis(room)" *ngIf="room?.is_analyzing">
+            <mat-icon class="text-red-600" [svgIcon]="'feather:stop-circle'"></mat-icon>
+            <span class="text-red-600 font-semibold">Tắt phân tích</span>
+        </button>
+        <button mat-menu-item (click)="selectRoom(room)">
+            <mat-icon class="text-blue-600" [svgIcon]="'feather:check-circle'"></mat-icon>
+            <span>Chọn video này</span>
+        </button>
+        <button mat-menu-item (click)="generateLike()">
+            <mat-icon class="text-pink-600" [svgIcon]="'feather:heart'"></mat-icon>
+            <span>Tự động thích</span>
+        </button>
+        <button mat-menu-item (click)="generateComment()">
+            <mat-icon class="text-indigo-600" [svgIcon]="'feather:message-square'"></mat-icon>
+            <span>Tự động bình luận</span>
+        </button>
+    </ng-template>
+</mat-menu>
 
 <ng-template #promptDialog>
     <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 600px">

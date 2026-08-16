@@ -65,6 +65,11 @@
                     <amxh-script class="h-full" [data]="captions"></amxh-script>
                 </ng-container>
 
+                <!-- Shopee -->
+                <ng-container *ngSwitchCase="'shopee'">
+                    <amxh-shopee class="h-full" [data]="captions"></amxh-shopee>
+                </ng-container>
+
                 <!-- Schedule -->
                 <ng-container *ngSwitchCase="'schedule'">
                     <amxh-schedule class="h-full"></amxh-schedule>

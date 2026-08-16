@@ -25,6 +25,7 @@ import { SharedModule } from 'app/shared.module';
 import { AMXHComponent } from 'app/modules/admin/marketing/n8n/n8n.component';
 import { AMXHProfileAppComponent } from 'app/modules/admin/marketing/n8n/profile/profile.component';
 import { AMXHScriptAppComponent } from 'app/modules/admin/marketing/n8n/script/script.component';
+import { AMXHShopeeComponent } from 'app/modules/admin/marketing/n8n/shopee/shopee.component';
 import { AMXHShareAppComponent } from 'app/modules/admin/marketing/n8n/share/share.component';
 import { settingsRoutes } from 'app/modules/admin/marketing/n8n/n8n.routing';
 
@@ -41,6 +42,7 @@ import { AMXHScheduleComponent } from 'app/modules/admin/marketing/n8n/schedule/
         AMXHComponent,
         AMXHProfileAppComponent,
         AMXHScriptAppComponent,
+        AMXHShopeeComponent,
         AMXHShareAppComponent,
         AMXHScheduleComponent,
         AddAccountDialog,
