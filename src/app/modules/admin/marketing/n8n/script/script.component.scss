@@ -203,3 +203,33 @@
         }
     }
 }
+
+
+
+/* AI Chat Bubble Formatting & Spacing Fixes */
+.ai-chat-bubble {
+    p, div, h1, h2, h3, h4, h5, h6, ul, ol {
+        margin-top: 0.35rem;
+        margin-bottom: 0.35rem;
+
+        &:first-child {
+            margin-top: 0 !important;
+        }
+        &:last-child {
+            margin-bottom: 0 !important;
+        }
+    }
+
+    br + br {
+        display: none !important;
+    }
+
+    ul, ol {
+        padding-left: 1.25rem;
+    }
+
+    li {
+        margin-top: 0.125rem;
+        margin-bottom: 0.125rem;
+    }
+}

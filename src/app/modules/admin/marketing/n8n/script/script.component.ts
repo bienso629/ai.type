@@ -85,41 +85,143 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
 
     // AI Chat Assistant State
     chatInput: string = '';
-    chatMessages: { role: 'user' | 'assistant'; content: string }[] = [];
+    chatMessages: { role: 'user' | 'assistant' | 'divider'; content: string }[] = [];
 
     items: any[] = [];
 
-    quickActionChips = [
-        { label: 'Phân tích video đã chọn', icon: 'heroicons_outline:sparkles', action: 'analyze' },
-        { label: 'Tự động thích video của bạn', icon: 'feather:heart', action: 'like' },
-        { label: 'Tự động bình luận cho video của bạn', icon: 'feather:message-square', action: 'comment' }
-    ];
+    get quickActionChips() {
+        const activeAnalyzingRoom = (this.selectedRoom && this.selectedRoom.is_analyzing)
+            ? this.selectedRoom
+            : (this.rooms ? this.rooms.find(r => r.is_analyzing) : null);
+        const isAnalyzing = Boolean(activeAnalyzingRoom);
+
+        return [
+            {
+                label: isAnalyzing ? 'Dừng phân tích video đã chọn' : 'Phân tích video đã chọn',
+                icon: isAnalyzing ? 'feather:stop-circle' : 'heroicons_outline:sparkles',
+                action: isAnalyzing ? 'stop_analyze' : 'analyze'
+            },
+            { label: 'Tự động thích video của bạn', icon: 'feather:heart', action: 'like' },
+            { label: 'Tự động bình luận cho video của bạn', icon: 'feather:message-square', action: 'comment' }
+        ];
+    }
+
+    async analyzeSelectedRoom(): Promise<void> {
+        let targetRoom = this.selectedRoom;
+        if (!targetRoom && this.rooms && this.rooms.length > 0) {
+            targetRoom = this.rooms[0];
+        }
+
+        if (!targetRoom) {
+            this.toastr.warning('Chưa có phiên Livestream nào để phân tích.');
+            return;
+        }
+
+        // Đảm bảo chọn targetRoom
+        this.selectRoom(targetRoom);
+
+        // Đảo trạng thái phân tích
+        if (targetRoom.is_analyzing) {
+            this.stopContinuousAnalysis(targetRoom);
+        } else {
+            this.startContinuousAnalysis(targetRoom);
+        }
+    }
 
     formatAiResponse(rawText: string): string {
         if (!rawText) return '';
-        let clean = rawText;
+        let clean = rawText.trim();
 
         // 1. Loại bỏ markdown code blocks ```html và ```
         clean = clean.replace(/```html/gi, '');
         clean = clean.replace(/```/g, '');
 
-        // 2. Thay thế AI Agent và sontinh.type.vn bằng "Trợ lý phân tích"
+        // 2. Thay thế tên thương hiệu cũ nếu có
         clean = clean.replace(/AI Agent/gi, 'Trợ lý phân tích');
         clean = clean.replace(/sontinh\.type\.vn/gi, 'Trợ lý phân tích');
         clean = clean.replace(/sontinh/gi, 'Trợ lý phân tích');
 
-        // 3. Gom nhiều xuống dòng liên tiếp thành 1 xuống dòng để tránh thưa mét
-        clean = clean.replace(/\r\n/g, '\n');
-        clean = clean.replace(/\n{2,}/g, '\n');
-        clean = clean.trim();
+        // 3. Xóa triệt để các thẻ <br> rác bị chèn sai vị trí bên trong các danh sách <ul>, <ol>, <li>, <table>, <tr>
+        clean = clean.replace(/(<(?:ul|ol|table|tr)[^>]*>)\s*(?:<br\s*\/?>)+/gi, '$1');
+        clean = clean.replace(/(?:<br\s*\/?>)+\s*(<\/(?:ul|ol|table|tr)>)/gi, '$1');
+        clean = clean.replace(/(<\/li>)\s*(?:<br\s*\/?>)+/gi, '$1');
+        clean = clean.replace(/(?:<br\s*\/?>)+\s*(<li>)/gi, '$1');
 
-        // 4. Chuyển \n thành <br/>
-        clean = clean.replace(/\n/g, '<br/>');
+        // 4. Nếu câu trả lời ĐÃ CHỨA thẻ HTML khối (p, div, ul, ol, li, h1-h6), KHÔNG tự ý chèn <br/> vào dấu \n
+        const hasBlockTags = /<(?:p|div|ul|ol|li|h[1-6]|table|tr|td|th)[^>]*>/i.test(clean);
+        if (!hasBlockTags) {
+            clean = clean.replace(/\r\n/g, '\n');
+            clean = clean.replace(/\n{2,}/g, '\n');
+            clean = clean.replace(/\n/g, '<br/>');
+        } else {
+            // Gom bớt các <br/> thừa liên tiếp nếu có sẵn
+            clean = clean.replace(/(?:<br\s*\/?>\s*){2,}/gi, '<br/>');
+        }
 
-        // 5. Xóa bớt <br/> sau các thẻ đóng khối HTML
+        // 5. Triệt tiêu toàn bộ <br/> thừa ở ĐẦU và CUỐI chuỗi
+        clean = clean.replace(/^(?:\s*<br\s*\/?>\s*)+/gi, '');
+        clean = clean.replace(/(?:\s*<br\s*\/?>\s*)+$/gi, '');
+
+        // 6. Xóa <br/> thừa trước và sau các thẻ HTML khối
+        clean = clean.replace(/(?:<br\s*\/?>\s*)+(<(?:p|div|h[1-6]|ul|ol|li|table|tr|td|th)[^>]*>)/gi, '$1');
         clean = clean.replace(/(<\/(?:p|div|h[1-6]|ul|ol|li|table|tr|td|th)>)\s*(?:<br\s*\/?>)+/gi, '$1');
 
-        return clean;
+        return clean.trim();
+    }
+
+    getIpcRenderer(): any {
+        if (this.ipcRenderer) return this.ipcRenderer;
+        try {
+            const w = window as any;
+            if (w.ipcRenderer) {
+                this.ipcRenderer = w.ipcRenderer;
+                return w.ipcRenderer;
+            }
+            if (w.electronAPI) {
+                this.ipcRenderer = w.electronAPI;
+                return w.electronAPI;
+            }
+            if (w.require) {
+                const electron = w.require('electron');
+                if (electron && electron.ipcRenderer) {
+                    this.ipcRenderer = electron.ipcRenderer;
+                    return electron.ipcRenderer;
+                }
+            }
+        } catch (e) {
+            console.warn('[getIpcRenderer Warning]:', e);
+        }
+        return null;
+    }
+
+    saveAnalysisToSqlite(room: any, analysisText: string): void {
+        if (!room || !analysisText) return;
+
+        const roomId = String(room.id || room.room_id || room.unique_id || room.nickname || 'unknown_room');
+        const nickname = room.nickname || room.owner?.nickname || 'Streamer';
+        const title = room.title || 'Phiên phát trực tiếp';
+        const hlsUrl = this.pickHlsUrlFromRoom(room) || '';
+        const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const now = Date.now();
+
+        // Lưu qua Electron IPC SQLite (Desktop App)
+        const ipc = this.getIpcRenderer();
+        if (ipc && ipc.invoke) {
+            ipc.invoke('db-tiktok-save', {
+                room_id: roomId,
+                date_str: dateStr,
+                nickname: nickname,
+                title: title,
+                hls_url: hlsUrl,
+                analysis_text: analysisText
+            }).then((res: any) => {
+                if (res && res.success) {
+                    console.log(`[SQLite tiktok.sqlite] Đã lưu phân tích phòng ${roomId} thành công (ID: ${res.id})`);
+                }
+            }).catch((err: any) => {
+                console.warn('[SQLite tiktok.sqlite Save Warning]:', err);
+            });
+        }
     }
 
     async sendChatMessage(): Promise<void> {
@@ -131,7 +233,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
 
         const loadingMsg: { role: 'user' | 'assistant'; content: string } = {
             role: 'assistant',
-            content: '⏳ <b>Trợ lý phân tích</b> đang suy nghĩ và phân tích...'
+            content: '<b>Trợ lý phân tích</b> đang suy nghĩ và phân tích...'
         };
         this.chatMessages.push(loadingMsg);
         this.cd.markForCheck();
@@ -149,12 +251,241 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             loadingMsg.content = this.formatAiResponse(replyText);
         } catch (err: any) {
             console.error('Lỗi khi gọi Trợ lý phân tích:', err);
-            loadingMsg.content = `❌ Không thể kết nối tới Trợ lý phân tích: ${err?.message || 'Đã có lỗi xảy ra'}`;
+            loadingMsg.content = `Không thể kết nối tới Trợ lý phân tích: ${err?.message || 'Đã có lỗi xảy ra'}`;
         }
         this.cd.markForCheck();
     }
 
     selectedRoom: any = null;
+
+    loadAnalysisHistoryForRoom(room: any): void {
+        if (!room) return;
+        const keys = this.getRoomKeys(room);
+        const nickname = room.nickname || room.owner?.nickname || 'Streamer';
+        const roomId = String(room.id || room.room_id || room.unique_id || nickname || '');
+        const dateStr = new Date().toISOString().split('T')[0];
+        const ipc = this.getIpcRenderer();
+
+        const handleRecords = (records: any[]) => {
+            if (!records || !Array.isArray(records) || records.length === 0) return false;
+            const matched = records.filter(r => {
+                if (!r) return false;
+                const rId = String(r.room_id || '');
+                const rNick = String(r.nickname || '');
+                return keys.some(k => k === rId || k === rNick);
+            });
+            const finalItems = matched.length > 0 ? matched : records;
+            this.appendHistoryToChat(finalItems, nickname);
+            return true;
+        };
+
+        // Gọi duy nhất Electron IPC SQLite (thư mục Documents/ai.type/data/tiktok)
+        if (ipc && ipc.invoke) {
+            ipc.invoke('db-tiktok-list', { room_id: roomId, nickname: nickname, date_str: dateStr })
+                .then((res: any) => {
+                    if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+                        handleRecords(res.data);
+                    } else {
+                        ipc.invoke('db-tiktok-list', { room_id: roomId, nickname: nickname })
+                            .then((resAll: any) => {
+                                if (resAll && resAll.success && Array.isArray(resAll.data) && resAll.data.length > 0) {
+                                    handleRecords(resAll.data);
+                                }
+                            }).catch(() => {});
+                    }
+                }).catch((err: any) => console.warn('[SQLite Load Error]:', err));
+        }
+    }
+
+    autoLoadInitialHistory(): void {
+        const ipc = this.getIpcRenderer();
+        if (ipc && ipc.invoke) {
+            ipc.invoke('db-tiktok-list', {})
+                .then((res: any) => {
+                    if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+                        this.appendHistoryToChat(res.data, 'Streamer');
+                    }
+                }).catch(() => {});
+        }
+    }
+
+    @ViewChild('chatScrollContainer', { static: false }) chatScrollContainer?: ElementRef<HTMLDivElement>;
+    private isUserScrolledUp = false;
+    private isLoadingOlderHistory = false;
+
+    scrollToBottom(force: boolean = false): void {
+        try {
+            setTimeout(() => {
+                if (this.chatScrollContainer && this.chatScrollContainer.nativeElement) {
+                    const el = this.chatScrollContainer.nativeElement;
+                    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+                    if (force || isNearBottom || !this.isUserScrolledUp) {
+                        el.scrollTop = el.scrollHeight;
+                    }
+                }
+            }, 80);
+        } catch (err) {
+            console.warn('[Scroll Error]:', err);
+        }
+    }
+
+    onChatScroll(event: Event): void {
+        const el = event.target as HTMLElement;
+        if (!el) return;
+
+        const isAtTop = el.scrollTop <= 50;
+        const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+        this.isUserScrolledUp = !isNearBottom;
+
+        if (isAtTop && !this.isLoadingOlderHistory) {
+            this.loadOlderHistory3Days();
+        }
+    }
+
+    threeDaysAgoTimestamp(): number {
+        const d = new Date();
+        d.setDate(d.getDate() - 3);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+    }
+
+    getThreeDaysDateStrings(): string[] {
+        const dates: string[] = [];
+        for (let i = 0; i < 3; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            dates.push(d.toISOString().split('T')[0]);
+        }
+        return dates;
+    }
+
+    loadOlderHistory3Days(): void {
+        if (this.isLoadingOlderHistory) return;
+        this.isLoadingOlderHistory = true;
+
+        const targetRoom = this.selectedRoom || (this.rooms && this.rooms.length > 0 ? this.rooms[0] : null);
+        const keys = targetRoom ? this.getRoomKeys(targetRoom) : [];
+        const nickname = targetRoom ? (targetRoom.nickname || targetRoom.owner?.nickname || 'Streamer') : 'Streamer';
+        const minTimestamp = this.threeDaysAgoTimestamp();
+        const validDates = this.getThreeDaysDateStrings();
+        const ipc = this.getIpcRenderer();
+
+        const processOlderRecords = (records: any[]) => {
+            if (!records || !Array.isArray(records) || records.length === 0) {
+                this.isLoadingOlderHistory = false;
+                return;
+            }
+
+            const filtered = records.filter(r => {
+                if (!r) return false;
+                const ts = r.timestamp || (r.id ? Number(r.id) : 0);
+                const dStr = r.date_str || '';
+                const isWithin3Days = (ts >= minTimestamp) || validDates.includes(dStr);
+
+                if (keys.length > 0) {
+                    const rId = String(r.room_id || '');
+                    const rNick = String(r.nickname || '');
+                    return isWithin3Days && (keys.some(k => k === rId || k === rNick) || !r.room_id);
+                }
+                return isWithin3Days;
+            });
+
+            if (filtered.length === 0) {
+                this.isLoadingOlderHistory = false;
+                return;
+            }
+
+            const sorted = [...filtered].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            const newEntries: { role: 'assistant'; content: string }[] = [];
+
+            for (const rec of sorted) {
+                const textContent = rec.analysis_text || '';
+                const exists = this.chatMessages.some(m => m.content.includes(textContent.substring(0, 40)));
+                if (!exists) {
+                    const timeStr = rec.timestamp ? new Date(rec.timestamp).toLocaleString('vi-VN') : (rec.date_str || 'Cũ');
+                    newEntries.push({
+                        role: 'assistant',
+                        content: `<div><b>[${timeStr}] Phân tích lịch sử (3 ngày qua) @${nickname}:</b></div><div class="mt-1">${textContent}</div>`
+                    });
+                }
+            }
+
+            if (newEntries.length > 0) {
+                this.chatMessages = [...newEntries, ...this.chatMessages];
+                this.cd.markForCheck();
+                this.toastr.info(`Đã nạp thêm ${newEntries.length} phân tích cũ trong 3 ngày gần nhất`);
+            }
+
+            setTimeout(() => {
+                this.isLoadingOlderHistory = false;
+            }, 1000);
+        };
+
+        if (ipc && ipc.invoke) {
+            ipc.invoke('db-tiktok-list', {})
+                .then((res: any) => {
+                    if (res && res.success && Array.isArray(res.data)) {
+                        processOlderRecords(res.data);
+                    } else {
+                        this.isLoadingOlderHistory = false;
+                    }
+                }).catch(() => { this.isLoadingOlderHistory = false; });
+        } else {
+            this.isLoadingOlderHistory = false;
+        }
+    }
+
+    appendHistoryToChat(records: any[], nickname: string): void {
+        if (!records || !records.length) return;
+        const clearedAt = Number(localStorage.getItem('tiktok_chat_cleared_at') || 0);
+
+        // Lọc bỏ tất cả các bản ghi phát sinh TRƯỚC mốc thời gian người dùng đã bấm Xóa
+        const validRecords = records.filter(r => {
+            const ts = r.timestamp || (r.id ? Number(r.id) : 0);
+            return !clearedAt || ts > clearedAt;
+        });
+
+        if (!validRecords.length) return;
+
+        // Sắp xếp theo thứ tự thời gian tăng dần và lấy các bản ghi lịch sử từ SQLite
+        const items = [...validRecords].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).slice(-5);
+        let addedAny = false;
+
+        for (const rec of items) {
+            const textContent = rec.analysis_text || '';
+            const exists = this.chatMessages.some(m => m.content.includes(textContent.substring(0, 40)));
+            if (!exists) {
+                const timeStr = rec.timestamp ? new Date(rec.timestamp).toLocaleTimeString('vi-VN') : '';
+                this.chatMessages.push({
+                    role: 'assistant',
+                    content: `<div><b>[${timeStr || 'Lịch sử'}] Lịch sử phân tích luồng @${nickname} từ Database:</b></div><div class="mt-1">${textContent}</div>`
+                });
+                addedAny = true;
+            }
+        }
+
+        // Chèn 1 đường ngăn cách hr sang trọng ở cuối đoạn lịch sử cũ
+        if (addedAny) {
+            const hasDivider = this.chatMessages.some(m => m.role === 'divider');
+            if (!hasDivider) {
+                this.chatMessages.push({
+                    role: 'divider',
+                    content: `
+                        <div class="my-4 flex items-center gap-3 select-none w-full">
+                            <div class="h-[1px] flex-1 bg-gradient-to-r from-transparent via-gray-300 to-gray-300"></div>
+                            <span class="text-xs font-medium text-gray-500 tracking-wider uppercase px-3.5 py-1 rounded-full bg-gray-100/90 border border-gray-200 shadow-2xs">
+                                Lịch sử phân tích cũ &nbsp;•&nbsp; Phân tích trực tiếp mới
+                            </span>
+                            <div class="h-[1px] flex-1 bg-gradient-to-r from-gray-300 via-gray-300 to-transparent"></div>
+                        </div>
+                    `.trim()
+                });
+            }
+        }
+
+        this.cd.markForCheck();
+        this.scrollToBottom(true);
+    }
 
     selectRoom(room: any): void {
         if (!room) return;
@@ -167,6 +498,10 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.rebuildGridRows();
 
         this.toastr.info(`Đã chọn & đưa Livestream của @${room.nickname || 'Tiktoker'} lên đầu danh sách`);
+
+        // Tự động đọc lịch sử phân tích từ tiktok.sqlite ra khung chat
+        this.loadAnalysisHistoryForRoom(room);
+
         this.cd.markForCheck();
     }
 
@@ -177,6 +512,13 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             this.generateComment();
         } else if (chip.action === 'analyze') {
             this.analyzeSelectedRoom();
+        } else if (chip.action === 'stop_analyze') {
+            if (this.selectedRoom) {
+                this.stopContinuousAnalysis(this.selectedRoom);
+            } else if (this.rooms) {
+                const activeRoom = this.rooms.find(r => r.is_analyzing);
+                if (activeRoom) this.stopContinuousAnalysis(activeRoom);
+            }
         } else {
             this.chatInput = chip.label;
             this.sendChatMessage();
@@ -193,6 +535,10 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         const nickname = room.nickname || room.owner?.nickname || 'Streamer';
         const roomId = String(room.id || room.unique_id || nickname);
 
+        // Đánh dấu tất cả keys của phòng này vào bộ nhớ phân tích bền vững
+        const keys = this.getRoomKeys(room);
+        keys.forEach(k => this.analyzingRoomIds.add(k));
+
         // Giữ luồng phát video liên tục
         room._hovering = true;
         this.cd.markForCheck();
@@ -201,12 +547,12 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
 
         this.chatMessages.push({
             role: 'user',
-            content: `🔴 <b>Bắt đầu phân tích trực tiếp:</b> @${nickname}`
+            content: `<b>Bắt đầu phân tích trực tiếp:</b> @${nickname}`
         });
 
         const loadingMsg: { role: 'user' | 'assistant'; content: string } = {
             role: 'assistant',
-            content: `📡 <b>Trợ lý phân tích</b> đang duy trì phát luồng video liên tục và phân tích dữ liệu trực tiếp...`
+            content: `<b>Trợ lý phân tích</b> đang duy trì phát luồng video liên tục và phân tích dữ liệu trực tiếp...`
         };
         this.chatMessages.push(loadingMsg);
         this.cd.markForCheck();
@@ -214,21 +560,29 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         // Chạy phân tích bước đầu tiên
         this.runStreamAnalysisStep(room, loadingMsg);
 
-        // Thiết lập interval phân tích liên tục mỗi 15 giây
+        // Xóa các interval cũ nếu có
+        keys.forEach(k => {
+            if (this.analysisIntervals.has(k)) {
+                clearInterval(this.analysisIntervals.get(k));
+            }
+        });
         if (this.analysisIntervals.has(roomId)) {
             clearInterval(this.analysisIntervals.get(roomId));
         }
 
         const intervalId = setInterval(() => {
-            if (!room.is_analyzing || room.is_live === false) {
+            const isStillActive = room.is_analyzing || keys.some(k => this.analyzingRoomIds.has(k));
+            if (!isStillActive || room.is_live === false) {
                 this.stopContinuousAnalysis(room);
                 return;
             }
-            // Giữ cho video tiếp tục phát liên tục
+            // Đảm bảo trạng thái phân tích & video phát liên tục không bị ngắt
+            room.is_analyzing = true;
             room._hovering = true;
             this.runStreamAnalysisStep(room);
         }, 15000);
 
+        keys.forEach(k => this.analysisIntervals.set(k, intervalId));
         this.analysisIntervals.set(roomId, intervalId);
     }
 
@@ -238,6 +592,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         const viewers = room.user_count || 0;
         const hlsUrl = this.pickHlsUrlFromRoom(room) || '';
         const timeNow = new Date().toLocaleTimeString('vi-VN');
+        const keys = this.getRoomKeys(room);
 
         const promptText = `
 [THỜI GIAN REALTIME: ${timeNow}]
@@ -261,32 +616,55 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
                 }
             });
 
+            // KIỂM TRA LẠI TRẠNG THÁI: Nếu người dùng đã nhấn "Dừng phân tích" trong khi đang gọi API -> Bỏ qua kết quả này
+            const isStillActive = room.is_analyzing || keys.some(k => this.analyzingRoomIds.has(k));
+            if (!isStillActive) {
+                console.log(`[Stream Analysis] Bỏ qua kết quả async vì người dùng đã nhấn Dừng phân tích @${nickname}`);
+                return;
+            }
+
             const replyText = response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || 'Đã phân tích luồng thành công.';
             const formattedContent = this.formatAiResponse(replyText);
+
+            // Lưu dữ liệu phân tích vào tiktok.sqlite
+            this.saveAnalysisToSqlite(room, formattedContent);
 
             if (targetMsg) {
                 targetMsg.content = formattedContent;
             } else {
                 this.chatMessages.push({
                     role: 'assistant',
-                    content: `⏱️ <b>[${timeNow}] Cập nhật luồng @${nickname}:</b><br/>${formattedContent}`
+                    content: `<div><b>[${timeNow}] Cập nhật luồng @${nickname}:</b></div><div class="mt-1">${formattedContent}</div>`
                 });
             }
         } catch (err: any) {
             console.error('Lỗi phân tích stream:', err);
-            if (targetMsg) {
-                targetMsg.content = `❌ Tạm thời mất kết nối Trợ lý phân tích: ${err?.message || 'Lỗi mạng'}`;
+            const isStillActive = room.is_analyzing || keys.some(k => this.analyzingRoomIds.has(k));
+            if (targetMsg && isStillActive) {
+                targetMsg.content = `Tạm thời mất kết nối Trợ lý phân tích: ${err?.message || 'Lỗi mạng'}`;
             }
         }
         this.cd.markForCheck();
+        this.scrollToBottom();
     }
 
     stopContinuousAnalysis(room: any): void {
         if (!room) return;
         room.is_analyzing = false;
+        room._hovering = false;
         const nickname = room.nickname || room.owner?.nickname || 'Streamer';
-        const roomId = String(room.id || room.unique_id || nickname);
+        const keys = this.getRoomKeys(room);
 
+        // Xóa tất cả keys khỏi bộ nhớ phân tích và hủy tất cả interval
+        keys.forEach(k => {
+            this.analyzingRoomIds.delete(k);
+            if (this.analysisIntervals.has(k)) {
+                clearInterval(this.analysisIntervals.get(k));
+                this.analysisIntervals.delete(k);
+            }
+        });
+
+        const roomId = String(room.id || room.unique_id || nickname);
         if (this.analysisIntervals.has(roomId)) {
             clearInterval(this.analysisIntervals.get(roomId));
             this.analysisIntervals.delete(roomId);
@@ -295,28 +673,59 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
         this.toastr.warning(`Đã tắt phân tích trực tiếp cho @${nickname}`);
         this.chatMessages.push({
             role: 'assistant',
-            content: `🛑 <b>Đã dừng phân tích luồng trực tiếp của @${nickname}.</b>`
+            content: `<b>Đã dừng phân tích luồng trực tiếp của @${nickname}.</b>`
         });
         this.cd.markForCheck();
     }
 
-    async analyzeSelectedRoom(): Promise<void> {
-        const targetRoom = this.selectedRoom || (this.rooms && this.rooms.length > 0 ? this.rooms[0] : null);
-        if (!targetRoom) {
-            this.toastr.warning('Chưa có Livestream nào trong danh sách để phân tích.');
+
+
+    clearChatMessages(): void {
+        if (!this.chatMessages || this.chatMessages.length === 0) {
+            this.toastr.info('Khung trò chuyện hiện đang trống.');
             return;
         }
 
-        if (targetRoom.is_analyzing) {
-            this.stopContinuousAnalysis(targetRoom);
-        } else {
-            this.startContinuousAnalysis(targetRoom);
-        }
-    }
+        const confirmation = this._fuseConfirmationService.open({
+            title: 'Xóa vĩnh viễn lịch sử trò chuyện',
+            message: 'Bạn có chắc chắn muốn xóa vĩnh viễn toàn bộ lịch sử phân tích và tin nhắn trong Database không?',
+            icon: { show: true, name: 'feather:trash-2', color: 'warn' },
+            actions: {
+                confirm: { show: true, label: 'Xóa vĩnh viễn', color: 'warn' },
+                cancel: { show: true, label: 'Hủy' }
+            },
+            dismissible: true
+        });
 
-    clearChatMessages(): void {
-        this.chatMessages = [];
-        this.cd.markForCheck();
+        confirmation.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                const clearedAt = Date.now();
+                const targetRoom = this.selectedRoom || (this.rooms && this.rooms.length > 0 ? this.rooms[0] : null);
+                const roomId = targetRoom ? String(targetRoom.id || targetRoom.room_id || targetRoom.unique_id || targetRoom.nickname) : '';
+
+                // 1. Gửi IPC xóa vĩnh viễn trong SQLite Database
+                const ipc = this.getIpcRenderer();
+                if (ipc && ipc.invoke) {
+                    ipc.invoke('db-tiktok-clear', { room_id: roomId }).then(() => {
+                        console.log('[SQLite tiktok.sqlite] Đã xóa vĩnh viễn dữ liệu lịch sử phòng:', roomId);
+                    }).catch(e => console.warn('[SQLite Clear Error]:', e));
+                }
+
+                // 2. Xóa trong LocalStorage dự phòng & Lưu mốc thời gian xóa
+                try {
+                    const dateStr = new Date().toISOString().split('T')[0];
+                    localStorage.removeItem(`tiktok_sqlite_db_${dateStr}`);
+                    localStorage.removeItem(`tiktok_sqlite_db_all`);
+                    localStorage.setItem('tiktok_chat_cleared_at', String(clearedAt));
+                } catch (e) {
+                    console.warn('[LocalStorage Clear Error]:', e);
+                }
+
+                this.chatMessages = [];
+                this.toastr.success('Đã xóa vĩnh viễn lịch sử trò chuyện khỏi Database.');
+                this.cd.markForCheck();
+            }
+        });
     }
 
     @ViewChild('livestreamtiktok') livestreamtiktok: MatSelectionList;
@@ -427,6 +836,7 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
         this.getProfiles();
         this.loadScriptState();
         this.checkProfileRunningStatus();
+        this.autoLoadInitialHistory();
         timer(0, 5000).pipe(takeUntil(this._unsubscribeAll)).subscribe(() => {
             this.checkProfileRunningStatus();
         });
@@ -1130,6 +1540,8 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
         this.cd.markForCheck();
     }
 
+    private analyzingRoomIds = new Set<string>();
+
     getRoomKeys(room: any): string[] {
         const keys: string[] = [];
         if (!room) return keys;
@@ -1170,19 +1582,31 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
             const keys = this.getRoomKeys(room);
             const matchedKey = keys.find(k => activeKeysSet.has(k));
 
+            // Bảo toàn trạng thái phân tích, selected, hover và trạng thái live cũ (nếu rê chuột kiểm tra mà hỏng link)
+            const wasAnalyzing = Boolean(room.is_analyzing || keys.some(k => this.analyzingRoomIds.has(k)));
+            const wasSelected = Boolean(room.is_selected || this.selectedRoom === room || (this.selectedRoom && keys.some(k => this.getRoomKeys(this.selectedRoom).includes(k))));
+            const wasHovering = Boolean(room._hovering || wasAnalyzing);
+            const currentLiveStatus = (room.is_live === false) ? false : true;
+
+            if (wasSelected) {
+                this.selectedRoom = room;
+            }
+
             if (matchedKey) {
                 const freshData = newRoomsMap.get(matchedKey);
-                Object.assign(room, freshData, { is_live: true, miss_count: 0 });
+                Object.assign(room, freshData, {
+                    is_live: currentLiveStatus,
+                    miss_count: 0,
+                    is_analyzing: wasAnalyzing,
+                    is_selected: wasSelected,
+                    _hovering: wasHovering
+                });
             } else {
-                // Nếu không xuất hiện trong lần poll này (có thể do phân trang API)
                 room.miss_count = (room.miss_count || 0) + 1;
-
-                // Chỉ đánh dấu ĐÃ TẮT nếu vắng mặt liên tiếp từ 3 lần poll trở lên (90s) và không phải phòng đang được chọn / AI phân tích
-                if (room.miss_count >= 3 && !room.is_analyzing && this.selectedRoom !== room) {
-                    room.is_live = false;
-                } else {
-                    room.is_live = true;
-                }
+                room.is_live = currentLiveStatus;
+                room.is_analyzing = wasAnalyzing;
+                room.is_selected = wasSelected;
+                room._hovering = wasHovering;
             }
         }
 
@@ -1203,7 +1627,8 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
         this.rooms.sort((a, b) => {
             const aSel = (a === this.selectedRoom || a.is_selected || a.is_analyzing) ? 1 : 0;
             const bSel = (b === this.selectedRoom || b.is_selected || b.is_analyzing) ? 1 : 0;
-            return bSel - aSel;
+            if (aSel !== bSel) return bSel - aSel;
+            return (b.user_count || 0) - (a.user_count || 0);
         });
 
         this.rebuildGridRows();
@@ -1221,8 +1646,16 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
         this.onRoomMouseLeave(room);
 
         const hlsUrl = this.pickHlsUrlFromRoom(room);
-        if (!hlsUrl) return;
+        if (!hlsUrl) {
+            // Rê chuột vào mà không bắt được link livestream -> Đổi trạng thái là ĐÃ TẮT
+            room.is_live = false;
+            room._hovering = false;
+            this.cd.markForCheck();
+            return;
+        }
 
+        // Bắt được link -> Giữ trạng thái LIVE
+        room.is_live = true;
         room._hovering = true;
         this.activeHoverRoom = room;
 

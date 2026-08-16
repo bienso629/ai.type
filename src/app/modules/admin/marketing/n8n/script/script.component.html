@@ -17,7 +17,7 @@
         </div>
 
         <!-- Chat Messages Area -->
-        <div class="flex-1 overflow-y-auto p-6 space-y-4 hover-scroll bg-white">
+        <div #chatScrollContainer (scroll)="onChatScroll($event)" class="flex-1 overflow-y-auto p-6 space-y-4 bg-white">
             <!-- Empty State Placeholder -->
             <div *ngIf="!chatMessages || chatMessages.length === 0" class="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400">
                 <div class="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-3 text-teal-600">
@@ -32,7 +32,7 @@
             <ng-container *ngFor="let msg of chatMessages">
                 <!-- Assistant Message Bubble -->
                 <div *ngIf="msg.role === 'assistant'" class="flex flex-col gap-1 max-w-[95%]">
-                    <div class="bg-gray-100/80 border border-gray-200/50 rounded-xl p-4 text-base text-gray-800 leading-relaxed space-y-1.5 shadow-2xs"
+                    <div class="ai-chat-bubble bg-gray-100/80 border border-gray-200/50 rounded-xl p-4 text-base text-gray-800 leading-relaxed shadow-2xs"
                          [innerHTML]="msg.content">
                     </div>
                 </div>
@@ -43,6 +43,11 @@
                          [innerHTML]="msg.content">
                     </div>
                 </div>
+
+                <!-- Divider Line -->
+                <div *ngIf="msg.role === 'divider'" class="w-full my-1">
+                    <div [innerHTML]="msg.content"></div>
+                </div>
             </ng-container>
         </div>
 
@@ -52,8 +57,14 @@
                 <button type="button" 
                         *ngFor="let chip of quickActionChips" 
                         (click)="sendQuickAction(chip)"
-                        class="px-3.5 py-2 rounded-lg bg-white border border-gray-200 hover:border-gray-300 text-base font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all shadow-2xs cursor-pointer">
-                    <mat-icon class="icon-size-4 text-primary-500" [svgIcon]="chip.icon"></mat-icon>
+                        [class.border-red-300]="chip.action === 'stop_analyze'"
+                        [class.bg-red-50]="chip.action === 'stop_analyze'"
+                        [class.text-red-700]="chip.action === 'stop_analyze'"
+                        class="px-3.5 py-2 rounded-lg bg-white border border-gray-200 hover:border-gray-300 text-base font-normal text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all shadow-2xs cursor-pointer">
+                    <mat-icon class="icon-size-4" 
+                              [class.text-red-600]="chip.action === 'stop_analyze'"
+                              [class.text-primary-500]="chip.action !== 'stop_analyze'"
+                              [svgIcon]="chip.icon"></mat-icon>
                     <span>{{ chip.label }}</span>
                 </button>
             </div>
@@ -303,6 +314,10 @@
         <button mat-menu-item (click)="selectRoom(room)">
             <mat-icon class="text-blue-600" [svgIcon]="'feather:check-circle'"></mat-icon>
             <span>Chọn video này</span>
+        </button>
+        <button mat-menu-item (click)="loadAnalysisHistoryForRoom(room)">
+            <mat-icon class="text-amber-600" [svgIcon]="'feather:clock'"></mat-icon>
+            <span>Đọc lịch sử phân tích (Database)</span>
         </button>
         <button mat-menu-item (click)="generateLike()">
             <mat-icon class="text-pink-600" [svgIcon]="'feather:heart'"></mat-icon>
