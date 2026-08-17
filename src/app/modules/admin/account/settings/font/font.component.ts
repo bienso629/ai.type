@@ -119,12 +119,30 @@ export class SettingsFontComponent implements OnInit, OnDestroy {
                     else if (item.extension === '.woff') format = 'woff';
                     else if (item.extension === '.woff2') format = 'woff2';
 
+                    const weight = this.fontService.detectFontWeight(item.fontName);
+                    const fontStyle = this.fontService.detectFontStyle(item.fontName);
+
                     styleEl.appendChild(document.createTextNode(`
                         @font-face {
                             font-family: '${item.fontName}';
                             src: url('${item.dataUrl}') format('${format}');
-                            font-weight: normal;
+                            font-weight: ${weight};
+                            font-style: ${fontStyle};
+                            font-display: swap;
+                        }
+                        @font-face {
+                            font-family: '${item.fontName}';
+                            src: url('${item.dataUrl}') format('${format}');
+                            font-weight: 400;
                             font-style: normal;
+                            font-display: swap;
+                        }
+                        @font-face {
+                            font-family: '${item.fontName}';
+                            src: url('${item.dataUrl}') format('${format}');
+                            font-weight: 100 900;
+                            font-style: ${fontStyle};
+                            font-display: swap;
                         }
                     `));
                     document.head.appendChild(styleEl);

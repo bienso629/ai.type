@@ -301,6 +301,51 @@ export class AIImageComponent
         }
     }
 
+    async attachToPrompt(imagePath: string) {
+        let cleanPath = imagePath.replace(/^file:\/\/\//, '').replace(/^file:\/\//, '');
+        let filename = cleanPath.split('/').pop() || 'image.png';
+
+        let ext = filename.split('.').pop()?.toLowerCase();
+        let mimeType = 'image/png';
+        if (ext === 'jpg' || ext === 'jpeg') {
+            mimeType = 'image/jpeg';
+        } else if (ext === 'webp') {
+            mimeType = 'image/webp';
+        } else if (ext === 'gif') {
+            mimeType = 'image/gif';
+        } else if (ext === 'mp4') {
+            mimeType = 'video/mp4';
+        }
+
+        try {
+            const response = await fetch('file:///' + cleanPath);
+            const blob = await response.blob();
+            const base64Data = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = (reader.result as string).split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+
+            if (!this.referenceFiles) {
+                this.referenceFiles = [];
+            }
+
+            this.referenceFiles.push({
+                base64Data: base64Data,
+                mimeType: mimeType,
+                fileName: filename
+            });
+
+            this.cd.markForCheck();
+        } catch (err) {
+            console.error('Không thể đọc file ảnh để đính kèm:', err);
+        }
+    }
+
     async handleSaveEditedImage(base64Data: string, format: string) {
         let base64Content = base64Data.split(',')[1];
         let ext = format.split('/')[1];
