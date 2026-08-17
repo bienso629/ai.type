@@ -62,6 +62,11 @@ export const PERSONA_LIBRARY = [
                 </mat-form-field>
 
                 <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                    <mat-label>Proxy Dân Cư / Private Proxy (Tùy chọn)</mat-label>
+                    <input [formControlName]="'proxy'" placeholder="Ví dụ: 103.15.50.1:8080:user:pass hoặc http://user:pass@ip:port" type="text" matInput>
+                </mat-form-field>
+
+                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                     <mat-label>Chọn Nhân cách (Persona)</mat-label>
                     <mat-select [formControlName]="'personaId'" (selectionChange)="onPersonaChange($event)">
                         <mat-option *ngFor="let p of personas" [value]="p.id">
@@ -134,11 +139,22 @@ export class EditAccountDialog implements OnInit, OnDestroy {
 
         this.isCustomNote = (initialPersonaId === 99);
 
+        let initialProxy = '';
+        if (this.data['item']) {
+            const prx = this.data['item']['proxy'];
+            if (typeof prx === 'string') {
+                initialProxy = prx;
+            } else if (prx && prx.raw) {
+                initialProxy = prx.raw;
+            }
+        }
+
         this.editForm = this._formBuilder.group({
             id: [this.data['item']['id']],
             platform: [this.data['item']['platform'] || 'tiktok', Validators.required],
             email: [this.data['item']['email'], Validators.required],
             alias: [this.data['item']['alias'], Validators.required],
+            proxy: [initialProxy],
             personaId: [initialPersonaId],
             customNote: [customNoteVal]
         });
@@ -172,6 +188,31 @@ export class EditAccountDialog implements OnInit, OnDestroy {
             }
 
             const rootPath = this.data['item']['profiles_root'] || localStorage.getItem('opera_profiles_root') || '';
+            const proxyVal = (this.editForm.get('proxy')?.value || '').trim();
+            const profileName = this.data['item']['profile'] || (this.data['item']['profiles'] && this.data['item']['profiles'][0]);
+
+            if (profileName) {
+                if (proxyVal) {
+                    this._mxhautoService.setProfileProxy({
+                        profiles_root: rootPath,
+                        profile: profileName,
+                        proxy: proxyVal
+                    }).subscribe({
+                        next: () => {
+                            this.data['item']['proxy'] = proxyVal;
+                        }
+                    });
+                } else {
+                    this._mxhautoService.removeProfileProxy({
+                        profiles_root: rootPath,
+                        profiles: [profileName]
+                    }).subscribe({
+                        next: () => {
+                            this.data['item']['proxy'] = null;
+                        }
+                    });
+                }
+            }
 
             this._mxhautoService.updateAccount({
                 profiles_root: rootPath,

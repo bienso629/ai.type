@@ -54,11 +54,11 @@ import { Subject, takeUntil } from "rxjs";
 
             <!-- Suggestions Section -->
             <div *ngIf="suggestions && suggestions.length > 0" class="space-y-2 pt-1">
-                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">💡 Câu hỏi gợi ý tiếp theo:</span>
+                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">💡 Câu hỏi gợi ý tiếp theo:</span>
                 <div class="flex flex-wrap gap-2">
                     <button *ngFor="let sug of suggestions; let i = index" (click)="clickSuggestion(i, sug)" [disabled]="isLoading"
-                        class="text-xs bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 rounded-full px-3 py-1.5 transition flex items-center space-x-1 cursor-pointer">
-                        <span>✨ {{ sug }}</span>
+                        class="text-xs font-normal bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 rounded-full px-3 py-1.5 transition flex items-center space-x-1 cursor-pointer">
+                        <span class="font-normal">✨ {{ sug }}</span>
                     </button>
                 </div>
             </div>

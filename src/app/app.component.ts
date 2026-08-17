@@ -12,6 +12,8 @@ import { MultiAccountService } from './_services/multi-account.service';
 import { ToastrService } from 'ngx-toastr';
 import { LicenseKeyService } from 'app/_services/licensekey';
 
+import { FontService } from './_services/font.service';
+
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
@@ -156,7 +158,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private toastr: ToastrService,
         private ngZone: NgZone,
         private _translocoService: TranslocoService,
-        private _licenseKeyService: LicenseKeyService
+        private _licenseKeyService: LicenseKeyService,
+        private _fontService: FontService
     ) {
         // kiểm tra settings và khởi tạo
         this.multiAccountService.loadActiveAccount().then(data => {
@@ -204,6 +207,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngOnInit() {
+        // Khởi tạo font hệ thống
+        this._fontService.initFontSystem();
+
         // Xoá CSS variable gây lỗi co rút các Dialog của Angular Material (luôn set 100vw)
         document.documentElement.style.setProperty('--main-pane-width', '100vw');
 

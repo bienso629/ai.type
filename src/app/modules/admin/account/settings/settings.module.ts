@@ -45,6 +45,7 @@ import { QRCodeModule } from 'angularx-qrcode';
 import { MomoQrDialog } from 'app/modules/admin/account/settings/active/active.component';
 
 import { SettingsPluginsComponent } from 'app/modules/admin/account/settings/plugins/plugins.component';
+import { SettingsFontComponent } from 'app/modules/admin/account/settings/font/font.component';
 
 @NgModule({
     declarations: [
@@ -59,6 +60,7 @@ import { SettingsPluginsComponent } from 'app/modules/admin/account/settings/plu
         SettingsAdminComponent,
         SettingsPluginsComponent,
         SettingsDomainComponent,
+        SettingsFontComponent,
         AddStyleDialog,
         EmailDialogComponent,
         SettingsTeamComponent,

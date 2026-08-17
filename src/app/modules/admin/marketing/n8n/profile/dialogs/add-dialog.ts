@@ -41,6 +41,11 @@ import { Subject, takeUntil } from "rxjs";
                 </mat-form-field>
 
                 <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                    <mat-label>Proxy Dân Cư / Private Proxy (Tùy chọn)</mat-label>
+                    <input [formControlName]="'proxy'" placeholder="Ví dụ: 103.15.50.1:8080:user:pass hoặc http://user:pass@ip:port" type="text" matInput>
+                </mat-form-field>
+
+                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                     <mat-label>Chọn Nhân cách (Persona)</mat-label>
                     <mat-select [formControlName]="'personaId'" (selectionChange)="onPersonaChange($event)">
                         <mat-option *ngFor="let p of personas" [value]="p.id">
@@ -95,6 +100,7 @@ export class AddAccountDialog implements OnInit, OnDestroy {
             platform: [this.data['item']['platform'], Validators.required],
             email: ['', Validators.required],
             alias: ['', Validators.required],
+            proxy: [''],
             personaId: [rand.id],
             note: [JSON.stringify(rand), Validators.required],
             profiles: [this.data['item']['profiles'], Validators.required],
@@ -129,13 +135,26 @@ export class AddAccountDialog implements OnInit, OnDestroy {
                 finalNote = JSON.stringify(this.selectedPersona);
             }
 
+            const proxyVal = (this.editForm.get('proxy')?.value || '').trim();
+            const rootPath = this.editForm.get('profiles_root').value;
+            const profiles = this.editForm.get('profiles').value;
+
+            if (proxyVal && profiles && profiles.length > 0) {
+                this._mxhautoService.setProfileProxy({
+                    profiles_root: rootPath,
+                    profile: profiles[0],
+                    proxy: proxyVal
+                }).subscribe();
+                this.data['item']['proxy'] = proxyVal;
+            }
+
             this._mxhautoService.addAccount({
-                profiles_root: this.editForm.get('profiles_root').value,
+                profiles_root: rootPath,
                 platform: this.editForm.get('platform').value,
                 email: this.editForm.get('email').value,
                 alias: this.editForm.get('alias').value,
                 note: finalNote,
-                profiles: this.editForm.get('profiles').value,
+                profiles: profiles,
                 active: this.editForm.get('active').value,
                 username: this.data['user']['name']
             })
