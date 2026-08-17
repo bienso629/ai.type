@@ -14,7 +14,7 @@
                 <div class="flex items-center ml-1 whitespace-nowrap">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <a class="ml-1 text-base text-primary-500 cursor-pointer" href="javascript:history.back()">{{ 'app.your_current_work_lc' | transloco }}</a>
+                    <a class="ml-1 text-base text-primary-500 cursor-pointer" [routerLink]="['/archives']">{{ 'app.your_current_work_lc' | transloco }}</a>
                 </div>
                 <div class="flex items-center ml-1 whitespace-nowrap relative">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
@@ -33,7 +33,7 @@
             </div>
             <div class="flex sm:hidden">
                 <a class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer"
-                    href="javascript:history.back()">
+                    [routerLink]="['/archives']">
                     <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
                     <span class="ml-1 text-base">quay lại</span>
                 </a>
@@ -2650,8 +2650,8 @@
                                         Lưu cục bộ
                                     </mat-slide-toggle>
 
-                                    <button mat-icon-button (click)="openEncryptionDialog()" [color]="articlePassword || (details && details.is_encrypted) ? 'warn' : 'accent'" [matTooltip]="(articlePassword || (details && details.is_encrypted)) ? 'Bài viết đã được mã hóa AES-256 (Đã bật bảo vệ)' : 'Đặt mật khẩu mã hóa AES-256 cho bài viết'">
-                                        <mat-icon class="icon-size-5" [svgIcon]="(articlePassword || (details && details.is_encrypted)) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
+                                    <button mat-icon-button (click)="openEncryptionDialog()" [color]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'warn' : 'accent'" [matTooltip]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'Bài viết đã được mã hóa AES-256 (Đã bật bảo vệ)' : 'Đặt mật khẩu mã hóa AES-256 cho bài viết'">
+                                        <mat-icon class="icon-size-5" [svgIcon]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
                                     </button>
 
                                     <button mat-icon-button (click)="confirmClear()" color="warn" matTooltipPosition="above" [matTooltip]="'app.delete_outline' | transloco">

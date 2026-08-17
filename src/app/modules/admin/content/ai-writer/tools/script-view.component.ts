@@ -35,7 +35,7 @@ interface ScreenplayLine {
                     </div>
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500 cursor-pointer" (click)="goBack()">tác vụ đang làm của bạn</a>
+                        <a class="ml-1 text-base text-primary-500 cursor-pointer" [routerLink]="['/collection']">tác vụ đang làm của bạn</a>
                     </div>
                     <div class="flex items-center ml-1 whitespace-nowrap relative">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
@@ -43,7 +43,7 @@ interface ScreenplayLine {
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer" (click)="goBack()">
+                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer" [routerLink]="['/collection']">
                         <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
                         <span class="ml-1 text-base">quay lại</span>
                     </a>
@@ -927,7 +927,12 @@ export class AIScriptComponent implements OnInit, OnDestroy {
     }
 
     goBack() {
-        this.router.navigate(['/ai-writer', this.name, this.uuid]);
+        const colId = this.scriptDoc?.collectionId || this.scriptDoc?.collection_id;
+        if (colId) {
+            this.router.navigate(['/collection'], { queryParams: { collectionId: colId } });
+        } else {
+            this.router.navigate(['/collection']);
+        }
     }
 
     extractCleanDoneContent(art: any): string {

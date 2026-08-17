@@ -4448,7 +4448,125 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
         }
     }
 
-    async confirmAndExecuteTask(confirmData: { month: number, year: number, day?: number, dateStr?: string, type?: string }, msg?: any) {
+    async commitDayTasksToDB(confirmData: any) {
+        const { normalizedList, vDateStrIso, vDateStrLocal } = confirmData;
+        if (!normalizedList || !Array.isArray(normalizedList)) return;
+
+        this.isChatting = true;
+        this.cd.detectChanges();
+
+        this.applyParsedTasks(normalizedList);
+
+        // Lưu tất cả task của ngày vào CSDL CouchDB ngầm qua API /tasks/add hoặc /tasks/edit
+        const normalizeDomain = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+        const allRamTasks = [
+            ...(this.items || []).flatMap((d: any) => d?.childrenItems?.[0]?.streamItems || (d?.domainData?.plan || [])),
+            ...(this.allDomainsList || []).flatMap((d: any) => d?.plan || [])
+        ];
+
+        for (const entry of normalizedList) {
+            if (!entry.tasks || !entry.tasks.length) continue;
+            const targetNorm = normalizeDomain(entry.domain || '');
+            const matchedItem = this.items.find(it => it && it.name && normalizeDomain(it.name) === targetNorm) || this.items[0];
+            const canonicalDomainName = matchedItem ? (matchedItem.domainData?.domain || matchedItem.name) : (entry.domain || '');
+
+            for (const t of entry.tasks) {
+                if (!t) continue;
+                const targetId = t._id || t.id;
+                let existingDbTask = targetId ? allRamTasks.find((rt: any) => rt && (String(rt._id) === String(targetId) || String(rt.id) === String(targetId))) : null;
+                if (!existingDbTask && (t.name || t.title)) {
+                    const tName = (t.name || t.title || '').trim().toLowerCase();
+                    existingDbTask = allRamTasks.find((rt: any) => {
+                        if (!rt || !rt.name) return false;
+                        if (rt.name.trim().toLowerCase() !== tName) return false;
+                        return this.safeIsoDate(rt.startDate) === vDateStrIso;
+                    });
+                }
+
+                const taskPayload: any = {
+                    name: t.name || t.title || 'Công việc mới',
+                    meta: t.meta || t.description || '',
+                    domain_id: canonicalDomainName,
+                    domain: canonicalDomainName,
+                    startDate: t.startDate || `${vDateStrIso}T08:00:00`,
+                    endDate: t.endDate || `${vDateStrIso}T17:00:00`,
+                    canResizeLeft: true,
+                    canResizeRight: true,
+                    canDragX: true,
+                    canDragY: false
+                };
+
+                try {
+                    let savedSuccessfully = false;
+                    const isRealCouchDbTask = existingDbTask && existingDbTask._id && existingDbTask._rev && String(existingDbTask._rev).includes('-');
+                    
+                    if (isRealCouchDbTask) {
+                        taskPayload['_id'] = existingDbTask._id;
+                        taskPayload['id'] = existingDbTask._id;
+                        taskPayload['_rev'] = existingDbTask._rev;
+                        const resEdit: any = await firstValueFrom(this._tasksService.edit({ username: this.user.name, task: taskPayload })).catch(() => null);
+                        if (resEdit && !resEdit.error && !resEdit.message) {
+                            savedSuccessfully = true;
+                            const newRev = resEdit.rev || resEdit._rev || resEdit.data?.rev || resEdit.data?._rev;
+                            if (newRev) {
+                                existingDbTask._rev = newRev;
+                                t._rev = newRev;
+                            }
+                            existingDbTask.name = taskPayload.name;
+                            existingDbTask.meta = taskPayload.meta;
+                        }
+                    }
+
+                    if (!savedSuccessfully) {
+                        delete taskPayload['_id'];
+                        delete taskPayload['id'];
+                        delete taskPayload['_rev'];
+                        const resAdd: any = await firstValueFrom(this._tasksService.add({ username: this.user.name, task: taskPayload })).catch(() => null);
+                        if (resAdd && !resAdd.error) {
+                            const newId = resAdd.id || resAdd._id || resAdd.data?.id || resAdd.data?._id;
+                            const newRev = resAdd.rev || resAdd._rev || resAdd.data?.rev || resAdd.data?._rev;
+                            if (newId) { 
+                                t._id = newId; t.id = newId; 
+                                if (existingDbTask) { existingDbTask._id = newId; existingDbTask.id = newId; }
+                                const tName = (t.name || t.title || '').trim().toLowerCase();
+                                const ramTarget = allRamTasks.find((rt: any) => {
+                                    if (!rt || !rt.name) return false;
+                                    if (rt.name.trim().toLowerCase() !== tName) return false;
+                                    return this.safeIsoDate(rt.startDate) === vDateStrIso;
+                                });
+                                if (ramTarget) {
+                                    ramTarget._id = newId;
+                                    ramTarget.id = newId;
+                                    if (newRev) ramTarget._rev = newRev;
+                                }
+                            }
+                            if (newRev) { 
+                                t._rev = newRev; 
+                                if (existingDbTask) { existingDbTask._rev = newRev; }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Lỗi lưu task ngày vào CSDL:', err);
+                }
+            }
+        }
+
+        this.updateTotalSummaryRow();
+        this.items = [...this.items];
+        this.saveScriptState();
+        this.isChatting = false;
+        this.cd.detectChanges();
+
+        this.toastr.success(`Đã cập nhật và lưu CSDL công việc ngày ${vDateStrLocal}!`);
+        this.chatHistory.push({
+            role: 'model',
+            content: `🎉 Báo cáo Sếp: Em đã hoàn tất lưu CSDL công việc ngày **${vDateStrLocal}** trên lịch cho tất cả các tên miền rồi nhé! 😎`
+        });
+        this.scrollToBottom();
+    }
+
+    async confirmAndExecuteTask(confirmData: any, msg?: any) {
         if (this.isChatting) return;
 
         if (msg) {
@@ -4466,6 +4584,27 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
         this.cd.detectChanges();
 
         try {
+            if (confirmData.type === 'save_day_parsed_tasks' && confirmData.normalizedList) {
+                await this.commitDayTasksToDB(confirmData);
+                return;
+            }
+
+            if (confirmData.type === 'save_parsed_tasks' && confirmData.parsedTasks) {
+                const success = this.applyParsedTasks(confirmData.parsedTasks);
+                if (success) {
+                    this.saveScriptState();
+                    this.cd.detectChanges();
+                    this.toastr.success('Đã lưu toàn bộ công việc vào CSDL thành công!');
+                    this.chatHistory.push({
+                        role: 'model',
+                        content: `✅ Sếp đã xác nhận! Em đã chính thức lưu công việc vào CSDL thành công!`
+                    });
+                }
+                this.isChatting = false;
+                this.scrollToBottom();
+                return;
+            }
+
             if (confirmData.type === 'day' || confirmData.day) {
                 const dayStr = confirmData.day.toString().padStart(2, '0');
                 const monthStr = confirmData.month.toString().padStart(2, '0');
@@ -4763,125 +4902,54 @@ QUY TẮC BẮT BUỘC:
                     }
                 });
 
-                this.applyParsedTasks(normalizedList);
-
-                // Lưu tất cả task của ngày vào CSDL CouchDB ngầm qua API /tasks/add hoặc /tasks/edit
-                const normalizeDomain = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
-                const allRamTasks = [
-                    ...(this.items || []).flatMap((d: any) => d?.childrenItems?.[0]?.streamItems || (d?.domainData?.plan || [])),
-                    ...(this.allDomainsList || []).flatMap((d: any) => d?.plan || [])
-                ];
-
-                for (const entry of normalizedList) {
-                    if (!entry.tasks || !entry.tasks.length) continue;
-                    const targetNorm = normalizeDomain(entry.domain || '');
-                    const matchedItem = this.items.find(it => it && it.name && normalizeDomain(it.name) === targetNorm) || this.items[0];
-                    const canonicalDomainName = matchedItem ? (matchedItem.domainData?.domain || matchedItem.name) : (entry.domain || '');
-
-                    for (const t of entry.tasks) {
-                        if (!t) continue;
-                        const targetId = t._id || t.id;
-                        let existingDbTask = targetId ? allRamTasks.find((rt: any) => rt && (String(rt._id) === String(targetId) || String(rt.id) === String(targetId))) : null;
-                        if (!existingDbTask && (t.name || t.title)) {
-                            const tName = (t.name || t.title || '').trim().toLowerCase();
-                            existingDbTask = allRamTasks.find((rt: any) => {
-                                if (!rt || !rt.name) return false;
-                                if (rt.name.trim().toLowerCase() !== tName) return false;
-                                return this.safeIsoDate(rt.startDate) === vDateStrIso;
-                            });
-                        }
-
-                        const taskPayload: any = {
-                            name: t.name || t.title || 'Công việc mới',
-                            meta: t.meta || t.description || '',
-                            domain_id: canonicalDomainName,
-                            domain: canonicalDomainName,
-                            startDate: t.startDate || `${vDateStrIso}T08:00:00`,
-                            endDate: t.endDate || `${vDateStrIso}T17:00:00`,
-                            canResizeLeft: true,
-                            canResizeRight: true,
-                            canDragX: true,
-                            canDragY: false
-                        };
-
-                        try {
-                            let savedSuccessfully = false;
-                            const isRealCouchDbTask = existingDbTask && existingDbTask._id && existingDbTask._rev && String(existingDbTask._rev).includes('-');
-                            
-                            if (isRealCouchDbTask) {
-                                taskPayload['_id'] = existingDbTask._id;
-                                taskPayload['id'] = existingDbTask._id;
-                                taskPayload['_rev'] = existingDbTask._rev;
-                                const resEdit: any = await firstValueFrom(this._tasksService.edit({ username: this.user.name, task: taskPayload })).catch(() => null);
-                                if (resEdit && !resEdit.error && !resEdit.message) {
-                                    savedSuccessfully = true;
-                                    const newRev = resEdit.rev || resEdit._rev || resEdit.data?.rev || resEdit.data?._rev;
-                                    if (newRev) {
-                                        existingDbTask._rev = newRev;
-                                        t._rev = newRev;
-                                    }
-                                    existingDbTask.name = taskPayload.name;
-                                    existingDbTask.meta = taskPayload.meta;
-                                }
-                            }
-
-                            if (!savedSuccessfully) {
-                                delete taskPayload['_id'];
-                                delete taskPayload['id'];
-                                delete taskPayload['_rev'];
-                                const resAdd: any = await firstValueFrom(this._tasksService.add({ username: this.user.name, task: taskPayload })).catch(() => null);
-                                if (resAdd && !resAdd.error) {
-                                    const newId = resAdd.id || resAdd._id || resAdd.data?.id || resAdd.data?._id;
-                                    const newRev = resAdd.rev || resAdd._rev || resAdd.data?.rev || resAdd.data?._rev;
-                                    if (newId) { 
-                                        t._id = newId; t.id = newId; 
-                                        if (existingDbTask) { existingDbTask._id = newId; existingDbTask.id = newId; }
-                                        const tName = (t.name || t.title || '').trim().toLowerCase();
-                                        const ramTarget = allRamTasks.find((rt: any) => {
-                                            if (!rt || !rt.name) return false;
-                                            if (rt.name.trim().toLowerCase() !== tName) return false;
-                                            return this.safeIsoDate(rt.startDate) === vDateStrIso;
-                                        });
-                                        if (ramTarget) {
-                                            ramTarget._id = newId;
-                                            ramTarget.id = newId;
-                                            if (newRev) ramTarget._rev = newRev;
-                                        }
-                                    }
-                                    if (newRev) { 
-                                        t._rev = newRev; 
-                                        if (existingDbTask) { existingDbTask._rev = newRev; }
-                                    }
-                                }
-                            }
-                        } catch (err) {
-                            console.warn('Lỗi lưu task ngày vào CSDL:', err);
-                        }
+                let previewMessage = `🤖 **DÀN BÀI / KẾ HOẠCH CÔNG VIỆC AI ĐÃ ĐỀ XUẤT CHO NGÀY ${vDateStrLocal}**:\n\n`;
+                let totalTasksCount = 0;
+                normalizedList.forEach((d: any) => {
+                    if (d.tasks && d.tasks.length > 0) {
+                        totalTasksCount += d.tasks.length;
+                        previewMessage += `📌 **Tên miền: ${d.domain}** (${d.tasks.length} bài):\n`;
+                        d.tasks.forEach((t: any, idx: number) => {
+                            previewMessage += `  ${idx + 1}. **${t.name || t.title}** (${t.meta || 'Nội dung SEO'})\n`;
+                        });
+                        previewMessage += `\n`;
                     }
-                }
+                });
 
-                this.updateTotalSummaryRow();
-                this.items = [...this.items];
-                this.saveScriptState();
-                this.cd.detectChanges();
+                previewMessage += `👉 *Sếp vui lòng kiểm tra danh sách **${totalTasksCount} công việc** đề xuất cho ngày **${vDateStrLocal}** ở trên và nhấn nút **"Xác nhận lưu vào CSDL"** bên dưới để chính thức lưu vào CSDL nhé!*`;
 
-                this.toastr.success(`Đã cập nhật và lưu CSDL công việc ngày ${vDateStrLocal}!`);
                 this.chatHistory.push({
                     role: 'model',
-                    content: `🎉 Báo cáo Sếp: Em đã hoàn tất tạo và lưu CSDL công việc ngày **${vDateStrLocal}** trên lịch cho tất cả các tên miền rồi nhé! 😎`
+                    content: previewMessage,
+                    isConfirmMessage: true,
+                    confirmData: {
+                        type: 'save_day_parsed_tasks',
+                        normalizedList: normalizedList,
+                        vDateStrIso: vDateStrIso,
+                        vDateStrLocal: vDateStrLocal,
+                        year: year,
+                        month: month,
+                        day: day,
+                        buttonText: `Xác nhận lưu công việc ngày ${vDateStrLocal} vào CSDL`
+                    }
                 });
+                this.isChatting = false;
+                this.saveScriptState();
+                this.cd.detectChanges();
+                this.scrollToBottom();
             } else {
                 this.chatHistory.push({ role: 'model', content: `❌ Lỗi: AI không trả về dữ liệu hợp lệ cho ngày ${vDateStrLocal}.` });
+                this.isChatting = false;
             }
         } catch (e: any) {
             console.error('Error generating day tasks', e);
             this.chatHistory.push({ role: 'model', content: `❌ Lỗi khi gọi AI: ${e.message || e}` });
+            this.isChatting = false;
         }
 
         this.saveScriptState();
         this.cd.markForCheck();
     }
-    
+
     private applyParsedTasks(parsed: any[]) {
         let hasAnyTasks = false;
         

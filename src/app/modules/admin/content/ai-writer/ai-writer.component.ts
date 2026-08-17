@@ -293,7 +293,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     openEncryptionDialog() {
-        if (this.articlePassword || (this.details && this.details.is_encrypted)) {
+        const isEncryptedDoc = !!(this.articlePassword || (this.details && (this.details.is_encrypted || this.details.cipher || (this.details.source && (this.details.source.encrypted || this.details.source.cipher)))));
+        if (isEncryptedDoc) {
             const confirmDialog = this._fuseConfirmationService.open({
                 title: 'Hủy mã hóa bài viết',
                 message: 'Bạn có chắc chắn muốn HỦY MÃ HÓA (bỏ mật khẩu) cho bài viết này không? Nội dung bài viết sẽ chuyển về dạng lưu trữ không mã hóa trên Server.',
@@ -4359,6 +4360,9 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                             this.details.trash = this.trash;
                                             this.details.seo = this.seo;
                                             this.details.arr_keyword = this.arr_keyword;
+                                            this.details.is_encrypted = true;
+                                            if (cipherText) this.details.cipher = cipherText;
+                                            if (this.details.source) this.details.source.encrypted = true;
 
                                             this.setdata(this.details);
                                         }
@@ -4423,6 +4427,9 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                                             this.details.trash = this.trash;
                                                             this.details.seo = this.seo;
                                                             this.details.arr_keyword = this.arr_keyword;
+                                                            this.details.is_encrypted = true;
+                                                            if (cipherText) this.details.cipher = cipherText;
+                                                            if (this.details.source) this.details.source.encrypted = true;
 
                                                             this.setdata(this.details);
                                                             this.toastr.success('Giải mã thành công nội dung bài viết!', 'Mật khẩu đúng');

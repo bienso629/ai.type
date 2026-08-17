@@ -12,7 +12,7 @@
                     <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
                     <a class="ml-1 text-base text-primary-500 whitespace-nowrap cursor-pointer"
-                        href="javascript:history.back()">{{ t('app.your_current_work_lc') }}</a>
+                        [routerLink]="['/collection']">{{ t('app.your_current_work_lc') }}</a>
                 </div>
                 <div class="flex items-center ml-1 min-w-0 overflow-hidden">
                     <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;"

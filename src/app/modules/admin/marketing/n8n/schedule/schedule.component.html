@@ -175,7 +175,7 @@
                                                     [disabled]="isChatting"
                                                     class="w-full">
                                                 <mat-icon class="icon-size-5 mr-1.5" [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
-                                                <span class="ml-2">Xác nhận</span>
+                                                 <span class="ml-2">{{ msg.confirmData?.buttonText || 'Xác nhận lưu vào CSDL' }}</span>
                                             </button>
                                         </div>
                                     </div>
