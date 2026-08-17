@@ -21,7 +21,7 @@ import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/co
 export class SettingsComponent implements OnInit, OnDestroy {
     config: AppConfig;
     user: User;
-    isCompact: boolean = false;
+    isCompact: boolean = (localStorage.getItem('settings_is_compact') === 'true');
 
     @ViewChild('drawer') drawer: MatDrawer;
     drawerMode: 'over' | 'side' = 'side';
@@ -55,7 +55,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
             id: 'font',
             icon: 'feather:type',
             title: 'Font chữ',
-            description: 'Quản lý font chữ ứng dụng'
+            description: 'Font chữ ứng dụng'
         },
         {
             id: 'active',
@@ -107,6 +107,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     toggleCompact(): void {
         this.isCompact = !this.isCompact;
+        try {
+            localStorage.setItem('settings_is_compact', String(this.isCompact));
+        } catch (e) {}
         this.drawerOpened = true;
         this._changeDetectorRef.markForCheck();
         setTimeout(() => {

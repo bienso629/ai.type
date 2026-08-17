@@ -453,5 +453,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         this.opened = open;
         if (open) this._showOverlay();
         else this._hideOverlay();
+        this.cd.markForCheck();
+        this.cd.detectChanges();
     }
 }

@@ -7,49 +7,33 @@
     </div>
 
     <!-- Actions Bar with standard Fuse buttons -->
-    <div class="flex flex-wrap items-center gap-3">
-        <!-- File Inputs -->
-        <input type="file" #zipFileInput accept=".zip" multiple (change)="onZipFileSelected($event)" class="hidden">
-        <input type="file" #fontFileInput accept=".ttf,.otf,.woff,.woff2" multiple (change)="onFontFilesSelected($event)" class="hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 w-full">
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- File Inputs -->
+            <input type="file" #zipFileInput accept=".zip" multiple (change)="onZipFileSelected($event)" class="hidden">
+            <input type="file" #fontFileInput accept=".ttf,.otf,.woff,.woff2" multiple (change)="onFontFilesSelected($event)" class="hidden">
 
-        <!-- Import ZIP Button -->
-        <button mat-flat-button [color]="'primary'" (click)="zipFileInput.click()" [disabled]="isUploading">
-            <mat-icon class="icon-size-4" [svgIcon]="'feather:file-text'"></mat-icon>
-            <span class="ml-2 text-base">Import Bộ Font từ File ZIP (.zip)</span>
-        </button>
+            <!-- Import ZIP Button -->
+            <button mat-flat-button [color]="'primary'" (click)="zipFileInput.click()" [disabled]="isUploading">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:file-text'"></mat-icon>
+                <span class="ml-2 text-base">Import Bộ Font từ File ZIP (.zip)</span>
+            </button>
 
-        <!-- Single Font Files Button -->
-        <button mat-flat-button [color]="'accent'" (click)="fontFileInput.click()" [disabled]="isUploading">
-            <mat-icon class="icon-size-4" [svgIcon]="'feather:plus'"></mat-icon>
-            <span class="ml-2 text-base">Thêm file Font lẻ (.ttf, .otf)</span>
-        </button>
-    </div>
-
-    <!-- Active Font Indicator Banner -->
-    <div *ngIf="activeFontGroup" class="bg-primary-50 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800 rounded-md px-4 py-3 text-base text-primary flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <mat-icon [svgIcon]="'heroicons_solid:check-circle'" class="icon-size-5 text-primary"></mat-icon>
-            <div>
-                <span class="font-bold">Đang áp dụng trọn bộ font cho phần mềm:</span>
-                <span class="ml-2 font-bold text-lg" [style.fontFamily]="activeFontGroup.folderName">{{ activeFontGroup.folderName }}</span>
-                <span class="ml-2 text-sm text-gray-500">({{ activeFontGroup.variants.length }} kiểu chữ: Đậm, Thường, Nghiêng...)</span>
-            </div>
+            <!-- Single Font Files Button -->
+            <button mat-flat-button [color]="'accent'" (click)="fontFileInput.click()" [disabled]="isUploading">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:plus'"></mat-icon>
+                <span class="ml-2 text-base">Thêm file Font lẻ (.ttf, .otf)</span>
+            </button>
         </div>
-    </div>
 
-    <!-- Storage Folder Information -->
-    <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/60 rounded-md px-4 py-3 text-base text-gray-600 dark:text-gray-300">
-        <div class="flex items-center gap-2 truncate">
-            <mat-icon [svgIcon]="'feather:folder-minus'" class="icon-size-4 text-primary shrink-0"></mat-icon>
-            <span class="font-medium text-gray-500">Đường dẫn thư mục chứa Font:</span>
-            <code class="font-mono text-primary font-semibold truncate">{{ fontsDir }}</code>
-        </div>
-        <div class="flex items-center gap-2 shrink-0 font-normal text-gray-500 bg-white dark:bg-gray-800 border px-3 py-1 rounded-md text-base">
+        <!-- Font Stats Pill -->
+        <div class="flex items-center gap-2 shrink-0 font-normal text-gray-500 bg-white dark:bg-gray-800 border px-3 py-1.5 rounded-md text-base ml-auto">
             <span>{{ fontGroups.length }} Thư mục</span>
             <span>•</span>
-            <span class="text-primary">{{ totalFonts }} Font chữ</span>
+            <span class="text-primary font-semibold">{{ totalFonts }} Font chữ</span>
         </div>
     </div>
+
 
     <!-- Loading State -->
     <div *ngIf="isLoading" class="flex flex-col items-center justify-center p-12 text-gray-400 space-y-3">
@@ -76,8 +60,7 @@
 
     <!-- Font Groups Accordion / List -->
     <div *ngIf="!isLoading && fontGroups.length > 0" class="space-y-6">
-        <div *ngFor="let group of fontGroups" class="bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700/80 rounded-md p-5 space-y-4"
-             [ngClass]="{'border-primary ring-1 ring-primary': activeFontGroup?.folderName === group.folderName}">
+        <div *ngFor="let group of fontGroups" class="space-y-4">
             <!-- Group Header -->
             <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700/50">
                 <div class="flex items-center gap-3">
@@ -95,23 +78,23 @@
                 </div>
 
                 <!-- Group Actions -->
-                <div class="flex items-center gap-2">
-                    <!-- Apply Group Button -->
-                    <button *ngIf="activeFontGroup?.folderName !== group.folderName" mat-flat-button [color]="'primary'" (click)="applyGroupFont(group)">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:check-circle'"></mat-icon>
-                        <span class="ml-2 text-base">Áp dụng trọn bộ font này</span>
-                    </button>
+                <div class="flex items-center gap-4">
+                    <!-- Apply Group Link -->
+                    <a *ngIf="activeFontGroup?.folderName !== group.folderName" (click)="applyGroupFont(group)" class="cursor-pointer text-primary hover:underline flex items-center gap-1.5 text-base font-medium select-none">
+                        <mat-icon class="icon-size-4 text-primary" [svgIcon]="'feather:check-circle'"></mat-icon>
+                        <span>Áp dụng trọn bộ font này</span>
+                    </a>
 
-                    <button *ngIf="activeFontGroup?.folderName === group.folderName" mat-flat-button [color]="'accent'" [disabled]="true">
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
-                        <span class="ml-2 text-base">✓ Đang áp dụng cho App</span>
-                    </button>
+                    <span *ngIf="activeFontGroup?.folderName === group.folderName" class="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-base font-medium select-none">
+                        <mat-icon class="icon-size-4 text-emerald-600 dark:text-emerald-400" [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
+                        <span>✓ Đang áp dụng cho App</span>
+                    </span>
 
-                    <!-- Delete Entire Group Button -->
-                    <button mat-flat-button [color]="'warn'" (click)="deleteFolderGroup(group)">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                        <span class="ml-2 text-base">Xóa bộ font</span>
-                    </button>
+                    <!-- Delete Entire Group Link -->
+                    <a (click)="deleteFolderGroup(group)" class="cursor-pointer text-warn hover:underline flex items-center gap-1.5 text-base font-medium select-none">
+                        <mat-icon class="icon-size-4 text-warn" [svgIcon]="'feather:trash-2'"></mat-icon>
+                        <span>Xóa bộ font</span>
+                    </a>
                 </div>
             </div>
 
@@ -129,9 +112,7 @@
                             </span>
                         </div>
                         <div class="flex items-center gap-1 shrink-0">
-                            <button mat-icon-button [color]="'primary'" (click)="copyFontName(item.fontName)" [matTooltip]="'Chép tên Font (' + item.fontName + ')'">
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:copy'"></mat-icon>
-                            </button>
+
                             <button mat-icon-button [color]="'warn'" (click)="deleteFontFile(item)" matTooltip="Xóa file font này">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                             </button>
