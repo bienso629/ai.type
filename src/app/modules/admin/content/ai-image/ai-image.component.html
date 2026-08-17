@@ -144,9 +144,13 @@
                                                                 <mat-icon class="icon-size-4" svgIcon="heroicons_outline:dots-vertical"></mat-icon>
                                                             </button>
                                                             <mat-menu #videoMenu="matMenu">
+                                                                <button mat-menu-item (click)="attachToPrompt(img)">
+                                                                    <mat-icon class="icon-size-4 text-purple-600" svgIcon="heroicons_outline:paper-clip"></mat-icon>
+                                                                    <span>Đính kèm vào prompt</span>
+                                                                </button>
                                                                 <button mat-menu-item (click)="uploadImage(img)">
                                                                     <mat-icon class="icon-size-4 text-blue-500" svgIcon="feather:cloud"></mat-icon>
-                                                                    <span>Tải lên</span>
+                                                                    <span>Tải lên Website</span>
                                                                 </button>
                                                                 <button mat-menu-item (click)="deleteImage(img, rowIndex * gridSize + i)">
                                                                     <mat-icon class="icon-size-4 text-red-500" svgIcon="feather:trash"></mat-icon>
@@ -158,24 +162,25 @@
 
                                                     <ng-template #imageTemplate>
                                                         <img [src]="'file:///' + img"
-                                                            class="thumb w-full h-auto object-cover rounded-2xl" />
+                                                            class="thumb w-full h-auto object-cover rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
+                                                            (click)="editImage(img)" matTooltip="Nhấp để sửa ảnh" />
 
                                                         <div class="thumb-actions">
                                                             <button mat-icon-button class="bg-white bg-opacity-75 hover:bg-opacity-100 text-gray-800 rounded-full shadow-sm" [matMenuTriggerFor]="imageMenu">
                                                                 <mat-icon class="icon-size-4" svgIcon="heroicons_outline:dots-vertical"></mat-icon>
                                                             </button>
                                                             <mat-menu #imageMenu="matMenu">
-                                                                <button mat-menu-item (click)="editImage(img)">
-                                                                    <mat-icon class="icon-size-4 text-green-500" svgIcon="heroicons_outline:sparkles"></mat-icon>
-                                                                    <span>Sửa ảnh</span>
+                                                                <button mat-menu-item (click)="attachToPrompt(img)">
+                                                                    <mat-icon class="icon-size-4 text-purple-600" svgIcon="heroicons_outline:paper-clip"></mat-icon>
+                                                                    <span>Đính kèm vào prompt</span>
                                                                 </button>
                                                                 <button mat-menu-item (click)="shareImage(img)">
                                                                     <mat-icon class="icon-size-4 text-blue-600" svgIcon="heroicons_outline:share"></mat-icon>
-                                                                    <span>Chia sẻ</span>
+                                                                    <span>Chia sẻ lên Mạng xã hội</span>
                                                                 </button>
                                                                 <button mat-menu-item (click)="uploadImage(img)">
                                                                     <mat-icon class="icon-size-4 text-blue-500" svgIcon="feather:cloud"></mat-icon>
-                                                                    <span>Tải lên</span>
+                                                                    <span>Tải lên Website</span>
                                                                 </button>
                                                                 <button mat-menu-item (click)="deleteImage(img, rowIndex * gridSize + i)">
                                                                     <mat-icon class="icon-size-4 text-red-500" svgIcon="feather:trash"></mat-icon>

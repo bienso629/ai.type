@@ -14,8 +14,11 @@ interface LayerBase {
 interface TextObject extends LayerBase {
     type: 'text';
     content: string;
+    fontFamily?: string;
+    letterSpacing?: number;
     fontSize: number; rotation: number;
     color1: string; color2: string; isGradient: boolean; gradientAngle: number;
+    gradientStops?: { color: string; offset: number }[];
     opacity: number; width?: number; height?: number;
     // Border
     hasBorder: boolean; borderColor: string; borderWidth: number;
@@ -111,6 +114,25 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
         if (event.key === 'Delete') { this.deleteSelected(); }
     }
 
+    @HostListener('window:mousemove', ['$event'])
+    handleWindowMouseMove(event: MouseEvent) {
+        if (this.isDraggingAngle && this.activeAngleTxt && this.activeAngleElement) {
+            this.updateAngleFromMouseEvent(event, this.activeAngleTxt, this.activeAngleElement);
+        }
+    }
+
+    @HostListener('window:mouseup', ['$event'])
+    handleWindowMouseUp(event: MouseEvent) {
+        if (this.isDraggingAngle) {
+            this.isDraggingAngle = false;
+            this.activeAngleTxt = null;
+            this.activeAngleElement = null;
+            this.recordHistory();
+        }
+    }
+
+    fontGroups: any[] = [];
+
     constructor(
         public dialogRef: MatDialogRef<ImageEditorDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: { imageUrl: string, username: string },
@@ -120,10 +142,60 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
+        this.refreshGradientPresets();
+        this.loadAvailableFonts();
         let src = this.data.imageUrl;
         if (!src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('file:')) src = 'file:///' + src;
         this.originalUrl = src;
         this.initCanvas(this.originalUrl, true);
+    }
+
+    async loadAvailableFonts(): Promise<void> {
+        try {
+            if ((window as any).electron && (window as any).electron.invoke) {
+                const res = await (window as any).electron.invoke('fonts:list');
+                if (res && res.success && res.groups) {
+                    this.fontGroups = res.groups;
+                    this.registerFontFaces(res.groups);
+                }
+            } else {
+                const saved = localStorage.getItem('ai_type_web_font_groups');
+                if (saved) {
+                    this.fontGroups = JSON.parse(saved);
+                    this.registerFontFaces(this.fontGroups);
+                }
+            }
+        } catch (e) {
+            console.warn('Lỗi nạp font cho Image Editor:', e);
+        }
+    }
+
+    private registerFontFaces(groups: any[]): void {
+        for (const group of groups) {
+            for (const item of group.fonts) {
+                if (!item.dataUrl) continue;
+                const styleId = `font-face-editor-${item.fontName.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+                if (document.getElementById(styleId)) continue;
+                try {
+                    const styleEl = document.createElement('style');
+                    styleEl.id = styleId;
+                    let format = 'truetype';
+                    if (item.extension === '.otf') format = 'opentype';
+                    else if (item.extension === '.woff') format = 'woff';
+                    else if (item.extension === '.woff2') format = 'woff2';
+
+                    styleEl.appendChild(document.createTextNode(`
+                        @font-face {
+                            font-family: '${item.fontName}';
+                            src: url('${item.dataUrl}') format('${format}');
+                            font-weight: normal;
+                            font-style: normal;
+                        }
+                    `));
+                    document.head.appendChild(styleEl);
+                } catch (err) {}
+            }
+        }
     }
 
     ngOnDestroy(): void { this.saveTrigger.complete(); }
@@ -355,7 +427,10 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                 const t = layer as TextObject;
                 this.ctx.globalAlpha = t.opacity;
                 this.ctx.rotate((t.rotation * Math.PI) / 180);
-                this.ctx.font = `bold ${t.fontSize}px Arial`;
+                const fontFam = t.fontFamily || 'Arial';
+                this.ctx.font = `bold ${t.fontSize}px "${fontFam}", Arial, sans-serif`;
+                const letterSpace = t.letterSpacing || 0;
+                try { (this.ctx as any).letterSpacing = `${letterSpace}px`; } catch (e) {}
                 this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
 
                 const lines = t.content.split('\n');
@@ -364,7 +439,8 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                 let maxWidth = 0;
                 lines.forEach(line => {
                     const metric = this.ctx.measureText(line);
-                    if (metric.width > maxWidth) maxWidth = metric.width;
+                    const lineW = metric.width + (line.length > 1 ? (line.length - 1) * letterSpace : 0);
+                    if (lineW > maxWidth) maxWidth = lineW;
                 });
                 
                 const startY = -(totalHeight / 2) + (lineHeight / 2);
@@ -392,7 +468,20 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                         const x2 = r * Math.cos(angleRad);
                         const y2 = lineY + r * Math.sin(angleRad);
                         const gradient = this.ctx.createLinearGradient(x1, y1, x2, y2);
-                        gradient.addColorStop(0, t.color1); gradient.addColorStop(1, t.color2);
+                        
+                        const stops = (t.gradientStops && t.gradientStops.length >= 2)
+                            ? t.gradientStops
+                            : [
+                                { color: t.color1 || '#ffffff', offset: 0 },
+                                { color: t.color2 || '#ff0000', offset: 1 }
+                            ];
+
+                        stops.forEach(s => {
+                            try {
+                                const off = Math.max(0, Math.min(1, Number(s.offset)));
+                                gradient.addColorStop(off, s.color || '#ffffff');
+                            } catch (e) {}
+                        });
                         this.ctx.fillStyle = gradient;
                     } else {
                         this.ctx.fillStyle = t.color1;
@@ -553,8 +642,11 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
     
     addTextLayer() {
         const id = 'text_' + new Date().getTime();
+        const defaultFont = this.fontGroups[0]?.fonts[0]?.fontName || 'Arial';
         this.layers.push({
             id: id, type: 'text', content: 'Text', x: this.canvasRef.nativeElement.width/2, y: this.canvasRef.nativeElement.height/2,
+            fontFamily: defaultFont,
+            letterSpacing: 0,
             fontSize: 80, rotation: 0, color1: '#ffffff', color2: '#ff0000', isGradient: false, gradientAngle: 90, opacity: 1.0,
             hasBorder: false, borderColor: '#000000', borderWidth: 3,
             hasShadow: false, shadowColor: '#000000', shadowBlur: 5, shadowX: 5, shadowY: 5
@@ -642,9 +734,174 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
     applyState(state: EditorState) { this.layers = JSON.parse(JSON.stringify(state.layers)); this.restoreLayers(this.layers); this.zoomLevel = state.zoomLevel; if (state.imageBase64 !== this.baseImage.src) { const i = new Image(); i.onload = () => { this.baseImage = i; this.canvasRef.nativeElement.width = i.width; this.canvasRef.nativeElement.height = i.height; this.draw(); }; i.src = state.imageBase64; } else { this.draw(); } }
     async restoreLayers(layers: any[]) { const promises = layers.map(l => new Promise<any>(resolve => { if (l.type === 'logo') { const i = new Image(); i.onload = () => resolve({ ...l, element: i, width: i.width, height: i.height }); i.onerror = () => resolve(null); i.src = l.src; } else { resolve(l); } })); const loaded = await Promise.all(promises); this.layers = loaded.filter(l => l !== null); this.draw(); }
 
+    // Multi-color Gradient Helpers
+    MathFloor(val: number): number { return Math.floor(val); }
+    MathRound(val: number): number { return Math.round(val); }
+
+    getGradientStops(txt: TextObject): { color: string; offset: number }[] {
+        if (!txt.gradientStops || txt.gradientStops.length < 2) {
+            txt.gradientStops = [
+                { color: txt.color1 || '#ffffff', offset: 0 },
+                { color: txt.color2 || '#ff0000', offset: 1 }
+            ];
+        }
+        return txt.gradientStops;
+    }
+
+    addGradientStop(txt: TextObject) {
+        const stops = this.getGradientStops(txt);
+        stops.push({ color: '#3b82f6', offset: 0.5 });
+        stops.sort((a, b) => a.offset - b.offset);
+        this.syncLegacyColors(txt);
+        this.draw();
+        this.recordHistory();
+    }
+
+    removeGradientStop(txt: TextObject, index: number) {
+        const stops = this.getGradientStops(txt);
+        if (stops.length > 2) {
+            stops.splice(index, 1);
+            this.syncLegacyColors(txt);
+            this.draw();
+            this.recordHistory();
+        }
+    }
+
+    gradientPool: { name: string; colors: string[] }[] = [
+        { name: 'Sunset', colors: ['#ff7e5f', '#feb47b', '#86a8e7'] },
+        { name: 'Rainbow', colors: ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#ee82ee'] },
+        { name: 'Cyberpunk', colors: ['#00f2fe', '#4facfe', '#f093fb', '#f5576c'] },
+        { name: 'Gold', colors: ['#ffe066', '#f5af19', '#e65c00'] },
+        { name: 'Ocean', colors: ['#2ef195', '#00b4db', '#0083b0'] },
+        { name: 'Aurora', colors: ['#00c9ff', '#92fe9d'] },
+        { name: 'Neon', colors: ['#f857a6', '#ff5858'] },
+        { name: 'Pastel', colors: ['#a8edf0', '#fed6e3'] },
+        { name: 'Cosmic', colors: ['#ff007f', '#7928ca', '#00dfd8'] },
+        { name: 'Midnight', colors: ['#0f2027', '#203a43', '#2c5364'] },
+        { name: 'Emerald', colors: ['#11998e', '#38ef7d'] },
+        { name: 'Rose Gold', colors: ['#f4c4f3', '#fc67fa'] },
+        { name: 'Volcanic', colors: ['#ff4e50', '#f9d423'] },
+        { name: 'Candy', colors: ['#d4fc79', '#96e6a1'] },
+        { name: 'Deep Sea', colors: ['#4e54c8', '#8f94fb'] },
+        { name: 'Coral', colors: ['#ff9a9e', '#fecfef'] },
+        { name: 'Twilight', colors: ['#fa709a', '#fee140'] },
+        { name: 'Fire', colors: ['#f12711', '#f5af19'] },
+        { name: 'Dusk', colors: ['#2c3e50', '#fd746c'] },
+        { name: 'Tropic', colors: ['#00b4db', '#0083b0', '#f857a6'] }
+    ];
+
+    presetGradients: { name: string; colors: string[] }[] = [];
+
+    refreshGradientPresets() {
+        const shuffled = [...this.gradientPool].sort(() => Math.random() - 0.5);
+        this.presetGradients = shuffled.slice(0, 5);
+    }
+
+    applyGradientPreset(txt: TextObject, colors: string[]) {
+        txt.gradientStops = colors.map((c, i) => ({
+            color: c,
+            offset: i / (colors.length - 1)
+        }));
+        this.syncLegacyColors(txt);
+        this.draw();
+        this.recordHistory();
+    }
+
+    syncLegacyColors(txt: TextObject) {
+        if (txt.gradientStops && txt.gradientStops.length >= 2) {
+            txt.color1 = txt.gradientStops[0].color;
+            txt.color2 = txt.gradientStops[txt.gradientStops.length - 1].color;
+        }
+    }
+
+    getGradientCss(txt: TextObject): string {
+        const stops = this.getGradientStops(txt);
+        const stopCss = stops.map(s => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ');
+        return `linear-gradient(${txt.gradientAngle || 90}deg, ${stopCss})`;
+    }
+
+    // Angle Dial Dragging
+    isDraggingAngle = false;
+    activeAngleTxt: TextObject | null = null;
+    activeAngleElement: HTMLElement | null = null;
+
+    onAngleDialMouseDown(event: MouseEvent, txt: TextObject, element: HTMLElement) {
+        event.preventDefault();
+        this.isDraggingAngle = true;
+        this.activeAngleTxt = txt;
+        this.activeAngleElement = element;
+        this.updateAngleFromMouseEvent(event, txt, element);
+    }
+
+    private updateAngleFromMouseEvent(event: MouseEvent, txt: TextObject, element: HTMLElement) {
+        if (!element) return;
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = event.clientX - centerX;
+        const dy = event.clientY - centerY;
+        let rad = Math.atan2(dy, dx);
+        let deg = Math.round(rad * (180 / Math.PI));
+        deg = (deg + 90) % 360; // 0 deg points UP at 12 o'clock knob
+        if (deg < 0) deg += 360;
+        txt.gradientAngle = deg;
+        this.draw();
+    }
+
     // Helpers UI
-    toggleGrid() { this.showGrid = !this.showGrid; this.draw(); }
-    drawGrid(w, h) { this.ctx.strokeStyle = 'rgba(255,255,255,0.4)'; this.ctx.beginPath(); for (let x = 0; x <= w; x += 100) { this.ctx.moveTo(x, 0); this.ctx.lineTo(x, h) } for (let y = 0; y <= h; y += 100) { this.ctx.moveTo(0, y); this.ctx.lineTo(w, y) } this.ctx.stroke(); }
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+        this.draw();
+    }
+
+    drawGrid(w: number, h: number) {
+        this.ctx.save();
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.lineWidth = 1;
+
+        // Kích thước ô lưới vuông 1:1 dày dặn và chuẩn xác (khoảng 30-40px tùy theo ảnh)
+        const gridSize = Math.max(25, Math.min(50, Math.floor(Math.min(w, h) / 25)));
+
+        // 1. Đường nét đứt màu đen tương phản trên vùng ảnh sáng
+        this.ctx.setLineDash([3, 3]);
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+        this.ctx.beginPath();
+        for (let x = gridSize; x < w; x += gridSize) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, h);
+        }
+        for (let y = gridSize; y < h; y += gridSize) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(w, y);
+        }
+        this.ctx.stroke();
+
+        // 2. Đường nét đứt màu trắng lệch 1px tương phản trên vùng ảnh tối
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        this.ctx.beginPath();
+        for (let x = gridSize; x < w; x += gridSize) {
+            this.ctx.moveTo(x + 1, 0);
+            this.ctx.lineTo(x + 1, h);
+        }
+        for (let y = gridSize; y < h; y += gridSize) {
+            this.ctx.moveTo(0, y + 1);
+            this.ctx.lineTo(w, y + 1);
+        }
+        this.ctx.stroke();
+
+        // 3. Đường gióng Tỷ lệ 1/3 (Rule of Thirds) màu xanh
+        this.ctx.setLineDash([]);
+        this.ctx.lineWidth = 1.5;
+        this.ctx.strokeStyle = 'rgba(59, 130, 246, 0.75)';
+        this.ctx.beginPath();
+        this.ctx.moveTo(w / 3, 0); this.ctx.lineTo(w / 3, h);
+        this.ctx.moveTo((2 * w) / 3, 0); this.ctx.lineTo((2 * w) / 3, h);
+        this.ctx.moveTo(0, h / 3); this.ctx.lineTo(w, h / 3);
+        this.ctx.moveTo(0, (2 * h) / 3); this.ctx.lineTo(w, (2 * h) / 3);
+        this.ctx.stroke();
+
+        this.ctx.restore();
+    }
     drawGuideLine(x1, y1, x2, y2) { this.ctx.strokeStyle = '#ec4899'; this.ctx.lineWidth = 2; this.ctx.beginPath(); this.ctx.moveTo(x1, y1); this.ctx.lineTo(x2, y2); this.ctx.stroke(); }
     onDimensionChange(t) { if (this.output.maintainAspectRatio) { if (t === 'w') this.output.height = Math.round(this.output.width / this.output.aspectRatio); else this.output.width = Math.round(this.output.height * this.output.aspectRatio); } }
     close() { this.dialogRef.close(); }

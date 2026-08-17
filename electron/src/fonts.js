@@ -23,7 +23,7 @@ function scanFontFiles(dirPath, baseFontsDir, fontGroupMap) {
             scanFontFiles(fullPath, baseFontsDir, fontGroupMap);
         } else if (entry.isFile()) {
             const ext = path.extname(entry.name).toLowerCase();
-            if (fontExtensions.includes(ext)) {
+            if (fontExtensions.includes(ext) && !entry.name.startsWith('._')) {
                 // Determine folder group name relative to baseFontsDir
                 const relPath = path.relative(baseFontsDir, fullPath);
                 const pathParts = relPath.split(path.sep);
