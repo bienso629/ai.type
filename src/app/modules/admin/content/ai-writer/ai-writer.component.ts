@@ -3113,9 +3113,9 @@ ${contentFromDone || '(Chưa có văn bản)'}
         try {
             let imagePrompt = '';
             if (this.customImagePrompt && this.customImagePrompt.trim()) {
-                imagePrompt = this.customImagePrompt.trim();
+                imagePrompt = `Tạo hình ảnh minh họa cho dàn ý bài viết với định hướng sau:\n${this.customImagePrompt.trim()}\n\nNội dung dàn ý chi tiết:\n"${outlineText.trim()}"\n\nYêu cầu: Hình ảnh phải phản ánh chính xác nội dung, ý tưởng chính và bối cảnh của dàn ý. Phong cách nghệ thuật hiện đại, đẹp mắt.`;
             } else {
-                imagePrompt = `Tạo hình ảnh minh họa cho dàn ý: "${outlineText.substring(0, 300)}". Phong cách nghệ thuật hiện đại.`;
+                imagePrompt = `Tạo hình ảnh minh họa cho dàn ý chi tiết sau:\n\n"${outlineText.trim()}"\n\nYêu cầu: Hình ảnh phải phản ánh chính xác nội dung, ý tưởng chính và bối cảnh của dàn ý trên. Phong cách nghệ thuật hiện đại, đẹp mắt.`;
             }
             imagePrompt += ', if there is any text in the image, it MUST be written in Vietnamese language.';
 
@@ -3217,9 +3217,9 @@ ${contentFromDone || '(Chưa có văn bản)'}
         try {
             let imagePrompt = '';
             if (this.customImagePrompt && this.customImagePrompt.trim()) {
-                imagePrompt = this.customImagePrompt.trim();
+                imagePrompt = `Tạo hình ảnh minh họa cho đoạn văn với định hướng sau:\n${this.customImagePrompt.trim()}\n\nNội dung đoạn văn chi tiết:\n"${paragraphText.trim()}"\n\nYêu cầu: Hình ảnh phải thể hiện đầy đủ, chính xác bối cảnh và ý tưởng của đoạn văn. Phong cách nghệ thuật hiện đại, đẹp mắt.`;
             } else {
-                imagePrompt = `Tạo hình ảnh minh họa cho đoạn văn: "${paragraphText.substring(0, 300)}". Phong cách nghệ thuật hiện đại.`;
+                imagePrompt = `Tạo hình ảnh minh họa cho nội dung đoạn văn chi tiết sau:\n\n"${paragraphText.trim()}"\n\nYêu cầu: Hình ảnh phải thể hiện đầy đủ, chính xác bối cảnh và ý tưởng của đoạn văn trên. Phong cách nghệ thuật hiện đại, đẹp mắt.`;
             }
             imagePrompt += ', if there is any text in the image, it MUST be written in Vietnamese language.';
 

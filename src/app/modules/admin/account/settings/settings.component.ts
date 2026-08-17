@@ -52,6 +52,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
             description: 'Tiện ích mở rộng'
         },
         {
+            id: 'font',
+            icon: 'feather:type',
+            title: 'Font chữ',
+            description: 'Quản lý font chữ ứng dụng'
+        },
+        {
             id: 'active',
             icon: 'feather:calendar',
             title: 'app.renewal',

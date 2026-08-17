@@ -602,6 +602,30 @@ export class MXHAutoService {
         );
     }
 
+    /** Gán Proxy cho 1 Profile */
+    public setProfileProxy(dataForm: any): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/profiles/proxy/set`;
+        return this.http.post<any>(url, dataForm, options).pipe(
+            catchError(this.handleError('setProfileProxy', null))
+        );
+    }
+
+    /** Xóa Proxy của Profile */
+    public removeProfileProxy(dataForm: any): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/profiles/proxy/remove`;
+        return this.http.post<any>(url, dataForm, options).pipe(
+            catchError(this.handleError('removeProfileProxy', null))
+        );
+    }
+
+    /** Import Proxy hàng loạt */
+    public importProxies(dataForm: any): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/profiles/proxy/import`;
+        return this.http.post<any>(url, dataForm, options).pipe(
+            catchError(this.handleError('importProxies', null))
+        );
+    }
+
     // tslint:disable-next-line: typedef
     private handleError<T>(operation = 'operation', result?: T) {
         return (error: any): Observable<T> => {
