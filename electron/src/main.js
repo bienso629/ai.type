@@ -14,6 +14,11 @@ const {
     net,
     safeStorage
 } = require("electron");
+
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-setuid-sandbox');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+
 const { registerExportImportHandlers } = require("./export-import-project");
 const { registerLocalArticlesHandlers } = require("./local-articles");
 const { registerProfileHandlers } = require("./local-profiles");
