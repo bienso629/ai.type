@@ -333,9 +333,14 @@
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/*  @ Drawer
-/* -------------------------------------------------------------------------- */
+mat-drawer,
+.mat-drawer,
+.mat-drawer-side,
+.mat-drawer-container,
+.mat-drawer-inner-container {
+    box-shadow: none !important;
+}
+
 .mat-drawer-backdrop.mat-drawer-shown {
     background-color: rgba(0, 0, 0, 0.6) !important;
 }

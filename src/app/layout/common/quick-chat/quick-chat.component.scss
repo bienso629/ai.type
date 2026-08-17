@@ -1,18 +1,20 @@
 quick-chat {
     z-index: 399;
-    overflow: hidden !important;
+    overflow: hidden;
 
     >div {
         overflow: hidden !important;
     }
 
     &.quick-chat-opened {
+        overflow: visible !important;
         >div {
-            overflow: visible;
+            overflow: visible !important;
         }
     }
 
     &:not(.quick-chat-opened) {
+        overflow: hidden !important;
         >div {
             overflow: hidden !important;
         }

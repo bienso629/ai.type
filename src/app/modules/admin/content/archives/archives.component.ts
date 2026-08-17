@@ -475,6 +475,29 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         return this.cleanDomain(domainStr);
     }
 
+    getWPPosts(row: any): any[] {
+        if (!row) return [];
+        if (row.source && row.source.wpPosts && Array.isArray(row.source.wpPosts) && row.source.wpPosts.length > 0) {
+            return row.source.wpPosts;
+        }
+        if (row.wpPosts && Array.isArray(row.wpPosts) && row.wpPosts.length > 0) {
+            return row.wpPosts;
+        }
+        if (row.source && row.source.wp_posts && Array.isArray(row.source.wp_posts) && row.source.wp_posts.length > 0) {
+            return row.source.wp_posts;
+        }
+        if (row.wp_posts && Array.isArray(row.wp_posts) && row.wp_posts.length > 0) {
+            return row.wp_posts;
+        }
+        return [];
+    }
+
+    getSingleWPPostId(row: any): string | number | null {
+        if (!row) return null;
+        const id = row.source?.wp_post_id || row.wp_post_id || row.source?.wp_id || row.wp_id || row.source?.post_id || row.post_id;
+        return id ? id : null;
+    }
+
     openWPPost(row: any, wpItem?: any) {
         let link = '';
         let domain = '';
@@ -482,12 +505,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
         if (wpItem) {
             link = wpItem.link || wpItem.url || wpItem.post_url || wpItem.wp_post_link || wpItem.guid || '';
-            domain = wpItem.domain || row?.source?.wp_domain || row?.domain || '';
-            postId = wpItem.id || wpItem.wp_post_id || '';
-        } else if (row && row.source) {
-            link = row.source.wp_post_link || row.source.wp_link || row.source.link || row.source.url || '';
-            domain = row.source.wp_domain || row.domain || '';
-            postId = row.source.wp_post_id || '';
+            domain = wpItem.domain || wpItem.wp_domain || row?.source?.wp_domain || row?.domain || '';
+            postId = wpItem.id || wpItem.wp_post_id || wpItem.post_id || '';
+        } else if (row) {
+            link = row.source?.wp_post_link || row.source?.wp_link || row.source?.link || row.source?.url || row.wp_post_link || row.wp_link || row.url || '';
+            domain = row.source?.wp_domain || row.domain || row.wp_domain || '';
+            postId = row.source?.wp_post_id || row.source?.wp_id || row.wp_post_id || row.wp_id || row.post_id || '';
         }
 
         if (!link && domain && postId) {
@@ -1089,22 +1112,6 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 if (this.isRowEncrypted(row)) {
                     row.is_encrypted = true;
                     localStorage.setItem('article_encrypted_' + row.uuid, 'true');
-                } else {
-                    this._crawlService.detail({ uuid: row.uuid, username: this.user.name })
-                        .pipe(takeUntil(this._unsubscribeAll))
-                        .subscribe((res: any) => {
-                            if (res && res.success && res.data) {
-                                const fullDoc = res.data;
-                                const isEnc = !!(fullDoc.is_encrypted || fullDoc.cipher || (fullDoc.source && (fullDoc.source.encrypted || fullDoc.source.cipher)));
-                                if (isEnc) {
-                                    row.is_encrypted = true;
-                                    if (!row.source) row.source = {};
-                                    row.source.encrypted = true;
-                                    localStorage.setItem('article_encrypted_' + row.uuid, 'true');
-                                    this.cd.markForCheck();
-                                }
-                            }
-                        });
                 }
             }
         });

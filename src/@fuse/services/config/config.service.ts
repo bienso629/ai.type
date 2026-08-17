@@ -15,8 +15,16 @@ export class FuseConfigService
      */
     constructor(@Inject(FUSE_APP_CONFIG) config: any)
     {
+        let initialConfig = config;
+        try {
+            const savedConfig = localStorage.getItem('app_fuse_config');
+            if (savedConfig) {
+                initialConfig = merge({}, config, JSON.parse(savedConfig));
+            }
+        } catch (e) {}
+
         // Private
-        this._config = new BehaviorSubject(config);
+        this._config = new BehaviorSubject(initialConfig);
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -30,6 +38,10 @@ export class FuseConfigService
     {
         // Merge the new config over to the current config
         const config = merge({}, this._config.getValue(), value);
+
+        try {
+            localStorage.setItem('app_fuse_config', JSON.stringify(config));
+        } catch (e) {}
 
         // Execute the observable
         this._config.next(config);
