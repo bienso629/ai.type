@@ -232,8 +232,8 @@
                 <div id="chatMessageList" class="flex-auto overflow-y-auto overflow-x-hidden space-y-3 p-4 scrollbar-thin">
                     <ng-container *ngFor="let msg of getMessages(activeChatRow)">
                         <!-- User message -->
-                        <div class="flex justify-end" *ngIf="msg.role === 'user'">
-                            <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none p-3.5 text-base whitespace-pre-wrap break-words flex flex-col">
+                        <div class="flex justify-end flex-col items-end gap-1" *ngIf="msg.role === 'user'">
+                            <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none p-3.5 text-base whitespace-pre-wrap break-words flex flex-col shadow-2xs">
                                 <div>{{ msg.text }}</div>
                                 <!-- File attachment rendering inside bubble -->
                                 <div *ngIf="msg.inlineData" class="mt-2 pt-2 border-t border-blue-100/30 dark:border-blue-900/30 flex flex-col items-start w-full">
@@ -244,10 +244,22 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
+                            <div class="flex items-center gap-2 px-1 text-xs text-gray-400 dark:text-gray-400 select-none">
+                                <span>{{ getMessageTime(msg) }}</span>
+                                <button type="button" (click)="copyMessage(msg.text)" class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                                    <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
+                                    <span class="text-[11px]">Copy</span>
+                                </button>
+                                <button type="button" (click)="reAskMessage(msg.text)" class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại nội dung này">
+                                    <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                                    <span class="text-[11px]">Hỏi lại</span>
+                                </button>
+                            </div>
                         </div>
                         <!-- Model message -->
                         <div class="flex justify-start flex-col items-start gap-1" *ngIf="msg.role === 'model'">
-                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none p-3.5 text-base break-words overflow-x-auto chatgpt-result">
+                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none p-3.5 text-base break-words overflow-x-auto chatgpt-result shadow-2xs">
                                 <div [innerHTML]="msg.text | markdown"></div>
                                 
                                 <div *ngIf="msg.inlineData" class="mt-2 pt-2 flex flex-col items-start w-full">
@@ -261,6 +273,18 @@
                                         <source [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" [type]="msg.inlineData.mimeType" />
                                     </video>
                                 </div>
+                            </div>
+                            <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
+                            <div class="flex items-center gap-2 px-1 text-xs text-gray-400 dark:text-gray-400 select-none">
+                                <span>{{ getMessageTime(msg) }}</span>
+                                <button type="button" (click)="copyMessage(msg.text)" class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                                    <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
+                                    <span class="text-[11px]">Copy</span>
+                                </button>
+                                <button type="button" (click)="reAskModelMessage(msg, activeChatRow)" class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại câu trả lời này">
+                                    <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                                    <span class="text-[11px]">Hỏi lại</span>
+                                </button>
                             </div>
                             <!-- Action button for sharing -->
                             <div *ngIf="activeChatRow?.question?.startsWith('Chia sẻ ảnh')" class="ml-4 mt-1 flex items-center">

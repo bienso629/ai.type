@@ -270,13 +270,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 a.rel = 'noopener noreferrer';
             });
 
-            const time = document.createElement('div');
-            time.className = 'text-xs text-gray-500 dark:text-gray-400 mt-1 px-2';
-            const date = new Date();
-            const baseTime = m[6] || date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            time.textContent = (m[7] && m[8]) ? `${baseTime}, IP: ${m[7]}, From: ${m[8]}` : baseTime;
-
             const bubbleWrap = document.createElement('div');
+            bubbleWrap.className = 'flex flex-col';
             bubbleWrap.appendChild(bubble);
 
             // Render tags (an toàn)
@@ -308,7 +303,58 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 } catch { /* ignore malformed JSON */ }
             }
 
-            bubbleWrap.appendChild(time);
+            // Footer dưới mỗi bong bóng: Thời gian, Nút Copy, Nút Hỏi lại
+            const footer = document.createElement('div');
+            footer.className = `flex items-center gap-2 mt-1 px-1 text-xs text-gray-400 dark:text-gray-400 select-none ${m[2] === 'user' ? 'justify-end' : 'justify-start'}`;
+
+            // 1. Thời gian
+            const timeSpan = document.createElement('span');
+            const date = new Date();
+            const baseTime = m[6] || date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            timeSpan.textContent = (m[7] && m[8]) ? `${baseTime}, IP: ${m[7]}, From: ${m[8]}` : baseTime;
+            footer.appendChild(timeSpan);
+
+            // 2. Nút Copy
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer';
+            copyBtn.title = 'Sao chép nội dung';
+            copyBtn.innerHTML = `<svg class="w-3.5 h-3.5 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="text-[11px]">Copy</span>`;
+            copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const rawText = (m[3] ?? '').toString();
+                navigator.clipboard.writeText(rawText).then(() => {
+                    this.toastr.success('Đã sao chép nội dung!');
+                }).catch(() => {
+                    this.toastr.info('Đã sao chép nội dung');
+                });
+            });
+            footer.appendChild(copyBtn);
+
+            // 3. Nút Hỏi lại
+            const reAskBtn = document.createElement('button');
+            reAskBtn.type = 'button';
+            reAskBtn.className = 'flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer';
+            reAskBtn.title = 'Hỏi lại nội dung này';
+            reAskBtn.innerHTML = `<svg class="w-3.5 h-3.5 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg><span class="text-[11px]">Hỏi lại</span>`;
+            reAskBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                let promptText = (m[3] ?? '').toString();
+                if (m[2] !== 'user') {
+                    const msgIdx = messages.indexOf(m);
+                    if (msgIdx > 0 && messages[msgIdx - 1]?.[2] === 'user') {
+                        promptText = (messages[msgIdx - 1][3] ?? '').toString();
+                    }
+                }
+                if (this.chatbotMessage) {
+                    this.chatbotMessage.get('text')?.setValue(promptText);
+                }
+                const inputEl = document.querySelector('#chat-container ~ div textarea, #chat-container ~ div input') as HTMLInputElement | HTMLTextAreaElement;
+                if (inputEl) inputEl.focus();
+            });
+            footer.appendChild(reAskBtn);
+
+            bubbleWrap.appendChild(footer);
             message.appendChild(avatar);
             message.appendChild(bubbleWrap);
             wrapper.appendChild(message);

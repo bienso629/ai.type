@@ -973,16 +973,41 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         }
     }
 
+    htmlToMarkdown(html: string): string {
+        try {
+            const turndownService = new TurndownService({
+                headingStyle: 'atx',
+                codeBlockStyle: 'fenced',
+                hr: '---'
+            });
+            turndownService.addRule('image', {
+                filter: 'img',
+                replacement: (imgContent: string, node: any) => {
+                    const alt = node.getAttribute('alt') || '';
+                    const src = node.getAttribute('src') || '';
+                    const imgTitle = node.getAttribute('title') || '';
+                    const titlePart = imgTitle ? ` "${imgTitle}"` : '';
+                    return src ? `\n\n![${alt}](${src}${titlePart})\n\n` : '';
+                }
+            });
+            return turndownService.turndown(html || '').replace(/\n{3,}/g, '\n\n').trim();
+        } catch (e) {
+            return html || '';
+        }
+    }
+
     async saveToLocalDisk(event: MouseEvent): Promise<void> {
         event.preventDefault();
         const title = this.editorForm.get('title')?.value || this.data.title || 'Bài viết chưa đặt tên';
         const content = this.editorForm.get('content')?.value || '';
+        const pureMarkdown = this.htmlToMarkdown(content);
         const domain = this.editorForm.get('domain')?.value || this.domain?.domain || 'local.ai.type';
 
         if ((window as any).electron && (window as any).electron.saveLocalArticle) {
             const res = await (window as any).electron.saveLocalArticle({
                 title,
                 content,
+                markdown: pureMarkdown,
                 domain,
                 uuid: this.data.uuid || undefined
             });
@@ -992,7 +1017,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 this.toastr.error(`Lỗi khi lưu cục bộ: ${res?.error || 'Không rõ lỗi'}`);
             }
         } else {
-            const blob = new Blob([`# ${title}\n\n${content}`], { type: 'text/markdown;charset=utf-8' });
+            const blob = new Blob([`# ${title}\n\n${pureMarkdown}`], { type: 'text/markdown;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -1017,12 +1042,14 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             if (result && result.password) {
                 const title = this.editorForm.get('title')?.value || this.data.title || 'Bài viết chưa đặt tên';
                 const content = this.editorForm.get('content')?.value || '';
+                const pureMarkdown = this.htmlToMarkdown(content);
                 const domain = this.editorForm.get('domain')?.value || this.domain?.domain || 'local.ai.type';
 
                 if ((window as any).electron && (window as any).electron.saveLocalArticle) {
                     const res = await (window as any).electron.saveLocalArticle({
                         title,
                         content,
+                        markdown: pureMarkdown,
                         domain,
                         uuid: this.data.uuid || undefined,
                         password: result.password

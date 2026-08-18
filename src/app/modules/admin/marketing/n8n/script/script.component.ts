@@ -265,18 +265,61 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         return val;
     }
 
+    copyMessage(content: string) {
+        if (!content) return;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        const text = tempDiv.textContent || tempDiv.innerText || content;
+        navigator.clipboard.writeText(text).then(() => {
+            this.toastr.success('Đã sao chép nội dung!');
+        }).catch(() => {
+            this.toastr.info('Đã sao chép nội dung');
+        });
+    }
+
+    getMessageTime(msg: any): string {
+        if (msg?.time) return msg.time;
+        if (msg?.timestamp) {
+            const d = new Date(msg.timestamp);
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    reAskMessage(msg: any) {
+        let text = msg?.content || '';
+        if (msg?.role === 'assistant') {
+            const idx = this.chatMessages.indexOf(msg);
+            if (idx > 0 && this.chatMessages[idx - 1]?.role === 'user') {
+                text = this.chatMessages[idx - 1]?.content;
+            } else {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = text;
+                text = tempDiv.textContent || text;
+            }
+        }
+        this.chatInput = text;
+        this.cd.markForCheck();
+        const inputEl = document.querySelector('input[placeholder*="prompt"]') as HTMLInputElement;
+        if (inputEl) inputEl.focus();
+    }
+
     async sendChatMessage(): Promise<void> {
         if (!this.chatInput || !this.chatInput.trim()) return;
         const text = this.chatInput.trim();
-        this.chatMessages.push({ role: 'user', content: text });
+        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        this.chatMessages.push({ role: 'user', content: text, time: nowTime } as any);
         this.chatInput = '';
         this.cd.markForCheck();
 
-        const loadingMsg: { role: 'user' | 'assistant'; content: string } = {
+        const loadingMsg: { role: 'user' | 'assistant'; content: string; time?: string } = {
             role: 'assistant',
-            content: '<b>Trợ lý phân tích AI</b> đang xử lý yêu cầu và phân tích danh sách...'
+            content: '<b>Trợ lý phân tích AI</b> đang xử lý yêu cầu và phân tích danh sách...',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-        this.chatMessages.push(loadingMsg);
+        this.chatMessages.push(loadingMsg as any);
         this.cd.markForCheck();
         this.scrollToBottom();
 

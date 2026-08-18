@@ -36,12 +36,36 @@
                          (click)="onChatBubbleClick($event)"
                          [innerHTML]="msg.content">
                     </div>
+                    <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
+                    <div class="flex items-center gap-2 px-1 text-xs text-gray-400 select-none">
+                        <span>{{ getMessageTime(msg) }}</span>
+                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
+                            <span class="text-[11px]">Copy</span>
+                        </button>
+                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại nội dung này">
+                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                            <span class="text-[11px]">Hỏi lại</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- User Message Bubble -->
                 <div *ngIf="msg.role === 'user'" class="flex flex-col items-end gap-1 max-w-[85%] ml-auto">
                     <div class="bg-primary-600 text-white rounded-xl rounded-tr-xs p-3.5 px-4 text-base leading-relaxed shadow-2xs"
                          [innerHTML]="msg.content">
+                    </div>
+                    <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
+                    <div class="flex items-center gap-2 px-1 text-xs text-gray-400 select-none justify-end">
+                        <span>{{ getMessageTime(msg) }}</span>
+                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
+                            <span class="text-[11px]">Copy</span>
+                        </button>
+                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại nội dung này">
+                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                            <span class="text-[11px]">Hỏi lại</span>
+                        </button>
                     </div>
                 </div>
 

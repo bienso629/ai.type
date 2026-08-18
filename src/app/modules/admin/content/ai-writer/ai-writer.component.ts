@@ -743,7 +743,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             .find('img:first')
             .attr('src');
 
-        if (img) {
+        if (img && this.domain && this.domain.domain) {
             // 1. Làm mờ ảnh hiện tại để báo hiệu đang tải lên
             $(event.item.element.nativeElement).find('img:first').css('opacity', 0.5);
 
@@ -763,7 +763,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
 
                     try {
-                        const res = await (window as any).electron.invoke('read-file-base64', { filePath: localPath });
+                        const res = await (window as any).electron?.invoke('read-file-base64', { filePath: localPath });
                         if (res && res.success && res.base64) {
                             const fileName = localPath.split(/[\\/]/).pop() || 'image.png';
                             const ext = fileName.split('.').pop()?.toLowerCase() || 'png';
@@ -798,30 +798,22 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         .pipe(takeUntil(this._unsubscribeAll))
                         .subscribe({
                             next: (result: any) => {
+                                $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
                                 if (result && result.data && result.data.source_url) {
                                     // Thay thế URL local bằng URL trên domain WordPress
                                     this.done[event.currentIndex] = this.done[event.currentIndex].replace(img, result.data.source_url);
-                                    
-                                    // Hiện ảnh rõ nét trở lại
-                                    $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
-
                                     this.update(false); // Lưu bài viết ngay lập tức
                                     this.toastr.success('Hình ảnh đã được tải lên domain chọn và nhúng vào Dàn ý!');
                                     this.cd.markForCheck();
-                                } else {
-                                    $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
-                                    this.toastr.error('Tải ảnh lên domain chọn không thành công (thiếu source_url)!');
                                 }
                             },
                             error: (err) => {
                                 console.error('Lỗi tải ảnh kéo thả lên WordPress:', err);
                                 $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
-                                this.toastr.error('Lỗi khi tải ảnh lên domain chọn.');
                             }
                         });
                 } else {
                     $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
-                    this.toastr.warning(`Không tải được ảnh do thiếu thông tin. Domain: ${this.domain?.domain}, File: ${img}`);
                 }
             })();
         }
@@ -1751,109 +1743,65 @@ ${content}`;
         }
     }
 
-    // upload hình lên server
+    // Chọn hình ảnh từ máy tính để đưa vào danh sách nguồn/dàn ý
     createImg = async (e: any) => {
-        const files: FileList = e.target.files;
+        const files: FileList | File[] = e.target?.files || e.files;
 
         if (files && files.length > 0) {
             this.loading = true;
-
             try {
-                let your_prompt = '';
-
-                if (this.source.prompt.length > 0) {
-                    your_prompt = this.source.prompt.join('.');
-                    your_prompt = this.removeHTML.transform(your_prompt);
-                    your_prompt += '. ';
+                if (!this.source.img) {
+                    this.source.img = [];
                 }
 
-                let parts: any[] = [
-                    {
-                        text: `${your_prompt}Nội dung mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
-                    {
-                        "contents": ["Chi tiết 1", "Chi tiết 2"]
-                    }
-                    Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown, không có giải thích.
-                    Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.` }
-                ];
+                let count = 0;
+                for (let i = 0; i < files.length; i++) {
+                    const file: File = files[i];
+                    if (!file.type.startsWith('image/')) continue;
 
-                // Convert FileList to Base64
-                const uploadPromises = Array.from(files).map(
-                    (file: File) => new Promise<any>((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = (e: any) => {
-                            const base64Data = e.target.result.split(',')[1];
-                            resolve({
-                                inlineData: {
-                                    mimeType: file.type,
-                                    data: base64Data
-                                }
-                            });
-                        };
-                        reader.onerror = reject;
-                        reader.readAsDataURL(file);
-                    })
-                );
-
-                // Wait for all files to be read
-                const imageParts = await Promise.all(uploadPromises);
-                parts.push(...imageParts);
-
-                // Call AI to generate content
-                const response = await this._genaiService.generateContent({
-                    model: 'gemini-3.6-flash',
-                    contents: [{ role: 'user', parts: parts }],
-                });
-
-                const jsonText = response.text;
-                if (jsonText) {
-                    const data = JSON.parse(jsonText);
-
-                    data.contents.map((text: string) => {
-                        this.source.text.push(
-                            `<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(text)}</p>`,
-                        );
-                    });
-
-                    if (data.image_prompt) {
-                        this.source.pre.push(
-                            `<p id="source-pre-${uuid.v4()}">${data.image_prompt}</p>`,
-                        );
+                    let filePath = (file as any).path;
+                    if ((window as any).electron && (window as any).electron.getPathForFile) {
+                        try {
+                            filePath = (window as any).electron.getPathForFile(file);
+                        } catch (err) {
+                            console.error('[Upload Image] Lỗi getPathForFile:', err);
+                        }
                     }
 
-                    this.toastr.success('Đã tạo nội dung từ hình ảnh.');
-
-                    // lam moi lai giao dien
-                    this.cd.markForCheck();
+                    if (filePath) {
+                        this.source.img.push(
+                            `<p id="source-img-${uuid.v4()}"><img src="file:///${filePath.replace(/^file:\/\/\/?/i, '')}" alt="${file.name}" /></p>`
+                        );
+                        count++;
+                    } else {
+                        await new Promise<void>((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = (readEvent: any) => {
+                                const imgSrc = readEvent.target.result;
+                                this.source.img.push(
+                                    `<p id="source-img-${uuid.v4()}"><img src="${imgSrc}" alt="${file.name}" /></p>`
+                                );
+                                count++;
+                                resolve();
+                            };
+                            reader.onerror = () => resolve();
+                            reader.readAsDataURL(file);
+                        });
+                    }
                 }
 
                 this.loading = false;
-
-                // this._blogService.img2text({
-                //     file: file,
-                //     username: this.user.name
-                // })
-                //     .pipe(takeUntil(this._unsubscribeAll))
-                //     .subscribe({
-                //         next: async (result) => {
-                //             if (result && result.body) {
-                //                 this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="${result.body.url}" /></p>`);
-                //                 // this.text2Node(text);
-
-                //                 // lam moi lai giao dien
-                //                 this.cd.markForCheck();
-                //             }
-                //         },
-                //         error: () => {
-                //             this.toastr.error('Chuyển văn bẳn thất bại.');
-                //         },
-                //         complete: () => {
-                //             this.toastr.success('Chuyển hình ảnh thành văn bản.');
-                //         }
-                //     });
+                this.cd.markForCheck();
+                if (count > 0) {
+                    this.toastr.success(`Đã thêm ${count} hình ảnh vào danh sách.`);
+                }
             } catch (error) {
                 this.loading = false;
-                this.toastr.error('Không tạo bài viết từ hình ảnh.');
+                this.toastr.error('Lỗi khi tải hình ảnh.');
+            } finally {
+                if (e.target) {
+                    e.target.value = '';
+                }
             }
         }
     };
@@ -3727,10 +3675,33 @@ ${contentFromDone || '(Chưa có văn bản)'}
         const content = (this.done || []).join('\n\n');
         const domainStr = this.domain?.domain || 'local.ai.type';
 
+        let pureMarkdown = '';
+        try {
+            const turndownService = new TurndownService({
+                headingStyle: 'atx',
+                codeBlockStyle: 'fenced',
+                hr: '---'
+            });
+            turndownService.addRule('image', {
+                filter: 'img',
+                replacement: (imgContent: string, node: any) => {
+                    const alt = node.getAttribute('alt') || '';
+                    const src = node.getAttribute('src') || '';
+                    const imgTitle = node.getAttribute('title') || '';
+                    const titlePart = imgTitle ? ` "${imgTitle}"` : '';
+                    return src ? `\n\n![${alt}](${src}${titlePart})\n\n` : '';
+                }
+            });
+            pureMarkdown = turndownService.turndown(content).replace(/\n{3,}/g, '\n\n').trim();
+        } catch (e) {
+            pureMarkdown = content;
+        }
+
         if ((window as any).electron && (window as any).electron.saveLocalArticle) {
             const res = await (window as any).electron.saveLocalArticle({
                 title,
                 content,
+                markdown: pureMarkdown,
                 domain: domainStr,
                 uuid: this.uuid || undefined,
                 password: this.articlePassword || undefined
@@ -3741,7 +3712,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 this.toastr.error(`Lỗi khi lưu cục bộ: ${res?.error || 'Không rõ lỗi'}`);
             }
         } else if (!silent) {
-            const blob = new Blob([`# ${title}\n\n${content}`], { type: 'text/markdown;charset=utf-8' });
+            const blob = new Blob([`# ${title}\n\n${pureMarkdown}`], { type: 'text/markdown;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -4576,33 +4547,274 @@ ${contentFromDone || '(Chưa có văn bản)'}
             });
     }
 
-    createTopic() {
-        const turndownService = new TurndownService();
-        const content = turndownService.turndown(this.done.join(''));
+    /**
+     * Tự động quét và tải toàn bộ hình ảnh cục bộ (file://, base64) trong Dàn ý & Thumbnail lên CDN (cdn1.type.vn)
+     */
+    async ensureAllDoneImagesOnCDN(): Promise<{ replacements: { [oldUrl: string]: string }, topicThumb: string }> {
+        const replacements: { [oldUrl: string]: string } = {};
+        let topicThumb = '';
+        let uploadCount = 0;
 
-        this._forumService
-            .createTopic({
-                _uid: this.user.id,
-                cid: this.favoriteSeason,
-                title: this.detectForm.get('step1').get('title').value,
-                content: content,
-                tags: [this.detectForm.get('step5').get('mainkey').value],
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success) {
-                        this.toastr.success(`Đã đăng lên Typing!`);
+        // 1. Quét và tải Thumbnail chủ đề lên CDN trước
+        const rawThumbVal = this.detectForm?.get('step1')?.get('thumbnail')?.value || '';
+        if (rawThumbVal) {
+            const lines = rawThumbVal.split('\n').map((l: string) => l.trim()).filter((l: string) => l);
+            const updatedLines: string[] = [];
+
+            for (let line of lines) {
+                if (line.startsWith('http://') || line.startsWith('https://')) {
+                    updatedLines.push(line);
+                    if (!topicThumb) topicThumb = line;
+                    continue;
+                }
+
+                try {
+                    let base64Data = '';
+                    let ext = 'png';
+                    let localPath = line.startsWith('file://') ? line.substring(7) : line;
+
+                    if (line.startsWith('data:image/')) {
+                        const parts = line.split(',');
+                        base64Data = parts[1] || '';
+                        if (line.includes('image/jpeg') || line.includes('image/jpg')) ext = 'jpg';
+                    } else if ((window as any).electron && localPath) {
+                        if (!localPath.startsWith('/') && !/^[a-zA-Z]:/.test(localPath)) {
+                            localPath = '/' + localPath;
+                        }
+                        const readRes = await (window as any).electron.invoke('read-file-base64', { filePath: localPath });
+                        if (readRes && readRes.success && readRes.base64) {
+                            base64Data = readRes.base64;
+                            if (localPath.endsWith('.jpg') || localPath.endsWith('.jpeg')) ext = 'jpg';
+                        }
                     }
-                },
-                error: () => {
-                    this.alert('Chia sẻ thất bại.');
-                },
-                complete: () => {
-                    // lam moi lai giao dien
-                    this.cd.markForCheck();
-                },
+
+                    if (base64Data) {
+                        const fileName = `nodebb_thumb_${Date.now()}.${ext}`;
+                        const cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Data, fileName, 'thumbnails');
+                        if (cdnUrl) {
+                            updatedLines.push(cdnUrl);
+                            replacements[line] = cdnUrl;
+                            if (!topicThumb) topicThumb = cdnUrl;
+                            uploadCount++;
+                            console.log(`[NodeBB CDN] Đã chuyển thumbnail lên CDN: ${line} -> ${cdnUrl}`);
+                        } else {
+                            updatedLines.push(line);
+                        }
+                    } else {
+                        updatedLines.push(line);
+                    }
+                } catch (e) {
+                    console.warn('[NodeBB CDN] Lỗi upload thumbnail:', e);
+                    updatedLines.push(line);
+                }
+            }
+
+            if (updatedLines.length > 0) {
+                this.detectForm.get('step1').get('thumbnail').setValue(updatedLines.join('\n'));
+            }
+        }
+
+        // 2. Quét và tải toàn bộ ảnh trong Dàn ý (done) lên CDN
+        if (this.done && Array.isArray(this.done)) {
+            for (let i = 0; i < this.done.length; i++) {
+                let block = this.done[i];
+                if (typeof block !== 'string') continue;
+
+                const imgMatches = Array.from(block.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi));
+                for (const match of imgMatches) {
+                    const rawSrc = match[1]?.trim();
+                    if (!rawSrc) continue;
+
+                    // Nếu đã là link HTTPS online
+                    if (rawSrc.startsWith('http://') || rawSrc.startsWith('https://')) {
+                        if (!topicThumb) topicThumb = rawSrc;
+                        continue;
+                    }
+
+                    // Nếu đã upload trước đó trong cùng phiên thì tái sử dụng
+                    if (replacements[rawSrc]) {
+                        this.done[i] = this.done[i].split(rawSrc).join(replacements[rawSrc]);
+                        if (!topicThumb) topicThumb = replacements[rawSrc];
+                        continue;
+                    }
+
+                    try {
+                        let base64Data = '';
+                        let ext = 'png';
+                        let localPath = rawSrc.startsWith('file://') ? rawSrc.substring(7) : rawSrc;
+
+                        if (rawSrc.startsWith('data:image/')) {
+                            const parts = rawSrc.split(',');
+                            base64Data = parts[1] || '';
+                            if (rawSrc.includes('image/jpeg') || rawSrc.includes('image/jpg')) ext = 'jpg';
+                        } else if ((window as any).electron && localPath) {
+                            if (!localPath.startsWith('/') && !/^[a-zA-Z]:/.test(localPath)) {
+                                localPath = '/' + localPath;
+                            }
+                            const readRes = await (window as any).electron.invoke('read-file-base64', { filePath: localPath });
+                            if (readRes && readRes.success && readRes.base64) {
+                                base64Data = readRes.base64;
+                                if (localPath.endsWith('.jpg') || localPath.endsWith('.jpeg')) ext = 'jpg';
+                            }
+                        } else {
+                            try {
+                                const resp = await fetch(rawSrc.startsWith('file://') ? rawSrc : `file:///${localPath.replace(/^\//, '')}`);
+                                const blob = await resp.blob();
+                                base64Data = await new Promise<string>((res, rej) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        const resStr = reader.result as string;
+                                        res(resStr.split(',')[1] || '');
+                                    };
+                                    reader.onerror = rej;
+                                    reader.readAsDataURL(blob);
+                                });
+                            } catch (fetchErr) {
+                                console.warn('[CDN Upload] Không thể đọc blob từ ảnh local:', fetchErr);
+                            }
+                        }
+
+                        if (base64Data) {
+                            const fileName = `nodebb_cdn_${Date.now()}_${i}.${ext}`;
+                            const cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Data, fileName, 'thumbnails');
+                            if (cdnUrl) {
+                                replacements[rawSrc] = cdnUrl;
+                                this.done[i] = this.done[i].split(rawSrc).join(cdnUrl);
+                                if (!topicThumb) topicThumb = cdnUrl;
+                                uploadCount++;
+                                console.log(`[NodeBB CDN] Đã chuyển ảnh local lên CDN: ${rawSrc} -> ${cdnUrl}`);
+                            }
+                        }
+                    } catch (imgErr) {
+                        console.error('[NodeBB CDN] Lỗi upload ảnh lên CDN:', imgErr);
+                    }
+                }
+            }
+        }
+
+        if (uploadCount > 0) {
+            // Đồng bộ sang source.img
+            if (this.source && Array.isArray(this.source.img)) {
+                for (let s = 0; s < this.source.img.length; s++) {
+                    if (typeof this.source.img[s] === 'string') {
+                        for (const [oldUrl, newUrl] of Object.entries(replacements)) {
+                            if (this.source.img[s].includes(oldUrl)) {
+                                this.source.img[s] = this.source.img[s].split(oldUrl).join(newUrl);
+                            }
+                        }
+                    }
+                }
+            }
+
+            this.update(false);
+            this.cd.markForCheck();
+        }
+
+        return { replacements, topicThumb };
+    }
+
+    /**
+     * Đăng bài lên diễn đàn NodeBB với đầy đủ 4 tiêu chí:
+     * 1. Danh mục diễn đàn đã được chọn
+     * 2. Ảnh mô tả cho chủ đề (Topic Thumbnail) lấy từ Thumbnail hoặc ảnh đầu tiên
+     * 3. Toàn bộ hình ảnh trong bài được tự động đẩy lên CDN
+     * 4. Chuyển đổi nội dung sang Markdown chuẩn
+     */
+    async createTopic() {
+        // Tiêu chí 1: Danh mục diễn đàn
+        if (!this.favoriteSeason) {
+            this.toastr.warning('Vui lòng chọn một Danh mục diễn đàn trước khi đăng bài!');
+            return;
+        }
+
+        const title = this.detectForm?.get('step1')?.get('title')?.value?.trim();
+        if (!title) {
+            this.toastr.warning('Vui lòng nhập Tiêu đề bài viết trước khi đăng bài!');
+            return;
+        }
+
+        if (!this.done || this.done.length === 0) {
+            this.toastr.warning('Bài viết chưa có nội dung trong Dàn ý để đăng!');
+            return;
+        }
+
+        this.loading = true;
+        this.toastr.info('Đang xử lý hình ảnh lên CDN, ảnh mô tả chủ đề và chuẩn hóa định dạng Markdown...', 'Đang đăng bài');
+        this.cd.markForCheck();
+
+        try {
+            // Tiêu chí 2 & 3: Xử lý hình ảnh trong bài lên CDN và lấy ảnh mô tả chủ đề (Topic Thumbnail)
+            const { topicThumb } = await this.ensureAllDoneImagesOnCDN();
+
+            // Tiêu chí 4: Chuyển đổi nội dung HTML sang Markdown chuẩn NodeBB
+            const turndownService = new TurndownService({
+                headingStyle: 'atx',
+                codeBlockStyle: 'fenced',
+                hr: '---'
             });
+
+            // Tùy biến xử lý ảnh sang Markdown chuẩn
+            turndownService.addRule('image', {
+                filter: 'img',
+                replacement: (content: string, node: any) => {
+                    const alt = node.getAttribute('alt') || 'image';
+                    const src = node.getAttribute('src') || '';
+                    const titleAttr = node.getAttribute('title') || '';
+                    const titlePart = titleAttr ? ` "${titleAttr}"` : '';
+                    return src ? `\n\n![${alt}](${src}${titlePart})\n\n` : '';
+                }
+            });
+
+            const fullHtml = this.done.join('\n\n');
+            let markdownContent = turndownService.turndown(fullHtml);
+            markdownContent = markdownContent.replace(/\n{3,}/g, '\n\n').trim();
+
+            const tags = [];
+            const mainKey = this.detectForm?.get('step5')?.get('mainkey')?.value?.trim();
+            if (mainKey) {
+                tags.push(mainKey);
+            }
+
+            // Tiến hành đăng bài lên NodeBB kèm ảnh mô tả chủ đề
+            this._forumService
+                .createTopic({
+                    _uid: this.user.id,
+                    cid: this.favoriteSeason,
+                    title: title,
+                    content: markdownContent,
+                    thumb: topicThumb || '',
+                    image: topicThumb || '',
+                    thumbnail: topicThumb || '',
+                    tags: tags,
+                })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: async (result) => {
+                        this.loading = false;
+                        if (result && (result.success || result.topic || result.tid)) {
+                            this.toastr.success('Đã đăng bài lên diễn đàn NodeBB thành công!');
+                        } else {
+                            this.toastr.error('Đăng bài lên diễn đàn thất bại. Vui lòng kiểm tra lại!');
+                        }
+                        this.cd.markForCheck();
+                    },
+                    error: (err) => {
+                        this.loading = false;
+                        console.error('[NodeBB Post Error]', err);
+                        this.toastr.error('Có lỗi xảy ra khi kết nối tới diễn đàn NodeBB.');
+                        this.cd.markForCheck();
+                    },
+                    complete: () => {
+                        this.loading = false;
+                        this.cd.markForCheck();
+                    },
+                });
+        } catch (err) {
+            this.loading = false;
+            console.error('[NodeBB Process Error]', err);
+            this.toastr.error('Lỗi khi xử lý hình ảnh hoặc định dạng Markdown.');
+            this.cd.markForCheck();
+        }
     }
 
     async share() {

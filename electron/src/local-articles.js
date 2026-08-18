@@ -48,14 +48,77 @@ function decryptContent(encryptedObj, password) {
     }
 }
 
+function htmlToMarkdownFallback(html) {
+    if (!html) return '';
+    let text = html.toString();
+
+    // Tables
+    text = text.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, tableBody) => {
+        const rows = [];
+        const trMatches = Array.from(tableBody.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi));
+        for (const tr of trMatches) {
+            const cells = [];
+            const thtdMatches = Array.from(tr[1].matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi));
+            for (const cell of thtdMatches) {
+                cells.push(cell[1].replace(/<[^>]+>/g, '').trim());
+            }
+            if (cells.length > 0) rows.push(cells);
+        }
+        if (rows.length === 0) return '';
+        let mdTable = '\n\n| ' + rows[0].join(' | ') + ' |\n';
+        mdTable += '| ' + rows[0].map(() => '---').join(' | ') + ' |\n';
+        for (let r = 1; r < rows.length; r++) {
+            mdTable += '| ' + rows[r].join(' | ') + ' |\n';
+        }
+        return mdTable + '\n';
+    });
+
+    // Images
+    text = text.replace(/<img[^>]*src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>/gi, '\n\n![$2]($1)\n\n');
+    text = text.replace(/<img[^>]*alt=["']([^"']*)["'][^>]*src=["']([^"']+)["'][^>]*>/gi, '\n\n![$1]($2)\n\n');
+    text = text.replace(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi, '\n\n![]($1)\n\n');
+
+    // Headings
+    text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n');
+    text = text.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n\n');
+    text = text.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n\n');
+    text = text.replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, '\n\n#### $1\n\n');
+    text = text.replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, '\n\n##### $1\n\n');
+    text = text.replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, '\n\n###### $1\n\n');
+
+    // Bold, Italic, Links
+    text = text.replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**');
+    text = text.replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, '**$1**');
+    text = text.replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*');
+    text = text.replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*');
+    text = text.replace(/<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)');
+
+    // Paragraphs, Blockquotes, Line breaks
+    text = text.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, '\n\n> $1\n\n');
+    text = text.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '\n\n$1\n\n');
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+
+    // Clean remaining tags & HTML entities
+    text = text.replace(/<[^>]+>/g, '');
+    text = text.replace(/&nbsp;/gi, ' ');
+    text = text.replace(/&amp;/gi, '&');
+    text = text.replace(/&lt;/gi, '<');
+    text = text.replace(/&gt;/gi, '>');
+    text = text.replace(/&quot;/gi, '"');
+    text = text.replace(/&#39;/gi, "'");
+    text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+    return text;
+}
+
 function registerLocalArticlesHandlers() {
     /**
      * Ghi bài viết trực tiếp xuống ổ đĩa cục bộ (Hỗ trợ mã hóa bằng mật khẩu)
      */
     ipcMain.handle('save-local-article', async (event, payload) => {
         try {
-            const { title, content, domain, username = 'admin', uuid, tags, format = 'md', password } = payload || {};
-            if (!content && !title) {
+            const { title, content, markdown, domain, username = 'admin', uuid, tags, format = 'md', password } = payload || {};
+            if (!content && !title && !markdown) {
                 return { success: false, error: 'Tiêu đề hoặc nội dung bài viết không được để trống' };
             }
 
@@ -66,17 +129,20 @@ function registerLocalArticlesHandlers() {
 
             const isEncrypted = !!password;
             let storedContent = content || '';
+            let pureMarkdown = markdown || htmlToMarkdownFallback(content || '');
             let encryptedPayload = null;
 
             if (isEncrypted) {
                 encryptedPayload = encryptContent(content || '', password);
                 storedContent = '[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU]';
+                pureMarkdown = '[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU]';
             }
 
             const articleMetadata = {
                 uuid: targetUuid,
                 title: title || 'Bài viết chưa đặt tên',
                 content: isEncrypted ? storedContent : (content || ''),
+                markdown: isEncrypted ? pureMarkdown : pureMarkdown,
                 encrypted_payload: encryptedPayload,
                 domain: domain || 'local.ai.type',
                 username: username,
@@ -92,10 +158,10 @@ function registerLocalArticlesHandlers() {
             const jsonPath = path.join(articlesDir, `${filenameBase}.json`);
             fs.writeFileSync(jsonPath, JSON.stringify(articleMetadata, null, 2), 'utf8');
 
-            // 2. Lưu file .md trực tiếp
+            // 2. Lưu file .md trực tiếp bằng Markdown chuẩn
             const mdHeader = `# ${title || 'Bài viết chưa đặt tên'}\n\n> **Domain**: ${domain || 'local.ai.type'} | **Tạo lúc**: ${articleMetadata.created_at} ${isEncrypted ? '| **BẢO VỆ MẬT KHẨU (AES-256)**' : ''}\n\n---\n\n`;
             const mdPath = path.join(articlesDir, `${filenameBase}.md`);
-            fs.writeFileSync(mdPath, mdHeader + (isEncrypted ? `\`\`\`encrypted\n${JSON.stringify(encryptedPayload)}\n\`\`\`` : storedContent), 'utf8');
+            fs.writeFileSync(mdPath, mdHeader + (isEncrypted ? `\`\`\`encrypted\n${JSON.stringify(encryptedPayload)}\n\`\`\`` : pureMarkdown), 'utf8');
 
             return {
                 success: true,
@@ -116,7 +182,7 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('export-local-article-dialog', async (event, payload) => {
         try {
-            const { title, content, domain, tags, format = 'md', password } = payload || {};
+            const { title, content, markdown, domain, tags, format = 'md', password } = payload || {};
             const safeTitle = sanitizeFilename(title);
             const defaultExtension = format === 'json' ? 'json' : 'md';
 
@@ -133,11 +199,13 @@ function registerLocalArticlesHandlers() {
 
             const isEncrypted = !!password;
             let outputContent = content || '';
+            let pureMarkdown = markdown || htmlToMarkdownFallback(content || '');
             let encryptedPayload = null;
 
             if (isEncrypted) {
                 encryptedPayload = encryptContent(content || '', password);
                 outputContent = '[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU]';
+                pureMarkdown = '[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU]';
             }
 
             const ext = path.extname(filePath).toLowerCase();
@@ -145,6 +213,7 @@ function registerLocalArticlesHandlers() {
                 const data = {
                     title: title || 'Bài viết chưa đặt tên',
                     content: outputContent,
+                    markdown: pureMarkdown,
                     encrypted_payload: encryptedPayload,
                     domain: domain || 'local.ai.type',
                     tags: tags || [],
@@ -155,7 +224,7 @@ function registerLocalArticlesHandlers() {
                 fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
             } else {
                 const mdHeader = `# ${title || 'Bài viết chưa đặt tên'}\n\n> **Domain**: ${domain || 'local.ai.type'} | **Xuất lúc**: ${new Date().toLocaleString('vi-VN')} ${isEncrypted ? '| **BẢO VỆ MẬT KHẨU (AES-256)**' : ''}\n\n---\n\n`;
-                fs.writeFileSync(filePath, mdHeader + (isEncrypted ? `\`\`\`encrypted\n${JSON.stringify(encryptedPayload)}\n\`\`\`` : outputContent), 'utf8');
+                fs.writeFileSync(filePath, mdHeader + (isEncrypted ? `\`\`\`encrypted\n${JSON.stringify(encryptedPayload)}\n\`\`\`` : pureMarkdown), 'utf8');
             }
 
             return { success: true, filePath, message: `Đã xuất bài viết ra tệp: ${filePath}` };
