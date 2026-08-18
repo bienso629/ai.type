@@ -227,9 +227,12 @@ export class DialogContentComponent implements OnInit {
 
             try {
                 // Sử dụng thư viện có sẵn trong package.json
-                const pdfMake = require('pdfmake/build/pdfmake');
-                const pdfFonts = require('pdfmake/build/vfs_fonts');
-                const htmlToPdfmake = require('html-to-pdfmake');
+                const pdfMakeModule = await import('pdfmake/build/pdfmake');
+                const pdfMake = (pdfMakeModule as any).default || pdfMakeModule;
+                const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
+                const pdfFonts = (pdfFontsModule as any).default || pdfFontsModule;
+                const htmlToPdfmakeModule = await import('html-to-pdfmake');
+                const htmlToPdfmake = ((htmlToPdfmakeModule as any).default || htmlToPdfmakeModule) as Function;
 
                 pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts.vfs;
 

@@ -174,7 +174,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user && user.reputation >= 100000000) {
+                if (user && user.reputation >= 100000000 && user.name === 'admin') {
                     if (!this.panels.some(p => p.id === 'admin')) {
                         this.panels.push({
                             id: 'admin',

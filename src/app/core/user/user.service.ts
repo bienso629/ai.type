@@ -67,11 +67,11 @@ export class UserService {
     public permissionF(user: User) {
         let cn2 = 0, cn3 = 0;
 
-        if (user.reputation >= 100000000 || user.groups?.includes('admin') || user.groups?.includes('nhóm-admin') || user.groups?.includes('nhóm-tạo-hình-ảnh') || user.groups?.includes('nhóm-thu-thập-dữ-liệu') || user.groups?.includes('nhóm-txt2voice') || user.groups?.includes('nhóm-big-data')) {
+        if (user.groups?.includes('nhóm-đã-mua-ai-type')) {
             cn2++;
         }
 
-        if (user.groups?.includes('nhóm-đã-mua-chatbot') || user.groups?.includes('nhóm-seo-và-phân-tích') || user.groups?.includes('nhóm-tự-động-hóa') || user.groups?.includes('nhóm-x-cms') || user.groups?.includes('nhóm-chạy-traffic')) {
+        if (user.groups?.includes('nhóm-đã-mua-ai-type')) {
             cn3++;
         }
 
@@ -79,7 +79,7 @@ export class UserService {
     }
 
     public permissionVideo(user: User): boolean {
-        if (user.groups?.includes('nhóm-video2content')) {
+        if (user.groups?.includes('nhóm-đã-mua-ai-type')) {
             return true;
         }
 
@@ -87,7 +87,7 @@ export class UserService {
     }
 
     public permissionVideoDownloader(user: User): boolean {
-        if (user.groups?.includes('nhóm-download-video')) {
+        if (user.groups?.includes('nhóm-đã-mua-ai-type')) {
             return true;
         }
 
@@ -95,7 +95,7 @@ export class UserService {
     }
 
     public permissionDreamina(user: User): boolean {
-        if (user.groups?.includes('nhóm-dreamina-ai')) {
+        if (user.groups?.includes('nhóm-đã-mua-ai-type')) {
             return true;
         }
 
@@ -103,7 +103,7 @@ export class UserService {
     }
 
     public permissionText2Voice(user: User): boolean {
-        if (user.groups?.includes('nhóm-txt2voice')) {
+        if (user.groups?.includes('nhóm-đã-mua-ai-type')) {
             return true;
         }
 
@@ -111,7 +111,7 @@ export class UserService {
     }
 
     public permissionScriptCommentLike(user: User): boolean {
-        if (user.groups?.includes('nhóm-tự-động-hóa')) {
+        if (user.groups?.includes('nhóm-đã-mua-ai-type')) {
             return true;
         }
 

@@ -172,25 +172,25 @@
 
                         <ngx-datatable-column name="Gói (tháng)" prop="months" [width]="90" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
-                                <span class="text-green-600 font-semibold">{{ value }}</span>
+                                <span class="text-green-600">{{ value }}</span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Nội dung" prop="content" [width]="180" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
+                        <ngx-datatable-column name="Nội dung" prop="content" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                             <ng-template let-value="value" ngx-datatable-cell-template>
-                                {{ value }}
+                                <span class="line-clamp-1" [title]="value">{{ value }}</span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Số tiền" prop="amount" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Số tiền" prop="amount" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
-                                <span class="text-green-600 font-semibold">{{ value | number }} đ</span>
+                                <span class="text-green-600">{{ value | number }} đ</span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Thời gian" prop="createdAt" [width]="140" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                        <ngx-datatable-column name="Thời gian" prop="createdAt" [width]="200" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
-                                {{ value | date:'dd/MM/yyyy HH:mm' }}
+                                <span [title]="value | date:'dd/MM/yyyy HH:mm'">{{ value | timeago }}</span>
                             </ng-template>
                         </ngx-datatable-column>
                     </ngx-datatable>

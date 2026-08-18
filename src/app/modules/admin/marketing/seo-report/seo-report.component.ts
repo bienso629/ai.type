@@ -1117,7 +1117,7 @@ Quy định định dạng:
 - Analytics GA4: ${gaUsers} người dùng, ${gaSessions} phiên, ${gaViews} lượt xem, Tương tác ${gaEngage}%.
 - PageSpeed: Hiệu năng ${perfScore}/100, Trải nghiệm ${accScore}/100, Chuẩn SEO ${seoScore}/100.
 
-Viết nhận xét 2-3 câu bằng Tiếng Việt cực kỳ rõ ràng, đi thẳng vào trọng tâm về sức khỏe website và 2 hành động cần làm ngay. Không dùng từ ngữ rườm rà.`;
+Viết nhận xét 2-3 câu bằng Tiếng Việt cực kỳ rõ ràng, đi thẳng vào trọng tâm về sức khỏe website và 2 hành động cần làm ngay. Không dùng từ ngữ rườm rà. Báo cáo sinh động, có các hình ảnh minh họa 3D.`;
 
                     const response = await this._genaiService.generateContent({
                         model: 'gemini-3.6-flash',

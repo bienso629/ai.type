@@ -16,7 +16,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 
-const xml2js = require("xml2js");
+import * as xml2js from 'xml2js';
 
 @Component({
     selector: 'sitemap',
