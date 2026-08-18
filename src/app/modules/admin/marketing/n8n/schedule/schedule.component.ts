@@ -3947,8 +3947,13 @@ Mảng JSON phải có cấu trúc gồm danh sách các domain và các task b�
 LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
 - Hệ thống ĐÃ TỰ ĐỘNG TÍNH TOÁN số lượng tác vụ cần tạo MỖI NGÀY và truyền vào trường "dailyTarget" cho từng tên miền, đồng thời tính số ngày làm việc còn lại trong tháng vào trường "remainingDays".
 - Nếu dailyTarget <= 0: Tuyệt đối không tạo thêm task cho domain đó.
-${generateInstruction}
 - BẮT BUỘC ĐỌC kỹ trường "writingStyle" và "aiAnalysis" (nếu có) của từng tên miền. Bạn PHẢI áp dụng "writingStyle" (phong cách viết) vào nội dung và cách diễn đạt. Hãy nghĩ ra tiêu đề (name) và mô tả (meta) thật CỤ THỂ, ĐA DẠNG và ĐÚNG CHUYÊN MÔN / NGÁCH của tên miền đó.
+- LƯU Ý ĐẶC BIỆT VỀ NỘI DUNG VÀ NGÀNH NGHỀ TỪNG DOMAIN (TUYỆT ĐỐI KHÔNG SUY DIỄN NGHĨA ĐEN CỦA TÊN MIỀN):
+  + Tên miền type.vn / ai.type.vn: Đây là nền tảng AI Content Creator, sáng tạo nội dung, viết bài blog SEO, Marketing, Copywriting, tự động hóa nội dung số. TUYỆT ĐỐI KHÔNG tạo bài viết về "đánh máy chữ, luyện gõ 10 ngón, bàn phím, tốc độ gõ WPM hay bộ gõ tiếng Việt".
+  + Tên miền hopthu.vn: Dịch vụ Email Doanh nghiệp (Business Email), bảo mật thư tín, chống thư rác, chứng thực DKIM/SPF.
+  + Tên miền tadu.cloud: Dịch vụ Máy chủ đám mây, Cloud Server, Cloud Hosting, VPS tốc độ cao.
+  + Tên miền yenai.vn: Tin tức công nghệ, Trí tuệ nhân tạo (AI), AI Agent, phân tích giải pháp công nghệ.
+  + Mọi tác vụ và bài viết PHẢI bám sát 100% vào nội dung mô tả chi tiết trong trường "aiAnalysis" của từng tên miền.
 - TUYỆT ĐỐI KHÔNG dùng các tên chung chung như "Công việc 1", "Tạo bài viết SEO", "Viết bài mới". 
 - QUY TẮC HIỂN THỊ: BẮT BUỘC XỔ TOÀN BỘ KẾ HOẠCH BÀI VIẾT VÀ BẢNG PHÂN BỔ TRỰC TIẾP TRONG NỘI DUNG CHAT CHO QUẢN TRỊ VIÊN ĐỌC. TUYỆT ĐỐI KHÔNG TẠO HOẶC NÊU THÔNG BÁO GHI VÀO FILE .MD RỜI (NHƯ ke_hoach_cong_viec.md HAY BẤT KỲ FILE NÀO KHÁC). MỌI THÔNG TIN PHẢI ĐƯỢC HIỂN THỊ ĐẦY ĐỦ TRÊN KHUNG CHAT.
 

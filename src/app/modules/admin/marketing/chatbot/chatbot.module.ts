@@ -14,6 +14,8 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatInputModule } from '@angular/material/input';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatMenuModule } from '@angular/material/menu';
 import { TimeagoModule } from 'ngx-timeago';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { SharedModule } from 'app/shared.module';
@@ -45,18 +47,17 @@ const Routes: Route[] = [
         MatDialogModule,
         MatButtonModule,
         MatIconModule,
-        MatButtonModule,
         MatCheckboxModule,
         MatFormFieldModule,
-        MatIconModule,
         MatInputModule,
         MatGridListModule,
         MatExpansionModule,
         MatSelectModule,
-        MatTooltipModule,
         MatListModule,
         MatSidenavModule,
         MatSlideToggleModule,
+        MatProgressBarModule,
+        MatMenuModule,
         NgxDatatableModule,
         TimeagoModule.forRoot(),
         SharedModule
