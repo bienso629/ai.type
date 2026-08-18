@@ -622,19 +622,29 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                     next: async (result) => {
                         if (result && result.success && result.data && result.data.notifications) {
                             this.notifications = result.data.notifications.map((item: any) => {
-                                item = {
-                                    id: item.pid,
-                                    icon: (item.user?.picture) ? `https://type.vn${item.user.picture.replace(/&#x2F;/g, '/')}` : 'https://type.vn/assets/uploads/favicon.png',
-                                    image: (item.image) ? `https://type.vn${item.image.replace(/&#x2F;/g, '/')}` : null,
-                                    title: item.subject,
-                                    description: (item.type === 'follow') ? `${item.user?.username || 'Ai đó'} bắt đầu theo dõi bạn` : (item.bodyLong ? new DOMParser().parseFromString(item.bodyLong, 'text/html').body.textContent.trim() : ''),
-                                    time: item.datetimeISO,
-                                    link: `https://type.vn${item.path ? item.path.replace(/&#x2F;/g, '/') : ''}`,
+                                const pic = item.image || item.user?.picture;
+                                const formattedImage = pic
+                                    ? (pic.startsWith('http') ? pic : `https://type.vn${pic.replace(/&#x2F;/g, '/')}`)
+                                    : null;
+
+                                const initial = item.user?.['icon:text'] || item.user?.displayname?.charAt(0)?.toUpperCase() || item.user?.username?.charAt(0)?.toUpperCase() || null;
+                                const bgColor = item.user?.['icon:bgColor'] || '#3b82f6';
+
+                                const description = item.bodyShort || item.bodyLong || (item.type === 'follow' ? `<strong>${item.user?.username || 'Ai đó'}</strong> bắt đầu theo dõi bạn` : (item.text || item.snippet || ''));
+
+                                return {
+                                    id: item.nid || item.pid || `${Date.now()}_${Math.random()}`,
+                                    icon: 'heroicons_outline:bell',
+                                    image: formattedImage,
+                                    title: item.subject || null,
+                                    description: description,
+                                    time: item.datetimeISO || (item.datetime ? new Date(item.datetime).toISOString() : new Date().toISOString()),
+                                    link: item.path ? (item.path.startsWith('http') ? item.path : `https://type.vn${item.path.replace(/&#x2F;/g, '/')}`) : null,
                                     useRouter: false,
-                                    read: item.read
+                                    read: item.read === true,
+                                    userInitial: initial,
+                                    userBgColor: bgColor
                                 };
-    
-                                return item;
                             });
                             
                             // Lưu Cache lại

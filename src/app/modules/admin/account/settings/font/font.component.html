@@ -82,7 +82,7 @@
                     <!-- Apply Group Link -->
                     <a *ngIf="activeFontGroup?.folderName !== group.folderName" (click)="applyGroupFont(group)" class="cursor-pointer text-primary hover:underline flex items-center gap-1.5 text-base font-medium select-none">
                         <mat-icon class="icon-size-4 text-primary" [svgIcon]="'feather:check-circle'"></mat-icon>
-                        <span>Áp dụng trọn bộ font này</span>
+                        <span>Áp dụng</span>
                     </a>
 
                     <span *ngIf="activeFontGroup?.folderName === group.folderName" class="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-base font-medium select-none">
@@ -93,7 +93,7 @@
                     <!-- Delete Entire Group Link -->
                     <a (click)="deleteFolderGroup(group)" class="cursor-pointer text-warn hover:underline flex items-center gap-1.5 text-base font-medium select-none">
                         <mat-icon class="icon-size-4 text-warn" [svgIcon]="'feather:trash-2'"></mat-icon>
-                        <span>Xóa bộ font</span>
+                        <span>Xóa</span>
                     </a>
                 </div>
             </div>

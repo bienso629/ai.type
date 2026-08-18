@@ -1,4 +1,4 @@
-declare var require: any;
+import packageJson from '../../../../../../../../../package.json';
 import { ChangeDetectionStrategy, Component, Inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -171,8 +171,6 @@ export class SettingsCreateLicenseKeyComponent implements OnInit, OnDestroy {
 		if (data.title) this.title = data.title;
 		if (data.icon) this.icon = data.icon;
 
-		const packageJson = require('../../../../../../../../../package.json');
-		
 		// Create the form
 		this.createForm = this._formBuilder.group({
 			appId: [(data.item) ? data.item.appId : 'ai.typing', Validators.required],

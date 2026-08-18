@@ -167,7 +167,7 @@
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
-                <div class="w-full mt-4" *ngIf="user.groups?.includes('nhóm-đã-mua-chatbot')">
+                <div class="w-full mt-4" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
                     <!-- Chatbot Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
@@ -179,7 +179,7 @@
                             href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">{{ 'app.auto_contact' | transloco }}</a> {{ 'app.auto_receive_api' | transloco }}</div>
                 </div>
 
-                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-x-cms')">
+                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
                     <!-- Device Token Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
@@ -191,7 +191,7 @@
                             href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">{{ 'app.auto_contact' | transloco }}</a> {{ 'app.auto_receive_api' | transloco }}</div>
                 </div>
 
-                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-big-data')">
+                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
                     <!-- Device Token Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
@@ -203,7 +203,7 @@
                 </div>
 
                 <div class="w-full mt-2"
-                    *ngIf="user.groups?.includes('nhóm-txt2voice')">
+                    *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
@@ -214,7 +214,7 @@
                     <div class="mt-1 text-md text-hint">{{ 'account.jobs.tts_hint' | transloco }}</div>
                 </div>
 
-                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-video2content')">
+                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
@@ -225,7 +225,7 @@
                     <div class="mt-1 text-md text-hint">{{ 'account.jobs.sst_hint' | transloco }}</div>
                 </div>
 
-                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-tự-động-hóa')">
+                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
@@ -271,7 +271,7 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center mt-2" *ngIf="user.groups?.includes('nhóm-big-data')">
+                    <div class="flex items-center mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
                         <!-- <mat-label class="text-secondary text-base mr-4">{{ 'app.auto_keys_of_gemini_ai_studio' | transloco }}</mat-label> -->
                         <button mat-flat-button type="button" [color]="'primary'" (click)="addGeminiKey()">
                             <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>

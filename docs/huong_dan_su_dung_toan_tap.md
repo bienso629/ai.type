@@ -1,5 +1,7 @@
 # Hướng dẫn sử dụng phần mềm AI.Type (Toàn tập chi tiết)
 
+> 📘 **Tài liệu phân quyền:** Xem chi tiết quy tắc phân loại nút Free, Pro và Pro + Khóa tại [`QUY_TAC_PHAN_QUYEN_TINH_NANG.md`](file:///home/yenai/Documents/Projects/Typing/ai.type/docs/QUY_TAC_PHAN_QUYEN_TINH_NANG.md).
+
 Tài liệu này cung cấp hướng dẫn sử dụng chuyên sâu cho từng màn hình, giải thích ý nghĩa các công cụ, trường nhập liệu (Inputs) và các nút thao tác (Buttons) dựa trên toàn bộ các tính năng của hệ thống.
 
 ---

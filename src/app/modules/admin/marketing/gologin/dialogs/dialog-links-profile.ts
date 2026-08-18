@@ -12,7 +12,7 @@ import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms
 import * as uuid from 'uuid';
 import * as _ from 'lodash';
 
-const xml2js = require("xml2js");
+import * as xml2js from 'xml2js';
 
 @Component({
     selector: 'dialog-links-profile',

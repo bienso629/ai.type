@@ -46,6 +46,7 @@ import { MomoQrDialog } from 'app/modules/admin/account/settings/active/active.c
 
 import { SettingsPluginsComponent } from 'app/modules/admin/account/settings/plugins/plugins.component';
 import { SettingsFontComponent } from 'app/modules/admin/account/settings/font/font.component';
+import { TimeagoModule } from 'ngx-timeago';
 
 @NgModule({
     declarations: [
@@ -94,7 +95,8 @@ import { SettingsFontComponent } from 'app/modules/admin/account/settings/font/f
         FuseCardModule,
         TimelineModule.forChild(),
         SharedModule,
-        QRCodeModule
+        QRCodeModule,
+        TimeagoModule.forChild()
     ],
     exports: [
         SettingsLicenseKeysComponent,
