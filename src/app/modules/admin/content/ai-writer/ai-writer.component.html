@@ -877,23 +877,12 @@
                                                 <input hidden type="file" multiple class="file-input"
                                                     (change)="createImg($event)" accept='image/*' #fileUpload>
 
-                                                <!-- <mat-label
-                                                    class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
-                                                    matTooltipPosition="above"
-                                                    [matTooltip]="'app.select_multiple_images_for' | transloco"
-                                                    (click)="fileUpload.click()">{{ 'app.auto_upload' | transloco }}</mat-label> -->
-                                                <!-- <mat-label
-                                                    class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-900 text-white"
-                                                    matTooltipPosition="above"
-                                                    [matTooltip]="'app.select_an_image_from' | transloco"
-                                                    (click)="allFiles()">{{ 'app.auto_available' | transloco }}</mat-label> -->
-
                                                 <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="fileUpload.click()" matTooltipPosition="above"
-                                                    [matTooltip]="'app.select_multiple_images_for' | transloco"
+                                                    [matTooltip]="'Tải lên hình ảnh từ máy tính'"
                                                     [disabled]="loading">
                                                     <mat-icon *ngIf="loading"
-                                                        class="animate-spin icon-size-4 text-white"
+                                                        class="animate-spin icon-size-4 text-primary"
                                                         [svgIcon]="'feather:loader'"></mat-icon>
                                                     <mat-icon *ngIf="!loading" class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:upload'"></mat-icon>
@@ -901,7 +890,7 @@
 
                                                 <button mat-icon-button class="ml-0 icon-size-8" (click)="allFiles()"
                                                     matTooltipPosition="above"
-                                                    [matTooltip]="'app.select_an_image_from' | transloco">
+                                                    [matTooltip]="'Chọn hình ảnh từ bộ sưu tập'">
                                                     <mat-icon class="icon-size-4 text-blue-600"
                                                         [svgIcon]="'feather:cloud'"></mat-icon>
                                                 </button>
@@ -919,10 +908,6 @@
                                                     </div>
 
                                                     <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
-                                                        <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
-                                                        (click)="synonymsForSentence(item)"><mat-icon>switch_access_shortcut_add</mat-icon></button>
-                                                    <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                         <button mat-icon-button class="icon-size-8"
                                                             [matMenuTriggerFor]="menu">
                                                             <mat-icon>more_horiz</mat-icon>
@@ -930,15 +915,15 @@
 
                                                         <mat-menu #menu="matMenu">
                                                             <button mat-menu-item
-                                                                (click)="createShortBlog(source.img, i)"
+                                                                (click)="copyto(item)"
                                                                 [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                                <span>{{ 'app.auto_write_a_blog_quickly' | transloco }}</span>
+                                                                <mat-icon class="icon-size-4 text-primary"
+                                                                    [svgIcon]="'feather:arrow-right'"></mat-icon>
+                                                                <span>{{ 'app.move_to_outline' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item [color]="'primary'" type="button"
                                                                 (click)="clearitem(i, source.img)">
-                                                                <mat-icon class="icon-size-4"
+                                                                <mat-icon class="icon-size-4 text-red-500"
                                                                     svgIcon="feather:trash"></mat-icon>
                                                                 <span>{{ 'app.auto_delete_photo' | transloco }}</span>
                                                             </button>
@@ -2681,8 +2666,9 @@
                                         <span>{{ 'app.auto_download_pdf' | transloco }}</span>
                                     </button>
 
-                                    <button *ngIf="score >= 0" mat-menu-item (click)="share()"
-                                        [matMenuTriggerFor]="forumActions">
+                                    <button *ngIf="score >= 0" mat-menu-item
+                                        [matMenuTriggerFor]="forumActions"
+                                        (menuOpened)="forumCategory()">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:type'"></mat-icon>
                                         <mat-label>{{ 'app.auto_post_on_the_forum' | transloco }}</mat-label>
                                     </button>

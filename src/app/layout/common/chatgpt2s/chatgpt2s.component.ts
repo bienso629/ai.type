@@ -155,6 +155,53 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         this.toastr.success('Đã copy nội dung xong!');
     }
 
+    copyMessage(text: string) {
+        if (!text) return;
+        this.clipboard.copy(text);
+        this.toastr.success('Đã sao chép nội dung!');
+    }
+
+    getMessageTime(msg: any): string {
+        if (msg?.time) return msg.time;
+        if (msg?.timestamp) {
+            const d = new Date(msg.timestamp);
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    reAskMessage(text: string) {
+        if (!text) return;
+        this.goiy = text;
+        const followInput = document.querySelector('#chatMessageList ~ div input') as HTMLInputElement;
+        if (followInput) {
+            followInput.value = text;
+            followInput.focus();
+        } else {
+            const mainInput = document.querySelector('input[placeholder*="Gemini"]') as HTMLInputElement;
+            if (mainInput) {
+                mainInput.value = text;
+                mainInput.focus();
+            }
+        }
+    }
+
+    reAskModelMessage(msg: any, activeChatRow?: any) {
+        let question = '';
+        if (activeChatRow) {
+            const messages = this.getMessages(activeChatRow);
+            const idx = messages.indexOf(msg);
+            if (idx > 0 && messages[idx - 1]?.role === 'user') {
+                question = messages[idx - 1]?.text;
+            } else {
+                question = activeChatRow?.question || '';
+            }
+        }
+        this.reAskMessage(question || msg.text || '');
+    }
+
     answer2Node(answer: string) {
         let parser = new DOMParser();
         const doc = parser.parseFromString(answer, 'text/html');

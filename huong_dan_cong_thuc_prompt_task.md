@@ -1,352 +1,180 @@
-# 📱 ĐẶC TẢ KỸ THUẬT LOGIC AI AGENT SCHEDULE (DÀNH CHO FLUTTER MOBILE)
+# 📱 ĐẶC TẢ KỸ THUẬT LOGIC AI AGENT SCHEDULE (DÀNH CHO FLUTTER MOBILE & WEB)
 
-Tài liệu quy định **100% logic kỹ thuật**, thuật toán tính toán, quy tắc xây dựng System Prompt, trích xuất dữ liệu JSON và luồng gọi API CSDL của màn hình **Lịch Marketing AI Agent** để đội ngũ phát triển ứng dụng **Flutter Mobile** thực thi đúng tuyệt đối với bản Web Desktop.
+Tài liệu quy định **100% logic kỹ thuật**, thuật toán tính toán, quy tắc lọc tên miền, xây dựng System Prompt, cơ chế dọn dẹp task dư thừa khi cập nhật và quy trình viết bài SEO của màn hình **Lịch Marketing AI Agent** để đội ngũ phát triển ứng dụng **Flutter Mobile** thực thi đồng bộ và chuẩn xác tuyệt đối với bản Web Desktop.
 
 ---
 
-## 1. TỔNG QUAN LUỒNG HOẠT ĐỘNG (FLUTTER MOBILE AGENT ARCHITECTURE)
+## 1. TỔNG QUAN LUỒNG HOẠT ĐỘNG (SYSTEM ARCHITECTURE & WORKFLOW)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Người dùng Mobile
-    participant App as Flutter Mobile UI
-    participant Agent as AI Agent Engine
-    participant DB as CouchDB Service
+    actor User as Người dùng (Sếp)
+    participant UI as Flutter Mobile / Web UI
+    participant Agent as AI Agent Engine (Gemini)
+    participant DB as CouchDB Service (/tasks)
 
-    User->>App: Gửi yêu cầu Prompt (Ví dụ: "Cập nhật công việc ngày 17/08")
-    App->>App: 1. Build Context JSON Array từ SQLite/CouchDB
-    App->>App: 2. Phân loại Intent bằng Date Regex (Ngày vs Tháng)
-    App->>Agent: 3. Gửi System Prompt + Context JSON + User Prompt tới LLM
-    Agent-->>App: 4. Stream phản hồi Text + Block Code ```json [...] ```
-    App->>App: 5. Bóc tách JSON (getParsedAiTask)
-    App->>User: 6. Hiển thị Chat Preview + Nút "Xác nhận lưu vào CSDL"
-    User->>App: 7. Bấm nút "Xác nhận lưu vào CSDL"
-    App->>App: 8. Chạy Thuật toán Merge (applyParsedTasks)
-    App->>DB: 9. Gọi API /tasks/add hoặc /tasks/edit
-    DB-->>App: 10. Trả về _id & _rev thành công
-    App->>User: 11. Cập nhật UI Lịch + Thông báo Thành công
+    User->>UI: 1. Gửi lệnh (Ví dụ: "Cập nhật công việc ngày 18/08")
+    UI->>UI: 2. Lọc & Khử trùng domain (Chỉ lấy domain có monthlyTarget > 0)
+    UI->>UI: 3. Build mảng JSON contextData (Chỉ tiêu dailyTarget từng domain)
+    UI->>Agent: 4. Gửi System Prompt + Context JSON + Domain Strict Rules
+    Agent-->>UI: 5. Stream kết quả trả về block code ```json [...] ```
+    UI->>UI: 6. Parse JSON & Chuẩn hóa (Khóa chặt theo contextData)
+    UI->>User: 7. Hiển thị Chat Preview + Nút [ 🚀 Xác nhận lưu vào CSDL ]
+    User->>UI: 8. Bấm [ 🚀 Xác nhận lưu vào CSDL ]
+    UI->>DB: 9. Ghi đè/Thêm mới qua /tasks/edit hoặc /tasks/add
+    UI->>DB: 10. XÓA TRIỆT ĐỂ các task cũ dư thừa của ngày qua /tasks/delete
+    UI->>UI: 11. Cập nhật RAM, Re-pack Timeline (Chuyển sang màu vàng - Chưa làm)
+    UI->>User: 12. Báo cáo hoàn tất lưu CSDL thành công
 ```
 
 ---
 
 ## 2. THUẬT TOÁN TÍNH TOÁN DỮ LIỆU ĐẦU VÀO (CONTEXT DATA PAYLOAD)
 
-Trước khi gửi tin nhắn cho AI, Flutter Mobile **BẮT BUỘC** phải build mảng JSON `contextData` để truyền trạng thái hiện tại của từng tên miền cho AI.
+Trước khi gửi tin nhắn cho AI, hệ thống **BẮT BUỘC** phải build mảng JSON `contextData` để truyền trạng thái hiện tại của từng tên miền cho AI.
 
-### 2.1. Công Thức Tính Chỉ Số Từng Tên Miền
-Với mỗi domain trong hệ thống:
-1. `monthlyTarget`: Chỉ tiêu bài viết đặt ra cho tháng đang xét.
+### 2.1. Quy Tắc Lọc và Chuẩn Hóa Danh Sách Tên Miền
+1. **Khử trùng lặp tên miền (Deduplication)**: 
+   - Chuẩn hóa tên miền: bỏ `https://`, `http://`, `www.` và dấu gạch chéo `/` ở cuối.
+   - Nếu trong CSDL có nhiều bản ghi cùng trỏ về 1 tên miền (ví dụ `https://ai.type.vn` và `ai.type.vn`), gom về 1 bản ghi duy nhất.
+2. **Nguồn chân lý của Chỉ tiêu tháng (`monthlyTarget`)**:
+   - Lấy trực tiếp từ **Cài đặt Tên miền (`settings.domainTargets`)**.
+   - Nếu hệ thống đã có cấu hình `domainTargets`, những tên miền nào **không có trong cấu hình (hoặc chỉ tiêu = 0)** sẽ có `monthlyTarget = 0` và **bị loại bỏ hoàn toàn** khỏi `contextData`. Tuyệt đối không fallback lấy giá trị 30 cũ từ các document CouchDB.
+3. **Loại bỏ các dòng đặc biệt**:
+   - Bỏ qua `total-summary-row`, `monthly-total-summary-row`.
+
+---
+
+### 2.2. Công Thức Tính Chỉ Số Từng Tên Miền
+Với mỗi domain hợp lệ trong hệ thống:
+1. `monthlyTarget`: Chỉ tiêu bài viết của tháng đang xét (lấy từ cấu hình `domainTargets`).
 2. `createdTasksInMonth`: Tổng số task đang có trên lịch của tháng.
-3. `doneTasksInMonth`: Số task trong tháng có `done == true` hoặc `status == 'done'` / `'completed'` hoặc `meta` chứa từ `'done'`.
+3. `doneTasksInMonth`: Số task trong tháng có `done == true` hoặc `status == 'done'` / `'completed'`.
 4. `missingTasksToCreate`: `max(0, monthlyTarget - doneTasksInMonth)`.
-5. `workingDaysLeft`: Số ngày làm việc còn lại từ hôm nay đến cuối tháng (sau khi **loại trừ** các ngày nằm trong mảng `disabledDates`).
-6. `dailyTarget`: 
-   $$\text{dailyTarget} = \begin{cases} \lceil \frac{\text{monthlyTarget}}{\text{workingDaysLeft}} \rceil & \text{nếu } \text{monthlyTarget} > 0 \text{ và } \text{workingDaysLeft} > 0 \\ \text{monthlyTarget} & \text{nếu } \text{workingDaysLeft} \le 0 \\ 0 & \text{nếu } \text{monthlyTarget} \le 0 \end{cases}$$
+5. `workingDaysLeft`: Số ngày làm việc còn lại trong tháng (sau khi **loại trừ** các ngày nằm trong mảng `disabledDates`).
+6. `dailyTarget`:
+   $$\text{dailyTarget} = \begin{cases} 
+   \lceil \frac{\text{monthlyTarget}}{\text{workingDaysLeft}} \rceil & \text{nếu } \text{monthlyTarget} > 0 \text{ và } \text{workingDaysLeft} > 0 \\ 
+   \text{monthlyTarget} & \text{nếu } \text{workingDaysLeft} \le 0 \\ 
+   0 & \text{nếu } \text{monthlyTarget} \le 0 
+   \end{cases}$$
+   *(Ví dụ: 10 tên miền có chỉ tiêu 30 bài/tháng trong tháng 30 ngày làm việc $\rightarrow$ mỗi tên miền có `dailyTarget = 1` $\rightarrow$ Tổng số bài cần tạo cho ngày là **đúng 10 bài**).*
 
-### 2.2. Dạng JSON Context Data Truyền Cho AI
+---
+
+### 2.3. Cấu Trúc JSON `contextData` Gửi Cho AI
 ```json
 [
+  {
+    "domain": "type.vn",
+    "monthlyTarget": 30,
+    "createdTasksInMonth": 15,
+    "doneTasksInMonth": 10,
+    "missingTasksToCreate": 20,
+    "workingDaysLeft": 20,
+    "dailyTarget": 1,
+    "aiAnalysis": "Nền tảng AI Content Creator, tự động hóa SEO, Copywriting",
+    "writingStyle": "Phong cách chuyên gia, thực chiến, truyền cảm hứng"
+  },
   {
     "domain": "tadu.cloud",
     "monthlyTarget": 30,
-    "createdTasksInMonth": 15,
-    "missingTasksToCreate": 15,
-    "workingDaysLeft": 15,
+    "createdTasksInMonth": 12,
+    "doneTasksInMonth": 8,
+    "missingTasksToCreate": 22,
+    "workingDaysLeft": 20,
     "dailyTarget": 1,
-    "aiAnalysis": "Tập trung các từ khóa về Cloud VPS, Server, Hosting doanh nghiệp",
-    "writingStyle": "Phong cách chuyên gia CNTT, tin cậy, súc tích",
-    "tasks": [
-      {
-        "id": "task-uuid-101",
-        "name": "Tối ưu hóa Server Linux",
-        "meta": "SEO task",
-        "startDate": "2026-08-17T08:00:00",
-        "endDate": "2026-08-17T17:00:00"
-      }
-    ]
+    "aiAnalysis": "Máy chủ đám mây, Cloud Server, Cloud Hosting, VPS NVMe",
+    "writingStyle": "Phong cách chuyên gia CNTT, tin cậy, súc tích"
   }
 ]
 ```
 
 ---
 
-## 3. REGEX NHẬN DIỆN Ý ĐỊNH (INTENT CLASSIFICATION)
+## 3. QUY TẮC NGHIÊM NGẶT THEO TÊN MIỀN (DOMAIN STRICT RULES)
 
-Flutter dùng 2 RegEx để phân biệt câu lệnh dành cho **NGÀY** hay **THÁNG**:
-
-* **Regex Nhận Diện Ngày Cụ Thể**:
-  `RegExp(r'\b(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?\b')`
-  * Ví dụ khớp: `17/08`, `17/08/2026`, `01/09/2026`.
-
-* **Regex Nhận Diện Tháng**:
-  `RegExp(r'tháng\s*(0?[1-9]|1[0-2])(?:\/(\d{4}))?', caseSensitive: false)`
-  * Ví dụ khớp: `tháng 8`, `tháng 08/2026`, `tháng 9`.
+Trong System Prompt gửi cho AI, **BẮT BUỘC** phải đính kèm các quy tắc chuyên môn ngách:
+- **`type.vn` / `ai.type.vn`**: Nền tảng AI Content Creator, sáng tạo nội dung, bài viết blog SEO, Copywriting, tự động hóa marketing. **TUYỆT ĐỐI CẤM** viết về bàn phím, gõ 10 ngón, đánh máy chữ.
+- **`hopthu.vn`**: Dịch vụ Email Doanh nghiệp (Business Email), bảo mật email, chống spam, xác thực DKIM/SPF/DMARC.
+- **`tadu.cloud`**: Máy chủ đám mây, Cloud Server, Cloud Hosting, VPS NVMe tốc độ cao.
+- **`yenai.vn`**: Tin tức công nghệ, Trí tuệ nhân tạo (AI), AI Agent, giải pháp chuyển đổi số.
 
 ---
 
-## 4. QUY TẮC BẮT BUỘC KHI XÂY DỰNG SYSTEM PROMPT
+## 4. REGEX PHÂN LOẠI Ý ĐỊNH (INTENT CLASSIFICATION)
 
-Khi gửi yêu cầu tới LLM, Flutter ghép System Prompt theo đúng nguyên tắc sau:
-
-```text
-DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI (Hôm nay là: DD/MM/YYYY):
-```json
-<contextData JSON String>
-```
-
-YÊU CẦU CỦA NGƯỜI DÙNG:
-<User Prompt>
-
-HƯỚNG DẪN TRẢ LỜI:
-- Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng là Sếp (trò chuyện thân thiện, dùng emoji).
-- DỮ LIỆU CÔNG VIỆC BẮT BUỘC PHẢI ĐẶT BÊN TRONG BLOCK CODE MẶC ĐỊNH LÀ ```json [ ... ] ```.
-- THỜI GIAN VÀ MÚI GIỜ: Tất cả các task trong cùng một ngày BẮT BUỘC phải TRÙNG GIỜ (startDate: "YYYY-MM-DDT08:00:00", endDate: "YYYY-MM-DDT17:00:00"). TUYỆT ĐỐI KHÔNG CÓ CHỮ 'Z' Ở CUỐI.
-- NẾU TẠO TASK MỚI: Tuyệt đối KHÔNG trả về trường "id".
-- NẾU SỬA TASK CỤ THỂ: Giữ nguyên trường "id" của task đó.
-- NẾU HOÀN THÀNH TASK: Giữ nguyên "id" + trả về "done": true (hoặc "status": "completed").
-- NẾU XÓA TASK: Giữ nguyên "id" + trả về "_deleted": true.
-- BẢO VỆ DỮ LIỆU: NẾU THAO TÁC THÁNG X, TUYỆT ĐỐI KHÔNG XÓA HAY SỬA BÀI CỦA CÁC THÁNG KHÁC.
-```
+1. **Regex Nhận Diện Ngày Cụ Thể**:
+   `RegExp(r'\b(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?\b')`
+   * Ví dụ: `18/08`, `18/08/2026`.
+2. **Regex Nhận Diện Tháng**:
+   `RegExp(r'tháng\s*(0?[1-9]|1[0-2])(?:\/(\d{4}))?', caseSensitive: false)`
+   * Ví dụ: `tháng 8`, `tháng 08/2026`.
+3. **Regex Nhận Diện Viết Blog SEO**:
+   `RegExp(r'(viết blog|viết bài|soạn bài|chạy bài|sinh bài|tạo bài viết|viết nội dung|viết chi tiết)', caseSensitive: false)`
 
 ---
 
-## 5. ĐỊNH DẠNG JSON OUTPUT VÀ THUẬT TOÁN BÓC TÁCH (PARSING LOGIC)
+## 5. QUY TRÌNH 2 BƯỚC: TẠO/CẬP NHẬT TASK CHO NGÀY CỤ THỂ
 
-### 5.1. Thuật Toán Trích Xuất JSON (`getParsedAiTask`)
-Trong Dart / Flutter, dùng thuật toán sau để trích xuất JSON an toàn khỏi tin nhắn của AI ngay cả khi bị truncated:
+### Bước 1: AI Phân Tích & Hiển Thị Preview
+1. Gửi Prompt + `contextData` cho Gemini AI.
+2. Bóc tách JSON trả về bằng hàm `getParsedAiTask`.
+3. **Khóa chặt `normalizedList` theo `contextData`**: Chỉ giữ lại các domain có mặt trong `contextData`, cắt gọt hoặc bổ sung để số task đúng bằng `dailyTarget`.
+4. Thiết lập sẵn trạng thái `done: false`, `status: 'pending'`, `percent: 0` cho toàn bộ task mới.
+5. Hiển thị Preview danh sách bài viết trên chat + Nút **`[ 🚀 Xác nhận lưu vào CSDL ]`**.
+6. **Tuyệt đối KHÔNG gọi API ghi CSDL ở Bước 1**.
 
-```dart
-dynamic getParsedAiTask(String content) {
-  if (content.isEmpty) return null;
-  
-  // Tìm block code ```json ... ```
-  final jsonBlockRegExp = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```', caseSensitive: false);
-  final match = jsonBlockRegExp.firstMatch(content);
-  String jsonStr = match != null ? match.group(1)!.trim() : content.trim();
-
-  int startObj = jsonStr.indexOf('{');
-  int startArr = jsonStr.indexOf('[');
-  int endObj = jsonStr.lastIndexOf('}');
-  int endArr = jsonStr.lastIndexOf(']');
-
-  int start = (startArr != -1 && (startObj == -1 || startArr < startObj)) ? startArr : startObj;
-  int end = (endArr != -1 && (endObj == -1 || endArr > endObj)) ? endArr : endObj;
-
-  if (start != -1) {
-    if (end == -1 || end < start) {
-      int lastBrace = jsonStr.lastIndexOf('}');
-      if (start == startArr) {
-        jsonStr = (lastBrace != -1 && lastBrace > start)
-            ? jsonStr.substring(start, lastBrace + 1) + ']'
-            : jsonStr.substring(start) + ']';
-      } else {
-        jsonStr = jsonStr.substring(start) + '}';
-      }
-    } else {
-      jsonStr = jsonStr.substring(start, end + 1);
-    }
-    try {
-      return jsonDecode(jsonStr);
-    } catch (e) {
-      print('Failed to parse AI JSON: $e');
-    }
-  }
-  return null;
-}
-```
+### Bước 2: Khi Người Dùng Nhấn Nút "Xác nhận lưu vào CSDL" (`commitDayTasksToDB`)
+Khi người dùng bấm xác nhận, hệ thống thực hiện lần lượt các bước sau:
+1. **Cập nhật / Thêm mới Task vào CSDL**:
+   - Đối với các task mới: Nếu ngày đó đã có task cũ $\rightarrow$ gọi `POST /tasks/edit` ghi đè lại nội dung và đổi trạng thái về `done: false, status: 'pending'`.
+   - Nếu chưa có $\rightarrow$ gọi `POST /tasks/add`.
+2. **XÓA SẠCH CÁC TASK CŨ DƯ THỪA TRONG NGÀY (RẤT QUAN TRỌNG)**:
+   - Nếu số lượng task cũ trong ngày nhiều hơn số bài mới (ví dụ trước đó có 13 task mà nay chỉ cần 1 task):
+   - Hệ thống **BẮT BUỘC gọi `POST /tasks/delete` để xóa sạch toàn bộ các task cũ dư thừa** khỏi CouchDB.
+   - Loại bỏ các task dư thừa khỏi mảng RAM (`domainData.plan`).
+3. **Cập nhật giao diện Timeline**:
+   - Re-pack stream: `applyPackedTasks(domainItem, cleanPlan)`.
+   - Cập nhật dòng tổng: `updateTotalSummaryRow()`.
+   - Các thanh task trên Timeline chuyển từ màu **Xanh lá (Đã xong)** sang màu **Vàng/Cam (`bg-amber-400` - Chưa làm)**.
+   - Số lượng hiển thị co về chính xác số task mới (ví dụ đúng 10 task).
 
 ---
 
-## 6. QUY TRÌNH THAO TÁC ĐẦY ĐỦ CHO 3 HÀNH VI (TẠO, SỬA, HOÀN THÀNH)
+## 6. QUY TRÌNH VIẾT BLOG CHUẨN SEO CHO NGÀY CỤ THỂ
 
-### 6.1. Thao Tác TẠO MỚI Task (Create Task)
-
-#### A. Cho NGÀY cụ thể (Ví dụ: `17/08/2026`):
-* **User Prompt**: `"Cập nhật công việc ngày 17/08 cho tất cả tên miền"`
-* **JSON AI trả về**:
-```json
-[
-  {
-    "domain": "tadu.cloud",
-    "tasks": [
-      {
-        "name": "Phân tích kiến trúc Microservices trên Kubernetes 2026",
-        "meta": "Nội dung SEO chuyên sâu cho hạ tầng Server",
-        "startDate": "2026-08-17T08:00:00",
-        "endDate": "2026-08-17T17:00:00"
-      }
-    ]
-  }
-]
-```
-* **Thuật toán xử lý trên Flutter**:
-  1. Kiểm tra `task.id == null` $\rightarrow$ Thêm mới vào danh sách ngày `17/08/2026`.
-  2. Hiển thị UI preview kèm nút **"Xác nhận lưu công việc ngày 17/08 vào CSDL"**.
-  3. Khi bấm **Xác nhận**: Gọi `POST /tasks/add` $\rightarrow$ Nhận `_id` & `_rev` lưu lại.
-
-#### B. Cho THÁNG (Ví dụ: `Tháng 08/2026`):
-* **User Prompt**: `"Phân bổ công việc tháng 08/2026 cho tất cả tên miền"`
-* **JSON AI trả về**:
-```json
-[
-  {
-    "domain": "tadu.cloud",
-    "tasks": [
-      {
-        "name": "Bài viết Ngày 1: Tối ưu Database PostgreSQL",
-        "startDate": "2026-08-01T08:00:00",
-        "endDate": "2026-08-01T17:00:00"
-      },
-      {
-        "name": "Bài viết Ngày 2: Cấu hình Nginx Load Balancer",
-        "startDate": "2026-08-02T08:00:00",
-        "endDate": "2026-08-02T17:00:00"
-      }
-    ]
-  }
-]
-```
+Khi người dùng gửi lệnh `"Viết blog chuẩn SEO ngày DD/MM"`:
+1. **Lấy danh sách task cần viết**:
+   - Quét tất cả task của ngày đó đang ở trạng thái chưa làm (`done == false`).
+   - Khớp đúng 10 task vừa được tạo/cập nhật mới.
+2. **Thực thi viết bài chi tiết qua Gemini**:
+   - Viết bài blog HTML chuẩn SEO (có thẻ `<h2>`, `<h3>`, `<p>`, `description`, `image_prompt`) bám sát `aiAnalysis` và `writingStyle`.
+   - Lưu bài viết vào kho Soạn bài (`storeArchive` và `pending_articles`).
+3. **Đánh dấu Hoàn thành [Done]**:
+   - Cập nhật `task.done = true`, `task.status = 'done'`, `task.meta = 'Done'`.
+   - Ghi vào CSDL CouchDB qua `POST /tasks/edit`.
+   - Re-pack Timeline: các thanh công việc tự động đổi màu sang **Xanh lá (`bg-emerald-500` - Hoàn thành)**.
 
 ---
 
-### 6.2. Thao Tác CHỈNH SỬA Task (Edit Task)
+## 7. CẤU TRÚC PAYLOAD API COUCHDB
 
-#### A. Cho NGÀY cụ thể:
-* **User Prompt**: `"Sửa bài viết ngày 17/08 của tadu.cloud thành: Hướng dẫn cài đặt Docker trên Ubuntu 24.04"`
-* **JSON AI trả về**:
-```json
-[
-  {
-    "domain": "tadu.cloud",
-    "tasks": [
-      {
-        "id": "task-uuid-101",
-        "name": "Hướng dẫn cài đặt Docker trên Ubuntu 24.04 LTS",
-        "meta": "Cập nhật bài hướng dẫn chi tiết",
-        "startDate": "2026-08-17T08:00:00",
-        "endDate": "2026-08-17T17:00:00"
-      }
-    ]
-  }
-]
-```
-* **Thuật toán xử lý trên Flutter**:
-  1. Khớp `task.id == "task-uuid-101"` trong RAM.
-  2. Cập nhật `name`, `meta`, `startDate`, `endDate`.
-  3. Hiển thị UI preview kèm nút xác nhận.
-  4. Khi bấm **Xác nhận**: Gọi `POST /tasks/edit` gửi `_id`, `_rev`, `name`, `meta`.
-
-#### B. Cho THÁNG:
-* **User Prompt**: `"Sửa toàn bộ tiêu đề bài viết tháng 08 của tadu.cloud theo phong cách chuyên gia tin cậy"`
-* **JSON AI trả về**:
-```json
-[
-  {
-    "domain": "tadu.cloud",
-    "tasks": [
-      {
-        "id": "task-uuid-101",
-        "name": "Bí quyết tối ưu hạ tầng Server dành cho CTO 2026",
-        "meta": "Giải pháp bảo mật và chịu tải cao",
-        "startDate": "2026-08-01T08:00:00",
-        "endDate": "2026-08-01T17:00:00"
-      },
-      {
-        "id": "task-uuid-102",
-        "name": "Chiến lược chống tấn công DDoS cho hệ thống E-commerce",
-        "meta": "Hướng dẫn cấu hình Firewall & CDN",
-        "startDate": "2026-08-02T08:00:00",
-        "endDate": "2026-08-02T17:00:00"
-      }
-    ]
-  }
-]
-```
-
----
-
-### 6.3. Thao Tác HOÀN THÀNH Task (Complete Task)
-
-#### A. Cho NGÀY cụ thể:
-* **User Prompt**: `"Đánh dấu hoàn thành bài viết ngày 17/08 của domain tadu.cloud"`
-* **JSON AI trả về**:
-```json
-[
-  {
-    "domain": "tadu.cloud",
-    "tasks": [
-      {
-        "id": "task-uuid-101",
-        "done": true,
-        "status": "completed"
-      }
-    ]
-  }
-]
-```
-* **Thuật toán xử lý trên Flutter**:
-  1. Khớp `task.id == "task-uuid-101"`.
-  2. Set `task.done = true`, `task.status = 'done'`.
-  3. Khi bấm **Xác nhận**: Gọi `POST /tasks/edit` để lưu trạng thái hoàn thành vào CouchDB.
-
-#### B. Cho THÁNG:
-* **User Prompt**: `"Đánh dấu hoàn thành tất cả task từ ngày 01/08 đến 15/08 của tadu.cloud"`
-* **JSON AI trả về**:
-```json
-[
-  {
-    "domain": "tadu.cloud",
-    "tasks": [
-      { "id": "task-uuid-101", "done": true, "status": "completed" },
-      { "id": "task-uuid-102", "done": true, "status": "completed" },
-      { "id": "task-uuid-103", "done": true, "status": "completed" }
-    ]
-  }
-]
-```
-
----
-
-### 6.4. Thao Tác XÓA Task (Delete Task)
-
-* **User Prompt**: `"Xóa công việc bài viết VPS ngày 17/08"`
-* **JSON AI trả về**:
-```json
-[
-  {
-    "domain": "tadu.cloud",
-    "tasks": [
-      {
-        "id": "task-uuid-101",
-        "_deleted": true
-      }
-    ]
-  }
-]
-```
-* **Thuật toán xử lý trên Flutter**:
-  1. Nếu có `id`: Xóa task có `id` khớp khỏi danh sách RAM.
-  2. Nếu không có `id` nhưng có `startDate`: Xóa các task trong ngày đó.
-  3. Khi bấm **Xác nhận**: Gọi `POST /tasks/delete` lên CouchDB.
-
----
-
-## 7. CẤU TRÚC PAYLOAD API COUCHDB TRÊN FLUTTER MOBILE
-
-Khi người dùng nhấn nút **"Xác nhận lưu vào CSDL"**, Flutter Mobile thực thi các request HTTP sau:
-
-### 7.1. Payload POST `/tasks/add` (Thêm Task Mới)
+### 7.1. Thêm mới Task (`POST /tasks/add`)
 ```json
 {
   "username": "user_name_account",
   "task": {
-    "name": "Hướng dẫn tối ưu hóa hạ tầng Cloud VPS cho doanh nghiệp 2026",
-    "meta": "Bài viết phân tích chuyên sâu về tốc độ và bảo mật Cloud VPS.",
-    "domain_id": "tadu.cloud",
-    "domain": "tadu.cloud",
-    "startDate": "2026-08-17T08:00:00",
-    "endDate": "2026-08-17T17:00:00",
+    "name": "Tiêu đề bài viết chuẩn SEO...",
+    "meta": "Mô tả bài viết SEO...",
+    "domain_id": "type.vn",
+    "domain": "type.vn",
+    "startDate": "2026-08-18T08:00:00",
+    "endDate": "2026-08-18T17:00:00",
+    "done": false,
+    "status": "pending",
+    "percent": 0,
     "canResizeLeft": true,
     "canResizeRight": true,
     "canDragX": true,
@@ -355,36 +183,46 @@ Khi người dùng nhấn nút **"Xác nhận lưu vào CSDL"**, Flutter Mobile 
 }
 ```
 
-### 7.2. Payload POST `/tasks/edit` (Cập Nhật Hoặc Đánh Dấu Hoàn Thành)
+### 7.2. Cập nhật Task (`POST /tasks/edit`)
 ```json
 {
   "username": "user_name_account",
   "task": {
     "_id": "task-uuid-101",
     "id": "task-uuid-101",
-    "_rev": "1-a87f9b2c3d4e5f",
-    "name": "Hướng dẫn cài đặt Docker trên Ubuntu 24.04 LTS",
-    "meta": "Done",
-    "done": true,
-    "status": "completed",
-    "domain_id": "tadu.cloud",
-    "domain": "tadu.cloud",
-    "startDate": "2026-08-17T08:00:00",
-    "endDate": "2026-08-17T17:00:00"
+    "_rev": "1-rev-hash",
+    "name": "Tiêu đề bài viết mới...",
+    "meta": "Mô tả mới...",
+    "domain_id": "type.vn",
+    "domain": "type.vn",
+    "startDate": "2026-08-18T08:00:00",
+    "endDate": "2026-08-18T17:00:00",
+    "done": false,
+    "status": "pending",
+    "percent": 0
+  }
+}
+```
+
+### 7.3. Xóa Task Dư Thừa (`POST /tasks/delete`)
+```json
+{
+  "username": "user_name_account",
+  "task": {
+    "_id": "excess-task-uuid-999",
+    "id": "excess-task-uuid-999",
+    "_rev": "1-rev-hash",
+    "domain_id": "type.vn"
   }
 }
 ```
 
 ---
 
-## 8. BẢNG TÓM TẮT CHEAT-SHEET CHO TEAM FLUTTER MOBILE
+## 8. BẢNG CHEAT-SHEET TỔNG KẾT CHO TEAM FLUTTER & WEB
 
-| Thao tác | Phạm vi | Dấu hiệu JSON AI trả về | Xử lý logic Flutter Mobile | API CouchDB gọi |
+| Hành động | Điều kiện đầu vào | Xử lý AI / Preview | Xử lý CSDL & RAM khi Xác nhận | Trạng thái Timeline |
 |---|---|---|---|---|
-| **TẠO MỚI** | NGÀY | `tasks` không có `id`, có `startDate` = `08:00:00` | Append task mới vào ngày | `POST /tasks/add` |
-| **TẠO MỚI** | THÁNG | `tasks` không có `id`, rải đều các ngày | Append các task mới vào tháng | `POST /tasks/add` |
-| **CHỈNH SỬA** | NGÀY | Có `id` + `name`/`meta` mới | Update `name`/`meta` cho task có `id` khớp | `POST /tasks/edit` |
-| **CHỈNH SỬA** | THÁNG | Mảng danh sách `id` + `name`/`meta` mới | Update tiêu đề/mô tả hàng loạt | `POST /tasks/edit` |
-| **HOÀN THÀNH** | NGÀY | Có `id` + `done: true` | Set `done = true`, `status = 'completed'` | `POST /tasks/edit` |
-| **HOÀN THÀNH** | THÁNG | Mảng danh sách `id` + `done: true` | Set `done = true` hàng loạt cho tháng | `POST /tasks/edit` |
-| **XÓA TASK** | NGÀY/THÁNG | Có `id` + `_deleted: true` | Filter loại bỏ task khỏi danh sách RAM | `POST /tasks/delete` |
+| **Cập nhật ngày DD/MM** | Người dùng chọn ngày DD/MM | AI sinh số bài = `dailyTarget` của từng domain hợp lệ trong `contextData`. | Ghi đè task mới, **XÓA SẠCH task cũ dư thừa** qua `/tasks/delete`. | Đổi màu sang **Vàng (`bg-amber-400` - Chưa làm)**, số lượng co về đúng số task mới. |
+| **Viết blog SEO ngày DD/MM** | Lệnh viết blog ngày DD/MM | Gemini viết nội dung HTML chi tiết, lưu vào kho Soạn bài. | Gọi `/tasks/edit` set `done: true, status: 'done'`. | Đổi màu sang **Xanh lá (`bg-emerald-500` - Đã xong)**. |
+| **Phân bổ tháng MM/YYYY** | Người dùng chọn phân bổ tháng | AI phân bổ dàn trải các ngày làm việc trong tháng. | Xóa plan cũ của tháng, thêm mới toàn bộ qua `/tasks/add`. | Hiển thị toàn bộ lịch của tháng. |

@@ -161,7 +161,7 @@
                             <!-- Chat Messages (Hiển thị 10 tin nhắn mới nhất) -->
                             <ng-container *ngFor="let msg of chatHistory.slice(-10)">
                                 <div class="flex flex-col w-full mb-2" [ngClass]="msg.role === 'user' ? 'items-end' : 'items-start'">
-                                    <div class="max-w-[95%] rounded-2xl px-4 py-3 text-base overflow-hidden break-words"
+                                    <div class="max-w-[95%] rounded-2xl px-4 py-3 text-base overflow-hidden break-words shadow-2xs"
                                          [ngClass]="msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'">
                                         
                                         <div *ngIf="msg.role === 'model'" class="whitespace-normal break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 markdown-content overflow-hidden" [innerHTML]="msg.content | markdown"></div>
@@ -178,6 +178,19 @@
                                                  <span class="ml-2">{{ msg.confirmData?.buttonText || 'Xác nhận lưu vào CSDL' }}</span>
                                             </button>
                                         </div>
+                                    </div>
+
+                                    <!-- Footer dưới mỗi bong bóng: Thời gian, Nút Copy, Nút Hỏi lại -->
+                                    <div class="flex items-center gap-2 mt-1 px-1 text-xs text-gray-400 select-none" [ngClass]="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                                        <span>{{ getMessageTime(msg) }}</span>
+                                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
+                                            <span class="text-[11px]">Copy</span>
+                                        </button>
+                                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại nội dung này">
+                                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                                            <span class="text-[11px]">Hỏi lại</span>
+                                        </button>
                                     </div>
                                 </div>
                             </ng-container>
