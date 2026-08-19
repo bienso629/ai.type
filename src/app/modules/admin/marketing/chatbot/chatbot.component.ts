@@ -45,6 +45,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     filteredFileRows: any[] = [];
     fileSearchText: string = '';
     isLoadingFiles: boolean = false;
+    selectedFolderPath: string = '';
+    fileTableRowHeight: number = 92;
 
     // Quản lý Right Sidebar Hộp Thoại đã chat
     showThreadsSidebar: boolean = true;
@@ -822,6 +824,89 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             });
     }
 
+    async selectFolder(): Promise<void> {
+        const electron = (window as any).electron;
+        if (electron && electron.invoke) {
+            try {
+                const folderPath = await electron.invoke('select-folder-dialog', this.selectedFolderPath || undefined);
+                if (folderPath) {
+                    this.selectedFolderPath = folderPath;
+                    localStorage.setItem('chatbot_document_folder_path', folderPath);
+                    this.multiAccountService.setItem('chatbot_document_folder_path', folderPath);
+                    this.toastr.success(`Đã chọn thư mục: ${this.getFolderBaseName(folderPath)}`);
+                    await this.loadFilesFromFolder(folderPath);
+                }
+            } catch (err: any) {
+                console.error('Error selecting folder:', err);
+                this.toastr.error('Không thể chọn thư mục.');
+            }
+        } else {
+            this.toastr.info('Tính năng chọn thư mục cục bộ khả dụng trên ứng dụng Desktop.');
+        }
+    }
+
+    async loadFilesFromFolder(folderPath: string): Promise<void> {
+        if (!folderPath) return;
+        const electron = (window as any).electron;
+        if (electron && electron.invoke) {
+            this.isLoadingFiles = true;
+            this.cd.markForCheck();
+            try {
+                const res = await electron.invoke('list-documents-in-folder', folderPath);
+                this.isLoadingFiles = false;
+                if (res && res.success) {
+                    this.fileRows = res.files || [];
+                    this.applyFileFilter();
+                } else {
+                    this.toastr.warning(res?.error || 'Không thể quét tệp trong thư mục.');
+                    this.fileRows = [];
+                    this.applyFileFilter();
+                }
+            } catch (err) {
+                this.isLoadingFiles = false;
+                console.error('Error loading files from folder:', err);
+            } finally {
+                this.cd.markForCheck();
+            }
+        }
+    }
+
+    clearSelectedFolder(): void {
+        this.selectedFolderPath = '';
+        localStorage.removeItem('chatbot_document_folder_path');
+        this.multiAccountService.setItem('chatbot_document_folder_path', '');
+        this.loadFileRows();
+        this.toastr.info('Đã quay về danh sách tài liệu trên máy chủ.');
+    }
+
+    refreshFiles(): void {
+        if (this.selectedFolderPath) {
+            this.loadFilesFromFolder(this.selectedFolderPath);
+        } else {
+            this.loadFileRows();
+        }
+    }
+
+    getFolderBaseName(folderPath: string): string {
+        if (!folderPath) return '';
+        const parts = folderPath.split(/[\\/]/).filter(p => p.trim());
+        return parts.pop() || folderPath;
+    }
+
+    async openLocalFile(filePath: string): Promise<void> {
+        const electron = (window as any).electron;
+        if (electron && electron.invoke && filePath) {
+            await electron.invoke('open-file-path', filePath);
+        }
+    }
+
+    async showFileInFolder(filePath: string): Promise<void> {
+        const electron = (window as any).electron;
+        if (electron && electron.invoke && filePath) {
+            await electron.invoke('show-item-in-folder', filePath);
+        }
+    }
+
     loadFileRows(): void {
         if (!this.user?.name) return;
         this.isLoadingFiles = true;
@@ -852,7 +937,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             const q = this.fileSearchText.toLowerCase().trim();
             this.filteredFileRows = this.fileRows.filter(f => 
                 (f.filename && f.filename.toLowerCase().includes(q)) ||
-                (f.doc_type && f.doc_type.toLowerCase().includes(q))
+                (f.doc_type && f.doc_type.toLowerCase().includes(q)) ||
+                (f.filePath && f.filePath.toLowerCase().includes(q))
             );
         }
         this.cd.markForCheck();
@@ -1621,7 +1707,14 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 this.initDB();
                 this.alldomains();
                 this.loadChatbotSettings();
-                this.loadFileRows();
+
+                const savedFolderPath = localStorage.getItem('chatbot_document_folder_path') || this.multiAccountService.getItem('chatbot_document_folder_path');
+                if (savedFolderPath) {
+                    this.selectedFolderPath = savedFolderPath;
+                    this.loadFilesFromFolder(savedFolderPath);
+                } else {
+                    this.loadFileRows();
+                }
             });
 
         // Subscribe to config changes
