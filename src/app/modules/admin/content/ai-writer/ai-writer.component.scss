@@ -475,3 +475,36 @@ mat-list-option {
     box-shadow: none !important;
     outline: none !important;
 }
+
+::ng-deep .example-list.audio {
+    .example-box {
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+
+::ng-deep .audio-player-wrapper,
+::ng-deep .audio-player-wrapper audio,
+::ng-deep .example-list.audio audio,
+::ng-deep audio {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+::ng-deep .audio-player-wrapper audio::-webkit-media-controls-enclosure,
+::ng-deep .example-list.audio audio::-webkit-media-controls-enclosure,
+::ng-deep .audio-player-wrapper audio::-webkit-media-controls-panel,
+::ng-deep .example-list.audio audio::-webkit-media-controls-panel,
+::ng-deep audio::-webkit-media-controls-enclosure,
+::ng-deep audio::-webkit-media-controls-panel {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}

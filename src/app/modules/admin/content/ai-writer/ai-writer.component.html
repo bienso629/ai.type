@@ -625,7 +625,7 @@
                             [selectedIndex]="selectedIndex" (selectedTabChange)="changetab($event)">
                             <!-- chứa media, chatgpt,... -->
                             <mat-tab
-                                label="{{ 'app.paragraph' | transloco }} ({{source.chatgpt.length + source.word.length + source.text.length + source.img.length + source.source.length + source.a.length}})">
+                                label="{{ 'app.paragraph' | transloco }} ({{source.chatgpt.length + source.word.length + source.text.length + source.img.length + (source.audios ? source.audios.length : 0) + source.source.length + source.a.length}})">
                                 <mat-accordion MatAccordionDisplayMode="flat" multi>
                                     <div class="border border-primary ring-[4px] ring-primary/20 rounded-xl overflow-hidden mb-4 bg-white" *ngIf="source.prompt && source.prompt.length >= 0">
                                         <mat-expansion-panel [expanded]="expanded" class="shadow-none !border-none m-0">
@@ -819,7 +819,7 @@
                                                                 [svgIcon]="'feather:code'"></mat-icon>
                                                             <span>HTML code</span>
                                                         </button>
-                                                        <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
+                                                        <button mat-menu-item (click)="tomp3(item, source.text, i)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
                                                             <span>{{ 'app.convert_to_mp3' | transloco }}</span>
@@ -1062,10 +1062,78 @@
                                         </div>
                                     </mat-expansion-panel>
 
+                                    <mat-expansion-panel [expanded]="expanded">
+                                        <mat-expansion-panel-header #panelAudios>
+                                            <mat-panel-title (click)="panelAudios._toggle()" class="flex items-center">
+                                                <mat-icon class="icon-size-4 mr-2 text-violet-500"
+                                                    [svgIcon]="'feather:volume-2'"></mat-icon>
+                                                <mat-label class="font-semibold">Audio đã chọn
+                                                    ({{source.audios ? source.audios.length : 0}})</mat-label>
 
+                                                <input hidden type="file" multiple class="file-input"
+                                                    (change)="createAudio($event)" accept='audio/*' #audioUpload>
 
+                                                <button mat-icon-button class="ml-auto icon-size-8"
+                                                    (click)="audioUpload.click(); $event.stopPropagation()"
+                                                    matTooltipPosition="above"
+                                                    [matTooltip]="'Tải lên audio từ máy tính'">
+                                                    <mat-icon class="icon-size-4 text-primary"
+                                                        [svgIcon]="'heroicons_outline:upload'"></mat-icon>
+                                                </button>
 
+                                                <button mat-icon-button class="ml-0 icon-size-8"
+                                                    (click)="openText2SpeechDialog(); $event.stopPropagation()"
+                                                    matTooltipPosition="above"
+                                                    [matTooltip]="'Tạo giọng đọc mới'">
+                                                    <mat-icon class="icon-size-4 text-primary"
+                                                        [svgIcon]="'feather:file-plus'"></mat-icon>
+                                                </button>
+                                            </mat-panel-title>
+                                        </mat-expansion-panel-header>
 
+                                        <div cdkDropList #audioList="cdkDropList" [cdkDropListData]="source.audios"
+                                            [cdkDropListConnectedTo]="[doneList, emptyList]" class="example-list audio"
+                                            (cdkDropListDropped)="drop($event)">
+                                            <ng-container *ngIf="source.audios && source.audios.length > 0">
+                                                <div class="flex items-center example-box p-1 !bg-transparent !border-none !shadow-none"
+                                                    *ngFor="let item of source.audios; let i = index;" cdkDrag>
+                                                    <div class="flex-1 min-w-0 break-words"
+                                                        [innerHTML]="item | renderTrustHTML">
+                                                    </div>
+
+                                                    <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
+                                                        <button mat-icon-button class="icon-size-8"
+                                                            [matMenuTriggerFor]="menu">
+                                                            <mat-icon>more_horiz</mat-icon>
+                                                        </button>
+
+                                                        <mat-menu #menu="matMenu">
+                                                            <button mat-menu-item
+                                                                (click)="copyto(item)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4 text-primary"
+                                                                    [svgIcon]="'feather:arrow-right'"></mat-icon>
+                                                                <span>{{ 'app.move_to_outline' | transloco }}</span>
+                                                            </button>
+                                                            <button mat-menu-item
+                                                                (click)="uploadSingleAudioToArchive(item, i)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4 text-emerald-600"
+                                                                    [svgIcon]="'feather:globe'"></mat-icon>
+                                                                <span>Upload lên Archive.org</span>
+                                                            </button>
+                                                            <button mat-menu-item [color]="'primary'" type="button"
+                                                                (click)="clearitem(i, source.audios)">
+                                                                <mat-icon class="icon-size-4 text-red-500"
+                                                                    svgIcon="feather:trash"></mat-icon>
+                                                                <span>Xoá audio</span>
+                                                            </button>
+                                                        </mat-menu>
+                                                    </div>
+                                                </div>
+                                            </ng-container>
+                                        </div>
+                                    </mat-expansion-panel>
 
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelHTML>
@@ -2431,27 +2499,17 @@
                             <!-- <h2 class="text-base font-semibold border-b border-dashed border-opacity-70 py-2">{{ 'app.auto_preview' | transloco }}</h2> -->
                             <mat-tab-group class="mt-0 flex-1 min-h-0 custom-scrollable-tabs" mat-stretch-tabs="false" [selectedIndex]="rightSelectedIndex" (selectedTabChange)="changeRightTab($event)"
                                 [animationDuration]="'0'">
-                                <mat-tab label="{{ 'app.outline' | transloco }}">
+                                <mat-tab>
+                                    <ng-template mat-tab-label>
+                                        <div class="flex items-center gap-2">
+                                            <span>{{ 'app.outline' | transloco }}</span>
+                                            <mat-progress-spinner *ngIf="isRefreshingOutline" [diameter]="16" [strokeWidth]="2" mode="indeterminate" color="primary"></mat-progress-spinner>
+                                        </div>
+                                    </ng-template>
                                     <mat-accordion MatAccordionDisplayMode="flat" multi>
                                         <mat-expansion-panel [expanded]="expanded">
-                                            <!-- <mat-expansion-panel-header #panelDone>
-                                                    <mat-panel-title (click)="panelDone._toggle()"
-                                                        class="flex items-center">
-                                                        <mat-label>Cần có {{ seo['words'] }}/600 từ, {{ seo['links']
-                                                            }}/5 link, {{
-                                                            seo['heading']['h1'] + seo['heading']['h2'] }}/3 {{ 'app.headings_count_label' | transloco }}, {{
-                                                            seo['images'] }}/1 {{ 'app.images_count_label' | transloco }}</mat-label>
-                                                        <button class="ml-2" matTooltipPosition="left" [matTooltip]="'app.auto_delete_the_entire_outline' | transloco"
-                                                            mat-icon-button [color]="'warn'" type="button"
-                                                            (click)="clear(done)">
-                                                            <mat-icon class="icon-size-4"
-                                                                svgIcon="feather:trash"></mat-icon>
-                                                        </button>
-                                                    </mat-panel-title>
-                                                </mat-expansion-panel-header> -->
-
                                             <div cdkDropList #doneList="cdkDropList" [cdkDropListData]="done"
-                                                [cdkDropListConnectedTo]="[emptyList, textList]"
+                                                [cdkDropListConnectedTo]="[emptyList, textList, audioList, imgList, sourceYoutubeList, wordList, sourceList, preList, aList]"
                                                 class="pt-2 pb-1 example-list text" (cdkDropListDropped)="drop($event)">
                                                 <div class="example-box-result p-2 flex flex-row items-center relative mb-2"
                                                     *ngFor="let item of done; let i = index" cdkDrag
@@ -2480,7 +2538,7 @@
                                                                     [svgIcon]="'feather:copy'"></mat-icon>
                                                                 <span>{{ 'app.copy' | transloco }}</span>
                                                             </button>
-                                                            <button mat-menu-item (click)="tomp3(item)"
+                                                            <button mat-menu-item (click)="tomp3(item, done, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:volume-2'"></mat-icon>
@@ -2581,7 +2639,7 @@
                                     </div>
                                     <div class="example-container w-full">
                                         <div cdkDropList #emptyList="cdkDropList" [cdkDropListData]="trash"
-                                            [cdkDropListConnectedTo]="[doneList, textList, pList, spanList, labelList, ddList, tdList, liList, iList, h1List, h2List, h3List, h4List, h5List, wordList, imgList, sourceList, preList, aList, sourceYoutubeList]"
+                                            [cdkDropListConnectedTo]="[doneList, textList, pList, spanList, labelList, ddList, tdList, liList, iList, h1List, h2List, h3List, h4List, h5List, wordList, imgList, audioList, sourceList, preList, aList, sourceYoutubeList]"
                                             class="example-list" (cdkDropListDropped)="drop($event)">
                                             <div class="example-box-result p-2 flex flex-row items-center relative mb-2"
                                                 *ngFor="let item of trash" cdkDrag>
@@ -2656,9 +2714,10 @@
                                         <mat-label [ngClass]="{'text-red-500': hasScriptData()}">Tạo kịch bản</mat-label>
                                     </button>
 
-                                    <button mat-menu-item (click)="openRefreshOutlineDialog()">
-                                        <mat-icon class="icon-size-4" svgIcon="feather:refresh-cw"></mat-icon>
-                                        <mat-label>Làm mới lại Dàn ý</mat-label>
+                                    <button mat-menu-item (click)="openRefreshOutlineDialog()" [disabled]="isRefreshingOutline">
+                                        <mat-icon *ngIf="!isRefreshingOutline" class="icon-size-4" svgIcon="feather:refresh-cw"></mat-icon>
+                                        <mat-icon *ngIf="isRefreshingOutline" class="icon-size-4 animate-spin text-primary" svgIcon="feather:loader"></mat-icon>
+                                        <mat-label>{{ isRefreshingOutline ? 'Đang làm mới Dàn ý...' : 'Làm mới lại Dàn ý' }}</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="share()" [color]="'primary'">
@@ -2775,7 +2834,10 @@
 <ng-template #refreshOutlineDialog>
     <div class="flex flex-col h-full bg-card rounded-lg overflow-hidden" style="max-width: 600px; min-width: 400px">
         <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
-            <h2 class="text-xl font-semibold m-0 text-gray-800">Làm mới lại Dàn ý bằng AI</h2>
+            <div>
+                <h2 class="text-xl font-semibold m-0 text-gray-800">Làm mới lại Dàn ý bằng AI</h2>
+                <p class="text-xs text-gray-500 mt-1 mb-0">Hệ thống sẽ tạo một phiên bản mới của Dàn ý để bạn dễ dàng quản lý và chuyển đổi giữa các bản.</p>
+            </div>
             <button mat-icon-button mat-dialog-close [disabled]="isRefreshingOutline">
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
             </button>

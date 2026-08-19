@@ -1,14 +1,20 @@
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslocoModule } from '@ngneat/transloco';
 import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Route, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDividerModule } from '@angular/material/divider';
+import { TranslocoModule } from '@ngneat/transloco';
 import { PolicyComponent } from 'app/modules/microsites/policy/policy.component';
 
-const Routes: Route[] = [
+const routes: Route[] = [
     {
         path: '',
+        component: PolicyComponent
+    },
+    {
+        path: 'privacy-policy',
         component: PolicyComponent
     }
 ];
@@ -18,9 +24,11 @@ const Routes: Route[] = [
         PolicyComponent,
     ],
     imports: [
+        CommonModule,
         TranslocoModule,
         MatTooltipModule,
-        RouterModule.forChild(Routes),
+        MatDividerModule,
+        RouterModule.forChild(routes),
         MatButtonModule,
         MatIconModule,
     ]

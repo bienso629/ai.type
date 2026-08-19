@@ -1,138 +1,327 @@
-<div class="absolute inset-0 flex flex-col bg-white min-w-0 overflow-hidden">
-	<!-- Header -->
-	<div class="flex flex-row flex-0 items-center justify-between p-6">
-		<div class="flex-1 flex-row shrink-0 items-center">
-			<!-- Title -->
-			<label class="uppercase text-primary font-semibold">
-				{{ 'app.auto_ai_type_software_user_guide' | transloco }}
-			</label>
-		</div>
+<div class="policy-page absolute inset-0 flex flex-col bg-white dark:bg-gray-900 min-w-0 overflow-y-auto">
+    <!-- Header Topbar (no-print) -->
+    <header class="no-print sticky top-0 z-50 px-6 py-4 flex items-center bg-white/95 dark:bg-gray-900/95">
+        <button mat-icon-button (click)="goBack()" matTooltip="Quay lại" class="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+            <mat-icon [svgIcon]="'feather:arrow-left'"></mat-icon>
+        </button>
+    </header>
 
-		<!-- Actions -->
-		<div class="flex flex-row shrink-0 items-center">
-			<mat-icon class="icon-size-4 text-primary" svgIcon="feather:help-circle"></mat-icon>
-		</div>
-	</div>
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8 lg:py-8">
+        <!-- Hero Banner -->
+        <div class="bg-white dark:bg-gray-900 p-4 sm:p-6 md:p-8 mb-6">
+            <div class="max-w-3xl">
+                <div class="inline-flex items-center gap-2 text-base font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 mb-3">
+                    <mat-icon class="icon-size-5" [svgIcon]="'feather:shield'"></mat-icon>
+                    <span>Cam kết bảo vệ dữ liệu & quyền riêng tư</span>
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
+                    Chính Sách Quyền Riêng Tư AI.TYPE
+                </h1>
+                <p class="text-base text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
+                    Chào mừng bạn đến với <strong>AI.TYPE</strong> (ứng dụng quản lý công việc, sáng tạo nội dung văn bản và đa phương tiện do Yên AI phát triển). Chúng tôi tôn trọng và cam kết bảo vệ tuyệt đối quyền riêng tư cũng như an toàn dữ liệu số của bạn.
+                </p>
+                <div class="flex flex-wrap items-center gap-4 text-base text-gray-500 dark:text-gray-400 pt-3">
+                    <span class="flex items-center gap-1.5">
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'"></mat-icon>
+                        Cập nhật lần cuối: <strong>19 tháng 08, 2026</strong>
+                    </span>
+                    <span>•</span>
+                    <span class="flex items-center gap-1.5">
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:layers'"></mat-icon>
+                        Phiên bản: <strong>1.2.3</strong>
+                    </span>
+                    <span>•</span>
+                    <span class="flex items-center gap-1.5">
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
+                        Áp dụng: <strong>Desktop App (Win/Mac/Linux) & Web Platform</strong>
+                    </span>
+                </div>
+            </div>
+        </div>
 
-	<!-- Main -->
-	<div class="flex-auto px-6 pb-2 pt-2 overflow-y-auto" cdkScrollable>
-		<section class="_section_1qxdv_129" id="policy-guidelines" data-slot="article-section">
-			<h1 class="_sectionTitle_1qxdv_135 _size:headline-3_tcuns_77 _v2_tcuns_75 _size:headline-3_1nc1d_171">
-				<strong>{{ 'app.auto_principle' | transloco }}</strong> {{ 'app.auto_policy_for_the_gemini_app' | transloco }}</h1>
-			<div class="_sectionBody_1qxdv_154 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247">
-				<p>{{ 'app.auto_our_goal_for_the_gemini_applic' | transloco }}<a href="https://transparency.google/our-approach/our-policy-process/">{{ 'app.auto_processes' | transloco }}</a>{{ 'app.auto_developed_over_many_years_thro' | transloco }}</p>
-			</div>
-			<div class="_sectionBlock_1qxdv_186 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247"
-				data-type="CopyBlock">
-				<div class="_theme:v2_13axi_156 _title:color-black-40_13axi_128">
-					<h2 class="_title_13axi_102 _v2_tcuns_75 _size:headline-5_1nc1d_213 _markdown_1nc1d_326">{{ 'app.auto_content_threatening_the_safety' | transloco }}</h2>
-					<div class="_body_13axi_121 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247">
-						<p>{{ 'app.auto_gemini_must_not_generate_resul' | transloco }}</p>
-					</div>
-				</div>
-			</div>
-			<div class="_sectionBlock_1qxdv_186 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247"
-				data-type="CopyBlock">
-				<div class="_theme:v2_13axi_156 _title:color-black-40_13axi_128">
-					<h2 class="_title_13axi_102 _v2_tcuns_75 _size:headline-5_1nc1d_213 _markdown_1nc1d_326">{{ 'app.auto_dangerous_activity' | transloco }}</h2>
-					<div class="_body_13axi_121 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247">
-						<p>{{ 'app.auto_gemini_should_not_generate_res' | transloco }}</p>
-						<ul>
-							<li>
-								<p>{{ 'app.auto_guidance_on_suicide_and_other' | transloco }}</p>
-							</li>
-							<li>
-								<p>{{ 'app.auto_content_that_facilitates_activ' | transloco }}</p>
-							</li>
-						</ul>
-					</div>
-				</div>
-			</div>
-			<div class="_sectionBlock_1qxdv_186 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247"
-				data-type="CopyBlock">
-				<div class="_theme:v2_13axi_156 _title:color-black-40_13axi_128">
-					<h2 class="_title_13axi_102 _v2_tcuns_75 _size:headline-5_1nc1d_213 _markdown_1nc1d_326">{{ 'app.auto_content_violence_and_blood' | transloco }}</h2>
-					<div class="_body_13axi_121 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247">
-						<p>{{ 'app.auto_gemini_is_not_allowed_to_gener' | transloco }}</p>
-						<ul>
-							<li>
-								<p>{{ 'app.auto_content_that_is_too_bloody_gor' | transloco }}</p>
-							</li>
-							<li>
-								<p>{{ 'app.auto_content_describing_senseless_v' | transloco }}</p>
-							</li>
-						</ul>
-					</div>
-				</div>
-			</div>
-			<div class="_sectionBlock_1qxdv_186 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247"
-				data-type="CopyBlock">
-				<div class="_theme:v2_13axi_156 _title:color-black-40_13axi_128">
-					<h2 class="_title_13axi_102 _v2_tcuns_75 _size:headline-5_1nc1d_213 _markdown_1nc1d_326">{{ 'app.auto_false_information_can_be_harmf' | transloco }}</h2>
-					<div class="_body_13axi_121 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247">
-						<p>{{ 'app.auto_gemini_must_not_generate_false' | transloco }}</p>
-						<ul>
-							<li>
-								<p>{{ 'app.auto_medical_information_that_contr' | transloco }}</p>
-							</li>
-							<li>
-								<p>{{ 'app.auto_inaccurate_information_threate' | transloco }}</p>
-							</li>
-						</ul>
-					</div>
-				</div>
-			</div>
-			<div class="_sectionBlock_1qxdv_186 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247"
-				data-type="CopyBlock">
-				<div class="_theme:v2_13axi_156 _title:color-black-40_13axi_128">
-					<h2 class="_title_13axi_102 _v2_tcuns_75 _size:headline-5_1nc1d_213 _markdown_1nc1d_326">{{ 'app.auto_content_is_harassing_provocati' | transloco }}</h2>
-					<div class="_body_13axi_121 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247">
-						<p>{{ 'app.auto_gemini_should_not_produce_resu' | transloco }}</p>
-						<ul>
-							<li>
-								<p>{{ 'app.auto_content_that_calls_for_assault' | transloco }}
-								</p>
-							</li>
-							<li>
-								<p>{{ 'app.auto_content_that_demeans_human_dig' | transloco }}</p>
-							</li>
-							<li>
-								<p>Suggestions that protected groups are less than human or inferior, such as malicious
-									comparisons to animals or suggestions that they are fundamentally evil.</p>
-							</li>
-						</ul>
-					</div>
-				</div>
-			</div>
-			<div class="_sectionBlock_1qxdv_186 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247"
-				data-type="CopyBlock">
-				<div class="_theme:v2_13axi_156 _title:color-black-40_13axi_128">
-					<h2 class="_title_13axi_102 _v2_tcuns_75 _size:headline-5_1nc1d_213 _markdown_1nc1d_326">{{ 'app.auto_pornographic_content' | transloco }}</h2>
-					<div class="_body_13axi_121 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247">
-						<p>{{ 'app.auto_gemini_must_not_generate_resul_1' | transloco }}</p>
-						<ul>
-							<li>
-								<p>{{ 'app.auto_pornographic_or_erotic_content' | transloco }}</p>
-							</li>
-							<li>
-								<p>{{ 'app.auto_content_describing_rape_sexual' | transloco }}</p>
-							</li>
-						</ul>
-					</div>
-				</div>
-			</div>
-			<div class="_sectionBlock_1qxdv_186 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247"
-				data-type="CopyBlock">
-				<div class="_theme:v2_13axi_156 _border-top_13axi_162">
-					<div class="_body_13axi_121 _size:body_tcuns_85 _v2_tcuns_75 _size:body_1nc1d_247">
-						<p>{{ 'app.auto_of_course_context_plays_an_imp' | transloco }}</p>
-						<p>{{ 'app.auto_ensuring_that_gemini_complies' | transloco }}<a
-								href="https://support.google.com/legal/troubleshooter/1114905?sjid=7874916581349042271-NC&amp;hl=vi-VN#ts=1115658%2C13380504">{{ 'app.auto_convenient_tools_for_users_to' | transloco }}</a>{{ 'app.auto_nbsp_according_to_our_policy' | transloco }}<a
-								href="https://policies.google.com/terms/generative-ai/use-policy">{{ 'app.auto_policy_on_prohibited_behaviors' | transloco }}</a> {{ 'app.auto_ours' | transloco }}</p>
-						<p>{{ 'app.auto_we_will_continue_to_explore_ho' | transloco }}<a href="https://gemini.google/our-approach/">{{ 'app.auto_here' | transloco }}</a>{{ 'app.auto_about_our_approach_in_building' | transloco }}</p>
-					</div>
-				</div>
-			</div>
-		</section>
-	</div>
+        <!-- Layout Grid: Sidebar TOC + Policy Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Sticky Sidebar (Table of Contents) -->
+            <aside class="no-print lg:col-span-4 sticky top-20">
+                <div class="bg-gray-50 dark:bg-gray-850 p-5 rounded-2xl">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4 flex items-center gap-2">
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:list'"></mat-icon>
+                        <span>Mục lục điều khoản</span>
+                    </h3>
+                    <nav class="flex flex-col space-y-1">
+                        <button *ngFor="let s of sections" (click)="scrollTo(s.id)"
+                            class="text-left py-2.5 px-3.5 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
+                            [ngClass]="{'!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 font-semibold': activeSection === s.id}">
+                            {{ s.title }}
+                        </button>
+                    </nav>
+
+                    <div class="mt-6 pt-4">
+                        <div class="flex items-center gap-2 text-base text-gray-500 dark:text-gray-400">
+                            <mat-icon class="icon-size-5 text-emerald-500" [svgIcon]="'feather:lock'"></mat-icon>
+                            <span>Hỗ trợ bảo vệ mã hóa AES-256 cục bộ</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Policy Content Column -->
+            <article class="lg:col-span-8 policy-content space-y-8 text-gray-800 dark:text-gray-200">
+                
+                <!-- Section 1 -->
+                <section id="intro" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">1.</span> Giới thiệu chung
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>
+                            Chính sách Quyền riêng tư này quy định cách thức <strong>AI.TYPE</strong> (được vận hành bởi Yên AI, tại website <a href="https://ai.type.vn" target="_blank" class="text-blue-600 dark:text-blue-400 underline">https://ai.type.vn</a>) thu thập, lưu trữ, sử dụng và bảo vệ thông tin khi bạn sử dụng các phần mềm ứng dụng máy tính (Desktop App), tiện ích mở rộng, dịch vụ đám mây và website chính thức (gọi chung là "<strong>Dịch vụ</strong>").
+                        </p>
+                        <p>
+                            Bằng việc cài đặt, đăng ký hoặc sử dụng bất kỳ phần nào của Dịch vụ, bạn xác nhận đã đọc, hiểu và đồng ý với các điều khoản trong chính sách này. Nếu bạn không đồng ý với bất kỳ điều khoản nào, vui lòng ngưng sử dụng phần mềm và dịch vụ của chúng tôi.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Section 2 -->
+                <section id="info-collected" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">2.</span> Thông tin chúng tôi thu thập
+                    </h2>
+                    <div class="space-y-6 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>Chúng tôi thu thập thông tin thông qua ba phương thức chính:</p>
+                        
+                        <div class="bg-gray-50 dark:bg-gray-800 p-5 rounded-xl">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                                <mat-icon class="icon-size-5 text-blue-500" [svgIcon]="'feather:user'"></mat-icon>
+                                2.1. Thông tin do bạn trực tiếp cung cấp
+                            </h3>
+                            <ul class="list-disc list-inside space-y-2 text-base">
+                                <li><strong>Thông tin tài khoản:</strong> Tên người dùng (username), địa chỉ email, ảnh đại diện và token kích hoạt bản quyền phần mềm.</li>
+                                <li><strong>Nội dung người dùng (User Content):</strong> Các câu lệnh prompt, dàn ý bài viết, nội dung bài viết, từ khóa SEO, file văn bản (PDF, DOCX, Markdown), hình ảnh tham khảo và file âm thanh/video do bạn tải lên hoặc biên tập.</li>
+                                <li><strong>Khóa API cá nhân (Custom API Keys):</strong> Trong trường hợp bạn thiết lập sử dụng API cá nhân (Google Gemini API, OpenAI API, SerpAPI), các khóa này được lưu trữ an toàn để thực thi tác vụ theo yêu cầu của bạn.</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-gray-50 dark:bg-gray-800 p-5 rounded-xl">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                                <mat-icon class="icon-size-5 text-purple-500" [svgIcon]="'feather:cpu'"></mat-icon>
+                                2.2. Thông tin thu thập tự động
+                            </h3>
+                            <ul class="list-disc list-inside space-y-2 text-base">
+                                <li><strong>Thông tin thiết bị & kỹ thuật:</strong> Địa chỉ IP, định danh thiết bị ẩn danh (Device UUID), loại hệ điều hành (Windows, macOS, Linux), phiên bản phần mềm, cấu hình đồ họa hỗ trợ xử lý AI (WebGPU/WASM) và nhật ký lỗi (crash logs).</li>
+                                <li><strong>Thông tin vận hành cục bộ:</strong> Cấu hình lưu trữ bộ nhớ đệm (IndexedDB/Dexie, Electron Store) để đảm bảo tốc độ phản hồi nhanh khi bạn soạn thảo văn bản offline.</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-gray-50 dark:bg-gray-800 p-5 rounded-xl">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                                <mat-icon class="icon-size-5 text-amber-500" [svgIcon]="'feather:share-2'"></mat-icon>
+                                2.3. Thông tin từ các nền tảng liên kết
+                            </h3>
+                            <p class="text-base">
+                                Khi bạn kích hoạt tính năng đồng bộ hoặc đăng bài tự động tới WordPress, GoLogin, TikTok, Zalo hoặc kênh mạng xã hội, chúng tôi nhận các thông tin xác thực (token/cookie) chỉ với mục đích thực hiện tác vụ mà bạn đã ủy quyền.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 3 -->
+                <section id="how-we-use" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">3.</span> Cách chúng tôi sử dụng thông tin
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>Thông tin thu thập được chỉ được sử dụng cho các mục đích hợp pháp sau:</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl">
+                                <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-1">Cung cấp & vận hành tính năng AI</h4>
+                                <p class="text-base text-gray-600 dark:text-gray-400">Sinh dàn ý tự động, viết bài chuẩn SEO, chuyển văn bản thành giọng đọc (TTS), phân tích nội dung video thành bài viết.</p>
+                            </div>
+                            <div class="p-4 bg-teal-50/60 dark:bg-teal-950/30 rounded-xl">
+                                <h4 class="font-semibold text-teal-900 dark:text-teal-300 mb-1">Quản lý phiên bản & lưu trữ</h4>
+                                <p class="text-base text-gray-600 dark:text-gray-400">Tự động tạo và lưu trữ các phiên bản lịch sử của dàn ý và bài viết để bạn có thể xem lại hoặc hoàn tác bất cứ lúc nào.</p>
+                            </div>
+                            <div class="p-4 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-xl">
+                                <h4 class="font-semibold text-indigo-900 dark:text-indigo-300 mb-1">Bảo mật & mã hóa nội dung</h4>
+                                <p class="text-base text-gray-600 dark:text-gray-400">Áp dụng mã hóa AES-256 theo mật khẩu riêng của bạn để bảo vệ các tài liệu quan trọng trước khi lưu hoặc truyền tải.</p>
+                            </div>
+                            <div class="p-4 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl">
+                                <h4 class="font-semibold text-amber-900 dark:text-amber-300 mb-1">Hỗ trợ kỹ thuật & cập nhật</h4>
+                                <p class="text-base text-gray-600 dark:text-gray-400">Khắc phục sự cố phần mềm, cung cấp bản vá lỗi và thông báo tính năng mới qua hệ thống cập nhật tự động.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 4 -->
+                <section id="third-party-sharing" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">4.</span> Chia sẻ thông tin & Tích hợp bên thứ ba
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p class="font-medium text-gray-900 dark:text-white">
+                            Chúng tôi <strong>KHÔNG BÁN</strong> dữ liệu cá nhân hay nội dung sáng tạo của bạn cho bất kỳ bên thứ ba nào.
+                        </p>
+                        <p>Dữ liệu chỉ được truyền tải tới các nhà cung cấp hạ tầng cần thiết khi bạn chủ động kích hoạt tính năng:</p>
+
+                        <!-- Callout box for Third parties -->
+                        <div class="space-y-3">
+                            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                <div class="font-semibold text-gray-900 dark:text-white mb-1">Dịch vụ Trí tuệ Nhân tạo (AI Providers):</div>
+                                <p class="text-base">Khi bạn yêu cầu viết bài, tóm tắt hoặc tạo ảnh, nội dung prompt sẽ được chuyển tới Google Gemini API hoặc OpenAI API theo giao thức bảo mật mã hóa SSL/TLS để xử lý và trả về kết quả cho bạn.</p>
+                            </div>
+
+                            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                <div class="font-semibold text-gray-900 dark:text-white mb-1">Dịch vụ YouTube API (YouTube API Services):</div>
+                                <p class="text-base leading-relaxed">
+                                    Một số tính năng phân tích video và trích xuất phụ đề sử dụng Dịch vụ YouTube API. Khi sử dụng các tính năng này, bạn đồng ý tuân thủ <a href="https://www.youtube.com/t/terms" target="_blank" class="text-blue-600 dark:text-blue-400 underline font-medium">Điều khoản Dịch vụ của YouTube (YouTube Terms of Service)</a> và <a href="https://policies.google.com/privacy" target="_blank" class="text-blue-600 dark:text-blue-400 underline font-medium">Chính sách Quyền riêng tư của Google (Google Privacy Policy)</a>. Bạn có thể kiểm tra hoặc thu hồi quyền truy cập bất kỳ lúc nào tại <a href="https://security.google.com/settings/security/permissions" target="_blank" class="text-blue-600 dark:text-blue-400 underline font-medium">Trang Cài đặt Bảo mật của Google</a>.
+                                </p>
+                            </div>
+
+                            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                <div class="font-semibold text-gray-900 dark:text-white mb-1">Nền tảng xuất bản (WordPress, Diễn đàn type.vn, Mạng xã hội):</div>
+                                <p class="text-base">Khi bạn chọn xuất bản bài viết, thông tin tiêu đề, bài viết, từ khóa và hình ảnh sẽ được đăng tải trực tiếp tới đích đến mà bạn đã thiết lập.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 5 -->
+                <section id="user-rights" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">5.</span> Quyền và lựa chọn của bạn
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>Bạn luôn có toàn quyền kiểm soát đối với dữ liệu và nội dung sáng tạo của mình:</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-base">
+                            <div class="flex items-start gap-3 p-3.5 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                <mat-icon class="icon-size-5 text-teal-600 shrink-0 mt-0.5" [svgIcon]="'feather:download'"></mat-icon>
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white block">Quyền trích xuất & tải về</strong>
+                                    Bạn có thể xuất toàn bộ dự án, bài viết, từ khóa dưới định dạng JSON, Markdown, Word, PDF bất cứ lúc nào.
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3 p-3.5 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                <mat-icon class="icon-size-5 text-red-600 shrink-0 mt-0.5" [svgIcon]="'feather:trash-2'"></mat-icon>
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white block">Quyền xóa vĩnh viễn</strong>
+                                    Bạn có thể xóa bài viết, phiên bản lịch sử hoặc yêu cầu xóa toàn bộ tài khoản và dữ liệu liên quan.
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3 p-3.5 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                <mat-icon class="icon-size-5 text-blue-600 shrink-0 mt-0.5" [svgIcon]="'feather:key'"></mat-icon>
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white block">Quyền kiểm soát API Key</strong>
+                                    Tự do thay đổi, xóa hoặc ngắt kết nối các API Key cá nhân trong trang Cài đặt tài khoản.
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3 p-3.5 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                <mat-icon class="icon-size-5 text-purple-600 shrink-0 mt-0.5" [svgIcon]="'feather:hard-drive'"></mat-icon>
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white block">Lưu trữ cục bộ (Local-First)</strong>
+                                    Bật tính năng "Lưu cục bộ" để bản sao lưu được lưu trữ độc quyền trên máy tính cá nhân của bạn.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 6 -->
+                <section id="data-security" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">6.</span> An toàn và Bảo mật dữ liệu (Mã hóa AES-256)
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>
+                            Chúng tôi áp dụng các biện pháp kỹ thuật và quy trình quản trị hiện đại để ngăn chặn các truy cập trái phép, sửa đổi, mất mát hoặc rò rỉ dữ liệu:
+                        </p>
+                        
+                        <div class="p-5 bg-teal-50/70 dark:bg-teal-950/40 rounded-xl">
+                            <div class="flex items-center gap-2 font-bold text-teal-900 dark:text-teal-300 text-lg mb-2">
+                                <mat-icon class="icon-size-5 text-teal-600" [svgIcon]="'feather:lock'"></mat-icon>
+                                <span>Công nghệ mã hóa độc quyền chuẩn quân sự AES-256</span>
+                            </div>
+                            <p class="text-base leading-relaxed text-gray-700 dark:text-gray-300">
+                                AI.TYPE cung cấp tính năng khóa bảo vệ bằng mật khẩu trực tiếp cho từng bài viết. Khi bạn đặt mật khẩu, toàn bộ nội dung dàn ý, bài viết và prompt sẽ được mã hóa bằng thuật toán <strong>AES-256</strong> trước khi lưu trữ. Không có bất kỳ ai (kể cả máy chủ hay nhà phát triển) có thể giải mã được tài liệu nếu không có mật khẩu chính xác từ bạn.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 7 -->
+                <section id="data-retention" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">7.</span> Thời hạn lưu trữ dữ liệu
+                    </h2>
+                    <div class="space-y-3 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>
+                            Dữ liệu bài viết và lịch sử phiên bản của bạn được lưu giữ chừng nào tài khoản của bạn còn hoạt động, nhằm phục vụ nhu cầu tra cứu và tái sử dụng nội dung lâu dài.
+                        </p>
+                        <p>
+                            Khi bạn chọn xóa một bài viết hoặc làm trống thùng rác, dữ liệu liên quan sẽ bị xóa vĩnh viễn. Các file tạm phục vụ trích xuất video hoặc âm thanh TTS sẽ được hệ thống dọn dẹp tự động định kỳ.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Section 8 -->
+                <section id="children-policy" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">8.</span> Chính sách bảo vệ trẻ em
+                    </h2>
+                    <div class="space-y-3 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>
+                            AI.TYPE là phần mềm phục vụ công việc sáng tạo nội dung số và quản trị kinh doanh, không hướng tới đối tượng người dùng dưới 13 tuổi. Chúng tôi không cố ý thu thập thông tin cá nhân từ trẻ em. Nếu phụ huynh hoặc người giám hộ phát hiện trẻ em dưới 13 tuổi đã cung cấp thông tin cho chúng tôi mà chưa được cho phép, vui lòng liên hệ để chúng tôi xóa bỏ thông tin đó ngay lập tức.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Section 9 -->
+                <section id="policy-updates" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">9.</span> Cập nhật chính sách
+                    </h2>
+                    <div class="space-y-3 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>
+                            Chúng tôi có thể cập nhật Chính sách Quyền riêng tư này định kỳ nhằm phản ánh những cải tiến tính năng mới hoặc tuân thủ các quy định pháp luật hiện hành. Ngày cập nhật mới nhất sẽ luôn được ghi rõ ở đầu văn bản. Chúng tôi khuyến khích bạn thường xuyên xem lại trang chính sách này để luôn nắm bắt các biện pháp bảo vệ quyền lợi của mình.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Section 10 -->
+                <section id="contact-us" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">10.</span> Liên hệ với chúng tôi
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>Nếu bạn có bất kỳ câu hỏi, khiếu nại hoặc yêu cầu nào liên quan đến quyền riêng tư và dữ liệu của mình, vui lòng liên hệ với chúng tôi qua:</p>
+                        
+                        <div class="bg-gray-50 dark:bg-gray-800 p-5 space-y-3 text-base rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <mat-icon class="icon-size-5 text-blue-600" [svgIcon]="'feather:mail'"></mat-icon>
+                                <span>Email hỗ trợ: <a [href]="'mailto:contact@ai.type.vn'" class="font-semibold text-blue-600 dark:text-blue-400 underline">contact&#64;ai.type.vn</a></span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <mat-icon class="icon-size-5 text-teal-600" [svgIcon]="'feather:globe'"></mat-icon>
+                                <span>Trang chủ: <a href="https://ai.type.vn" target="_blank" class="font-semibold text-teal-600 dark:text-teal-400 underline">https://ai.type.vn</a></span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <mat-icon class="icon-size-5 text-purple-600" [svgIcon]="'feather:message-circle'"></mat-icon>
+                                <span>Cộng đồng: <a href="https://type.vn" target="_blank" class="font-semibold text-purple-600 dark:text-purple-400 underline">https://type.vn</a></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Footer note -->
+                <div class="text-center py-6 text-base text-gray-400 dark:text-gray-500">
+                    AI.TYPE &copy; {{ currentYear }}. Bản quyền thuộc về Yên AI. Tất cả các quyền được bảo lưu.
+                </div>
+
+            </article>
+
+        </div>
+    </main>
 </div>

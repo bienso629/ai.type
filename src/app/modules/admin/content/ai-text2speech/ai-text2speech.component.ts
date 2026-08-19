@@ -1,6 +1,6 @@
-import { AfterViewInit, Component, Inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { AfterViewInit, Component, Inject, OnDestroy, OnInit, Optional, ViewEncapsulation } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { DomSanitizer, Title } from '@angular/platform-browser';
 import { FuseConfigService } from '@fuse/services/config';
 import { AppConfig } from 'app/core/config/app.config';
@@ -38,6 +38,8 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
     removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
 
     audioUrl: string | null = null;
+    generatedAudioUrl: string | null = null;
+    isGenerating: boolean = false;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -51,7 +53,8 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
         private toastr: ToastrService,
         private router: Router,
         private titleService: Title,
-        @Inject(MAT_DIALOG_DATA) public data: any,
+        @Optional() @Inject(MAT_DIALOG_DATA) public data: any,
+        @Optional() public dialogRef?: MatDialogRef<AIText2SpeechComponent>,
     ) {
         this.titleService.setTitle(`text2speech | ai.type - công cụ tạo content`);
 
@@ -92,6 +95,12 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
     ngOnDestroy(): void {
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
+    }
+
+    close() {
+        if (this.dialogRef) {
+            this.dialogRef.close();
+        }
     }
 
     onVoiceChange(event: MatSelectChange) {
@@ -165,6 +174,7 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
         };
 
         this.toastr.info('Đang gửi yêu cầu', 'Đang xử lý');
+        this.isGenerating = true;
 
         // BƯỚC 1: Gửi job, backend trả về job_id
         this._blogService
@@ -176,10 +186,12 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
                         // BƯỚC 2: Poll job-status cho đến khi xong
                         this.pollJobUntilDone(res.job_id);
                     } else {
+                        this.isGenerating = false;
                         this.toastr.error('Không nhận được job từ server.');
                     }
                 },
                 error: () => {
+                    this.isGenerating = false;
                     this.toastr.error('Gửi yêu cầu chuyển đổi không thành công.');
                 }
             });
@@ -193,6 +205,7 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
         }
 
         this.toastr.info('Đang xử lý giọng đọc', 'System');
+        this.isGenerating = true;
 
         const shortText = text.substring(0, 60);
         const slug = this.toSlug(shortText);
@@ -214,6 +227,7 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
                 const fullUrl = res.url;
                 const filename = res.filePath ? res.filePath.split(/[\\/]/).pop() : `${payload.filename}.mp3`;
 
+                this.generatedAudioUrl = fullUrl;
                 this.downloadMP3Href = this.domSanitizer.bypassSecurityTrustUrl(fullUrl);
                 this.nameMP3Href = filename;
 
@@ -229,7 +243,23 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
         } catch (err: any) {
             console.error(err);
             this.toastr.error('Lỗi khi gọi ứng dụng: ' + err.message);
+        } finally {
+            this.isGenerating = false;
         }
+    }
+
+    insertIntoParagraph() {
+        if (!this.generatedAudioUrl) {
+            this.toastr.warning('Vui lòng tạo giọng đọc trước khi chèn.');
+            return;
+        }
+
+        this.dialogRef?.close({
+            action: 'insert',
+            audioUrl: this.generatedAudioUrl,
+            filename: this.nameMP3Href,
+            text: this.text2speechForm?.get('text')?.value
+        });
     }
 
     private pollJobUntilDone(jobId: string) {
@@ -284,6 +314,7 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
 
                     const audioUrl = URL.createObjectURL(blob);
 
+                    this.generatedAudioUrl = audioUrl;
                     // dùng cho nút download
                     this.downloadMP3Href = this.domSanitizer.bypassSecurityTrustUrl(audioUrl);
                     this.nameMP3Href = filename;
@@ -294,10 +325,12 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
                         this.wavesurfer.play();
                     });
 
+                    this.isGenerating = false;
                     this.toastr.success('Chuyển đổi thành công!');
                 },
                 error: (err) => {
                     console.error(err);
+                    this.isGenerating = false;
                     this.toastr.error('Chuyển đổi không thành công.');
                 }
             });

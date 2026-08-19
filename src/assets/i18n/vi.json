@@ -210,7 +210,7 @@
     },
     "app": {
         "create_short_and_concise": "\"Tạo kịch bản comment và giả định\n                câu trả lời của chủ Shop cho mỗi profile ngắn gọn và xúc\n                tích nhất trong phiên livestream\n                https://www.tiktok.com/@yen.ai.386/live diễn ra vào lúc\n                15h tới 16h ngày 17/01/2026 Việt Nam. Mỗi kịch bản khoảng\n                2-3 comment, thời gian đăng comment giãn cách hợp lý.\"",
-        "create_a_draft": "(+) tạo bản tạo",
+        "create_a_draft": "(+) Tạo bản sao",
         "error_file_content_not": "(Lỗi: Không\n                                tìm thấy nội dung file. Vui lòng bấm xóa đi và tải lại file này!)",
         "10_clear": "+10 (Trong trẻo)",
         "2_slightly_high": "+2 (Hơi cao)",
@@ -276,7 +276,7 @@
         "multi_channel_share_to": "Chia sẻ đa kênh lên mạng xã hội",
         "professional_precise_text_drawing": "Chuyên nghiệp, vẽ chữ chính\n                                                xác",
         "move_to_outline": "Chuyển sang Dàn ý",
-        "convert_to_mp3": "Chuyển sang mp3",
+        "convert_to_mp3": "Tạo giọng đọc",
         "convert_to_audio": "Chuyển sang âm thanh",
         "convert_text_to_emotional": "Chuyển đổi văn bản thành giọng nam &\n                                            nữ\n                                            truyền cảm",
         "text_to_speech_conversion": "Chuyển đổi văn bản thành giọng nói",

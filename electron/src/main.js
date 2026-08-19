@@ -6248,11 +6248,14 @@ ipcMain.handle('upload-to-archive-org', async (event, payload) => {
             return { success: false, error: 'Không có file audio nào để upload.' };
         }
 
-        const toHeaderLatin1 = (val) => {
+        const toArchiveOrgHeader = (val) => {
             if (!val) return '';
-            const str = String(val).trim();
+            const str = String(val).trim().replace(/[\r\n]+/g, ' ');
             if (!str) return '';
-            return Buffer.from(str, 'utf-8').toString('latin1');
+            if (/[^\x00-\x7F]/.test(str)) {
+                return `uri(${encodeURIComponent(str)})`;
+            }
+            return str;
         };
 
         const cleanTitle = (title || 'audio')
@@ -6303,9 +6306,11 @@ ipcMain.handle('upload-to-archive-org', async (event, payload) => {
                         'Content-Length': fileStats.size,
                         'x-archive-auto-make-bucket': '1',
                         'x-archive-meta-mediatype': 'audio',
-                        'x-archive-meta-title': toHeaderLatin1(title || 'Giọng đọc AI'),
-                        'x-archive-meta-creator': toHeaderLatin1(creator || 'AI.Type'),
-                        'x-archive-meta-collection': toHeaderLatin1(collection || 'opensource_audio')
+                        'x-archive-meta-title': toArchiveOrgHeader(title || 'Giọng đọc AI'),
+                        'x-archive-meta-creator': toArchiveOrgHeader(creator || 'AI.Type'),
+                        'x-archive-meta-collection': toArchiveOrgHeader(collection || 'opensource_audio'),
+                        'x-archive-meta-language': 'vie',
+                        'x-archive-interactive-priority': '1'
                     }
                 }, (res) => {
                     let resData = '';
