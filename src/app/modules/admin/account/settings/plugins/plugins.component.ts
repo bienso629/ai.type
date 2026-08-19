@@ -24,6 +24,13 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     aiAgentModel: string = 'gemini-3.6-flash';
     aiAgentPrompt: string = '';
 
+    colabStatus: any = { status: 'offline', is_connected: false, gpu: '', colab_url: '' };
+    colabChecking: boolean = false;
+    isColabLoggedIn: boolean = false;
+    isColabStarting: boolean = false;
+    isColabAuthenticating: boolean = false;
+    colabAuthCode: string = '';
+
     user: User;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -46,6 +53,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 this.user = user;
             });
         this.getPluginsStatus();
+        this.checkColabStatus();
     }
 
     ngOnDestroy(): void {
@@ -260,10 +268,165 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 } else {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
                 }
+            } else if (plugin.id === 'colab_agent') {
+                const res = await (window as any).electronAPI.toggleColabAgent(event.checked);
+                if (res && res.success) {
+                    plugin.enabled = event.checked;
+                    this.toastr.success(event.checked ? 'Đã kích hoạt Colab GPU Agent.' : 'Đã tắt Colab GPU Agent.');
+                    if (event.checked) setTimeout(() => this.checkColabStatus(), 1000);
+                } else {
+                    this.toastr.error(res?.error || 'Không thể thay đổi trạng thái Colab Agent.');
+                }
             }
         } catch (err) {
             this.toastr.error('Lỗi thay đổi trạng thái: ' + err.message);
             event.source.checked = !event.checked;
+        }
+    }
+
+    async checkColabStatus() {
+        this.colabChecking = true;
+        try {
+            if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
+                const authRes = await (window as any).electronAPI.getColabAuthStatus();
+                this.isColabLoggedIn = authRes && authRes.authenticated;
+            }
+
+            const resp = await fetch('http://127.0.0.1:7868/status');
+            if (resp.ok) {
+                this.colabStatus = await resp.json();
+            } else {
+                this.colabStatus = { status: 'offline', is_connected: false };
+            }
+        } catch(e) {
+            this.colabStatus = { status: 'offline', is_connected: false };
+        } finally {
+            this.colabChecking = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    async loginGoogleColab() {
+        if (!(window as any).electronAPI || !(window as any).electronAPI.loginColabGoogle) {
+            this.toastr.info('Tính năng này hoạt động trên ứng dụng Desktop.');
+            return;
+        }
+
+        this.isColabAuthenticating = true;
+        this.toastr.info('Đang mở trình duyệt để xác thực Google Colab...');
+        try {
+            const res = await (window as any).electronAPI.loginColabGoogle();
+            if (res && res.success) {
+                this.toastr.info('Vui lòng bấm "Cho phép" trên trình duyệt, sau đó dán mã xác thực (4/0A...) vào ô bên dưới.');
+                // Lắng nghe clipboard tự động nếu người dùng vừa copy
+                this.startClipboardWatcher();
+            } else {
+                this.toastr.error(res?.error || 'Không thể mở trình duyệt xác thực.');
+            }
+        } catch(e) {
+            this.toastr.error('Lỗi: ' + e.message);
+        }
+        this.cd.detectChanges();
+    }
+
+    startClipboardWatcher() {
+        let count = 0;
+        const interval = setInterval(async () => {
+            count++;
+            if (count > 60 || this.isColabLoggedIn || !this.isColabAuthenticating) {
+                clearInterval(interval);
+                return;
+            }
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    const text = await navigator.clipboard.readText();
+                    if (text && text.trim().startsWith('4/') && text.trim().length > 20 && text.trim() !== this.colabAuthCode) {
+                        this.colabAuthCode = text.trim();
+                        clearInterval(interval);
+                        this.submitColabAuthCode();
+                    }
+                }
+            } catch(e) {}
+        }, 1000);
+    }
+
+    async submitColabAuthCode() {
+        if (!this.colabAuthCode || !this.colabAuthCode.trim()) {
+            this.toastr.warning('Vui lòng nhập hoặc dán mã xác thực (4/0A...).');
+            return;
+        }
+
+        if (!(window as any).electronAPI || !(window as any).electronAPI.exchangeColabCode) return;
+
+        this.toastr.info('Đang kiểm tra và xác thực mã Google Colab...');
+        try {
+            const res = await (window as any).electronAPI.exchangeColabCode(this.colabAuthCode.trim());
+            if (res && res.success) {
+                this.isColabLoggedIn = true;
+                this.isColabAuthenticating = false;
+                this.colabAuthCode = '';
+                this.toastr.success(res.message || 'Đã liên kết Google Colab thành công!');
+                this.checkColabStatus();
+            } else {
+                this.toastr.error(res?.error || 'Mã xác thực không hợp lệ hoặc đã hết hạn.');
+            }
+        } catch(e) {
+            this.toastr.error('Lỗi xác thực: ' + e.message);
+        }
+        this.cd.detectChanges();
+    }
+
+    async startColabGpuCli() {
+        if (!(window as any).electronAPI || !(window as any).electronAPI.startColabGpu) return;
+        this.isColabStarting = true;
+        this.toastr.info('Đang khởi tạo máy ảo GPU Tesla T4 trên Colab...');
+        try {
+            const res = await (window as any).electronAPI.startColabGpu();
+            if (res && res.success) {
+                this.toastr.success('Máy ảo GPU Colab đang được khởi tạo ngầm!');
+                setTimeout(() => this.checkColabStatus(), 5000);
+            } else {
+                this.toastr.error(res?.error || 'Không thể khởi tạo GPU Colab.');
+            }
+        } catch(e) {
+            this.toastr.error('Lỗi: ' + e.message);
+        } finally {
+            this.isColabStarting = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    async stopColabGpuCli() {
+        if (!(window as any).electronAPI || !(window as any).electronAPI.stopColabGpu) return;
+        try {
+            const res = await (window as any).electronAPI.stopColabGpu();
+            if (res && res.success) {
+                this.toastr.success('Đã giải phóng máy ảo Colab GPU.');
+                this.checkColabStatus();
+            } else {
+                this.toastr.error(res?.error || 'Không thể dừng GPU.');
+            }
+        } catch(e) {
+            this.toastr.error('Lỗi: ' + e.message);
+        }
+        this.cd.detectChanges();
+    }
+
+    openColabNotebook() {
+        window.dispatchEvent(new CustomEvent('open-colab-gpu-bridge'));
+    }
+
+    async restartColabRuntime() {
+        try {
+            const resp = await fetch('http://127.0.0.1:7868/restart_runtime', { method: 'POST' });
+            if (resp.ok) {
+                this.toastr.success('Đã gửi yêu cầu khởi động lại Colab Runtime.');
+                setTimeout(() => this.checkColabStatus(), 1500);
+            } else {
+                this.toastr.error('Không thể khởi động lại Colab Runtime.');
+            }
+        } catch(e) {
+            this.toastr.error('Colab Agent Plugin chưa được khởi chạy.');
         }
     }
 

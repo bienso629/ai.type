@@ -157,6 +157,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     toggleAiAgent: (enable, apiKey, extra) => ipcRenderer.invoke('toggle-ai-agent', enable, apiKey, extra),
     toggleZaloPlugin: (enable, mode) => ipcRenderer.invoke('toggle-zalo-plugin', enable, mode),
+    toggleColabAgent: (enable) => ipcRenderer.invoke('toggle-colab-agent', enable),
+    loginColabGoogle: () => ipcRenderer.invoke('login-colab-google'),
+    exchangeColabCode: (code) => ipcRenderer.invoke('exchange-colab-code', code),
+    getColabAuthStatus: () => ipcRenderer.invoke('get-colab-auth-status'),
+    startColabGpu: () => ipcRenderer.invoke('start-colab-gpu'),
+    stopColabGpu: () => ipcRenderer.invoke('stop-colab-gpu'),
     getPluginsStatus: () => ipcRenderer.invoke('get-plugins-status'),
     installPlugin: (pluginId) => ipcRenderer.invoke('install-plugin', pluginId),
     uninstallPlugin: (pluginId) => ipcRenderer.invoke('uninstall-plugin', pluginId)

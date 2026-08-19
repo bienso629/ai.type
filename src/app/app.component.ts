@@ -324,6 +324,223 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             }
         });
 
+        // Lắng nghe sự kiện mở & tự động chạy Colab GPU Bridge
+        window.addEventListener('open-colab-gpu-bridge', (e: any) => {
+            this.isWebviewVisible = true;
+            this.popupTitle = 'Google Colab GPU';
+            this.popupFavicon = 'https://colab.research.google.com/img/colab_favicon_256px.png';
+            this.cdr.detectChanges();
+
+            const webview: any = document.querySelector('#webview-container-div webview') || document.querySelector('webview');
+            if (webview) {
+                const targetUrl = 'https://colab.research.google.com/#create=true';
+                
+                const pyCode = `# === AI.TYPE GPU BRIDGE AUTO-RUNNER ===
+import os, sys, time, subprocess, json, base64, threading, io, traceback, re
+print("⏳ [ai.type] Đang chuẩn bị môi trường GPU...")
+
+os.system("wget -q -nc https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && dpkg -i cloudflared-linux-amd64.deb > /dev/null 2>&1")
+os.system("pip install -q fastapi uvicorn pydantic requests sentence-transformers faiss-gpu pypdf pdfplumber > /dev/null 2>&1")
+
+import torch
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Dict, Any
+import uvicorn, requests
+
+app = FastAPI(title="ai.type Colab Bridge", version="1.0.1")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+class ToolCallRequest(BaseModel):
+    name: str
+    arguments: Dict[str, Any] = {}
+
+@app.get("/")
+@app.get("/status")
+def server_status():
+    gpu_info = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+    vram_free = round(torch.cuda.mem_get_info()[0] / (1024**3), 2) if torch.cuda.is_available() else 0
+    return {"status": "online", "gpu": f"{gpu_info} ({vram_free}GB VRAM Free)", "version": "1.0.1"}
+
+@app.post("/call_tool")
+def handle_call_tool(req: ToolCallRequest):
+    tool, args = req.name, req.arguments
+    if tool == "execute_code":
+        code, lang = args.get("code", ""), args.get("language", "python")
+        if lang in ["bash", "shell"]:
+            res = subprocess.run(code, shell=True, capture_output=True, text=True, timeout=120)
+            return {"stdout": res.stdout, "stderr": res.stderr, "returncode": res.returncode}
+        else:
+            old_stdout = sys.stdout
+            sys.stdout = io.StringIO()
+            try:
+                exec(code, globals())
+                output = sys.stdout.getvalue()
+            finally:
+                sys.stdout = old_stdout
+            return {"stdout": output, "status": "success"}
+    elif tool in ["mineru_parse_pdf", "build_faiss_from_pdf"]:
+        pdf_b64, filename = args.get("pdf_base64", ""), args.get("filename", "document.pdf")
+        try:
+            pdf_bytes = base64.b64decode(pdf_b64)
+            temp_path = f"/tmp/{filename}"
+            with open(temp_path, "wb") as f: f.write(pdf_bytes)
+            import pypdf
+            reader = pypdf.PdfReader(temp_path)
+            extracted = "".join([f"\\n--- [Trang {i+1}] ---\\n" + (p.extract_text() or "") for i, p in enumerate(reader.pages)])
+            return {"status": "success", "filename": filename, "total_pages": len(reader.pages), "text": extracted}
+        except Exception as e:
+            return {"error": str(e), "traceback": traceback.format_exc()}
+    elif tool == "restart_runtime":
+        if torch.cuda.is_available(): torch.cuda.empty_cache()
+        return {"status": "success"}
+    return {"error": f"Unknown tool {tool}"}
+
+def run_server():
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+threading.Thread(target=run_server, daemon=True).start()
+
+cmd = "cloudflared tunnel --url http://127.0.0.1:8000"
+proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+tunnel_url = ""
+start = time.time()
+while time.time() - start < 30:
+    line = proc.stderr.readline()
+    if "trycloudflare.com" in line:
+        m = re.search(r"https://[a-zA-Z0-9-]+\\.trycloudflare\\.com", line)
+        if m:
+            tunnel_url = m.group(0)
+            break
+    time.sleep(0.5)
+
+if tunnel_url:
+    print(f"🎉 [ai.type] Tunnel URL: {tunnel_url}")
+    gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+    try:
+        requests.post("http://127.0.0.1:7868/register_tunnel", json={"url": tunnel_url, "gpu": gpu}, timeout=5)
+        print("✅ [ai.type] ĐÃ TỰ ĐỘNG BẮT TAY KẾT NỐI VỚI APP AI.TYPE THÀNH CÔNG!")
+    except Exception as e:
+        print("⚠️ Chưa gửi được tới local daemon:", e)
+`;
+                // Sao chép code vào clipboard máy chủ trước
+                try {
+                    navigator.clipboard.writeText(pyCode);
+                } catch(e) {}
+
+                const safePyCode = pyCode.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+
+                const injectColabScript = () => {
+                    webview.executeJavaScript(`
+                        (() => {
+                            const code = \`${safePyCode}\`;
+                            
+                            const notify = (msg, isSuccess = false) => {
+                                let el = document.getElementById('aitype-colab-toast');
+                                if (!el) {
+                                    el = document.createElement('div');
+                                    el.id = 'aitype-colab-toast';
+                                    el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#38bdf8;padding:12px 24px;border-radius:12px;font-family:sans-serif;font-size:14px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,0.6);border:1.5px solid #38bdf8;z-index:9999999;transition:all 0.3s ease;text-align:center;';
+                                    document.body.appendChild(el);
+                                }
+                                el.style.borderColor = isSuccess ? '#10b981' : '#38bdf8';
+                                el.style.color = isSuccess ? '#34d399' : '#38bdf8';
+                                el.innerHTML = msg;
+                            };
+
+                            notify('🚀 [ai.type] Đang kết nối với Colab & nạp mã GPU Bridge...');
+
+                            let attempts = 0;
+                            const interval = setInterval(() => {
+                                attempts++;
+                                let injected = false;
+
+                                // Cách 1: Monaco Models
+                                try {
+                                    if (window.monaco && window.monaco.editor) {
+                                        const models = window.monaco.editor.getModels();
+                                        if (models && models.length > 0) {
+                                            models[0].setValue(code);
+                                            injected = true;
+                                        }
+                                    }
+                                } catch(e) {}
+
+                                // Cách 2: Textarea / Colab Editor DOM
+                                if (!injected) {
+                                    const textarea = document.querySelector('textarea.inputarea') || 
+                                                     document.querySelector('colab-editor textarea') ||
+                                                     document.querySelector('.cell.code textarea');
+                                    if (textarea) {
+                                        textarea.focus();
+                                        document.execCommand('selectAll', false, null);
+                                        document.execCommand('insertText', false, code);
+                                        injected = true;
+                                    }
+                                }
+
+                                if (injected) {
+                                    clearInterval(interval);
+                                    notify('⏳ Đang tự động bấm nút Chạy (Run)...');
+
+                                    setTimeout(() => {
+                                        let clicked = false;
+                                        
+                                        // Thử click nút Play của Cell
+                                        const runComponent = document.querySelector('colab-run-button');
+                                        if (runComponent) {
+                                            const innerBtn = runComponent.shadowRoot ? runComponent.shadowRoot.querySelector('button') : null;
+                                            if (innerBtn) {
+                                                innerBtn.click();
+                                                clicked = true;
+                                            } else {
+                                                runComponent.click();
+                                                clicked = true;
+                                            }
+                                        }
+
+                                        // Thử click menu Runtime -> Run All
+                                        if (!clicked) {
+                                            const runtimeMenu = document.querySelector('#runtime-menu-button');
+                                            if (runtimeMenu) {
+                                                runtimeMenu.click();
+                                                setTimeout(() => {
+                                                    const runAllMenuItem = document.querySelector('div[command="runall"]') || document.querySelector('colab-menu-item[command="runall"]');
+                                                    if (runAllMenuItem) runAllMenuItem.click();
+                                                }, 200);
+                                                clicked = true;
+                                            }
+                                        }
+
+                                        // Fallback Ctrl + Enter
+                                        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', ctrlKey: true, bubbles: true }));
+
+                                        notify('✅ [ai.type] Đã kích hoạt chạy GPU Bridge! Đang kết nối về App...', true);
+                                        setTimeout(() => {
+                                            const el = document.getElementById('aitype-colab-toast');
+                                            if (el) el.style.opacity = '0';
+                                        }, 8000);
+                                    }, 1000);
+                                    return;
+                                }
+
+                                if (attempts > 35) {
+                                    clearInterval(interval);
+                                    notify('ℹ️ [ai.type] Mã đã được Copy! Bạn chỉ cần bấm <b>Ctrl + V</b> và bấm <b>Play (▶)</b> nhé.');
+                                }
+                            }, 800);
+                        })();
+                    `);
+                };
+
+                webview.loadURL(targetUrl);
+                webview.addEventListener('did-stop-loading', function handler() {
+                    webview.removeEventListener('did-stop-loading', handler);
+                    setTimeout(() => injectColabScript(), 2000);
+                });
+            }
+        });
+
         // Lắng nghe sự kiện thu âm hệ thống
         window.addEventListener('start-recording', (e: any) => {
             this.startRecordingSystemAudio();
