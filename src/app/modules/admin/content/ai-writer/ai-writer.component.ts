@@ -17,6 +17,7 @@ import {
 } from '@angular/forms';
 import { Title, DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { FuseLoadingService } from '@fuse/services/loading';
 import { CrawlService } from 'app/_services/crawl';
 import { BlogService } from 'app/_services/blog';
 import { UserService } from 'app/core/user/user.service';
@@ -49,6 +50,7 @@ import { GenaiService } from 'app/genai.service';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { SettingsDomainLoginComponent } from 'app/modules/admin/account/settings/domain/login/login.component';
 import { AIText2SpeechComponent } from 'app/modules/admin/content/ai-text2speech/ai-text2speech.component';
+import { ArchiveOrgDialogComponent } from 'app/modules/admin/content/ai-tts/tools/archive-org-dialog.component';
 import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/tools/video-timeline-dialog.component';
 import { CopyPasteDialog } from 'app/modules/admin/content/ai-writer/tools/copy-paste-dialog';
 import { GeminiImageDialog } from 'app/modules/admin/content/ai-writer/tools/gemini-image-dialog';
@@ -251,6 +253,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         a: [],
         table: [],
         img: [],
+        audios: [],
         source: [],
         iframe: [],
         pre: [],
@@ -496,8 +499,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         return result.length > 0 ? result : [`<p>${str}</p>`];
     }
 
-    time: Date = new Date();
-    version_value: Date = new Date();
+    time: any = new Date();
+    version_value: any = new Date();
     new_version: number = -1; // -2 tạo mới version, -1 cập nhật bản gốc, 1, 2...
 
     timeLeft: number = 60;
@@ -543,6 +546,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     selectedItems: Set<string> = new Set();
 
     toggleSelection(event: MouseEvent, item: string) {
+        const target = event.target as HTMLElement;
+        if (target && (target.tagName === 'AUDIO' || target.closest('audio') || target.closest('.audio-player-wrapper'))) {
+            return;
+        }
+
         if (event.ctrlKey || event.metaKey) {
             if (this.selectedItems.has(item)) {
                 this.selectedItems.delete(item);
@@ -1274,21 +1282,192 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         source[index] = marked.parse(source[index]) as string;
     }
 
-    tomp3(item: any) {
+    tomp3(item?: any, source?: any, index?: number) {
         const dialogRef = this.dialog.open(AIText2SpeechComponent, {
             width: '600px',
-            height: '540px',
+            maxWidth: '95vw',
+            panelClass: 'dlg-primary',
             data: item,
+            autoFocus: false
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
-                this.toastr.success(`Tạo mp3 từ đoạn văn xong.`);
+                if (result.action === 'insert' && result.audioUrl) {
+                    if (!this.source.audios) {
+                        this.source.audios = [];
+                    }
+
+                    const audioHtml = `<p class="audio-player-wrapper my-2" data-audio-url="${result.audioUrl}"><audio controls preload="none" src="${result.audioUrl}" class="w-full h-9 rounded-lg !border-none !outline-none !shadow-none !bg-transparent"></audio></p>`;
+                    this.source.audios.push(audioHtml);
+
+                    this.toastr.success('Đã thêm vào danh sách Audio đã chọn!');
+                } else {
+                    this.toastr.success(`Tạo giọng đọc từ đoạn văn xong.`);
+                }
 
                 // lam moi lai giao dien
                 this.cd.markForCheck();
             }
         });
+    }
+
+    openText2SpeechDialog() {
+        this.tomp3('');
+    }
+
+    openArchiveOrgDialog(singleItem?: string) {
+        if (!this.source.audios || this.source.audios.length === 0) {
+            this.toastr.warning('Chưa có audio nào trong danh sách Audio đã chọn để upload.');
+            return;
+        }
+
+        const itemsToUpload = singleItem ? [singleItem] : this.source.audios;
+        const title = this.detectForm?.get('step1')?.get('title')?.value || 'Audio AI Writer';
+
+        const dialogRef = this.dialog.open(ArchiveOrgDialogComponent, {
+            data: {
+                title: title,
+                username: this.user?.name || 'AI.Type User',
+            },
+            width: '520px',
+            disableClose: false,
+        });
+
+        dialogRef.afterClosed().subscribe(async (credentials: any) => {
+            if (!credentials) return;
+
+            this.toastr.info('Đang kết nối và upload audio lên tài khoản Archive.org...', 'Archive.org Upload');
+
+            try {
+                const clips = itemsToUpload.map((item: string, index: number) => {
+                    const srcMatch = item.match(/src="([^"]+)"/) || item.match(/src='([^']+)'/);
+                    let audioUrl = srcMatch ? srcMatch[1] : '';
+                    let localFilePath = '';
+                    let audioFileName = '';
+
+                    if (audioUrl.startsWith('file:///')) {
+                        localFilePath = decodeURIComponent(audioUrl.substring('file://'.length));
+                        if (!localFilePath.startsWith('/') && !/^[a-zA-Z]:/.test(localFilePath)) {
+                            localFilePath = '/' + localFilePath;
+                        }
+                        audioFileName = localFilePath.split(/[\\/]/).pop() || `audio_${index + 1}.mp3`;
+                    } else if (audioUrl.startsWith('file://')) {
+                        localFilePath = decodeURIComponent(audioUrl.substring('file://'.length));
+                        audioFileName = localFilePath.split(/[\\/]/).pop() || `audio_${index + 1}.mp3`;
+                    } else {
+                        audioFileName = audioUrl.split('/').pop()?.split('?')[0] || `audio_${index + 1}.mp3`;
+                        if (!audioUrl.startsWith('http')) {
+                            localFilePath = audioUrl;
+                        }
+                    }
+
+                    return {
+                        id: `audio-${index + 1}`,
+                        name: audioFileName,
+                        localFilePath: localFilePath,
+                        audioFileName: audioFileName,
+                    };
+                });
+
+                const payload = {
+                    accessKey: credentials.accessKey,
+                    secretKey: credentials.secretKey,
+                    title: credentials.title || title,
+                    creator: credentials.creator || this.user?.name || 'AI.Type',
+                    collection: credentials.collection || 'opensource_audio',
+                    uuid: this.uuid,
+                    username: this.user?.name || 'anonymous',
+                    clips: clips
+                };
+
+                if ((window as any).electron && (window as any).electron.invoke) {
+                    const res = await (window as any).electron.invoke('upload-to-archive-org', payload);
+                    if (res && res.success) {
+                        const uploadedFiles = res.files || [];
+
+                        if (uploadedFiles.length > 0) {
+                            if (!this.source.audios) this.source.audios = [];
+
+                            uploadedFiles.forEach((f: any) => {
+                                const newPlayerHtml = `<p class="audio-player-wrapper my-2" data-audio-url="${f.directUrl}"><audio controls preload="none" src="${f.directUrl}" class="w-full h-9 rounded-lg !border-none !outline-none !shadow-none !bg-transparent"></audio></p>`;
+
+                                // 1. Cập nhật trong source.audios
+                                let replacedInAudios = false;
+                                for (let i = 0; i < this.source.audios.length; i++) {
+                                    const item = this.source.audios[i];
+                                    if (typeof item === 'string' && (item.includes(f.fileName) || item.includes(encodeURIComponent(f.fileName)) || (singleItem && item === singleItem))) {
+                                        this.source.audios[i] = newPlayerHtml;
+                                        replacedInAudios = true;
+                                    }
+                                }
+
+                                if (!replacedInAudios) {
+                                    this.source.audios.push(newPlayerHtml);
+                                }
+
+                                // 2. Cập nhật trong Dàn ý (done) nếu có chứa file cũ
+                                let replacedInDone = false;
+                                if (this.done && this.done.length > 0) {
+                                    for (let j = 0; j < this.done.length; j++) {
+                                        const doneItem = this.done[j];
+                                        if (typeof doneItem === 'string' && (doneItem.includes(f.fileName) || doneItem.includes(encodeURIComponent(f.fileName)))) {
+                                            this.done[j] = newPlayerHtml;
+                                            replacedInDone = true;
+                                        }
+                                    }
+                                }
+
+                                // 3. Nếu là upload 1 file đơn lẻ hoặc theo yêu cầu, chèn player trực tiếp vào Dàn ý nếu chưa có trong Dàn ý
+                                if (singleItem && !replacedInDone) {
+                                    this.done.push(newPlayerHtml);
+                                }
+                            });
+
+                            this.source.audios = [...this.source.audios];
+                            if (this.done) this.done = [...this.done];
+                        }
+
+                        this.toastr.success(`Đã upload thành công ${res.uploadedCount || clips.length} file và cập nhật Audio Player từ Archive.org!`, 'Thành công');
+                        if (this.settings?.autosave) {
+                            this.autoSave();
+                        }
+                        this.cd.markForCheck();
+                    } else {
+                        const errMsg = res?.error || 'Không thể upload lên Archive.org.';
+                        this.toastr.error(errMsg, 'Upload thất bại');
+                    }
+                } else {
+                    this.toastr.info('Tính năng upload Archive.org yêu cầu chạy trên ứng dụng Desktop.');
+                }
+            } catch (error: any) {
+                console.error('Archive.org upload error:', error);
+                this.toastr.error('Có lỗi xảy ra khi upload lên archive.org.');
+            }
+        });
+    }
+
+    uploadSingleAudioToArchive(item: string, index: number) {
+        this.openArchiveOrgDialog(item);
+    }
+
+    async createAudio(event: any) {
+        const files: FileList = event.target.files;
+        if (!files || files.length === 0) return;
+
+        if (!this.source.audios) {
+            this.source.audios = [];
+        }
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const fileUrl = (file as any).path ? `file://${(file as any).path}` : URL.createObjectURL(file);
+            const audioHtml = `<p class="audio-player-wrapper my-2" data-audio-url="${fileUrl}"><audio controls preload="none" src="${fileUrl}" class="w-full h-9 rounded-lg !border-none !outline-none !shadow-none !bg-transparent"></audio></p>`;
+            this.source.audios.push(audioHtml);
+        }
+
+        this.toastr.success(`Đã thêm ${files.length} file audio vào danh sách.`);
+        this.cd.markForCheck();
     }
 
     /**
@@ -4073,13 +4252,14 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 this.new_version = -1; // cập nhật bản gốc
                 this.setdata(this.details);
             } else {
-                this.new_version = 1; // cập nhật theo phiên bản
-
-                let editor = _.find(this.details['history'], {
-                    createdAt: e.value,
+                let editor = _.find(this.details['history'], (item: any) => {
+                    if (!item || !item.createdAt || !e.value) return false;
+                    return item.createdAt === e.value ||
+                        (new Date(item.createdAt).getTime() === new Date(e.value).getTime());
                 });
 
                 if (editor) {
+                    this.new_version = 1; // cập nhật theo phiên bản
                     this.setdata(editor);
                 } else {
                     this.new_version = -1; // cập nhật bản gốc
@@ -4095,13 +4275,14 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 this.new_version = -1; // cập nhật bản gốc
                 this.setdata(this.details);
             } else {
-                this.new_version = 1; // cập nhật theo phiên bản
-
-                let editor = _.find(this.details['history'], {
-                    createdAt: this.version_value,
+                let editor = _.find(this.details['history'], (item: any) => {
+                    if (!item || !item.createdAt || !this.version_value) return false;
+                    return item.createdAt === this.version_value ||
+                        (new Date(item.createdAt).getTime() === new Date(this.version_value).getTime());
                 });
 
                 if (editor) {
+                    this.new_version = 1; // cập nhật theo phiên bản
                     this.setdata(editor);
                 } else {
                     this.new_version = -1; // cập nhật bản gốc
@@ -4113,7 +4294,6 @@ ${contentFromDone || '(Chưa có văn bản)'}
 
         // lưu lại version
         localStorage.version_value = this.version_value;
-        // this.toastr.success(`Nội dung đã được làm mới.`);
     }
 
     /**
@@ -4199,6 +4379,10 @@ ${contentFromDone || '(Chưa có văn bản)'}
                             if (!this.details['history']) this.details['history'] = [];
                             this.details['history'].push(data);
                         }
+
+                        this.new_version = 1;
+                        this.time = new Date();
+                        localStorage.version_value = this.version_value;
 
                         const currentUrl = this.router.url;
                         this.router
@@ -5158,7 +5342,11 @@ ${contentFromDone || '(Chưa có văn bản)'}
 
     async regenerateOutlineWithAI() {
         this.isRefreshingOutline = true;
-        this.toastr.info('AI đang tiến hành làm mới lại dàn ý...', 'Đang xử lý');
+        this.rightSelectedIndex = 0;
+        if (this._fuseLoadingService) {
+            this._fuseLoadingService.show();
+        }
+        this.toastr.info('AI Agent đang tiến hành làm mới lại dàn ý...', 'Đang xử lý');
         this.cd.markForCheck();
 
         try {
@@ -5235,13 +5423,26 @@ ${contentFromDone || '(Chưa có văn bản)'}
                     mainkey: this.detectForm.get('step5')?.get('mainkey')?.value,
                 });
 
-                this.toastr.success('Đã làm mới lại dàn ý thành công!');
+                if (this.uuid) {
+                    const newVersionIso = (new Date()).toISOString();
+                    this.version_value = newVersionIso;
+                    this.time = new Date();
+                    this.new_version = -2; // Tạo mới version để bảo lưu bản cũ và tạo phiên bản khác của Dàn ý
+                    localStorage.version_value = this.version_value;
+                    this.toastr.success('Đã tạo phiên bản dàn ý mới và lưu trữ thành công!');
+                    this.update(true);
+                } else {
+                    this.toastr.success('Đã làm mới lại dàn ý thành công!');
+                }
             }
         } catch (err) {
             console.error('Lỗi khi làm mới dàn ý:', err);
             this.toastr.error('Có lỗi xảy ra khi làm mới dàn ý. Vui lòng thử lại.');
         } finally {
             this.isRefreshingOutline = false;
+            if (this._fuseLoadingService) {
+                this._fuseLoadingService.hide();
+            }
             this.cd.markForCheck();
         }
     }
@@ -5737,6 +5938,30 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 this.source = { ...this.source, ...editor.source };
             }
             this.source.prompt = this.source.prompt ? this.source.prompt : [];
+            this.source.audios = this.source.audios ? this.source.audios : [];
+            if (this.source.audios && Array.isArray(this.source.audios)) {
+                this.source.audios = this.source.audios.map((item: any) => {
+                    if (typeof item === 'string' && item.includes('<audio')) {
+                        const srcMatch = item.match(/src=["']([^"']+)["']/);
+                        if (srcMatch && srcMatch[1]) {
+                            return `<p class="audio-player-wrapper my-2" data-audio-url="${srcMatch[1]}"><audio controls preload="none" src="${srcMatch[1]}" class="w-full h-9 rounded-lg !border-none !outline-none !shadow-none !bg-transparent"></audio></p>`;
+                        }
+                    }
+                    return item;
+                });
+            }
+
+            if (this.done && Array.isArray(this.done)) {
+                this.done = this.done.map((item: any) => {
+                    if (typeof item === 'string' && item.includes('<audio')) {
+                        const srcMatch = item.match(/src=["']([^"']+)["']/);
+                        if (srcMatch && srcMatch[1]) {
+                            return `<p class="audio-player-wrapper my-2" data-audio-url="${srcMatch[1]}"><audio controls preload="none" src="${srcMatch[1]}" class="w-full h-9 rounded-lg !border-none !outline-none !shadow-none !bg-transparent"></audio></p>`;
+                        }
+                    }
+                    return item;
+                });
+            }
 
             if (!this.source.playlist) {
                 this.source.playlist = [
@@ -6334,7 +6559,8 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
         private sanitizer: DomSanitizer,
         private _genaiService: GenaiService,
         public _wordpressService: WordpressService,
-        public globalAgentService: GlobalAgentService
+        public globalAgentService: GlobalAgentService,
+        private _fuseLoadingService: FuseLoadingService
     ) {
         this.route.params.subscribe((params: Params) => {
             if (params['uuid']) {

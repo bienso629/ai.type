@@ -38,6 +38,9 @@ export const appRoutes: Route[] = [
             { canActivate: [NoAuthGuard], path: 'app', loadChildren: () => import('app/modules/microsites/home/home.module').then(m => m.LandingAppModule) },
             { path: 'read', loadChildren: () => import('app/modules/microsites/read/read.module').then(m => m.ReadModule) },
             { path: 'livestream', loadChildren: () => import('app/modules/microsites/livestream/livestream.module').then(m => m.LivestreamModule) },
+            { path: 'policy', loadChildren: () => import('app/modules/microsites/policy/policy.module').then(m => m.PolicyModule) },
+            { path: 'privacy-policy', loadChildren: () => import('app/modules/microsites/policy/policy.module').then(m => m.PolicyModule) },
+            { path: 'clause/privacy-policy', loadChildren: () => import('app/modules/microsites/policy/policy.module').then(m => m.PolicyModule) },
             {
                 canActivate: [AuthGuard],
                 canActivateChild: [AuthGuard],

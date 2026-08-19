@@ -207,6 +207,35 @@ hr {
     border-radius: 16px;
 }
 
+.audio-player-wrapper,
+.example-list.audio .example-box {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+audio,
+.audio-player-wrapper audio,
+.example-list.audio audio {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+audio::-webkit-media-controls-enclosure,
+audio::-webkit-media-controls-panel,
+.audio-player-wrapper audio::-webkit-media-controls-enclosure,
+.audio-player-wrapper audio::-webkit-media-controls-panel {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
 .ket-qua-seo * {
     line-height: 35px;
 }

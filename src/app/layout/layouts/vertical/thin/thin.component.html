@@ -93,7 +93,7 @@
                 <span>{{ 'app.footer_unverified' | transloco }} [<a class="underline" [routerLink]="['/settings']"
                         [queryParams]="{ tab: 'active' }">{{ 'app.footer_verify_now' | transloco }}</a>]. </span>
             </ng-template>
-            <a href="https://ai.type.vn" [title]="'app.auto_automatic_article_writing_soft' | transloco" class="underline">{{ 'app.footer_policies' | transloco }}</a>
+            <a [routerLink]="['/policy']" [title]="'app.auto_automatic_article_writing_soft' | transloco" class="underline cursor-pointer">{{ 'app.footer_policies' | transloco }}</a>
         </span>
     </div>
 

@@ -1,0 +1,23 @@
+.policy-page {
+    scroll-behavior: smooth;
+
+    .policy-content {
+        h2 {
+            scroll-margin-top: 5.5rem;
+        }
+        h3 {
+            scroll-margin-top: 5.5rem;
+        }
+    }
+}
+
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    .policy-page {
+        overflow: visible !important;
+        position: static !important;
+        background: white !important;
+    }
+}

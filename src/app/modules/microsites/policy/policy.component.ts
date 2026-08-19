@@ -1,8 +1,7 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { MatDialog } from '@angular/material/dialog';
+import { Location } from '@angular/common';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
 
 @Component({
     selector: 'policy',
@@ -11,41 +10,53 @@ import { Subject } from 'rxjs';
     changeDetection: ChangeDetectionStrategy.OnPush,
     encapsulation: ViewEncapsulation.None
 })
-export class PolicyComponent implements OnInit, OnDestroy, AfterViewInit {
-    routerUrl: string = '';
-    code: string = '';
+export class PolicyComponent implements OnInit {
+    activeSection: string = 'intro';
 
-    /* END TWO OBJECTS */
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
+    readonly sections = [
+        { id: 'intro', title: '1. Giới thiệu chung' },
+        { id: 'info-collected', title: '2. Thông tin chúng tôi thu thập' },
+        { id: 'how-we-use', title: '3. Cách sử dụng thông tin' },
+        { id: 'third-party-sharing', title: '4. Chia sẻ & Đối tác bên thứ ba' },
+        { id: 'user-rights', title: '5. Quyền & Lựa chọn của bạn' },
+        { id: 'data-security', title: '6. An toàn & Bảo mật (AES-256)' },
+        { id: 'data-retention', title: '7. Thời hạn lưu trữ dữ liệu' },
+        { id: 'children-policy', title: '8. Chính sách bảo vệ trẻ em' },
+        { id: 'policy-updates', title: '9. Cập nhật chính sách' },
+        { id: 'contact-us', title: '10. Liên hệ với chúng tôi' },
+    ];
 
-    /**
-     * Getter for current year
-     */
     get currentYear(): number {
         return new Date().getFullYear();
     }
 
-    /**
-     * Constructor
-     */
     constructor(
         private titleService: Title,
+        private location: Location,
         private router: Router,
-        public dialog: MatDialog,
     ) {
-        this.titleService.setTitle(`hướng dẫn sử dụng | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(`Chính sách quyền riêng tư (Privacy Policy) | AI.TYPE`);
     }
 
-    ngAfterViewInit(): void {
-        this.routerUrl = this.router.url;
+    ngOnInit(): void {}
+
+    scrollTo(id: string): void {
+        this.activeSection = id;
+        const el = document.getElementById(id);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 
-    ngOnInit() {
+    goBack(): void {
+        if (window.history.length > 1) {
+            this.location.back();
+        } else {
+            this.router.navigate(['/dashboard']);
+        }
     }
 
-    ngOnDestroy(): void {
-        // Unsubscribe from all subscriptions
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
+    print(): void {
+        window.print();
     }
 }

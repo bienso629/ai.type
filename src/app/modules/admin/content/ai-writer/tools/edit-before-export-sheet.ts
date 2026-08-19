@@ -15,6 +15,34 @@ import { ArticlePasswordDialog } from './article-password-dialog';
 
 declare var TurndownService: any;
 
+const BlockEmbed = Quill.import('blots/block/embed') as any;
+
+class AudioBlot extends BlockEmbed {
+    static blotName = 'audio';
+    static tagName = 'AUDIO';
+
+    static create(value: any) {
+        const node = super.create() as HTMLElement;
+        const src = typeof value === 'object' ? (value.src || value.url) : value;
+        node.setAttribute('controls', '');
+        node.setAttribute('preload', 'none');
+        node.setAttribute('src', src || '');
+        node.setAttribute('style', 'width: 100%; height: 40px; margin: 10px 0; display: block;');
+        return node;
+    }
+
+    static value(node: HTMLElement) {
+        return node.getAttribute('src') || '';
+    }
+}
+
+try {
+    Quill.register('formats/audio', AudioBlot, true);
+    Quill.register(AudioBlot, true);
+} catch (e) {
+    console.warn('[Quill] AudioBlot registration error:', e);
+}
+
 @Component({
     selector: 'edit-before-export-sheet',
     styles: [`
@@ -60,6 +88,13 @@ declare var TurndownService: any;
         }
         ::ng-deep .edit-before-export-quill .ql-editor {
             padding: 16px !important;
+        }
+        ::ng-deep .edit-before-export-quill .ql-editor audio {
+            width: 100% !important;
+            height: 40px !important;
+            margin: 12px 0 !important;
+            display: block !important;
+            border-radius: 8px !important;
         }
     `],
     template: `<div class="px-2 pb-4 pt-2">
@@ -162,6 +197,13 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
 
     getEditorInstance(editorInstance: any) {
         this.quillEditorRef = editorInstance;
+        if (editorInstance && editorInstance.clipboard) {
+            editorInstance.clipboard.addMatcher('AUDIO', (node: any, delta: any) => {
+                const src = node.getAttribute('src') || '';
+                const Delta = Quill.import('delta') as any;
+                return new Delta().insert({ audio: src });
+            });
+        }
         const toolbar = editorInstance.getModule('toolbar');
         if (toolbar) {
             toolbar.addHandler('image', this.imageHandler);
@@ -498,6 +540,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
     private sanitizeQuillContent(content: string): string {
         if (typeof content !== 'string') return content;
         return content
+            .replace(/<div class="audio-player-wrapper[^>]*>[\s\S]*?<audio[^>]*src=["']([^"']+)["'][^>]*>[\s\S]*?<\/div>/gi, '<p><audio controls preload="none" src="$1"></audio></p>')
             .replace(/&nbsp;/gi, ' ')
             .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ');
     }

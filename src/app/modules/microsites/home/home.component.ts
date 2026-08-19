@@ -234,8 +234,10 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
     voice(ct: string) {
         const dialogRef = this.dialog.open(AIText2SpeechComponent, {
             width: '600px',
-            height: '540px',
-            data: ct
+            maxWidth: '95vw',
+            panelClass: 'dlg-primary',
+            data: ct,
+            autoFocus: false
         });
 
         dialogRef.afterClosed().subscribe(result => {
