@@ -6,7 +6,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
     templateUrl: './doc-type-dialog.component.html'
 })
 export class DocTypeDialogComponent {
-    selectedDocType: string | null = 'analysis';
+    selectedDocType: string = 'qa_detailed';
     docTypes: any[] = [];
 
     constructor(
@@ -14,8 +14,11 @@ export class DocTypeDialogComponent {
         @Inject(MAT_DIALOG_DATA) public data: any
     ) {
         this.docTypes = data.docTypes || [];
-        if (data.selectedDocType) {
+        const validValues = this.docTypes.map(d => d.value);
+        if (data.selectedDocType && validValues.includes(data.selectedDocType)) {
             this.selectedDocType = data.selectedDocType;
+        } else {
+            this.selectedDocType = 'qa_detailed';
         }
     }
 

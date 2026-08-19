@@ -61,34 +61,6 @@
                 </div>
             </div>
 
-            <!-- Search File -->
-            <div class="px-4 py-3">
-                <div class="relative flex items-center">
-                    <mat-icon class="icon-size-4 absolute left-3 text-gray-400" svgIcon="feather:search"></mat-icon>
-                    <input type="text" [(ngModel)]="fileSearchText" (input)="applyFileFilter()"
-                        placeholder="Tìm kiếm file theo tên, loại tài liệu..."
-                        class="w-full pl-9 pr-8 py-2 text-sm bg-gray-100 dark:bg-gray-800 border-none rounded-md focus:outline-hidden focus:ring-2 focus:ring-primary-500 text-slate-800 dark:text-slate-200">
-                    <button *ngIf="fileSearchText" (click)="fileSearchText = ''; applyFileFilter()" mat-icon-button class="!w-6 !h-6 !min-h-6 absolute right-2 text-gray-400 hover:text-gray-600">
-                        <mat-icon class="icon-size-4" svgIcon="feather:x"></mat-icon>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Progress Bar khi đang học tài liệu -->
-            <div *ngIf="isIndexing" class="px-4 py-3 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-900 flex flex-col gap-1.5 animate-fade-in">
-                <div class="flex items-center justify-between text-xs font-semibold text-blue-700 dark:text-blue-300">
-                    <span class="flex items-center gap-1.5 truncate">
-                        <mat-icon class="icon-size-4 animate-spin text-blue-600" svgIcon="feather:loader"></mat-icon>
-                        <span class="truncate">{{ indexingFilename ? ('Đang học: ' + indexingFilename) : 'Đang học toàn bộ tài liệu...' }}</span>
-                    </span>
-                    <span class="shrink-0 ml-2 font-mono">{{ progressPercent }}%</span>
-                </div>
-                <mat-progress-bar mode="determinate" [value]="progressPercent" class="rounded-md h-1.5"></mat-progress-bar>
-                <div class="text-[11px] text-blue-600/80 dark:text-blue-400/80 truncate">
-                    {{ progressStatus }}
-                </div>
-            </div>
-
             <!-- Danh sách Files với ngx-datatable Virtual Scroll -->
             <div class="flex-auto relative w-full h-full min-h-0 overflow-hidden">
                 <!-- Loading state -->
@@ -122,72 +94,52 @@
                     
                     <ngx-datatable-column [flexGrow]="1" [canAutoResize]="true" [sortable]="false" [draggable]="false" [resizeable]="false">
                         <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
-                            <div class="w-full h-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-gray-800/60 transition-colors flex flex-col justify-between box-border">
-                                <!-- Top Row: Icon, Filename, Status Badge -->
-                                <div class="flex items-start justify-between gap-2 min-w-0">
-                                    <div class="flex items-start gap-2 min-w-0 flex-1">
-                                        <mat-icon class="icon-size-4.5 shrink-0 mt-0.5"
-                                            [ngClass]="row.filename?.toLowerCase()?.endsWith('.pdf') ? 'text-red-500' : 'text-blue-500'"
-                                            [svgIcon]="row.filename?.toLowerCase()?.endsWith('.pdf') ? 'feather:file-text' : 'feather:file'"></mat-icon>
-                                        <div class="min-w-0 flex-1">
-                                            <div class="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1 truncate leading-snug" [title]="row.filePath || row.filename">
-                                                {{ row.filename }}
-                                            </div>
-                                            <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 min-w-0 overflow-hidden">
-                                                <span *ngIf="row.doc_type && row.doc_type !== 'None'" class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-medium text-slate-600 dark:text-slate-300 shrink-0">
-                                                    {{ row.doc_type }}
-                                                </span>
-                                                <span *ngIf="row.relativePath && row.relativePath !== row.filename" class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-medium truncate max-w-[140px] shrink-0" [title]="row.relativePath">
-                                                    📁 {{ row.relativePath.substring(0, row.relativePath.lastIndexOf(row.filename)) }}
-                                                </span>
-                                                <span *ngIf="row.size_mb" class="shrink-0">{{ row.size_mb }} MB</span>
-                                                <span *ngIf="row.updated_at" class="truncate">• {{ row.updated_at }}</span>
-                                            </div>
+                            <div class="w-full h-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-gray-800/60 transition-colors flex items-center justify-between gap-3 box-border">
+                                <!-- Left: File Icon, Filename & Metadata -->
+                                <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                                    <mat-icon class="icon-size-4.5 shrink-0 mt-0.5"
+                                        [ngClass]="row.filename?.toLowerCase()?.endsWith('.pdf') ? 'text-red-500' : 'text-blue-500'"
+                                        [svgIcon]="row.filename?.toLowerCase()?.endsWith('.pdf') ? 'feather:file-text' : 'feather:file'"></mat-icon>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1 truncate leading-snug" [title]="row.filePath || row.filename">
+                                            {{ row.filename }}
                                         </div>
-                                    </div>
-
-                                    <!-- Status Badge -->
-                                    <div class="shrink-0 flex items-center">
-                                        <span *ngIf="indexingFilename === row.filename" class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200">
-                                            <mat-icon class="icon-size-3.5 animate-spin" svgIcon="feather:loader"></mat-icon>
-                                            Đang học...
-                                        </span>
-                                        <span *ngIf="indexingFilename !== row.filename && row.is_indexed" class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                            <mat-icon class="icon-size-3.5 text-emerald-600" svgIcon="feather:check"></mat-icon>
-                                            Đã học
-                                        </span>
-                                        <span *ngIf="indexingFilename !== row.filename && !row.is_indexed" class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                            <mat-icon class="icon-size-3.5 text-amber-600" svgIcon="feather:alert-circle"></mat-icon>
-                                            Chưa học
-                                        </span>
+                                        <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 min-w-0 overflow-hidden">
+                                            <span *ngIf="row.doc_type && row.doc_type !== 'None'" class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-medium text-slate-600 dark:text-slate-300 shrink-0">
+                                                {{ row.doc_type }}
+                                            </span>
+                                            <span *ngIf="row.relativePath && row.relativePath !== row.filename" class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-medium truncate max-w-[140px] shrink-0" [title]="row.relativePath">
+                                                📁 {{ row.relativePath.substring(0, row.relativePath.lastIndexOf(row.filename)) }}
+                                            </span>
+                                            <span *ngIf="row.size_mb" class="shrink-0">{{ row.size_mb }} MB</span>
+                                            <span *ngIf="row.updated_at" class="truncate">• {{ row.updated_at }}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- File Actions Row -->
-                                <div class="flex items-center justify-between text-xs">
-                                    <span class="text-[11px] text-slate-400">Thao tác tài liệu:</span>
-                                    <div class="flex items-center gap-0.5">
-                                        <button *ngIf="row.is_local" mat-icon-button class="!w-6 !h-6 !min-h-6 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                                            (click)="openLocalFile(row.filePath)" [matTooltip]="'Mở xem file trên máy tính'">
-                                            <mat-icon class="icon-size-3.5" svgIcon="feather:external-link"></mat-icon>
-                                        </button>
-                                        <button *ngIf="row.is_local" mat-icon-button class="!w-6 !h-6 !min-h-6 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                            (click)="showFileInFolder(row.filePath)" [matTooltip]="'Mở thư mục chứa file'">
-                                            <mat-icon class="icon-size-3.5" svgIcon="feather:folder"></mat-icon>
-                                        </button>
-                                        <button *ngIf="!row.is_local" mat-icon-button class="!w-6 !h-6 !min-h-6 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                                            (click)="downloadPdf(row.doc_type, row.filename)" [matTooltip]="'Tải tài liệu về máy'">
-                                            <mat-icon class="icon-size-3.5" svgIcon="feather:download"></mat-icon>
-                                        </button>
-                                        <button mat-icon-button class="!w-6 !h-6 !min-h-6 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                                            (click)="reIndexPdf(row.doc_type, row.filename, rowIndex)" [disabled]="indexingFilename === row.filename" [matTooltip]="'Học lại tài liệu này'">
-                                            <mat-icon class="icon-size-3.5" [class.opacity-40]="indexingFilename === row.filename" svgIcon="feather:refresh-ccw"></mat-icon>
-                                        </button>
-                                        <button *ngIf="!row.is_local" mat-icon-button class="!w-6 !h-6 !min-h-6 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
-                                            (click)="deletePdf(row.doc_type, row.filename, rowIndex)" [disabled]="indexingFilename === row.filename" [matTooltip]="'Xóa tài liệu này'">
-                                            <mat-icon class="icon-size-3.5" [class.opacity-40]="indexingFilename === row.filename" svgIcon="feather:trash-2"></mat-icon>
-                                        </button>
-                                    </div>
+                                <!-- Right: Nút Học lại tài liệu / Trạng thái -->
+                                <div class="shrink-0 flex items-center">
+                                    <button *ngIf="indexingFilename === row.filename" type="button" disabled
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 cursor-not-allowed">
+                                        <mat-icon class="icon-size-3.5 animate-spin" svgIcon="feather:loader"></mat-icon>
+                                        <span>Đang học...</span>
+                                    </button>
+
+                                    <button *ngIf="indexingFilename !== row.filename && row.is_indexed" type="button"
+                                        (click)="onStartLearnDocument(row, rowIndex)"
+                                        [matTooltip]="'Bấm để học lại tài liệu này'"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 transition-colors cursor-pointer">
+                                        <mat-icon class="icon-size-3.5 text-emerald-600" svgIcon="feather:check"></mat-icon>
+                                        <span>Đã học</span>
+                                    </button>
+
+                                    <button *ngIf="indexingFilename !== row.filename && !row.is_indexed" type="button"
+                                        (click)="onStartLearnDocument(row, rowIndex)"
+                                        [matTooltip]="'Bấm để phân loại và học tài liệu này'"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 transition-colors cursor-pointer">
+                                        <mat-icon class="icon-size-3.5 text-amber-600" svgIcon="feather:refresh-ccw"></mat-icon>
+                                        <span>Chưa học</span>
+                                    </button>
                                 </div>
                             </div>
                         </ng-template>
@@ -339,20 +291,12 @@
                             <p class="text-xs text-slate-500 m-0 truncate">{{ filteredThreadRows.length }} cuộc trò chuyện</p>
                         </div>
                     </div>
-                    <button mat-icon-button class="!w-8 !h-8 !min-h-8 text-primary hover:bg-primary-50 dark:hover:bg-primary-950/50" (click)="createThread()" [matTooltip]="'Tạo cuộc hội thoại mới'">
-                        <mat-icon class="icon-size-4" svgIcon="feather:plus"></mat-icon>
-                    </button>
-                </div>
-
-                <!-- Search Thread Input -->
-                <div class="p-3">
-                    <div class="relative flex items-center">
-                        <mat-icon class="icon-size-4 absolute left-3 text-gray-400" svgIcon="feather:search"></mat-icon>
-                        <input type="text" [(ngModel)]="threadSearchText"
-                            placeholder="Tìm kiếm hộp thoại..."
-                            class="w-full pl-9 pr-8 py-2 text-sm bg-gray-100 dark:bg-gray-800 border-none rounded-md focus:outline-hidden focus:ring-2 focus:ring-primary-500 text-slate-800 dark:text-slate-200">
-                        <button *ngIf="threadSearchText" (click)="threadSearchText = ''" mat-icon-button class="!w-6 !h-6 !min-h-6 absolute right-2 text-gray-400 hover:text-gray-600">
-                            <mat-icon class="icon-size-4" svgIcon="feather:x"></mat-icon>
+                    <div class="flex items-center gap-1">
+                        <button *ngIf="filteredThreadRows.length" mat-icon-button class="!w-8 !h-8 !min-h-8 text-gray-400 hover:text-red-500" (click)="clearAllThreads()" [matTooltip]="'Xóa tất cả cuộc trò chuyện'">
+                            <mat-icon class="icon-size-4" svgIcon="feather:trash-2"></mat-icon>
+                        </button>
+                        <button mat-icon-button class="!w-8 !h-8 !min-h-8 text-primary hover:bg-primary-50 dark:hover:bg-primary-950/50" (click)="createThread()" [matTooltip]="'Tạo cuộc hội thoại mới'">
+                            <mat-icon class="icon-size-4" svgIcon="feather:plus"></mat-icon>
                         </button>
                     </div>
                 </div>
@@ -367,12 +311,12 @@
 
                     <!-- Thread Item Cards -->
                     <div *ngFor="let t of filteredThreadRows" (click)="selectThread(t.id)"
-                        class="p-2.5 rounded-md border transition-all cursor-pointer flex items-start gap-2.5 group"
+                        class="p-2.5 rounded-md border transition-all cursor-pointer flex items-center gap-2.5 group relative"
                         [ngClass]="currentThread === t.id ? 
                             'bg-blue-50/90 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100 shadow-2xs' : 
                             'bg-white dark:bg-gray-800/80 hover:bg-slate-50 dark:hover:bg-gray-800 border-gray-100 dark:border-gray-800 text-slate-700 dark:text-slate-300'">
                         
-                        <mat-icon class="icon-size-4 shrink-0 mt-0.5"
+                        <mat-icon class="icon-size-4 shrink-0"
                             [ngClass]="currentThread === t.id ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'"
                             svgIcon="feather:message-circle"></mat-icon>
 
@@ -385,6 +329,12 @@
                                 <span *ngIf="currentThread === t.id" class="w-2 h-2 rounded-full bg-blue-500 shrink-0 ml-1"></span>
                             </div>
                         </div>
+
+                        <!-- Nút Xóa Hộp thoại -->
+                        <button mat-icon-button class="!w-6 !h-6 !min-h-6 shrink-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                            (click)="deleteThread(t.id, $event)" [matTooltip]="'Xóa hộp thoại này'">
+                            <mat-icon class="icon-size-3.5" svgIcon="feather:trash-2"></mat-icon>
+                        </button>
                     </div>
                 </div>
             </div>

@@ -27,6 +27,7 @@ import { DomainService } from 'app/_services/domain';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { LogService } from 'app/_services/link';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { GenaiService } from 'app/genai.service';
 
 @Component({
     selector: 'chatbot',
@@ -46,7 +47,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     fileSearchText: string = '';
     isLoadingFiles: boolean = false;
     selectedFolderPath: string = '';
-    fileTableRowHeight: number = 92;
+    fileTableRowHeight: number = 58;
 
     // Quản lý Right Sidebar Hộp Thoại đã chat
     showThreadsSidebar: boolean = true;
@@ -76,7 +77,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     progressStatus = 'Đang khởi tạo...';
 
     // Giá trị user chọn trong radio
-    selectedDocType: string | null = 'analysis';
+    selectedDocType: string | null = 'qa_detailed';
 
     // ✅ BIẾN NÀY (doc_type thực tế dùng để upload)
     currentDocType: string | null = null;
@@ -405,7 +406,28 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         document.documentElement.classList.toggle('dark');
     }
 
-    loadThreads(): void {
+    async loadThreads(): Promise<void> {
+        const electron = (window as any).electron;
+        let localThreads: any[] = [];
+        if (electron && electron.invoke) {
+            try {
+                const res = await electron.invoke('list-local-chatbot-threads', this.user?.name || 'admin');
+                if (res?.success && res.threads) {
+                    localThreads = res.threads;
+                }
+            } catch (e) {}
+
+            // Trong môi trường Desktop: Ưu tiên tuyệt đối danh sách local trên máy
+            this.threadList = localThreads.map(t => [t.id, t.title, t.title, t.updated_at || '', t.phone || null]);
+            this.rebuildThreadRows();
+            this.calcThreadTableHeight();
+            if (!this.currentThread && this.threadList.length > 0) {
+                this.selectThread(this.threadList[0][0]);
+            }
+            this.cd.markForCheck();
+            return;
+        }
+
         this._chatbotService.loadThreads({
             username: this.user.name
         }).pipe(takeUntil(this._unsubscribeAll))
@@ -430,9 +452,73 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             });
     }
 
-    selectThread(threadId: number): void {
+    async deleteThread(threadId: any, event?: MouseEvent): Promise<void> {
+        if (event) event.stopPropagation();
+        const electron = (window as any).electron;
+        if (electron && electron.invoke) {
+            try {
+                await electron.invoke('delete-local-chatbot-thread', {
+                    username: this.user?.name || 'admin',
+                    threadId: threadId
+                });
+            } catch (e) {}
+        }
+
+        this.threadList = (this.threadList || []).filter(t => String(t?.[0]) !== String(threadId));
+        this.rebuildThreadRows();
+        if (String(this.currentThread) === String(threadId)) {
+            this.currentThread = null;
+            this.currentMessages = [];
+            this.messages = [];
+            const chat = document.getElementById('chat');
+            if (chat) chat.innerHTML = '';
+            if (this.threadList.length > 0) {
+                this.selectThread(this.threadList[0][0]);
+            }
+        }
+        this.toastr.success('Đã xóa hộp thoại');
+        this.cd.markForCheck();
+    }
+
+    async clearAllThreads(): Promise<void> {
+        const electron = (window as any).electron;
+        if (electron && electron.invoke) {
+            try {
+                await electron.invoke('clear-all-local-chatbot-threads', this.user?.name || 'admin');
+            } catch (e) {}
+        }
+        this.threadList = [];
+        this.rebuildThreadRows();
+        this.currentThread = null;
+        this.currentMessages = [];
+        this.messages = [];
+        const chat = document.getElementById('chat');
+        if (chat) chat.innerHTML = '';
+        this.toastr.success('Đã xóa sạch toàn bộ hộp thoại');
+        this.cd.markForCheck();
+    }
+
+    async selectThread(threadId: number): Promise<void> {
         this.currentThread = threadId;
         this.selectedPanel = `${threadId}`;
+
+        // Kiểm tra và hiển thị ngay lịch sử trò chuyện đã lưu trên máy (0ms)
+        const electron = (window as any).electron;
+        if (electron && electron.invoke) {
+            try {
+                const localHist = await electron.invoke('get-local-chatbot-history', {
+                    username: this.user?.name || 'admin',
+                    threadId: threadId
+                });
+                if (localHist?.success && localHist?.messages?.length > 0) {
+                    this.messages = localHist.messages;
+                    this.currentMessages = localHist.messages;
+                    this.removeTyping();
+                    this.renderMessages(localHist.messages);
+                    return;
+                }
+            } catch (e) {}
+        }
 
         this._chatbotService.selectThread({
             threadId: threadId,
@@ -440,10 +526,12 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         }).pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (data) => {
-                    this.messages = data;
-
-                    this.removeTyping();
-                    this.renderMessages(data);
+                    if (data && data.length > 0) {
+                        this.messages = data;
+                        this.currentMessages = data;
+                        this.removeTyping();
+                        this.renderMessages(data);
+                    }
                 },
                 error: () => {
                 },
@@ -452,23 +540,28 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             });
     }
 
-    createThread(): void {
-        this._chatbotService.createThread({
-            username: this.user.name,
-            name: this.user.name,
-            email: this.user.email,
-            phone: this.help.textToNumber(this.user.name)
-        }).pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (threadId) => {
-                    this.currentThread = threadId;
-                    this.loadThreads();
-                },
-                error: () => {
-                },
-                complete: () => {
-                }
-            });
+    async createThread(): Promise<void> {
+        const newId = Date.now();
+        this.currentThread = newId;
+        this.currentMessages = [];
+        this.messages = [];
+        const chat = document.getElementById('chat');
+        if (chat) chat.innerHTML = '';
+
+        const electron = (window as any).electron;
+        if (electron && electron.invoke) {
+            try {
+                await electron.invoke('save-local-chatbot-history', {
+                    username: this.user?.name || 'admin',
+                    threadId: newId,
+                    messages: [],
+                    title: 'Hội thoại mới'
+                });
+            } catch (e) {}
+        }
+        await this.loadThreads();
+        this.toastr.success('Đã tạo cuộc hội thoại mới');
+        this.cd.markForCheck();
     }
 
     getMessage(currentThread: any): void {
@@ -489,13 +582,34 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             });
     }
 
-    sendMessage() {
+    async sendMessage(): Promise<void> {
         let msg = this.chatbotMessage.get('chatgpt')?.value || '';
         const attached = this.attachedFile;
 
-        if (!this.currentThread || (!msg?.trim() && !attached)) {
-            this.toastr.warning('Chưa có cuộc trò chuyện hoặc tin nhắn trống!');
+        if (!msg?.trim() && !attached) {
+            this.toastr.warning('Vui lòng nhập câu hỏi hoặc đính kèm tệp!');
             return;
+        }
+
+        if (!this.currentThread) {
+            try {
+                const threadId: any = await new Promise((resolve) => {
+                    this._chatbotService.createThread({
+                        username: this.user.name,
+                        name: this.user.name,
+                        email: this.user.email,
+                        phone: this.help.textToNumber(this.user.name)
+                    }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                        next: (id) => resolve(id),
+                        error: () => resolve(null),
+                        complete: () => {}
+                    });
+                });
+                if (threadId) {
+                    this.currentThread = Number(threadId) || threadId;
+                    this.loadThreads();
+                }
+            } catch (e) {}
         }
 
         if (attached && !msg?.trim()) {
@@ -512,6 +626,21 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
         // 1. Tạo tin nhắn người dùng
         const userMessage = [this.currentMessages.length + 1, this.currentThread, 'user', msg, null, null, timeStr];
+
+        // Cập nhật tiêu đề hộp thoại ngay lập tức theo câu hỏi đầu tiên của người dùng
+        const firstUserQuestion = msg.trim();
+        const currentThreadRow = (this.threadRows || []).find(r => String(r.id) === String(this.currentThread));
+        if (currentThreadRow && (currentThreadRow.title === 'Hội thoại mới' || !currentThreadRow.title || currentThreadRow.title.startsWith('Hội thoại #'))) {
+            currentThreadRow.title = firstUserQuestion;
+            currentThreadRow.name = firstUserQuestion;
+        }
+        const currentThreadItem = (this.threadList || []).find(t => String(t?.[0]) === String(this.currentThread));
+        if (currentThreadItem) {
+            currentThreadItem[1] = firstUserQuestion;
+            currentThreadItem[2] = firstUserQuestion;
+        }
+        this.rebuildThreadRows();
+        this.cd.markForCheck();
 
         // 2. Tạo KHUNG TRỐNG cho tin nhắn của Bot (chuẩn bị hứng chữ)
         const botIndex = this.currentMessages.length + 2;
@@ -537,10 +666,27 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             return;
         }
 
+        // Tự động tìm kiếm ngữ cảnh từ thư mục FAISS cục bộ: Documents/ai.type/data/faiss/{username}
+        const electron = (window as any).electron;
+        let finalMessage = msg;
+        if (electron && electron.invoke) {
+            try {
+                const localContext = await electron.invoke('get-local-faiss-context', {
+                    username: this.user.name,
+                    query: msg,
+                    maxChunks: 4
+                });
+                if (localContext?.success && localContext?.context) {
+                    console.log('[Chatbot] Đã tìm thấy ngữ cảnh FAISS cục bộ:', localContext.chunksCount, 'đoạn');
+                    finalMessage = `${msg}\n\n[DỮ LIỆU TÀI LIỆU LOCAL FAISS TRÍCH XUẤT TỪ DOCUMENTS/AI.TYPE/DATA/FAISS]:\n${localContext.context}`;
+                }
+            } catch (e) {}
+        }
+
         const payload = {
             thread_id: this.currentThread,
             username: this.user.name,
-            message: msg,
+            message: finalMessage,
             ip_address: "192.168.1.1",
             sender_info: "Chrome on Windows",
             google_api_key: geminiKey,
@@ -549,69 +695,107 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             index_dir: `faiss_pdf_index`
         };
 
-        // 3. Gọi API Streaming
-        this._chatbotService.streamMessage(payload).then(async response => {
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let buffer = '';
+        // 3. Khởi tạo bộ Render dòng chữ mượt mà 60 FPS (Chống cà giật / giật lag khi stream)
+        let targetText = '';
+        let displayedText = '';
+        let isRendering = true;
+        let renderRafId: number = null;
 
-            // Vòng lặp đọc dữ liệu liên tục từ Server
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+        const updateBubbleDOM = (text: string) => {
+            try {
+                const html = marked.parse(text) as string;
+                bubble.innerHTML = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+                const chatContainer = document.getElementById('chat-container');
+                if (chatContainer) {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            } catch (e) {}
+        };
 
-                // Ghép nối các mảnh data bị đứt đoạn do đường truyền
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n\n');
-                buffer = lines.pop(); // Giữ lại mảnh cuối (chưa hoàn chỉnh) để vòng lặp sau xử lý
+        const renderLoop = () => {
+            if (!isRendering && displayedText.length >= targetText.length) return;
 
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.substring(6));
+            if (displayedText.length < targetText.length) {
+                const diff = targetText.length - displayedText.length;
+                const stepSize = diff > 100 ? Math.ceil(diff / 3) : (diff > 30 ? 5 : (diff > 8 ? 2 : 1));
+                displayedText = targetText.slice(0, displayedText.length + stepSize);
+                updateBubbleDOM(displayedText);
+            }
+            renderRafId = requestAnimationFrame(renderLoop);
+        };
 
-                            // Nếu Server văng lỗi
-                            if (data.error) {
-                                fullText = `<span class="text-red-500 font-medium">Lỗi hệ thống AI: ${data.error}</span>`;
-                            }
-                            // Nếu là luồng chữ trả về
-                            else if (data.chunk) {
-                                if (isFirstChunk) {
-                                    fullText = ''; // Phá bỏ chữ "Đang phân tích..." ban đầu
-                                    isFirstChunk = false;
-                                }
-                                fullText += data.chunk;
-                            }
+        renderRafId = requestAnimationFrame(renderLoop);
 
-                            // Dịch Markdown sang HTML và Update thẳng vào Bubble ngay lập tức
-                            const html = marked.parse(fullText) as string;
-                            bubble.innerHTML = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
-                            const chatContainer = document.getElementById('chat-container');
-                            if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight; // Cuộn chat xuống
+        try {
+            console.log('[Chatbot] Đang gửi câu hỏi lên AI Agent (sontinh.type.vn) với dữ liệu FAISS cục bộ...');
+            const sysInstruction = `Bạn là Trợ lý AI chuyên nghiệp phân tích và hỏi đáp tài liệu. Hãy trả lời câu hỏi của người dùng một cách mạch lạc, chi tiết, chính xác dựa trên các thông tin tài liệu đã trích xuất bên dưới:`;
 
-                            // Khi kết thúc toàn bộ luồng
-                            if (data.done) {
-                                botMessage[3] = fullText;
-                                botMessage[4] = data.sources ? JSON.stringify(data.sources) : null;
-
-                                // Gọi render 1 lần cuối cùng để kích hoạt các UI vệ tinh (vd: Thẻ Nguồn gốc, Nút Copy...)
-                                this.renderMessages(this.currentMessages);
-
-                                // Có thể xem Profiler ở Console
-                                if (data.profiler_seconds) {
-                                    console.log('⏱️ Tốc độ xử lý (giây):', data.profiler_seconds);
-                                }
-                            }
-                        } catch (e) {
-                            // Bỏ qua các JSON lỗi do mạng chập chờn chia cắt
+            const response = await this._genaiService.generateContent(
+                {
+                    model: 'gemini-2.0-flash',
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: `${msg}\n\n[DỮ LIỆU TÀI LIỆU LOCAL FAISS TRÍCH XUẤT]:\n${finalMessage}` }]
                         }
-                    }
+                    ],
+                    config: {
+                        systemInstruction: sysInstruction,
+                        onStream: (streamText: string, isFinal: boolean) => {
+                            if (isFirstChunk) {
+                                isFirstChunk = false;
+                                bubble.innerHTML = '';
+                            }
+                            targetText = streamText;
+                        }
+                    } as any
+                },
+                'chatbot-rag'
+            );
+
+            // Kết thúc streaming - chốt nội dung hoàn chỉnh
+            isRendering = false;
+            if (renderRafId) cancelAnimationFrame(renderRafId);
+
+            let finalReply = '';
+            if (response && response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
+                finalReply = response.candidates[0].content.parts[0].text;
+            } else if (typeof response === 'string') {
+                finalReply = response;
+            } else if (targetText) {
+                finalReply = targetText;
+            }
+
+            if (finalReply) {
+                updateBubbleDOM(finalReply);
+                botMessage[3] = finalReply;
+                this.renderMessages(this.currentMessages);
+
+                // Lưu lại toàn bộ nội dung câu hỏi & câu trả lời vào thư mục máy tính cục bộ
+                const electron = (window as any).electron;
+                if (electron && electron.invoke) {
+                    try {
+                        const firstQuestion = (this.currentMessages || []).find(m => m[2] === 'user')?.[3] || msg;
+                        const titlePreview = firstQuestion ? (firstQuestion.slice(0, 50) + (firstQuestion.length > 50 ? '...' : '')) : 'Hội thoại';
+                        await electron.invoke('save-local-chatbot-history', {
+                            username: this.user?.name || 'admin',
+                            threadId: this.currentThread,
+                            messages: this.currentMessages,
+                            title: titlePreview
+                        });
+                    } catch (e) {}
                 }
             }
-        }).catch(err => {
-            console.error('Lỗi streaming:', err);
-            this.toastr.error('Mất kết nối với máy chủ AI.');
-        });
+        } catch (err: any) {
+            isRendering = false;
+            if (renderRafId) cancelAnimationFrame(renderRafId);
+
+            console.error('[Chatbot AI Agent Error]:', err);
+            fullText = `<span class="text-red-500 font-medium">Lỗi phản hồi từ AI Agent (sontinh.type.vn): ${err?.message || err}</span>`;
+            bubble.innerHTML = fullText;
+            botMessage[3] = fullText;
+            this.renderMessages(this.currentMessages);
+        }
     }
 
     /**
@@ -852,10 +1036,32 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             this.isLoadingFiles = true;
             this.cd.markForCheck();
             try {
+                let localIndexedFiles: any = {};
+                try {
+                    const metaRes = await electron.invoke('get-local-faiss-metadata', this.user?.name || 'admin');
+                    if (metaRes?.success && metaRes?.files) {
+                        localIndexedFiles = metaRes.files;
+                    }
+                } catch (me) {}
+
                 const res = await electron.invoke('list-documents-in-folder', folderPath);
                 this.isLoadingFiles = false;
                 if (res && res.success) {
-                    this.fileRows = res.files || [];
+                    const files = res.files || [];
+                    for (const f of files) {
+                        const baseName = (f.filename || '').replace(/\.[^/.]+$/, '').trim().toLowerCase();
+                        const rawName = (f.filename || '').trim().toLowerCase();
+                        for (const key of Object.keys(localIndexedFiles)) {
+                            const keyLower = key.toLowerCase().trim();
+                            const keyBase = key.replace(/\.[^/.]+$/, '').toLowerCase().trim();
+                            if (keyLower === rawName || keyBase === baseName || keyLower === `${baseName}.md` || keyBase === `${baseName}.pdf`) {
+                                f.is_indexed = true;
+                                if (localIndexedFiles[key]?.doc_type) f.doc_type = localIndexedFiles[key].doc_type;
+                                break;
+                            }
+                        }
+                    }
+                    this.fileRows = files;
                     this.applyFileFilter();
                 } else {
                     this.toastr.warning(res?.error || 'Không thể quét tệp trong thư mục.');
@@ -907,9 +1113,21 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         }
     }
 
-    loadFileRows(): void {
+    async loadFileRows(): Promise<void> {
         if (!this.user?.name) return;
         this.isLoadingFiles = true;
+
+        const electron = (window as any).electron;
+        let localIndexedFiles: any = {};
+        if (electron && electron.invoke) {
+            try {
+                const metaRes = await electron.invoke('get-local-faiss-metadata', this.user.name);
+                if (metaRes?.success && metaRes?.files) {
+                    localIndexedFiles = metaRes.files;
+                }
+            } catch (e) {}
+        }
+
         this._chatbotService.listFiles({
             username: this.user.name
         }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
@@ -919,6 +1137,17 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 if (res && res.files) files = res.files;
                 else if (res && res.data) files = res.data;
                 else if (Array.isArray(res)) files = res;
+
+                // Tự động đồng bộ trạng thái Đã học từ thư mục local FAISS
+                for (const f of files) {
+                    const baseName = (f.filename || '').replace(/\.[^/.]+$/, '');
+                    if (localIndexedFiles[f.filename] || localIndexedFiles[baseName] || localIndexedFiles[`${f.filename}.md`]) {
+                        f.is_indexed = true;
+                        const match = localIndexedFiles[f.filename] || localIndexedFiles[baseName] || localIndexedFiles[`${f.filename}.md`];
+                        if (match?.doc_type) f.doc_type = match.doc_type;
+                    }
+                }
+
                 this.fileRows = files;
                 this.applyFileFilter();
                 this.cd.markForCheck();
@@ -944,103 +1173,178 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         this.cd.markForCheck();
     }
 
-    async reIndexPdf(doc_type: string, filename: string, rowIndex?: number): Promise<void> {
+    onStartLearnDocument(row: any, rowIndex: number): void {
+        const validValues = this.docTypes.map(d => d.value);
+        const initialDocType = (row.doc_type && validValues.includes(row.doc_type)) ? row.doc_type : 'qa_detailed';
+        const dialogRef = this.dialog.open(DocTypeDialogComponent, {
+            data: {
+                docTypes: this.docTypes,
+                selectedDocType: initialDocType
+            }
+        });
+
+        dialogRef.afterClosed().subscribe((selectedType: string) => {
+            if (selectedType) {
+                row.doc_type = selectedType;
+                this.reIndexPdf(selectedType, row.filename, rowIndex);
+            }
+        });
+    }
+
+    async reIndexPdf(doc_type: string, filename: string, rowIndex: number = -1): Promise<void> {
+        const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
+        const isColabMcpEnabled = localStorage.getItem('isColabMcpEnabled') === 'true';
+        const colabMcpUrl = (localStorage.getItem('colabMcpUrl') || '').trim();
+
         const secretKeys = this.settings?.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
         const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
+
+        const electron = (window as any).electron;
+        const targetRow = this.fileRows?.find(r => r.filename === filename);
+        const dType = doc_type === 'None' ? 'default' : doc_type;
+        const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
+
+        // 1. ƯU TIÊN HÀNG ĐẦU: Chạy trực tiếp trên Google Colab MCP GPU Server & Lưu FAISS Local
+        if (isColabMcpEnabled && colabMcpUrl && electron) {
+            this.isIndexing = true;
+            this.indexingFilename = filename;
+            this.progressPercent = 20;
+            this.cd.markForCheck();
+
+            try {
+                let tempPdfPath = '';
+                if (targetRow?.is_local && targetRow?.filePath) {
+                    tempPdfPath = targetRow.filePath;
+                } else {
+                    const pdfUrl = `${backendUrl}/pdfs/${dType}/${this.user.name}/${encodeURIComponent(filename)}`;
+                    tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
+                }
+
+                this.progressPercent = 40;
+                this.cd.markForCheck();
+
+                console.log(`[Chatbot] Đang gửi PDF lên Colab MCP GPU: ${filename}`);
+                const result = await electron.invoke('run-pdf-analysis-mcp', {
+                    filePath: tempPdfPath,
+                    mcpUrl: colabMcpUrl,
+                    docType: doc_type,
+                    googleApiKey: geminiKey
+                });
+                console.log(`[Chatbot] Colab MCP phân tích xong:`, result);
+
+                if (!result || !result.markdown || result.markdown.trim().length < 20) {
+                    throw new Error('Colab GPU trả về kết quả rỗng (chưa trích xuất được nội dung). Vui lòng chạy cell code Colab mới nhất có tích hợp PyMuPDF & FAISS!');
+                }
+
+                this.progressPercent = 85;
+                this.cd.markForCheck();
+
+                // Lưu bản chỉ mục & dữ liệu bóc tách cục bộ tại Documents/ai.type/data/faiss/{username}
+                const saveRes = await electron.invoke('save-local-faiss-data', {
+                    username: this.user.name,
+                    filename: filename,
+                    doc_type: doc_type,
+                    markdown: result.markdown || '',
+                    content_json: result.data || result,
+                    faiss_base64: result.faiss_base64,
+                    pkl_base64: result.pkl_base64
+                });
+
+                if (saveRes && saveRes.success) {
+                    if (targetRow) {
+                        targetRow.is_indexed = true;
+                    }
+                    this.isIndexing = false;
+                    this.indexingFilename = '';
+                    const chunksMsg = result.chunks_count ? ` (${result.chunks_count} đoạn)` : '';
+                    this.toastr.success(`Đã tạo FAISS local & học xong ${filename}${chunksMsg}!`);
+                    this.cd.markForCheck();
+                    return;
+                } else {
+                    throw new Error(saveRes?.error || 'Lỗi lưu tệp FAISS vào Documents');
+                }
+            } catch (mcpErr: any) {
+                this.isIndexing = false;
+                this.indexingFilename = '';
+                this.toastr.error('Lỗi phân tích trên Colab GPU: ' + (mcpErr.message || mcpErr));
+                this.cd.markForCheck();
+                return;
+            }
+        }
+
+        // 2. Chế độ thông thường (Local MinerU hoặc Server bot.type.vn)
         if (!geminiKey) {
             this.toastr.warning('Chưa có Google API Key trong Cài đặt');
             return;
         }
 
-        const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
+        if (filename.toLowerCase().endsWith('.pdf') && electron) {
+            this.isIndexing = true;
+            this.indexingFilename = filename;
+            this.progressPercent = 10;
+            this.progressStatus = 'Đang kiểm tra dữ liệu...';
+            this.cd.markForCheck();
 
-        if (filename.toLowerCase().endsWith('.pdf')) {
-            const electron = (window as any).electron;
-            if (electron) {
-                this.isIndexing = true;
-                this.indexingFilename = filename;
-                this.progressPercent = 10;
-                this.progressStatus = 'Đang kiểm tra dữ liệu...';
-                this.cd.markForCheck();
+            const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
+            const jsonUrl = `${backendUrl}/pdfs/${dType}/${this.user.name}/${encodeURIComponent(filenameWithoutExt)}.mineru.json`;
 
-                const dType = doc_type === 'None' ? 'default' : doc_type;
-                const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
-                const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
-                const jsonUrl = `${backendUrl}/pdfs/${dType}/${this.user.name}/${encodeURIComponent(filenameWithoutExt)}.mineru.json`;
-
-                try {
-                    const checkRes = await fetch(jsonUrl, { method: 'HEAD' });
-                    if (!checkRes.ok) {
-                        this.progressStatus = 'Đang tải PDF từ Server...';
-                        this.progressPercent = 30;
-                        this.cd.markForCheck();
-
-                        const pdfUrl = `${backendUrl}/pdfs/${dType}/${this.user.name}/${encodeURIComponent(filename)}`;
-                        const tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
-
-                        this.progressStatus = isMinerUEnabled ? 'Đang chuẩn bị phân tích bằng MinerU...' : 'Đang chuẩn bị phân tích bằng OpenAI (Local)...';
-                        this.progressPercent = 50;
-                        this.cd.markForCheck();
-
-                        const cleanup = electron.onPdfProgress((data: string) => {
-                            this.progressStatus = data;
-                            this.cd.markForCheck();
-                        });
-
-                        try {
-                            const ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
-                            let configData = undefined;
-                            if (!isMinerUEnabled) {
-                                try {
-                                    const settings = this.multiAccountService.getItem('settings');
-                                    if (settings) {
-                                        configData = {
-                                            url: settings.umodelverseUrl || '',
-                                            key: settings.umodelverseKey || ''
-                                        };
-                                    }
-                                } catch (e) {}
-                            }
-
-                            const result = await electron.invoke(ipcMethod, tempPdfPath, configData);
-                            this.progressStatus = 'Đang lưu kết quả AI lên Server...';
-                            this.progressPercent = 90;
-                            this.cd.markForCheck();
-
-                            await new Promise((resolve, reject) => {
-                                this._chatbotService.uploadMinerUResult({
-                                    username: this.user.name,
-                                    filename: filename,
-                                    doc_type: doc_type,
-                                    content_json: result
-                                }).subscribe({
-                                    next: (res) => {
-                                        if (res && res.success) resolve(res);
-                                        else reject('Tải kết quả lên Server thất bại');
-                                    },
-                                    error: reject
-                                });
-                            });
-                        } finally {
-                            cleanup();
-                        }
+            try {
+                const checkRes = await fetch(jsonUrl, { method: 'HEAD' });
+                if (!checkRes.ok) {
+                    let tempPdfPath = '';
+                    if (targetRow?.is_local && targetRow?.filePath) {
+                        tempPdfPath = targetRow.filePath;
                     } else {
-                        this.progressStatus = 'Đã có dữ liệu AI...';
-                        this.progressPercent = 95;
-                        this.cd.markForCheck();
+                        const pdfUrl = `${backendUrl}/pdfs/${dType}/${this.user.name}/${encodeURIComponent(filename)}`;
+                        tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
                     }
 
-                    this.triggerNormalReindex(doc_type, filename);
-                    return;
-                } catch (err: any) {
-                    this.stopProgressPolling();
-                    this.toastr.error('Lỗi phân tích tài liệu AI: ' + (err.message || err));
-                    return;
+                    const cleanup = electron.onPdfProgress((data: string) => {
+                        this.progressStatus = data;
+                        this.cd.markForCheck();
+                    });
+
+                    try {
+                        let ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
+                        let configData = undefined;
+                        if (!isMinerUEnabled) {
+                            try {
+                                const settings = this.multiAccountService.getItem('settings');
+                                if (settings) {
+                                    configData = {
+                                        url: settings.umodelverseUrl || '',
+                                        key: settings.umodelverseKey || ''
+                                    };
+                                }
+                            } catch (e) {}
+                        }
+
+                        const result = await electron.invoke(ipcMethod, tempPdfPath, configData);
+                        await new Promise((resolve, reject) => {
+                            this._chatbotService.uploadMinerUResult({
+                                username: this.user.name,
+                                filename: filename,
+                                doc_type: doc_type,
+                                content_json: result
+                            }).subscribe({
+                                next: (res) => (res && res.success) ? resolve(res) : reject('Tải kết quả thất bại'),
+                                error: reject
+                            });
+                        });
+                    } finally {
+                        cleanup();
+                    }
                 }
+
+                this.triggerNormalReindex(doc_type, filename);
+                return;
+            } catch (err: any) {
+                this.stopProgressPolling();
+                this.toastr.error('Lỗi phân tích tài liệu AI: ' + (err.message || err));
+                return;
             }
         }
 
-        this.triggerNormalReindex(doc_type, filename);
     }
 
     triggerNormalReindex(doc_type: string, filename: string): void {
@@ -1684,7 +1988,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         private cd: ChangeDetectorRef,
         private router: Router,
         private multiAccountService: MultiAccountService,
-        private taskProgress: TaskProgressService
+        private taskProgress: TaskProgressService,
+        private _genaiService: GenaiService
     ) {
         this.titleService.setTitle(`hỏi chatgpt | ai.type - công cụ tạo content`);
     }

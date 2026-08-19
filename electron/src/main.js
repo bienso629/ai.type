@@ -6725,6 +6725,25 @@ ipcMain.handle('list-documents-in-folder', async (event, folderPath) => {
         const validExtensions = ['.pdf', '.docx', '.doc', '.txt', '.md', '.xlsx', '.xls', '.pptx', '.ppt', '.csv', '.epub', '.json', '.html'];
         const files = [];
 
+        // Quét các tệp tin đã học từ Documents/ai.type/data/faiss/*/docs/
+        const faissBaseDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss');
+        const indexedNames = new Set();
+        if (fs.existsSync(faissBaseDir)) {
+            try {
+                const users = fs.readdirSync(faissBaseDir);
+                for (const u of users) {
+                    const uDocs = path.join(faissBaseDir, u, 'docs');
+                    if (fs.existsSync(uDocs)) {
+                        for (const df of fs.readdirSync(uDocs)) {
+                            if (df.endsWith('.md')) {
+                                indexedNames.add(df.replace(/\.md$/, '').toLowerCase().trim());
+                            }
+                        }
+                    }
+                }
+            } catch (fe) {}
+        }
+
         const scanDirRecursive = (currentDir, relativePrefix = '') => {
             try {
                 const entries = fs.readdirSync(currentDir, { withFileTypes: true });
@@ -6754,6 +6773,9 @@ ipcMain.handle('list-documents-in-folder', async (event, folderPath) => {
                                 else if (docType === 'XLSX' || docType === 'XLS') docType = 'Excel';
                                 else if (docType === 'PPTX' || docType === 'PPT') docType = 'Slides';
 
+                                const baseName = path.parse(entry.name).name.toLowerCase().trim();
+                                const isIndexed = indexedNames.has(entry.name.toLowerCase().trim()) || indexedNames.has(baseName);
+
                                 files.push({
                                     filename: entry.name,
                                     relativePath: relPath,
@@ -6763,7 +6785,7 @@ ipcMain.handle('list-documents-in-folder', async (event, folderPath) => {
                                     updated_at: dateStr,
                                     doc_type: docType,
                                     is_local: true,
-                                    is_indexed: false
+                                    is_indexed: isIndexed
                                 });
                             } catch (statErr) {
                                 console.warn('Error reading file stats:', fullPath, statErr);
@@ -7685,3 +7707,334 @@ setInterval(() => {
         });
     }
 }, 5 * 60 * 1000);
+
+// =====================================================================
+// MODEL CONTEXT PROTOCOL (MCP) CLIENT FOR GOOGLE COLAB GPU
+// =====================================================================
+const { colabMcpClient } = require('./mcp-client');
+
+ipcMain.handle('mcp-connect', async (event, url) => {
+    try {
+        const result = await colabMcpClient.connect(url);
+        return { success: true, ...result };
+    } catch (err) {
+        return { success: false, error: err.message || String(err) };
+    }
+});
+
+ipcMain.handle('mcp-status', async () => {
+    return {
+        isConnected: colabMcpClient.isConnected,
+        baseUrl: colabMcpClient.baseUrl,
+        serverInfo: colabMcpClient.serverInfo,
+        tools: colabMcpClient.availableTools
+    };
+});
+
+ipcMain.handle('mcp-disconnect', async () => {
+    colabMcpClient.disconnect();
+    return { success: true };
+});
+
+ipcMain.handle('mcp-call-tool', async (event, toolName, args) => {
+    try {
+        const result = await colabMcpClient.callTool(toolName, args);
+        return { success: true, data: result };
+    } catch (err) {
+        return { success: false, error: err.message || String(err) };
+    }
+});
+
+ipcMain.handle('run-pdf-analysis-mcp', async (event, payload, legacyMcpUrl = null) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const sender = event.sender;
+            let filePath = '';
+            let mcpUrl = '';
+            let docType = 'qa_detailed';
+            let googleApiKey = '';
+
+            if (typeof payload === 'object' && payload !== null) {
+                filePath = payload.filePath;
+                mcpUrl = payload.mcpUrl;
+                docType = payload.docType || 'qa_detailed';
+                googleApiKey = payload.googleApiKey || '';
+            } else {
+                filePath = payload;
+                mcpUrl = legacyMcpUrl;
+            }
+
+            if (!colabMcpClient.isConnected && mcpUrl) {
+                if (sender) sender.send('pdf-analysis-progress', 'Đang kết nối tới Colab MCP GPU Server...');
+                await colabMcpClient.connect(mcpUrl);
+            }
+
+            if (!colabMcpClient.isConnected) {
+                throw new Error('Chưa kết nối tới Colab MCP Server. Vui lòng kiểm tra lại URL Colab trong Cài đặt.');
+            }
+
+            const result = await colabMcpClient.analyzePdfOnColab(filePath, docType, googleApiKey, (statusText) => {
+                if (sender) sender.send('pdf-analysis-progress', statusText);
+            });
+
+            const content = result.data || result;
+            resolve(content);
+        } catch (error) {
+            console.error('Lỗi chạy Colab MCP PDF analysis:', error);
+            reject(error.message || String(error));
+        }
+    });
+});
+
+// ==============================================================================
+// LOCAL FAISS VECTOR DATABASE STORAGE (Documents/ai.type/data/faiss/{username})
+// ==============================================================================
+ipcMain.handle('save-local-faiss-data', async (event, { username, filename, doc_type, markdown, content_json, faiss_base64, pkl_base64 }) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const targetDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser);
+        fs.mkdirSync(targetDir, { recursive: true });
+
+        const docsDir = path.join(targetDir, 'docs');
+        fs.mkdirSync(docsDir, { recursive: true });
+
+        // 1. Lưu file Markdown bóc tách
+        if (markdown) {
+            const mdFilename = `${path.parse(filename).name}.md`;
+            fs.writeFileSync(path.join(docsDir, mdFilename), markdown, 'utf-8');
+        }
+
+        // 2. Lưu file JSON chi tiết MinerU
+        if (content_json) {
+            const jsonFilename = `${path.parse(filename).name}.mineru.json`;
+            fs.writeFileSync(path.join(docsDir, jsonFilename), JSON.stringify(content_json, null, 2), 'utf-8');
+        }
+
+        // 3. Đảm bảo file index.faiss & index.pkl luôn được tạo và cập nhật
+        const faissPath = path.join(targetDir, 'index.faiss');
+        const pklPath = path.join(targetDir, 'index.pkl');
+        if (faiss_base64) {
+            fs.writeFileSync(faissPath, Buffer.from(faiss_base64, 'base64'));
+        } else if (!fs.existsSync(faissPath)) {
+            const header = Buffer.from(`FAISS_INDEX_V1:${safeUser}:${Date.now()}`);
+            fs.writeFileSync(faissPath, header);
+        }
+
+        if (pkl_base64) {
+            fs.writeFileSync(pklPath, Buffer.from(pkl_base64, 'base64'));
+        } else if (!fs.existsSync(pklPath)) {
+            fs.writeFileSync(pklPath, Buffer.from(JSON.stringify({ created_at: Date.now(), user: safeUser })));
+        }
+
+        // 4. Cập nhật metadata
+        const metaPath = path.join(targetDir, 'index_metadata.json');
+        let meta = { username: safeUser, updated_at: new Date().toISOString(), files: {} };
+        if (fs.existsSync(metaPath)) {
+            try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')); } catch (e) {}
+        }
+        meta.files[filename] = {
+            doc_type: doc_type || 'analysis',
+            updated_at: new Date().toISOString(),
+            md_path: path.join(docsDir, `${path.parse(filename).name}.md`)
+        };
+        fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8');
+
+        console.log(`[FAISS Local] Đã lưu dữ liệu chỉ mục tại: ${targetDir}`);
+        return { success: true, targetDir };
+    } catch (err) {
+        console.error('[FAISS Local] Lỗi lưu index:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('get-local-faiss-context', async (event, { username, query, maxChunks = 5 }) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const targetDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser);
+        const docsDir = path.join(targetDir, 'docs');
+
+        if (!fs.existsSync(docsDir)) {
+            return { success: false, context: '' };
+        }
+
+        const files = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
+        if (!files.length) return { success: false, context: '' };
+
+        const queryTerms = (query || '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
+        let scoredChunks = [];
+
+        for (const file of files) {
+            const content = fs.readFileSync(path.join(docsDir, file), 'utf-8');
+            const paragraphs = content.split(/\n\n+/).filter(p => p.trim().length > 30);
+            for (const p of paragraphs) {
+                const lowerP = p.toLowerCase();
+                let score = 0;
+                for (const term of queryTerms) {
+                    if (lowerP.includes(term)) score += 1;
+                }
+                if (score > 0) {
+                    scoredChunks.push({ score, text: p.trim(), file });
+                }
+            }
+        }
+
+        scoredChunks.sort((a, b) => b.score - a.score);
+        const topChunks = scoredChunks.slice(0, maxChunks);
+        const contextText = topChunks.map(c => `[Tài liệu: ${c.file}]\n${c.text}`).join('\n\n---\n\n');
+
+        return { success: true, context: contextText, chunksCount: topChunks.length };
+    } catch (e) {
+        return { success: false, error: e.message, context: '' };
+    }
+});
+
+ipcMain.handle('get-local-faiss-metadata', async (event, username) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const targetDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser);
+        const metaPath = path.join(targetDir, 'index_metadata.json');
+        let filesMap = {};
+
+        if (fs.existsSync(metaPath)) {
+            try {
+                const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+                filesMap = meta.files || {};
+            } catch (e) {}
+        }
+
+        const docsDir = path.join(targetDir, 'docs');
+        if (fs.existsSync(docsDir)) {
+            const files = fs.readdirSync(docsDir);
+            for (const f of files) {
+                if (f.endsWith('.md')) {
+                    const base = f.replace(/\.md$/, '');
+                    const pdfName = `${base}.pdf`;
+                    if (!filesMap[pdfName]) filesMap[pdfName] = { doc_type: 'qa_detailed' };
+                    if (!filesMap[base]) filesMap[base] = { doc_type: 'qa_detailed' };
+                    if (!filesMap[f]) filesMap[f] = { doc_type: 'qa_detailed' };
+                }
+            }
+        }
+
+        return { success: true, files: filesMap };
+    } catch (e) {
+        return { success: false, error: e.message, files: {} };
+    }
+});
+
+ipcMain.handle('save-local-chatbot-history', async (event, { username, threadId, messages, title }) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const userChatDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'chatbot', safeUser);
+        if (!fs.existsSync(userChatDir)) {
+            fs.mkdirSync(userChatDir, { recursive: true });
+        }
+
+        const threadFile = path.join(userChatDir, `thread_${threadId}.json`);
+        fs.writeFileSync(threadFile, JSON.stringify(messages || [], null, 2), 'utf-8');
+
+        // Cập nhật chỉ mục danh sách cuộc trò chuyện
+        const indexFile = path.join(userChatDir, 'threads_index.json');
+        let indexList = [];
+        if (fs.existsSync(indexFile)) {
+            try { indexList = JSON.parse(fs.readFileSync(indexFile, 'utf-8')); } catch (e) {}
+        }
+        const existingIdx = indexList.findIndex(t => String(t.id) === String(threadId));
+        const dateStr = new Date().toLocaleDateString('vi-VN', {
+            hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+        });
+        const firstUserMsg = (messages || []).find(m => m[2] === 'user')?.[3];
+        const computedTitle = (firstUserMsg ? firstUserMsg.slice(0, 60) : null) || 
+                              (title && title !== 'Hội thoại mới' ? title.slice(0, 60) : null) || 
+                              (title || 'Hội thoại mới');
+
+        const threadItem = {
+            id: threadId,
+            title: computedTitle,
+            updated_at: dateStr,
+            messages_count: messages?.length || 0
+        };
+        if (existingIdx >= 0) {
+            indexList[existingIdx] = threadItem;
+        } else {
+            indexList.unshift(threadItem);
+        }
+        fs.writeFileSync(indexFile, JSON.stringify(indexList, null, 2), 'utf-8');
+
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('get-local-chatbot-history', async (event, { username, threadId }) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const userChatDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'chatbot', safeUser);
+        const threadFile = path.join(userChatDir, `thread_${threadId}.json`);
+        if (fs.existsSync(threadFile)) {
+            const data = JSON.parse(fs.readFileSync(threadFile, 'utf-8'));
+            return { success: true, messages: data };
+        }
+        return { success: false, messages: [] };
+    } catch (e) {
+        return { success: false, error: e.message, messages: [] };
+    }
+});
+
+ipcMain.handle('list-local-chatbot-threads', async (event, username) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const userChatDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'chatbot', safeUser);
+        const indexFile = path.join(userChatDir, 'threads_index.json');
+        if (fs.existsSync(indexFile)) {
+            const list = JSON.parse(fs.readFileSync(indexFile, 'utf-8'));
+            return { success: true, threads: list || [] };
+        }
+        return { success: true, threads: [] };
+    } catch (e) {
+        return { success: false, error: e.message, threads: [] };
+    }
+});
+
+ipcMain.handle('delete-local-chatbot-thread', async (event, { username, threadId }) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const userChatDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'chatbot', safeUser);
+        const threadFile = path.join(userChatDir, `thread_${threadId}.json`);
+        if (fs.existsSync(threadFile)) {
+            fs.unlinkSync(threadFile);
+        }
+
+        const indexFile = path.join(userChatDir, 'threads_index.json');
+        if (fs.existsSync(indexFile)) {
+            let list = JSON.parse(fs.readFileSync(indexFile, 'utf-8')) || [];
+            list = list.filter(t => String(t.id) !== String(threadId));
+            fs.writeFileSync(indexFile, JSON.stringify(list, null, 2), 'utf-8');
+        }
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('clear-all-local-chatbot-threads', async (event, username) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const userChatDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'chatbot', safeUser);
+        if (fs.existsSync(userChatDir)) {
+            const files = fs.readdirSync(userChatDir);
+            for (const f of files) {
+                try { fs.unlinkSync(path.join(userChatDir, f)); } catch (err) {}
+            }
+        }
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+
+
+
+
