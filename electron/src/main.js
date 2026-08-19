@@ -3502,6 +3502,69 @@ ipcMain.handle('is-ai-agent-active', async () => {
     }
 });
 
+// --- COLAB GPU AGENT PLUGIN ---
+let colabAgentProcess = null;
+
+function isColabAgentEnabled() {
+    try {
+        const configPath = path.join(os.homedir(), "Documents", "ai.type", "data", "colab", "agent_config.json");
+        if (fs.existsSync(configPath)) {
+            const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            return data.enable !== false;
+        }
+    } catch(e) {}
+    return true;
+}
+
+function startColabAgent() {
+    if (colabAgentProcess) return;
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const binaryPath = path.join(userPluginsDir, 'colab_agent_linux');
+        const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
+        const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
+        
+        let execPath = null;
+        let args = ['--port', '7868'];
+
+        if (fs.existsSync(binaryPath)) {
+            execPath = binaryPath;
+        } else if (fs.existsSync(devBinaryPath)) {
+            execPath = devBinaryPath;
+        } else if (fs.existsSync(devScriptPath)) {
+            execPath = 'python3';
+            args = [devScriptPath, '--port', '7868'];
+        }
+
+        if (execPath) {
+            colabAgentProcess = spawn(execPath, args, { stdio: 'pipe' });
+            colabAgentProcess.stdout.on('data', (data) => console.log(`[Colab Agent Plugin] ${data}`));
+            colabAgentProcess.stderr.on('data', (data) => console.error(`[Colab Agent Plugin] ${data}`));
+            colabAgentProcess.on('exit', () => { colabAgentProcess = null; });
+            console.log('[Colab Agent Plugin] Đã khởi chạy tại http://127.0.0.1:7868');
+        }
+    } catch (e) {
+        console.error('[Colab Agent Plugin] Lỗi start:', e);
+    }
+}
+
+function stopColabAgent() {
+    if (colabAgentProcess) {
+        try {
+            colabAgentProcess.kill('SIGKILL');
+            colabAgentProcess = null;
+        } catch (e) {}
+    }
+    try {
+        const cp = require('child_process');
+        if (process.platform !== 'win32') {
+            cp.exec('fuser -k 7868/tcp');
+            cp.exec('killall -9 colab_agent_linux');
+        }
+    } catch (e) {}
+    console.log('[Colab Agent Plugin] Đã dừng');
+}
+
 // --- ZALO AUTO REPLY PLUGIN ---
 let zaloPluginProcess = null;
 const zaloPluginConfigPath = path.join(app.getPath('userData'), 'zalo_plugin_config.json');
@@ -3647,6 +3710,33 @@ ipcMain.handle('get-plugins-status', async (event) => {
             if (data.apiKey) agentApiKey = data.apiKey;
         } catch(e) {}
 
+        // Colab Agent Plugin
+        const userColabPath = path.join(userPluginsDir, 'colab_agent_linux');
+        const devColabBinary = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
+        const devColabScript = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
+        const colabInstalled = fs.existsSync(userColabPath);
+        const colabCanInstall = fs.existsSync(devColabBinary) || fs.existsSync(devColabScript);
+        const colabEnabled = isColabAgentEnabled();
+        let colabVersion = '1.0.1';
+        try {
+            const cp = require('child_process');
+            let binToProbe = null;
+            if (fs.existsSync(userColabPath)) binToProbe = userColabPath;
+            else if (fs.existsSync(devColabBinary)) binToProbe = devColabBinary;
+
+            if (binToProbe) {
+                const out = cp.execFileSync(binToProbe, ['--version'], { timeout: 1500, encoding: 'utf8' });
+                if (out && out.trim()) {
+                    colabVersion = out.trim().split(/\s+/).pop();
+                }
+            } else {
+                const manifestPath = path.join(userPluginsDir, 'colab_agent.json');
+                if (fs.existsSync(manifestPath)) {
+                    colabVersion = JSON.parse(fs.readFileSync(manifestPath, 'utf8')).version || colabVersion;
+                }
+            }
+        } catch(e) {}
+
         return [
             {
                 id: 'zalo_reply',
@@ -3667,6 +3757,15 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 enabled: agentEnabled,
                 apiKey: agentApiKey,
                 version: '1.0'
+            },
+            {
+                id: 'colab_agent',
+                name: 'Colab GPU Agent',
+                description: 'Tự động hóa kết nối Google Colab GPU, bóc tách MinerU và thực thi code từ xa.',
+                installed: colabInstalled,
+                canInstall: colabCanInstall,
+                enabled: colabEnabled,
+                version: colabVersion
             }
         ];
     } catch (e) {
@@ -3695,6 +3794,27 @@ ipcMain.handle('install-plugin', async (event, pluginId) => {
             return { success: false, error: 'Không tìm thấy file nguồn cài đặt plugin.' };
         } else if (pluginId === 'ai_agent') {
             return { success: true, message: 'Plugin AI Agent đã sẵn sàng. Hãy copy file ai_agent_linux vào thư mục plugins.' };
+        } else if (pluginId === 'colab_agent') {
+            const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+            fs.mkdirSync(userPluginsDir, { recursive: true });
+            
+            const userBinaryPath = path.join(userPluginsDir, 'colab_agent_linux');
+            const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
+            const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
+            
+            if (fs.existsSync(devBinaryPath)) {
+                fs.copyFileSync(devBinaryPath, userBinaryPath);
+                fs.chmodSync(userBinaryPath, 0o755);
+                startColabAgent();
+                return { success: true, message: 'Đã cài đặt Colab GPU Agent thành công!' };
+            } else if (fs.existsSync(devScriptPath)) {
+                const destScriptPath = path.join(userPluginsDir, 'colab_agent.py');
+                fs.copyFileSync(devScriptPath, destScriptPath);
+                fs.chmodSync(destScriptPath, 0o755);
+                startColabAgent();
+                return { success: true, message: 'Đã sao chép mã nguồn Colab Agent vào Documents/ai.type/plugins!' };
+            }
+            return { success: false, error: 'Không tìm thấy file nguồn Colab Agent.' };
         }
         return { success: false, error: 'Plugin không xác định.' };
     } catch (e) {
@@ -3731,9 +3851,125 @@ ipcMain.handle('uninstall-plugin', async (event, pluginId) => {
             }
             writeAiAgentConfig({ enable: false });
             return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
+        } else if (pluginId === 'colab_agent') {
+            const userColabPath = path.join(userPluginsDir, 'colab_agent_linux');
+            const userScriptPath = path.join(userPluginsDir, 'colab_agent.py');
+            stopColabAgent();
+            if (fs.existsSync(userColabPath)) {
+                fs.unlinkSync(userColabPath);
+            }
+            if (fs.existsSync(userScriptPath)) {
+                fs.unlinkSync(userScriptPath);
+            }
+            return { success: true, message: 'Đã gỡ cài đặt Colab Agent thành công!' };
         }
         return { success: false, error: 'Plugin không xác định.' };
     } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('toggle-colab-agent', (event, enable) => {
+    try {
+        const configDir = path.join(os.homedir(), "Documents", "ai.type", "data", "colab");
+        fs.mkdirSync(configDir, { recursive: true });
+        const configPath = path.join(configDir, "agent_config.json");
+        let cfg = {};
+        if (fs.existsSync(configPath)) {
+            try { cfg = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch(e) {}
+        }
+        cfg.enable = enable;
+        fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf8');
+
+        if (enable) {
+            startColabAgent();
+        } else {
+            stopColabAgent();
+        }
+        return { success: true };
+    } catch(e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('get-colab-auth-status', () => {
+    try {
+        const tokenPath = path.join(os.homedir(), ".config", "colab-cli", "token.json");
+        return { authenticated: fs.existsSync(tokenPath), tokenPath };
+    } catch(e) {
+        return { authenticated: false };
+    }
+});
+
+ipcMain.handle('login-colab-google', async () => {
+    try {
+        const { shell } = require('electron');
+        startColabAgent();
+        
+        // Đợi daemon sẵn sàng
+        await new Promise(r => setTimeout(r, 600));
+
+        let authUrl = null;
+        try {
+            const resp = await fetch('http://127.0.0.1:7868/auth_url');
+            if (resp.ok) {
+                const data = await resp.json();
+                authUrl = data.auth_url;
+            }
+        } catch(e) {}
+
+        if (!authUrl) {
+            return { success: false, error: 'Không thể kết nối tới Colab Agent Daemon.' };
+        }
+
+        // Mở trình duyệt mặc định của hệ điều hành (Chrome/Firefox/Edge)
+        await shell.openExternal(authUrl);
+
+        return { success: true, authUrl };
+    } catch(e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('exchange-colab-code', async (event, code) => {
+    try {
+        if (!code || !code.trim()) {
+            return { success: false, error: 'Mã xác thực không hợp lệ.' };
+        }
+        
+        const resp = await fetch('http://127.0.0.1:7868/exchange_token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code.trim() })
+        });
+
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+            return { success: true, message: 'Đã liên kết Google Colab thành công!' };
+        } else {
+            return { success: false, error: data?.error || 'Mã xác thực không hợp lệ hoặc phiên OAuth đã hết hạn.' };
+        }
+    } catch(e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('start-colab-gpu', async () => {
+    try {
+        const cp = require('child_process');
+        const res = cp.spawn('colab', ['new', '-s', 'aitype', '--gpu', 'T4'], { stdio: 'pipe' });
+        return { success: true, message: 'Đang khởi tạo máy ảo GPU T4...' };
+    } catch(e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('stop-colab-gpu', async () => {
+    try {
+        const cp = require('child_process');
+        cp.execSync('colab stop -s aitype');
+        return { success: true, message: 'Đã dừng máy ảo Colab GPU.' };
+    } catch(e) {
         return { success: false, error: e.message };
     }
 });
@@ -3753,6 +3989,7 @@ ipcMain.on('zalo-plugin:is-enabled', (event) => {
 app.on('will-quit', () => {
     stopAiAgent();
     stopZaloPlugin();
+    stopColabAgent();
 });
 
 app.whenReady().then(async () => {
@@ -3761,6 +3998,9 @@ app.whenReady().then(async () => {
     }
     if (isZaloPluginEnabled()) {
         startZaloPlugin();
+    }
+    if (isColabAgentEnabled()) {
+        startColabAgent();
     }
 
     startCrmServices();
