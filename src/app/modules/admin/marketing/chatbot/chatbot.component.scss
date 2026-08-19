@@ -192,3 +192,45 @@
         opacity: 1;
     }
 }
+
+.chatbot-file-table {
+    background: transparent !important;
+
+    .datatable-header {
+        display: none !important;
+    }
+
+    .datatable-body {
+        background: transparent !important;
+        width: 100% !important;
+
+        .datatable-row-wrapper {
+            background: transparent !important;
+            width: 100% !important;
+        }
+
+        .datatable-body-row {
+            background: transparent !important;
+            border: none !important;
+            width: 100% !important;
+
+            &.datatable-row-even, &.datatable-row-odd {
+                background: transparent !important;
+            }
+
+            .datatable-body-cell {
+                padding: 0 !important;
+                border: none !important;
+                display: block !important;
+                width: 100% !important;
+                height: 100% !important;
+                overflow: hidden !important;
+            }
+        }
+
+        .datatable-scroll {
+            background: transparent !important;
+            width: 100% !important;
+        }
+    }
+}

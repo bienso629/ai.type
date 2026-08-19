@@ -6693,6 +6693,125 @@ ipcMain.handle('select-video-file', async (event) => {
     return null;
 });
 
+// =====================================================================
+// IPC HANDLER: CHỌN THƯ MỤC TÀI LIỆU VÀ QUÉT DANH SÁCH FILE
+// =====================================================================
+ipcMain.handle('select-folder-dialog', async (event, defaultPath) => {
+    try {
+        const options = {
+            properties: ['openDirectory'],
+            title: 'Chọn thư mục tài liệu'
+        };
+        if (defaultPath && fs.existsSync(defaultPath)) {
+            options.defaultPath = defaultPath;
+        }
+        const { canceled, filePaths } = await dialog.showOpenDialog(options);
+        if (!canceled && filePaths && filePaths.length > 0) {
+            return filePaths[0];
+        }
+        return null;
+    } catch (e) {
+        console.error('[Folder Dialog] Error selecting folder:', e);
+        return null;
+    }
+});
+
+ipcMain.handle('list-documents-in-folder', async (event, folderPath) => {
+    try {
+        if (!folderPath || !fs.existsSync(folderPath)) {
+            return { success: false, error: 'Thư mục không tồn tại', files: [] };
+        }
+
+        const validExtensions = ['.pdf', '.docx', '.doc', '.txt', '.md', '.xlsx', '.xls', '.pptx', '.ppt', '.csv', '.epub', '.json', '.html'];
+        const files = [];
+
+        const scanDirRecursive = (currentDir, relativePrefix = '') => {
+            try {
+                const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (entry.name.startsWith('.')) continue;
+
+                    const fullPath = path.join(currentDir, entry.name);
+                    const relPath = relativePrefix ? path.join(relativePrefix, entry.name) : entry.name;
+
+                    if (entry.isDirectory()) {
+                        scanDirRecursive(fullPath, relPath);
+                    } else if (entry.isFile()) {
+                        const ext = path.extname(entry.name).toLowerCase();
+                        if (validExtensions.includes(ext) || ext !== '') {
+                            try {
+                                const stats = fs.statSync(fullPath);
+                                const sizeMb = (stats.size / (1024 * 1024)).toFixed(2);
+                                const dateStr = stats.mtime.toLocaleDateString('vi-VN', {
+                                    year: 'numeric', month: '2-digit', day: '2-digit',
+                                    hour: '2-digit', minute: '2-digit'
+                                });
+                                
+                                let docType = ext.replace('.', '').toUpperCase();
+                                if (docType === 'PDF') docType = 'PDF';
+                                else if (docType === 'DOCX' || docType === 'DOC') docType = 'Word';
+                                else if (docType === 'TXT' || docType === 'MD') docType = 'Text';
+                                else if (docType === 'XLSX' || docType === 'XLS') docType = 'Excel';
+                                else if (docType === 'PPTX' || docType === 'PPT') docType = 'Slides';
+
+                                files.push({
+                                    filename: entry.name,
+                                    relativePath: relPath,
+                                    filePath: fullPath,
+                                    size_mb: parseFloat(sizeMb) < 0.01 ? '< 0.01' : sizeMb,
+                                    size_bytes: stats.size,
+                                    updated_at: dateStr,
+                                    doc_type: docType,
+                                    is_local: true,
+                                    is_indexed: false
+                                });
+                            } catch (statErr) {
+                                console.warn('Error reading file stats:', fullPath, statErr);
+                            }
+                        }
+                    }
+                }
+            } catch (dirErr) {
+                console.warn('Error reading directory:', currentDir, dirErr);
+            }
+        };
+
+        scanDirRecursive(folderPath);
+
+        files.sort((a, b) => a.filename.localeCompare(b.filename));
+        return { success: true, folderPath: folderPath, files: files };
+    } catch (e) {
+        console.error('[List Documents] Error:', e);
+        return { success: false, error: e.message, files: [] };
+    }
+});
+
+ipcMain.handle('open-file-path', async (event, filePath) => {
+    try {
+        if (filePath && fs.existsSync(filePath)) {
+            await shell.openPath(filePath);
+            return true;
+        }
+        return false;
+    } catch (e) {
+        console.error('Error opening file path:', e);
+        return false;
+    }
+});
+
+ipcMain.handle('show-item-in-folder', async (event, filePath) => {
+    try {
+        if (filePath && fs.existsSync(filePath)) {
+            shell.showItemInFolder(filePath);
+            return true;
+        }
+        return false;
+    } catch (e) {
+        console.error('Error showing item in folder:', e);
+        return false;
+    }
+});
+
 ipcMain.handle('find-latest-analyzed-video', async (event) => {
     try {
         const downloadsPath = app.getPath('downloads');
