@@ -368,12 +368,29 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 this.toastr.success(res.message || 'Đã liên kết Google Colab thành công!');
                 this.checkColabStatus();
             } else {
-                this.toastr.error(res?.error || 'Mã xác thực không hợp lệ hoặc đã hết hạn.');
+                this.toastr.error(this.formatErrorMessage(res?.error || 'Mã xác thực không hợp lệ hoặc đã hết hạn.'));
             }
         } catch(e) {
-            this.toastr.error('Lỗi xác thực: ' + e.message);
+            this.toastr.error(this.formatErrorMessage('Lỗi xác thực: ' + e.message));
         }
         this.cd.detectChanges();
+    }
+
+    private formatErrorMessage(err: any): string {
+        if (!err) return 'Đã có lỗi xảy ra.';
+        const errStr = typeof err === 'string' ? err : (err.message || JSON.stringify(err));
+        if (errStr.includes('TooManyAssignmentsError') || errStr.includes('412') || errStr.includes('Too many assignments')) {
+            return 'Tài khoản Google đã đạt giới hạn cấp phát GPU Colab hôm nay. Vui lòng thử lại sau vài giờ.';
+        }
+        if (errStr.includes('Unauthenticated') || errStr.includes('401') || errStr.includes('invalid_grant')) {
+            return 'Phiên đăng nhập Google Colab đã hết hạn. Vui lòng liên kết lại mã xác thực.';
+        }
+        const cleanLines = errStr.split('\n').map(l => l.trim().replace(/^\|+\s*/, '')).filter(l => l && !l.startsWith('Traceback') && !l.startsWith('File ') && !l.startsWith('site-packages/'));
+        const lastLine = cleanLines[cleanLines.length - 1];
+        if (lastLine && lastLine.length > 5) {
+            return lastLine.length > 120 ? lastLine.slice(0, 120) + '...' : lastLine;
+        }
+        return errStr.length > 120 ? errStr.slice(0, 120) + '...' : errStr;
     }
 
     async startColabGpuCli() {
@@ -383,13 +400,14 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         try {
             const res = await (window as any).electronAPI.startColabGpu();
             if (res && res.success) {
-                this.toastr.success('Máy ảo GPU Colab đang được khởi tạo ngầm!');
-                setTimeout(() => this.checkColabStatus(), 5000);
+                this.toastr.success(res.message || 'Đã kết nối GPU Colab thành công!');
+                this.checkColabStatus();
+                setTimeout(() => this.checkColabStatus(), 2000);
             } else {
-                this.toastr.error(res?.error || 'Không thể khởi tạo GPU Colab.');
+                this.toastr.error(this.formatErrorMessage(res?.error || 'Không thể khởi tạo GPU Colab.'));
             }
         } catch(e) {
-            this.toastr.error('Lỗi: ' + e.message);
+            this.toastr.error(this.formatErrorMessage('Lỗi: ' + e.message));
         } finally {
             this.isColabStarting = false;
             this.cd.detectChanges();
@@ -404,10 +422,10 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 this.toastr.success('Đã giải phóng máy ảo Colab GPU.');
                 this.checkColabStatus();
             } else {
-                this.toastr.error(res?.error || 'Không thể dừng GPU.');
+                this.toastr.error(this.formatErrorMessage(res?.error || 'Không thể dừng GPU.'));
             }
         } catch(e) {
-            this.toastr.error('Lỗi: ' + e.message);
+            this.toastr.error(this.formatErrorMessage('Lỗi: ' + e.message));
         }
         this.cd.detectChanges();
     }

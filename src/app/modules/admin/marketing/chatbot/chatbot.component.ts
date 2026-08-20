@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
@@ -34,7 +34,8 @@ import { GenaiService } from 'app/genai.service';
     templateUrl: './chatbot.component.html',
     providers: [ChatbotService, DomainService, LogService],
     styleUrls: ['./chatbot.component.scss'],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ChatBotComponent implements OnInit, OnDestroy {
     config: AppConfig;
@@ -48,6 +49,83 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     isLoadingFiles: boolean = false;
     selectedFolderPath: string = '';
     fileTableRowHeight: number = 58;
+
+    // Quản lý Chọn nhiều & Học lần lượt (Chuẩn ngx-datatable Selection)
+    selected: any[] = [];
+    isBatchLearning: boolean = false;
+    batchCurrentIndex: number = 0;
+    batchTotalCount: number = 0;
+    batchCurrentFile: string = '';
+    isBatchCancelled: boolean = false;
+    Math = Math;
+
+    onSelect({ selected }: { selected: any[] }): void {
+        this.selected.splice(0, this.selected.length);
+        this.selected.push(...selected);
+        this.cd.markForCheck();
+    }
+
+    async learnSelectedDocuments(): Promise<void> {
+        const selectedList = this.selected && this.selected.length > 0 ? [...this.selected] : [];
+        if (!selectedList.length) {
+            this.toastr.warning('Vui lòng chọn ít nhất 1 tài liệu để học.');
+            return;
+        }
+
+        this.isBatchLearning = true;
+        this.isBatchCancelled = false;
+        this.batchTotalCount = selectedList.length;
+        this.batchCurrentIndex = 0;
+        this.cd.markForCheck();
+
+        let successCount = 0;
+        let failedCount = 0;
+
+        for (let i = 0; i < selectedList.length; i++) {
+            if (this.isBatchCancelled) {
+                this.toastr.info('Đã dừng tiến trình học hàng loạt.');
+                break;
+            }
+
+            const row = selectedList[i];
+            this.batchCurrentIndex = i + 1;
+            this.batchCurrentFile = row.filename;
+            this.cd.markForCheck();
+
+            const docType = (row.doc_type && row.doc_type !== 'None') ? row.doc_type : 'qa_detailed';
+            try {
+                await this.reIndexPdf(docType, row.filename);
+                row.is_indexed = true;
+                successCount++;
+            } catch (err: any) {
+                console.error(`[Batch Learn] Lỗi học ${row.filename}:`, err);
+                failedCount++;
+            }
+        }
+
+        this.isBatchLearning = false;
+        this.batchCurrentFile = '';
+        this.isIndexing = false;
+        this.indexingFilename = '';
+
+        if (!this.isBatchCancelled) {
+            if (failedCount === 0) {
+                this.toastr.success(`Đã hoàn tất học thành công toàn bộ ${successCount} tài liệu đã chọn!`);
+            } else {
+                this.toastr.info(`Đã hoàn tất: ${successCount} tài liệu thành công, ${failedCount} tài liệu gặp lỗi.`);
+            }
+        }
+        this.cd.markForCheck();
+    }
+
+    cancelBatchLearning(): void {
+        this.isBatchCancelled = true;
+        this.isBatchLearning = false;
+        this.isIndexing = false;
+        this.indexingFilename = '';
+        this.toastr.info('Đã gửi lệnh dừng học hàng loạt.');
+        this.cd.markForCheck();
+    }
 
     // Quản lý Right Sidebar Hộp Thoại đã chat
     showThreadsSidebar: boolean = true;
@@ -117,6 +195,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     domainOptions: any[] = [];
 
     @ViewChild('drawer') drawer: MatDrawer;
+    @ViewChild('chatInput') chatInputRef: ElementRef<HTMLInputElement>;
     drawerMode: 'over' | 'side' = 'side';
     drawerOpened: boolean = true;
 
@@ -246,16 +325,24 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             const avatar = document.createElement('div');
             avatar.className = 'avatar';
             if (m[2] === 'user') {
-                if (currentThread?.[0]?.[3]) {
+                if (this.user?.avatar && this.user.avatar !== 'https://type.vnnull') {
                     const image = document.createElement('img');
-                    image.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentName)}`;
-                    image.alt = this.user?.name ?? 'U';
+                    image.src = this.user.avatar;
+                    image.alt = this.user?.name ?? 'User';
+                    image.className = 'w-full h-full rounded-full object-cover';
+                    image.crossOrigin = 'anonymous';
                     avatar.appendChild(image);
                 } else {
-                    avatar.textContent = 'U';
+                    avatar.style.backgroundColor = '#9333ea';
+                    avatar.textContent = (this.user?.name || currentName || 'U').charAt(0).toUpperCase();
                 }
             } else {
-                avatar.textContent = 'B';
+                avatar.className = 'avatar bg-white';
+                const botImg = document.createElement('img');
+                botImg.src = 'assets/images/logo/web.png';
+                botImg.alt = 'AI';
+                botImg.className = 'w-full h-full object-cover rounded-full';
+                avatar.appendChild(botImg);
             }
 
             const bubble = document.createElement('div');
@@ -263,9 +350,16 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
             // ✅ Parse + sanitize rồi gán innerHTML (không dùng textContent)
             const md = (m[3] ?? '').toString();
-            const html = marked.parse(md) as string;
-            const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
-            bubble.innerHTML = clean;
+            if (m[2] === 'bot' && (!md || md === 'Đang phân tích...')) {
+                bubble.innerHTML = `<div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-0.5">
+                    <span class="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                    <span class="text-sm italic">Đang suy nghĩ & trả lời...</span>
+                </div>`;
+            } else {
+                const html = marked.parse(md) as string;
+                const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+                bubble.innerHTML = clean;
+            }
 
             // Tuỳ chọn: ép link mở tab mới & an toàn
             bubble.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(a => {
@@ -349,11 +443,16 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         promptText = (messages[msgIdx - 1][3] ?? '').toString();
                     }
                 }
-                if (this.chatbotMessage) {
-                    this.chatbotMessage.get('text')?.setValue(promptText);
+                if (this.chatInputRef?.nativeElement) {
+                    this.chatInputRef.nativeElement.value = promptText;
+                    this.chatInputRef.nativeElement.focus();
+                } else {
+                    const inputEl = document.querySelector('#chat-container ~ div input[type="text"]') as HTMLInputElement;
+                    if (inputEl) {
+                        inputEl.value = promptText;
+                        inputEl.focus();
+                    }
                 }
-                const inputEl = document.querySelector('#chat-container ~ div textarea, #chat-container ~ div input') as HTMLInputElement | HTMLTextAreaElement;
-                if (inputEl) inputEl.focus();
             });
             footer.appendChild(reAskBtn);
 
@@ -365,8 +464,13 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         });
 
         this.currentMessages = messages;
+        this.cd.markForCheck();
         const chatContainer = document.getElementById('chat-container');
-        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+        if (chatContainer) {
+            setTimeout(() => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 50);
+        }
     }
 
     appendTyping() {
@@ -380,8 +484,12 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         message.className = 'message';
 
         const avatar = document.createElement('div');
-        avatar.className = 'avatar';
-        avatar.textContent = 'B';
+        avatar.className = 'avatar bg-white';
+        const botImg = document.createElement('img');
+        botImg.src = 'assets/images/logo/web.png';
+        botImg.alt = 'AI';
+        botImg.className = 'w-full h-full object-cover rounded-full';
+        avatar.appendChild(botImg);
 
         const bubble = document.createElement('div');
         bubble.className = 'bubble bot text-base animate-pulse';
@@ -515,6 +623,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     this.currentMessages = localHist.messages;
                     this.removeTyping();
                     this.renderMessages(localHist.messages);
+                    this.cd.markForCheck();
                     return;
                 }
             } catch (e) {}
@@ -531,6 +640,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         this.currentMessages = data;
                         this.removeTyping();
                         this.renderMessages(data);
+                        this.cd.markForCheck();
                     }
                 },
                 error: () => {
@@ -582,11 +692,11 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             });
     }
 
-    async sendMessage(): Promise<void> {
-        let msg = this.chatbotMessage.get('chatgpt')?.value || '';
+    async sendMessage(explicitText?: string): Promise<void> {
+        let msg = (explicitText !== undefined ? explicitText : (this.chatInputRef?.nativeElement?.value || this.inputMessage || '')).trim();
         const attached = this.attachedFile;
 
-        if (!msg?.trim() && !attached) {
+        if (!msg && !attached) {
             this.toastr.warning('Vui lòng nhập câu hỏi hoặc đính kèm tệp!');
             return;
         }
@@ -612,14 +722,21 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             } catch (e) {}
         }
 
-        if (attached && !msg?.trim()) {
+        if (attached && !msg) {
             msg = `Phân tích tệp đính kèm: ${attached.name}`;
-        } else if (attached && msg?.trim()) {
-            msg = `${msg.trim()}\n[Tệp đính kèm]: ${attached.name}`;
+        } else if (attached && msg) {
+            msg = `${msg}\n[Tệp đính kèm]: ${attached.name}`;
         }
 
-        this.chatbotMessage.controls['chatgpt'].reset();
+        if (this.chatInputRef?.nativeElement) {
+            this.chatInputRef.nativeElement.value = '';
+        }
+        this.inputMessage = '';
+        if (this.chatbotMessage?.controls['chatgpt']) {
+            this.chatbotMessage.controls['chatgpt'].reset();
+        }
         this.attachedFile = null;
+        this.cd.markForCheck();
 
         const date = new Date();
         const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -746,7 +863,11 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                                 isFirstChunk = false;
                                 bubble.innerHTML = '';
                             }
-                            targetText = streamText;
+                            if (isFinal) {
+                                targetText = streamText;
+                            } else {
+                                targetText += streamText;
+                            }
                         }
                     } as any
                 },
@@ -1193,8 +1314,24 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
     async reIndexPdf(doc_type: string, filename: string, rowIndex: number = -1): Promise<void> {
         const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
-        const isColabMcpEnabled = localStorage.getItem('isColabMcpEnabled') === 'true';
-        const colabMcpUrl = (localStorage.getItem('colabMcpUrl') || '').trim();
+        let isColabMcpEnabled = localStorage.getItem('isColabMcpEnabled') === 'true';
+        let colabMcpUrl = (localStorage.getItem('colabMcpUrl') || '').trim();
+
+        // Tự động kiểm tra Colab GPU nếu chưa có cấu hình trong localStorage
+        if (!colabMcpUrl) {
+            try {
+                const colabStatusResp = await fetch('http://127.0.0.1:7868/status');
+                if (colabStatusResp.ok) {
+                    const cData = await colabStatusResp.json();
+                    if (cData && cData.colab_url && cData.is_connected) {
+                        colabMcpUrl = cData.colab_url;
+                        isColabMcpEnabled = true;
+                        localStorage.setItem('colabMcpUrl', colabMcpUrl);
+                        localStorage.setItem('isColabMcpEnabled', 'true');
+                    }
+                }
+            } catch(e) {}
+        }
 
         const secretKeys = this.settings?.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
         const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
@@ -1205,7 +1342,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
 
         // 1. ƯU TIÊN HÀNG ĐẦU: Chạy trực tiếp trên Google Colab MCP GPU Server & Lưu FAISS Local
-        if (isColabMcpEnabled && colabMcpUrl && electron) {
+        if ((isColabMcpEnabled || colabMcpUrl) && electron) {
             this.isIndexing = true;
             this.indexingFilename = filename;
             this.progressPercent = 20;
@@ -1228,7 +1365,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     filePath: tempPdfPath,
                     mcpUrl: colabMcpUrl,
                     docType: doc_type,
-                    googleApiKey: geminiKey
+                    googleApiKey: geminiKey,
+                    username: this.user?.name || 'admin'
                 });
                 console.log(`[Chatbot] Colab MCP phân tích xong:`, result);
 
@@ -1526,15 +1664,28 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         });
     }
 
-    sendQuickPrompt(promptText: string): void {
-        this.chatbotMessage.patchValue({ chatgpt: promptText });
-        this.sendMessage();
+    onSendForm(event: Event, inputEl?: HTMLInputElement): void {
+        event.preventDefault();
+        const text = (inputEl ? inputEl.value : (this.chatInputRef?.nativeElement?.value || this.inputMessage || '')).trim();
+        if (inputEl) inputEl.value = '';
+        if (this.chatInputRef?.nativeElement) this.chatInputRef.nativeElement.value = '';
+        this.sendMessage(text);
     }
 
-    onEnterSendMessage(event: any): void {
+    sendQuickPrompt(promptText: string): void {
+        if (this.chatInputRef?.nativeElement) {
+            this.chatInputRef.nativeElement.value = '';
+        }
+        this.sendMessage(promptText);
+    }
+
+    onEnterSendMessage(event: any, inputEl?: HTMLInputElement): void {
         if (!event.shiftKey) {
             event.preventDefault();
-            this.sendMessage();
+            const text = (inputEl ? inputEl.value : (this.chatInputRef?.nativeElement?.value || this.inputMessage || '')).trim();
+            if (inputEl) inputEl.value = '';
+            if (this.chatInputRef?.nativeElement) this.chatInputRef.nativeElement.value = '';
+            this.sendMessage(text);
         }
     }
 

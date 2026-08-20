@@ -295,7 +295,7 @@ export class GenaiService {
         const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
         if (isAiAgentActive && !isVideoRequest) {
-            params.model = 'gemini-3.6-flash';
+            params.model = settingsRaw?.aiAgentModel || 'gemini-3.7-flash-low';
         }
 
         if (isImageRequest && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
@@ -305,7 +305,7 @@ export class GenaiService {
                 params.model = 'imagen-3.0-generate-002';
             }
         } else if (!bypassModelOverride) {
-            if (params.model === 'gemini-3.6-flash') {
+            if (params.model?.startsWith('gemini-3.7-flash') || params.model?.startsWith('gemini-3.6-flash')) {
                 if (!isAiAgentActive && this._umodelverseChatModel) {
                     params.model = this._umodelverseChatModel;
                 }

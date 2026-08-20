@@ -2,7 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const dns = require('dns');
 const { URL } = require('url');
+
+try {
+    dns.setServers(['1.1.1.1', '8.8.8.8', '1.0.0.1', '8.8.4.4']);
+} catch (e) {}
 
 class ColabMcpClient {
     constructor() {
@@ -155,7 +160,7 @@ class ColabMcpClient {
         return res;
     }
 
-    async analyzePdfOnColab(filePath, docType = 'qa_detailed', googleApiKey = '', onProgress = null) {
+    async analyzePdfOnColab(filePath, docType = 'qa_detailed', googleApiKey = '', onProgress = null, options = {}) {
         if (!fs.existsSync(filePath)) {
             throw new Error(`Tệp tin không tồn tại: ${filePath}`);
         }
@@ -167,19 +172,40 @@ class ColabMcpClient {
         const pdfBase64 = fileBuffer.toString('base64');
         const sizeMb = (fileBuffer.length / (1024 * 1024)).toFixed(2);
 
+        // Nạp FAISS index hiện tại của user nếu có để tích lũy
+        let existingFaissB64 = options.existing_faiss_base64 || '';
+        let existingPklB64 = options.existing_pkl_base64 || '';
+        const username = options.username || 'admin';
+
+        if (!existingFaissB64 && username) {
+            try {
+                const os = require('os');
+                const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+                const faissFile = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser, 'index.faiss');
+                const pklFile = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser, 'index.pkl');
+                if (fs.existsSync(faissFile) && fs.existsSync(pklFile)) {
+                    existingFaissB64 = fs.readFileSync(faissFile).toString('base64');
+                    existingPklB64 = fs.readFileSync(pklFile).toString('base64');
+                    console.log(`[MCP Client] Đã đính kèm ${fs.statSync(faissFile).size} bytes FAISS hiện có để tích lũy.`);
+                }
+            } catch(e) {}
+        }
+
         let toolName = 'build_faiss_from_pdf';
         const hasBuildTool = this.availableTools && this.availableTools.some(t => (t.name || t) === 'build_faiss_from_pdf');
         if (!hasBuildTool) {
             toolName = 'mineru_parse_pdf';
         }
 
-        if (onProgress) onProgress(`Colab GPU đang phân tích MinerU AI (${filename})...`);
+        if (onProgress) onProgress(`Colab GPU đang bóc tách nội dung & tạo FAISS (${filename})...`);
 
         let result = await this.callTool(toolName, {
             pdf_base64: pdfBase64,
             filename: filename,
             doc_type: docType,
-            google_api_key: googleApiKey
+            google_api_key: googleApiKey,
+            existing_faiss_base64: existingFaissB64,
+            existing_pkl_base64: existingPklB64
         });
 
         // Fallback nếu server Colab đang chạy code cũ chưa có build_faiss_from_pdf

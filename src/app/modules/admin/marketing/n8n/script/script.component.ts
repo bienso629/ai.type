@@ -84,7 +84,16 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     turnOffLiveStream = false;
     isProfileRunning = false;
 
-    // AI Chat Assistant State
+    // AI Chat Assistant State & Profile Mention Popup (@)
+    @ViewChild('scriptChatInput') scriptChatInputRef?: ElementRef<HTMLInputElement>;
+    @ViewChild('profileSearchInput') profileSearchInputRef?: ElementRef<HTMLInputElement>;
+
+    showProfileMentionPopup: boolean = false;
+    profileSearchQuery: string = '';
+    runningProfiles: any[] = [];
+    filteredRunningProfiles: any[] = [];
+    selectedRunningProfiles: any[] = [];
+
     chatInput: string = '';
     chatMessages: { role: 'user' | 'assistant' | 'divider'; content: string }[] = [];
 
@@ -306,7 +315,298 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         if (inputEl) inputEl.focus();
     }
 
+    // --- PROFILE MENTION POPUP (@) LOGIC ---
+    onChatInputChange(event: any): void {
+        const val = this.chatInput || '';
+        const inputEl = event?.target as HTMLInputElement;
+        const cursor = inputEl?.selectionStart ?? val.length;
+
+        const textBeforeCursor = val.slice(0, cursor);
+        const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+        if (lastAtIndex !== -1) {
+            const queryAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+            if (!/\s/.test(queryAfterAt)) {
+                this.profileSearchQuery = queryAfterAt;
+                this.openProfileMentionPopup();
+                return;
+            }
+        }
+
+        if (this.showProfileMentionPopup && lastAtIndex === -1) {
+            this.showProfileMentionPopup = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    onChatInputKeydown(event: KeyboardEvent): void {
+        if (event.key === '@') {
+            setTimeout(() => {
+                this.openProfileMentionPopup();
+            }, 0);
+        } else if (event.key === 'Escape' && this.showProfileMentionPopup) {
+            this.closeProfileMentionPopup();
+            event.preventDefault();
+        }
+    }
+
+    toggleProfileMentionPopup(): void {
+        this.showNgSelectBar = !this.showNgSelectBar;
+        this.showProfileMentionPopup = this.showNgSelectBar;
+        if (this.showNgSelectBar) {
+            this.fetchRunningProfiles();
+        }
+        this.cd.markForCheck();
+    }
+
+    openProfileMentionPopup(): void {
+        this.showNgSelectBar = true;
+        this.showProfileMentionPopup = true;
+        this.fetchRunningProfiles();
+        this.filterRunningProfiles();
+        this.cd.markForCheck();
+    }
+
+    closeProfileMentionPopup(): void {
+        this.showProfileMentionPopup = false;
+        this.profileSearchQuery = '';
+        this.cd.markForCheck();
+    }
+
+    profileDisplayFn(prof: any): string {
+        return '';
+    }
+
+    onProfileOptionSelected(event: any): void {
+        const prof = event?.option?.value;
+        if (!prof) return;
+
+        const tag = prof.persona?.alias ? prof.persona.alias : prof.name;
+        const mentionToken = `@${tag.replace(/\s+/g, '_')} `;
+
+        let val = this.chatInput || '';
+        const lastAtIndex = val.lastIndexOf('@');
+        if (lastAtIndex !== -1) {
+            val = val.slice(0, lastAtIndex) + mentionToken;
+        } else {
+            val = val ? `${val.trim()} ${mentionToken}` : mentionToken;
+        }
+
+        this.chatInput = val;
+        this.closeProfileMentionPopup();
+        this.cd.markForCheck();
+
+        setTimeout(() => {
+            if (this.scriptChatInputRef?.nativeElement) {
+                this.scriptChatInputRef.nativeElement.focus();
+            }
+        }, 50);
+    }
+
+    // --- NG-SELECT MULTI-SELECT PROFILE LOGIC (GIỐNG HỆT MỜI VIẾT CÙNG) ---
+    selectedProfilesForScript: any[] = [];
+    showNgSelectBar: boolean = false;
+
+    toggleNgSelectBar(): void {
+        this.showNgSelectBar = !this.showNgSelectBar;
+        if (this.showNgSelectBar) {
+            this.fetchRunningProfiles();
+        }
+        this.cd.markForCheck();
+    }
+
+    selectAllNgProfiles(): void {
+        this.selectedProfilesForScript = this.runningProfiles.map(p => p.name);
+        this.cd.markForCheck();
+    }
+
+    clearAllNgProfiles(): void {
+        this.selectedProfilesForScript = [];
+        this.cd.markForCheck();
+    }
+
+    onNgSelectProfilesChange(selected: any[]): void {
+        this.selectedProfilesForScript = selected || [];
+        this.cd.markForCheck();
+    }
+
+    applyNgProfilesToPrompt(): void {
+        if (!this.selectedProfilesForScript || this.selectedProfilesForScript.length === 0) return;
+
+        const mentionTokens = this.selectedProfilesForScript.map(pName => {
+            const found = this.runningProfiles.find(p => p.name === pName);
+            const tag = found?.persona?.alias ? found.persona.alias : pName;
+            return `@${tag.replace(/\s+/g, '_')}`;
+        }).join(' ');
+
+        let cur = this.chatInput || '';
+        cur = cur ? `${cur.trim()} ${mentionTokens} ` : `${mentionTokens} `;
+        this.chatInput = cur;
+        this.showNgSelectBar = false;
+        this.showProfileMentionPopup = false;
+        this.cd.markForCheck();
+
+        setTimeout(() => {
+            if (this.scriptChatInputRef?.nativeElement) {
+                this.scriptChatInputRef.nativeElement.focus();
+            }
+        }, 50);
+    }
+
+    onSearchInputEnter(): void {
+        if (this.selectedRunningProfiles.length > 0) {
+            this.applySelectedProfileMentions();
+        } else if (this.filteredRunningProfiles.length === 1) {
+            this.toggleProfileSelection(this.filteredRunningProfiles[0]);
+            this.applySelectedProfileMentions();
+        }
+    }
+
+    @HostListener('document:click', ['$event'])
+    onDocumentClick(event: MouseEvent): void {
+        if (!this.showProfileMentionPopup) return;
+        const target = event.target as HTMLElement;
+        if (!target) return;
+
+        const insidePopup = target.closest('.profile-mention-popup-container');
+        const insideInput = target.closest('.script-chat-input-container');
+        if (!insidePopup && !insideInput) {
+            this.closeProfileMentionPopup();
+        }
+    }
+
+    fetchRunningProfiles(): void {
+        // 1. Dùng danh sách items / profiles có sẵn hiển thị 0ms
+        const currentList = (this.items && this.items.length > 0) ? this.items : this.profiles;
+        this.populateRunningProfilesList(currentList);
+
+        // 2. Tải thêm từ server để đồng bộ mới nhất
+        this._mxhautoService.profiles({
+            profiles_root: this.getProfilesRoot(),
+            host: '127.0.0.1',
+            verify: true,
+            filter: 'running',
+            include_accounts: true,
+            platform: 'tiktok',
+            username: this.user?.name || 'admin'
+        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+            next: (result: any) => {
+                if (result && result.ok && Array.isArray(result.results)) {
+                    this.populateRunningProfilesList(result.results);
+                    this.filterRunningProfiles();
+                    this.cd.markForCheck();
+                }
+            },
+            error: () => {}
+        });
+    }
+
+    private populateRunningProfilesList(rawList: any[]): void {
+        if (!Array.isArray(rawList)) return;
+        this.runningProfiles = rawList.map((p, idx) => {
+            const name = p.name || p.profile || `Profile ${idx + 1}`;
+            const acc = (p.accounts && p.accounts.length > 0) ? p.accounts[0] : null;
+            const avatar = acc?.avatar || p.avatar || '';
+            const account_username = acc?.username || acc?.nickname || '';
+            const persona = p.persona || (acc?.alias ? { alias: acc.alias, role: 'Người xem', style: 'Tự nhiên' } : { role: 'Người xem', style: 'Tự nhiên' });
+            return {
+                id: p.id !== undefined ? p.id : idx,
+                name: name,
+                avatar: avatar,
+                account_username: account_username,
+                persona: persona,
+                raw: p
+            };
+        });
+        this.filterRunningProfiles();
+    }
+
+    onProfileSearchChange(): void {
+        this.filterRunningProfiles();
+        this.cd.markForCheck();
+    }
+
+    filterRunningProfiles(): void {
+        const q = (this.profileSearchQuery || '').toLowerCase().trim();
+        if (!q) {
+            this.filteredRunningProfiles = [...this.runningProfiles];
+        } else {
+            this.filteredRunningProfiles = this.runningProfiles.filter(p => {
+                const name = (p.name || '').toLowerCase();
+                const alias = (p.persona?.alias || '').toLowerCase();
+                const role = (p.persona?.role || '').toLowerCase();
+                const style = (p.persona?.style || '').toLowerCase();
+                const username = (p.account_username || '').toLowerCase();
+                return name.includes(q) || alias.includes(q) || role.includes(q) || style.includes(q) || username.includes(q);
+            });
+        }
+    }
+
+    isProfileSelected(prof: any): boolean {
+        return this.selectedRunningProfiles.some(p => p.name === prof.name || (p.id !== undefined && p.id === prof.id));
+    }
+
+    toggleProfileSelection(prof: any): void {
+        const idx = this.selectedRunningProfiles.findIndex(p => p.name === prof.name || (p.id !== undefined && p.id === prof.id));
+        if (idx !== -1) {
+            this.selectedRunningProfiles.splice(idx, 1);
+        } else {
+            this.selectedRunningProfiles.push(prof);
+        }
+        this.cd.markForCheck();
+    }
+
+    isAllProfilesSelected(): boolean {
+        return this.filteredRunningProfiles.length > 0 && 
+               this.filteredRunningProfiles.every(p => this.isProfileSelected(p));
+    }
+
+    toggleSelectAllProfiles(): void {
+        if (this.isAllProfilesSelected()) {
+            const filteredNames = new Set(this.filteredRunningProfiles.map(p => p.name));
+            this.selectedRunningProfiles = this.selectedRunningProfiles.filter(p => !filteredNames.has(p.name));
+        } else {
+            for (const prof of this.filteredRunningProfiles) {
+                if (!this.isProfileSelected(prof)) {
+                    this.selectedRunningProfiles.push(prof);
+                }
+            }
+        }
+        this.cd.markForCheck();
+    }
+
+    applySelectedProfileMentions(): void {
+        if (this.selectedRunningProfiles.length === 0) {
+            this.closeProfileMentionPopup();
+            return;
+        }
+
+        const mentionTokens = this.selectedRunningProfiles.map(p => {
+            const tag = p.persona?.alias ? p.persona.alias : p.name;
+            return `@${tag.replace(/\s+/g, '_')}`;
+        }).join(' ');
+
+        let cur = this.chatInput || '';
+        const lastAtIndex = cur.lastIndexOf('@');
+        if (lastAtIndex !== -1) {
+            cur = cur.slice(0, lastAtIndex) + mentionTokens + ' ';
+        } else {
+            cur = cur ? `${cur.trim()} ${mentionTokens} ` : `${mentionTokens} `;
+        }
+
+        this.chatInput = cur;
+        this.closeProfileMentionPopup();
+        this.cd.markForCheck();
+
+        setTimeout(() => {
+            if (this.scriptChatInputRef?.nativeElement) {
+                this.scriptChatInputRef.nativeElement.focus();
+            }
+        }, 50);
+    }
+
     async sendChatMessage(): Promise<void> {
+        this.closeProfileMentionPopup();
         if (!this.chatInput || !this.chatInput.trim()) return;
         const text = this.chatInput.trim();
         const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -379,11 +679,25 @@ Nhiệm vụ của bạn:
             }
         }
 
-        // 2. Chế độ AI trả lời thông thường nếu không phải câu lệnh lọc
+        // 2. Chế độ AI trả lời thông thường nếu không phải câu lệnh lọc (kèm theo ngữ cảnh Profiles nếu có tag @)
         try {
+            let personaContext = '';
+            const mentioned = this.runningProfiles.filter(p => {
+                const pName = p.name || '';
+                const alias = p.persona?.alias || '';
+                return text.includes(`@${pName.replace(/\s+/g, '_')}`) || 
+                       text.includes(`@${pName}`) || 
+                       (alias && (text.includes(`@${alias.replace(/\s+/g, '_')}`) || text.includes(`@${alias}`)));
+            });
+            if (mentioned.length > 0) {
+                personaContext = `\n\n[DANH SÁCH PROFILES & PERSONA ĐƯỢC GẮN THẺ TRONG YÊU CẦU]:\n` + 
+                    mentioned.map(p => `- Profile: ${p.name} | Tên hiển thị/Alias: ${p.persona?.alias || p.name} | Vai trò: ${p.persona?.role || 'Người xem'} | Phong cách: ${p.persona?.style || 'Tự nhiên'} | Giới tính: ${p.persona?.gender || 'Ẩn'}`).join('\n') +
+                    `\nHãy phân công và viết các câu comment/kịch bản tương tác sinh động, đúng phong cách và vai trò của từng profile trên.`;
+            }
+
             const response: any = await this._genaiService.generateContent({
                 model: 'gemini-2.5-flash',
-                contents: [{ role: 'user', parts: [{ text }] }],
+                contents: [{ role: 'user', parts: [{ text: `${text}${personaContext}` }] }],
                 config: {
                     systemInstruction: `Bạn là Trợ lý phân tích chuyên nghiệp hỗ trợ xây dựng kịch bản livestream, phân tích video và tự động hóa tương tác MXH. Hãy phản hồi ngắn gọn, trình bày HTML sạch sẽ, không dùng code block markdown và không ghi chữ AI Agent hay sontinh.type.vn.`
                 }

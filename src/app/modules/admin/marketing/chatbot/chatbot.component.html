@@ -14,11 +14,6 @@
         </div>
 
         <div class="flex shrink-0 items-center gap-2 mt-3 sm:mt-0">
-            <input type="file" id="pdfInput" (change)="onPdfSelected($event)" hidden>
-            <button mat-flat-button color="primary" (click)="triggerPdfUpload()">
-                <mat-icon class="icon-size-4" svgIcon="feather:upload-cloud"></mat-icon>
-                <span class="ml-2">Tải PDF, DOCx</span>
-            </button>
             <button mat-flat-button class="!bg-emerald-600 hover:!bg-emerald-700 !text-white" (click)="indexDomains()" [matTooltip]="'app.bot_learns_website' | transloco">
                 <mat-icon class="icon-size-4 !text-white" svgIcon="feather:globe"></mat-icon>
                 <span class="ml-1.5 hidden md:inline text-white font-medium">{{ 'app.bot_learns_website' | transloco }}</span>
@@ -45,17 +40,17 @@
                         <h3 class="font-bold text-base text-slate-800 dark:text-slate-100 truncate m-0 leading-tight">Tài liệu của bạn</h3>
                         <p class="text-xs text-slate-500 m-0 truncate" [title]="selectedFolderPath || ''">
                             <span *ngIf="selectedFolderPath" class="text-primary-600 font-semibold mr-1">[{{ getFolderBaseName(selectedFolderPath) }}]</span>
-                            {{ filteredFileRows.length }} / {{ fileRows.length }} file được AI sử dụng
+                            {{ selected.length > 0 ? (selected.length + ' đã chọn / ') : '' }}{{ filteredFileRows.length }} file
                         </p>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-1 shrink-0">
-                    <button *ngIf="selectedFolderPath" mat-icon-button class="icon-size-8 text-gray-400 hover:text-red-500"
-                        (click)="clearSelectedFolder()" [matTooltip]="'Bỏ chọn thư mục, quay về danh sách server'">
-                        <mat-icon class="icon-size-4" svgIcon="feather:folder-minus"></mat-icon>
+                <div class="flex items-center gap-0 shrink-0">
+                    <input type="file" id="pdfInput" (change)="onPdfSelected($event)" hidden>
+                    <button mat-icon-button (click)="triggerPdfUpload()" [matTooltip]="'Tải lên file PDF, DOCx, TXT'">
+                        <mat-icon class="icon-size-4 text-primary-600" svgIcon="feather:upload-cloud"></mat-icon>
                     </button>
-                    <button mat-icon-button class="icon-size-8" (click)="refreshFiles()" [matTooltip]="'Làm mới danh sách'">
+                    <button mat-icon-button (click)="refreshFiles()" [matTooltip]="'Làm mới danh sách'">
                         <mat-icon class="icon-size-4 text-gray-500" [class.animate-spin]="isLoadingFiles" svgIcon="feather:rotate-cw"></mat-icon>
                     </button>
                 </div>
@@ -80,79 +75,99 @@
                     </p>
                 </div>
 
-                <!-- Datatable Container -->
+                <!-- Datatable Container (Exact structure of archives.component.html) -->
                 <ngx-datatable *ngIf="filteredFileRows.length > 0"
-                    class="material fullscreen w-full h-full shadow-none chatbot-file-table absolute inset-0"
-                    [rows]="filteredFileRows"
-                    [virtualization]="true"
-                    [scrollbarV]="true"
-                    [scrollbarH]="false"
-                    [rowHeight]="fileTableRowHeight"
-                    [headerHeight]="0"
-                    [footerHeight]="0"
-                    [columnMode]="'force'">
-                    
-                    <ngx-datatable-column [flexGrow]="1" [canAutoResize]="true" [sortable]="false" [draggable]="false" [resizeable]="false">
+                    #table class="material fullscreen transition-opacity duration-300 absolute inset-0 chatbot-file-table"
+                    [columnMode]="ColumnMode.force"
+                    [trackByProp]="'filename'"
+                    [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+                    (select)="onSelect($event)"
+                    [headerHeight]="50" [footerHeight]="50" [rowHeight]="fileTableRowHeight" [scrollbarV]="true" [rows]="filteredFileRows"
+                    [messages]="{emptyMessage: 'Không có dữ liệu', totalMessage: 'tài liệu'}">
+
+                    <!-- Cột 1: Checkbox -->
+                    <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                        [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+
+                    <!-- Cột 2: Tên tài liệu -->
+                    <ngx-datatable-column name="Tên tài liệu" [flexGrow]="1" [sortable]="false" [canAutoResize]="true"
+                        [draggable]="false" [resizeable]="true">
                         <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
-                            <div class="w-full h-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-gray-800/60 transition-colors flex items-center justify-between gap-3 box-border">
-                                <!-- Left: File Icon, Filename & Metadata -->
-                                <div class="flex items-start gap-2.5 min-w-0 flex-1">
-                                    <mat-icon class="icon-size-4.5 shrink-0 mt-0.5"
-                                        [ngClass]="row.filename?.toLowerCase()?.endsWith('.pdf') ? 'text-red-500' : 'text-blue-500'"
-                                        [svgIcon]="row.filename?.toLowerCase()?.endsWith('.pdf') ? 'feather:file-text' : 'feather:file'"></mat-icon>
-                                    <div class="min-w-0 flex-1">
-                                        <div class="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1 truncate leading-snug" [title]="row.filePath || row.filename">
-                                            {{ row.filename }}
-                                        </div>
-                                        <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 min-w-0 overflow-hidden">
-                                            <span *ngIf="row.doc_type && row.doc_type !== 'None'" class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-medium text-slate-600 dark:text-slate-300 shrink-0">
-                                                {{ row.doc_type }}
-                                            </span>
-                                            <span *ngIf="row.relativePath && row.relativePath !== row.filename" class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-medium truncate max-w-[140px] shrink-0" [title]="row.relativePath">
-                                                📁 {{ row.relativePath.substring(0, row.relativePath.lastIndexOf(row.filename)) }}
-                                            </span>
-                                            <span *ngIf="row.size_mb" class="shrink-0">{{ row.size_mb }} MB</span>
-                                            <span *ngIf="row.updated_at" class="truncate">• {{ row.updated_at }}</span>
-                                        </div>
+                            <div class="flex items-center w-full h-full gap-3 my-auto min-w-0 pr-2">
+                                <mat-icon class="icon-size-6 shrink-0"
+                                    [ngClass]="row.filename?.toLowerCase()?.endsWith('.pdf') ? 'text-red-500' : 'text-blue-500'"
+                                    [svgIcon]="row.filename?.toLowerCase()?.endsWith('.pdf') ? 'feather:file-text' : 'feather:file'"></mat-icon>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1 truncate leading-snug" [title]="row.filePath || row.filename">
+                                        {{ row.filename }}
                                     </div>
-                                </div>
-
-                                <!-- Right: Nút Học lại tài liệu / Trạng thái -->
-                                <div class="shrink-0 flex items-center">
-                                    <button *ngIf="indexingFilename === row.filename" type="button" disabled
-                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 cursor-not-allowed">
-                                        <mat-icon class="icon-size-3.5 animate-spin" svgIcon="feather:loader"></mat-icon>
-                                        <span>Đang học...</span>
-                                    </button>
-
-                                    <button *ngIf="indexingFilename !== row.filename && row.is_indexed" type="button"
-                                        (click)="onStartLearnDocument(row, rowIndex)"
-                                        [matTooltip]="'Bấm để học lại tài liệu này'"
-                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 transition-colors cursor-pointer">
-                                        <mat-icon class="icon-size-3.5 text-emerald-600" svgIcon="feather:check"></mat-icon>
-                                        <span>Đã học</span>
-                                    </button>
-
-                                    <button *ngIf="indexingFilename !== row.filename && !row.is_indexed" type="button"
-                                        (click)="onStartLearnDocument(row, rowIndex)"
-                                        [matTooltip]="'Bấm để phân loại và học tài liệu này'"
-                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 transition-colors cursor-pointer">
-                                        <mat-icon class="icon-size-3.5 text-amber-600" svgIcon="feather:refresh-ccw"></mat-icon>
-                                        <span>Chưa học</span>
-                                    </button>
+                                    <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 min-w-0 overflow-hidden">
+                                        <span *ngIf="row.doc_type && row.doc_type !== 'None'" class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-medium text-slate-600 dark:text-slate-300 shrink-0">
+                                            {{ row.doc_type }}
+                                        </span>
+                                        <span *ngIf="row.relativePath && row.relativePath !== row.filename" class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-medium truncate max-w-[140px] shrink-0" [title]="row.relativePath">
+                                            📁 {{ row.relativePath.substring(0, row.relativePath.lastIndexOf(row.filename)) }}
+                                        </span>
+                                        <span *ngIf="row.size_mb" class="shrink-0">{{ row.size_mb }} MB</span>
+                                        <span *ngIf="row.updated_at" class="truncate">• {{ row.updated_at }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </ng-template>
                     </ngx-datatable-column>
-                </ngx-datatable>
-            </div>
 
-            <!-- Footer Cột Trái: Nút Học lại tất cả tài liệu -->
-            <div class="h-14 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0 flex items-center justify-between px-4">
-                <span class="text-xs text-slate-500">Học lại tất cả tài liệu</span>
-                <button mat-icon-button (click)="indexAll()" [disabled]="isIndexing" [matTooltip]="'Học lại tất cả tài liệu'">
-                    <mat-icon class="icon-size-4 text-emerald-600" [class.animate-spin]="isIndexing && !indexingFilename" svgIcon="feather:refresh-cw"></mat-icon>
-                </button>
+                    <!-- Cột 3: Nút thao tác -->
+                    <ngx-datatable-column [width]="60" [sortable]="false" [canAutoResize]="false"
+                        [draggable]="false" [resizeable]="false">
+                        <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
+                            <div class="flex items-center justify-center w-full h-full">
+                                <button *ngIf="indexingFilename === row.filename" mat-icon-button disabled
+                                    [matTooltip]="'Đang học tài liệu...'">
+                                    <mat-icon class="icon-size-4 animate-spin text-blue-500" [svgIcon]="'feather:loader'"></mat-icon>
+                                </button>
+
+                                <button *ngIf="indexingFilename !== row.filename && row.is_indexed" mat-icon-button
+                                    (click)="onStartLearnDocument(row, rowIndex)"
+                                    [matTooltip]="'Đã học (Bấm để học lại)'"
+                                    class="transition-colors">
+                                    <mat-icon class="icon-size-4 text-green-500" [svgIcon]="'feather:check-circle'"></mat-icon>
+                                </button>
+
+                                <button *ngIf="indexingFilename !== row.filename && !row.is_indexed" mat-icon-button
+                                    (click)="onStartLearnDocument(row, rowIndex)"
+                                    [matTooltip]="'Chưa học (Bấm để học tài liệu này)'"
+                                    class="transition-colors">
+                                    <mat-icon class="icon-size-4 text-amber-500" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                                </button>
+                            </div>
+                        </ng-template>
+                    </ngx-datatable-column>
+
+                    <!-- Footer: Dùng ngx-datatable-footer đúng chuẩn archives.component.html -->
+                    <ngx-datatable-footer>
+                        <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
+                            let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
+                            let-isVisible="isVisible">
+                            <div class="flex w-full items-center justify-between">
+                                <div class="flex-1 min-w-0 flex items-center pl-4">
+                                    <!-- Nút thao tác nằm trước dòng chữ 'Đã chọn...' -->
+                                    <button *ngIf="selected && selected.length > 0 && !isBatchLearning" mat-flat-button class="bg-primary text-white mr-2" (click)="learnSelectedDocuments()">
+                                        <mat-icon class="icon-size-5" [svgIcon]="'feather:book-open'"></mat-icon>
+                                        <mat-label class="ml-2">Học ({{selected.length}})</mat-label>
+                                    </button>
+
+                                    <button *ngIf="isBatchLearning" mat-flat-button class="bg-red-500 text-white mr-2" (click)="cancelBatchLearning()">
+                                        <mat-label class="ml-2">Dừng lại</mat-label>
+                                    </button>
+
+                                    <div class="page-count font-medium text-secondary">
+                                        Đã chọn {{ (selected) ? selected.length : 0 }} trong {{ filteredFileRows.length }} file
+                                    </div>
+                                </div>
+                            </div>
+                        </ng-template>
+                    </ngx-datatable-footer>
+                </ngx-datatable>
             </div>
         </div>
 
@@ -186,7 +201,7 @@
                 <div id="chat-container" class="flex-auto overflow-y-auto p-4 md:p-6 space-y-4">
                     
                     <!-- Welcome Empty State (Khi chưa có tin nhắn) -->
-                    <div *ngIf="!currentMessages.length && !messages.length" class="max-w-2xl mx-auto my-8 flex flex-col items-center text-center animate-fade-in">
+                    <div *ngIf="(!currentMessages || currentMessages.length === 0) && (!messages || messages.length === 0)" class="max-w-2xl mx-auto my-8 flex flex-col items-center text-center animate-fade-in">
                         <mat-icon class="icon-size-4 text-primary-600 mb-3" svgIcon="feather:cpu"></mat-icon>
                         <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Xin chào! Bạn muốn tìm hiểu gì từ tài liệu?</h2>
                         <p class="text-sm text-slate-600 dark:text-slate-400 max-w-lg mb-6 leading-relaxed">
@@ -221,7 +236,9 @@
                     <!-- Loading Typing Indicator -->
                     <div *ngIf="isLoading" class="max-w-4xl mx-auto flex justify-start">
                         <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">B</div>
+                            <div class="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-white flex items-center justify-center">
+                                <img src="assets/images/logo/web.png" class="w-full h-full object-cover rounded-full" alt="AI">
+                            </div>
                             <div class="bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-md text-sm flex items-center gap-2 text-gray-600 dark:text-gray-300">
                                 <mat-spinner diameter="16"></mat-spinner>
                                 <span>{{ 'app.replying' | transloco }}...</span>
@@ -232,7 +249,7 @@
 
                 <!-- Bottom Chat Input Bar -->
                 <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
-                    <form [formGroup]="chatbotMessage" (ngSubmit)="sendMessage()" class="max-w-4xl mx-auto flex flex-col">
+                    <form (submit)="onSendForm($event, chatInput)" class="max-w-4xl mx-auto flex flex-col">
                         <!-- File attachment preview chip -->
                         <div *ngIf="attachedFile" class="flex items-center space-x-2 px-2.5 py-1 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded-md text-xs w-fit border border-blue-200 dark:border-blue-800">
                             <mat-icon class="icon-size-4 text-blue-600 dark:text-blue-400" [svgIcon]="'heroicons_solid:document'"></mat-icon>
@@ -260,14 +277,15 @@
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:paper-clip'"></mat-icon>
                             </button>
 
-                            <!-- Input text -->
-                            <input [formControlName]="'chatgpt'" type="text"
+                            <!-- Input text (Native zero-latency input) -->
+                            <input #chatInput type="text"
                                 class="w-full text-sm font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 focus:outline-none"
                                 placeholder="Nhập câu hỏi của bạn về tài liệu... (Nhấn Enter để gửi)"
-                                (keydown.enter)="onEnterSendMessage($event)">
+                                [disabled]="isLoading"
+                                (keydown.enter)="onEnterSendMessage($event, chatInput)">
 
                             <!-- Nút Gửi kiểu Global AI -->
-                            <button mat-mini-fab color="primary" type="submit" [disabled]="!chatbotMessage.get('chatgpt')?.value?.trim() && !attachedFile"
+                            <button mat-mini-fab color="primary" type="submit" [disabled]="isLoading"
                                 class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0 !rounded-md"
                                 [matTooltip]="'Gửi câu hỏi'">
                                 <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
@@ -310,7 +328,7 @@
                     </div>
 
                     <!-- Thread Item Cards -->
-                    <div *ngFor="let t of filteredThreadRows" (click)="selectThread(t.id)"
+                    <div *ngFor="let t of filteredThreadRows; trackBy: trackByFn" (click)="selectThread(t.id)"
                         class="p-2.5 rounded-md border transition-all cursor-pointer flex items-center gap-2.5 group relative"
                         [ngClass]="currentThread === t.id ? 
                             'bg-blue-50/90 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100 shadow-2xs' : 

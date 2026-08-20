@@ -135,21 +135,30 @@
 }
 
 .avatar {
-    min-width: 2.25rem;
-    min-height: 2.25rem;
-    width: 2.25rem;
-    height: 2.25rem;
+    min-width: 2rem;
+    min-height: 2rem;
+    width: 2rem;
+    height: 2rem;
     border-radius: 9999px;
     overflow: hidden;
-    background-color: #2563eb;
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 0.8125rem;
     font-weight: 600;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    box-shadow: none;
+    border: none;
     flex-shrink: 0;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 9999px;
+        border: none;
+        display: block;
+    }
 }
 
 .bubble.bot pre {
@@ -198,40 +207,11 @@
     background: transparent !important;
 
     .datatable-header {
-        display: none !important;
+        background: #f8fafc !important;
+        border-bottom: 1px solid #e2e8f0 !important;
     }
 
-    .datatable-body {
-        background: transparent !important;
-        width: 100% !important;
-
-        .datatable-row-wrapper {
-            background: transparent !important;
-            width: 100% !important;
-        }
-
-        .datatable-body-row {
-            background: transparent !important;
-            border: none !important;
-            width: 100% !important;
-
-            &.datatable-row-even, &.datatable-row-odd {
-                background: transparent !important;
-            }
-
-            .datatable-body-cell {
-                padding: 0 !important;
-                border: none !important;
-                display: block !important;
-                width: 100% !important;
-                height: 100% !important;
-                overflow: hidden !important;
-            }
-        }
-
-        .datatable-scroll {
-            background: transparent !important;
-            width: 100% !important;
-        }
+    .datatable-body-row {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
     }
 }
