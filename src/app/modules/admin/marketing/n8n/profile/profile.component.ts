@@ -521,6 +521,82 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
         });
     }
 
+    clearSingleProfileSession(row: any): void {
+        const confirmDialog = this._fuseConfirmationService.open({
+            title: 'Xóa Cookie & Session',
+            message: `Bạn có chắc chắn muốn làm sạch Cookie & Session cho profile "${row.profile}"? Toàn bộ tài khoản đăng nhập trên profile này sẽ được đăng xuất.`,
+            actions: {
+                confirm: {
+                    label: 'Xóa Cookie',
+                    color: 'warn'
+                },
+                cancel: {
+                    label: 'Hủy'
+                }
+            }
+        });
+
+        confirmDialog.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this._mxhautoService.clearProfileSession(row.profile, this.getProfilesRoot())
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: (res: any) => {
+                            if (res && res.ok) {
+                                this.toastr.success(`Đã làm sạch Cookie & Session cho ${row.profile}`);
+                            } else {
+                                this.toastr.warning(res?.detail || 'Không thể làm sạch session profile');
+                            }
+                        },
+                        error: (err: any) => {
+                            this.toastr.error(err?.message || 'Có lỗi xảy ra khi xóa cookie');
+                        }
+                    });
+            }
+        });
+    }
+
+    clearSelectedProfilesSession(): void {
+        if (!this.selected || this.selected.length === 0) return;
+
+        const profileNames = this.selected.map((r: any) => r.profile);
+        const confirmDialog = this._fuseConfirmationService.open({
+            title: 'Xóa Cookie & Session hàng loạt',
+            message: `Bạn có chắc chắn muốn làm sạch Cookie & Session cho ${profileNames.length} profile đã chọn (${profileNames.slice(0, 5).join(', ')}${profileNames.length > 5 ? '...' : ''})?`,
+            actions: {
+                confirm: {
+                    label: 'Xóa hàng loạt',
+                    color: 'warn'
+                },
+                cancel: {
+                    label: 'Hủy'
+                }
+            }
+        });
+
+        confirmDialog.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                let completed = 0;
+                let hasError = false;
+                profileNames.forEach((prof: string) => {
+                    this._mxhautoService.clearProfileSession(prof, this.getProfilesRoot())
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe({
+                            next: () => {
+                                completed++;
+                                if (completed === profileNames.length && !hasError) {
+                                    this.toastr.success(`Đã xóa sạch Cookie & Session cho ${profileNames.length} profile!`);
+                                }
+                            },
+                            error: () => {
+                                hasError = true;
+                            }
+                        });
+                });
+            }
+        });
+    }
+
     refresh() {
         this.getProfiles(); // Gọi lại hàm getProfiles chuẩn thay vì keepAlive
     }

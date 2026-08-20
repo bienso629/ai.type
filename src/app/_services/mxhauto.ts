@@ -626,6 +626,23 @@ export class MXHAutoService {
         );
     }
 
+    /** Xóa Cookie & Session của 1 Profile */
+    public clearProfileSession(profile: string, profilesRoot?: string): Observable<any> {
+        const rootParam = profilesRoot ? `?profiles_root=${encodeURIComponent(profilesRoot)}` : '';
+        const url = `${this.getBaseUrl()}/v1/opera/profiles/${encodeURIComponent(profile)}/clear-session${rootParam}`;
+        return this.http.post<any>(url, {}, options).pipe(
+            catchError(this.handleError('clearProfileSession', null))
+        );
+    }
+
+    /** Xóa Cookie & Session của dải Profile */
+    public clearSessionRange(dataForm: any): Observable<any> {
+        const url = `${this.getBaseUrl()}/v1/opera/profiles/clear-session-range`;
+        return this.http.post<any>(url, dataForm, options).pipe(
+            catchError(this.handleError('clearSessionRange', null))
+        );
+    }
+
     // tslint:disable-next-line: typedef
     private handleError<T>(operation = 'operation', result?: T) {
         return (error: any): Observable<T> => {

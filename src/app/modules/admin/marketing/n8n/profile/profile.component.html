@@ -101,7 +101,7 @@
 
                         <!-- Nút Stop (Hiện khi Profile đang Running) -->
                         <button *ngIf="row.running" mat-icon-button (click)="stopSingleProfile(row)" [matTooltip]="'Tắt profile này'">
-                            <mat-icon class="icon-size-4 text-red-600 hover:text-red-700" [svgIcon]="'feather:square'"></mat-icon>
+                            <mat-icon class="icon-size-4 text-amber-500 hover:text-amber-600" [svgIcon]="'feather:square'"></mat-icon>
                         </button>
 
                         <ng-container *ngIf="row.accounts && row.accounts.length > 0">
@@ -117,7 +117,12 @@
                             </button>
                         </ng-container>
 
-                        <button mat-icon-button (click)="deleteSingleProfile(row)" [matTooltip]="'Xóa hẳn profile'" class="text-red-500 hover:text-red-700">
+                        <!-- Nút Xóa Cookie & Session -->
+                        <button mat-icon-button (click)="clearSingleProfileSession(row)" [matTooltip]="'Xóa Cookie & Session (Đăng xuất tài khoản)'" class="text-red-500 hover:text-red-700">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:rotate-ccw'"></mat-icon>
+                        </button>
+
+                        <button mat-icon-button (click)="deleteSingleProfile(row)" [matTooltip]="'Xóa hẳn profile'" class="text-gray-400 hover:text-gray-600">
                             <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                         </button>
                     </div>
@@ -135,9 +140,14 @@
                                     <span class="ml-2">{{ 'app.run_profile' | transloco }}</span>
                                 </button>
 
-                                <button mat-flat-button color="warn" (click)="killProfiles()">
-                                    <mat-icon [svgIcon]="'feather:x-circle'" class="icon-size-4"></mat-icon>
+                                <button mat-flat-button class="!bg-amber-500 !text-white hover:!bg-amber-600 shadow-xs" (click)="killProfiles()">
+                                    <mat-icon [svgIcon]="'feather:x-circle'" class="icon-size-4 !text-white"></mat-icon>
                                     <span class="ml-2">{{ 'app.auto_stop_profile' | transloco }}</span>
+                                </button>
+
+                                <button mat-flat-button class="!bg-red-500 !text-white hover:!bg-red-600 shadow-xs" (click)="clearSelectedProfilesSession()">
+                                    <mat-icon [svgIcon]="'feather:rotate-ccw'" class="icon-size-4 !text-white"></mat-icon>
+                                    <span class="ml-2">Xóa Cookie ({{ selectedCount }})</span>
                                 </button>
 
                                 <mat-checkbox [(ngModel)]="isHeadless" class="ml-1 text-xs font-medium">
