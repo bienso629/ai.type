@@ -17,8 +17,9 @@ import { NgxCurrencyDirective } from "ngx-currency";
 import { FuseCardModule } from '@fuse/components/card';
 import { TimelineModule } from "angular-calendar-timeline";
 import { DraggableDirective } from 'app/draggable.directive';
-import { MatCheckboxModule } from '@angular/material/checkbox'; // <--- Import cái này
-import { FormsModule } from '@angular/forms'; // <--- Và cái này
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { FormsModule } from '@angular/forms';
+import { NgSelectModule } from '@ng-select/ng-select';
 
 import { FuseAlertModule } from '@fuse/components/alert';
 import { SharedModule } from 'app/shared.module';
@@ -66,8 +67,9 @@ import { AMXHScheduleComponent } from 'app/modules/admin/marketing/n8n/schedule/
         MatAutocompleteModule,
         MatDialogModule,
         MatGridListModule,
-        MatCheckboxModule, // <--- Thêm vào đây
-        FormsModule,       // <--- Thêm vào đây
+        MatCheckboxModule,
+        FormsModule,
+        NgSelectModule,
         MatTooltipModule,
         NgxCurrencyDirective,
         FuseAlertModule,

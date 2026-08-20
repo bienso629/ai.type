@@ -233,3 +233,43 @@
         margin-bottom: 0.125rem;
     }
 }
+
+/* Ng-Select Custom Styling (Giống hệt Mời viết cùng trong Archives) */
+ng-select {
+    &.custom-select-archives {
+        .ng-select-container {
+            min-width: 2000px;
+
+            .ng-input,
+            .ng-clear-wrapper,
+            .ng-arrow-wrapper {
+                display: none;
+            }
+
+            .ng-value-container {
+                padding-top: 0 !important;
+                padding-left: 0 !important;
+
+                .ng-placeholder {
+                    padding-left: 0 !important;
+                }
+            }
+        }
+    }
+
+    &.custom-select-ai-writer {
+        .ng-select-container {
+            border-color: #cbd5e1 !important;
+            background-color: #ffffff !important;
+            border-radius: 0.5rem !important;
+            min-height: 38px !important;
+        }
+    }
+}
+
+ng-dropdown-panel.ng-select-bottom,
+ng-dropdown-panel.ng-select-top {
+    min-width: 100px !important;
+    margin-left: 0px;
+    border-radius: 8px !important;
+}

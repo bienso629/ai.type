@@ -1,4 +1,8 @@
 const { autoUpdater } = require("electron-updater");
+const dns = require("dns");
+try {
+    dns.setServers(["1.1.1.1", "8.8.8.8", "1.0.0.1", "8.8.4.4"]);
+} catch (e) {}
 const {
     app,
     protocol,
@@ -3527,13 +3531,13 @@ function startColabAgent() {
         let execPath = null;
         let args = ['--port', '7868'];
 
-        if (fs.existsSync(binaryPath)) {
+        if (fs.existsSync(devScriptPath)) {
+            execPath = 'python3';
+            args = [devScriptPath, '--port', '7868'];
+        } else if (fs.existsSync(binaryPath)) {
             execPath = binaryPath;
         } else if (fs.existsSync(devBinaryPath)) {
             execPath = devBinaryPath;
-        } else if (fs.existsSync(devScriptPath)) {
-            execPath = 'python3';
-            args = [devScriptPath, '--port', '7868'];
         }
 
         if (execPath) {
@@ -3956,9 +3960,25 @@ ipcMain.handle('exchange-colab-code', async (event, code) => {
 
 ipcMain.handle('start-colab-gpu', async () => {
     try {
-        const cp = require('child_process');
-        const res = cp.spawn('colab', ['new', '-s', 'aitype', '--gpu', 'T4'], { stdio: 'pipe' });
-        return { success: true, message: 'Đang khởi tạo máy ảo GPU T4...' };
+        if (!colabAgentProcess) {
+            startColabAgent();
+            await new Promise(r => setTimeout(r, 1500));
+        }
+        const resp = await fetch('http://127.0.0.1:7868/start_gpu', { method: 'POST' });
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.success) {
+                if (data.url) {
+                    try {
+                        await colabMcpClient.connect(data.url);
+                    } catch (e) {}
+                }
+                return { success: true, message: 'Đã khởi chạy GPU Colab thành công!', url: data.url, gpu: data.gpu };
+            } else {
+                return { success: false, error: data.error || 'Lỗi khởi chạy GPU Colab.' };
+            }
+        }
+        return { success: false, error: 'Không thể kết nối đến Colab Agent Plugin (cổng 7868).' };
     } catch(e) {
         return { success: false, error: e.message };
     }
@@ -3966,9 +3986,12 @@ ipcMain.handle('start-colab-gpu', async () => {
 
 ipcMain.handle('stop-colab-gpu', async () => {
     try {
-        const cp = require('child_process');
-        cp.execSync('colab stop -s aitype');
-        return { success: true, message: 'Đã dừng máy ảo Colab GPU.' };
+        const resp = await fetch('http://127.0.0.1:7868/stop_gpu', { method: 'POST' });
+        colabMcpClient.disconnect();
+        if (resp.ok) {
+            return { success: true, message: 'Đã dừng máy ảo Colab GPU.' };
+        }
+        return { success: false, error: 'Lỗi khi dừng GPU.' };
     } catch(e) {
         return { success: false, error: e.message };
     }
@@ -7994,11 +8017,13 @@ ipcMain.handle('run-pdf-analysis-mcp', async (event, payload, legacyMcpUrl = nul
             let docType = 'qa_detailed';
             let googleApiKey = '';
 
+            let username = 'admin';
             if (typeof payload === 'object' && payload !== null) {
                 filePath = payload.filePath;
                 mcpUrl = payload.mcpUrl;
                 docType = payload.docType || 'qa_detailed';
                 googleApiKey = payload.googleApiKey || '';
+                username = payload.username || 'admin';
             } else {
                 filePath = payload;
                 mcpUrl = legacyMcpUrl;
@@ -8006,16 +8031,32 @@ ipcMain.handle('run-pdf-analysis-mcp', async (event, payload, legacyMcpUrl = nul
 
             if (!colabMcpClient.isConnected && mcpUrl) {
                 if (sender) sender.send('pdf-analysis-progress', 'Đang kết nối tới Colab MCP GPU Server...');
-                await colabMcpClient.connect(mcpUrl);
+                try {
+                    await colabMcpClient.connect(mcpUrl);
+                } catch(e) {}
             }
 
             if (!colabMcpClient.isConnected) {
-                throw new Error('Chưa kết nối tới Colab MCP Server. Vui lòng kiểm tra lại URL Colab trong Cài đặt.');
+                // Tự động kiểm tra Colab Agent Plugin nền
+                try {
+                    const resp = await fetch('http://127.0.0.1:7868/status');
+                    if (resp.ok) {
+                        const statusData = await resp.json();
+                        if (statusData && statusData.colab_url) {
+                            if (sender) sender.send('pdf-analysis-progress', 'Đang tự động kết nối Colab GPU...');
+                            await colabMcpClient.connect(statusData.colab_url);
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            if (!colabMcpClient.isConnected) {
+                throw new Error('Chưa kết nối tới Colab MCP Server. Vui lòng bấm "Khởi chạy GPU T4" trong mục Cài đặt > Plugins.');
             }
 
             const result = await colabMcpClient.analyzePdfOnColab(filePath, docType, googleApiKey, (statusText) => {
                 if (sender) sender.send('pdf-analysis-progress', statusText);
-            });
+            }, { username });
 
             const content = result.data || result;
             resolve(content);
@@ -8072,15 +8113,17 @@ ipcMain.handle('save-local-faiss-data', async (event, { username, filename, doc_
         if (fs.existsSync(metaPath)) {
             try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')); } catch (e) {}
         }
+        const faissSize = fs.existsSync(faissPath) ? fs.statSync(faissPath).size : 0;
         meta.files[filename] = {
             doc_type: doc_type || 'analysis',
             updated_at: new Date().toISOString(),
-            md_path: path.join(docsDir, `${path.parse(filename).name}.md`)
+            md_path: path.join(docsDir, `${path.parse(filename).name}.md`),
+            faiss_size: faissSize
         };
         fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8');
 
-        console.log(`[FAISS Local] Đã lưu dữ liệu chỉ mục tại: ${targetDir}`);
-        return { success: true, targetDir };
+        console.log(`[FAISS Local] Đã lưu dữ liệu chỉ mục tại: ${targetDir} (Kích thước: ${faissSize} bytes)`);
+        return { success: true, targetDir, faiss_size: faissSize };
     } catch (err) {
         console.error('[FAISS Local] Lỗi lưu index:', err);
         return { success: false, error: err.message };

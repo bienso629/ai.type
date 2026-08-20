@@ -25,8 +25,12 @@
                             <mat-label>Model mặc định (Tốc độ & Chất lượng)</mat-label>
                             <mat-select [(ngModel)]="aiAgentModel">
                                 <mat-optgroup label="Gemini (Google)">
-                                    <mat-option value="gemini-3.6-flash">Gemini 3.6 Flash (Khuyên dùng, rất nhanh)</mat-option>
-                                    <mat-option value="gemini-3.5-flash">Gemini 3.5 Flash (Cũ, nhanh)</mat-option>
+                                    <mat-option value="gemini-3.7-flash-low">Gemini 3.7 Flash - Low (Khuyên dùng, rất nhanh)</mat-option>
+                                    <mat-option value="gemini-3.7-flash-medium">Gemini 3.7 Flash - Medium (Cân bằng, chất lượng)</mat-option>
+                                    <mat-option value="gemini-3.7-flash-high">Gemini 3.7 Flash - High (Tư duy sâu)</mat-option>
+                                    <mat-option value="gemini-3.6-flash-low">Gemini 3.6 Flash - Low (Nhanh)</mat-option>
+                                    <mat-option value="gemini-3.6-flash-medium">Gemini 3.6 Flash - Medium (Cân bằng, chất lượng)</mat-option>
+                                    <mat-option value="gemini-3.6-flash-high">Gemini 3.6 Flash - High (Tư duy sâu)</mat-option>
                                     <mat-option value="gemini-3.5-pro">Gemini 3.5 Pro (Cũ, chậm, chất lượng cao)</mat-option>
                                     <mat-option value="gemini-3.1-pro">Gemini 3.1 Pro (Cũ, chất lượng ổn định)</mat-option>
                                 </mat-optgroup>
@@ -47,7 +51,7 @@
                         </mat-form-field>
                     </div>
 
-                    <div class="flex items-end space-x-3">
+                    <div class="flex items-end space-x-3 mb-3">
                         <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
                             <mat-label>Giọng nói (TTS)</mat-label>
                             <mat-select [(ngModel)]="ttsVoice">
@@ -68,7 +72,9 @@
                                 <mat-option value="+25%">Rất nhanh (+25%)</mat-option>
                             </mat-select>
                         </mat-form-field>
+                    </div>
 
+                    <div class="flex items-center">
                         <button mat-flat-button color="primary" (click)="saveAiAgentKey(plugin)">
                             <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
                             <span class="ml-2">Lưu</span>
@@ -122,13 +128,13 @@
                     <div *ngIf="isColabLoggedIn" class="p-3.5 bg-slate-50 dark:bg-gray-750/70 rounded-md border border-gray-100 dark:border-gray-700 mb-3.5 text-sm">
                         <div class="flex items-center justify-between mb-1.5">
                             <span class="font-medium text-slate-700 dark:text-slate-300">Trạng thái GPU:</span>
-                            <span *ngIf="colabStatus.is_connected" class="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-                                🟢 Đã kết nối GPU
+                            <span *ngIf="colabStatus.is_connected" class="inline-flex items-center gap-2 text-sm font-normal px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 leading-none">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                                <span>Đã kết nối GPU</span>
                             </span>
-                            <span *ngIf="!colabStatus.is_connected" class="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 dark:bg-gray-800 dark:text-slate-300 border border-slate-200 dark:border-gray-700">
-                                <span class="w-2 h-2 rounded-full bg-slate-400 mr-1.5"></span>
-                                ⚪ Đang chờ lệnh khởi chạy
+                            <span *ngIf="!colabStatus.is_connected" class="inline-flex items-center gap-2 text-sm font-normal px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-gray-800 dark:text-slate-300 border border-slate-200 dark:border-gray-700 leading-none">
+                                <span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span>
+                                <span>Đang chờ lệnh khởi chạy</span>
                             </span>
                         </div>
                         <div *ngIf="colabStatus.is_connected && colabStatus.gpu" class="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -144,17 +150,9 @@
                             <mat-icon class="icon-size-4" [class.animate-spin]="isColabStarting" [svgIcon]="'feather:play'"></mat-icon>
                             <span class="ml-2">{{ isColabStarting ? 'Đang khởi tạo...' : 'Khởi chạy GPU T4' }}</span>
                         </button>
-                        <button *ngIf="colabStatus.is_connected" mat-stroked-button color="warn" (click)="stopColabGpuCli()">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:square'"></mat-icon>
+                        <button *ngIf="colabStatus.is_connected" mat-flat-button class="!bg-amber-500 hover:!bg-amber-600 !text-white" (click)="stopColabGpuCli()">
+                            <mat-icon class="icon-size-4 !text-white" [svgIcon]="'feather:square'"></mat-icon>
                             <span class="ml-2">Dừng GPU</span>
-                        </button>
-                        <button mat-stroked-button (click)="checkColabStatus()" [disabled]="colabChecking">
-                            <mat-icon class="icon-size-4" [class.animate-spin]="colabChecking" [svgIcon]="'feather:rotate-cw'"></mat-icon>
-                            <span class="ml-2">Kiểm tra lại</span>
-                        </button>
-                        <button mat-stroked-button (click)="openColabNotebook()" matTooltip="Xem trực tiếp trên giao diện Colab">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:external-link'"></mat-icon>
-                            <span class="ml-2">Mở Colab</span>
                         </button>
                     </div>
                 </div>

@@ -1053,33 +1053,24 @@ input[type=checkbox]:checked:after {
     }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Completely Hidden */
+* {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
 ::-webkit-scrollbar {
-    width: 5px !important;
-    height: 5px !important;
-}
-
-::-webkit-scrollbar-button {
     display: none !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 
-::-webkit-scrollbar-track {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #5c5c5c !important;
-    background-clip: padding-box !important;
-    border: 0.5px solid transparent !important;
-    border-radius: 9999px !important;
-    box-shadow: none !important;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8 !important;
-    background-clip: padding-box !important;
+::-webkit-scrollbar-button,
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-track-piece,
+::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-corner {
+    display: none !important;
 }
 
 /* Hover-only Scrollbar Utility */
@@ -1207,37 +1198,7 @@ timeline-calendar .date-marker {
     padding: 0 !important;
 }
 
-/* Global scrollbar rounded style with margin */
-::-webkit-scrollbar {
-    width: 8px !important;
-    height: 8px !important;
-    background-color: transparent !important;
-    border: none !important;
-}
 
-::-webkit-scrollbar-track,
-::-webkit-scrollbar-track-piece {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.25) !important;
-    background-clip: padding-box !important;
-    border: 2px solid transparent !important;
-    border-radius: 9999px !important;
-    box-shadow: none !important;
-
-    &:hover {
-        background-color: rgba(0, 0, 0, 0.45) !important;
-        background-clip: padding-box !important;
-    }
-}
-
-::-webkit-scrollbar-corner {
-    background-color: transparent !important;
-}
 
 /* Global Yellow/Amber Button Style */
 .btn-gray {

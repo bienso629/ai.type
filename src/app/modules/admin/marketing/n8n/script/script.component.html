@@ -96,21 +96,52 @@
         </div>
 
         <!-- Input Box Area -->
-        <div class="p-4 pt-0 bg-white shrink-0">
-            <div class="flex items-center gap-3 border border-gray-300 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 rounded-xl px-4 py-2.5 bg-white shadow-2xs transition-all">
+        <div class="relative p-4 pt-0 bg-white shrink-0">
+            <!-- Mời profile cùng viết kịch bản (Giống hệt Mời bạn cùng viết trong Archives) -->
+            <div *ngIf="showNgSelectBar || showProfileMentionPopup" class="mb-3">
+                <ng-select [(ngModel)]="selectedProfilesForScript" [multiple]="true" [closeOnSelect]="false"
+                    [searchable]="true" appendTo="body" bindLabel="name" bindValue="name"
+                    [dropdownPosition]="'top'"
+                    [placeholder]="'Mời profile cùng viết kịch bản (@)...'" class="w-full custom-select-ai-writer">
+                    <ng-option *ngFor="let user of runningProfiles"
+                        [value]="user.name">{{ user.persona?.alias ? user.persona.alias + ' (' + user.name + ')' : user.name }}</ng-option>
+                    <ng-template ng-footer-tmp>
+                        <button mat-flat-button class="w-full" [color]="'primary'"
+                            [disabled]="selectedProfilesForScript.length === 0"
+                            (click)="applyNgProfilesToPrompt()">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
+                            <span class="ml-2 text-base">Sử dụng các Profile này ({{ selectedProfilesForScript.length }})</span>
+                        </button>
+                    </ng-template>
+                </ng-select>
+            </div>
+
+            <!-- Chat Input Bar -->
+            <div class="script-chat-input-container flex items-center gap-3 border border-gray-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-xl px-4 py-2.5 bg-white shadow-2xs transition-all">
                 <button type="button" mat-icon-button class="text-gray-400 hover:text-gray-600">
                     <mat-icon class="icon-size-5" [svgIcon]="'feather:paperclip'"></mat-icon>
                 </button>
-                <input type="text" 
+                <button type="button" 
+                        (click)="toggleProfileMentionPopup()" 
+                        matTooltip="Chọn Profile đang chạy (@)"
+                        [class.text-primary]="showProfileMentionPopup || showNgSelectBar"
+                        [class.bg-primary-50]="showProfileMentionPopup || showNgSelectBar"
+                        class="px-2 py-1 rounded-md text-base font-bold text-gray-500 hover:text-primary hover:bg-gray-100 transition-all cursor-pointer">
+                    {{ '@' }}
+                </button>
+                <input #scriptChatInput
+                       type="text" 
                        [(ngModel)]="chatInput" 
+                       (input)="onChatInputChange($event)"
+                       (keydown)="onChatInputKeydown($event)"
                        (keyup.enter)="sendChatMessage()"
-                       placeholder="Hỏi tiếp từ prompt này..." 
+                       placeholder="Hỏi tiếp từ prompt này... (nhập @ để chọn profile)" 
                        class="flex-1 border-0 outline-none focus:ring-0 text-base text-gray-800 placeholder-gray-400 bg-transparent py-1" />
                 <button type="button" 
                         (click)="sendChatMessage()"
                         [disabled]="!chatInput || !chatInput.trim()"
-                        class="text-gray-400 hover:text-primary-600 disabled:opacity-40 transition-colors p-1">
-                    <mat-icon class="icon-size-5 text-primary-500" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                        class="text-gray-400 hover:text-primary disabled:opacity-40 transition-colors p-1">
+                    <mat-icon class="icon-size-5 text-primary" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
                 </button>
             </div>
         </div>
@@ -263,7 +294,7 @@
                     <ngx-datatable-column name="Kênh" [width]="160" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                         <ng-template let-row="row" ngx-datatable-cell-template>
                             <div class="flex flex-col justify-center h-full">
-                                <span class="font-bold text-sm text-gray-800 line-clamp-1">&#64;{{ row.nickname }}</span>
+                                <span class="font-bold text-sm text-gray-800 line-clamp-1">{{ '@' + (row.nickname || '') }}</span>
                                 <span class="text-xs text-gray-400">ID: {{ row.unique_id || row.id }}</span>
                             </div>
                         </ng-template>
