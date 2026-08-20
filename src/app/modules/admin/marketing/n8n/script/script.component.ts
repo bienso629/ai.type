@@ -623,6 +623,146 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.cd.markForCheck();
         this.scrollToBottom();
 
+        // 0. Kiểm tra xem người dùng có truyền link video và chỉ đạo hành động (Xem video, Like, Thả tim...) cho các Profile không
+        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+        const matchedUrls = text.match(urlRegex) || [];
+        const targetUrl = matchedUrls.length > 0 ? matchedUrls[0] : '';
+
+        const mentionedProfiles: any[] = [];
+        const pool = [...(this.runningProfiles || []), ...(this.profiles || []), ...(this.items || [])];
+        pool.forEach(p => {
+            const pName = p.name || p.profile || '';
+            const alias = p.persona?.alias || p.accounts?.[0]?.alias || '';
+            const tokens = [
+                `@${pName.replace(/\s+/g, '_')}`,
+                `@${pName}`,
+                alias ? `@${alias.replace(/\s+/g, '_')}` : '',
+                alias ? `@${alias}` : ''
+            ].filter(Boolean);
+
+            const isMatch = tokens.some(tok => text.toLowerCase().includes(tok.toLowerCase()));
+            if (isMatch && !mentionedProfiles.some(m => (m.profile || m.name) === (p.profile || p.name))) {
+                mentionedProfiles.push(p);
+            }
+        });
+
+        const isLikeIntent = /(like|thích|thả tim|tha tim)/i.test(text);
+        const isCommentIntent = /(comment|bình luận|viet comment|cmt)/i.test(text);
+        const isViewIntent = /(xem|xem video|truy cập|vao xem|mở video|open)/i.test(text);
+
+        // NẾU CÓ CHỈ ĐẠO HÀNH ĐỘNG VÀ LINK VIDEO (HOẶC PROFILES GẮN THẺ) -> THỰC THI NGAY
+        if (targetUrl && (mentionedProfiles.length > 0 || isLikeIntent || isViewIntent)) {
+            const targetProfiles = mentionedProfiles.length > 0 
+                ? mentionedProfiles 
+                : (this.selectedProfilesForScript?.length ? this.selectedProfilesForScript.map(n => ({ profile: n, name: n })) : [{ profile: 'Profile000', name: 'Profile000' }]);
+            const profileNames = targetProfiles.map(p => p.profile || p.name);
+
+            // 1. Tự động Khởi chạy / Điều hướng Opera cho danh sách Profile
+            const runPayload: any = {
+                profiles: profileNames,
+                base_debug_port: 0,
+                opera_path: this.getOperaPath(),
+                devtools_ready_timeout_ms: 8000,
+                close_tabs_on_start: false,
+                leave_one_tab: false,
+                new_tab_url: targetUrl,
+                mode: "skip",
+                window_state: "normal",
+                headless: false,
+                prefix_title_with_profile: true,
+                title_prefix_apply_all_tabs: true,
+                post_open_wait_ms: 800,
+                activate_opened_tab: true,
+                username: this.user ? this.user.name : ''
+            };
+            const root = this.getProfilesRoot();
+            if (root) runPayload.profiles_root = root;
+
+            this._mxhautoService.run(runPayload)
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (res: any) => {
+                        this.toastr.success(`Đang mở ${profileNames.length} profile truy cập video...`);
+
+                        // 2. Nếu có yêu cầu Like / Thả tim, tự động kích hoạt Like API sau 3s (để trang load)
+                        if (isLikeIntent) {
+                            setTimeout(() => {
+                                const likePayload = {
+                                    site: "tiktok.com",
+                                    title: "Thả tim",
+                                    profiles: profileNames,
+                                    profiles_root: this.getProfilesRoot(),
+                                    profile_urls: profileNames.reduce((acc: any, cur: string) => { acc[cur] = targetUrl; return acc; }, {}),
+                                    coords_file: "mouse_coords.json"
+                                };
+                                this._mxhautoService.like(likePayload).subscribe({
+                                    next: () => {
+                                        this.toastr.success(`Đã tự động gửi lệnh Thả tim cho ${profileNames.join(', ')}`);
+                                    },
+                                    error: () => {}
+                                });
+                            }, 3000);
+                        }
+                    },
+                    error: (err: any) => {
+                        this.toastr.error('Có lỗi xảy ra khi khởi chạy profile');
+                    }
+                });
+
+            // 3. Tự động thêm vào Timeline Kịch bản để người dùng theo dõi
+            targetProfiles.forEach(tp => {
+                const pName = tp.profile || tp.name;
+                let actor = this.items.find(it => it.name === pName);
+                if (!actor) {
+                    actor = {
+                        id: this.items.length + 1,
+                        name: pName,
+                        streamItems: [
+                            { name: "Thả tim", meta: [] },
+                            { name: "Viết comment trong Live", meta: [] }
+                        ],
+                        persona: tp.persona || {}
+                    };
+                    this.items.push(actor);
+                }
+                if (isLikeIntent) {
+                    const likeStream = actor.streamItems?.find(s => s.name === "Thả tim");
+                    if (likeStream) {
+                        likeStream.meta.push({
+                            title: 'Thả tim video',
+                            start: new Date(),
+                            videoUrl: targetUrl
+                        });
+                    }
+                }
+            });
+            this.items = [...this.items];
+            this.saveScriptState();
+
+            // 4. Render thông báo thực thi trực quan trong chat
+            const actionText = isLikeIntent 
+                ? 'Mở trình duyệt Opera, truy cập video & tự động bấm Thích (Like ❤️)' 
+                : 'Mở trình duyệt Opera & Xem video';
+
+            loadingMsg.content = `
+                <div class="space-y-3">
+                    <div class="font-semibold text-gray-800 dark:text-gray-100">🚀 <b>Đã tiếp nhận chỉ đạo và đang thực thi tự động ngay:</b></div>
+                    <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 space-y-2">
+                        <div class="font-bold flex items-center gap-1.5"><span class="text-base">✨</span> Chi tiết tác vụ tự động:</div>
+                        <ul class="list-disc pl-5 text-sm space-y-1">
+                            <li><b>Profiles thực hiện:</b> ${profileNames.join(', ')}</li>
+                            <li><b>Đường dẫn Video:</b> <a href="${targetUrl}" target="_blank" class="underline text-primary-600 font-medium">${targetUrl}</a></li>
+                            <li><b>Hành động:</b> ${actionText}</li>
+                            <li><b>Trạng thái:</b> <span class="text-green-600 font-bold">Đang khởi chạy Opera và thực hiện...</span></li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            this.cd.markForCheck();
+            this.scrollToBottom();
+            return;
+        }
+
         // 1. Gửi toàn bộ dữ liệu phiên Livestream cho Gemini AI để phân tích và lọc thông minh
         const roomSummaries = (this.rooms || []).map((r, idx) => ({
             id: String(r.id || r.room_id || r.unique_id || r.nickname || idx),
@@ -2032,6 +2172,12 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
     onToggleChange(event: MatSlideToggleChange): void {
         this.turnOffLiveStream = event.checked;
         if (this.turnOffLiveStream) this.liveWatchStart(); else this.liveWatchStop(false);
+    }
+
+    getOperaPath(): string {
+        const stored = localStorage.getItem('opera_executable_path');
+        if (stored && stored.trim()) return stored.trim();
+        return '';
     }
 
     getProfilesRoot(): string {
