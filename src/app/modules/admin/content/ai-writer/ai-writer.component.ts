@@ -2160,36 +2160,64 @@ ${content}`;
     }
 
     /**
-     * Tạo a mới bằng cách gõ nhập
+     * Tạo hoặc tìm kiếm backlink từ Google và đưa thẳng vào block Thêm Backlink (source.a)
      */
     async createlink(keyword?: string) {
         if (keyword) {
             try {
-                let query = keyword;
-                if (this.domain && this.domain.domain) {
-                    query = `site:${this.domain.domain} ${keyword}`;
+                let domainStr = '';
+                if (this.domain) {
+                    if (typeof this.domain === 'string') {
+                        domainStr = this.domain;
+                    } else if (this.domain.domain) {
+                        domainStr = this.domain.domain;
+                    }
+                }
+                domainStr = this.cleanDomain(domainStr);
+
+                let query = keyword.trim();
+                if (domainStr) {
+                    query = `site:${domainStr} ${keyword.trim()}`;
                 }
 
+                // Cập nhật searchAPIKey từ settings mới nhất
+                this.settings = this.multiAccountService.getItem('settings');
+                if (this.settings && this.settings.searchAPIKey) {
+                    this.searchAPIKey = this.settings.searchAPIKey.split(';');
+                }
+
+                this.toastr.info(`Đang tìm kiếm backlink cho "${keyword}"...`);
                 const links: any = await this.googleSearch(query, 0);
 
-                if (links && links.length > 0) {
+                if (links && Array.isArray(links) && links.length > 0) {
+                    if (!this.source.a) {
+                        this.source.a = [];
+                    }
+
                     const topLinks = links.slice(0, 10);
-                    
-                    topLinks.forEach(link => {
+                    topLinks.forEach((link: any) => {
                         const title = link.title || link.link;
-                        this.source.a.push(`<p id="source-a-${uuid.v4()}">Xem thêm: <a href="${link.link}" title="${title}" target="_blank">${title}</a></p>`);
+                        const url = link.link;
+                        this.source.a.push(
+                            `<p id="source-a-${uuid.v4()}">Xem thêm: <a href="${url}" title="${title}" target="_blank">${title}</a></p>`
+                        );
                     });
-                    
-                    this.toastr.success(`Đã thêm ${topLinks.length} backlink vào Gắn Backlink.`);
+
+                    this.selectedIndex = 0; // Chuyển sang tab Nguyên liệu để người dùng thấy ngay
+                    this.autohidden = true;
+                    this.toastr.success(`Đã thêm ${topLinks.length} backlink vào block Thêm Backlink.`);
                     this.cd.markForCheck();
                 } else {
-                    this.toastr.info(`Không tìm thấy kết quả nào cho từ khóa này.`);
+                    this.toastr.info(`Không tìm thấy kết quả nào cho từ khóa "${keyword}".`);
                 }
-            } catch (error) {
-                this.toastr.error('Lỗi khi tìm kiếm google');
-                console.error(error);
+            } catch (error: any) {
+                console.error('Lỗi khi tìm kiếm Google API:', error);
+                this.toastr.error('Lỗi khi tìm kiếm Google API.');
             }
         } else {
+            if (!this.source.a) {
+                this.source.a = [];
+            }
             this.source.a.push(`<p id="source-a-${uuid.v4()}"></p>`);
             const lastIndex = this.source.a.length - 1;
             this.edit(this.source.a, lastIndex);

@@ -10,11 +10,10 @@ import { Title } from '@angular/platform-browser';
 })
 export class WarrantyPolicyComponent implements OnInit {
     readonly sections = [
-        { id: 'warranty-duration', title: '1. Thời gian bảo hành' },
-        { id: 'warranty-method', title: '2. Cách thức & Hình thức bảo hành' },
-        { id: 'refund-policy', title: '3. Quy định hoàn tiền khi phát sinh lỗi' },
-        { id: 'warranty-conditions', title: '4. Điều kiện áp dụng bảo hành' },
-        { id: 'support-contact', title: '5. Kênh tiếp nhận & Quy trình hỗ trợ' },
+        { id: 'warranty-duration', title: '1. Thời hạn bảo hành dịch vụ' },
+        { id: 'warranty-method', title: '2. Quy tắc bảo hành & Hoàn tiền' },
+        { id: 'warranty-exceptions', title: '3. Trường hợp từ chối bảo hành' },
+        { id: 'support-contact', title: '4. Kênh tiếp nhận bảo hành' },
     ];
 
     constructor(private titleService: Title) {

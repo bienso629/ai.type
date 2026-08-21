@@ -10,11 +10,11 @@ import { Title } from '@angular/platform-browser';
 })
 export class PaymentPolicyComponent implements OnInit {
     readonly sections = [
-        { id: 'intro', title: 'Quy trình đặt mua' },
+        { id: 'ordering-process', title: 'Quy trình đặt mua gói' },
         { id: 'payment-methods', title: '1. Phương thức thanh toán' },
-        { id: 'payment-confirmation', title: '2. Xác nhận thanh toán' },
+        { id: 'payment-confirmation', title: '2. Kích hoạt & Xác nhận' },
         { id: 'payment-conditions', title: '3. Điều kiện thanh toán' },
-        { id: 'support-contact', title: '4. Kênh hỗ trợ thanh toán' },
+        { id: 'support-contact', title: '4. Hỗ trợ thanh toán' },
     ];
 
     constructor(private titleService: Title) {

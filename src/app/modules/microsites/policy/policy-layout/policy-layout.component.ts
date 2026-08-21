@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Input, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -13,7 +13,7 @@ export interface PolicySection {
 @Component({
     selector: 'policy-layout',
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule],
+    imports: [CommonModule, RouterModule, MatButtonModule, MatIconModule, MatTooltipModule],
     templateUrl: './policy-layout.component.html',
     styleUrls: ['./policy-layout.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,6 +62,10 @@ export class PolicyLayoutComponent implements OnInit {
         } else {
             this.router.navigate(['/dashboard']);
         }
+    }
+
+    goHome(): void {
+        this.router.navigate(['/']);
     }
 
     print(): void {
