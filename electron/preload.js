@@ -157,6 +157,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     toggleAiAgent: (enable, apiKey, extra) => ipcRenderer.invoke('toggle-ai-agent', enable, apiKey, extra),
     toggleZaloPlugin: (enable, mode) => ipcRenderer.invoke('toggle-zalo-plugin', enable, mode),
+    toggleTiktokPlugin: (enable) => ipcRenderer.invoke('toggle-tiktok-plugin', enable),
     toggleColabAgent: (enable) => ipcRenderer.invoke('toggle-colab-agent', enable),
     loginColabGoogle: () => ipcRenderer.invoke('login-colab-google'),
     exchangeColabCode: (code) => ipcRenderer.invoke('exchange-colab-code', code),

@@ -1317,21 +1317,19 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         let isColabMcpEnabled = localStorage.getItem('isColabMcpEnabled') === 'true';
         let colabMcpUrl = (localStorage.getItem('colabMcpUrl') || '').trim();
 
-        // Tự động kiểm tra Colab GPU nếu chưa có cấu hình trong localStorage
-        if (!colabMcpUrl) {
-            try {
-                const colabStatusResp = await fetch('http://127.0.0.1:7868/status');
-                if (colabStatusResp.ok) {
-                    const cData = await colabStatusResp.json();
-                    if (cData && cData.colab_url && cData.is_connected) {
-                        colabMcpUrl = cData.colab_url;
-                        isColabMcpEnabled = true;
-                        localStorage.setItem('colabMcpUrl', colabMcpUrl);
-                        localStorage.setItem('isColabMcpEnabled', 'true');
-                    }
+        // Tự động kiểm tra và đồng bộ Colab GPU URL mới nhất từ Agent daemon nền
+        try {
+            const colabStatusResp = await fetch('http://127.0.0.1:7868/status');
+            if (colabStatusResp.ok) {
+                const cData = await colabStatusResp.json();
+                if (cData && cData.colab_url && cData.is_connected) {
+                    colabMcpUrl = cData.colab_url;
+                    isColabMcpEnabled = true;
+                    localStorage.setItem('colabMcpUrl', colabMcpUrl);
+                    localStorage.setItem('isColabMcpEnabled', 'true');
                 }
-            } catch(e) {}
-        }
+            }
+        } catch(e) {}
 
         const secretKeys = this.settings?.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
         const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
