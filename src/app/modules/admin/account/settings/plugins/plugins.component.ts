@@ -11,6 +11,7 @@ import { Title } from '@angular/platform-browser';
 @Component({
     selector: 'settings-plugins',
     templateUrl: './plugins.component.html',
+    styleUrls: ['./plugins.component.scss'],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     providers: [UserClientService]
@@ -19,6 +20,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     plugins: any[] = [];
     zaloPluginMode: string = 'tool';
     aiAgentApiKey: string = 'type-vn-local-agent-2026';
+    showAiAgentKey: boolean = false;
     ttsVoice: string = 'vi-VN-HoaiMyNeural';
     ttsRate: string = '+0%';
     aiAgentModel: string = 'gemini-3.6-flash';
@@ -33,6 +35,17 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
 
     user: User;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    getPlugin(id: string): any {
+        return this.plugins.find(p => p.id === id) || {
+            id: id,
+            name: id === 'colab_agent' ? 'Colab GPU Agent' : (id === 'ai_agent' ? 'AI Agent' : (id === 'tiktok_100' ? '100 TikTokers' : 'Quản lý Zalo')),
+            installed: true,
+            enabled: false,
+            canInstall: true,
+            version: '1.0'
+        };
+    }
 
     constructor(
         private titleService: Title,
@@ -99,6 +112,15 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     canInstall: true,
                     enabled: false,
                     version: '1.0'
+                },
+                {
+                    id: 'tiktok_100',
+                    name: '100 TikTokers',
+                    description: 'Tự động hóa theo dõi, phân tích xu hướng và khai thác nội dung từ 100 kênh TikTok.',
+                    installed: true,
+                    canInstall: false,
+                    enabled: false,
+                    version: '1.0'
                 }
             ];
             
@@ -117,6 +139,9 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             
             const aiAgentPlugin = this.plugins.find(p => p.id === 'ai_agent');
             if (aiAgentPlugin) aiAgentPlugin.enabled = settings.enableAiAgent || false;
+
+            const tiktokPlugin = this.plugins.find(p => p.id === 'tiktok_100');
+            if (tiktokPlugin) tiktokPlugin.enabled = settings.tiktokPluginEnabled || false;
             
             this.zaloPluginMode = settings.zaloPluginMode || 'tool';
             this.aiAgentApiKey = settings.aiAgentApiKey || 'type-vn-local-agent-2026';
@@ -232,6 +257,13 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 this.multiAccountService.setItem('settings', settings);
                     this.syncSettingsToBackend(settings);
                 this.toastr.success(event.checked ? 'Đã kích hoạt Zalo trên trình duyệt.' : 'Đã tắt Zalo.');
+            } else if (plugin.id === 'tiktok_100') {
+                plugin.enabled = event.checked;
+                const settings = this.multiAccountService.getItem('settings') || {};
+                settings.tiktokPluginEnabled = event.checked;
+                this.multiAccountService.setItem('settings', settings);
+                    this.syncSettingsToBackend(settings);
+                this.toastr.success(event.checked ? 'Đã kích hoạt 100 TikTokers trên trình duyệt.' : 'Đã tắt 100 TikTokers.');
             }
             return;
         }
@@ -250,6 +282,20 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.toastr.success(event.checked ? 'Đã kích hoạt Quản lý Zalo.' : 'Đã hủy kích hoạt Quản lý Zalo.');
                 } else {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
+                }
+            } else if (plugin.id === 'tiktok_100') {
+                const res = await (window as any).electronAPI.toggleTiktokPlugin(event.checked);
+                if (res && res.success) {
+                    plugin.enabled = event.checked;
+
+                    const settings = this.multiAccountService.getItem('settings') || {};
+                    settings.tiktokPluginEnabled = event.checked;
+                    this.multiAccountService.setItem('settings', settings);
+                    this.syncSettingsToBackend(settings);
+
+                    this.toastr.success(event.checked ? 'Đã kích hoạt 100 TikTokers.' : 'Đã hủy kích hoạt 100 TikTokers.');
+                } else {
+                    this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin 100 TikTokers.');
                 }
             } else if (plugin.id === 'ai_agent') {
                 const settings = this.multiAccountService.getItem('settings') || {};

@@ -3675,8 +3675,6 @@ function stopZaloPlugin() {
     }
 }
 
-
-
 ipcMain.handle('toggle-zalo-plugin', (event, enable, mode) => {
     try {
         const targetMode = mode || 'tool';
@@ -3685,6 +3683,123 @@ ipcMain.handle('toggle-zalo-plugin', (event, enable, mode) => {
             startZaloPlugin();
         } else {
             stopZaloPlugin();
+        }
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// --- 100 TIKTOKERS PLUGIN ---
+let tiktokPluginProcess = null;
+const tiktokPluginConfigPath = path.join(app.getPath('userData'), 'tiktok_plugin_config.json');
+
+function isTiktokPluginEnabled() {
+    if (fs.existsSync(tiktokPluginConfigPath)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(tiktokPluginConfigPath, 'utf8'));
+            return !!data.enable;
+        } catch (e) {
+            return false;
+        }
+    }
+    return false;
+}
+
+let tiktokPluginRestartCount = 0;
+let tiktokPluginRestartTimeout = null;
+
+function startTiktokPlugin() {
+    if (tiktokPluginProcess) return;
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const candidateBinaries = [
+            path.join(userPluginsDir, '100tiktok-linux'),
+            path.join(userPluginsDir, '100tiktok_linux'),
+            path.join(userPluginsDir, '100tiktok.exe'),
+            path.join(userPluginsDir, '100tiktok'),
+            path.join(userPluginsDir, '100tiktok-mac'),
+            path.join(userPluginsDir, '100tiktok-windows.exe')
+        ];
+        
+        let binaryPath = candidateBinaries.find(p => fs.existsSync(p));
+        let cmd = '';
+        let args = [];
+
+        if (binaryPath) {
+            try {
+                fs.chmodSync(binaryPath, 0o755);
+            } catch(e) {}
+            cmd = binaryPath;
+        } else {
+            const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', '100 tiktokers', 'app.py');
+            const devDistPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', '100 tiktokers', 'dist', '100tiktok-linux');
+            if (fs.existsSync(devDistPath)) {
+                cmd = devDistPath;
+            } else if (fs.existsSync(devScriptPath)) {
+                cmd = 'python3';
+                args = [devScriptPath];
+            }
+        }
+
+        if (cmd) {
+            tiktokPluginProcess = spawn(cmd, args, { stdio: 'pipe' });
+            console.log(`[100 TikTokers Plugin] Khởi chạy: ${cmd} ${args.join(' ')}`);
+
+            tiktokPluginProcess.stdout.on('data', (data) => console.log(`[100 TikTokers Plugin] ${data}`));
+            tiktokPluginProcess.stderr.on('data', (data) => console.error(`[100 TikTokers Plugin] ${data}`));
+
+            tiktokPluginProcess.on('error', (err) => {
+                console.error('[100 TikTokers Plugin] Lỗi khởi chạy:', err);
+                tiktokPluginProcess = null;
+            });
+
+            tiktokPluginProcess.on('exit', (code) => {
+                console.log(`[100 TikTokers Plugin] Đã thoát với mã ${code}`);
+                tiktokPluginProcess = null;
+
+                if (isTiktokPluginEnabled() && tiktokPluginRestartCount < 5) {
+                    tiktokPluginRestartCount++;
+                    console.log(`[100 TikTokers Plugin] Đang thử khởi động lại lần thứ ${tiktokPluginRestartCount}/5 sau 3 giây...`);
+                    if (tiktokPluginRestartTimeout) clearTimeout(tiktokPluginRestartTimeout);
+                    tiktokPluginRestartTimeout = setTimeout(() => {
+                        startTiktokPlugin();
+                    }, 3000);
+                } else if (tiktokPluginRestartCount >= 5) {
+                    console.error('[100 TikTokers Plugin] Khởi động lại thất bại quá 5 lần. Dừng lại.');
+                }
+            });
+
+            setTimeout(() => {
+                if (tiktokPluginProcess && !tiktokPluginProcess.killed) {
+                    tiktokPluginRestartCount = 0;
+                }
+            }, 10000);
+        } else {
+            console.warn('[100 TikTokers Plugin] Không tìm thấy file 100tiktok-linux trong Documents/ai.type/plugins.');
+        }
+    } catch (e) {
+        console.error('[100 TikTokers Plugin] Lỗi start:', e);
+    }
+}
+
+function stopTiktokPlugin() {
+    if (tiktokPluginProcess) {
+        try {
+            tiktokPluginProcess.kill('SIGKILL');
+            tiktokPluginProcess = null;
+            console.log('[100 TikTokers Plugin] Đã tắt');
+        } catch (e) {}
+    }
+}
+
+ipcMain.handle('toggle-tiktok-plugin', (event, enable) => {
+    try {
+        fs.writeFileSync(tiktokPluginConfigPath, JSON.stringify({ enable }), 'utf8');
+        if (enable) {
+            startTiktokPlugin();
+        } else {
+            stopTiktokPlugin();
         }
         return { success: true };
     } catch (e) {
@@ -3770,6 +3885,20 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 canInstall: colabCanInstall,
                 enabled: colabEnabled,
                 version: colabVersion
+            },
+            {
+                id: 'tiktok_100',
+                name: '100 TikTokers',
+                description: 'Tự động hóa theo dõi, phân tích xu hướng và khai thác nội dung từ 100 kênh TikTok.',
+                installed: [
+                    path.join(userPluginsDir, '100tiktok-linux'),
+                    path.join(userPluginsDir, '100tiktok_linux'),
+                    path.join(userPluginsDir, '100tiktok.exe'),
+                    path.join(userPluginsDir, '100tiktok')
+                ].some(p => fs.existsSync(p)),
+                canInstall: false,
+                enabled: isTiktokPluginEnabled(),
+                version: '1.0'
             }
         ];
     } catch (e) {
@@ -3866,6 +3995,21 @@ ipcMain.handle('uninstall-plugin', async (event, pluginId) => {
                 fs.unlinkSync(userScriptPath);
             }
             return { success: true, message: 'Đã gỡ cài đặt Colab Agent thành công!' };
+        } else if (pluginId === 'tiktok_100') {
+            stopTiktokPlugin();
+            const candidateBinaries = [
+                path.join(userPluginsDir, '100tiktok-linux'),
+                path.join(userPluginsDir, '100tiktok_linux'),
+                path.join(userPluginsDir, '100tiktok.exe'),
+                path.join(userPluginsDir, '100tiktok')
+            ];
+            candidateBinaries.forEach(p => {
+                if (fs.existsSync(p)) {
+                    try { fs.unlinkSync(p); } catch(e) {}
+                }
+            });
+            fs.writeFileSync(tiktokPluginConfigPath, JSON.stringify({ enable: false }), 'utf8');
+            return { success: true, message: 'Đã gỡ cài đặt plugin 100 TikTokers thành công!' };
         }
         return { success: false, error: 'Plugin không xác định.' };
     } catch (e) {
@@ -4013,6 +4157,7 @@ app.on('will-quit', () => {
     stopAiAgent();
     stopZaloPlugin();
     stopColabAgent();
+    stopTiktokPlugin();
 });
 
 app.whenReady().then(async () => {
@@ -4024,6 +4169,9 @@ app.whenReady().then(async () => {
     }
     if (isColabAgentEnabled()) {
         startColabAgent();
+    }
+    if (isTiktokPluginEnabled()) {
+        startTiktokPlugin();
     }
 
     startCrmServices();
@@ -8029,24 +8177,30 @@ ipcMain.handle('run-pdf-analysis-mcp', async (event, payload, legacyMcpUrl = nul
                 mcpUrl = legacyMcpUrl;
             }
 
-            if (!colabMcpClient.isConnected && mcpUrl) {
+            // 1. Kiểm tra Colab Agent Plugin nền (cổng 7868) để lấy URL mới nhất
+            let activeUrl = mcpUrl;
+            try {
+                const resp = await fetch('http://127.0.0.1:7868/status');
+                if (resp.ok) {
+                    const statusData = await resp.json();
+                    if (statusData && statusData.colab_url && statusData.is_connected) {
+                        activeUrl = statusData.colab_url;
+                    }
+                }
+            } catch(e) {}
+
+            if ((!colabMcpClient.isConnected || colabMcpClient.baseUrl !== activeUrl) && activeUrl) {
                 if (sender) sender.send('pdf-analysis-progress', 'Đang kết nối tới Colab MCP GPU Server...');
                 try {
-                    await colabMcpClient.connect(mcpUrl);
-                } catch(e) {}
+                    await colabMcpClient.connect(activeUrl);
+                } catch(e) {
+                    console.error('[Colab MCP] Lỗi connect activeUrl:', e);
+                }
             }
 
-            if (!colabMcpClient.isConnected) {
-                // Tự động kiểm tra Colab Agent Plugin nền
+            if (!colabMcpClient.isConnected && mcpUrl && mcpUrl !== activeUrl) {
                 try {
-                    const resp = await fetch('http://127.0.0.1:7868/status');
-                    if (resp.ok) {
-                        const statusData = await resp.json();
-                        if (statusData && statusData.colab_url) {
-                            if (sender) sender.send('pdf-analysis-progress', 'Đang tự động kết nối Colab GPU...');
-                            await colabMcpClient.connect(statusData.colab_url);
-                        }
-                    }
+                    await colabMcpClient.connect(mcpUrl);
                 } catch(e) {}
             }
 

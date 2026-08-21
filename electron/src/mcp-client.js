@@ -5,6 +5,50 @@ const https = require('https');
 const dns = require('dns');
 const { URL } = require('url');
 
+const dnsCache = {};
+
+function customLookup(hostname, options, callback) {
+    if (typeof options === 'function') {
+        callback = options;
+        options = {};
+    }
+    if (hostname === '127.0.0.1' || hostname === 'localhost') {
+        return dns.lookup(hostname, options, callback);
+    }
+    if (dnsCache[hostname]) {
+        return callback(null, dnsCache[hostname], 4);
+    }
+    dns.lookup(hostname, options, (err, address, family) => {
+        if (!err && address) {
+            dnsCache[hostname] = address;
+            return callback(null, address, family);
+        }
+        // Fallback: Query 1.1.1.1 DNS over HTTPS
+        https.get(`https://1.1.1.1/dns-query?name=${hostname}&type=A`, {
+            headers: { 'accept': 'application/dns-json' },
+            timeout: 4000
+        }, (res) => {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.Answer && parsed.Answer.length > 0) {
+                        const aRecord = parsed.Answer.find(a => a.type === 1);
+                        if (aRecord && aRecord.data) {
+                            dnsCache[hostname] = aRecord.data;
+                            return callback(null, aRecord.data, 4);
+                        }
+                    }
+                } catch(e) {}
+                callback(err || new Error(`Could not resolve ${hostname}`));
+            });
+        }).on('error', () => {
+            callback(err || new Error(`Could not resolve ${hostname}`));
+        });
+    });
+}
+
 try {
     dns.setServers(['1.1.1.1', '8.8.8.8', '1.0.0.1', '8.8.4.4']);
 } catch (e) {}
@@ -42,7 +86,8 @@ class ColabMcpClient {
             const req = reqModule.request(targetUrl, {
                 method,
                 headers,
-                timeout: timeoutMs
+                timeout: timeoutMs,
+                lookup: customLookup
             }, (res) => {
                 let responseData = '';
                 res.on('data', chunk => responseData += chunk.toString('utf-8'));

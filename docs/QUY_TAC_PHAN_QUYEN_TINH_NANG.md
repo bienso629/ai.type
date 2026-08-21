@@ -35,7 +35,7 @@ Tài liệu này quy định chi tiết 3 cấp độ quyền hạn cho tất c�
 | 3 | **Từ điển** | `feather:type` | `/synonym` | Tra cứu, giải nghĩa và đồng nghĩa tiếng Việt |
 | 4 | **Tạo hình** | `feather:image` | `/ai-image` | Tạo hình ảnh chất lượng cao theo prompt AI |
 | 5 | **Giọng đọc** | `feather:mic` | `/ai-text2speech` | Chuyển văn bản thành giọng đọc truyền cảm |
-| 6 | **Lịch làm việc** | `feather:calendar` | `/schedule` *(→ `/amxh/schedule`)* | Lên kịch bản tự động hóa theo thời gian |
+| 6 | **Lịch làm việc** | `feather:calendar` | `/schedule` *(→ `/amxh/schedule`)* | Lên tác vụ viết bài chi tiết cho website theo thời gian |
 | 7 | **Tổng quan** | `feather:grid` | `/dashboard` | Màn hình dashboard thống kê chung |
 | 8 | **Lưu trữ / Kho bài** | `feather:archive` | `/archives`, `/collection` | Quản lý kho bài viết và bộ sưu tập |
 | 9 | **Nạp tiền / Gói** | `feather:dollar-sign` | `/dollar`, `/payment` | Mua gói bản quyền và điểm credit |
