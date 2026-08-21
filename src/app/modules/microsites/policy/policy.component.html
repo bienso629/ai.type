@@ -1,74 +1,14 @@
-<div class="policy-page absolute inset-0 flex flex-col bg-white dark:bg-gray-900 min-w-0 overflow-y-auto">
-    <!-- Header Topbar (no-print) -->
-    <header class="no-print sticky top-0 z-50 px-6 py-4 flex items-center bg-white/95 dark:bg-gray-900/95">
-        <button mat-icon-button (click)="goBack()" matTooltip="Quay lại" class="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
-            <mat-icon [svgIcon]="'feather:arrow-left'"></mat-icon>
-        </button>
-    </header>
-
-    <!-- Main Content Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8 lg:py-8">
-        <!-- Hero Banner -->
-        <div class="bg-white dark:bg-gray-900 p-4 sm:p-6 md:p-8 mb-6">
-            <div class="max-w-3xl">
-                <div class="inline-flex items-center gap-2 text-base font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 mb-3">
-                    <mat-icon class="icon-size-5" [svgIcon]="'feather:shield'"></mat-icon>
-                    <span>Cam kết bảo vệ dữ liệu & quyền riêng tư</span>
-                </div>
-                <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
-                    Chính Sách Quyền Riêng Tư AI.TYPE
-                </h1>
-                <p class="text-base text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
-                    Chào mừng bạn đến với <strong>AI.TYPE</strong> (ứng dụng quản lý công việc, sáng tạo nội dung văn bản và đa phương tiện do Yên AI phát triển). Chúng tôi tôn trọng và cam kết bảo vệ tuyệt đối quyền riêng tư cũng như an toàn dữ liệu số của bạn.
-                </p>
-                <div class="flex flex-wrap items-center gap-4 text-base text-gray-500 dark:text-gray-400 pt-3">
-                    <span class="flex items-center gap-1.5">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'"></mat-icon>
-                        Cập nhật lần cuối: <strong>19 tháng 08, 2026</strong>
-                    </span>
-                    <span>•</span>
-                    <span class="flex items-center gap-1.5">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:layers'"></mat-icon>
-                        Phiên bản: <strong>1.2.3</strong>
-                    </span>
-                    <span>•</span>
-                    <span class="flex items-center gap-1.5">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
-                        Áp dụng: <strong>Desktop App (Win/Mac/Linux) & Web Platform</strong>
-                    </span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Layout Grid: Sidebar TOC + Policy Content -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            <!-- Sticky Sidebar (Table of Contents) -->
-            <aside class="no-print lg:col-span-4 sticky top-20">
-                <div class="bg-gray-50 dark:bg-gray-850 p-5 rounded-2xl">
-                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4 flex items-center gap-2">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:list'"></mat-icon>
-                        <span>Mục lục điều khoản</span>
-                    </h3>
-                    <nav class="flex flex-col space-y-1">
-                        <button *ngFor="let s of sections" (click)="scrollTo(s.id)"
-                            class="text-left py-2.5 px-3.5 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
-                            [ngClass]="{'!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 font-semibold': activeSection === s.id}">
-                            {{ s.title }}
-                        </button>
-                    </nav>
-
-                    <div class="mt-6 pt-4">
-                        <div class="flex items-center gap-2 text-base text-gray-500 dark:text-gray-400">
-                            <mat-icon class="icon-size-5 text-emerald-500" [svgIcon]="'feather:lock'"></mat-icon>
-                            <span>Hỗ trợ bảo vệ mã hóa AES-256 cục bộ</span>
-                        </div>
-                    </div>
-                </div>
-            </aside>
-
-            <!-- Policy Content Column -->
-            <article class="lg:col-span-8 policy-content space-y-8 text-gray-800 dark:text-gray-200">
+<policy-layout
+    [badgeIcon]="'feather:shield'"
+    [badgeText]="'Cam kết bảo vệ dữ liệu & quyền riêng tư'"
+    [title]="'Chính Sách Quyền Riêng Tư AI.TYPE'"
+    [description]="'Chào mừng bạn đến với AI.TYPE (ứng dụng quản lý công việc, sáng tạo nội dung văn bản và đa phương tiện do Yên AI phát triển). Chúng tôi tôn trọng và cam kết bảo vệ tuyệt đối quyền riêng tư cũng như an toàn dữ liệu số của bạn.'"
+    [lastUpdated]="'19 tháng 08, 2026'"
+    [version]="'1.2.3'"
+    [scope]="'Desktop App (Win/Mac/Linux) & Web Platform'"
+    [sidebarBadgeIcon]="'feather:lock'"
+    [sidebarBadgeText]="'Hỗ trợ bảo vệ mã hóa AES-256 cục bộ'"
+    [sections]="sections">
                 
                 <!-- Section 1 -->
                 <section id="intro" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
@@ -301,7 +241,7 @@
                         <div class="bg-gray-50 dark:bg-gray-800 p-5 space-y-3 text-base rounded-xl">
                             <div class="flex items-center gap-3">
                                 <mat-icon class="icon-size-5 text-blue-600" [svgIcon]="'feather:mail'"></mat-icon>
-                                <span>Email hỗ trợ: <a [href]="'mailto:contact@ai.type.vn'" class="font-semibold text-blue-600 dark:text-blue-400 underline">contact&#64;ai.type.vn</a></span>
+                                <span>Email hỗ trợ: <a [href]="'mailto:typevn@gmail.com'" class="font-semibold text-blue-600 dark:text-blue-400 underline">typevn&#64;gmail.com</a></span>
                             </div>
                             <div class="flex items-center gap-3">
                                 <mat-icon class="icon-size-5 text-teal-600" [svgIcon]="'feather:globe'"></mat-icon>
@@ -314,14 +254,4 @@
                         </div>
                     </div>
                 </section>
-
-                <!-- Footer note -->
-                <div class="text-center py-6 text-base text-gray-400 dark:text-gray-500">
-                    AI.TYPE &copy; {{ currentYear }}. Bản quyền thuộc về Yên AI. Tất cả các quyền được bảo lưu.
-                </div>
-
-            </article>
-
-        </div>
-    </main>
-</div>
+</policy-layout>

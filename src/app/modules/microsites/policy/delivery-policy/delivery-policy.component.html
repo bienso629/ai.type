@@ -1,0 +1,122 @@
+<policy-layout
+    [badgeIcon]="'feather:package'"
+    [badgeText]="'Quy trình & Phương thức bàn giao sản phẩm số'"
+    [title]="'CHÍNH SÁCH GIAO NHẬN'"
+    [description]="'Vì các sản phẩm và dịch vụ tại AI.TYPE (phần mềm tự động hóa nội dung, công cụ AI) là tài nguyên số / phần mềm số, Website và ứng dụng không áp dụng hình thức giao hàng vật lý truyền thống.'"
+    [lastUpdated]="'21 tháng 08, 2026'"
+    [version]="'1.2.3'"
+    [scope]="'Desktop App & Web Platform AI.TYPE'"
+    [sidebarBadgeIcon]="'feather:zap'"
+    [sidebarBadgeText]="'Kích hoạt tự động & tức thì'"
+    [sections]="sections">
+                
+                <!-- Section 0: Giới thiệu -->
+                <section id="intro" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">#</span> Giới thiệu & Sản phẩm số
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>
+                            Toàn bộ sản phẩm được phân phối trên hệ thống <strong>AI.TYPE</strong> (bao gồm bản quyền phần mềm máy tính, hạn mức gói AI, tiện ích mở rộng và các dịch vụ đi kèm) là <strong>sản phẩm phi vật lý (digital goods)</strong>.
+                        </p>
+                        <p>
+                            Quý khách hàng sau khi thanh toán thành công sẽ được bàn giao sản phẩm qua hình thức <strong>cấp quyền truy cập trực tuyến, mở khóa tài khoản tự động hoặc gửi mã bản quyền qua email</strong>, không áp dụng hình thức đóng gói vận chuyển vật lý qua bưu chính/chuyển phát nhanh.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Section 1: Xác nhận thanh toán -->
+                <section id="payment-confirm" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">1.</span> Xác nhận thanh toán
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>Sau khi quý khách hoàn tất quy trình thanh toán trên website hoặc trong ứng dụng AI.TYPE, hệ thống sẽ:</p>
+                        <ul class="list-disc list-inside space-y-2 pl-2">
+                            <li><strong>Tự động ghi nhận giao dịch thành công</strong> thông qua cổng thanh toán / ngân hàng đối tác.</li>
+                            <li><strong>Gửi thông báo xác nhận</strong> qua email đăng ký và hiển thị thông báo trực tiếp trên tài khoản ứng dụng.</li>
+                            <li><strong>Cập nhật trạng thái đơn hàng</strong> sang trạng thái <em>“Đã thanh toán”</em> và kích hoạt quyền lợi tài khoản.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Section 2: Hình thức giao nhận -->
+                <section id="delivery-method" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">2.</span> Hình thức giao nhận
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>
+                            Vì là sản phẩm/dịch vụ phi vật lý, chúng tôi <strong>không thực hiện giao hàng truyền thống</strong>. Thay vào đó, sản phẩm và dịch vụ sẽ được cung cấp và bàn giao thông qua:
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                                <div class="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-2">
+                                    <mat-icon class="text-blue-500 icon-size-5" [svgIcon]="'feather:user-check'"></mat-icon>
+                                    Kích hoạt tài khoản trực tiếp
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                    Hệ thống tự động nâng cấp tài khoản của bạn lên gói Pro / Premium hoặc nạp số dư token sử dụng ngay khi thanh toán xong.
+                                </p>
+                            </div>
+                            <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                                <div class="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-2">
+                                    <mat-icon class="text-teal-500 icon-size-5" [svgIcon]="'feather:mail'"></mat-icon>
+                                    Gửi thông tin truy cập qua Email
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                    Gửi mã bản quyền (license key), link tải phiên bản đặc quyền và tài liệu hướng dẫn kích hoạt vào hòm thư điện tử đã đăng ký.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 3: Kích hoạt & sử dụng dịch vụ -->
+                <section id="activate-usage" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">3.</span> Kích hoạt & sử dụng dịch vụ
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <ul class="list-disc list-inside space-y-2.5 pl-2">
+                            <li>Ngay sau khi thanh toán thành công, hệ thống sẽ tự động kích hoạt gói dịch vụ tương ứng.</li>
+                            <li>Khách hàng có thể đăng nhập vào ứng dụng <strong>AI.TYPE Desktop App</strong> hoặc Web để sử dụng ngay các tính năng không giới hạn.</li>
+                            <li>Thời hạn sử dụng dịch vụ (theo tháng, theo năm hoặc trọn đời tùy gói) sẽ được tính chính xác từ thời điểm kích hoạt thành công.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Section 4: Thời gian xử lý -->
+                <section id="processing-time" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">4.</span> Thời gian xử lý & bàn giao
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <ul class="list-disc list-inside space-y-2.5 pl-2">
+                            <li><strong>Thông thường:</strong> <strong>Tức thì (ngay lập tức)</strong> sau khi giao dịch thanh toán được hệ thống đối soát tự động thành công.</li>
+                            <li><strong>Trong một số trường hợp đặc biệt:</strong> Do bảo trì cổng thanh toán ngân hàng, lỗi kết nối mạng hoặc cần đối soát chuyển khoản thủ công, thời gian xử lý và bàn giao có thể từ <strong>5 phút đến tối đa 24 giờ</strong>.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Section 5: Trường hợp chậm trễ -->
+                <section id="delay-support" class="bg-white dark:bg-gray-900 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 pb-2 flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400">5.</span> Trường hợp chậm trễ & Kênh hỗ trợ
+                    </h2>
+                    <div class="space-y-4 text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <p>
+                            Nếu sau khi thanh toán hoàn tất mà quý khách <strong>chưa nhận được quyền truy cập hoặc chưa được kích hoạt dịch vụ</strong> trên tài khoản:
+                        </p>
+                        <div class="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 text-blue-900 dark:text-blue-200">
+                            <p class="font-medium mb-2">Vui lòng liên hệ bộ phận hỗ trợ khách hàng để được xử lý ngay lập tức:</p>
+                            <ul class="space-y-2 text-base">
+                                <li>• <strong>Email hỗ trợ:</strong> <a [href]="'mailto:typevn@gmail.com'" class="font-semibold text-blue-600 dark:text-blue-400 underline">typevn&#64;gmail.com</a></li>
+                                <li>• <strong>Trang chủ:</strong> <a href="https://ai.type.vn" target="_blank" class="font-semibold underline">https://ai.type.vn</a></li>
+                                <li>• <strong>Cộng đồng:</strong> <a href="https://type.vn" target="_blank" class="font-semibold underline">https://type.vn</a></li>
+                                <li>• <strong>Thời gian làm việc hỗ trợ:</strong> 08:00 - 22:00 (Tất cả các ngày trong tuần, bao gồm Thứ 7 và Chủ nhật)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+</policy-layout>

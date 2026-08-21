@@ -85,15 +85,13 @@
         </button> -->
 
         <span class="font-normal text-base text-secondary">{{ 'app.footer_powered_by_ai' | transloco }}
-            &copy; {{currentYear}}. {{ 'app.footer_version' | transloco }} {{ appVersion }},
-            <ng-container *ngIf="activeInfo && activeInfo.user; else elseTemplate">
-                <span>{{ 'app.footer_verified' | transloco }} </span>
-            </ng-container>
-            <ng-template #elseTemplate>
-                <span>{{ 'app.footer_unverified' | transloco }} [<a class="underline" [routerLink]="['/settings']"
-                        [queryParams]="{ tab: 'active' }">{{ 'app.footer_verify_now' | transloco }}</a>]. </span>
-            </ng-template>
-            <a [routerLink]="['/policy']" [title]="'app.auto_automatic_article_writing_soft' | transloco" class="underline cursor-pointer">{{ 'app.footer_policies' | transloco }}</a>
+            &copy; {{currentYear}}. {{ 'app.footer_version' | transloco }} {{ appVersion }}.
+            <span>{{ 'app.footer_policy_prefix' | transloco }} </span>
+            <a [routerLink]="['/policy']" [title]="'app.auto_automatic_article_writing_soft' | transloco" class="underline cursor-pointer">{{ 'app.footer_policy_privacy' | transloco }}</a>,
+            <a [routerLink]="['/chinh-sach-mua-hang']" class="underline cursor-pointer">{{ 'app.footer_policy_purchasing' | transloco }}</a>,
+            <a [routerLink]="['/chinh-sach-giao-nhan']" class="underline cursor-pointer">{{ 'app.footer_policy_delivery' | transloco }}</a>,
+            <a [routerLink]="['/chinh-sach-bao-hanh']" class="underline cursor-pointer">{{ 'app.footer_policy_warranty' | transloco }}</a>,
+            <a [routerLink]="['/dieu-khoan-su-dung']" class="underline cursor-pointer">{{ 'app.footer_policy_terms' | transloco }}</a>.
         </span>
     </div>
 

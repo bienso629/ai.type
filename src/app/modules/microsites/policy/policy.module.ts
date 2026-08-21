@@ -7,6 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { TranslocoModule } from '@ngneat/transloco';
 import { PolicyComponent } from 'app/modules/microsites/policy/policy.component';
+import { PolicyLayoutComponent } from 'app/modules/microsites/policy/policy-layout/policy-layout.component';
 
 const routes: Route[] = [
     {
@@ -31,6 +32,7 @@ const routes: Route[] = [
         RouterModule.forChild(routes),
         MatButtonModule,
         MatIconModule,
+        PolicyLayoutComponent,
     ]
 })
 export class PolicyModule {
