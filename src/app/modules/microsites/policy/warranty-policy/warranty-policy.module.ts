@@ -6,23 +6,19 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { TranslocoModule } from '@ngneat/transloco';
-import { PolicyComponent } from 'app/modules/microsites/policy/policy.component';
+import { WarrantyPolicyComponent } from 'app/modules/microsites/policy/warranty-policy/warranty-policy.component';
 import { PolicyLayoutComponent } from 'app/modules/microsites/policy/policy-layout/policy-layout.component';
 
 const routes: Route[] = [
     {
         path: '',
-        component: PolicyComponent
-    },
-    {
-        path: 'privacy-policy',
-        component: PolicyComponent
+        component: WarrantyPolicyComponent
     }
 ];
 
 @NgModule({
     declarations: [
-        PolicyComponent,
+        WarrantyPolicyComponent,
     ],
     imports: [
         CommonModule,
@@ -35,5 +31,5 @@ const routes: Route[] = [
         PolicyLayoutComponent,
     ]
 })
-export class PolicyModule {
+export class WarrantyPolicyModule {
 }
