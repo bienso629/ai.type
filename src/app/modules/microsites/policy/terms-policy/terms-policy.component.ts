@@ -10,17 +10,17 @@ import { Title } from '@angular/platform-browser';
 })
 export class TermsPolicyComponent implements OnInit {
     readonly sections = [
-        { id: 'intro', title: 'Giới thiệu & Chấp thuận' },
-        { id: 'usage-guidelines', title: '1. Hướng dẫn sử dụng & Tài khoản' },
-        { id: 'customer-feedback', title: '2. Ý kiến của khách hàng' },
-        { id: 'orders-pricing', title: '3. Đơn hàng, Giá cả & Hóa đơn VAT' },
-        { id: 'info-errors', title: '4. Xử lý sai lệch thông tin' },
-        { id: 'important-rules', title: '5. Những quy định quan trọng' },
-        { id: 'support-contact', title: '6. Thông tin liên hệ' },
+        { id: 'intro', title: 'Giới thiệu chung' },
+        { id: 'usage-guidelines', title: '1. Quy định sử dụng phần mềm' },
+        { id: 'intellectual-property', title: '2. Quyền sở hữu & Bản quyền nội dung' },
+        { id: 'orders-pricing', title: '3. Đơn hàng, Bảng giá & Nâng cấp' },
+        { id: 'info-errors', title: '4. Xử lý sự cố kỹ thuật' },
+        { id: 'important-rules', title: '5. Quy định về gói VIP & XU AI' },
+        { id: 'support-contact', title: '6. Kênh hỗ trợ' },
     ];
 
     constructor(private titleService: Title) {
-        this.titleService.setTitle(`Điều khoản & Chính sách sử dụng | AI.TYPE`);
+        this.titleService.setTitle(`Điều khoản sử dụng | AI.TYPE`);
     }
 
     ngOnInit(): void {}

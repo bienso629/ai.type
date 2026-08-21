@@ -2490,6 +2490,81 @@ export class GenaiService {
         }
     }
 
+    /**
+     * Phân tích câu lệnh hoặc câu hỏi để xác định xem có cần xác nhận (Confirm Action)
+     * hoặc tạo các câu hỏi/prompt gợi ý tiếp theo (Follow-up Prompts).
+     */
+    async analyzeActionConfirmation(prompt: string, context?: any): Promise<{
+        needConfirmation: boolean;
+        actionType?: string;
+        actionTitle?: string;
+        actionSummary?: string;
+        followUpPrompts?: string[];
+    }> {
+        try {
+            const hasVideoUrl = /(https?:\/\/[^\s]+)/i.test(prompt);
+            const hasActionKeywords = /(xem|like|thích|thả tim|comment|bình luận|chạy|mở|bắt đầu|thực thi|quét|lên kịch bản)/i.test(prompt);
+            
+            const defaultPrompts = [
+                '💬 Viết kịch bản bình luận tự nhiên cho các profile này',
+                '❤️ Tự động thả tim và theo dõi video này',
+                '📊 Phân tích chi tiết nội dung video này',
+                '👥 Thêm các profile khác vào cùng thực hiện'
+            ];
+
+            if (!hasVideoUrl && !hasActionKeywords) {
+                return {
+                    needConfirmation: false,
+                    followUpPrompts: [
+                        '✍️ Viết tiếp kịch bản chi tiết hơn',
+                        '💡 Tạo thêm các câu bình luận đa dạng phong cách',
+                        '⚙️ Hướng dẫn cấu hình tự động hóa'
+                    ]
+                };
+            }
+
+            return {
+                needConfirmation: true,
+                actionType: hasVideoUrl ? 'video_interaction' : 'script_execution',
+                actionTitle: 'Xác nhận tác vụ tự động hóa',
+                actionSummary: prompt,
+                followUpPrompts: defaultPrompts
+            };
+        } catch (e) {
+            return {
+                needConfirmation: false,
+                followUpPrompts: []
+            };
+        }
+    }
+
+    /**
+     * Tạo danh sách gợi ý các prompt/câu hỏi tiếp theo dựa trên ngữ cảnh vừa trao đổi
+     */
+    async generateFollowUpPrompts(lastUserMessage: string, lastAiResponse?: string): Promise<string[]> {
+        try {
+            const isVideo = /(tiktok\.com|youtube\.com|facebook\.com|video)/i.test(lastUserMessage) || 
+                            /(video|livestream)/i.test(lastAiResponse || '');
+            if (isVideo) {
+                return [
+                    '💬 Viết kịch bản bình luận hấp dẫn cho các profile',
+                    '❤️ Tự động thả tim video này sau 3 giây',
+                    '👥 Mời thêm profile khác cùng xem video',
+                    '📈 Phân tích xu hướng và hashtag của video'
+                ];
+            }
+
+            return [
+                '✍️ Viết tiếp đoạn kịch bản tiếp theo',
+                '💡 Đề xuất thêm các ý tưởng tương tác mới',
+                '🎭 Đổi phong cách nhân cách cho các profile',
+                '⚙️ Cấu hình thời gian chạy tự động'
+            ];
+        } catch (err) {
+            return [];
+        }
+    }
+
     refreshConfig() {
         this._aiInstance = undefined;
         this._currentKey = '';

@@ -315,6 +315,88 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         if (inputEl) inputEl.focus();
     }
 
+    continuePrompt(msg: any): void {
+        let text = '';
+        if (msg?.confirmAction?.videoUrl) {
+            const profilesStr = (msg.confirmAction.profiles || []).map((p: string) => {
+                const found = this.runningProfiles.find(rp => rp.name === p);
+                const tag = found?.persona?.alias ? found.persona.alias : p;
+                return `@${tag.replace(/\s+/g, '_')}`;
+            }).join(' ');
+            text = profilesStr ? `${profilesStr} cùng viết bình luận cho video ${msg.confirmAction.videoUrl} ` : `Viết bình luận cho video ${msg.confirmAction.videoUrl} `;
+        } else if (msg?.role === 'user') {
+            text = `${msg.content} - Hãy phân tích chi tiết hơn: `;
+        } else {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = msg.content || '';
+            const plain = tempDiv.textContent?.trim() || '';
+            const firstSnippet = plain.slice(0, 50).replace(/\s+/g, ' ');
+            text = firstSnippet ? `Hỏi tiếp về: ${firstSnippet}... ` : 'Hỏi tiếp: ';
+        }
+        this.chatInput = text;
+        this.cd.markForCheck();
+        setTimeout(() => {
+            if (this.scriptChatInputRef?.nativeElement) {
+                this.scriptChatInputRef.nativeElement.focus();
+                const len = this.chatInput.length;
+                this.scriptChatInputRef.nativeElement.setSelectionRange(len, len);
+            }
+        }, 50);
+    }
+
+    applyFollowUpPrompt(promptText: string): void {
+        if (!promptText) return;
+        const cleanPrompt = promptText.replace(/^[^\w\s@À-ỹ]+/, '').trim();
+        this.chatInput = cleanPrompt;
+        this.cd.markForCheck();
+        setTimeout(() => {
+            if (this.scriptChatInputRef?.nativeElement) {
+                this.scriptChatInputRef.nativeElement.focus();
+            }
+        }, 50);
+    }
+
+    confirmAndExecuteAction(msg: any): void {
+        if (!msg || !msg.confirmAction) return;
+        const ca = msg.confirmAction;
+        ca.status = 'executed';
+
+        if (ca.runPayload) {
+            this._mxhautoService.run(ca.runPayload)
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: () => {
+                        this.toastr.success(`Đang mở ${ca.profiles.length} profile truy cập video...`);
+                        if (ca.isLikeIntent && ca.videoUrl) {
+                            setTimeout(() => {
+                                const likePayload = {
+                                    site: "tiktok.com",
+                                    title: "Thả tim",
+                                    profiles: ca.profiles,
+                                    profiles_root: this.getProfilesRoot(),
+                                    profile_urls: ca.profiles.reduce((acc: any, cur: string) => { acc[cur] = ca.videoUrl; return acc; }, {}),
+                                    coords_file: "mouse_coords.json"
+                                };
+                                this._mxhautoService.like(likePayload).subscribe({
+                                    next: () => this.toastr.success(`Đã tự động gửi lệnh Thả tim cho ${ca.profiles.join(', ')}`),
+                                    error: () => {}
+                                });
+                            }, 3000);
+                        }
+                    },
+                    error: () => this.toastr.error('Lỗi khi khởi chạy profile')
+                });
+        }
+        this.cd.markForCheck();
+    }
+
+    cancelAction(msg: any): void {
+        if (!msg || !msg.confirmAction) return;
+        msg.confirmAction.status = 'cancelled';
+        this.toastr.info('Đã hủy thực thi tác vụ');
+        this.cd.markForCheck();
+    }
+
     // --- PROFILE MENTION POPUP (@) LOGIC ---
     onChatInputChange(event: any): void {
         const val = this.chatInput || '';
@@ -506,7 +588,14 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.runningProfiles = rawList.map((p, idx) => {
             const name = p.name || p.profile || `Profile ${idx + 1}`;
             const acc = (p.accounts && p.accounts.length > 0) ? p.accounts[0] : null;
-            const avatar = acc?.avatar || p.avatar || '';
+            let avatar = acc?.avatar || p.avatar || p.raw?.avatar || '';
+            if (avatar && !avatar.startsWith('http://') && !avatar.startsWith('https://') && !avatar.startsWith('assets/') && !avatar.startsWith('data:') && !avatar.startsWith('file:///')) {
+                avatar = 'file:///' + avatar;
+            }
+            if (!avatar) {
+                const aliasOrName = acc?.alias || p.profile || name || `Profile ${idx + 1}`;
+                avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(aliasOrName)}&background=0d9488&color=fff&bold=true&size=128`;
+            }
             const account_username = acc?.username || acc?.nickname || '';
             const persona = p.persona || (acc?.alias ? { alias: acc.alias, role: 'Người xem', style: 'Tự nhiên' } : { role: 'Người xem', style: 'Tự nhiên' });
             return {
@@ -519,6 +608,51 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             };
         });
         this.filterRunningProfiles();
+    }
+
+    getProfileAvatar(userOrName: any): string {
+        if (!userOrName) return 'assets/images/avatars/612x612.jpg';
+        let found: any = null;
+        if (typeof userOrName === 'object') {
+            found = userOrName;
+        } else {
+            found = this.runningProfiles.find(p => p.name === userOrName || p.id === userOrName);
+        }
+
+        if (found) {
+            if (found.avatar) {
+                return found.avatar;
+            }
+            const acc = (found.raw?.accounts && found.raw.accounts.length > 0) ? found.raw.accounts[0] : null;
+            if (acc?.avatar) {
+                return acc.avatar;
+            }
+            const displayName = found.persona?.alias || acc?.alias || found.name || 'P';
+            return `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0d9488&color=fff&bold=true&size=128`;
+        }
+
+        const nameStr = typeof userOrName === 'string' ? userOrName : 'Profile';
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(nameStr)}&background=0d9488&color=fff&bold=true&size=128`;
+    }
+
+    getProfileDisplayName(userOrName: any): string {
+        if (!userOrName) return '';
+        if (typeof userOrName === 'object') {
+            const alias = userOrName.persona?.alias;
+            return alias ? `${alias} (${userOrName.name})` : userOrName.name;
+        }
+        const found = this.runningProfiles.find(p => p.name === userOrName);
+        if (found && found.persona?.alias) {
+            return `${found.persona.alias} (${found.name})`;
+        }
+        return userOrName;
+    }
+
+    onImgError(event: Event): void {
+        const element = event.target as HTMLImageElement;
+        if (element) {
+            element.src = 'assets/images/avatars/612x612.jpg';
+        }
     }
 
     onProfileSearchChange(): void {
@@ -758,6 +892,20 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                     </div>
                 </div>
             `;
+            (loadingMsg as any).confirmAction = {
+                actionType: 'video_interaction',
+                profiles: profileNames,
+                videoUrl: targetUrl,
+                status: 'executed',
+                isLikeIntent: isLikeIntent,
+                runPayload: runPayload
+            };
+            (loadingMsg as any).followUpPrompts = [
+                '💬 Viết kịch bản bình luận tự nhiên cho các profile này',
+                '❤️ Tự động thả tim video này sau 3 giây',
+                '👥 Mời thêm profile khác cùng xem video',
+                '📊 Phân tích nội dung và hashtag của video'
+            ];
             this.cd.markForCheck();
             this.scrollToBottom();
             return;
@@ -811,6 +959,12 @@ Nhiệm vụ của bạn:
                 } else {
                     loadingMsg.content = `Đã tìm thấy các phiên livestream phù hợp với yêu cầu của bạn.`;
                 }
+                (loadingMsg as any).followUpPrompts = [
+                    '🎯 Chọn phiên live có nhiều mắt xem nhất',
+                    '👥 Phân công các profile vào tương tác phòng live này',
+                    '💬 Viết comment chào hỏi streamer',
+                    '🛒 Xem các sản phẩm đang gắn giỏ hàng trong live'
+                ];
                 this.cd.markForCheck();
                 this.scrollToBottom();
                 return;
@@ -847,6 +1001,7 @@ Nhiệm vụ của bạn:
             let formatted = this.formatAiResponse(replyText);
             formatted = this.enhanceClickableRoomLinks(formatted);
             loadingMsg.content = formatted;
+            (loadingMsg as any).followUpPrompts = await this._genaiService.generateFollowUpPrompts(text, replyText);
         } catch (err: any) {
             console.error('Lỗi khi gọi Trợ lý phân tích:', err);
             loadingMsg.content = `Không thể kết nối tới Trợ lý phân tích: ${err?.message || 'Đã có lỗi xảy ra'}`;
