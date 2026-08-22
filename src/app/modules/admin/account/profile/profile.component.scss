@@ -351,15 +351,16 @@
 ::ng-deep .mat-mdc-menu-panel,
 ::ng-deep .mat-menu-panel,
 ::ng-deep .faint-shadow-menu {
-  border: 1px solid var(--fuse-border, #cbd5e1) !important;
+  border: 1px solid var(--fuse-border, #e2e8f0) !important;
   box-shadow: none !important;
   filter: none !important;
   border-radius: 12px !important;
   overflow: hidden !important;
-  background-color: var(--fuse-bg-card, #ffffff) !important;
+  background-color: #f8fafc !important;
 
   .mat-mdc-menu-content {
     padding: 4px 0 !important;
+    background-color: #f8fafc !important;
   }
 
   .mat-mdc-menu-item {

@@ -41,6 +41,12 @@
             <ng-select class="custom-select-ai-writer max-w-60" [placeholder]="'app.search_by_episode' | transloco" [items]="collections"
                 (clear)="onClearCollection()" (change)="onChangeCollection()" multiple="true" bindLabel="title"
                 [clearable]="true" [(ngModel)]="selectedCollections" [dropdownPosition]="'bottom'" appendTo="body">
+                <ng-template ng-option-tmp let-item="item">
+                    <div class="flex items-center justify-between w-full">
+                        <span class="truncate">{{item.title}}</span>
+                        <span *ngIf="item.count !== undefined" class="min-w-5 h-5 px-1 inline-flex items-center justify-center text-xs text-secondary ml-2 font-medium bg-gray-100 dark:bg-gray-800 rounded-full">{{item.count}}</span>
+                    </div>
+                </ng-template>
                 <ng-template ng-tag-tmp let-search="searchTerm">
                     <mat-label class="text-base">{{ 'app.search_by' | transloco }}: {{search}}</mat-label>
                 </ng-template>

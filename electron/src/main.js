@@ -6818,6 +6818,20 @@ ipcMain.handle('upload-to-archive-org', async (event, payload) => {
     }
 });
 
+ipcMain.handle('check-file-exists', async (event, filePath) => {
+    try {
+        if (!filePath) return false;
+        let cleanPath = filePath.replace(/^file:\/\//, '');
+        // On Windows file:///D:/... -> D:/...
+        if (process.platform === 'win32' && cleanPath.startsWith('/')) {
+            cleanPath = cleanPath.slice(1);
+        }
+        return fs.existsSync(cleanPath);
+    } catch (e) {
+        return false;
+    }
+});
+
 ipcMain.handle('download-single-video-temp', async (event, payload) => {
     try {
         const url = typeof payload === 'string' ? payload : payload.url;
@@ -7506,7 +7520,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
         const audioPath = path.join(tempDir, 'audio.mp3');
 
         // Lệnh FFmpeg: Cắt frame ảnh
-        const interval = parseFloat(extractInterval) || 1;
+        const interval = parseFloat(extractInterval) || 5;
         const fps = (1 / interval).toFixed(4); // ví dụ: 5s/frame => fps=0.2
 
         const ffmpegFrameArgs = [
