@@ -5019,6 +5019,26 @@ app.whenReady().then(async () => {
         });
     };
 
+    // Function to get exact media duration using ffmpeg
+    const getMediaDuration = (ffmpegPath, filePath) => {
+        return new Promise((resolve) => {
+            const child = spawn(ffmpegPath, ['-i', filePath]);
+            let stderr = '';
+            child.stderr.on('data', (data) => stderr += data.toString());
+            child.on('close', () => {
+                const match = stderr.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
+                if (match) {
+                    const hours = parseFloat(match[1]);
+                    const mins = parseFloat(match[2]);
+                    const secs = parseFloat(match[3]);
+                    resolve(hours * 3600 + mins * 60 + secs);
+                } else {
+                    resolve(0);
+                }
+            });
+        });
+    };
+
     // ===== EXTRACT VIDEO FRAMES IPC =====
     ipcMain.handle("extract-video-frames", async (_event, payload) => {
         return new Promise(async (resolve, reject) => {
@@ -5250,30 +5270,79 @@ app.whenReady().then(async () => {
         });
     });
 
+    function getVideoWorkingDir(videoOrAudioPath, defaultPrefix = 'video') {
+        const downloadsPath = app.getPath('downloads');
+        const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
+        if (!fs.existsSync(aiTypingDir)) {
+            fs.mkdirSync(aiTypingDir, { recursive: true });
+        }
+
+        if (videoOrAudioPath) {
+            let cleanPath = String(videoOrAudioPath).trim();
+            cleanPath = cleanPath.replace(/^file:\/{2,3}/i, '').replace(/^media:\/{2,3}/i, '');
+            if (process.platform === 'win32' && cleanPath.startsWith('/')) cleanPath = cleanPath.slice(1);
+            cleanPath = decodeURIComponent(cleanPath.split('?')[0].split('#')[0]);
+
+            // If it's already directly inside a subfolder of AI.TYPING, reuse that subfolder
+            const parentDir = path.dirname(cleanPath);
+            if (parentDir.startsWith(aiTypingDir) && parentDir !== aiTypingDir) {
+                return parentDir;
+            }
+
+            // Otherwise, create a dedicated subfolder named after the video/audio file
+            const ext = path.extname(cleanPath);
+            let baseName = path.basename(cleanPath, ext).replace(/[^\w\d\-_.]/g, '_').replace(/_+/g, '_').substring(0, 60);
+            if (!baseName || baseName === '_') baseName = `${defaultPrefix}_${Date.now()}`;
+            const targetDir = path.join(aiTypingDir, baseName);
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
+            return targetDir;
+        }
+
+        const targetDir = path.join(aiTypingDir, `${defaultPrefix}_${Date.now()}`);
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+        return targetDir;
+    }
+
     // ===== EXTRACT AUDIO IPC =====
-    ipcMain.handle("extract-audio", async (_event, videoPath) => {
+    ipcMain.handle("extract-audio", async (_event, payload) => {
         return new Promise((resolve, reject) => {
             if (!binaries.ffmpeg) {
                 return reject(new Error("Không tìm thấy FFmpeg"));
             }
             try {
-                const audioDir = path.dirname(videoPath);
+                const videoPath = typeof payload === "string" ? payload : payload.videoPath;
+                const startTime = typeof payload === "object" && payload.startTime !== undefined ? Number(payload.startTime) : null;
+                const duration = typeof payload === "object" && payload.duration !== undefined ? Number(payload.duration) : null;
+
+                const videoDir = getVideoWorkingDir(videoPath);
                 const ext = path.extname(videoPath);
-                const baseName = path.basename(videoPath, ext);
-                const outputFileName = `${baseName}_audio.mp3`;
-                const outputPath = path.join(audioDir, outputFileName);
+                const baseName = path.basename(videoPath, ext).replace(/[^\w\d\-_.]/g, '_');
+                const outputFileName = `${baseName}_audio_${Date.now()}.mp3`;
+                const outputPath = path.join(videoDir, outputFileName);
 
                 const ffmpegPath = binaries.ffmpeg;
-                const args = [
-                    "-i", videoPath,
+                const args = ["-y"];
+
+                if (startTime !== null && startTime > 0) {
+                    args.push("-ss", startTime.toFixed(3));
+                }
+                args.push("-i", videoPath);
+                if (duration !== null && duration > 0) {
+                    args.push("-t", duration.toFixed(3));
+                }
+
+                args.push(
                     "-vn", // No video
                     "-acodec", "libmp3lame",
                     "-q:a", "2", // Good quality
-                    "-y", // Overwrite
                     outputPath
-                ];
+                );
 
-                sendToRenderer("tools-log", `[FFmpeg] Tách audio: ${args.join(" ")}`);
+                sendToRenderer("tools-log", `[FFmpeg] Tách audio sang ${outputPath}: ${args.join(" ")}`);
                 const child = spawn(ffmpegPath, args);
 
                 let stderrOutput = "";
@@ -5281,9 +5350,13 @@ app.whenReady().then(async () => {
                     stderrOutput += data.toString();
                 });
 
-                child.on("close", (code) => {
-                    if (code === 0) {
-                        resolve(outputPath);
+                child.on("close", async (code) => {
+                    if (code === 0 && fs.existsSync(outputPath)) {
+                        const exactDur = await getMediaDuration(ffmpegPath, outputPath);
+                        resolve({
+                            audioPath: outputPath,
+                            duration: exactDur > 0 ? exactDur : duration
+                        });
                     } else {
                         reject(new Error(`FFmpeg error (code ${code}): ${stderrOutput}`));
                     }
@@ -5296,6 +5369,141 @@ app.whenReady().then(async () => {
                 reject(err);
             }
         });
+    });
+
+    function formatSecondsToSRT(seconds) {
+        const totalMs = Math.round(seconds * 1000);
+        const hrs = Math.floor(totalMs / 3600000);
+        const mins = Math.floor((totalMs % 3600000) / 60000);
+        const secs = Math.floor((totalMs % 60000) / 1000);
+        const ms = totalMs % 1000;
+        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
+    }
+
+    function formatSecondsToVTT(seconds) {
+        const totalMs = Math.round(seconds * 1000);
+        const hrs = Math.floor(totalMs / 3600000);
+        const mins = Math.floor((totalMs % 3600000) / 60000);
+        const secs = Math.floor((totalMs % 60000) / 1000);
+        const ms = totalMs % 1000;
+        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+    }
+
+    function generateSubtitlesFiles(videoDir, baseName, segments) {
+        if (!segments || !Array.isArray(segments) || segments.length === 0) return null;
+
+        const sorted = [...segments].sort((a, b) => (Number(a.startTime) || 0) - (Number(b.startTime) || 0));
+
+        let srtContent = "";
+        let vttContent = "WEBVTT\n\n";
+
+        sorted.forEach((seg, idx) => {
+            const start = Math.max(0, Number(seg.startTime) || 0);
+            const end = Math.max(start + 0.3, Number(seg.endTime) || (start + (Number(seg.duration) || 3)));
+            const text = String(seg.text || '').trim();
+            if (!text) return;
+
+            // SRT format
+            srtContent += `${idx + 1}\n`;
+            srtContent += `${formatSecondsToSRT(start)} --> ${formatSecondsToSRT(end)}\n`;
+            srtContent += `${text}\n\n`;
+
+            // VTT format
+            vttContent += `${idx + 1}\n`;
+            vttContent += `${formatSecondsToVTT(start)} --> ${formatSecondsToVTT(end)}\n`;
+            vttContent += `${text}\n\n`;
+        });
+
+        try {
+            const srtPath = path.join(videoDir, `${baseName}.srt`);
+            const vttPath = path.join(videoDir, `${baseName}.vtt`);
+            fs.writeFileSync(srtPath, srtContent.trim() + '\n', 'utf8');
+            fs.writeFileSync(vttPath, vttContent.trim() + '\n', 'utf8');
+            sendToRenderer("tools-log", `[Phụ đề] Đã lưu file phụ đề chuẩn .SRT và .VTT vào: ${srtPath}`);
+            return { srtPath, vttPath };
+        } catch (e) {
+            console.error('[Phụ đề] Lỗi ghi file subtitle:', e);
+            return null;
+        }
+    }
+
+    // ===== EXPORT SUBTITLES IPC =====
+    ipcMain.handle("export-subtitles", async (_event, payload) => {
+        try {
+            const { videoPath, subtitles, filename } = payload || {};
+            const videoDir = getVideoWorkingDir(videoPath);
+            const baseName = filename || path.basename(videoPath || 'subtitles', path.extname(videoPath || '')).replace(/[^\w\d\-_.]/g, '_');
+            const result = generateSubtitlesFiles(videoDir, baseName, subtitles);
+            return { success: true, ...result };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    });
+
+    // ===== SPLIT AUDIO SEGMENTS IPC =====
+    ipcMain.handle("split-audio-segments", async (_event, payload) => {
+        const { audioPath, segments } = payload || {};
+        if (!binaries.ffmpeg) {
+            throw new Error("Không tìm thấy FFmpeg");
+        }
+        if (!segments || !Array.isArray(segments) || segments.length === 0) {
+            return [];
+        }
+
+        const videoDir = getVideoWorkingDir(audioPath);
+        const ext = path.extname(audioPath) || ".mp3";
+        const baseName = path.basename(audioPath, ext).replace(/[^\w\d\-_.]/g, '_');
+        const ffmpegPath = binaries.ffmpeg;
+        const results = [];
+
+        // Tự động tạo file phụ đề .SRT và .VTT ngay trong thư mục video
+        generateSubtitlesFiles(videoDir, baseName, segments);
+
+        sendToRenderer("tools-log", `[FFmpeg] Bắt đầu cắt ${segments.length} đoạn audio vào ${videoDir} từ: ${path.basename(audioPath)}`);
+
+        for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            const startTime = Math.max(0, Number(seg.startTime) || 0);
+            const duration = Math.max(0.3, Number(seg.duration) || (seg.endTime ? Number(seg.endTime) - startTime : 3));
+            const outputFileName = `${baseName}_seg_${i}_${Date.now()}${ext}`;
+            const outputPath = path.join(videoDir, outputFileName);
+
+            const args = [
+                "-y",
+                "-ss", startTime.toFixed(3),
+                "-i", audioPath,
+                "-t", duration.toFixed(3),
+                "-acodec", "libmp3lame",
+                "-q:a", "2",
+                outputPath
+            ];
+
+            await new Promise((resolve) => {
+                const child = spawn(ffmpegPath, args);
+                let stderr = "";
+                child.stderr.on("data", (d) => { stderr += d.toString(); });
+                child.on("close", (code) => {
+                    if (code === 0 && fs.existsSync(outputPath)) {
+                        results.push({
+                            audioPath: outputPath,
+                            text: seg.text || "",
+                            startTime: startTime,
+                            duration: duration
+                        });
+                    } else {
+                        console.error(`[FFmpeg] Cắt segment ${i} thất bại:`, stderr);
+                    }
+                    resolve();
+                });
+                child.on("error", (err) => {
+                    console.error(`[FFmpeg] Lỗi process segment ${i}:`, err);
+                    resolve();
+                });
+            });
+        }
+
+        sendToRenderer("tools-log", `[FFmpeg] Đã cắt thành công ${results.length}/${segments.length} đoạn audio.`);
+        return results;
     });
 
     // ===== GOOGLE SEARCH CONSOLE IPC =====
@@ -6821,11 +7029,17 @@ ipcMain.handle('upload-to-archive-org', async (event, payload) => {
 ipcMain.handle('check-file-exists', async (event, filePath) => {
     try {
         if (!filePath) return false;
-        let cleanPath = filePath.replace(/^file:\/\//, '');
+        let cleanPath = String(filePath).trim();
+        cleanPath = cleanPath.replace(/^file:\/{2,3}/i, '');
+        cleanPath = cleanPath.replace(/^media:\/{2,3}/i, '');
+        if (cleanPath.startsWith('SMART_FIND/')) return true;
         // On Windows file:///D:/... -> D:/...
-        if (process.platform === 'win32' && cleanPath.startsWith('/')) {
-            cleanPath = cleanPath.slice(1);
+        if (process.platform === 'win32') {
+            if (cleanPath.startsWith('/')) cleanPath = cleanPath.slice(1);
+        } else {
+            if (!cleanPath.startsWith('/')) cleanPath = '/' + cleanPath;
         }
+        cleanPath = decodeURIComponent(cleanPath.split('?')[0].split('#')[0]);
         return fs.existsSync(cleanPath);
     } catch (e) {
         return false;
@@ -6837,10 +7051,16 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
         const url = typeof payload === 'string' ? payload : payload.url;
         const customCookies = typeof payload === 'object' ? payload.customCookies : '';
         const ytdlpPath = binaries.ytdlp || "yt-dlp";
-        const tempDir = path.join(app.getPath('temp'), 'ai_typing_temp_' + Date.now());
-        fs.mkdirSync(tempDir, { recursive: true });
+        const downloadsPath = app.getPath('downloads');
+        const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
+        if (!fs.existsSync(aiTypingDir)) {
+            fs.mkdirSync(aiTypingDir, { recursive: true });
+        }
 
-        const outputTemplate = path.join(tempDir, 'video.%(ext)s');
+        const videoFolder = path.join(aiTypingDir, `video_${Date.now()}`);
+        fs.mkdirSync(videoFolder, { recursive: true });
+
+        const outputTemplate = path.join(videoFolder, `video.%(ext)s`);
         const args = [
             '-o', outputTemplate,
             '--no-warnings',
@@ -7634,14 +7854,17 @@ ipcMain.handle('ai:fetch-html', async (event, targetUrl) => {
 });
 ipcMain.handle('extract-last-frame', async (event, videoPath) => {
     try {
-        const videoPathDecoded = videoPath.replace('file://', '');
+        let videoPathDecoded = videoPath.replace(/^file:\/\//, '');
+        if (process.platform === 'win32' && videoPathDecoded.startsWith('/')) {
+            videoPathDecoded = videoPathDecoded.slice(1);
+        }
         if (!fs.existsSync(videoPathDecoded)) return { success: false, error: 'Video file not found: ' + videoPathDecoded };
 
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
-        const imgDir = path.dirname(videoPathDecoded);
+        const videoDir = getVideoWorkingDir(videoPathDecoded);
         const ext = path.extname(videoPathDecoded);
-        const baseName = path.basename(videoPathDecoded, ext);
-        const outputPath = path.join(imgDir, `${baseName}_last_frame.png`);
+        const baseName = path.basename(videoPathDecoded, ext).replace(/[^\w\d\-_.]/g, '_');
+        const outputPath = path.join(videoDir, `${baseName}_last_frame_${Date.now()}.png`);
 
         return new Promise((resolve) => {
             const args = ['-sseof', '-0.5', '-i', videoPathDecoded, '-update', '1', '-q:v', '2', '-y', outputPath];

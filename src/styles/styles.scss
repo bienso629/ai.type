@@ -97,35 +97,33 @@ hr {
 .mat-autocomplete-panel,
 .faint-shadow-menu {
     border: 1px solid var(--fuse-border, #e2e8f0) !important;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05) !important;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
     filter: none !important;
     border-radius: 8px !important;
-    background-color: #f8fafc !important;
-    --mat-menu-container-color: #f8fafc !important;
-    --mat-select-panel-background-color: #f8fafc !important;
-    --mat-autocomplete-background-color: #f8fafc !important;
+    background-color: #ffffff !important;
+    --mat-menu-container-color: #ffffff !important;
+    --mat-select-panel-background-color: #ffffff !important;
+    --mat-autocomplete-background-color: #ffffff !important;
     --mat-menu-item-label-text-size: 0.875rem !important;
     --mat-option-label-text-size: 0.875rem !important;
 
     .mat-mdc-menu-content {
-        background-color: #f8fafc !important;
-        padding: 4px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 4px !important;
+        background-color: #ffffff !important;
+        padding: 4px 0 !important;
     }
 
     .mat-mdc-menu-item,
     .mat-menu-item,
     .mat-mdc-option,
     .mat-option {
-        min-height: 40px !important;
-        height: 40px !important;
-        line-height: 40px !important;
-        padding: 0 14px !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        line-height: 38px !important;
+        padding: 0 16px !important;
         font-size: 0.875rem !important; /* text-sm */
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 4px !important;
+        border: none !important;
+        border-radius: 0 !important;
+        background-color: transparent !important;
 
         .mdc-list-item__primary-text,
         .mat-mdc-menu-item-text,
@@ -134,29 +132,18 @@ hr {
         }
 
         .mat-icon {
-            font-size: 15px !important;
-            width: 15px !important;
-            height: 15px !important;
-            min-width: 15px !important;
-            min-height: 15px !important;
-            margin-right: 8px !important;
+            font-size: 18px !important;
+            width: 18px !important;
+            height: 18px !important;
+            min-width: 18px !important;
+            min-height: 18px !important;
+            margin-right: 10px !important;
 
             svg {
-                width: 15px !important;
-                height: 15px !important;
+                width: 18px !important;
+                height: 18px !important;
             }
         }
-    }
-
-    /* Màu chẵn lẻ (Zebra striping) */
-    .mat-mdc-menu-item:nth-child(odd),
-    .mat-mdc-option:nth-child(odd) {
-        background-color: #ffffff !important;
-    }
-
-    .mat-mdc-menu-item:nth-child(even),
-    .mat-mdc-option:nth-child(even) {
-        background-color: #f8fafc !important;
     }
 
     .mat-mdc-menu-item:hover:not([disabled]),
@@ -164,7 +151,7 @@ hr {
     .mat-mdc-menu-item.cdk-keyboard-focused:not([disabled]),
     .mat-mdc-option:hover:not(.mdc-list-item--disabled),
     .mat-mdc-option.mat-mdc-option-active {
-        background-color: #e2e8f0 !important;
+        background-color: #f1f5f9 !important;
     }
 
     .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
@@ -178,7 +165,6 @@ hr {
     .example-radio-group {
         display: flex !important;
         flex-direction: column !important;
-        gap: 4px !important;
         width: 100% !important;
         padding: 0 !important;
     }
@@ -186,13 +172,13 @@ hr {
     .mat-radio-button,
     .mat-mdc-radio-button,
     .example-radio-button {
-        min-height: 40px !important;
-        height: 40px !important;
-        line-height: 40px !important;
-        padding: 0 14px !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        line-height: 38px !important;
+        padding: 0 16px !important;
         font-size: 0.875rem !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 4px !important;
+        border: none !important;
+        border-radius: 0 !important;
         margin: 0 !important;
         box-sizing: border-box !important;
         display: flex !important;
@@ -215,22 +201,13 @@ hr {
             padding-left: 8px !important;
         }
 
-        &:nth-child(odd) {
-            background-color: #ffffff !important;
-        }
-
-        &:nth-child(even) {
-            background-color: #f8fafc !important;
-        }
-
         &:hover {
-            background-color: #e2e8f0 !important;
+            background-color: #f1f5f9 !important;
         }
 
         &.mat-mdc-radio-checked,
         &.mat-radio-checked {
             background-color: #e0f2fe !important;
-            border-color: #93c5fd !important;
         }
     }
 }
@@ -242,35 +219,33 @@ hr {
 .dark .mat-mdc-autocomplete-panel,
 .dark .mat-autocomplete-panel,
 .dark .faint-shadow-menu {
-    border-color: #334155 !important;
+    border: 1px solid #334155 !important;
     background-color: #0f172a !important;
     --mat-menu-container-color: #0f172a !important;
     --mat-select-panel-background-color: #0f172a !important;
     --mat-autocomplete-background-color: #0f172a !important;
     --mat-menu-item-label-text-size: 0.875rem !important;
     --mat-option-label-text-size: 0.875rem !important;
-    box-shadow: none !important;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5) !important;
     filter: none !important;
 
     .mat-mdc-menu-content {
         background-color: #0f172a !important;
-        padding: 4px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 4px !important;
+        padding: 4px 0 !important;
     }
 
     .mat-mdc-menu-item,
     .mat-menu-item,
     .mat-mdc-option,
     .mat-option {
-        min-height: 40px !important;
-        height: 40px !important;
-        line-height: 40px !important;
-        padding: 0 14px !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        line-height: 38px !important;
+        padding: 0 16px !important;
         font-size: 0.875rem !important; /* text-sm */
-        border: 1px solid #1e293b !important;
-        border-radius: 4px !important;
+        border: none !important;
+        border-radius: 0 !important;
+        background-color: transparent !important;
 
         .mdc-list-item__primary-text,
         .mat-mdc-menu-item-text,
@@ -279,29 +254,18 @@ hr {
         }
 
         .mat-icon {
-            font-size: 15px !important;
-            width: 15px !important;
-            height: 15px !important;
-            min-width: 15px !important;
-            min-height: 15px !important;
-            margin-right: 8px !important;
+            font-size: 18px !important;
+            width: 18px !important;
+            height: 18px !important;
+            min-width: 18px !important;
+            min-height: 18px !important;
+            margin-right: 10px !important;
 
             svg {
-                width: 15px !important;
-                height: 15px !important;
+                width: 18px !important;
+                height: 18px !important;
             }
         }
-    }
-
-    /* Màu chẵn lẻ (Zebra striping) */
-    .mat-mdc-menu-item:nth-child(odd),
-    .mat-mdc-option:nth-child(odd) {
-        background-color: #0f172a !important;
-    }
-
-    .mat-mdc-menu-item:nth-child(even),
-    .mat-mdc-option:nth-child(even) {
-        background-color: #1e293b !important;
     }
 
     .mat-mdc-menu-item:hover:not([disabled]),
@@ -309,7 +273,7 @@ hr {
     .mat-mdc-menu-item.cdk-keyboard-focused:not([disabled]),
     .mat-mdc-option:hover:not(.mdc-list-item--disabled),
     .mat-mdc-option.mat-mdc-option-active {
-        background-color: #334155 !important;
+        background-color: #1e293b !important;
     }
 
     .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
@@ -323,7 +287,6 @@ hr {
     .example-radio-group {
         display: flex !important;
         flex-direction: column !important;
-        gap: 4px !important;
         width: 100% !important;
         padding: 0 !important;
     }
@@ -331,13 +294,13 @@ hr {
     .mat-radio-button,
     .mat-mdc-radio-button,
     .example-radio-button {
-        min-height: 40px !important;
-        height: 40px !important;
-        line-height: 40px !important;
-        padding: 0 14px !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        line-height: 38px !important;
+        padding: 0 16px !important;
         font-size: 0.875rem !important;
-        border: 1px solid #1e293b !important;
-        border-radius: 4px !important;
+        border: none !important;
+        border-radius: 0 !important;
         margin: 0 !important;
         box-sizing: border-box !important;
         display: flex !important;
@@ -363,22 +326,13 @@ hr {
             color: #f1f5f9 !important;
         }
 
-        &:nth-child(odd) {
-            background-color: #0f172a !important;
-        }
-
-        &:nth-child(even) {
-            background-color: #1e293b !important;
-        }
-
         &:hover {
-            background-color: #334155 !important;
+            background-color: #1e293b !important;
         }
 
         &.mat-mdc-radio-checked,
         &.mat-radio-checked {
             background-color: #1e3a8a !important;
-            border-color: #3b82f6 !important;
         }
     }
 }
