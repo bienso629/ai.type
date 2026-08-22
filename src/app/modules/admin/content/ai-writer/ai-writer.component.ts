@@ -507,7 +507,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     intervalAutoSave: any;
 
     // dành cho việc điều khiển trạng thái biến video thành bài viết
-    videoExtractInterval: number = 1;
+    videoExtractInterval: number = 5;
     jobStateMap = new Map<number, JobState>();
     jobStates: JobState[] = [];
     jobSubscriptions: Map<number, Subscription> = new Map();
@@ -3952,27 +3952,80 @@ ${contentFromDone || '(Chưa có văn bản)'}
             existingUuid = videoMap[localFilePath];
         }
 
-        let fileUrl = localFilePath;
-
-        // Nếu là URL web, gọi Electron tải video gốc về
         let electronApi = null;
         if (window && (window as any).electron) {
             electronApi = (window as any).electron;
         }
 
+        // 1. Kiểm tra nếu đã có projectData và video đã tải về máy -> Bật dialog lên luôn, không tải lại
+        let projectData: any = null;
+        if (existingUuid) {
+            projectData = await this.multiAccountService.getItem('ai_type_video_ready_data_' + existingUuid);
+            if (projectData && projectData.scenes && projectData.scenes.length > 0 && projectData.scenes[0].videos && projectData.scenes[0].videos.length > 0) {
+                const existingVideoUrl = projectData.scenes[0].videos[0].videoUrl;
+                if (existingVideoUrl) {
+                    let fileExists = true;
+                    if (existingVideoUrl.startsWith('file://') && electronApi && electronApi.checkFileExists) {
+                        fileExists = await electronApi.checkFileExists(existingVideoUrl);
+                    }
+                    if (fileExists) {
+                        // Đã có video tải về sẵn sàng -> Bật dialog lên luôn
+                        this.dialog.open(VideoTimelineDialogComponent, {
+                            width: '100vw',
+                            maxWidth: '100vw',
+                            height: '100vh',
+                            maxHeight: '100vh',
+                            panelClass: ['custom-timeline-container', 'dialog-no-padding', 'overflow-hidden'],
+                            data: {
+                                uuid: existingUuid,
+                                projectData: projectData,
+                                audioList: [],
+                                videoFormat: 'video'
+                            },
+                            disableClose: true,
+                        });
+                        return;
+                    }
+                }
+            }
+        }
+
+        let fileUrl = localFilePath;
+        let downloadCache = this.multiAccountService.getItem('ai_type_video_download_cache') || {};
+
         if (localFilePath.startsWith('http')) {
             if (electronApi) {
-                this.toastr.info('Đang tải video về máy để chỉnh sửa...');
-                const payload = {
-                    url: localFilePath,
-                    customCookies: this.multiAccountService.getItem('setting_cookies') || ''
-                };
-                const downloadResult = await electronApi.invoke('download-single-video-temp', payload);
-                if (downloadResult && downloadResult.success) {
-                    fileUrl = downloadResult.path;
-                } else {
-                    this.toastr.error('Lỗi khi tải video: ' + (downloadResult?.error || 'Unknown error'));
-                    return;
+                // Kiểm tra nếu url này đã được tải về trước đó và file vẫn còn tồn tại
+                let hasCachedFile = false;
+                if (downloadCache[localFilePath]) {
+                    const cachedPath = downloadCache[localFilePath];
+                    if (electronApi.checkFileExists) {
+                        const exists = await electronApi.checkFileExists(cachedPath);
+                        if (exists) {
+                            fileUrl = cachedPath;
+                            hasCachedFile = true;
+                        }
+                    } else {
+                        fileUrl = cachedPath;
+                        hasCachedFile = true;
+                    }
+                }
+
+                if (!hasCachedFile) {
+                    this.toastr.info('Đang tải video về máy để chỉnh sửa...');
+                    const payload = {
+                        url: localFilePath,
+                        customCookies: this.multiAccountService.getItem('setting_cookies') || ''
+                    };
+                    const downloadResult = await electronApi.invoke('download-single-video-temp', payload);
+                    if (downloadResult && downloadResult.success) {
+                        fileUrl = downloadResult.path;
+                        downloadCache[localFilePath] = fileUrl;
+                        this.multiAccountService.setItem('ai_type_video_download_cache', downloadCache);
+                    } else {
+                        this.toastr.error('Lỗi khi tải video: ' + (downloadResult?.error || 'Unknown error'));
+                        return;
+                    }
                 }
             } else {
                 this.toastr.error('Chỉ hỗ trợ trên ứng dụng Desktop.');
@@ -4019,12 +4072,6 @@ ${contentFromDone || '(Chưa có văn bản)'}
             this.multiAccountService.setItem('ai_type_video_uuid_map_' + this.uuid, videoMap);
         }
 
-        let projectData: any = null;
-
-        if (existingUuid) {
-            projectData = await this.multiAccountService.getItem('ai_type_video_ready_data_' + randomUuid);
-        }
-
         if (!projectData) {
             projectData = {
                 uuid: randomUuid,
@@ -4066,11 +4113,11 @@ ${contentFromDone || '(Chưa có văn bản)'}
         this.multiAccountService.setItem('ai_type_video_ready_data_' + randomUuid, projectData);
         // Bỏ việc can thiệp vào `item` (HTML string) vì UUID đã được quản lý an toàn qua `videoMap`.
         const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
-            width: '1200px',
-            maxWidth: '90vw',
-            height: '90vh',
-            maxHeight: '90vh',
-            panelClass: ['dialog-no-padding', 'overflow-hidden'],
+            width: '100vw',
+            maxWidth: '100vw',
+            height: '100vh',
+            maxHeight: '100vh',
+            panelClass: ['custom-timeline-container', 'dialog-no-padding', 'overflow-hidden'],
             data: {
                 uuid: randomUuid,
                 projectData: projectData,

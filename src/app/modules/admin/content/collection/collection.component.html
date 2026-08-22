@@ -9,21 +9,19 @@
             <!-- Panel links -->
             <div class="flex flex-col divide-y border-t">
                 <ng-container *ngFor="let panel of collections; trackBy: trackByFn">
-                    <div class="flex px-6 py-5 cursor-pointer transition-colors duration-200 items-center justify-between"
+                    <div class="flex px-6 py-4 cursor-pointer transition-colors duration-200 items-center justify-between"
                         [ngClass]="{'hover:bg-gray-100 dark:hover:bg-hover': !selectedCollection || selectedCollection._id !== panel._id,
                                     'bg-primary-50 dark:bg-hover': selectedCollection && selectedCollection._id === panel._id}" (click)="goToCollection(panel)">
-                        <div class="flex items-center min-w-0 flex-auto">
-                            <mat-icon class="mt-0.5 shrink-0"
+                        <div class="flex items-center min-w-0 flex-auto mr-2">
+                            <mat-icon class="shrink-0"
                                 [ngClass]="{'text-hint': !selectedCollection || selectedCollection._id !== panel._id,
                                             'text-primary dark:text-primary-500': selectedCollection && selectedCollection._id === panel._id}"
                                 [svgIcon]="'heroicons_outline:collection'"></mat-icon>
                             <div class="ml-3 flex-auto min-w-0" *ngIf="editingCollectionId !== (panel._id || panel.id)">
-                                <div class="font-medium leading-6 truncate w-full"
-                                    [ngClass]="{'text-primary dark:text-primary-500': selectedCollection && selectedCollection._id === panel._id}">
+                                <div class="font-medium leading-6 truncate"
+                                    [ngClass]="{'text-primary dark:text-primary-500': selectedCollection && selectedCollection._id === panel._id}"
+                                    [title]="panel.title">
                                     {{panel.title}}
-                                </div>
-                                <div class="mt-0.5 text-secondary text-sm">
-                                    {{panel.count || 0}} công việc
                                 </div>
                             </div>
                             <div class="ml-3 flex-auto min-w-0 flex items-center gap-1" *ngIf="editingCollectionId === (panel._id || panel.id)" (click)="$event.stopPropagation()">
@@ -37,7 +35,11 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="flex items-center gap-0.5 shrink-0 ml-1" *ngIf="editingCollectionId !== (panel._id || panel.id)">
+                        <div class="flex items-center gap-1.5 shrink-0 ml-1" *ngIf="editingCollectionId !== (panel._id || panel.id)">
+                            <span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                [matTooltip]="(panel.count || 0) + ' công việc'">
+                                {{panel.count || 0}}
+                            </span>
                             <button mat-icon-button type="button" class="w-7 h-7 min-h-7 p-0" (click)="startEditTitle(panel, $event)"
                                 [matTooltip]="'app.edit_episode_name' | transloco">
                                 <mat-icon class="icon-size-3.5 text-gray-400 hover:text-blue-500" [svgIcon]="'feather:edit-2'"></mat-icon>

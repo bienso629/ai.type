@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('electron', {
         return webUtils.getPathForFile(file);
     },
     extractAudio: (videoPath) => ipcRenderer.invoke('extract-audio', videoPath),
+    checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
     extractLastFrame: (videoPath) => ipcRenderer.invoke('extract-last-frame', videoPath),
     extractVideoFrames: (videoPath) => ipcRenderer.invoke('extract-video-frames', videoPath),
     selectLocalFile: (filePath, customDir) => ipcRenderer.invoke('select-local-file', { filePath, customDir }),

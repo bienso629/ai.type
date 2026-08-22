@@ -1081,7 +1081,17 @@ mat-drawer,
             }
 
             .mat-icon {
-                margin-right: 12px;
+                margin-right: 8px;
+                width: 15px !important;
+                height: 15px !important;
+                min-width: 15px !important;
+                min-height: 15px !important;
+                font-size: 15px !important;
+
+                svg {
+                    width: 15px !important;
+                    height: 15px !important;
+                }
             }
 
             .mat-icon-no-color {

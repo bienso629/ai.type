@@ -813,12 +813,6 @@
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
                                                             <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
-                                                        <button mat-menu-item (click)="markdown2html(source.text, i)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:code'"></mat-icon>
-                                                            <span>HTML code</span>
-                                                        </button>
                                                         <button mat-menu-item (click)="tomp3(item, source.text, i)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
@@ -969,14 +963,14 @@
 
                                         <!-- Form nhập link -->
                                         <div *ngIf="showInputUrl"
-                                            class="flex flex-row items-center p-3 border-b mb-2 bg-slate-50 rounded">
+                                            class="flex flex-row items-center py-2 px-2 gap-2 w-full">
                                             <mat-form-field class="flex-1 fuse-mat-dense m-0"
                                                 [subscriptSizing]="'dynamic'">
                                                 <input matInput [(ngModel)]="videoUrl"
                                                     [placeholder]="'app.auto_enter_youtube_or_facebook_url' | transloco"
                                                     (keydown.enter)="insertVideoUrlSubmit()">
                                             </mat-form-field>
-                                            <button mat-flat-button color="primary" class="ml-4"
+                                            <button mat-flat-button color="primary" class="shrink-0"
                                                 (click)="insertVideoUrlSubmit()">{{ 'app.add_link' | transloco }}</button>
                                         </div>
 
@@ -2630,6 +2624,12 @@
                                                 [clearable]="false" [loading]="loading"
                                                 [(ngModel)]="selectedCollections" [dropdownPosition]="'top'"
                                                 appendTo="body">
+                                                <ng-template ng-option-tmp let-item="item">
+                                                    <div class="flex items-center justify-between w-full">
+                                                        <span class="truncate">{{item.title}}</span>
+                                                        <span *ngIf="item.count !== undefined" class="min-w-5 h-5 px-1 inline-flex items-center justify-center text-xs text-secondary ml-2 font-medium bg-gray-100 dark:bg-gray-800 rounded-full">{{item.count}}</span>
+                                                    </div>
+                                                </ng-template>
                                                 <ng-template ng-tag-tmp let-search="searchTerm">
                                                     <mat-label class="text-base">Click để tạo tập mới:
                                                         {{search}}</mat-label>
@@ -2772,20 +2772,18 @@
                                 </mat-menu>
 
                                 <mat-menu #forumActions="matMenu">
-                                    <div (click)="$event.stopPropagation();">
-                                        <a href="https://type.vn" target="_blank" mat-menu-item>
-                                            <span class="flex flex-col leading-none">
-                                                <span>{{ 'app.forum_account' | transloco }}</span>
-                                                <span class="mt-1.5 font-medium">{{user.email}}</span>
+                                    <div (click)="$event.stopPropagation();" class="flex flex-col gap-1">
+                                        <a href="https://type.vn" target="_blank" mat-menu-item class="h-auto py-2">
+                                            <span class="flex flex-col leading-tight">
+                                                <span class="text-xs text-secondary">{{ 'app.forum_account' | transloco }}</span>
+                                                <span class="mt-0.5 font-medium text-sm text-primary">{{user.email}}</span>
                                             </span>
                                         </a>
 
-                                        <mat-divider class="my-2"></mat-divider>
-
-                                        <div class="max-h-60 min-h-0 overflow-auto">
+                                        <div class="max-h-60 min-h-0 overflow-y-auto flex flex-col gap-1 pr-1">
                                             <ng-container *ngIf="forumCategories.length > 0; else elseTemplate">
                                                 <mat-radio-group aria-labelledby="example-radio-group-label"
-                                                    class="example-radio-group" [(ngModel)]="favoriteSeason">
+                                                    class="example-radio-group flex flex-col gap-1 w-full" [(ngModel)]="favoriteSeason">
                                                     <mat-radio-button class="example-radio-button"
                                                         *ngFor="let category of forumCategories" [value]="category.cid">
                                                         {{ category.name }}
@@ -2794,12 +2792,10 @@
                                             </ng-container>
                                             <ng-template #elseTemplate>
                                                 <div class="flex w-full place-items-center">
-                                                    <p class="w-full p-4 text-left text-base">{{ 'app.auto_loading_catalog' | transloco }}</p>
+                                                    <p class="w-full p-3 text-left text-sm text-secondary">{{ 'app.auto_loading_catalog' | transloco }}</p>
                                                 </div>
                                             </ng-template>
                                         </div>
-
-                                        <mat-divider class="my-2"></mat-divider>
 
                                         <button mat-menu-item [color]="'primary'" (click)="createTopic()">
                                             <mat-icon class="icon-size-4"

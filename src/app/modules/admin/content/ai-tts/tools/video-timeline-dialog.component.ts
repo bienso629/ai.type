@@ -30,7 +30,8 @@ import WaveSurfer from 'wavesurfer.js';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
+import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import {
     DragDropModule,
     CdkDragDrop,
@@ -70,7 +71,8 @@ interface electron {
         ScrollingModule,
         MatProgressSpinnerModule,
         MatTooltipModule,
-        MatMenuModule
+        MatMenuModule,
+        MatDividerModule
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
@@ -96,6 +98,76 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     dragStartX: number = 0;
     dragStartLeft: number = 0;
     dragStartWidth: number = 0;
+
+    // --- Timeline Zoom & Scale ---
+    zoomInTimeline(event?: MouseEvent) {
+        if (event) {
+            event.stopPropagation();
+        }
+        if (this.pixelsPerSecond < 100) {
+            this.pixelsPerSecond = Math.min(100, this.pixelsPerSecond + 5);
+            this.onZoomChanged();
+        }
+    }
+
+    zoomOutTimeline(event?: MouseEvent) {
+        if (event) {
+            event.stopPropagation();
+        }
+        if (this.pixelsPerSecond > 5) {
+            this.pixelsPerSecond = Math.max(5, this.pixelsPerSecond - 5);
+            this.onZoomChanged();
+        }
+    }
+
+    resetZoom(event?: MouseEvent) {
+        if (event) {
+            event.stopPropagation();
+        }
+        this.pixelsPerSecond = 20;
+        this.onZoomChanged();
+    }
+
+    private zoomDebounceTimer: any = null;
+    onZoomChanged() {
+        if (this.zoomDebounceTimer) {
+            clearTimeout(this.zoomDebounceTimer);
+        }
+        this.zoomDebounceTimer = setTimeout(() => {
+            this.initWaveSurfers();
+        }, 150);
+    }
+
+    get timelineTotalWidth(): number {
+        let maxTime = 120;
+        if (this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos) {
+                    for (const v of scene.videos) {
+                        const end = (v.startTime || 0) + (v.duration || 5);
+                        if (end > maxTime) maxTime = end;
+                    }
+                }
+                if (scene.subtitles) {
+                    for (const s of scene.subtitles) {
+                        const end = (s.startTime || 0) + (s.duration || 2);
+                        if (end > maxTime) maxTime = end;
+                    }
+                }
+                if (scene.extractedAudios) {
+                    for (const a of scene.extractedAudios) {
+                        const end = (a.startTime || 0) + (a.duration || 5);
+                        if (end > maxTime) maxTime = end;
+                    }
+                }
+            }
+        }
+        return Math.max(5000, Math.ceil((maxTime + 30) * this.pixelsPerSecond + 300));
+    }
+
+    get rulerTickCount(): number {
+        return Math.max(100, Math.ceil((this.timelineTotalWidth - 128) / (10 * this.pixelsPerSecond)) + 5);
+    }
 
     // --- Preview Area ---
     previewVideoUrl: string | null = null;
@@ -127,6 +199,39 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     // Khai báo ViewChild để truy cập video tag trong template
     @ViewChild('mainVideoPlayer') mainVideoPlayer?: ElementRef<HTMLVideoElement>;
     @ViewChild('mainAudioPlayer') mainAudioPlayer?: ElementRef<HTMLAudioElement>;
+    @ViewChild('videoContextMenuTrigger', { static: false }) videoContextMenuTrigger?: MatMenuTrigger;
+    @ViewChild('audioContextMenuTrigger', { static: false }) audioContextMenuTrigger?: MatMenuTrigger;
+    
+    contextMenuPosition = { x: 0, y: 0 };
+    selectedContextData: any = null;
+
+    onVideoContextMenu(event: MouseEvent, video: any, scene: any, sceneIdx: number, vIdx: number) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectedContextData = { video, scene, sceneIdx, vIdx, type: 'video' };
+        this.contextMenuPosition = { x: event.clientX, y: event.clientY };
+        if (this.videoContextMenuTrigger) {
+            this.videoContextMenuTrigger.openMenu();
+        }
+    }
+
+    onAudioContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, itemIdx: number, type: 'sub' | 'extracted') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectedContextData = {
+            item,
+            scene,
+            sceneIdx,
+            subIdx: type === 'sub' ? itemIdx : undefined,
+            aIdx: type === 'extracted' ? itemIdx : undefined,
+            type
+        };
+        this.contextMenuPosition = { x: event.clientX, y: event.clientY };
+        if (this.audioContextMenuTrigger) {
+            this.audioContextMenuTrigger.openMenu();
+        }
+    }
+
     wavesurfers: { [key: string]: WaveSurfer } = {};
 
     playPreview(video: any) {
@@ -447,6 +552,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     onTimelineScroll(event: WheelEvent) {
+        if (event.ctrlKey) {
+            event.preventDefault();
+            if (event.deltaY < 0) {
+                this.zoomInTimeline();
+            } else if (event.deltaY > 0) {
+                this.zoomOutTimeline();
+            }
+            return;
+        }
         if (event.deltaY !== 0) {
             const container = document.getElementById('timeline-scroll-container');
             if (container) {
