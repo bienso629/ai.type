@@ -900,12 +900,19 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                 isLikeIntent: isLikeIntent,
                 runPayload: runPayload
             };
-            (loadingMsg as any).followUpPrompts = [
-                '💬 Viết kịch bản bình luận tự nhiên cho các profile này',
-                '❤️ Tự động thả tim video này sau 3 giây',
-                '👥 Mời thêm profile khác cùng xem video',
-                '📊 Phân tích nội dung và hashtag của video'
-            ];
+
+            // AI tự động phân tích và sinh ra các câu hỏi/prompt gợi ý tiếp theo dựa trên video và profiles
+            this._genaiService.generateFollowUpPrompts(
+                text,
+                `Đã thực thi mở Opera xem video ${targetUrl} cho các profile: ${profileNames.join(', ')}`,
+                `Profiles: ${profileNames.join(', ')} | URL: ${targetUrl} | Hành động: ${actionText}`
+            ).then(prompts => {
+                if (prompts && prompts.length > 0) {
+                    (loadingMsg as any).followUpPrompts = prompts;
+                    this.cd.markForCheck();
+                }
+            });
+
             this.cd.markForCheck();
             this.scrollToBottom();
             return;
@@ -933,10 +940,12 @@ YÊU CẦU / CÂU HỎI CỦA NGUỜI DÙNG: "${text}"
 Nhiệm vụ của bạn:
 1. Phân tích yêu cầu tìm kiếm/lọc của người dùng (theo tên streamer, từ khóa tiêu đề, lượt mắt xem, lượt thích, trạng thái live...).
 2. Xác định các "id" phiên livestream khớp nhất với yêu cầu.
-3. Trả về kết quả dưới dạng JSON duy nhất (không bọc trong \`\`\`json):
+3. Tự động nghĩ ra 3-4 câu hỏi hoặc prompt gợi ý tiếp theo (suggestions) có liên quan đến các phòng live vừa tìm được.
+4. Trả về kết quả dưới dạng JSON duy nhất (không bọc trong \`\`\`json):
 {
   "matched_ids": ["id1", "id2"],
-  "explanation": "Nội dung phản hồi trả lời bằng HTML sạch sẽ ngắn gọn giải thích kết quả tìm kiếm/lọc."
+  "explanation": "Nội dung phản hồi trả lời bằng HTML sạch sẽ ngắn gọn giải thích kết quả tìm kiếm/lọc.",
+  "suggestions": ["Gợi ý tiếp theo 1 do AI tự nghĩ ra", "Gợi ý tiếp theo 2...", "Gợi ý tiếp theo 3..."]
 }
 `.trim();
 
@@ -959,12 +968,18 @@ Nhiệm vụ của bạn:
                 } else {
                     loadingMsg.content = `Đã tìm thấy các phiên livestream phù hợp với yêu cầu của bạn.`;
                 }
-                (loadingMsg as any).followUpPrompts = [
-                    '🎯 Chọn phiên live có nhiều mắt xem nhất',
-                    '👥 Phân công các profile vào tương tác phòng live này',
-                    '💬 Viết comment chào hỏi streamer',
-                    '🛒 Xem các sản phẩm đang gắn giỏ hàng trong live'
-                ];
+
+                if (parsed && Array.isArray(parsed.suggestions) && parsed.suggestions.length > 0) {
+                    (loadingMsg as any).followUpPrompts = parsed.suggestions;
+                } else {
+                    this._genaiService.generateFollowUpPrompts(text, parsed?.explanation || '').then(prompts => {
+                        if (prompts && prompts.length > 0) {
+                            (loadingMsg as any).followUpPrompts = prompts;
+                            this.cd.markForCheck();
+                        }
+                    });
+                }
+
                 this.cd.markForCheck();
                 this.scrollToBottom();
                 return;
@@ -989,19 +1004,84 @@ Nhiệm vụ của bạn:
                     `\nHãy phân công và viết các câu comment/kịch bản tương tác sinh động, đúng phong cách và vai trò của từng profile trên.`;
             }
 
+            const promptForAi = `
+YÊU CẦU CỦA NGUỜI DÙNG: "${text}"${personaContext}
+
+Nhiệm vụ của bạn:
+1. Trả lời câu hỏi hoặc xây dựng kịch bản/nội dung theo yêu cầu bằng HTML sạch sẽ, sinh động, chuẩn phong cách.
+2. Đánh giá xem câu trả lời có chứa tác vụ/kế hoạch cần người dùng Xác nhận (Confirm) trước khi chạy hay không ("need_confirm": true/false).
+3. TỰ ĐỘNG NGHĨ RA 3-4 câu hỏi hoặc prompt gợi ý tiếp theo (suggestions) có tính liên kết chặt chẽ nhất với câu trả lời vừa rồi để người dùng có thể bấm hỏi tiếp.
+4. Trả về ĐÚNG định dạng JSON duy nhất (không bọc trong code block markdown):
+{
+  "reply": "Nội dung phản hồi chi tiết bằng HTML sạch sẽ...",
+  "need_confirm": false,
+  "confirm_details": {
+    "action": "Tên tác vụ nếu cần confirm",
+    "description": "Mô tả tác vụ"
+  },
+  "suggestions": [
+    "Emoji Gợi ý 1 do AI tự nghĩ ra theo ngữ cảnh",
+    "Emoji Gợi ý 2 do AI tự nghĩ ra theo ngữ cảnh",
+    "Emoji Gợi ý 3 do AI tự nghĩ ra theo ngữ cảnh"
+  ]
+}
+`.trim();
+
             const response: any = await this._genaiService.generateContent({
                 model: 'gemini-2.5-flash',
-                contents: [{ role: 'user', parts: [{ text: `${text}${personaContext}` }] }],
+                contents: [{ role: 'user', parts: [{ text: promptForAi }] }],
                 config: {
-                    systemInstruction: `Bạn là Trợ lý phân tích chuyên nghiệp hỗ trợ xây dựng kịch bản livestream, phân tích video và tự động hóa tương tác MXH. Hãy phản hồi ngắn gọn, trình bày HTML sạch sẽ, không dùng code block markdown và không ghi chữ AI Agent hay sontinh.type.vn.`
+                    systemInstruction: `Bạn là Trợ lý phân tích chuyên nghiệp hỗ trợ xây dựng kịch bản livestream, phân tích video và tự động hóa tương tác MXH. Phản hồi định dạng JSON sạch sẽ, không ghi chữ AI Agent hay sontinh.type.vn.`
                 }
             });
 
-            const replyText = response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || 'Đã xử lý xong yêu cầu của bạn.';
-            let formatted = this.formatAiResponse(replyText);
-            formatted = this.enhanceClickableRoomLinks(formatted);
-            loadingMsg.content = formatted;
-            (loadingMsg as any).followUpPrompts = await this._genaiService.generateFollowUpPrompts(text, replyText);
+            const rawText = response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanJson = rawText.replace(/```json|```/g, '').trim();
+            let parsedData: any = null;
+            try {
+                if (cleanJson.startsWith('{') && cleanJson.endsWith('}')) {
+                    parsedData = JSON.parse(cleanJson);
+                }
+            } catch (e) {}
+
+            if (parsedData && parsedData.reply) {
+                let formatted = this.formatAiResponse(parsedData.reply);
+                formatted = this.enhanceClickableRoomLinks(formatted);
+                loadingMsg.content = formatted;
+
+                if (parsedData.need_confirm && parsedData.confirm_details) {
+                    (loadingMsg as any).confirmAction = {
+                        actionType: 'script_execution',
+                        profiles: mentioned.map(p => p.name || p.profile),
+                        status: 'pending',
+                        title: parsedData.confirm_details.action || 'Xác nhận hành động',
+                        description: parsedData.confirm_details.description || ''
+                    };
+                }
+
+                if (Array.isArray(parsedData.suggestions) && parsedData.suggestions.length > 0) {
+                    (loadingMsg as any).followUpPrompts = parsedData.suggestions;
+                } else {
+                    this._genaiService.generateFollowUpPrompts(text, parsedData.reply).then(prompts => {
+                        if (prompts && prompts.length > 0) {
+                            (loadingMsg as any).followUpPrompts = prompts;
+                            this.cd.markForCheck();
+                        }
+                    });
+                }
+            } else {
+                const replyText = rawText || 'Đã xử lý xong yêu cầu của bạn.';
+                let formatted = this.formatAiResponse(replyText);
+                formatted = this.enhanceClickableRoomLinks(formatted);
+                loadingMsg.content = formatted;
+
+                this._genaiService.generateFollowUpPrompts(text, replyText).then(prompts => {
+                    if (prompts && prompts.length > 0) {
+                        (loadingMsg as any).followUpPrompts = prompts;
+                        this.cd.markForCheck();
+                    }
+                });
+            }
         } catch (err: any) {
             console.error('Lỗi khi gọi Trợ lý phân tích:', err);
             loadingMsg.content = `Không thể kết nối tới Trợ lý phân tích: ${err?.message || 'Đã có lỗi xảy ra'}`;

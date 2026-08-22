@@ -85,7 +85,7 @@
         </button> -->
 
         <span class="font-normal text-base text-secondary">{{ 'app.footer_powered_by_ai' | transloco }}
-            &copy; {{currentYear}}. {{ 'app.footer_version' | transloco }} {{ appVersion }}.
+            &copy; {{currentYear}}. {{ 'app.footer_version' | transloco }} <a href="https://drive.google.com/drive/folders/1rPJM3BvKHfZNghi8me7zTNADs8vOJCk7?usp=drive_link" target="_blank" class="font-semibold underline cursor-pointer hover:text-primary" title="Tải / Kiểm tra phiên bản trên Google Drive">{{ appVersion }}</a>.
             <span>{{ 'app.footer_policy_prefix' | transloco }} </span>
             <a [routerLink]="['/policy']" [title]="'app.auto_automatic_article_writing_soft' | transloco" class="underline cursor-pointer">{{ 'app.footer_policy_privacy' | transloco }}</a>,
             <a [routerLink]="['/chinh-sach-mua-hang']" class="underline cursor-pointer">{{ 'app.footer_policy_purchasing' | transloco }}</a>,
