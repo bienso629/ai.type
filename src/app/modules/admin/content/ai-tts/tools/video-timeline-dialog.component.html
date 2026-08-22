@@ -56,11 +56,6 @@
                 <mat-icon class="icon-size-5">voice_chat</mat-icon>
             </button>
 
-            <button mat-icon-button class="text-gray-300 hover:text-white transition-colors"
-                (click)="openConfigDialog()">
-                <mat-icon class="icon-size-5">settings</mat-icon>
-            </button>
-
             <button mat-icon-button class="text-gray-300 hover:text-red-400 transition-colors" mat-dialog-close>
                 <mat-icon class="icon-size-5">close</mat-icon>
             </button>
@@ -201,11 +196,15 @@
                                             <div class="w-full h-full relative overflow-hidden rounded-none transition-all cursor-pointer flex flex-col justify-between"
                                                 (click)="setActiveItem(video, $event); openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
 
-                                                <!-- Lớp overlay hiệu ứng sương mù mơ ảo khi đang tạo AI -->
-                                                <div *ngIf="video.isGeneratingVideo || video.isGeneratingImage"
-                                                    class="absolute inset-0 pointer-events-none rounded-none z-30 transition-all backdrop-blur-[4px] bg-gradient-to-br from-white/10 via-indigo-900/30 to-white/5 animate-pulse border border-white/40 shadow-[0_0_20px_rgba(255,255,255,0.3)] flex items-center justify-center overflow-hidden">
+                                                <!-- Lớp overlay hiệu ứng blind / sương mù mơ ảo khi đang tạo AI hoặc bóc tách âm thanh -->
+                                                <div *ngIf="video.isGeneratingVideo || video.isGeneratingImage || video.isExtractingAudio"
+                                                    class="absolute inset-0 pointer-events-none rounded-none z-30 transition-all backdrop-blur-[5px] bg-gradient-to-br from-purple-900/50 via-black/70 to-purple-950/60 border border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4)] flex flex-col items-center justify-center overflow-hidden">
                                                     <!-- Lớp khói/sương mờ trôi bề mặt -->
-                                                    <div class="absolute inset-0 bg-white/20 blur-xl mix-blend-overlay scale-150"></div>
+                                                    <div class="absolute inset-0 bg-white/20 blur-xl mix-blend-overlay scale-150 animate-pulse"></div>
+                                                    <div class="relative z-10 flex items-center gap-1.5 bg-black/80 px-2 py-0.5 rounded border border-purple-500/50 shadow-lg">
+                                                        <mat-spinner [diameter]="14" class="!text-purple-400"></mat-spinner>
+                                                        <span class="text-[9px] text-purple-200 font-medium whitespace-nowrap">{{ video.isExtractingAudio ? 'Đang bóc tách AI...' : 'Đang tạo AI...' }}</span>
+                                                    </div>
                                                 </div>
 
                                                 <!-- Background Image/Video -->

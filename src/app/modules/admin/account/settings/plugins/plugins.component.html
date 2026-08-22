@@ -145,13 +145,18 @@
                 <div class="mt-1 text-sm text-gray-400">Sử dụng key này trên Mobile App để bảo mật kết nối với AI Agent.</div>
             </div>
 
-            <div class="w-full mt-4">
+            <div class="w-full flex gap-4 mt-4">
                 <!-- Model -->
-                <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                <mat-form-field class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix"
                     [subscriptSizing]="'dynamic'">
                     <mat-label>Model mặc định (Tốc độ & Chất lượng)</mat-label>
                     <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chip'" matPrefix></mat-icon>
                     <mat-select [(ngModel)]="aiAgentModel">
+                        <mat-optgroup label="Tadu Cloud AI Agent">
+                            <mat-option value="glm-5.3">GLM-5.3 (Mới nhất, thông minh & siêu nhanh)</mat-option>
+                            <mat-option value="glm-5">GLM-5</mat-option>
+                            <mat-option value="glm-4-plus">GLM-4 Plus</mat-option>
+                        </mat-optgroup>
                         <mat-optgroup label="Gemini (Google)">
                             <mat-option value="gemini-3.7-flash-low">Gemini 3.7 Flash - Low (Khuyên dùng, rất nhanh)</mat-option>
                             <mat-option value="gemini-3.7-flash-medium">Gemini 3.7 Flash - Medium (Cân bằng, chất lượng)</mat-option>
@@ -170,8 +175,16 @@
                         </mat-optgroup>
                     </mat-select>
                 </mat-form-field>
-                <div class="mt-1 text-sm text-gray-400">Lựa chọn mô hình AI xử lý logic chính cho Agent.</div>
+
+                <!-- Max Turns -->
+                <mat-form-field class="w-1/4 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'">
+                    <mat-label>Max Turns (Lượt lặp tối đa)</mat-label>
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:rotate-cw'" matPrefix></mat-icon>
+                    <input matInput type="number" [(ngModel)]="aiAgentMaxTurns" min="1" max="100" placeholder="25">
+                </mat-form-field>
             </div>
+            <div class="mt-1 text-sm text-gray-400">Lựa chọn mô hình AI và số lượt vòng lặp công cụ (Tool Calls / Max Turns) tối đa cho mỗi lượt của Agent (mặc định 25).</div>
 
             <div class="w-full mt-4">
                 <!-- Custom Prompt -->

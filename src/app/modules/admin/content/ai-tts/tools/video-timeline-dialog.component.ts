@@ -84,6 +84,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     showMasterPrompt: boolean = true;
     isGeneratingCharacter: boolean = false;
 
+    // Loading / Blind status
+    isExtractingAudio: boolean = false;
+    isProcessingVideo: boolean = false;
+    processingStatusTitle: string = '';
+    processingStatusMessage: string = '';
+
     // Lưu lại Scene hiện tại đang được xử lý (khi bấm Prompt)
     activeDownloadScene: any = null;
 
@@ -3062,6 +3068,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             return;
         }
 
+        video.isExtractingAudio = true;
+        this.isExtractingAudio = true;
+        this.processingStatusTitle = 'Đang bóc tách âm thanh AI...';
+        this.processingStatusMessage = 'AI đang lắng nghe và nhận diện câu thoại khớp theo thời lượng video...';
+        this.cd.detectChanges();
+
         try {
             this.toastr.info('Đang trích xuất âm thanh gốc từ video...', 'Đang xử lý');
             let originalPath = video.videoUrl;
@@ -3084,90 +3096,297 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             });
 
             const extractedAudioPath = typeof extractRes === 'string' ? extractRes : extractRes.audioPath;
-            const actualDuration = (typeof extractRes === 'object' && extractRes.duration > 0) ? Number(extractRes.duration) : clipDuration;
+            const exactAudioDur = (typeof extractRes === 'object' && extractRes.duration > 0) ? Number(extractRes.duration) : clipDuration;
+            const actualDuration = exactAudioDur > 0 ? Math.round(exactAudioDur * 100) / 100 : clipDuration;
+            video.duration = actualDuration;
+            if (video.maxDuration === undefined || video.maxDuration < actualDuration) {
+                video.maxDuration = actualDuration;
+            }
 
             this.toastr.info('Đang gửi âm thanh cho AI để nhận diện lời thoại & ngắt câu...', 'AI đang xử lý', { timeOut: 10000 });
 
-            // 2. Đọc file audio thành base64 để gửi cho AI
             let segments: Array<{ text: string, startTime: number, endTime?: number, duration?: number }> = [];
 
             try {
                 const base64Res = await electron.invoke('read-file-base64', { filePath: extractedAudioPath });
-                if (base64Res && base64Res.success && base64Res.base64) {
-                    const prompt = `Bạn là hệ thống AI nhận diện giọng nói (Speech-to-Text) và tạo phụ đề video chính xác tuyệt đối từng giây.
-File âm thanh này có tổng thời lượng thực tế là đúng ${actualDuration.toFixed(2)} giây.
+                if (!base64Res || !base64Res.success || !base64Res.base64) {
+                    throw new Error('Không đọc được file âm thanh: ' + (base64Res?.error || 'Lỗi đọc file'));
+                }
+
+                const prompt = `Bạn là chuyên gia phân tích âm thanh, nhận diện giọng nói và bóc tách phụ đề video chuyên nghiệp.
+Tổng thời lượng của file âm thanh: ${actualDuration.toFixed(2)} giây.
 
 NHIỆM VỤ CỦA BẠN:
-Lắng nghe toàn bộ file âm thanh từ giây 0.00 đến tận giây cuối cùng ${actualDuration.toFixed(2)}, bóc tách chính xác toàn bộ lời thoại và chia nhỏ thành từng câu/vế ngắn hoàn chỉnh (1.5s - 5.0s mỗi câu), kèm mốc thời gian bắt đầu (startTime) và kết thúc (endTime) của mỗi câu tính bằng giây.
+1. Lắng nghe và phân tích toàn bộ file âm thanh từ 0.00s đến ${actualDuration.toFixed(2)}s.
+2. Với các đoạn có lời nói / thoại của nhân vật: ghi chính xác nội dung câu thoại.
+3. Với các đoạn không có lời thoại (nhạc nền, tiếng nổ, tiếng gầm gừ, tiếng cười, nhạc hồi hộp, tiếng bước chân, tiếng xe cộ...): ghi rõ nhãn mô tả âm thanh trong dấu ngoặc vuông (ví dụ: "[Nhạc nền]", "[Tiếng nổ lớn]", "[Gầm gừ]", "[Nhạc kịch tính]", "[Tiếng cười]", "[Tiếng bước chân]").
+4. Ghi rõ mốc thời gian bắt đầu (startTime) và kết thúc (endTime) bằng giây (ví dụ: 12.35) cho từng đoạn sao cho bao phủ liền mạch toàn bộ dòng thời gian.
 
-QUY TẮC BẮT BUỘC:
-1. Trả về DUY NHẤT một mảng JSON thuần túy, TUYỆT ĐỐI không có markdown \`\`\`json, không có bất kỳ lời giải thích nào:
+TRẢ VỀ DUY NHẤT MẢNG JSON:
 [
   {
-    "text": "Nội dung câu nói 1",
-    "startTime": 1.20,
-    "endTime": 4.50
+    "text": "[Nhạc nền mở đầu]",
+    "startTime": 0.00,
+    "endTime": 3.50
   },
   {
-    "text": "Nội dung câu nói 2",
-    "startTime": 5.00,
-    "endTime": 8.30
+    "text": "Xin chào tất cả các bạn",
+    "startTime": 3.50,
+    "endTime": 6.80
+  },
+  {
+    "text": "[Tiếng nổ lớn]",
+    "startTime": 6.80,
+    "endTime": 9.20
   }
-]
-2. ĐẶC BIỆT CHÚ Ý ĐOẠN CUỐI: Lắng nghe thật kỹ từ giây ${(actualDuration * 0.6).toFixed(1)}s đến tận ${actualDuration.toFixed(2)}s. Không được bỏ sót bất kỳ câu nói kết thúc nào của video!
-3. startTime và endTime phải khớp chính xác với giọng nói thực tế trong file audio.
-4. Ở những khoảng thời gian chỉ có nhạc nền, hiệu ứng âm thanh hoặc không có lời thoại kéo dài > 3 giây, hãy tạo phân đoạn với text "[Nhạc nền]" hoặc "[Âm thanh]" để đảm bảo không bị đứt quãng dòng thời gian.`;
+]`;
 
-                    const apiKey = this.multiAccountService.getItem('setting_gemini_api_keys') || (this._genaiService as any)?.getApiKey?.();
-                    const ai = this._genaiService.googleAi || new GoogleGenAI({ apiKey: apiKey });
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash',
-                        contents: [
-                            {
-                                role: 'user',
-                                parts: [
-                                    { text: prompt },
-                                    {
-                                        inlineData: {
-                                            mimeType: 'audio/mp3',
-                                            data: base64Res.base64
-                                        }
+                const response: any = await this._genaiService.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [
+                                { text: prompt },
+                                {
+                                    inlineData: {
+                                        mimeType: 'audio/mp3',
+                                        data: base64Res.base64
                                     }
-                                ]
-                            }
-                        ],
-                        config: {
-                            maxOutputTokens: 8192,
-                            temperature: 0.1
+                                }
+                            ]
                         }
-                    });
+                    ],
+                    config: {
+                        maxOutputTokens: 8192,
+                        temperature: 0.1,
+                        responseMimeType: 'application/json',
+                        skipTTS: true,
+                        maxTurns: 1,
+                        systemInstruction: 'Bạn là chuyên gia nhận diện âm thanh và bóc tách phụ đề video. Hãy phân tích audio và trả về DUY NHẤT mảng JSON theo format yêu cầu.'
+                    } as any
+                });
 
-                    let rawText = response.text || (response as any).candidates?.[0]?.content?.parts?.[0]?.text || '';
-                    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-                    const startIdx = rawText.indexOf('[');
-                    const endIdx = rawText.lastIndexOf(']');
-                    if (startIdx >= 0 && endIdx >= startIdx) {
-                        const jsonStr = rawText.substring(startIdx, endIdx + 1);
-                        const parsed = JSON.parse(jsonStr);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            segments = parsed.map((item: any) => {
-                                const start = Math.max(0, Math.min(actualDuration - 0.3, Number(item.startTime) || 0));
-                                const end = Math.min(actualDuration, Math.max(start + 0.3, Number(item.endTime) || (start + 3)));
-                                return {
-                                    text: String(item.text || '').trim(),
-                                    startTime: start,
-                                    endTime: end,
-                                    duration: Math.max(0.3, end - start)
-                                };
-                            }).filter((s: any) => s.startTime < actualDuration);
+                let rawText = '';
+                if (typeof response === 'string') {
+                    rawText = response;
+                } else if ((response as any)?.text) {
+                    rawText = typeof (response as any).text === 'function' ? (response as any).text() : (response as any).text;
+                } else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    rawText = (response as any).candidates[0].content.parts[0].text;
+                }
+
+                console.log('[ExtractAudio] Phản hồi thô từ AI:', rawText);
+                const cleanText = (rawText || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+
+                const cleanSegmentText = (txt: string): string => {
+                    let t = String(txt || '').trim();
+                    if (/^"?(?:text|content|sentence|subtitle|dialogue)"?\s*:\s*/i.test(t)) {
+                        t = t.replace(/^"?(?:text|content|sentence|subtitle|dialogue)"?\s*:\s*/i, '');
+                    }
+                    t = t.replace(/^["'\s]+|["',\s]+$/g, '').trim();
+                    return t;
+                };
+
+                // 1. Thử parse JSON tổng
+                let parsed: any = null;
+                try {
+                    parsed = JSON.parse(cleanText);
+                } catch (e) {
+                    const startArr = cleanText.indexOf('[');
+                    const endArr = cleanText.lastIndexOf(']');
+                    if (startArr >= 0 && endArr > startArr) {
+                        try {
+                            parsed = JSON.parse(cleanText.substring(startArr, endArr + 1));
+                        } catch (e2) {}
+                    }
+                    if (!parsed) {
+                        const startObj = cleanText.indexOf('{');
+                        const endObj = cleanText.lastIndexOf('}');
+                        if (startObj >= 0 && endObj > startObj) {
+                            try {
+                                parsed = JSON.parse(cleanText.substring(startObj, endObj + 1));
+                            } catch (e3) {}
                         }
                     }
                 }
-            } catch (aiErr) {
+
+                if (parsed) {
+                    let list: any[] = [];
+                    if (Array.isArray(parsed)) {
+                        list = parsed;
+                    } else if (typeof parsed === 'object') {
+                        for (const key of ['segments', 'subtitles', 'data', 'result', 'results', 'items', 'dialogues', 'lines']) {
+                            if (Array.isArray(parsed[key])) {
+                                list = parsed[key];
+                                break;
+                            }
+                        }
+                        if (list.length === 0) {
+                            for (const k in parsed) {
+                                if (Array.isArray(parsed[k])) {
+                                    list = parsed[k];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (list.length > 0) {
+                        segments = list.map((item: any) => {
+                            let text = cleanSegmentText(item.text || item.content || item.sentence || item.subtitle || item.transcript || item.dialogue || '');
+                            if (!text || text.length <= 1) {
+                                return null;
+                            }
+                            const start = Math.max(0, Math.min(actualDuration - 0.2, Number(item.startTime ?? item.start ?? item.start_time ?? item.from) || 0));
+                            let end = Number(item.endTime ?? item.end ?? item.end_time ?? item.to);
+                            if (isNaN(end) || end <= start) {
+                                const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+                                end = Math.min(actualDuration, start + Math.max(1.2, wordCount * 0.45));
+                            }
+                            end = Math.min(actualDuration, Math.max(start + 0.3, end));
+
+                            return {
+                                text: text,
+                                startTime: Math.round(start * 100) / 100,
+                                endTime: Math.round(end * 100) / 100,
+                                duration: Math.round((end - start) * 100) / 100
+                            };
+                        }).filter((s: any) => s !== null && s.text.length > 1 && s.startTime < actualDuration);
+                    }
+                }
+
+                // 1.5. Trích xuất từng object JSON { ... } bằng Regex nếu JSON tổng bị lỗi
+                if ((!segments || segments.length === 0) && cleanText.length > 0) {
+                    const objPattern = /\{[^{}]*"(?:text|content|sentence|subtitle|dialogue)"\s*:[^{}]*\}/g;
+                    const matches = cleanText.match(objPattern);
+                    if (matches && matches.length > 0) {
+                        const parsedItems: any[] = [];
+                        for (const m of matches) {
+                            try {
+                                parsedItems.push(JSON.parse(m));
+                            } catch (e) {
+                                const tMatch = m.match(/"(?:text|content|sentence|subtitle|dialogue)"\s*:\s*"([^"]+)"/i);
+                                const sMatch = m.match(/"(?:startTime|start|start_time|from)"\s*:\s*([\d.]+)/i);
+                                const eMatch = m.match(/"(?:endTime|end|end_time|to)"\s*:\s*([\d.]+)/i);
+                                if (tMatch && sMatch) {
+                                    parsedItems.push({
+                                        text: tMatch[1],
+                                        startTime: parseFloat(sMatch[1]),
+                                        endTime: eMatch ? parseFloat(eMatch[1]) : undefined
+                                    });
+                                }
+                            }
+                        }
+                        if (parsedItems.length > 0) {
+                            segments = parsedItems.map((item: any) => {
+                                let text = cleanSegmentText(item.text || item.content || item.sentence || item.subtitle || item.transcript || item.dialogue || '');
+                                if (!text || text.length <= 1) return null;
+                                const start = Math.max(0, Math.min(actualDuration - 0.2, Number(item.startTime ?? item.start ?? item.start_time ?? item.from) || 0));
+                                let end = Number(item.endTime ?? item.end ?? item.end_time ?? item.to);
+                                if (isNaN(end) || end <= start) {
+                                    const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+                                    end = Math.min(actualDuration, start + Math.max(1.2, wordCount * 0.45));
+                                }
+                                end = Math.min(actualDuration, Math.max(start + 0.3, end));
+                                return {
+                                    text: text,
+                                    startTime: Math.round(start * 100) / 100,
+                                    endTime: Math.round(end * 100) / 100,
+                                    duration: Math.round((end - start) * 100) / 100
+                                };
+                            }).filter((s: any) => s !== null && s.text.length > 1 && s.startTime < actualDuration);
+                        }
+                    }
+                }
+
+                // 2. Fallback: Parse theo dòng timestamp / SRT / regex
+                if ((!segments || segments.length === 0) && cleanText.length > 0) {
+                    const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    const timeRegex = /(?:(\d{1,2}):)?(\d{1,2}):(\d{2}(?:\.\d+)?)\s*(?:-->|-|đến|to)\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2}(?:\.\d+)?)/i;
+                    const secRegex = /(?:\[|\()?\s*(\d+(?:\.\d+)?)\s*s?\s*(?:-->|-|đến|to)\s*(\d+(?:\.\d+)?)\s*s?\s*(?:\]|\))?/i;
+                    const parseToSec = (h: string, m: string, s: string): number => (Number(h || 0) * 3600) + (Number(m || 0) * 60) + Number(s || 0);
+
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (line.includes('"startTime"') || line.includes('"endTime"') || line.startsWith('{') || line.startsWith('}') || line.startsWith('[') || line.startsWith(']')) {
+                            continue;
+                        }
+                        let startSec: number | null = null;
+                        let endSec: number | null = null;
+                        let lineText = '';
+
+                        const matchTime = line.match(timeRegex);
+                        if (matchTime) {
+                            startSec = parseToSec(matchTime[1], matchTime[2], matchTime[3]);
+                            endSec = parseToSec(matchTime[4], matchTime[5], matchTime[6]);
+                            lineText = line.replace(timeRegex, '').replace(/^[:\-\s]+/, '').trim();
+                            if (!lineText && i + 1 < lines.length && !lines[i + 1].match(timeRegex)) {
+                                lineText = lines[++i];
+                            }
+                        } else {
+                            const matchSec = line.match(secRegex);
+                            if (matchSec) {
+                                startSec = Number(matchSec[1]);
+                                endSec = Number(matchSec[2]);
+                                lineText = line.replace(secRegex, '').replace(/^[:\-\s]+/, '').trim();
+                            }
+                        }
+
+                        lineText = cleanSegmentText(lineText);
+                        if (startSec !== null && endSec !== null && lineText && lineText.length > 1) {
+                            startSec = Math.max(0, Math.min(actualDuration - 0.2, startSec));
+                            if (endSec <= startSec) {
+                                const wordCount = lineText.split(/\s+/).filter(w => w.length > 0).length;
+                                endSec = Math.min(actualDuration, startSec + Math.max(1.2, wordCount * 0.45));
+                            }
+                            endSec = Math.min(actualDuration, Math.max(startSec + 0.3, endSec));
+                            segments.push({
+                                text: lineText,
+                                startTime: Math.round(startSec * 100) / 100,
+                                endTime: Math.round(endSec * 100) / 100,
+                                duration: Math.round((endSec - startSec) * 100) / 100
+                            });
+                        }
+                    }
+                }
+
+                // 3. Fallback: Parse theo câu văn bản thông thường nếu AI trả về văn bản tự do
+                if ((!segments || segments.length === 0) && cleanText.length > 5) {
+                    const sentences = cleanText
+                        .split(/(?<=[.?!…\n])\s+/)
+                        .map(s => cleanSegmentText(s))
+                        .filter(s => s.length > 1 && !s.startsWith('{') && !s.startsWith('[') && !s.includes('"startTime"') && !s.includes('"endTime"'));
+                    
+                    if (sentences.length > 0) {
+                        const totalChars = sentences.reduce((acc, s) => acc + s.length, 0) || 1;
+                        let curTime = 0;
+                        for (const sent of sentences) {
+                            const sentDur = Math.max(1.5, Math.min(6.0, (sent.length / totalChars) * actualDuration));
+                            const end = Math.min(actualDuration, curTime + sentDur);
+                            segments.push({
+                                text: sent,
+                                startTime: Math.round(curTime * 100) / 100,
+                                endTime: Math.round(end * 100) / 100,
+                                duration: Math.round((end - curTime) * 100) / 100
+                            });
+                            curTime = end;
+                            if (curTime >= actualDuration) break;
+                        }
+                    }
+                }
+            } catch (aiErr: any) {
                 console.error('Lỗi khi gọi AI nhận diện âm thanh:', aiErr);
+                this.toastr.error(`Lỗi AI nhận diện âm thanh: ${aiErr?.message || aiErr}`, 'Lỗi bóc tách AI', { timeOut: 8000 });
+                return;
             }
 
-            // Thuật toán lấp đầy 100% dòng thời gian từ 0.0s đến actualDuration, đảm bảo không có khoảng trống bị tắt tiếng
+            if (!segments || segments.length === 0) {
+                this.toastr.error('AI không nhận diện được câu thoại nào từ file âm thanh này.', 'Không có kết quả');
+                return;
+            }
+
+            // Lấp đầy 100% dòng thời gian: nếu có khoảng trống > 0.5s giữa các câu, tự chèn [Nhạc nền]
             const filledSegments: Array<{ text: string, startTime: number, endTime?: number, duration: number }> = [];
             if (segments && segments.length > 0) {
                 const sorted = [...segments].sort((a, b) => a.startTime - b.startTime);
@@ -3179,17 +3398,13 @@ QUY TẮC BẮT BUỘC:
 
                     // Lấp đầy khoảng trống phía trước nếu có (> 0.5s)
                     if (segStart - currentCursor > 0.5) {
-                        let gapStart = currentCursor;
-                        while (gapStart < segStart) {
-                            const gapEnd = Math.min(segStart, gapStart + 5.0);
-                            filledSegments.push({
-                                text: '[Nhạc nền]',
-                                startTime: Math.round(gapStart * 100) / 100,
-                                endTime: Math.round(gapEnd * 100) / 100,
-                                duration: Math.round((gapEnd - gapStart) * 100) / 100
-                            });
-                            gapStart = gapEnd;
-                        }
+                        const gapDur = Math.round((segStart - currentCursor) * 100) / 100;
+                        filledSegments.push({
+                            text: '[Nhạc nền]',
+                            startTime: Math.round(currentCursor * 100) / 100,
+                            endTime: Math.round(segStart * 100) / 100,
+                            duration: gapDur
+                        });
                     }
 
                     filledSegments.push({
@@ -3204,37 +3419,19 @@ QUY TẮC BẮT BUỘC:
 
                 // Lấp đầy khoảng trống còn lại đến cuối video (> 0.5s)
                 if (actualDuration - currentCursor > 0.5) {
-                    let gapStart = currentCursor;
-                    while (gapStart < actualDuration) {
-                        const gapEnd = Math.min(actualDuration, gapStart + 5.0);
-                        filledSegments.push({
-                            text: '[Nhạc nền]',
-                            startTime: Math.round(gapStart * 100) / 100,
-                            endTime: Math.round(gapEnd * 100) / 100,
-                            duration: Math.round((gapEnd - gapStart) * 100) / 100
-                        });
-                        gapStart = gapEnd;
-                    }
+                    const gapDur = Math.round((actualDuration - currentCursor) * 100) / 100;
+                    filledSegments.push({
+                        text: '[Nhạc nền]',
+                        startTime: Math.round(currentCursor * 100) / 100,
+                        endTime: Math.round(actualDuration * 100) / 100,
+                        duration: gapDur
+                    });
                 }
                 segments = filledSegments;
             }
 
-            // Fallback nếu AI không tách được câu nào
-            if (!segments || segments.length === 0) {
-                const chunkLen = 5;
-                let cur = 0;
-                let segIdx = 1;
-                while (cur < actualDuration) {
-                    const next = Math.min(cur + chunkLen, actualDuration);
-                    segments.push({
-                        text: `[Đoạn âm thanh ${segIdx++}]`,
-                        startTime: cur,
-                        endTime: next,
-                        duration: next - cur
-                    });
-                    cur = next;
-                }
-            }
+            // Sắp xếp các đoạn câu thoại tăng dần theo thời gian bắt đầu
+            segments.sort((a, b) => a.startTime - b.startTime);
 
             // 3. Cắt audio thành từng file audio segment bằng FFmpeg
             this.toastr.info('Đang cắt từng đoạn audio câu thoại...', 'Đang xử lý');
@@ -3245,7 +3442,7 @@ QUY TẮC BẮT BUỘC:
 
             // 4. Xoá triệt để toàn bộ các audio và subtitle cũ ở TẤT CẢ các scene trong phạm vi của video này
             const videoStart = (video.startTime !== undefined && video.startTime !== null && !isNaN(video.startTime)) ? Number(video.startTime) : 0;
-            const videoEnd = videoStart + clipDuration;
+            const videoEnd = videoStart + actualDuration;
 
             if (this.projectData?.scenes) {
                 for (const sc of this.projectData.scenes) {
@@ -3284,22 +3481,23 @@ QUY TẮC BẮT BUỘC:
                     const segUrl = `media://${res.audioPath.replace(/\\/g, '/')}`;
                     const segStart = Math.round((videoStart + Number(res.startTime)) * 100) / 100;
                     const segDur = Math.max(0.3, Math.round((Number(res.duration) || (Number(res.endTime) - Number(res.startTime)) || 2) * 100) / 100);
+                    const segText = String(res.text || '').trim() || `Phần ${idx + 1}`;
 
                     if (segStart < videoEnd + 0.05 && segDur > 0.2) {
-                        // Thêm vào Track Extracted Audio
+                        // 1. Thêm vào Track Extracted Audio
                         scene.extractedAudios.push({
                             id: Date.now() + idx,
-                            text: res.text || `Phần ${idx + 1}`,
+                            text: segText,
                             audioUrl: segUrl,
                             startTime: segStart,
                             duration: segDur,
                             maxDuration: segDur
                         });
 
-                        // Thêm vào Track Text (Subtitles)
+                        // 2. Thêm vào Track Subtitles (khớp 1-1 chính xác cùng text với Track Audio)
                         scene.subtitles.push({
                             id: Date.now() + 1000 + idx,
-                            text: res.text || `Phần ${idx + 1}`,
+                            text: segText,
                             startTime: segStart,
                             duration: segDur
                         });
@@ -3337,6 +3535,12 @@ QUY TẮC BẮT BUỘC:
         } catch (err: any) {
             console.error('Extract audio error', err);
             this.toastr.error(`Lỗi khi tách âm thanh: ${err?.message || err}`);
+        } finally {
+            video.isExtractingAudio = false;
+            this.isExtractingAudio = false;
+            this.processingStatusTitle = '';
+            this.processingStatusMessage = '';
+            this.cd.detectChanges();
         }
     }
 
@@ -3849,7 +4053,48 @@ QUY TẮC BẮT BUỘC:
     }
 
     ngOnDestroy() {
-        // Hủy các sự kiện nếu có
+        this.pauseTimeline();
+
+        // Huỷ toàn bộ WaveSurfer
+        for (const key in this.wavesurfers) {
+            try {
+                this.wavesurfers[key]?.destroy();
+            } catch (e) {}
+        }
+        this.wavesurfers = {};
+
+        // Dừng tất cả phần tử HTML Video / Audio
+        if (this.mainVideoPlayer?.nativeElement) {
+            try {
+                this.mainVideoPlayer.nativeElement.pause();
+                this.mainVideoPlayer.nativeElement.src = '';
+                this.mainVideoPlayer.nativeElement.load();
+            } catch (e) {}
+        }
+        if (this.mainAudioPlayer?.nativeElement) {
+            try {
+                this.mainAudioPlayer.nativeElement.pause();
+                this.mainAudioPlayer.nativeElement.src = '';
+                this.mainAudioPlayer.nativeElement.load();
+            } catch (e) {}
+        }
+
+        // Dừng bất kỳ thẻ audio/video nào khác nếu có trong dialog
+        try {
+            const allMedia = document.querySelectorAll('video, audio');
+            allMedia.forEach((el: any) => {
+                if (el.closest('mat-dialog-container')) {
+                    el.pause();
+                    el.src = '';
+                }
+            });
+        } catch (e) {}
+
+        // Hủy listeners toàn cục
+        document.removeEventListener('mousemove', this.onScrubberMouseMove);
+        document.removeEventListener('mouseup', this.onScrubberMouseUp);
+        document.removeEventListener('mousemove', this.onTimelineMouseMove);
+        document.removeEventListener('mouseup', this.onTimelineMouseUp);
     }
 
     alert(alert?: any) {
