@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld('electron', {
         return webUtils.getPathForFile(file);
     },
     extractAudio: (videoPath) => ipcRenderer.invoke('extract-audio', videoPath),
+    splitAudioSegments: (payload) => ipcRenderer.invoke('split-audio-segments', payload),
+    exportSubtitles: (payload) => ipcRenderer.invoke('export-subtitles', payload),
     checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
     extractLastFrame: (videoPath) => ipcRenderer.invoke('extract-last-frame', videoPath),
     extractVideoFrames: (videoPath) => ipcRenderer.invoke('extract-video-frames', videoPath),

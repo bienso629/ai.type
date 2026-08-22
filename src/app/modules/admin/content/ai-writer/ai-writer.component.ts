@@ -3965,7 +3965,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 const existingVideoUrl = projectData.scenes[0].videos[0].videoUrl;
                 if (existingVideoUrl) {
                     let fileExists = true;
-                    if (existingVideoUrl.startsWith('file://') && electronApi && electronApi.checkFileExists) {
+                    if (electronApi && electronApi.checkFileExists) {
                         fileExists = await electronApi.checkFileExists(existingVideoUrl);
                     }
                     if (fileExists) {
@@ -4072,7 +4072,16 @@ ${contentFromDone || '(Chưa có văn bản)'}
             this.multiAccountService.setItem('ai_type_video_uuid_map_' + this.uuid, videoMap);
         }
 
-        if (!projectData) {
+        if (projectData && projectData.scenes && projectData.scenes.length > 0) {
+            // Đã có projectData cũ nhưng file video bị mất -> Cập nhật URL file mới tải về vào scenes
+            for (const scene of projectData.scenes) {
+                if (scene.videos) {
+                    for (const vid of scene.videos) {
+                        vid.videoUrl = fileUrl;
+                    }
+                }
+            }
+        } else {
             projectData = {
                 uuid: randomUuid,
                 aspectRatio: '16:9',
