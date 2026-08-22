@@ -23,7 +23,8 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     showAiAgentKey: boolean = false;
     ttsVoice: string = 'vi-VN-HoaiMyNeural';
     ttsRate: string = '+0%';
-    aiAgentModel: string = 'gemini-3.6-flash';
+    aiAgentModel: string = 'glm-5.3';
+    aiAgentMaxTurns: number = 25;
     aiAgentPrompt: string = '';
 
     colabStatus: any = { status: 'offline', is_connected: false, gpu: '', colab_url: '' };
@@ -147,7 +148,8 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             this.aiAgentApiKey = settings.aiAgentApiKey || 'type-vn-local-agent-2026';
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
             this.ttsRate = settings.ttsRate || '+0%';
-            this.aiAgentModel = settings.aiAgentModel || 'gemini-3.6-flash';
+            this.aiAgentModel = settings.aiAgentModel || 'glm-5.3';
+            this.aiAgentMaxTurns = settings.aiAgentMaxTurns !== undefined ? Number(settings.aiAgentMaxTurns) : 25;
             this.aiAgentPrompt = settings.aiAgentPrompt || '';
             this.cd.detectChanges();
             return;
@@ -180,7 +182,8 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
             this.ttsRate = settings.ttsRate || '+0%';
-            this.aiAgentModel = settings.aiAgentModel || 'gemini-3.6-flash';
+            this.aiAgentModel = settings.aiAgentModel || 'glm-5.3';
+            this.aiAgentMaxTurns = settings.aiAgentMaxTurns !== undefined ? Number(settings.aiAgentMaxTurns) : 25;
             this.aiAgentPrompt = settings.aiAgentPrompt || '';
         } catch (err) {
             this.toastr.error('Lỗi khi lấy trạng thái plugin: ' + err.message);
@@ -501,6 +504,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             settings.ttsVoice = this.ttsVoice;
             settings.ttsRate = this.ttsRate;
             settings.aiAgentModel = this.aiAgentModel;
+            settings.aiAgentMaxTurns = Number(this.aiAgentMaxTurns) || 25;
             settings.aiAgentPrompt = this.aiAgentPrompt;
             this.multiAccountService.setItem('settings', settings);
                     this.syncSettingsToBackend(settings);
@@ -514,6 +518,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             settings.ttsRate = this.ttsRate;
             settings.aiAgentApiKey = this.aiAgentApiKey;
             settings.aiAgentModel = this.aiAgentModel;
+            settings.aiAgentMaxTurns = Number(this.aiAgentMaxTurns) || 25;
             settings.aiAgentPrompt = this.aiAgentPrompt;
             this.multiAccountService.setItem('settings', settings);
                     this.syncSettingsToBackend(settings);

@@ -98,7 +98,7 @@
                             [disabled]="isAnalyzing" mat-flat-button
                             type="button" (click)="analyzeDomains()">
                             <mat-icon *ngIf="!isAnalyzing" class="icon-size-5" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
-                            <mat-icon *ngIf="isAnalyzing" class="icon-size-5 animate-spin" [svgIcon]="'heroicons_outline:arrow-path'"></mat-icon>
+                            <mat-icon *ngIf="isAnalyzing" class="icon-size-5 animate-spin" [svgIcon]="'feather:rotate-cw'"></mat-icon>
                             <mat-label class="ml-2">{{ isAnalyzing ? 'Đang phân tích...' : 'Phân tích bằng AI' }}</mat-label>
                         </button>
                     </div>

@@ -7126,10 +7126,10 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
             });
         });
 
-        const files = fs.readdirSync(tempDir);
+        const files = fs.readdirSync(videoFolder);
         const foundVideoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.json') && !f.endsWith('.vtt') && !f.endsWith('.srt'));
         if (foundVideoFile) {
-            return { success: true, path: path.join(tempDir, foundVideoFile) };
+            return { success: true, path: path.join(videoFolder, foundVideoFile) };
         } else {
             return { success: false, error: 'Download complete but file not found.' };
         }

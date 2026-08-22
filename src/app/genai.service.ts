@@ -279,23 +279,24 @@ export class GenaiService {
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
         const settingsRaw = this.getSettingsFromStorage();
-        // Mặc định luôn ưu tiên AI Agent (Tầng 1) ngoại trừ khi người dùng chủ động tắt (enableAiAgent === false)
-        let isAiAgentActive = settingsRaw?.enableAiAgent !== false;
+        let isAiAgentActive = settingsRaw?.enableAiAgent === true;
         if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
             try {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
                 if (aiAgent && aiAgent.enabled !== undefined) {
-                    isAiAgentActive = aiAgent.enabled;
+                    isAiAgentActive = aiAgent.enabled === true;
                 }
             } catch(e) {}
         }
 
         const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
         const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
+        const bypassAiAgent = (params.config as any)?.bypassAiAgent === true;
 
-        if (isAiAgentActive && !isVideoRequest) {
-            params.model = settingsRaw?.aiAgentModel || 'gemini-3.7-flash-low';
+        const configuredAgentModel = settingsRaw?.aiAgentModel || 'glm-5.3';
+        if (isAiAgentActive && !isVideoRequest && !bypassAiAgent) {
+            params.model = configuredAgentModel;
         }
 
         if (isImageRequest && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
@@ -329,28 +330,13 @@ export class GenaiService {
             let lastError: any = null;
 
             // 1. Tầng 1: AI Agent (sontinh.type.vn)
-            if (isAiAgentActive && !isVideoRequest) {
+            if (isAiAgentActive && !isVideoRequest && !bypassAiAgent) {
                 try {
                     const agentRes = await this.generateWithAiAgent(params, scope);
-                    
-                    // Validate if it's an image request but AI Agent didn't return an image
-                    let hasImage = false;
-                    if (isImageRequest && agentRes.candidates && agentRes.candidates.length > 0) {
-                        for (const part of agentRes.candidates[0].content.parts) {
-                            if (part.inlineData || (part.text && (part.text.includes('![') || part.text.includes('<img') || part.text.includes('[LOCAL_IMAGE:')))) {
-                                hasImage = true;
-                                break;
-                            }
-                        }
-                        if (!hasImage) {
-                            console.warn("AI Agent không trả về ảnh trực tiếp (không có inlineData hoặc thẻ ảnh). Trả về text gốc.");
-                        }
-                    }
-                    
-                    return agentRes; // Success!
+                    return agentRes;
                 } catch (agentErr: any) {
-                    console.error(`[GenaiService] AI Agent lỗi hoặc không phản hồi (${agentErr?.message || agentErr}). KHÔNG ĐƯỢC PHÉP FALLBACK theo quy tắc AI Agent Mode.`);
-                    throw agentErr; // Throw trực tiếp lỗi cho UI
+                    console.warn(`[GenaiService] AI Agent lỗi (${agentErr?.message || agentErr}). Đang chuyển sang tầng tiếp theo...`);
+                    lastError = agentErr;
                 }
             }
 
@@ -387,20 +373,46 @@ export class GenaiService {
                             aiInstance = new GoogleGenAI({ apiKey: key });
                         }
 
-                        // Thử gọi API
+                        let googleModel = params.model;
+                        if (!googleModel || !googleModel.startsWith('gemini-') || googleModel.startsWith('gemini-3.') || googleModel === 'agent') {
+                            googleModel = 'gemini-2.5-flash';
+                        }
+                        const candidateGoogleModels = [
+                            googleModel,
+                            'gemini-2.0-flash',
+                            'gemini-1.5-flash',
+                            'gemini-2.0-flash-lite'
+                        ].filter((v, idx, arr) => arr.indexOf(v) === idx && v.startsWith('gemini-'));
+
+                        // Lọc sạch config chuẩn cho Google GenAI SDK
+                        const cleanConfig: any = {};
+                        if (params.config) {
+                            if (params.config.maxOutputTokens) cleanConfig.maxOutputTokens = params.config.maxOutputTokens;
+                            if (params.config.temperature !== undefined) cleanConfig.temperature = params.config.temperature;
+                            if (params.config.topP !== undefined) cleanConfig.topP = params.config.topP;
+                            if (params.config.topK !== undefined) cleanConfig.topK = params.config.topK;
+                            if (params.config.systemInstruction) cleanConfig.systemInstruction = params.config.systemInstruction;
+                            if (params.config.responseMimeType) cleanConfig.responseMimeType = params.config.responseMimeType;
+                            if (params.config.responseSchema) cleanConfig.responseSchema = params.config.responseSchema;
+                            if (params.config.responseModalities) cleanConfig.responseModalities = params.config.responseModalities;
+                        }
+
                         let result;
-                        try {
-                            result = await aiInstance.models.generateContent(params);
-                        } catch (apiError: any) {
-                            const errStr = String(apiError);
-                            if (errStr.includes('503') || errStr.includes('high demand') || errStr.includes('UNAVAILABLE')) {
-                                console.warn(`[Fallback] Model ${params.model} bị quá tải (503), đang tự động chuyển sang gemini-2.0-flash...`);
-                                const fallbackParams = { ...params, model: 'gemini-2.0-flash' };
-                                result = await aiInstance.models.generateContent(fallbackParams);
-                            } else {
-                                throw apiError;
+                        let googleErr: any = null;
+                        for (const m of candidateGoogleModels) {
+                            try {
+                                result = await aiInstance.models.generateContent({
+                                    ...params,
+                                    model: m,
+                                    config: Object.keys(cleanConfig).length > 0 ? cleanConfig : undefined
+                                });
+                                if (result) break;
+                            } catch (mErr: any) {
+                                googleErr = mErr;
+                                console.warn(`[GenaiService] Model ${m} lỗi trên Google AI:`, mErr?.message || mErr);
                             }
                         }
+                        if (!result && googleErr) throw googleErr;
 
                         // Nếu thành công thì lưu lại key này làm key mặc định cho các lượt tiếp theo
                         if (key !== this._currentKey) {
@@ -529,42 +541,31 @@ export class GenaiService {
         }
         
         formData.append('prompt', finalPrompt);
-        
-        if (params.model) {
-            formData.append('model', params.model);
-        }
-        
-        let sysContent = 'Bạn là Global AI Agent toàn năng. Bạn có khả năng phân tích, điều khiển và thực thi mọi tác vụ trong hệ thống phần mềm để tự động hóa công việc cho người dùng.';
+        const settings = this.getSettingsFromStorage();
+        const configuredAgentModel = settings.aiAgentModel || params.model || 'glm-5.3';
+        formData.append('model', configuredAgentModel);
+        let sysContent = '';
         if (params.config && params.config.systemInstruction) {
             if (typeof params.config.systemInstruction === 'string') {
                 sysContent = params.config.systemInstruction;
             } else if ((params.config.systemInstruction as any).parts) {
                 sysContent = (params.config.systemInstruction as any).parts.map((p: any) => p.text).join('\n');
             }
-        }
-
-        // Tự động đọc và tiêm Context tĩnh (File ai-agent-context.md) 
-        // if ((window as any).electron && (window as any).electron.invoke) {
-        //     try {
-        //         const res = await (window as any).electron.invoke('get-ai-agent-context');
-        //         if (res && res.success && res.content) {
-        //             sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT) ---\n${res.content}\n--- HẾT HƯỚNG DẪN ---`;
-        //         }
-        //     } catch (e) {
-        //         console.warn("Không thể tải ai-agent-context.md", e);
-        //     }
-        // }
-        
-        if (this.aiAgentCustomInstructions) {
-            sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT TỪ MÀN HÌNH HIỆN TẠI) ---\n${this.aiAgentCustomInstructions}\n--- HẾT HƯỚNG DẪN ---`;
-        }
-
-        const settings = this.getSettingsFromStorage();
-        if (settings.aiAgentPrompt) {
-            sysContent += `\n\n--- HƯỚNG DẪN BỔ SUNG TỪ NGƯỜI DÙNG ---\n${settings.aiAgentPrompt}\n--- HẾT HƯỚNG DẪN BỔ SUNG ---`;
+        } else {
+            sysContent = 'Bạn là Global AI Agent toàn năng. Bạn có khả năng phân tích, điều khiển và thực thi mọi tác vụ trong hệ thống phần mềm để tự động hóa công việc cho người dùng.';
+            if (this.aiAgentCustomInstructions) {
+                sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT TỪ MÀN HÌNH HIỆN TẠI) ---\n${this.aiAgentCustomInstructions}\n--- HẾT HƯỚNG DẪN ---`;
+            }
+            if (settings.aiAgentPrompt) {
+                sysContent += `\n\n--- HƯỚNG DẪN BỔ SUNG TỪ NGƯỜI DÙNG ---\n${settings.aiAgentPrompt}\n--- HẾT HƯỚNG DẪN BỔ SUNG ---`;
+            }
         }
 
         formData.append('system_instructions', sysContent);
+
+        // Bổ sung max_turns cho Agent
+        const maxTurns = (params.config as any)?.maxTurns || (params.config as any)?.max_turns || settings.aiAgentMaxTurns || 25;
+        formData.append('max_turns', String(maxTurns));
 
         this.localAgentAbortController = new AbortController();
         let isAiAgentActive = false;
@@ -572,7 +573,7 @@ export class GenaiService {
         const targetEndpoint = isImageRequest ? '/api/image' : '/api/chat';
         let apiUrl = `https://sontinh.type.vn${targetEndpoint}`; // Fallback for Web/Mobile
 
-        if (settings.enableAiAgent !== false) {
+        if (settings.enableAiAgent === true) {
             isAiAgentActive = true;
         }
 
@@ -581,14 +582,13 @@ export class GenaiService {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
                 if (aiAgent && aiAgent.enabled !== undefined) {
-                    isAiAgentActive = aiAgent.enabled;
+                    isAiAgentActive = aiAgent.enabled === true;
                     if (aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
                 }
             } catch(e) {}
             if (settings.aiAgentApiKey && secretApiKey === 'type-vn-local-agent-2026') {
                 secretApiKey = settings.aiAgentApiKey;
             }
-            // Desktop App default points to sontinh.type.vn, unless secretApiKey looks like a URL config (for advanced users testing external endpoints)
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
                 // Giả định cú pháp setting là: URL|API_KEY (VD: https://sontinh.type.vn|my-secret)
                 const parts = secretApiKey.split('|');
@@ -713,11 +713,14 @@ export class GenaiService {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder("utf-8");
                 let buffer = '';
+                const startTime = Date.now();
+                let lastActiveTime = Date.now();
 
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
                     
+                    lastActiveTime = Date.now(); // Cập nhật thời gian nhận tín hiệu từ server
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
                     buffer = lines.pop() || '';
@@ -725,7 +728,7 @@ export class GenaiService {
                     
                     for (let line of lines) {
                         line = line.trim();
-                        if (!line) continue;
+                        if (!line || line.startsWith(':')) continue;
                         if (line.startsWith('data: ')) {
                             line = line.slice(6).trim();
                         }
@@ -737,6 +740,11 @@ export class GenaiService {
                                 throw new Error(chunk.error || 'AI Agent xử lý thất bại');
                             }
                             
+                            // Bỏ qua các tin nhắn waiting nội bộ của subagent/background task
+                            if (chunk.content && (chunk.content.includes('waiting for background') || chunk.content.includes('waiting for subagent'))) {
+                                continue;
+                            }
+
                             // Streaming chunk
                             let shouldIgnoreTTS = false;
                             const isSplitTask = replyText.includes('===SPLIT===') || finalPrompt.includes('===SPLIT===') || (params.config as any)?.skipTTS === true || finalPrompt.toLowerCase().includes('tách đoạn');
@@ -775,6 +783,12 @@ export class GenaiService {
                     
                     if (batchStreamedContent && (params.config as any)?.onStream) {
                         (params.config as any).onStream(batchStreamedContent, false);
+                    }
+
+                    // Timeout nếu mất kết nối hoàn toàn (> 60s không nhận được cả ping) hoặc tổng thời gian > 180s
+                    if (Date.now() - lastActiveTime > 60000 || Date.now() - startTime > 180000) {
+                        reader.cancel();
+                        throw new Error("AI Agent phản hồi quá thời gian cho phép (mất kết nối hoặc quá 3 phút).");
                     }
                 }
                 
@@ -1041,20 +1055,15 @@ export class GenaiService {
                             if (p.inlineData) {
                                 const mimeType = p.inlineData.mimeType || '';
                                 if (mimeType.startsWith('audio/')) {
-                                    if (config.apiFormat !== 'gemini' && config.apiFormat !== 'anthropic') {
-                                        console.warn("Bỏ qua âm thanh vì model hiện tại không hỗ trợ dạng input_audio");
-                                        return { type: 'text', text: '[Audio Omitted]' };
-                                    } else {
-                                        let format = 'mp3';
-                                        if (mimeType.includes('wav')) format = 'wav';
-                                        return {
-                                            type: 'input_audio',
-                                            input_audio: {
-                                                data: p.inlineData.data,
-                                                format: format
-                                            }
-                                        };
-                                    }
+                                    let format = 'mp3';
+                                    if (mimeType.includes('wav')) format = 'wav';
+                                    return {
+                                        type: 'input_audio',
+                                        input_audio: {
+                                            data: p.inlineData.data,
+                                            format: format
+                                        }
+                                    };
                                 } else {
                                     return {
                                         type: 'image_url',
