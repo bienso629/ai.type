@@ -16,7 +16,8 @@ const {
     Notification,
     desktopCapturer,
     net,
-    safeStorage
+    safeStorage,
+    shell
 } = require("electron");
 
 app.commandLine.appendSwitch('no-sandbox');
@@ -33,6 +34,7 @@ const { exec, execFile, spawn } = require("child_process");
 const os = require("os");
 const path = require("path");
 const http = require("http");
+const semver = require("semver");
 const fs = require("fs");
 
 // Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ đi?u hành và app khác
@@ -5689,6 +5691,129 @@ app.whenReady().then(async () => {
         createMainWindow();
     });
 
+    // ==========================================
+    // Cấu hình kiểm tra cập nhật từ Google Drive
+    // ==========================================
+    const GOOGLE_DRIVE_DOWNLOAD_URL = "https://drive.google.com/drive/folders/1rPJM3BvKHfZNghi8me7zTNADs8vOJCk7?usp=drive_link";
+
+    async function checkGoogleDriveUpdates(manual = false) {
+        try {
+            let currentVersion = app.getVersion();
+            try {
+                const pkg = require(path.join(__dirname, '..', 'package.json'));
+                if (pkg && pkg.version) currentVersion = pkg.version;
+            } catch (e) {}
+
+            sendToRenderer("tools-log", `[AutoUpdate] Đang kiểm tra phiên bản mới từ Google Drive (Hiện tại: v${currentVersion})...`);
+
+            const fetchFolderContent = () => {
+                return new Promise((resolve, reject) => {
+                    const req = https.get(GOOGLE_DRIVE_DOWNLOAD_URL, {
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+                        timeout: 10000
+                    }, (res) => {
+                        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                            https.get(res.headers.location, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } }, (res2) => {
+                                let data = '';
+                                res2.on('data', chunk => data += chunk);
+                                res2.on('end', () => resolve(data));
+                            }).on('error', reject);
+                            return;
+                        }
+                        let data = '';
+                        res.on('data', chunk => data += chunk);
+                        res.on('end', () => resolve(data));
+                    });
+                    req.on('error', reject);
+                    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout kết nối Google Drive')); });
+                });
+            };
+
+            const html = await fetchFolderContent();
+            const titleMatch = html.match(/<title>AI Type\s+([0-9]+\.[0-9]+\.[0-9]+)/i);
+            const exeMatch = html.match(/AI\.Type(?: Setup)?[- ]([0-9]+\.[0-9]+\.[0-9]+)/i);
+            const ymlMatch = html.match(/version:\s*([0-9]+\.[0-9]+\.[0-9]+)/i);
+            const remoteVersion = (titleMatch && titleMatch[1]) || (exeMatch && exeMatch[1]) || (ymlMatch && ymlMatch[1]);
+
+            if (!remoteVersion) {
+                sendToRenderer("tools-log", `[AutoUpdate] Không thể xác định phiên bản trên Google Drive.`);
+                if (manual) {
+                    dialog.showMessageBox(mainWindow || null, {
+                        type: 'info',
+                        title: 'Kiểm tra cập nhật',
+                        message: `Không lấy được thông tin phiên bản tự động từ Google Drive. Bạn có thể mở trực tiếp thư mục Google Drive để tải bản mới nhất.`,
+                        buttons: ['Mở Google Drive', 'Đóng'],
+                        defaultId: 0
+                    }).then(res => {
+                        if (res.response === 0) shell.openExternal(GOOGLE_DRIVE_DOWNLOAD_URL);
+                    });
+                }
+                return { hasUpdate: false, currentVersion, remoteVersion: null };
+            }
+
+            const hasUpdate = semver.gt(remoteVersion, currentVersion);
+
+            if (hasUpdate) {
+                sendToRenderer("tools-log", `[AutoUpdate] Phát hiện phiên bản mới: v${remoteVersion} (Hiện tại: v${currentVersion}).`);
+                dialog.showMessageBox(mainWindow || null, {
+                    type: 'info',
+                    title: 'Cập nhật phần mềm AI.Type',
+                    message: `Đã có phiên bản mới AI.Type v${remoteVersion} trên Google Drive!\n(Phiên bản bạn đang dùng: v${currentVersion})`,
+                    detail: 'Bạn có muốn mở thư mục Google Drive để tải về bản cài đặt mới nhất không?',
+                    buttons: ['Tải về ngay', 'Để sau'],
+                    defaultId: 0,
+                    cancelId: 1
+                }).then((result) => {
+                    if (result.response === 0) {
+                        shell.openExternal(GOOGLE_DRIVE_DOWNLOAD_URL);
+                    }
+                });
+                return { hasUpdate: true, currentVersion, remoteVersion, downloadUrl: GOOGLE_DRIVE_DOWNLOAD_URL };
+            } else {
+                sendToRenderer("tools-log", `[AutoUpdate] Bạn đang sử dụng phiên bản mới nhất (v${currentVersion}).`);
+                if (manual) {
+                    dialog.showMessageBox(mainWindow || null, {
+                        type: 'info',
+                        title: 'Kiểm tra cập nhật',
+                        message: `Bạn đang sử dụng phiên bản mới nhất AI.Type (v${currentVersion}).`,
+                        buttons: ['OK']
+                    });
+                }
+                return { hasUpdate: false, currentVersion, remoteVersion };
+            }
+        } catch (err) {
+            sendToRenderer("tools-log", `[AutoUpdate] Lỗi khi kiểm tra cập nhật: ${err.message}`);
+            if (manual) {
+                dialog.showMessageBox(mainWindow || null, {
+                    type: 'error',
+                    title: 'Lỗi kiểm tra cập nhật',
+                    message: `Không thể kết nối đến Google Drive để kiểm tra phiên bản: ${err.message}`,
+                    buttons: ['Mở Google Drive', 'Đóng'],
+                    defaultId: 0
+                }).then(res => {
+                    if (res.response === 0) shell.openExternal(GOOGLE_DRIVE_DOWNLOAD_URL);
+                });
+            }
+            return { hasUpdate: false, error: err.message };
+        }
+    }
+
+    // IPC Handlers cho việc kiểm tra cập nhật và mở Google Drive
+    ipcMain.handle("app:check-for-updates", async (_e, args) => {
+        const manual = args && args.manual !== undefined ? args.manual : true;
+        return await checkGoogleDriveUpdates(manual);
+    });
+
+    ipcMain.handle("app:open-download-drive", async () => {
+        await shell.openExternal(GOOGLE_DRIVE_DOWNLOAD_URL);
+        return { success: true };
+    });
+
+    // Tự động kiểm tra phiên bản sau khi khởi động app 3 giây
+    setTimeout(() => {
+        checkGoogleDriveUpdates(false).catch(() => {});
+    }, 3000);
+
     globalShortcut.register("CommandOrControl+Shift+L", () => {
         if (mainWindow) {
             mainWindow.webContents.send("tools-response", { action: "toggle-gemini-webview" });
@@ -5697,87 +5822,6 @@ app.whenReady().then(async () => {
 
     // Tắt phím tắt global CTRL+SHIFT+R để tránh xung đột
     // Tính năng refresh được xử lý qua Menu "Hiển thị" (View Menu)
-
-    // ==========================================
-    autoUpdater.on('update-not-available', (info) => {
-        sendToRenderer("tools-log", '[AutoUpdate] Bạn đang dùng phiên bản mới nhất.');
-    });
-
-    autoUpdater.on('error', (err) => {
-        sendToRenderer("tools-log", `[AutoUpdate] L?i ki?m tra c?p nh?t: ${err.message}`);
-        if (mainWindow && mainWindow.webContents) {
-            let safeError = (err.message || '').replace(/'/g, '"').replace(/\n/g, ' ');
-            mainWindow.webContents.executeJavaScript(`
-                (function(){
-                    let div = document.getElementById('auto-update-progress-overlay');
-                    if (div) { 
-                        div.innerHTML = "<b>? L?i t?i c?p nh?t!</b><br><span style='font-size:12px;color:red;'>${safeError}</span><br><br>Vui l�ng ki?m tra l?i file latest.yml v� file .exe tr�n server xem m� hash ?� kh?p ch?a."; 
-                    }
-                })();
-            `).catch(e=>e);
-        }
-    });
-
-    autoUpdater.on('download-progress', (progressObj) => {
-        const speed = Math.round(progressObj.bytesPerSecond / 1024);
-        const percent = Math.round(progressObj.percent);
-        sendToRenderer("tools-log", `[AutoUpdate] T?c ?? t?i: ${speed}KB/s - ?� t?i ${percent}%`);
-        
-        if (mainWindow && mainWindow.webContents) {
-            mainWindow.setProgressBar(progressObj.percent / 100);
-            mainWindow.webContents.executeJavaScript(`
-                (function() {
-                    let div = document.getElementById('auto-update-progress-overlay');
-                    if (!div) {
-                        div = document.createElement('div');
-                        div.id = 'auto-update-progress-overlay';
-                        div.style.cssText = 'position:fixed; bottom:20px; right:20px; width:320px; background:rgba(255,255,255,0.95); border:1px solid #ddd; box-shadow:0 4px 15px rgba(0,0,0,0.2); z-index:99999999; padding:15px; border-radius:8px; font-family:sans-serif; color:#333; transition: all 0.3s ease;';
-                        div.innerHTML = "<b>? ?ang t?i b?n c?p nh?t m?i...</b><br><div style='width:100%;background:#e0e0e0;border-radius:5px;margin-top:12px;height:12px;overflow:hidden;'><div id='auto-update-progress-bar' style='width:0%;height:100%;background:#007bff;transition:width 0.2s;'></div></div><div id='auto-update-text' style='margin-top:8px;font-size:13px;text-align:right;color:#555;'>0%</div>";
-                        document.body.appendChild(div);
-                    }
-                    document.getElementById('auto-update-progress-bar').style.width = '${percent}%';
-                    document.getElementById('auto-update-text').innerText = 'T?c ??: ${speed} KB/s - ?� t?i: ${percent}%';
-                })();
-            `).catch(err => console.log('inject error', err));
-        }
-    });
-
-    autoUpdater.on('update-downloaded', (info) => {
-        sendToRenderer("tools-log", '[AutoUpdate] T?i ho�n t?t! ?ng d?ng s? ???c c?p nh?t.');
-        if (mainWindow) {
-            mainWindow.setProgressBar(-1);
-            mainWindow.webContents.executeJavaScript(`
-                let div = document.getElementById('auto-update-progress-overlay');
-                if (div) { div.style.display = 'none'; }
-            `).catch(e=>e);
-        }
-        dialog.showMessageBox({
-            type: 'info',
-            title: 'C?p nh?t ph?n m?m',
-            message: `?� t?i xong phi�n b?n m?i (${info.version}). B?n c� mu?n c�i ??t v� kh?i ??ng l?i ngay b�y gi??`,
-            buttons: ['C�i ??t ngay', '?? sau']
-        }).then((result) => {
-            if (result.response === 0) {
-                autoUpdater.quitAndInstall();
-            }
-        });
-    });
-
-    // Bắt buộc cấu hình URL cho môi trư�?ng dev để test
-    if (!app.isPackaged) {
-        try {
-            const pkg = require(require('path').join(__dirname, '..', 'package.json'));
-            app.getVersion = () => pkg.version; // Ép app đ�?c đúng version từ package.json thay vì version của lõi Electron
-        } catch (e) { }
-
-        autoUpdater.forceDevUpdateConfig = true;
-        autoUpdater.setFeedURL("https://ai.type.vn/phan-mem/");
-    }
-
-    // Bắt đầu kiểm tra cập nhật ngay cả trong Dev
-    autoUpdater.checkForUpdatesAndNotify().catch(err => {
-        sendToRenderer("tools-log", `[AutoUpdate] Lỗi khi chạy updater: ${err.message}`);
-    });
 });
 
 // Hủy đăng ký khi ứng dụng đóng để tránh rò rỉ bộ nhớ

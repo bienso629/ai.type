@@ -2491,78 +2491,94 @@ export class GenaiService {
     }
 
     /**
-     * Phân tích câu lệnh hoặc câu hỏi để xác định xem có cần xác nhận (Confirm Action)
-     * hoặc tạo các câu hỏi/prompt gợi ý tiếp theo (Follow-up Prompts).
+     * Dùng AI (Gemini) để tự động phân tích và sinh ra 3-4 câu hỏi / prompt gợi ý tiếp theo
+     * dựa trên câu hỏi của người dùng và câu trả lời của AI.
+     */
+    async generateFollowUpPrompts(lastUserMessage: string, lastAiResponse?: string, context?: string): Promise<string[]> {
+        try {
+            const promptForAi = `
+Dưới đây là đoạn hội thoại vừa diễn ra:
+- Yêu cầu/Câu hỏi của người dùng: "${lastUserMessage}"
+- Phản hồi của Trợ lý AI: "${(lastAiResponse || '').replace(/<[^>]+>/g, ' ').slice(0, 600)}"
+${context ? `- Ngữ cảnh bổ sung: ${context}` : ''}
+
+Nhiệm vụ: Bạn hãy suy nghĩ và sinh ra từ 3 đến 4 câu hỏi tiếp theo hoặc câu lệnh (prompt) gợi ý có tính liên kết cao nhất, sáng tạo, thực tế mà người dùng có thể muốn hỏi hoặc yêu cầu AI làm tiếp theo.
+Yêu cầu:
+1. Gợi ý phải do AI tự sinh ra dựa trên ngữ cảnh thực tế của câu hỏi và câu trả lời ở trên.
+2. Mỗi gợi ý ngắn gọn (khoảng 6 - 15 từ), bắt đầu bằng 1 emoji phù hợp (ví dụ: 💬, 🚀, 📊, ❤️, 👥, ✍️, 🎯...).
+3. Chỉ trả về kết quả dưới dạng JSON array duy nhất chứa các chuỗi string (không bọc code block markdown):
+["Emoji Gợi ý 1", "Emoji Gợi ý 2", "Emoji Gợi ý 3"]
+`.trim();
+
+            const res: any = await this.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: [{ role: 'user', parts: [{ text: promptForAi }] }],
+                config: {
+                    systemInstruction: 'Bạn là chuyên gia gợi ý prompt và câu hỏi tiếp theo thông minh. Chỉ trả về định dạng JSON array các chuỗi string.'
+                }
+            });
+
+            const rawText = res?.text || res?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanJson = rawText.replace(/```json|```/g, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed.filter(item => typeof item === 'string' && item.trim().length > 0);
+            }
+        } catch (err) {
+            console.warn('[AI Follow-up Generator error]:', err);
+        }
+        return [];
+    }
+
+    /**
+     * Dùng AI để phân tích xem yêu cầu của người dùng có phải là một hành động cần xác nhận (Confirm)
+     * trước khi thực thi không, và tự động trích xuất các thông số hành động.
      */
     async analyzeActionConfirmation(prompt: string, context?: any): Promise<{
         needConfirmation: boolean;
         actionType?: string;
         actionTitle?: string;
         actionSummary?: string;
-        followUpPrompts?: string[];
+        suggestions?: string[];
     }> {
         try {
-            const hasVideoUrl = /(https?:\/\/[^\s]+)/i.test(prompt);
-            const hasActionKeywords = /(xem|like|thích|thả tim|comment|bình luận|chạy|mở|bắt đầu|thực thi|quét|lên kịch bản)/i.test(prompt);
-            
-            const defaultPrompts = [
-                '💬 Viết kịch bản bình luận tự nhiên cho các profile này',
-                '❤️ Tự động thả tim và theo dõi video này',
-                '📊 Phân tích chi tiết nội dung video này',
-                '👥 Thêm các profile khác vào cùng thực hiện'
-            ];
+            const promptForAi = `
+Yêu cầu của người dùng: "${prompt}"
+${context ? `Ngữ cảnh: ${JSON.stringify(context)}` : ''}
 
-            if (!hasVideoUrl && !hasActionKeywords) {
-                return {
-                    needConfirmation: false,
-                    followUpPrompts: [
-                        '✍️ Viết tiếp kịch bản chi tiết hơn',
-                        '💡 Tạo thêm các câu bình luận đa dạng phong cách',
-                        '⚙️ Hướng dẫn cấu hình tự động hóa'
-                    ]
-                };
+Nhiệm vụ: Phân tích xem yêu cầu trên có phải là một thao tác cần xác nhận trước khi thực thi hay không. Đồng thời tự nghĩ ra 3 câu hỏi/prompt tiếp theo.
+Trả về JSON duy nhất (không bọc code block markdown):
+{
+  "needConfirmation": true/false,
+  "actionType": "video_interaction" | "script_execution" | "query",
+  "actionTitle": "Tiêu đề tác vụ ngắn",
+  "actionSummary": "Tóm tắt tác vụ cần xác nhận",
+  "suggestions": ["Gợi ý 1", "Gợi ý 2", "Gợi ý 3"]
+}
+`.trim();
+
+            const res: any = await this.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: [{ role: 'user', parts: [{ text: promptForAi }] }],
+                config: {
+                    systemInstruction: 'Bạn là AI phân tích ý định người dùng và điều phối tác vụ. Trả về JSON chính xác.'
+                }
+            });
+
+            const rawText = res?.text || res?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanJson = rawText.replace(/```json|```/g, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            if (parsed && typeof parsed === 'object') {
+                return parsed;
             }
-
-            return {
-                needConfirmation: true,
-                actionType: hasVideoUrl ? 'video_interaction' : 'script_execution',
-                actionTitle: 'Xác nhận tác vụ tự động hóa',
-                actionSummary: prompt,
-                followUpPrompts: defaultPrompts
-            };
-        } catch (e) {
-            return {
-                needConfirmation: false,
-                followUpPrompts: []
-            };
-        }
-    }
-
-    /**
-     * Tạo danh sách gợi ý các prompt/câu hỏi tiếp theo dựa trên ngữ cảnh vừa trao đổi
-     */
-    async generateFollowUpPrompts(lastUserMessage: string, lastAiResponse?: string): Promise<string[]> {
-        try {
-            const isVideo = /(tiktok\.com|youtube\.com|facebook\.com|video)/i.test(lastUserMessage) || 
-                            /(video|livestream)/i.test(lastAiResponse || '');
-            if (isVideo) {
-                return [
-                    '💬 Viết kịch bản bình luận hấp dẫn cho các profile',
-                    '❤️ Tự động thả tim video này sau 3 giây',
-                    '👥 Mời thêm profile khác cùng xem video',
-                    '📈 Phân tích xu hướng và hashtag của video'
-                ];
-            }
-
-            return [
-                '✍️ Viết tiếp đoạn kịch bản tiếp theo',
-                '💡 Đề xuất thêm các ý tưởng tương tác mới',
-                '🎭 Đổi phong cách nhân cách cho các profile',
-                '⚙️ Cấu hình thời gian chạy tự động'
-            ];
         } catch (err) {
-            return [];
+            console.warn('[AI Action Confirmation Analysis error]:', err);
         }
+
+        return {
+            needConfirmation: /(https?:\/\/[^\s]+)/i.test(prompt),
+            suggestions: []
+        };
     }
 
     refreshConfig() {
