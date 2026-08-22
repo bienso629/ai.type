@@ -64,10 +64,14 @@
         <div class="w-full flex-grow flex-shrink min-h-[20vh] bg-[#0a0a0a] p-3 md:p-4 flex flex-col items-center justify-center relative group">
             <div class="w-full h-full relative flex flex-col items-center justify-center">
                 <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                    class="max-w-full max-h-full object-contain" (ended)="isPreviewPlaying = false"
-                    (pause)="isPreviewPlaying = false" (play)="isPreviewPlaying = true"></video>
+                    class="max-w-full max-h-full object-contain cursor-pointer"
+                    (click)="toggleTimelinePlay()"
+                    (ended)="onVideoEnded()"
+                    (pause)="onVideoPauseEvent()"
+                    (play)="onVideoPlayEvent()"></video>
                 <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                    class="max-w-full max-h-full object-contain" />
+                    class="max-w-full max-h-full object-contain cursor-pointer"
+                    (click)="toggleTimelinePlay()" />
 
                 <div *ngIf="!previewVideoUrl && !previewImageUrl"
                     class="text-gray-400 flex flex-col items-center justify-center h-full cursor-pointer hover:text-white transition-colors"
@@ -75,30 +79,26 @@
                     <mat-icon class="icon-size-10 mb-2" [ngClass]="{'opacity-50': !isPlayingTimeline}">{{
                         isPlayingTimeline
                         ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
-                    <span class="opacity-50 text-sm">{{ isPlayingTimeline ? 'Đang phát...' : 'Bấm icon Play để xem trước
-                        toàn bộ Timeline' }}</span>
+                    <span class="opacity-50 text-sm">{{ isPlayingTimeline ? 'Đang phát...' : 'Bấm icon Play để xem trước toàn bộ Timeline' }}</span>
                 </div>
 
                 <audio #mainAudioPlayer [src]="getSafeUrl(previewAudioUrl)" *ngIf="previewAudioUrl" controls
                     class="absolute bottom-4 w-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    (ended)="isPreviewPlaying = false" (pause)="isPreviewPlaying = false"
-                    (play)="isPreviewPlaying = true"></audio>
+                    (ended)="onVideoEnded()" (pause)="onVideoPauseEvent()"
+                    (play)="onVideoPlayEvent()"></audio>
             </div>
 
             <!-- Global Timeline Play/Pause Overlay Button -->
             <button *ngIf="previewVideoUrl || previewImageUrl" mat-icon-button
                 class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 text-white bg-black/60 hover:bg-black/90 icon-size-10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                (click)="activeItem ? togglePreviewPlay() : toggleTimelinePlay()">
-                <mat-icon class="icon-size-8">{{ activeItem ? (isPreviewPlaying ? 'pause' : 'play_arrow') :
-                    (isPlayingTimeline ? 'pause' : 'play_arrow') }}</mat-icon>
+                (click)="toggleTimelinePlay()">
+                <mat-icon class="icon-size-8">{{ isPlayingTimeline ? 'pause' : 'play_arrow' }}</mat-icon>
             </button>
-
-
         </div>
 
         <div class="flex flex-row flex-shrink-0 overflow-x-auto overflow-y-hidden relative w-full h-fit border-t border-neutral-800 bg-[#0f0f11] scene-scroll-area"
             id="timeline-scroll-container" (wheel)="onTimelineScroll($event)">
-            <div class="relative h-fit" [style.width.px]="timelineTotalWidth">
+            <div id="timeline-content-inner" class="relative h-fit" [style.width.px]="timelineTotalWidth">
 
                 <!-- Timeline Ruler -->
                 <div class="h-7 w-full border-b border-neutral-800 relative bg-[#18181b] z-[90] cursor-text sticky top-0 flex items-center"
@@ -246,15 +246,6 @@
                                             <!-- Center Drag Area -->
                                             <div class="absolute left-3 right-3 top-0 bottom-0 cursor-move z-20"
                                                 (mousedown)="onDragBlockStart($event, video, sceneIdx)"></div>
-
-                                            <!-- Nút Play Preview -->
-                                            <button *ngIf="video.videoUrl || video.imageUrl" mat-icon-button
-                                                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 text-white icon-size-8 rounded-full pointer-events-auto"
-                                                [ngClass]="video.videoUrl ? 'bg-black/60 hover:bg-black/90' : 'drop-shadow-md hover:scale-110 transition-transform'"
-                                                (click)="$event.stopPropagation(); playPreview(video)">
-                                                <mat-icon class="icon-size-6">{{ video.videoUrl ? 'play_arrow' :
-                                                    'image' }}</mat-icon>
-                                            </button>
                                         </div>
                                 </ng-container>
                             </ng-container>

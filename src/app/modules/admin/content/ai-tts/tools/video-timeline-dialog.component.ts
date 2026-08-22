@@ -263,24 +263,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     togglePreviewPlay() {
-        if (this.mainVideoPlayer && this.previewVideoUrl) {
-            const video = this.mainVideoPlayer.nativeElement;
-            if (video.paused) {
-                video.play();
-                this.isPreviewPlaying = true;
-            } else {
-                video.pause();
-                this.isPreviewPlaying = false;
-            }
-        } else if (this.mainAudioPlayer && this.previewAudioUrl) {
-            const audio = this.mainAudioPlayer.nativeElement;
-            if (audio.paused) {
-                audio.play();
-                this.isPreviewPlaying = true;
-            } else {
-                audio.pause();
-                this.isPreviewPlaying = false;
-            }
+        this.toggleTimelinePlay();
+    }
+
+    onVideoPlayEvent() {
+        if (!this.isPlayingTimeline) {
+            this.playTimeline();
+        }
+    }
+
+    onVideoPauseEvent() {
+        if (this.isPlayingTimeline) {
+            this.pauseTimeline();
+        }
+    }
+
+    onVideoEnded() {
+        if (this.isPlayingTimeline) {
+            this.updateTimelineSync();
         }
     }
 
@@ -319,13 +319,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (maxTime === 0) return;
 
         // Nếu đã chạy tới cuối, phát lại từ đầu
-        if (this.currentTimelineTime >= maxTime) {
+        if (this.currentTimelineTime >= maxTime - 0.05) {
             this.currentTimelineTime = 0;
         }
 
         this.isPlayingTimeline = true;
+        this.isPreviewPlaying = true;
 
         let lastTimestamp = performance.now();
+
+        // Đồng bộ video/audio trước khi bắt đầu tick
+        this.updateTimelineSync();
 
         const tick = (timestamp: number) => {
             if (!this.isPlayingTimeline) return;
@@ -336,22 +340,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const vidEl = this.mainVideoPlayer?.nativeElement;
 
             if (this.activeVideo && this.activeVideo.videoUrl && vidEl) {
-                if (vidEl.seeking || vidEl.readyState < 3) {
+                if (vidEl.seeking || vidEl.readyState < 2) {
                     // Video is seeking or buffering, pause the timeline clock
                     deltaSeconds = 0;
                 } else if (!vidEl.paused) {
                     // Video is playing smoothly, let video drive the timeline
-                    this.currentTimelineTime = (this.activeVideo.startTime || 0) + vidEl.currentTime;
-                    deltaSeconds = 0; // We already updated currentTimelineTime
+                    const videoCurrent = (this.activeVideo.startTime || 0) + vidEl.currentTime - (this.activeVideo.trimStart || 0);
+                    if (videoCurrent >= 0) {
+                        this.currentTimelineTime = videoCurrent;
+                        deltaSeconds = 0;
+                    }
                 }
             }
 
             this.currentTimelineTime += deltaSeconds;
 
-
             if (this.currentTimelineTime >= maxTime) {
                 this.currentTimelineTime = maxTime;
                 this.pauseTimeline();
+                this.cd.detectChanges();
+                return;
             }
 
             this.updateTimelineSync();
@@ -367,6 +375,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     pauseTimeline() {
         this.isPlayingTimeline = false;
+        this.isPreviewPlaying = false;
         if (this.timelineTimer) {
             cancelAnimationFrame(this.timelineTimer);
             this.timelineTimer = null;
@@ -597,8 +606,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     seekTimelineToMouse(e: MouseEvent) {
-        const container = document.getElementById('timeline-scroll-container');
-        const contentContainer = container?.querySelector('.relative.w-\\[5000px\\]');
+        const contentContainer = document.getElementById('timeline-content-inner');
         if (!contentContainer) return;
 
         const rect = contentContainer.getBoundingClientRect();
@@ -1780,6 +1788,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         } else if ((event.ctrlKey || event.metaKey) && (event.key === 'b' || event.key === 'B')) {
             event.preventDefault();
             this.splitVideoAtPlayhead();
+        } else if (event.code === 'Space') {
+            const target = event.target as HTMLElement;
+            if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+                return;
+            }
+            event.preventDefault();
+            this.toggleTimelinePlay();
         }
     }
 
