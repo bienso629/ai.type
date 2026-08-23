@@ -5553,7 +5553,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     imports: [CommonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, FormsModule, MatIconModule],
     template: `
         <div class="flex items-center justify-between mb-4">
-            <div class="text-2xl font-bold text-gray-800 tracking-tight">Magic Kling v3</div>
+            <div class="text-2xl font-bold text-gray-800 tracking-tight">Tách frame và sửa</div>
             <button mat-icon-button (click)="dialogRef.close()" type="button">
                 <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
             </button>
