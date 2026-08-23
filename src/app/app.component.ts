@@ -1,11 +1,13 @@
 import { Component, OnDestroy, OnInit, signal, AfterViewInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { TranslocoService } from '@ngneat/transloco';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
+import { Title } from '@angular/platform-browser';
+import { AppTitleService } from 'app/core/services/app-title.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { DeviceUUID } from "device-uuid";
 import { UserService } from './core/user/user.service';
-import { Subject, takeUntil, take } from 'rxjs';
+import { Subject, takeUntil, take, filter } from 'rxjs';
 import { User } from './core/user/user.types';
 import { MatDialog } from '@angular/material/dialog';
 import { MultiAccountService } from './_services/multi-account.service';
@@ -159,7 +161,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private ngZone: NgZone,
         private _translocoService: TranslocoService,
         private _licenseKeyService: LicenseKeyService,
-        private _fontService: FontService
+        private _fontService: FontService,
+        private _titleService: Title
     ) {
         // kiểm tra settings và khởi tạo
         this.multiAccountService.loadActiveAccount().then(data => {
@@ -207,6 +210,18 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngOnInit() {
+        // Lắng nghe sự kiện chuyển trang để cập nhật tiêu đề chuẩn cho Window
+        this.router.events
+            .pipe(
+                filter(event => event instanceof NavigationEnd),
+                takeUntil(this._unsubscribeAll)
+            )
+            .subscribe((event: any) => {
+                if (this._titleService instanceof AppTitleService) {
+                    this._titleService.handleRouteChange(event.urlAfterRedirects || event.url);
+                }
+            });
+
         // Khởi tạo font hệ thống
         this._fontService.initFontSystem();
 

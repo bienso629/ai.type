@@ -50,6 +50,7 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
 import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
 import { GenaiService } from 'app/genai.service';
 import { VideoProjectConfigDialogComponent } from './video-project-config-dialog.component';
+import { BroadcastPreviewDialogComponent } from './broadcast-preview-dialog.component';
 
 interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
@@ -2416,6 +2417,107 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.saveData();
     }
 
+    openBroadcastPreviewModal(): void {
+        this.saveData();
+
+        // 1. Thu thập toàn bộ phụ đề từ các Scene
+        const allSubtitles: any[] = [];
+        if (this.projectData && this.projectData.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.subtitles) {
+                    for (const sub of scene.subtitles) {
+                        if (!sub.disabled && sub.text && sub.text.trim()) {
+                            allSubtitles.push({
+                                id: sub.id,
+                                text: sub.text.trim(),
+                                startTime: sub.startTime || 0,
+                                duration: sub.duration || 3
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        allSubtitles.sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
+
+        // 2. Tìm video URL và Online Source URL
+        let videoUrl: string | null = null;
+        let sourceUrl: string | null = null;
+
+        if (this.projectData) {
+            sourceUrl = this.projectData.sourceUrl || this.projectData.originalUrl || this.projectData.url || null;
+            if (this.projectData.scenes) {
+                for (const scene of this.projectData.scenes) {
+                    if (scene.videos && scene.videos.length > 0) {
+                        const firstVid = scene.videos.find((v: any) => v.videoUrl || v.sourceUrl);
+                        if (firstVid) {
+                            videoUrl = firstVid.videoUrl || null;
+                            if (firstVid.sourceUrl) sourceUrl = firstVid.sourceUrl;
+                            if (firstVid.originalUrl) sourceUrl = firstVid.originalUrl;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!videoUrl && this.previewVideoUrl) {
+            videoUrl = this.previewVideoUrl;
+        }
+
+        // 3. Tra cứu ngược từ downloadCache hoặc uuidMap để tìm URL Facebook / YouTube gốc
+        if (!sourceUrl || !sourceUrl.startsWith('http')) {
+            const downloadCache = this.multiAccountService.getItem('ai_type_video_download_cache') || {};
+            for (const [origUrl, cachedPath] of Object.entries(downloadCache)) {
+                if (origUrl.startsWith('http') && typeof cachedPath === 'string') {
+                    if (videoUrl && (cachedPath === videoUrl || videoUrl.includes(cachedPath.replace(/^file:\/\//, '')) || (cachedPath.includes('video_') && videoUrl.includes(cachedPath.substring(cachedPath.indexOf('video_')))))) {
+                        sourceUrl = origUrl;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!sourceUrl || !sourceUrl.startsWith('http')) {
+            const currentUuid = this.projectData?.uuid || this.data?.uuid;
+            if (currentUuid) {
+                try {
+                    const allKeys = Object.keys(localStorage || {});
+                    for (const k of allKeys) {
+                        if (k.startsWith('ai_type_video_uuid_map')) {
+                            const uMap = this.multiAccountService.getItem(k) || {};
+                            for (const [origUrl, uId] of Object.entries(uMap)) {
+                                if (uId === currentUuid && origUrl.startsWith('http')) {
+                                    sourceUrl = origUrl;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) { }
+            }
+        }
+
+        if (videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) && !videoUrl.includes('localhost') && !videoUrl.includes('127.0.0.1')) {
+            sourceUrl = videoUrl;
+        }
+
+        this.dialog.open(BroadcastPreviewDialogComponent, {
+            width: '96vw',
+            maxWidth: '1240px',
+            height: '88vh',
+            maxHeight: '820px',
+            panelClass: 'dark-broadcast-dialog',
+            data: {
+                title: this.projectData?.title || this.projectData?.extraPrompt || 'Phát sóng video',
+                videoUrl: videoUrl || undefined,
+                sourceUrl: sourceUrl || undefined,
+                subtitles: allSubtitles,
+                projectData: this.projectData
+            }
+        });
+    }
+
     generateAllImages(): void {
         this.saveData();
 
@@ -2746,6 +2848,178 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.toastr.success('Đã thêm file thành công!');
         };
 
+        input.click();
+    }
+
+    async addOnlineVideoBlock() {
+        const url = prompt('Nhập link video Online (Facebook Reel/Video, YouTube, TikTok...):');
+        if (!url || !url.trim()) return;
+
+        const electronApi = (window as any).electron;
+        if (!electronApi) {
+            this.toastr.error('Tính năng lấy luồng Online yêu cầu chạy trên ứng dụng Desktop.');
+            return;
+        }
+
+        this.toastr.info('Đang phân tích link và trích xuất luồng video trực tiếp...', 'Vui lòng đợi', { timeOut: 10000 });
+
+        try {
+            const res = electronApi.extractOnlineVideoStream 
+                ? await electronApi.extractOnlineVideoStream(url.trim())
+                : await electronApi.invoke('extract-online-video-stream', url.trim());
+
+            if (!res || !res.success || !res.streamUrl) {
+                this.toastr.error(res?.error || 'Không thể trích xuất luồng video từ link này.');
+                return;
+            }
+
+            if (!this.projectData) this.projectData = { scenes: [] };
+            if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+                this.projectData.scenes.push({
+                    id: `scene_${Date.now()}`,
+                    subtitles: [],
+                    videos: [],
+                    prompt: ''
+                });
+            }
+
+            const scene = this.projectData.scenes[this.projectData.scenes.length - 1];
+            if (!scene.videos) scene.videos = [];
+
+            let maxStart = 0;
+            scene.videos.forEach((v: any) => {
+                const end = (v.startTime || 0) + (v.duration || 0);
+                if (end > maxStart) maxStart = end;
+            });
+
+            const newVideo: any = {
+                id: `video_${Date.now()}`,
+                prompt: res.title || 'Online Video',
+                startTime: maxStart,
+                duration: res.duration || 10,
+                maxDuration: res.duration || 10,
+                videoUrl: res.streamUrl,
+                sourceUrl: url.trim(),
+                isOnlineStream: true,
+                isCompleted: true
+            };
+
+            scene.videos.push(newVideo);
+            this.activeItem = newVideo;
+            this.previewVideoUrl = res.streamUrl;
+            this.previewImageUrl = null;
+
+            this.saveData(true);
+            this.cd.detectChanges();
+            this.updateLines();
+
+            this.toastr.success(`Đã kết nối video Online: "${res.title || 'Video'}" (${res.duration}s)!`, 'Thành công');
+        } catch (e: any) {
+            this.toastr.error('Lỗi: ' + (e.message || e));
+        }
+    }
+
+    parseSrtContent(srtText: string): Array<{ text: string, startTime: number, duration: number }> {
+        const results: Array<{ text: string, startTime: number, duration: number }> = [];
+        if (!srtText) return results;
+
+        const normalized = srtText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const blocks = normalized.split(/\n\s*\n/);
+
+        const parseTimestampToSeconds = (timeStr: string): number => {
+            const parts = timeStr.trim().split(':');
+            if (parts.length < 3) return 0;
+            const hours = parseFloat(parts[0]) || 0;
+            const minutes = parseFloat(parts[1]) || 0;
+            const secParts = parts[2].split(/[,\.]/);
+            const seconds = parseFloat(secParts[0]) || 0;
+            const ms = parseFloat(secParts[1] || '0') || 0;
+            return hours * 3600 + minutes * 60 + seconds + (ms / 1000);
+        };
+
+        for (const block of blocks) {
+            const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length < 2) continue;
+
+            let timeLineIndex = -1;
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].includes('-->')) {
+                    timeLineIndex = i;
+                    break;
+                }
+            }
+
+            if (timeLineIndex === -1) continue;
+
+            const timeLine = lines[timeLineIndex];
+            const [startStr, endStr] = timeLine.split('-->');
+            if (!startStr || !endStr) continue;
+
+            const startSec = parseTimestampToSeconds(startStr);
+            const endSec = parseTimestampToSeconds(endStr);
+            const duration = Math.max(0.1, parseFloat((endSec - startSec).toFixed(2)));
+
+            const textLines = lines.slice(timeLineIndex + 1);
+            const text = textLines.join(' ').replace(/<[^>]*>/g, '').trim();
+
+            if (text) {
+                results.push({
+                    text,
+                    startTime: parseFloat(startSec.toFixed(2)),
+                    duration
+                });
+            }
+        }
+        return results;
+    }
+
+    importSrtFile() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.srt,.vtt,.txt';
+
+        input.onchange = async (e: any) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event: any) => {
+                const content = event.target.result;
+                const parsedSubs = this.parseSrtContent(content);
+                if (!parsedSubs || parsedSubs.length === 0) {
+                    this.toastr.error('Không tìm thấy nội dung phụ đề hợp lệ trong file SRT.');
+                    return;
+                }
+
+                if (!this.projectData) this.projectData = { scenes: [] };
+                if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+                    this.projectData.scenes.push({
+                        id: `scene_${Date.now()}`,
+                        subtitles: [],
+                        videos: [],
+                        prompt: ''
+                    });
+                }
+
+                const scene = this.projectData.scenes[0];
+                if (!scene.subtitles) scene.subtitles = [];
+
+                const newItems = parsedSubs.map((sub, idx) => ({
+                    id: Date.now() + idx,
+                    text: sub.text,
+                    startTime: sub.startTime,
+                    duration: sub.duration,
+                    maxDuration: sub.duration
+                }));
+
+                scene.subtitles = newItems;
+                this.saveData(true);
+                this.cd.detectChanges();
+                this.updateLines();
+                this.toastr.success(`Đã nạp thành công ${newItems.length} câu phụ đề từ file SRT!`, 'Thành công');
+            };
+            reader.readAsText(file, 'utf-8');
+        };
         input.click();
     }
 
