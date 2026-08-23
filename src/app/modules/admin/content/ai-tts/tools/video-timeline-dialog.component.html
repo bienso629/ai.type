@@ -52,7 +52,7 @@
             </button>
 
             <button mat-icon-button class="text-gray-300 hover:text-white transition-colors" [matTooltip]="'app.auto_broadcast_now' | transloco"
-                (click)="generateAllImages()">
+                (click)="openBroadcastPreviewModal()">
                 <mat-icon class="icon-size-5">voice_chat</mat-icon>
             </button>
 
@@ -151,16 +151,6 @@
                     </div>
                 </div>
 
-                <!-- Timeline Scrubber -->
-                <div class="absolute top-0 bottom-0 w-0.5 bg-red-500 z-[100] shadow-[0_0_8px_rgba(239,68,68,0.8)] cursor-ew-resize"
-                    [style.transform]="'translateX(' + (currentTimelineTime * pixelsPerSecond + 128) + 'px)'"
-                    (mousedown)="onScrubberMouseDown($event)">
-                    <div
-                        class="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center pointer-events-auto cursor-ew-resize shadow-md hover:scale-110">
-                    </div>
-                </div>
-
-
                 <!-- Tracks -->
                 <div id="timeline-tracks-container" class="relative h-fit flex flex-col bg-[#0f0f11] select-none">
 
@@ -170,8 +160,8 @@
                         <div
                             class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex flex-col items-center justify-center z-[60] overflow-hidden group">
                             <span class="text-xs font-semibold text-neutral-300">Track {{tIdx + 1}}</span>
-                            <button *ngIf="tIdx === 0" mat-icon-button class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
-                                (click)="addNewMediaBlock('video')" [matTooltip]="'app.add_media_block' | transloco">
+                            <button *ngIf="tIdx === 0" mat-icon-button [matMenuTriggerFor]="addVideoMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
+                                matTooltip="Thêm Video (File máy / Link Online)">
                                 <mat-icon class="text-neutral-400 hover:text-green-400">add</mat-icon>
                             </button>
                         </div>
@@ -278,8 +268,8 @@
                             class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex items-center justify-center gap-1.5 z-[60] overflow-hidden px-2 group">
                             <mat-icon class="icon-size-4 text-amber-400">subtitles</mat-icon>
                             <span class="text-xs font-semibold text-neutral-300">Track Text</span>
-                            <button mat-icon-button class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
-                                (click)="addNewTextTrackItem()" title="Thêm đoạn văn bản mới">
+                            <button mat-icon-button [matMenuTriggerFor]="addTextMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
+                                title="Thêm phụ đề / Nhập file .srt">
                                 <mat-icon class="text-neutral-400 hover:text-amber-400">add</mat-icon>
                             </button>
                         </div>
@@ -315,7 +305,58 @@
                         </ng-container>
                     </div>
 
-                    <!-- Track Audio Cố Định -->
+                    <!-- Track Extracted Audio (Âm thanh gốc) -->
+                    <div class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                        <!-- Track Header -->
+                        <div
+                            class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex flex-col items-center justify-center z-[60] overflow-hidden">
+                            <span class="text-xs font-semibold text-neutral-300">{{ 'app.auto_original_sound' | transloco }}</span>
+                            <mat-icon class="icon-size-4 text-indigo-400 mt-1">graphic_eq</mat-icon>
+                        </div>
+
+                        <!-- Audio Blocks -->
+                        <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
+                            <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">
+                                <div class="timeline-block absolute top-2 bottom-2 bg-indigo-950/70 border border-indigo-700/60 rounded-none flex flex-col overflow-hidden transition-all hover:bg-indigo-900/80 cursor-pointer group z-10 hover:z-[100]"
+                                    [ngClass]="{
+                                        'opacity-30 grayscale': audio.disabled,
+                                        'opacity-100': !audio.disabled,
+                                        '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(audio),
+                                        '!border-indigo-400 shadow-md': activeItem === audio && !isItemSelected(audio)
+                                    }" [style.left.px]="(audio.startTime || 0) * pixelsPerSecond + 128"
+                                    [style.width.px]="((audio.duration || 5) * pixelsPerSecond - 4) > 1 ? ((audio.duration || 5) * pixelsPerSecond - 4) : (((audio.duration || 5) * pixelsPerSecond) > 1 ? ((audio.duration || 5) * pixelsPerSecond) : 1)" [title]="audio.text"
+                                    (click)="setActiveItem(audio, $event); !audio.disabled && playWaveform('extracted', sceneIdx, aIdx)"
+                                    (contextmenu)="onAudioContextMenu($event, audio, scene, sceneIdx, aIdx, 'extracted')">
+
+                                    <!-- Label -->
+                                    <div class="w-full h-full flex flex-col p-1.5 justify-center relative">
+                                        <div class="flex flex-row items-center justify-between w-full mb-0.5 gap-2">
+                                            <div
+                                                class="text-[10px] text-indigo-200 font-medium truncate flex items-center gap-1">
+                                                <mat-icon
+                                                    class="icon-size-3 text-green-400 flex-shrink-0">audiotrack</mat-icon>
+                                                <span class="truncate">{{ (audio.text && audio.text !== '[Âm thanh
+                                                    gốc]') ? audio.text : ('Scene ' + (sceneIdx + 1) + ' - Phần ' +
+                                                    (aIdx + 1)) }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-1 z-10">
+                                                <div class="text-[9px] text-indigo-300 font-mono flex-shrink-0">
+                                                    {{audio.duration | number:'1.0-1'}}s
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Container cho WaveSurfer -->
+                                        <div class="w-full flex-1 relative mt-1 pointer-events-none">
+                                            <div [id]="'waveform-' + sceneIdx + '-' + aIdx" class="absolute inset-0">
+                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </ng-container>
+                        </ng-container>
+                    </div>
+
+                    <!-- Track Audio Cố Định (Lồng tiếng) -->
                     <div class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
                         <!-- Track Header -->
                         <div
@@ -370,56 +411,14 @@
                             </ng-container>
                         </ng-container>
                     </div>
+                </div>
 
-                    <!-- Track Extracted Audio -->
-                    <div class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
-                        <!-- Track Header -->
-                        <div
-                            class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex flex-col items-center justify-center z-[60] overflow-hidden">
-                            <span class="text-xs font-semibold text-neutral-300">{{ 'app.auto_original_sound' | transloco }}</span>
-                            <mat-icon class="icon-size-4 text-indigo-400 mt-1">graphic_eq</mat-icon>
-                        </div>
-
-                        <!-- Audio Blocks -->
-                        <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
-                            <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">
-                                <div class="timeline-block absolute top-2 bottom-2 bg-indigo-950/70 border border-indigo-700/60 rounded-none flex flex-col overflow-hidden transition-all hover:bg-indigo-900/80 cursor-pointer group z-10 hover:z-[100]"
-                                    [ngClass]="{
-                                        'opacity-30 grayscale': audio.disabled,
-                                        'opacity-100': !audio.disabled,
-                                        '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(audio),
-                                        '!border-indigo-400 shadow-md': activeItem === audio && !isItemSelected(audio)
-                                    }" [style.left.px]="(audio.startTime || 0) * pixelsPerSecond + 128"
-                                    [style.width.px]="((audio.duration || 5) * pixelsPerSecond - 4) > 1 ? ((audio.duration || 5) * pixelsPerSecond - 4) : (((audio.duration || 5) * pixelsPerSecond) > 1 ? ((audio.duration || 5) * pixelsPerSecond) : 1)" [title]="audio.text"
-                                    (click)="setActiveItem(audio, $event); !audio.disabled && playWaveform('extracted', sceneIdx, aIdx)"
-                                    (contextmenu)="onAudioContextMenu($event, audio, scene, sceneIdx, aIdx, 'extracted')">
-
-                                    <!-- Label -->
-                                    <div class="w-full h-full flex flex-col p-1.5 justify-center relative">
-                                        <div class="flex flex-row items-center justify-between w-full mb-0.5 gap-2">
-                                            <div
-                                                class="text-[10px] text-indigo-200 font-medium truncate flex items-center gap-1">
-                                                <mat-icon
-                                                    class="icon-size-3 text-green-400 flex-shrink-0">audiotrack</mat-icon>
-                                                <span class="truncate">{{ (audio.text && audio.text !== '[Âm thanh
-                                                    gốc]') ? audio.text : ('Scene ' + (sceneIdx + 1) + ' - Phần ' +
-                                                    (aIdx + 1)) }}</span>
-                                            </div>
-                                            <div class="flex items-center gap-1 z-10">
-                                                <div class="text-[9px] text-indigo-300 font-mono flex-shrink-0">
-                                                    {{audio.duration | number:'1.0-1'}}s
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <!-- Container cho WaveSurfer -->
-                                        <div class="w-full flex-1 relative mt-1 pointer-events-none">
-                                            <div [id]="'waveform-' + sceneIdx + '-' + aIdx" class="absolute inset-0">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </ng-container>
-                        </ng-container>
+                <!-- Timeline Scrubber (Red Playhead Needle & Line - Always on top) -->
+                <div class="absolute top-0 bottom-0 w-0.5 bg-red-500 z-[250] shadow-[0_0_8px_rgba(239,68,68,0.9)] cursor-ew-resize pointer-events-auto"
+                    [style.transform]="'translateX(' + (currentTimelineTime * pixelsPerSecond + 128) + 'px)'"
+                    (mousedown)="onScrubberMouseDown($event)">
+                    <div
+                        class="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center pointer-events-auto cursor-ew-resize shadow-md hover:scale-110">
                     </div>
                 </div>
             </div>
@@ -535,6 +534,30 @@
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="removeSubtitle(selectedContextData?.sceneIdx, selectedContextData?.subIdx)" class="menu-item-danger">
             <mat-icon class="text-red-500">delete_forever</mat-icon>
             <span>Xoá đoạn text</span>
+        </button>
+    </mat-menu>
+
+    <!-- Add Video Options Menu -->
+    <mat-menu #addVideoMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <button mat-menu-item (click)="addNewMediaBlock('video')">
+            <mat-icon class="text-indigo-400">upload_file</mat-icon>
+            <span>Chọn file video / ảnh từ máy tính</span>
+        </button>
+        <button mat-menu-item (click)="addOnlineVideoBlock()">
+            <mat-icon class="text-blue-400">link</mat-icon>
+            <span>Thêm từ link Online (Facebook, YouTube, TikTok...)</span>
+        </button>
+    </mat-menu>
+
+    <!-- Add Text / Subtitles Options Menu -->
+    <mat-menu #addTextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <button mat-menu-item (click)="addNewTextTrackItem()">
+            <mat-icon class="text-amber-400">add</mat-icon>
+            <span>Thêm một đoạn văn bản mới</span>
+        </button>
+        <button mat-menu-item (click)="importSrtFile()">
+            <mat-icon class="text-green-400">subtitles</mat-icon>
+            <span>Nhập toàn bộ file phụ đề (.srt, .vtt)</span>
         </button>
     </mat-menu>
 

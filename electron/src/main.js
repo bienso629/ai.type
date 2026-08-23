@@ -30,7 +30,7 @@ const { registerProfileHandlers } = require("./local-profiles");
 const { registerFontsHandlers } = require("./fonts");
 const { initDatabase } = require("./database");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { exec, execFile, spawn } = require("child_process");
+const { exec, execFile, spawn, execSync } = require("child_process");
 const os = require("os");
 const path = require("path");
 const http = require("http");
@@ -1496,7 +1496,36 @@ function createUniqueID() {
     return Math.random().toString(36).substr(2, 9);
 }
 
+const APP_RELATED_PORTS = [8000, 54321, 7868, 7171, 7777, 1133, 12345, 48921, 5454];
+
 function killPort(port) {
+    const cmd =
+        process.platform === "win32"
+            ? `for /f "tokens=5" %a in ('netstat -aon ^| find ":${port}" ^| find "LISTENING"') do taskkill /PID %a /F`
+            : `fuser -k ${port}/tcp 2>/dev/null || (lsof -ti tcp:${port} | xargs -r kill -9 2>/dev/null) || true`;
+    try {
+        exec(cmd, () => {});
+    } catch(e) {}
+}
+
+function killPortSync(port) {
+    const cmd =
+        process.platform === "win32"
+            ? `for /f "tokens=5" %a in ('netstat -aon ^| find ":${port}" ^| find "LISTENING"') do taskkill /PID %a /F`
+            : `fuser -k ${port}/tcp 2>/dev/null || (lsof -ti tcp:${port} | xargs -r kill -9 2>/dev/null) || true`;
+    try {
+        execSync(cmd, { stdio: "ignore" });
+    } catch(e) {}
+}
+
+function cleanupAllAppPortsSync() {
+    console.log('[System] Đang tự động dọn dẹp tất cả các cổng liên quan trước khi khởi chạy...');
+    APP_RELATED_PORTS.forEach(port => {
+        killPortSync(port);
+    });
+}
+
+function _old_killPort_unused(port) {
     const cmd =
         process.platform === "win32"
             ? `for /f "tokens=5" %a in ('netstat -aon ^| find ":${port}" ^| find "LISTENING"') do taskkill /PID %a /F`
@@ -1765,6 +1794,7 @@ function resolvePreload() {
 // ==== MAIN WINDOW ====
 function createMainWindow() {
     mainWindow = new BrowserWindow({
+        title: 'AI.Type',
         width: 1440,
         height: 1080,
         icon: path.join(__dirname, '../icons/icon.png'),
@@ -1789,6 +1819,12 @@ function createMainWindow() {
         },
     });
 
+    mainWindow.webContents.on('page-title-updated', (event, title) => {
+        if (mainWindow && !mainWindow.isDestroyed() && title) {
+            mainWindow.setTitle(title);
+        }
+    });
+
     mainWindow.maximize();
 
     if (app.isPackaged) {
@@ -1807,18 +1843,19 @@ function createMainWindow() {
 
         if (downloaderProcess) {
             downloaderProcess.kill("SIGTERM");
-            killPort(1133);
         }
 
         if (typeProcess) {
             typeProcess.kill("SIGTERM");
-            killPort(12345);
         }
 
         if (pdfApiProcess) {
             pdfApiProcess.kill("SIGTERM");
         }
-        killPort(48921);
+        stopTiktokPlugin();
+        stopAiAgent();
+        stopColabAgent();
+        cleanupAllAppPortsSync();
     });
 
     mainWindow.webContents.on(
@@ -3745,6 +3782,7 @@ function startTiktokPlugin() {
         }
 
         if (cmd) {
+            killPort(8000);
             tiktokPluginProcess = spawn(cmd, args, { stdio: 'pipe' });
             console.log(`[100 TikTokers Plugin] Khởi chạy: ${cmd} ${args.join(' ')}`);
 
@@ -3793,6 +3831,7 @@ function stopTiktokPlugin() {
             console.log('[100 TikTokers Plugin] Đã tắt');
         } catch (e) {}
     }
+    killPort(8000);
 }
 
 ipcMain.handle('toggle-tiktok-plugin', (event, enable) => {
@@ -4160,9 +4199,13 @@ app.on('will-quit', () => {
     stopZaloPlugin();
     stopColabAgent();
     stopTiktokPlugin();
+    cleanupAllAppPortsSync();
 });
 
 app.whenReady().then(async () => {
+    // Tự động dọn dẹp giải phóng toàn bộ các cổng liên quan trước khi khởi chạy
+    cleanupAllAppPortsSync();
+
     if (isAiAgentEnabled()) {
         startAiAgent();
     }
@@ -7133,6 +7176,53 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
         } else {
             return { success: false, error: 'Download complete but file not found.' };
         }
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('extract-online-video-stream', async (event, payload) => {
+    try {
+        const url = typeof payload === 'string' ? payload : (payload?.url || '');
+        if (!url || !url.trim()) {
+            return { success: false, error: 'Đường dẫn URL không hợp lệ.' };
+        }
+        const ytdlpPath = binaries.ytdlp || "yt-dlp";
+        const args = [
+            '--no-warnings',
+            '--rm-cache-dir',
+            '--no-playlist',
+            '-f', 'best[ext=mp4]/best',
+            '--print', '%(url)s',
+            '--print', '%(title)s',
+            '--print', '%(duration)s',
+            url.trim()
+        ];
+
+        return new Promise((resolve) => {
+            execFile(ytdlpPath, args, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+                if (err) {
+                    console.error('[yt-dlp extract stream error]', err, stderr);
+                    return resolve({ success: false, error: stderr || err.message });
+                }
+                const lines = (stdout || '').trim().split(/\r?\n/).filter(Boolean);
+                if (lines.length === 0) {
+                    return resolve({ success: false, error: 'Không lấy được luồng phát trực tiếp từ URL này.' });
+                }
+                const streamUrl = lines[0].trim();
+                const title = lines.length > 1 ? lines[1].trim() : 'Online Video';
+                const rawDuration = lines.length > 2 ? parseFloat(lines[2].trim()) : 0;
+                const duration = !isNaN(rawDuration) && rawDuration > 0 ? parseFloat(rawDuration.toFixed(1)) : 10;
+
+                resolve({
+                    success: true,
+                    streamUrl,
+                    title,
+                    duration,
+                    originalUrl: url.trim()
+                });
+            });
+        });
     } catch (err) {
         return { success: false, error: err.message };
     }

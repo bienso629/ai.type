@@ -13,6 +13,7 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { Voice2videoComponent } from 'app/modules/admin/content/ai-tts/ai-tts.component';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/tools/video-timeline-dialog.component';
+import { BroadcastPreviewDialogComponent } from 'app/modules/admin/content/ai-tts/tools/broadcast-preview-dialog.component';
 import { AddSceneComponent } from 'app/modules/admin/content/ai-tts/tools/add-scene.component';
 import { AudioGenerationComponent } from 'app/modules/admin/content/ai-tts/tools/audio-generation.component';
 import { NodeEditorComponent } from 'app/modules/admin/content/ai-tts/tools/node-editor/node-editor.component';
@@ -56,6 +57,7 @@ const Routes: Route[] = [
         DragDropModule,
         TextFieldModule,
         VideoTimelineDialogComponent,
+        BroadcastPreviewDialogComponent,
         AddSceneComponent,
         AudioGenerationComponent,
         MagicPromptDialogComponent,

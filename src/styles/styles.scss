@@ -97,7 +97,7 @@ hr {
 .mat-autocomplete-panel,
 .faint-shadow-menu {
     border: 1px solid var(--fuse-border, #e2e8f0) !important;
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+    box-shadow: none !important;
     filter: none !important;
     border-radius: 8px !important;
     background-color: #ffffff !important;
@@ -106,6 +106,9 @@ hr {
     --mat-autocomplete-background-color: #ffffff !important;
     --mat-menu-item-label-text-size: 0.875rem !important;
     --mat-option-label-text-size: 0.875rem !important;
+    --mat-menu-container-elevation-shadow: none !important;
+    --mat-select-panel-elevation-shadow: none !important;
+    --mat-autocomplete-elevation-shadow: none !important;
 
     .mat-mdc-menu-content {
         background-color: #ffffff !important;
@@ -124,6 +127,27 @@ hr {
         border: none !important;
         border-radius: 0 !important;
         background-color: transparent !important;
+
+        &.user-info-item,
+        &.mat-menu-item-multiline,
+        &.h-auto {
+            min-height: 48px !important;
+            height: auto !important;
+            line-height: normal !important;
+            padding: 10px 16px !important;
+
+            .mdc-list-item__primary-text,
+            .mat-mdc-menu-item-text {
+                line-height: normal !important;
+                width: 100% !important;
+                display: block !important;
+            }
+
+            span {
+                font-size: inherit !important;
+                line-height: inherit !important;
+            }
+        }
 
         .mdc-list-item__primary-text,
         .mat-mdc-menu-item-text,
@@ -226,7 +250,10 @@ hr {
     --mat-autocomplete-background-color: #0f172a !important;
     --mat-menu-item-label-text-size: 0.875rem !important;
     --mat-option-label-text-size: 0.875rem !important;
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5) !important;
+    --mat-menu-container-elevation-shadow: none !important;
+    --mat-select-panel-elevation-shadow: none !important;
+    --mat-autocomplete-elevation-shadow: none !important;
+    box-shadow: none !important;
     filter: none !important;
 
     .mat-mdc-menu-content {
@@ -246,6 +273,27 @@ hr {
         border: none !important;
         border-radius: 0 !important;
         background-color: transparent !important;
+
+        &.user-info-item,
+        &.mat-menu-item-multiline,
+        &.h-auto {
+            min-height: 48px !important;
+            height: auto !important;
+            line-height: normal !important;
+            padding: 10px 16px !important;
+
+            .mdc-list-item__primary-text,
+            .mat-mdc-menu-item-text {
+                line-height: normal !important;
+                width: 100% !important;
+                display: block !important;
+            }
+
+            span {
+                font-size: inherit !important;
+                line-height: inherit !important;
+            }
+        }
 
         .mdc-list-item__primary-text,
         .mat-mdc-menu-item-text,
@@ -779,9 +827,9 @@ ng-select {
 ng-dropdown-panel {
     border: 1px solid #e2e8f0 !important;
     border-radius: 8px !important;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05) !important;
+    box-shadow: none !important;
     z-index: 9999999 !important;
-    background-color: #f8fafc !important;
+    background-color: #ffffff !important;
     padding: 4px !important;
     box-sizing: border-box !important;
     width: 200px !important;
@@ -816,51 +864,48 @@ ng-dropdown-panel {
         > div {
             display: flex !important;
             flex-direction: column !important;
-            gap: 4px !important;
+            gap: 2px !important;
             height: auto !important;
         }
     }
 
     .ng-option,
     .ng-dropdown-panel-items .ng-option {
-        min-height: 40px !important;
-        height: 40px !important;
-        line-height: 40px !important;
-        padding: 0 14px !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        line-height: 38px !important;
+        padding: 0 12px !important;
         display: flex !important;
         align-items: center !important;
         font-size: 0.875rem !important; /* text-sm */
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 4px !important;
+        border: none !important;
+        border-radius: 6px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
+        background-color: transparent !important;
+        color: #1e293b !important;
+        cursor: pointer !important;
+        transition: background-color 0.15s ease, color 0.15s ease !important;
 
         &.ng-option-disabled {
             font-size: 0.875rem !important;
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
         }
 
         .ng-option-label {
             font-size: 0.875rem !important; /* text-sm */
         }
 
-        /* Màu chẵn lẻ (Zebra striping) */
-        &:nth-child(odd) {
-            background-color: #ffffff !important;
-        }
-
-        &:nth-child(even) {
-            background-color: #f8fafc !important;
-        }
-
         &.ng-option-marked,
         &:hover {
-            background-color: #e2e8f0 !important;
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
         }
 
         &.ng-option-selected {
             color: var(--fuse-primary-700) !important;
             background-color: #e0f2fe !important;
-            border-color: #93c5fd !important;
 
             .ng-option-label {
                 font-weight: 600 !important;
@@ -883,51 +928,52 @@ ng-dropdown-panel {
         > div {
             display: flex !important;
             flex-direction: column !important;
-            gap: 4px !important;
+            gap: 2px !important;
             height: auto !important;
         }
     }
 
     .ng-option,
     .ng-dropdown-panel-items .ng-option {
-        min-height: 40px !important;
-        height: 40px !important;
-        line-height: 40px !important;
-        padding: 0 14px !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        line-height: 38px !important;
+        padding: 0 12px !important;
         display: flex !important;
         align-items: center !important;
         font-size: 0.875rem !important; /* text-sm */
-        border: 1px solid #1e293b !important;
-        border-radius: 4px !important;
+        border: none !important;
+        border-radius: 6px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
-        color: #f1f5f9;
+        color: #f1f5f9 !important;
+        background-color: transparent !important;
+        cursor: pointer !important;
+        transition: background-color 0.15s ease, color 0.15s ease !important;
 
         &.ng-option-disabled {
             font-size: 0.875rem !important;
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
         }
 
         .ng-option-label {
             font-size: 0.875rem !important; /* text-sm */
         }
 
-        &:nth-child(odd) {
-            background-color: #0f172a !important;
-        }
-
-        &:nth-child(even) {
-            background-color: #1e293b !important;
-        }
-
         &.ng-option-marked,
         &:hover {
-            background-color: #334155 !important;
+            background-color: #1e293b !important;
+            color: #ffffff !important;
         }
 
         &.ng-option-selected {
             color: var(--fuse-primary-400, #60a5fa) !important;
             background-color: #1e3a8a !important;
-            border-color: #3b82f6 !important;
+
+            .ng-option-label {
+                font-weight: 600 !important;
+            }
         }
     }
 }
@@ -1683,5 +1729,15 @@ timeline-calendar .date-marker {
         /* Yellow / Amber 600 */
         border-bottom-color: #92400e !important;
         color: #ffffff !important;
+    }
+}
+
+.dark-broadcast-dialog {
+    .mat-dialog-container {
+        padding: 0 !important;
+        background: transparent !important;
+        border-radius: 16px !important;
+        overflow: hidden !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75) !important;
     }
 }
