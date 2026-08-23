@@ -36,13 +36,18 @@
         </div>
 
         <div class="flex items-center gap-2 flex-shrink-0 z-10">
-            <!-- Label CTRL + S -->
+            <!-- Label CTRL + S / Save Button with Loading State -->
             <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono border transition-all cursor-pointer select-none"
-                [ngClass]="hasUnsavedChanges ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-neutral-800/80 border-neutral-700/60 text-neutral-400 hover:text-neutral-200'"
+                [ngClass]="{
+                    'bg-indigo-950/70 border-indigo-500/80 text-indigo-300 pointer-events-none': isSaving,
+                    'bg-amber-500/10 border-amber-500/40 text-amber-300': !isSaving && hasUnsavedChanges,
+                    'bg-neutral-800/80 border-neutral-700/60 text-neutral-400 hover:text-neutral-200': !isSaving && !hasUnsavedChanges
+                }"
                 (click)="saveData(true)"
-                title="Nhấn CTRL + S để lưu">
-                <span class="w-1.5 h-1.5 rounded-full" [ngClass]="hasUnsavedChanges ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"></span>
-                <span>CTRL + S</span>
+                [title]="isSaving ? 'Đang lưu dữ liệu...' : 'Nhấn CTRL + S để lưu'">
+                <mat-progress-spinner *ngIf="isSaving" diameter="12" strokeWidth="2" mode="indeterminate" class="text-indigo-400"></mat-progress-spinner>
+                <span *ngIf="!isSaving" class="w-1.5 h-1.5 rounded-full" [ngClass]="hasUnsavedChanges ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"></span>
+                <span>{{ isSaving ? 'Đang lưu...' : 'CTRL + S' }}</span>
             </div>
 
             <button *ngIf="!projectData?.scenes?.length" mat-icon-button
@@ -104,11 +109,21 @@
                             (click)="mediaFilterTab = 'audio'">
                             Audio
                         </button>
-                        <button class="flex-1 py-1 rounded transition-colors"
-                            [ngClass]="mediaFilterTab === 'text' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
-                            (click)="mediaFilterTab = 'text'">
-                            Text
-                        </button>
+                        <div class="flex-1 flex items-center justify-center relative">
+                            <button class="w-full py-1 rounded transition-colors flex items-center justify-center gap-0.5"
+                                [ngClass]="mediaFilterTab === 'text' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
+                                (click)="mediaFilterTab = 'text'">
+                                <span>Text</span>
+                                <span class="text-[8px] px-1 py-0.2 bg-black/40 rounded text-neutral-300 font-mono uppercase">
+                                    {{ currentSubtitleLang }}
+                                </span>
+                                <mat-icon [matMenuTriggerFor]="subtitleLangMenu" (click)="$event.stopPropagation()"
+                                    class="icon-size-3.5 text-neutral-300 hover:text-white transition-transform hover:scale-125 cursor-pointer !m-0 !p-0"
+                                    title="Danh sách ngôn ngữ phụ đề">
+                                    arrow_drop_down
+                                </mat-icon>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Search Box -->
@@ -860,6 +875,40 @@
         <button mat-menu-item (click)="importSrtFile()">
             <mat-icon class="text-green-400">subtitles</mat-icon>
             <span>Nhập toàn bộ file phụ đề (.srt, .vtt)</span>
+        </button>
+    </mat-menu>
+
+    <!-- Subtitle Languages Dropdown Menu -->
+    <mat-menu #subtitleLangMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <div class="px-3.5 py-2 border-b border-neutral-800 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center justify-between gap-4">
+            <span class="flex items-center gap-1.5">
+                <mat-icon class="icon-size-3.5 text-indigo-400">translate</mat-icon>
+                Ngôn ngữ phụ đề
+            </span>
+            <span *ngIf="isTranslatingSubtitles" class="flex items-center gap-1.5 text-[10px] text-amber-400 font-normal">
+                <mat-progress-spinner diameter="12" strokeWidth="2" mode="indeterminate" class="text-amber-400"></mat-progress-spinner>
+                Đang dịch AI...
+            </span>
+            <span *ngIf="!isTranslatingSubtitles" class="text-[10px] text-indigo-400 font-mono font-normal">{{ getAllProjectSubtitles().length }} câu</span>
+        </div>
+        
+        <button *ngFor="let lang of getAvailableSubtitleLanguages()" mat-menu-item (click)="switchSubtitleLanguage(lang.code)">
+            <div class="flex items-center justify-between w-full gap-4 whitespace-nowrap">
+                <div class="flex items-center gap-2.5 whitespace-nowrap">
+                    <span class="text-base leading-none flex-shrink-0">{{ lang.icon }}</span>
+                    <span class="whitespace-nowrap flex-shrink-0" [ngClass]="{'font-semibold text-indigo-300': lang.isCurrent, 'text-neutral-200': !lang.isCurrent}">
+                        {{ lang.label }}
+                    </span>
+                </div>
+                <mat-icon *ngIf="lang.isCurrent" class="icon-size-4 text-emerald-400 flex-shrink-0">check</mat-icon>
+            </div>
+        </button>
+
+        <mat-divider></mat-divider>
+
+        <button mat-menu-item (click)="exportCurrentSubtitles()">
+            <mat-icon class="icon-size-4 text-amber-400">download</mat-icon>
+            <span>Xuất file phụ đề (.srt / .vtt)</span>
         </button>
     </mat-menu>
 

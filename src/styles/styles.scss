@@ -1155,12 +1155,32 @@ fuse-confirmation-dialog {
 }
 
 .ngx-toastr {
-    box-shadow: none !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    padding: 12px 16px 12px 50px !important;
+    min-height: 48px !important;
+    display: flex !important;
+    align-items: center !important;
+
+    .toast-title {
+        display: none !important;
+    }
+
+    .toast-message {
+        font-size: 13px !important;
+        line-height: 1.4 !important;
+        font-weight: 500 !important;
+        display: -webkit-box !important;
+        -webkit-line-clamp: 2 !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        word-break: break-word !important;
+    }
 }
 
-.toast-title,
-.toast-message {
-    font-size: 14px;
+.toast-title {
+    display: none !important;
 }
 
 .ql-editor {
@@ -1563,14 +1583,11 @@ input[type=checkbox]:checked:after {
         transition: background-color 0.15s ease, color 0.15s ease !important;
 
         .mdc-list-item__primary-text,
-        .mat-mdc-menu-item-text,
-        span {
+        .mat-mdc-menu-item-text {
             font-size: 0.8125rem !important;
             color: #e4e4e7 !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 10px !important;
             width: 100% !important;
+            white-space: nowrap !important;
         }
 
         .mat-icon {
