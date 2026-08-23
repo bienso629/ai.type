@@ -2941,6 +2941,51 @@ ipcMain.handle("read-text-file", async (event, args) => {
     }
 });
 
+ipcMain.handle("scan-subtitles-in-project", async (event, args) => {
+    const { projectDir, uuid } = args || {};
+    try {
+        let dir = projectDir;
+        if (!dir && uuid) {
+            const downloadsPath = app.getPath('downloads');
+            dir = path.join(downloadsPath, 'AI.TYPING', uuid);
+        }
+        if (!dir || !fs.existsSync(dir)) {
+            return { success: false, error: 'Directory not found: ' + dir };
+        }
+
+        const files = fs.readdirSync(dir);
+        const srtFiles = files.filter(f => f.endsWith('.srt'));
+        
+        let originalSrt = srtFiles.find(f => !f.endsWith('_vi.srt') && f.startsWith('video_audio_'));
+        let viSrt = srtFiles.find(f => f.endsWith('_vi.srt'));
+
+        if (!originalSrt && srtFiles.length > 0) {
+            originalSrt = srtFiles.find(f => !f.endsWith('_vi.srt')) || srtFiles[0];
+        }
+
+        let originalContent = null;
+        let viContent = null;
+
+        if (originalSrt) {
+            originalContent = fs.readFileSync(path.join(dir, originalSrt), 'utf-8');
+        }
+        if (viSrt) {
+            viContent = fs.readFileSync(path.join(dir, viSrt), 'utf-8');
+        }
+
+        return {
+            success: true,
+            originalSrtFile: originalSrt,
+            viSrtFile: viSrt,
+            originalContent,
+            viContent
+        };
+    } catch (e) {
+        console.error('[scan-subtitles-in-project] Error:', e);
+        return { success: false, error: e.message };
+    }
+});
+
 ipcMain.handle("get-ai-agent-context", async () => {
     try {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
@@ -5560,6 +5605,8 @@ app.whenReady().then(async () => {
                         results.push({
                             audioPath: outputPath,
                             text: seg.text || "",
+                            originalText: seg.originalText || seg.text || "",
+                            vietnameseText: seg.vietnameseText || "",
                             startTime: startTime,
                             duration: duration
                         });

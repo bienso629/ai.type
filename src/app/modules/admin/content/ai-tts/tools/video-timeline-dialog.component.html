@@ -109,19 +109,17 @@
                             (click)="mediaFilterTab = 'audio'">
                             Audio
                         </button>
-                        <div class="flex-1 flex items-center justify-center relative">
-                            <button class="w-full py-1 rounded transition-colors flex items-center justify-center gap-0.5"
-                                [ngClass]="mediaFilterTab === 'text' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
+                        <div class="flex-1 flex items-center justify-between relative rounded overflow-hidden"
+                            [ngClass]="mediaFilterTab === 'text' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-transparent text-neutral-400 hover:text-neutral-200'">
+                            <button class="flex-1 py-1 pl-2 pr-1 flex items-center justify-center text-inherit"
                                 (click)="mediaFilterTab = 'text'">
                                 <span>Text</span>
-                                <span class="text-[8px] px-1 py-0.2 bg-black/40 rounded text-neutral-300 font-mono uppercase">
-                                    {{ currentSubtitleLang }}
-                                </span>
-                                <mat-icon [matMenuTriggerFor]="subtitleLangMenu" (click)="$event.stopPropagation()"
-                                    class="icon-size-3.5 text-neutral-300 hover:text-white transition-transform hover:scale-125 cursor-pointer !m-0 !p-0"
-                                    title="Danh sách ngôn ngữ phụ đề">
-                                    arrow_drop_down
-                                </mat-icon>
+                            </button>
+                            <button [matMenuTriggerFor]="subtitleLangMenu"
+                                class="px-1.5 py-0.5 mr-1 bg-black/35 hover:bg-black/60 active:scale-95 rounded text-[9px] font-mono text-neutral-200 hover:text-white transition-all flex items-center gap-0.5 flex-shrink-0"
+                                title="Chọn ngôn ngữ phụ đề">
+                                <span class="uppercase font-semibold leading-none">{{ currentSubtitleLang }}</span>
+                                <mat-icon class="icon-size-3 !w-3 !h-3 !text-[12px] opacity-75 !m-0 !p-0">arrow_drop_down</mat-icon>
                             </button>
                         </div>
                     </div>
@@ -269,11 +267,18 @@
                         (ended)="onVideoEnded()" (pause)="onVideoPauseEvent()"
                         (play)="onVideoPlayEvent()"></audio>
 
-                    <!-- Subtitle Caption Overlay on Video Preview -->
-                    <div *ngIf="currentSubtitleText" 
-                         class="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[85%] px-3.5 py-1.5 bg-black/85 border border-neutral-700/80 text-white font-medium text-xs md:text-sm text-center rounded-lg pointer-events-none z-40 select-none shadow-2xl backdrop-blur-sm transition-all duration-100"
-                         style="text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.8);">
-                        {{ currentSubtitleText }}
+                    <!-- Subtitle Caption Overlay on Video Preview (Song ngữ Dual Subtitles - Clean Cinematic Style) -->
+                    <div *ngIf="currentSubtitleInfo" 
+                         class="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-[92%] pointer-events-none z-40 select-none transition-all duration-100 flex flex-col items-center justify-center gap-1 text-center"
+                         style="text-shadow: 0 2px 4px #000, 0 0 10px #000, 0 0 20px #000, 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;">
+                        <!-- Dòng 1: Ngôn ngữ chính / Gốc (Chữ to, trắng đậm, viền đen điện ảnh) -->
+                        <span class="text-white font-bold text-base md:text-xl lg:text-2xl leading-snug tracking-wide">
+                            {{ currentSubtitleInfo.primaryText }}
+                        </span>
+                        <!-- Dòng 2: Tiếng Việt (Chữ vàng tươi, to rõ bên dưới) -->
+                        <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold text-sm md:text-base lg:text-lg leading-snug tracking-wide">
+                            {{ currentSubtitleInfo.secondaryText }}
+                        </span>
                     </div>
 
                     <!-- Global Timeline Play/Pause Overlay Button -->
@@ -893,14 +898,14 @@
         </div>
         
         <button *ngFor="let lang of getAvailableSubtitleLanguages()" mat-menu-item (click)="switchSubtitleLanguage(lang.code)">
-            <div class="flex items-center justify-between w-full gap-4 whitespace-nowrap">
-                <div class="flex items-center gap-2.5 whitespace-nowrap">
-                    <span class="text-base leading-none flex-shrink-0">{{ lang.icon }}</span>
-                    <span class="whitespace-nowrap flex-shrink-0" [ngClass]="{'font-semibold text-indigo-300': lang.isCurrent, 'text-neutral-200': !lang.isCurrent}">
+            <div class="flex items-center justify-between w-full gap-4 whitespace-nowrap pointer-events-none">
+                <div class="flex items-center gap-2.5 whitespace-nowrap pointer-events-none">
+                    <span class="text-base leading-none flex-shrink-0 pointer-events-none">{{ lang.icon }}</span>
+                    <span class="whitespace-nowrap flex-shrink-0 pointer-events-none" [ngClass]="{'font-semibold text-indigo-300': lang.isCurrent, 'text-neutral-200': !lang.isCurrent}">
                         {{ lang.label }}
                     </span>
                 </div>
-                <mat-icon *ngIf="lang.isCurrent" class="icon-size-4 text-emerald-400 flex-shrink-0">check</mat-icon>
+                <mat-icon *ngIf="lang.isCurrent" class="icon-size-4 text-emerald-400 flex-shrink-0 pointer-events-none">check</mat-icon>
             </div>
         </button>
 

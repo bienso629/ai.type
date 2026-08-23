@@ -23,6 +23,9 @@ import { ToastrService } from 'ngx-toastr';
 export interface BroadcastSubtitleItem {
     id?: any;
     text: string;
+    originalText?: string;
+    vietnameseText?: string;
+    translations?: { [lang: string]: string };
     startTime: number;
     duration: number;
 }
@@ -62,6 +65,7 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
     
     subtitles: BroadcastSubtitleItem[] = [];
     activeSubtitleText: string | null = null;
+    activeSubtitleInfo: { primaryText: string, secondaryText?: string } | null = null;
     activeSubtitleIndex: number = -1;
 
     currentTime: number = 0;
@@ -224,9 +228,15 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
         video.play().catch(() => {});
     }
 
+    isLikelyVietnamese(text: string): boolean {
+        if (!text) return false;
+        return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(text);
+    }
+
     updateActiveSubtitle(time: number): void {
         let foundIndex = -1;
         let foundText: string | null = null;
+        let foundInfo: { primaryText: string, secondaryText?: string } | null = null;
 
         for (let i = 0; i < this.subtitles.length; i++) {
             const sub = this.subtitles[i];
@@ -235,6 +245,26 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
             if (time >= start && time < end) {
                 foundIndex = i;
                 foundText = sub.text;
+
+                let original = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || '';
+                let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || '';
+
+                if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) {
+                    vietnamese = sub.text;
+                }
+                if (!original && sub.text && !this.isLikelyVietnamese(sub.text)) {
+                    original = sub.text;
+                }
+
+                if (original && vietnamese && original.trim().toLowerCase() !== vietnamese.trim().toLowerCase()) {
+                    foundInfo = {
+                        primaryText: original.trim(),
+                        secondaryText: vietnamese.trim()
+                    };
+                } else {
+                    const mainText = sub.text || original || vietnamese || '';
+                    foundInfo = mainText ? { primaryText: mainText } : null;
+                }
                 break;
             }
         }
@@ -242,6 +272,7 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
         if (this.activeSubtitleIndex !== foundIndex) {
             this.activeSubtitleIndex = foundIndex;
             this.activeSubtitleText = foundText;
+            this.activeSubtitleInfo = foundInfo;
             this.cd.detectChanges();
 
             if (foundIndex !== -1 && this.showSidebar) {

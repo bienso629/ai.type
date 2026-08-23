@@ -103,23 +103,33 @@
                 (click)="togglePlayPause()">
             </video>
 
-            <!-- Subtitle Caption Overlay on Video -->
-            <div *ngIf="showSubtitles && activeSubtitleText"
-                class="absolute left-1/2 -translate-x-1/2 max-w-[85%] text-center pointer-events-none select-none z-20 transition-all duration-100"
+            <!-- Subtitle Caption Overlay on Video (Song ngữ Dual Subtitles - Clean Cinematic Style) -->
+            <div *ngIf="showSubtitles && activeSubtitleInfo"
+                class="absolute left-1/2 -translate-x-1/2 w-full max-w-[92%] text-center pointer-events-none select-none z-20 transition-all duration-100 flex flex-col items-center justify-center gap-1"
                 [ngClass]="{
-                    'bottom-16': subtitlePosition === 'bottom',
+                    'bottom-12 md:bottom-16': subtitlePosition === 'bottom',
                     'top-1/2 -translate-y-1/2': subtitlePosition === 'middle',
                     'top-12': subtitlePosition === 'top'
-                }">
-                <div class="inline-block px-4 py-2 rounded-xl backdrop-blur-md transition-all font-medium text-white tracking-wide"
+                }"
+                style="text-shadow: 0 2px 4px #000, 0 0 10px #000, 0 0 20px #000, 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;">
+                <!-- Dòng 1: Ngôn ngữ chính / Gốc (Chữ to rõ, màu trắng in đậm) -->
+                <span class="text-white font-bold leading-snug tracking-wide"
                     [ngClass]="{
-                        'text-sm md:text-base bg-black/75 shadow-lg border border-white/10': subtitleSize === 'small',
-                        'text-base md:text-xl bg-black/85 shadow-2xl border border-white/15': subtitleSize === 'medium',
-                        'text-lg md:text-2xl font-bold bg-black/90 shadow-2xl border border-white/20': subtitleSize === 'large'
-                    }"
-                    style="text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.8);">
-                    {{ activeSubtitleText }}
-                </div>
+                        'text-base md:text-lg': subtitleSize === 'small',
+                        'text-lg md:text-2xl': subtitleSize === 'medium',
+                        'text-xl md:text-3xl lg:text-4xl': subtitleSize === 'large'
+                    }">
+                    {{ activeSubtitleInfo.primaryText }}
+                </span>
+                <!-- Dòng 2: Tiếng Việt (Chữ vàng tươi bên dưới) -->
+                <span *ngIf="activeSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold leading-snug tracking-wide"
+                    [ngClass]="{
+                        'text-xs md:text-sm': subtitleSize === 'small',
+                        'text-sm md:text-lg': subtitleSize === 'medium',
+                        'text-base md:text-xl lg:text-2xl': subtitleSize === 'large'
+                    }">
+                    {{ activeSubtitleInfo.secondaryText }}
+                </span>
             </div>
         </div>
 
@@ -140,8 +150,6 @@
                     <mat-icon class="icon-size-4">file_upload</mat-icon>
                 </button>
             </div>
-
-
 
             <!-- Subtitles List -->
             <div class="flex-1 overflow-y-auto p-2 space-y-1.5 scene-scroll-area">
@@ -164,8 +172,13 @@
                         </span>
                         <span class="text-neutral-500">{{ sub.duration | number:'1.0-1' }}s</span>
                     </div>
-                    <p class="text-xs leading-relaxed" [ngClass]="activeSubtitleIndex === i ? 'font-semibold text-white' : 'text-neutral-300'">
-                        {{ sub.text }}
+                    <!-- Dòng 1: Ngôn ngữ gốc / chính -->
+                    <p class="text-xs leading-relaxed font-semibold text-white">
+                        {{ sub.originalText || sub.text }}
+                    </p>
+                    <!-- Dòng 2: Bản dịch tiếng Việt nếu có -->
+                    <p *ngIf="sub.vietnameseText && sub.vietnameseText !== (sub.originalText || sub.text)" class="text-[11px] leading-relaxed text-yellow-400 font-medium">
+                        {{ sub.vietnameseText }}
                     </p>
                 </div>
             </div>
