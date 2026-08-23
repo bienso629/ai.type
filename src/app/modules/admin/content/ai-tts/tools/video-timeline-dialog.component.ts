@@ -2507,7 +2507,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             maxWidth: '1240px',
             height: '88vh',
             maxHeight: '820px',
-            panelClass: 'dark-broadcast-dialog',
+            panelClass: ['dark-broadcast-dialog', 'dialog-no-padding'],
             data: {
                 title: this.projectData?.title || this.projectData?.extraPrompt || 'Phát sóng video',
                 videoUrl: videoUrl || undefined,
@@ -3897,8 +3897,312 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
             }
         }
 
+        if (this.activeItem && this.activeItem.audioUrl) {
+            this.initInspectorWaveSurfer(this.activeItem.audioUrl);
+        } else {
+            this.destroyInspectorWaveSurfer();
+        }
+
         if (!item) {
             this.updateTimelineSync();
+        }
+    }
+
+    inspectorWaveSurfer: WaveSurfer | null = null;
+    isInspectorAudioPlaying: boolean = false;
+
+    destroyInspectorWaveSurfer() {
+        if (this.inspectorWaveSurfer) {
+            try {
+                this.inspectorWaveSurfer.destroy();
+            } catch (e) { }
+            this.inspectorWaveSurfer = null;
+            this.isInspectorAudioPlaying = false;
+        }
+    }
+
+    initInspectorWaveSurfer(audioUrl: string) {
+        this.destroyInspectorWaveSurfer();
+        if (!audioUrl) return;
+
+        setTimeout(() => {
+            const container = document.getElementById('inspector-waveform-container');
+            if (!container) return;
+
+            try {
+                const ws = WaveSurfer.create({
+                    container: container,
+                    waveColor: '#6366f1',
+                    progressColor: '#a5b4fc',
+                    cursorColor: '#f43f5e',
+                    height: 44,
+                    barWidth: 2,
+                    barGap: 2,
+                    barRadius: 2,
+                    interact: true
+                });
+
+                ws.load(this.getAudioPlayUrl(audioUrl));
+
+                ws.on('play', () => {
+                    this.isInspectorAudioPlaying = true;
+                    this.cd.detectChanges();
+                });
+
+                ws.on('pause', () => {
+                    this.isInspectorAudioPlaying = false;
+                    this.cd.detectChanges();
+                });
+
+                ws.on('finish', () => {
+                    this.isInspectorAudioPlaying = false;
+                    this.cd.detectChanges();
+                });
+
+                this.inspectorWaveSurfer = ws;
+            } catch (err) {
+                console.error('Error creating inspector WaveSurfer:', err);
+            }
+        }, 120);
+    }
+
+    toggleInspectorWaveSurfer() {
+        if (!this.inspectorWaveSurfer) return;
+        if (this.inspectorWaveSurfer.isPlaying()) {
+            this.inspectorWaveSurfer.pause();
+        } else {
+            this.inspectorWaveSurfer.play();
+        }
+    }
+
+    mediaFilterTab: 'all' | 'video' | 'audio' | 'text' = 'all';
+    mediaSearchText: string = '';
+    previewSnippetAudio: HTMLAudioElement | null = null;
+    playingAudioSnippetUrl: string | null = null;
+
+    seekTimelineTo(seconds: number) {
+        this.currentTimelineTime = Math.max(0, seconds || 0);
+        this.updateTimelineSync();
+        this.cd.detectChanges();
+    }
+
+    seekTimelineToStart() {
+        this.seekTimelineTo(0);
+    }
+
+    formatTimelineTime(seconds: number): string {
+        if (!seconds || isNaN(seconds) || seconds < 0) return '00:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    getAllProjectVideos(): any[] {
+        const list: any[] = [];
+        if (!this.projectData || !this.projectData.scenes) return list;
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (scene.videos) {
+                for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
+                    list.push({
+                        ...scene.videos[vIdx],
+                        _raw: scene.videos[vIdx],
+                        sceneIdx: sIdx,
+                        vIdx: vIdx,
+                        type: 'video'
+                    });
+                }
+            }
+        }
+        return list;
+    }
+
+    getAllProjectAudios(): any[] {
+        const list: any[] = [];
+        if (!this.projectData || !this.projectData.scenes) return list;
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (scene.extractedAudios) {
+                for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                    list.push({
+                        ...scene.extractedAudios[aIdx],
+                        _raw: scene.extractedAudios[aIdx],
+                        sceneIdx: sIdx,
+                        aIdx: aIdx,
+                        type: 'extractedAudio',
+                        title: 'Âm thanh gốc #' + (aIdx + 1)
+                    });
+                }
+            }
+            if (scene.subtitles) {
+                for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                    const sub = scene.subtitles[subIdx];
+                    if (sub.audioUrl) {
+                        list.push({
+                            ...sub,
+                            _raw: sub,
+                            sceneIdx: sIdx,
+                            subIdx: subIdx,
+                            type: 'audio',
+                            title: sub.text ? (sub.text.length > 25 ? sub.text.substring(0, 25) + '...' : sub.text) : ('Audio #' + (subIdx + 1))
+                        });
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
+    getAllProjectSubtitles(): any[] {
+        const list: any[] = [];
+        if (!this.projectData || !this.projectData.scenes) return list;
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (scene.subtitles) {
+                for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                    list.push({
+                        ...scene.subtitles[subIdx],
+                        _raw: scene.subtitles[subIdx],
+                        sceneIdx: sIdx,
+                        subIdx: subIdx,
+                        type: 'subtitle'
+                    });
+                }
+            }
+        }
+        return list;
+    }
+
+    getFilteredMediaItems(): any[] {
+        let items: any[] = [];
+        if (this.mediaFilterTab === 'all' || this.mediaFilterTab === 'video') {
+            items = items.concat(this.getAllProjectVideos());
+        }
+        if (this.mediaFilterTab === 'all' || this.mediaFilterTab === 'audio') {
+            items = items.concat(this.getAllProjectAudios());
+        }
+        if (this.mediaFilterTab === 'all' || this.mediaFilterTab === 'text') {
+            items = items.concat(this.getAllProjectSubtitles());
+        }
+
+        if (this.mediaSearchText && this.mediaSearchText.trim()) {
+            const q = this.mediaSearchText.trim().toLowerCase();
+            items = items.filter(it => {
+                const textMatch = it.text && it.text.toLowerCase().includes(q);
+                const promptMatch = it.prompt && it.prompt.toLowerCase().includes(q);
+                const titleMatch = it.title && it.title.toLowerCase().includes(q);
+                return textMatch || promptMatch || titleMatch;
+            });
+        }
+        return items;
+    }
+
+    trackByMediaItem(index: number, item: any): string {
+        if (!item) return String(index);
+        const raw = item._raw || item;
+        const id = raw.id || `${item.type}_${item.sceneIdx}_${item.vIdx ?? item.subIdx ?? item.aIdx ?? index}`;
+        return `${item.type}_${id}`;
+    }
+
+    playSnippetAudio(url: string, event?: MouseEvent) {
+        if (event) event.stopPropagation();
+        if (!url) return;
+
+        if (this.playingAudioSnippetUrl === url && this.previewSnippetAudio) {
+            this.previewSnippetAudio.pause();
+            this.previewSnippetAudio = null;
+            this.playingAudioSnippetUrl = null;
+            return;
+        }
+
+        if (this.previewSnippetAudio) {
+            this.previewSnippetAudio.pause();
+            this.previewSnippetAudio = null;
+        }
+
+        const rawUrl = this.getRawMediaUrl(url);
+        if (!rawUrl) return;
+
+        this.previewSnippetAudio = new Audio(rawUrl as string);
+        this.playingAudioSnippetUrl = url;
+        this.previewSnippetAudio.play().catch(() => { });
+        this.previewSnippetAudio.onended = () => {
+            this.playingAudioSnippetUrl = null;
+            this.previewSnippetAudio = null;
+            this.cd.detectChanges();
+        };
+    }
+
+    getItemType(item: any): 'text' | 'audio' | 'video' | 'unknown' {
+        if (!item) return 'unknown';
+
+        // 1. Explicit type tag
+        if (item.type === 'extractedAudio' || item.type === 'audio') return 'audio';
+        if (item.type === 'video') return 'video';
+        if (item.type === 'subtitle' || item.type === 'text') return 'text';
+
+        // 2. Direct membership in projectData scenes
+        if (this.projectData && this.projectData.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.extractedAudios && scene.extractedAudios.includes(item)) {
+                    return 'audio';
+                }
+                if (scene.videos && scene.videos.includes(item)) {
+                    return 'video';
+                }
+                if (scene.subtitles && scene.subtitles.includes(item)) {
+                    return 'text';
+                }
+            }
+        }
+
+        // 3. Extracted Audio markers
+        if (item.isExtractedAudio || item.text === '[Âm thanh gốc]') return 'audio';
+
+        // 4. Video markers
+        if (item.videoUrl || item.imageUrl || (item.prompt !== undefined && !item.audioUrl)) return 'video';
+
+        // 5. Audio vs Subtitle
+        if (item.audioUrl && (item.text === undefined || item.text === '[Âm thanh gốc]' || !item.text)) return 'audio';
+        if (item.text !== undefined) return 'text';
+        if (item.audioUrl) return 'audio';
+
+        return 'unknown';
+    }
+
+    deleteActiveItem() {
+        if (!this.activeItem) return;
+        const item = this.activeItem;
+        const type = this.getItemType(item);
+
+        if (this.projectData && this.projectData.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+                if (type === 'text' && scene.subtitles) {
+                    const idx = scene.subtitles.indexOf(item);
+                    if (idx !== -1) {
+                        this.removeSubtitle(sIdx, idx);
+                        this.activeItem = null;
+                        return;
+                    }
+                }
+                if (type === 'audio' && scene.extractedAudios) {
+                    const idx = scene.extractedAudios.indexOf(item);
+                    if (idx !== -1) {
+                        this.removeExtractedAudio(sIdx, idx);
+                        this.activeItem = null;
+                        return;
+                    }
+                }
+                if (type === 'video' && scene.videos) {
+                    const idx = scene.videos.indexOf(item);
+                    if (idx !== -1) {
+                        this.removeVideo(sIdx, idx);
+                        this.activeItem = null;
+                        return;
+                    }
+                }
+            }
         }
     }
 
@@ -4330,6 +4634,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
         this.pauseTimeline();
 
         // Huỷ toàn bộ WaveSurfer
+        this.destroyInspectorWaveSurfer();
         for (const key in this.wavesurfers) {
             try {
                 this.wavesurfers[key]?.destroy();

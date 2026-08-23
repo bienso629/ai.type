@@ -1732,12 +1732,23 @@ timeline-calendar .date-marker {
     }
 }
 
-.dark-broadcast-dialog {
-    .mat-dialog-container {
+.dark-broadcast-dialog,
+.cdk-overlay-pane.dark-broadcast-dialog,
+.cdk-overlay-pane:has(.dark-broadcast-dialog) {
+    background: transparent !important;
+    background-color: transparent !important;
+
+    .mat-mdc-dialog-container,
+    .mat-dialog-container,
+    .mdc-dialog__container,
+    .mdc-dialog__surface,
+    .mat-mdc-dialog-surface {
         padding: 0 !important;
         background: transparent !important;
+        background-color: transparent !important;
         border-radius: 16px !important;
         overflow: hidden !important;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75) !important;
+        border: none !important;
     }
 }

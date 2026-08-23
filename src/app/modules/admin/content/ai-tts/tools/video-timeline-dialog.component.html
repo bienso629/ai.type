@@ -64,46 +64,404 @@
 
     <div mat-dialog-content class="!p-0 flex flex-col overflow-hidden flex-grow min-h-0 !max-h-none bg-black">
 
-        <!-- Preview Area (Upper Half) -->
-        <div class="w-full flex-grow flex-shrink min-h-[20vh] bg-[#0a0a0a] p-3 md:p-4 flex flex-col items-center justify-center relative group">
-            <div class="w-full h-full relative flex flex-col items-center justify-center">
-                <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                    class="max-w-full max-h-full object-contain cursor-pointer"
-                    (click)="toggleTimelinePlay()"
-                    (ended)="onVideoEnded()"
-                    (pause)="onVideoPauseEvent()"
-                    (play)="onVideoPlayEvent()"></video>
-                <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                    class="max-w-full max-h-full object-contain cursor-pointer"
-                    (click)="toggleTimelinePlay()" />
+        <!-- Upper Half: 3 Columns (Media Library, Video Preview, Inspector) -->
+        <div class="w-full flex-1 min-h-0 flex flex-row bg-[#0b0c10] border-b border-neutral-800/90 overflow-hidden select-none">
+            
+            <!-- ===== CỘT 1: MEDIA CỦA DỰ ÁN (PROJECT MEDIA / ASSETS) ===== -->
+            <div class="w-72 md:w-80 xl:w-88 flex flex-col border-r border-neutral-800 bg-[#121318] flex-shrink-0 min-h-0 overflow-hidden">
+                <!-- Header Cột 1 -->
+                <div class="px-3.5 py-2.5 bg-[#171820] border-b border-neutral-800 flex items-center justify-between flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <mat-icon class="icon-size-4 text-indigo-400">perm_media</mat-icon>
+                        <span class="text-xs font-semibold text-neutral-200 uppercase tracking-wider">Media dự án</span>
+                        <span class="px-1.5 py-0.2 text-[10px] font-mono bg-neutral-800 text-neutral-400 rounded-full">
+                            {{ getFilteredMediaItems().length }}
+                        </span>
+                    </div>
 
-                <div *ngIf="!previewVideoUrl && !previewImageUrl"
-                    class="text-gray-400 flex flex-col items-center justify-center h-full cursor-pointer hover:text-white transition-colors"
-                    (click)="toggleTimelinePlay()">
-                    <mat-icon class="icon-size-10 mb-2" [ngClass]="{'opacity-50': !isPlayingTimeline}">{{
-                        isPlayingTimeline
-                        ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
-                    <span class="opacity-50 text-sm">{{ isPlayingTimeline ? 'Đang phát...' : 'Bấm icon Play để xem trước toàn bộ Timeline' }}</span>
+                    <button mat-icon-button class="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white !p-0"
+                        [matMenuTriggerFor]="addVideoMenu" title="Thêm Media mới">
+                        <mat-icon class="icon-size-4 text-neutral-300 hover:text-green-400">add</mat-icon>
+                    </button>
                 </div>
 
-                <audio #mainAudioPlayer [src]="getSafeUrl(previewAudioUrl)" *ngIf="previewAudioUrl" controls
-                    class="absolute bottom-4 w-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    (ended)="onVideoEnded()" (pause)="onVideoPauseEvent()"
-                    (play)="onVideoPlayEvent()"></audio>
+                <!-- Tabs & Search -->
+                <div class="p-2 bg-[#14151b] border-b border-neutral-800/80 flex flex-col gap-1.5 flex-shrink-0">
+                    <!-- Tab Buttons -->
+                    <div class="flex items-center bg-[#0d0e12] p-0.5 rounded-lg border border-neutral-800/80 text-[11px] font-medium">
+                        <button class="flex-1 py-1 rounded transition-colors"
+                            [ngClass]="mediaFilterTab === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
+                            (click)="mediaFilterTab = 'all'">
+                            Tất cả
+                        </button>
+                        <button class="flex-1 py-1 rounded transition-colors"
+                            [ngClass]="mediaFilterTab === 'video' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
+                            (click)="mediaFilterTab = 'video'">
+                            Video
+                        </button>
+                        <button class="flex-1 py-1 rounded transition-colors"
+                            [ngClass]="mediaFilterTab === 'audio' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
+                            (click)="mediaFilterTab = 'audio'">
+                            Audio
+                        </button>
+                        <button class="flex-1 py-1 rounded transition-colors"
+                            [ngClass]="mediaFilterTab === 'text' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
+                            (click)="mediaFilterTab = 'text'">
+                            Text
+                        </button>
+                    </div>
 
-                <!-- Subtitle Caption Overlay on Video Preview -->
-                <div *ngIf="currentSubtitleText" 
-                     class="absolute bottom-6 left-1/2 -translate-x-1/2 max-w-[85%] px-4 py-1.5 bg-black/80 border border-neutral-700 text-white font-medium text-sm md:text-base text-center rounded pointer-events-none z-40 select-none shadow-xl backdrop-blur-sm transition-all duration-150">
-                    {{ currentSubtitleText }}
+                    <!-- Search Box -->
+                    <div class="relative flex items-center">
+                        <mat-icon class="absolute left-2 icon-size-3.5 text-neutral-500 pointer-events-none">search</mat-icon>
+                        <input [(ngModel)]="mediaSearchText" placeholder="Tìm kiếm media, phụ đề..."
+                            class="w-full pl-7 pr-2 py-1 text-[11px] bg-[#0d0e12] border border-neutral-800 rounded text-neutral-300 placeholder-neutral-500 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Danh sách Assets -->
+                <div class="flex-1 overflow-y-auto p-2 space-y-1.5 scene-scroll-area">
+                    <div *ngIf="getFilteredMediaItems().length === 0" class="text-center py-8 text-neutral-500 text-xs">
+                        Không có media nào phù hợp.
+                    </div>
+
+                    <ng-container *ngFor="let item of getFilteredMediaItems(); trackBy: trackByMediaItem">
+                        <!-- Video Item Card -->
+                        <div *ngIf="item.type === 'video'"
+                            (click)="setActiveItem(item._raw); seekTimelineTo(item.startTime || 0)"
+                            class="p-2 rounded-lg border transition-colors cursor-pointer flex gap-2.5 group/item"
+                            [ngClass]="{
+                                'bg-indigo-950/50 border-indigo-500/80 shadow-[0_0_10px_rgba(99,102,241,0.3)]': activeItem === item._raw,
+                                'bg-[#171821]/70 border-neutral-800/80 hover:bg-neutral-800/60 hover:border-neutral-700': activeItem !== item._raw
+                            }">
+                            <!-- Thumbnail -->
+                            <div class="w-16 h-12 rounded bg-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0 relative pointer-events-none">
+                                <video *ngIf="item.videoUrl" [src]="getSafeUrl(item.videoUrl)" muted preload="metadata" playsinline class="w-full h-full object-cover pointer-events-none"></video>
+                                <img *ngIf="item.imageUrl && !item.videoUrl" [src]="getSafeUrl(item.imageUrl)" class="w-full h-full object-cover pointer-events-none">
+                                <mat-icon *ngIf="!item.videoUrl && !item.imageUrl" class="icon-size-4 text-neutral-500">movie</mat-icon>
+                                <span class="absolute bottom-0.5 right-0.5 px-1 text-[9px] font-mono bg-black/80 text-neutral-300 rounded">
+                                    {{ item.duration | number:'1.0-1' }}s
+                                </span>
+                            </div>
+
+                            <div class="flex-1 min-w-0 flex flex-col justify-between">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded bg-blue-900/60 text-blue-300 border border-blue-700/40">
+                                        Video
+                                    </span>
+                                    <span class="text-[10px] font-mono text-neutral-500">
+                                        {{ formatTimelineTime(item.startTime || 0) }}
+                                    </span>
+                                </div>
+                                <span class="text-xs text-neutral-200 truncate" [title]="item.prompt || 'Video cảnh ' + (item.sceneIdx + 1)">
+                                    {{ item.prompt || ('Video cảnh ' + (item.sceneIdx + 1)) }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Audio Item Card -->
+                        <div *ngIf="item.type === 'audio' || item.type === 'extractedAudio'"
+                            (click)="setActiveItem(item._raw); seekTimelineTo(item.startTime || 0)"
+                            class="p-2 rounded-lg border transition-all cursor-pointer flex gap-2.5 group/item"
+                            [ngClass]="{
+                                'bg-indigo-950/50 border-indigo-500/80 shadow-[0_0_10px_rgba(99,102,241,0.3)]': activeItem === item._raw,
+                                'bg-[#171821]/70 border-neutral-800/80 hover:bg-neutral-800/60 hover:border-neutral-700': activeItem !== item._raw
+                            }">
+                            <!-- Audio Icon / Play Snippet -->
+                            <div class="w-10 h-10 rounded bg-neutral-900 border border-neutral-800 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-indigo-900/50 transition-colors"
+                                (click)="playSnippetAudio(item.audioUrl, $event)"
+                                [title]="playingAudioSnippetUrl === item.audioUrl ? 'Tạm dừng nghe thử' : 'Bấm để nghe thử'">
+                                <mat-icon class="icon-size-4.5" [ngClass]="playingAudioSnippetUrl === item.audioUrl ? 'text-green-400 animate-pulse' : (item.type === 'extractedAudio' ? 'text-cyan-400' : 'text-purple-400')">
+                                    {{ playingAudioSnippetUrl === item.audioUrl ? 'pause' : (item.type === 'extractedAudio' ? 'graphic_eq' : 'volume_up') }}
+                                </mat-icon>
+                            </div>
+
+                            <div class="flex-1 min-w-0 flex flex-col justify-between">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded"
+                                        [ngClass]="item.type === 'extractedAudio' ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-700/40' : 'bg-purple-950/80 text-purple-300 border border-purple-700/40'">
+                                        {{ item.type === 'extractedAudio' ? 'Âm thanh gốc' : 'Track Audio' }}
+                                    </span>
+                                    <span class="text-[10px] font-mono text-neutral-500">
+                                        {{ item.duration | number:'1.0-1' }}s
+                                    </span>
+                                </div>
+                                <span class="text-xs text-neutral-200 truncate" [title]="item.title || item.text">
+                                    {{ item.title || item.text || 'Đoạn Audio' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Subtitle Item Card -->
+                        <div *ngIf="item.type === 'subtitle'"
+                            (click)="setActiveItem(item._raw); seekTimelineTo(item.startTime || 0)"
+                            class="p-2 rounded-lg border transition-all cursor-pointer flex gap-2.5 group/item"
+                            [ngClass]="{
+                                'bg-indigo-950/50 border-indigo-500/80 shadow-[0_0_10px_rgba(99,102,241,0.3)]': activeItem === item._raw,
+                                'bg-[#171821]/70 border-neutral-800/80 hover:bg-neutral-800/60 hover:border-neutral-700': activeItem !== item._raw
+                            }">
+                            <!-- Text Icon -->
+                            <div class="w-10 h-10 rounded bg-neutral-900 border border-neutral-800 flex items-center justify-center flex-shrink-0">
+                                <mat-icon class="icon-size-4.5 text-amber-400">subtitles</mat-icon>
+                            </div>
+
+                            <div class="flex-1 min-w-0 flex flex-col justify-between">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded bg-amber-950/80 text-amber-300 border border-amber-700/40">
+                                        Phụ đề
+                                    </span>
+                                    <span class="text-[10px] font-mono text-neutral-500">
+                                        {{ formatTimelineTime(item.startTime || 0) }}
+                                    </span>
+                                </div>
+                                <span class="text-xs text-neutral-200 truncate" [title]="item.text">
+                                    {{ item.text || '(Chưa có nội dung)' }}
+                                </span>
+                            </div>
+                        </div>
+                    </ng-container>
                 </div>
             </div>
 
-            <!-- Global Timeline Play/Pause Overlay Button -->
-            <button *ngIf="previewVideoUrl || previewImageUrl" mat-icon-button
-                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 text-white bg-black/60 hover:bg-black/90 icon-size-10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                (click)="toggleTimelinePlay()">
-                <mat-icon class="icon-size-8">{{ isPlayingTimeline ? 'pause' : 'play_arrow' }}</mat-icon>
-            </button>
+            <!-- ===== CỘT 2: PREVIEW CHO VIDEO (VIDEO PREVIEW PLAYER) ===== -->
+            <div class="flex-1 min-w-0 flex flex-col items-center justify-between bg-[#08080a] relative group p-2 min-h-0 overflow-hidden">
+                <!-- Video / Player Container -->
+                <div class="w-full flex-1 relative flex flex-col items-center justify-center min-h-0 overflow-hidden">
+                    <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
+                        class="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-2xl"
+                        (click)="toggleTimelinePlay()"
+                        (ended)="onVideoEnded()"
+                        (pause)="onVideoPauseEvent()"
+                        (play)="onVideoPlayEvent()"></video>
+
+                    <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
+                        class="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-2xl"
+                        (click)="toggleTimelinePlay()" />
+
+                    <div *ngIf="!previewVideoUrl && !previewImageUrl"
+                        class="text-neutral-500 flex flex-col items-center justify-center h-full cursor-pointer hover:text-neutral-300 transition-colors"
+                        (click)="toggleTimelinePlay()">
+                        <mat-icon class="icon-size-10 mb-2 opacity-60">
+                            {{ isPlayingTimeline ? 'pause_circle_outline' : 'play_circle_outline' }}
+                        </mat-icon>
+                        <span class="text-xs opacity-70">
+                            {{ isPlayingTimeline ? 'Đang phát...' : 'Bấm icon Play để xem trước toàn bộ Timeline' }}
+                        </span>
+                    </div>
+
+                    <audio #mainAudioPlayer [src]="getSafeUrl(previewAudioUrl)" *ngIf="previewAudioUrl"
+                        class="hidden"
+                        (ended)="onVideoEnded()" (pause)="onVideoPauseEvent()"
+                        (play)="onVideoPlayEvent()"></audio>
+
+                    <!-- Subtitle Caption Overlay on Video Preview -->
+                    <div *ngIf="currentSubtitleText" 
+                         class="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[85%] px-3.5 py-1.5 bg-black/85 border border-neutral-700/80 text-white font-medium text-xs md:text-sm text-center rounded-lg pointer-events-none z-40 select-none shadow-2xl backdrop-blur-sm transition-all duration-100"
+                         style="text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.8);">
+                        {{ currentSubtitleText }}
+                    </div>
+
+                    <!-- Global Timeline Play/Pause Overlay Button -->
+                    <button *ngIf="previewVideoUrl || previewImageUrl" mat-icon-button
+                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 text-white bg-black/60 hover:bg-black/90 icon-size-10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-xl"
+                        (click)="toggleTimelinePlay()">
+                        <mat-icon class="icon-size-7">{{ isPlayingTimeline ? 'pause' : 'play_arrow' }}</mat-icon>
+                    </button>
+                </div>
+
+                <!-- Mini Control Bar dưới Player -->
+                <div class="w-full flex items-center justify-between px-3 py-1 bg-[#121318] border border-neutral-800/90 rounded-lg flex-shrink-0 mt-1.5">
+                    <div class="flex items-center gap-1">
+                        <button mat-icon-button (click)="seekTimelineToStart()" title="Tua về đầu (0s)">
+                            <mat-icon>skip_previous</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="toggleTimelinePlay()" [title]="isPlayingTimeline ? 'Tạm dừng' : 'Phát'">
+                            <mat-icon>{{ isPlayingTimeline ? 'pause' : 'play_arrow' }}</mat-icon>
+                        </button>
+                        <span class="font-mono text-xs text-neutral-300 ml-2 select-none">
+                            {{ formatTimelineTime(currentTimelineTime) }} / {{ formatTimelineTime(getMaxTimelineTime()) }}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 text-[10px] font-mono text-neutral-400 bg-neutral-800/70 border border-neutral-700/50 rounded">
+                            {{ projectData?.aspectRatio || '16:9' }}
+                        </span>
+                        <button mat-icon-button (click)="openBroadcastPreviewModal()" title="Mở Live Stream Preview">
+                            <mat-icon>sensors</mat-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== CỘT 3: CHỈNH SỬA AUDIO HOẶC TEXT (INSPECTOR PANEL) ===== -->
+            <div class="w-72 md:w-80 xl:w-88 flex flex-col border-l border-neutral-800 bg-[#121318] flex-shrink-0 min-h-0 overflow-hidden">
+                <!-- Header Cột 3 -->
+                <div class="px-3.5 py-2.5 bg-[#171820] border-b border-neutral-800 flex items-center justify-between flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <mat-icon class="icon-size-4 text-amber-400">tune</mat-icon>
+                        <span class="text-xs font-semibold text-neutral-200 uppercase tracking-wider">Chỉnh sửa</span>
+                        <span *ngIf="activeItem" class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded"
+                            [ngClass]="{
+                                'bg-amber-950 text-amber-300 border border-amber-700/50': getItemType(activeItem) === 'text',
+                                'bg-purple-950 text-purple-300 border border-purple-700/50': getItemType(activeItem) === 'audio',
+                                'bg-blue-950 text-blue-300 border border-blue-700/50': getItemType(activeItem) === 'video'
+                            }">
+                            {{ getItemType(activeItem) === 'text' ? 'Phụ đề' : (getItemType(activeItem) === 'audio' ? 'Audio' : 'Video') }}
+                        </span>
+                    </div>
+
+                    <button *ngIf="activeItem" mat-icon-button class="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-red-400 !p-0"
+                        (click)="deleteActiveItem()" title="Xoá mục đang chọn">
+                        <mat-icon class="icon-size-4">delete_outline</mat-icon>
+                    </button>
+                </div>
+
+                <!-- Inspector Body -->
+                <div class="flex-1 overflow-y-auto p-3 space-y-3 scene-scroll-area">
+                    
+                    <!-- TH 1: ĐANG CHỌN PHỤ ĐỀ / TEXT -->
+                    <div *ngIf="getItemType(activeItem) === 'text'" class="flex flex-col gap-2.5">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Nội dung phụ đề</label>
+                            <textarea [(ngModel)]="activeItem.text" (ngModelChange)="markDirty()" rows="3"
+                                placeholder="Nhập nội dung phụ đề..."
+                                class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed font-sans"></textarea>
+                        </div>
+
+                        <!-- Timing Controls -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
+                                <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
+                                <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
+                            </div>
+                        </div>
+
+                        <!-- Audio WaveSurfer Visualizer & Player nếu có audioUrl -->
+                        <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-lg flex flex-col gap-2">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5">
+                                    <mat-icon class="icon-size-3.5 text-indigo-400">graphic_eq</mat-icon>
+                                    <span class="text-[11px] font-semibold text-neutral-300">Sóng âm thanh (WaveSurfer)</span>
+                                </div>
+                                <button mat-icon-button (click)="toggleInspectorWaveSurfer()" [title]="isInspectorAudioPlaying ? 'Tạm dừng' : 'Phát audio'">
+                                    <mat-icon>{{ isInspectorAudioPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+                                </button>
+                            </div>
+
+                            <!-- WaveSurfer Waveform Canvas Container -->
+                            <div class="w-full h-11 bg-neutral-950/90 rounded border border-neutral-800 overflow-hidden relative px-1 flex items-center">
+                                <div id="inspector-waveform-container" class="w-full h-full"></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- TH 2: ĐANG CHỌN ÂM THANH (AUDIO / EXTRACTED AUDIO) -->
+                    <div *ngIf="getItemType(activeItem) === 'audio'" class="flex flex-col gap-2.5">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Thông tin Audio</label>
+                            <div class="p-2.5 bg-[#0d0e12] border border-neutral-700 rounded-lg text-xs text-neutral-300 font-mono break-all">
+                                {{ activeItem.title || (activeItem.text && activeItem.text !== '[Âm thanh gốc]' ? activeItem.text : '') || activeItem.audioUrl || 'Âm thanh gốc' }}
+                            </div>
+                        </div>
+
+                        <!-- Timing Controls -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
+                                <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-purple-500">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
+                                <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-purple-500">
+                            </div>
+                        </div>
+
+                        <!-- Audio WaveSurfer Visualizer & Player -->
+                        <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-lg flex flex-col gap-2">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5">
+                                    <mat-icon class="icon-size-3.5 text-purple-400">graphic_eq</mat-icon>
+                                    <span class="text-[11px] font-semibold text-neutral-300">Sóng âm thanh (WaveSurfer)</span>
+                                </div>
+                                <button mat-icon-button (click)="toggleInspectorWaveSurfer()" [title]="isInspectorAudioPlaying ? 'Tạm dừng' : 'Phát audio'">
+                                    <mat-icon>{{ isInspectorAudioPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+                                </button>
+                            </div>
+
+                            <!-- WaveSurfer Waveform Canvas Container -->
+                            <div class="w-full h-11 bg-neutral-950/90 rounded border border-neutral-800 overflow-hidden relative px-1 flex items-center">
+                                <div id="inspector-waveform-container" class="w-full h-full"></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- TH 3: ĐANG CHỌN VIDEO -->
+                    <div *ngIf="getItemType(activeItem) === 'video'" class="flex flex-col gap-2.5">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Prompt / Mô tả cảnh</label>
+                            <textarea [(ngModel)]="activeItem.prompt" (ngModelChange)="markDirty()" rows="3"
+                                placeholder="Nhập prompt cảnh video..."
+                                class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 resize-none leading-relaxed font-sans"></textarea>
+                        </div>
+
+                        <!-- Timing Controls -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
+                                <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
+                                <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TH 4: CHƯA CHỌN MỤC NÀO (TỔNG QUAN DỰ ÁN) -->
+                    <div *ngIf="!activeItem || getItemType(activeItem) === 'unknown'" class="flex flex-col gap-3 py-1">
+                        <div class="p-3 bg-[#161720] border border-neutral-800 rounded-xl flex flex-col gap-2">
+                            <span class="text-xs font-semibold text-white truncate" [title]="projectData?.title || projectData?.extraPrompt">
+                                {{ projectData?.title || projectData?.extraPrompt || 'Dự án Video' }}
+                            </span>
+                            <div class="flex items-center justify-between text-[11px] text-neutral-400 pt-1 border-t border-neutral-800">
+                                <span>Tổng thời lượng:</span>
+                                <span class="font-mono text-white font-medium">{{ formatTimelineTime(getMaxTimelineTime()) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] text-neutral-400">
+                                <span>Số cảnh (Scenes):</span>
+                                <span class="font-mono text-white font-medium">{{ projectData?.scenes?.length || 0 }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] text-neutral-400">
+                                <span>Tỷ lệ khung hình:</span>
+                                <span class="font-mono text-white font-medium">{{ projectData?.aspectRatio || '16:9' }}</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-indigo-950/20 border border-indigo-500/20 rounded-xl flex flex-col gap-1.5 text-center">
+                            <mat-icon class="icon-size-5 text-indigo-400 mx-auto">touch_app</mat-icon>
+                            <span class="text-xs text-neutral-300 font-medium">Bấm chọn đối tượng</span>
+                            <p class="text-[11px] text-neutral-400 leading-relaxed">
+                                Click vào bất kỳ đoạn Video, Phụ đề hoặc Âm thanh trên Timeline để chỉnh sửa trực tiếp tại đây.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
 
         <div class="flex flex-row flex-shrink-0 overflow-x-auto overflow-y-hidden relative w-full h-fit border-t border-neutral-800 bg-[#0f0f11] scene-scroll-area"
@@ -267,7 +625,7 @@
                         <div
                             class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex items-center justify-center gap-1.5 z-[60] overflow-hidden px-2 group">
                             <mat-icon class="icon-size-4 text-amber-400">subtitles</mat-icon>
-                            <span class="text-xs font-semibold text-neutral-300">Track Text</span>
+                            <span class="text-xs font-semibold text-neutral-300">Phụ đề</span>
                             <button mat-icon-button [matMenuTriggerFor]="addTextMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
                                 title="Thêm phụ đề / Nhập file .srt">
                                 <mat-icon class="text-neutral-400 hover:text-amber-400">add</mat-icon>
@@ -349,62 +707,6 @@
                                         <div class="w-full flex-1 relative mt-1 pointer-events-none">
                                             <div [id]="'waveform-' + sceneIdx + '-' + aIdx" class="absolute inset-0">
                                              </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </ng-container>
-                        </ng-container>
-                    </div>
-
-                    <!-- Track Audio Cố Định (Lồng tiếng) -->
-                    <div class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
-                        <!-- Track Header -->
-                        <div
-                            class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex flex-col items-center justify-center z-[60] overflow-hidden group">
-                            <span class="text-xs font-semibold text-neutral-300">Track Audio</span>
-                            <mat-icon class="icon-size-4 text-blue-400 mt-1">mic</mat-icon>
-                            <button mat-icon-button class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
-                                (click)="addNewMediaBlock('audio')" [matTooltip]="'app.add_media_block' | transloco">
-                                <mat-icon class="text-neutral-400 hover:text-green-400">add</mat-icon>
-                            </button>
-                        </div>
-
-                        <!-- Audio Blocks -->
-                        <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
-                            <ng-container *ngFor="let sub of scene.subtitles; let subIdx = index">
-                                <div *ngIf="sub.audioUrl" class="timeline-block absolute top-2 bottom-2 bg-indigo-950/70 border border-indigo-700/60 rounded-none flex flex-col overflow-hidden transition-all hover:bg-indigo-900/80 cursor-pointer group z-10 hover:z-[100]"
-                                    [ngClass]="{
-                                        'opacity-30 grayscale': sub.disabled,
-                                        'opacity-100': !sub.disabled,
-                                        '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(sub),
-                                        '!border-indigo-400 shadow-md': activeItem === sub && !isItemSelected(sub)
-                                    }" [style.left.px]="(sub.startTime || 0) * pixelsPerSecond + 128"
-                                    [style.width.px]="((sub.duration || 2) * pixelsPerSecond - 4) > 1 ? ((sub.duration || 2) * pixelsPerSecond - 4) : (((sub.duration || 2) * pixelsPerSecond) > 1 ? ((sub.duration || 2) * pixelsPerSecond) : 1)" [title]="sub.text"
-                                    (click)="setActiveItem(sub, $event); !sub.disabled && playWaveform('sub', sceneIdx, subIdx)"
-                                    (contextmenu)="onAudioContextMenu($event, sub, scene, sceneIdx, subIdx, 'sub')">
-
-                                    <!-- Label -->
-                                    <div class="w-full h-full flex flex-col p-1.5 justify-center relative">
-                                        <div class="flex flex-row items-center justify-between w-full mb-0.5 gap-2">
-                                            <div
-                                                class="text-[10px] text-indigo-200 font-medium truncate flex items-center gap-1">
-                                                <mat-icon class="icon-size-3 flex-shrink-0"
-                                                    [ngClass]="sub.audioUrl ? 'text-green-400' : 'text-gray-400'">
-                                                    {{ sub.audioUrl ? 'audiotrack' : 'notes' }}
-                                                </mat-icon>
-                                                <span class="truncate">{{ sub.text || (sub.audioUrl ? 'Đã có Audio' :
-                                                    'Bản nháp') }}</span>
-                                            </div>
-                                            <div class="flex items-center gap-1 z-10">
-                                                <div class="text-[9px] text-indigo-300 font-mono flex-shrink-0">
-                                                    {{sub.duration | number:'1.0-1'}}s
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div *ngIf="sub.audioUrl"
-                                            class="w-full flex-1 relative mt-1 pointer-events-none">
-                                            <div [id]="'waveform-sub-' + sceneIdx + '-' + subIdx"
-                                                class="absolute inset-0"></div>
                                         </div>
                                     </div>
                                 </div>

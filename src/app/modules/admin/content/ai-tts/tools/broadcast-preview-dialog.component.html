@@ -141,16 +141,7 @@
                 </button>
             </div>
 
-            <!-- URL Switcher Bar -->
-            <div class="p-2.5 bg-[#14151b] border-b border-neutral-800/60 flex items-center gap-2">
-                <input [(ngModel)]="quickInputUrl" placeholder="Đổi link video Online..."
-                    (keyup.enter)="loadOnlineStream(quickInputUrl)"
-                    class="flex-1 px-2.5 py-1.5 text-[11px] bg-neutral-900 border border-neutral-700/80 rounded text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-red-500 font-mono">
-                <button mat-icon-button class="w-7 h-7 flex items-center justify-center bg-red-600/80 hover:bg-red-600 text-white rounded !p-0"
-                    (click)="loadOnlineStream(quickInputUrl)" [disabled]="!quickInputUrl?.trim()" matTooltip="Tải luồng này">
-                    <mat-icon class="icon-size-3.5">arrow_forward</mat-icon>
-                </button>
-            </div>
+
 
             <!-- Subtitles List -->
             <div class="flex-1 overflow-y-auto p-2 space-y-1.5 scene-scroll-area">
