@@ -2836,91 +2836,35 @@ ipcMain.on("app:relaunch", () => {
     app.exit(0);
 });
 
-ipcMain.handle("download-image", async (event, args) => {
-    const { url, fileName, customDir } = args;
-    if (!url || !fileName) return { success: false, error: 'Missing url or fileName' };
-
-    const docPath = app.getPath("documents");
-    let saveDir = path.join(docPath, "ai.type", "data");
-    if (customDir) {
-        saveDir = path.join(saveDir, customDir);
-    }
-
-    if (!fs.existsSync(saveDir)) {
-        fs.mkdirSync(saveDir, { recursive: true });
-    }
-
-    const filePath = path.join(saveDir, fileName);
-    try {
-        const axios = require('axios');
-        const response = await axios({
-            url,
-            method: 'GET',
-            responseType: 'arraybuffer'
-        });
-        fs.writeFileSync(filePath, Buffer.from(response.data, 'binary'));
-        return { success: true, filePath };
-    } catch (e) {
-        console.error("Error downloading image:", e);
-        return { success: false, error: e.message };
-    }
-});
-
-// main.js (Phần xử lý ipcMain save-base64)
-ipcMain.handle("save-base64", async (event, args) => {
-    // Thêm username vào destructuring
-    const { base64, fileName, folder, username, customDir } = args;
-
-    const docPath = app.getPath("documents");
-
-    let saveDir;
-    if (customDir) {
-        saveDir = path.join(docPath, "ai.type", "data", customDir);
-    } else {
-        // SỬA �?ƯỜNG DẪN: Thêm username vào cuối đư�?ng dẫn
-        // Ví dụ: .../uploads/thumbnails/admin/
-        saveDir = path.join(
-            docPath,
-            "ai.type",
-            "data",
-            "uploads",
-            folder || "thumbnails",
-            username || "default",
-        );
-    }
-
-    // Tạo thư mục (recursive: true sẽ tạo cả thư mục username nếu chưa có)
-    if (!fs.existsSync(saveDir)) {
-        fs.mkdirSync(saveDir, { recursive: true });
-    }
-
-    const filePath = path.join(saveDir, fileName);
-    
-    // An toàn: Xóa tiền tố data:image/...;base64, nếu có
-    let cleanBase64 = base64;
-    if (typeof cleanBase64 === 'string' && cleanBase64.includes(',')) {
-        cleanBase64 = cleanBase64.split(',')[1];
-    }
-    const buffer = Buffer.from(cleanBase64, "base64");
-
-    try {
-        fs.writeFileSync(filePath, buffer);
-        return { success: true, path: filePath };
-    } catch (e) {
-        console.error(e);
-        return { success: false, error: e.message };
-    }
-});
-
 ipcMain.handle("read-file-base64", async (event, args) => {
-    const { filePath } = args;
+    let { filePath } = args || {};
     try {
-        if (!fs.existsSync(filePath)) {
+        if (!filePath) return { success: false, error: "Empty filePath" };
+        if (filePath.startsWith('media://')) filePath = decodeURIComponent(filePath.substring(8));
+        else if (filePath.startsWith('file://')) filePath = decodeURIComponent(filePath.substring(7));
+        if (filePath.match(/^\/[a-zA-Z]:[\\/]/)) filePath = filePath.substring(1);
+
+        let targetPath = filePath;
+        if (!fs.existsSync(targetPath)) {
+            const candidate1 = path.join(__dirname, '..', '..', filePath);
+            const candidate2 = path.join(process.cwd(), filePath);
+            if (fs.existsSync(candidate1)) targetPath = candidate1;
+            else if (fs.existsSync(candidate2)) targetPath = candidate2;
+        }
+
+        if (!fs.existsSync(targetPath)) {
             return { success: false, error: "File not found: " + filePath };
         }
-        const fileBuffer = fs.readFileSync(filePath);
+        const fileBuffer = fs.readFileSync(targetPath);
         const base64 = fileBuffer.toString("base64");
-        return { success: true, base64: base64 };
+        const ext = path.extname(targetPath).toLowerCase();
+        let mime = "image/jpeg";
+        if (ext === '.png') mime = "image/png";
+        else if (ext === '.svg') mime = "image/svg+xml";
+        else if (ext === '.webp') mime = "image/webp";
+        else if (ext === '.mp4') mime = "video/mp4";
+
+        return { success: true, base64: base64, dataUrl: `data:${mime};base64,${base64}` };
     } catch (e) {
         console.error(e);
         return { success: false, error: e.message };
@@ -2941,47 +2885,123 @@ ipcMain.handle("read-text-file", async (event, args) => {
     }
 });
 
-ipcMain.handle("scan-subtitles-in-project", async (event, args) => {
-    const { projectDir, uuid } = args || {};
+ipcMain.handle("scan-subtitles-in-project", async (_event, payload) => {
     try {
-        let dir = projectDir;
-        if (!dir && uuid) {
-            const downloadsPath = app.getPath('downloads');
-            dir = path.join(downloadsPath, 'AI.TYPING', uuid);
-        }
+        const { dir } = payload;
         if (!dir || !fs.existsSync(dir)) {
-            return { success: false, error: 'Directory not found: ' + dir };
+            return { success: false, error: "Directory does not exist" };
         }
 
         const files = fs.readdirSync(dir);
-        const srtFiles = files.filter(f => f.endsWith('.srt'));
-        
-        let originalSrt = srtFiles.find(f => !f.endsWith('_vi.srt') && f.startsWith('video_audio_'));
-        let viSrt = srtFiles.find(f => f.endsWith('_vi.srt'));
+        let originalSrt = null;
+        let viSrt = null;
 
-        if (!originalSrt && srtFiles.length > 0) {
-            originalSrt = srtFiles.find(f => !f.endsWith('_vi.srt')) || srtFiles[0];
-        }
-
-        let originalContent = null;
-        let viContent = null;
-
-        if (originalSrt) {
-            originalContent = fs.readFileSync(path.join(dir, originalSrt), 'utf-8');
-        }
-        if (viSrt) {
-            viContent = fs.readFileSync(path.join(dir, viSrt), 'utf-8');
+        for (const file of files) {
+            if (file.endsWith('_vi.srt') || file.endsWith('.vi.srt') || file.endsWith('_vie.srt')) {
+                viSrt = file;
+            } else if (file.endsWith('.srt') && !file.includes('_vi') && !file.includes('.vi')) {
+                originalSrt = file;
+            }
         }
 
         return {
             success: true,
             originalSrtFile: originalSrt,
             viSrtFile: viSrt,
-            originalContent,
-            viContent
+            originalContent: originalSrt ? fs.readFileSync(path.join(dir, originalSrt), 'utf-8') : null,
+            viContent: viSrt ? fs.readFileSync(path.join(dir, viSrt), 'utf-8') : null
         };
     } catch (e) {
         console.error('[scan-subtitles-in-project] Error:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle("render-video-with-frame", async (event, payload) => {
+    let { videoPath, frameBgPath, outputPath, quad, canvasWidth, canvasHeight } = payload || {};
+    try {
+        const ffmpegPath = binaries.ffmpeg || "ffmpeg";
+        let cleanVidPath = videoPath;
+        if (cleanVidPath.startsWith('media://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(8));
+        else if (cleanVidPath.startsWith('file://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(7));
+        if (cleanVidPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVidPath = cleanVidPath.substring(1);
+
+        let cleanBgPath = frameBgPath;
+        if (cleanBgPath.startsWith('media://')) cleanBgPath = decodeURIComponent(cleanBgPath.substring(8));
+        else if (cleanBgPath.startsWith('file://')) cleanBgPath = decodeURIComponent(cleanBgPath.substring(7));
+        if (cleanBgPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanBgPath = cleanBgPath.substring(1);
+
+        if (!fs.existsSync(cleanBgPath)) {
+            const cand1 = path.join(process.cwd(), cleanBgPath);
+            const cand2 = path.join(__dirname, '..', '..', cleanBgPath);
+            if (fs.existsSync(cand1)) cleanBgPath = cand1;
+            else if (fs.existsSync(cand2)) cleanBgPath = cand2;
+        }
+
+        if (!fs.existsSync(cleanVidPath)) {
+            return { success: false, error: "Video input not found: " + cleanVidPath };
+        }
+        if (!fs.existsSync(cleanBgPath)) {
+            return { success: false, error: "Frame background image not found: " + cleanBgPath };
+        }
+
+        const outDir = path.dirname(outputPath);
+        if (!fs.existsSync(outDir)) {
+            fs.mkdirSync(outDir, { recursive: true });
+        }
+
+        const X0 = quad?.topLeft?.x || 384;
+        const Y0 = quad?.topLeft?.y || 1263.5;
+        const X1 = quad?.topRight?.x || 1960.5;
+        const Y1 = quad?.topRight?.y || 1380.5;
+        const X2 = quad?.bottomLeft?.x || 399;
+        const Y2 = quad?.bottomLeft?.y || 2374;
+        const X3 = quad?.bottomRight?.x || 1954.5;
+        const Y3 = quad?.bottomRight?.y || 2273;
+        const W = canvasWidth || 2286;
+        const H = canvasHeight || 4096;
+
+        const filterComplex = `[0:v]scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination[warped];[1:v]scale=${W}:${H}[bg];[bg][warped]overlay=0:0[outv]`;
+
+        const args = [
+            '-y',
+            '-i', cleanVidPath,
+            '-loop', '1',
+            '-i', cleanBgPath,
+            '-filter_complex', filterComplex,
+            '-map', '[outv]',
+            '-map', '0:a?',
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-crf', '20',
+            '-pix_fmt', 'yuv420p',
+            '-shortest',
+            outputPath
+        ];
+
+        console.log('[render-video-with-frame] Executing FFmpeg:', ffmpegPath, args.join(' '));
+
+        return new Promise((resolve) => {
+            const child = spawn(ffmpegPath, args);
+            let stderrData = '';
+            child.stderr.on('data', (d) => {
+                stderrData += d.toString();
+            });
+            child.on('close', (code) => {
+                if (code === 0) {
+                    console.log('[render-video-with-frame] Xuất video thành công:', outputPath);
+                    resolve({ success: true, outputPath });
+                } else {
+                    console.error('[render-video-with-frame] Lỗi FFmpeg:', stderrData.slice(-500));
+                    resolve({ success: false, error: `FFmpeg exited with code ${code}` });
+                }
+            });
+            child.on('error', (err) => {
+                resolve({ success: false, error: err.message });
+            });
+        });
+    } catch (e) {
+        console.error('[render-video-with-frame] Exception:', e);
         return { success: false, error: e.message };
     }
 });

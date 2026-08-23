@@ -56,6 +56,26 @@ interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
 }
 
+export interface VideoFrameTemplate {
+    id: string;
+    name: string;
+    aspectRatio: '9:16' | '16:9' | '1:1';
+    icon: string;
+    bgPath: string;
+    thumbPath: string;
+    bgDataUrl?: string;
+    thumbDataUrl?: string;
+    description?: string;
+    quad: {
+        topLeft: { x: number, y: number };
+        topRight: { x: number, y: number };
+        bottomRight: { x: number, y: number };
+        bottomLeft: { x: number, y: number };
+    };
+    canvasWidth: number;
+    canvasHeight: number;
+}
+
 @Component({
     selector: 'app-video-timeline-dialog',
     standalone: true,
@@ -84,6 +104,224 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     // [THÊM BIẾN NÀY] Trạng thái hiển thị Master Prompt
     showMasterPrompt: boolean = true;
     isGeneratingCharacter: boolean = false;
+
+    // --- Frame Templates (Mockup 9:16) ---
+    AVAILABLE_FRAMES: VideoFrameTemplate[] = [
+        {
+            id: 'none',
+            name: 'Không dùng khung (Mặc định)',
+            aspectRatio: '16:9',
+            icon: 'fullscreen',
+            bgPath: '',
+            thumbPath: '',
+            description: 'Phát video toàn màn hình gốc không lồng khung mockup',
+            quad: { topLeft: { x: 0, y: 0 }, topRight: { x: 1920, y: 0 }, bottomRight: { x: 1920, y: 1080 }, bottomLeft: { x: 0, y: 1080 } },
+            canvasWidth: 1920,
+            canvasHeight: 1080
+        },
+        {
+            id: 'tiktok_frame_1',
+            name: 'TikTok Video Frame No.1 (9:16)',
+            aspectRatio: '9:16',
+            icon: 'desktop_windows',
+            bgPath: 'src/assets/video_frames/tiktok_frame_bg.jpg',
+            thumbPath: 'src/assets/video_frames/tiktok_frame_thumb.jpg',
+            description: 'Khung bàn làm việc Gaming PC 3D nghiêng TikTok 9:16 chuẩn nghệ thuật',
+            quad: {
+                topLeft: { x: 384, y: 1263.5 },
+                topRight: { x: 1960.5, y: 1380.5 },
+                bottomRight: { x: 1954.5, y: 2273 },
+                bottomLeft: { x: 399, y: 2374 }
+            },
+            canvasWidth: 2286,
+            canvasHeight: 4096
+        }
+    ];
+
+    selectedFrame: VideoFrameTemplate | null = null;
+    isFrameModalOpen: boolean = false;
+    isExportingFrameVideo: boolean = false;
+
+    async loadFrameAssets() {
+        const electron = (window as any).electron;
+        for (const frame of this.AVAILABLE_FRAMES) {
+            if (frame.id === 'none') continue;
+            try {
+                if (electron && electron.readFileBase64) {
+                    if (frame.thumbPath && !frame.thumbDataUrl) {
+                        const thumbRes = await electron.readFileBase64(frame.thumbPath);
+                        if (thumbRes && thumbRes.dataUrl) frame.thumbDataUrl = thumbRes.dataUrl;
+                    }
+                    if (frame.bgPath && !frame.bgDataUrl) {
+                        const bgRes = await electron.readFileBase64(frame.bgPath);
+                        if (bgRes && bgRes.dataUrl) frame.bgDataUrl = bgRes.dataUrl;
+                    }
+                }
+            } catch (err) {
+                console.warn('[loadFrameAssets] Lỗi tải asset cho frame:', frame.id, err);
+            }
+        }
+        this.cd.detectChanges();
+    }
+
+    openFrameModal() {
+        this.isFrameModalOpen = true;
+        this.loadFrameAssets();
+        this.cd.detectChanges();
+    }
+
+    closeFrameModal() {
+        this.isFrameModalOpen = false;
+        this.cd.detectChanges();
+    }
+
+    async selectFrame(frame: VideoFrameTemplate) {
+        if (frame.id === 'none') {
+            this.selectedFrame = null;
+            this.toastr.info('Đã tắt khung Frame template.');
+        } else {
+            this.selectedFrame = frame;
+            if (!frame.bgDataUrl) {
+                await this.loadFrameAssets();
+            }
+            this.toastr.success(`Đã áp dụng khung xem trước: ${frame.name}`);
+        }
+        this.isFrameModalOpen = false;
+        this.cd.detectChanges();
+    }
+
+    getMockupBoxStyle(): { [key: string]: string } {
+        if (!this.selectedFrame) return {};
+        const q = this.selectedFrame.quad;
+        const w = this.selectedFrame.canvasWidth || 2286;
+        const h = this.selectedFrame.canvasHeight || 4096;
+
+        const minX = Math.min(q.topLeft.x, q.bottomLeft.x);
+        const minY = Math.min(q.topLeft.y, q.topRight.y);
+        const maxX = Math.max(q.topRight.x, q.bottomRight.x);
+        const maxY = Math.max(q.bottomLeft.y, q.bottomRight.y);
+
+        const boxW = Math.max(1, maxX - minX);
+        const boxH = Math.max(1, maxY - minY);
+
+        // Tọa độ 4 góc tương đối so với Bounding Box (tính theo %)
+        const p1X = ((q.topLeft.x - minX) / boxW * 100).toFixed(2);
+        const p1Y = ((q.topLeft.y - minY) / boxH * 100).toFixed(2);
+
+        const p2X = ((q.topRight.x - minX) / boxW * 100).toFixed(2);
+        const p2Y = ((q.topRight.y - minY) / boxH * 100).toFixed(2);
+
+        const p3X = ((q.bottomRight.x - minX) / boxW * 100).toFixed(2);
+        const p3Y = ((q.bottomRight.y - minY) / boxH * 100).toFixed(2);
+
+        const p4X = ((q.bottomLeft.x - minX) / boxW * 100).toFixed(2);
+        const p4Y = ((q.bottomLeft.y - minY) / boxH * 100).toFixed(2);
+
+        const clip = `polygon(${p1X}% ${p1Y}%, ${p2X}% ${p2Y}%, ${p3X}% ${p3Y}%, ${p4X}% ${p4Y}%)`;
+
+        return {
+            position: 'absolute',
+            left: `${(minX / w * 100).toFixed(3)}%`,
+            top: `${(minY / h * 100).toFixed(3)}%`,
+            width: `${(boxW / w * 100).toFixed(3)}%`,
+            height: `${(boxH / h * 100).toFixed(3)}%`,
+            'clip-path': clip,
+            '-webkit-clip-path': clip
+        };
+    }
+
+    clearSelectedFrame(event?: MouseEvent) {
+        if (event) event.stopPropagation();
+        this.selectedFrame = null;
+        this.toastr.info('Đã tắt khung Frame template.');
+        this.cd.detectChanges();
+    }
+
+    getMockupBoundingBox(): { x: number, y: number, width: number, height: number } {
+        if (!this.selectedFrame) return { x: 0, y: 0, width: 1920, height: 1080 };
+        const q = this.selectedFrame.quad;
+        const minX = Math.min(q.topLeft.x, q.bottomLeft.x);
+        const minY = Math.min(q.topLeft.y, q.topRight.y);
+        const maxX = Math.max(q.topRight.x, q.bottomRight.x);
+        const maxY = Math.max(q.bottomLeft.y, q.bottomRight.y);
+        return {
+            x: minX,
+            y: minY,
+            width: Math.max(1, maxX - minX),
+            height: Math.max(1, maxY - minY)
+        };
+    }
+
+    async exportVideoWithFrame() {
+        if (!this.selectedFrame || this.selectedFrame.id === 'none') {
+            this.toastr.warning('Vui lòng chọn 1 khung Frame trước khi xuất!');
+            return;
+        }
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.renderVideoWithFrame) {
+            this.toastr.error('Môi trường Electron chưa hỗ trợ render video with frame!');
+            return;
+        }
+
+        let rawVideoUrl = this.previewVideoUrl;
+        if (!rawVideoUrl && this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos && scene.videos.length > 0) {
+                    const vid = scene.videos.find((v: any) => v.videoUrl);
+                    if (vid) {
+                        rawVideoUrl = vid.videoUrl;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!rawVideoUrl) {
+            this.toastr.error('Chưa tìm thấy video nguồn để ghép vào khung!');
+            return;
+        }
+
+        let cleanVideoPath = rawVideoUrl;
+        if (cleanVideoPath.startsWith('media://')) cleanVideoPath = decodeURIComponent(cleanVideoPath.substring(8));
+        else if (cleanVideoPath.startsWith('file://')) cleanVideoPath = decodeURIComponent(cleanVideoPath.substring(7));
+        if (cleanVideoPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVideoPath = cleanVideoPath.substring(1);
+
+        const frameBgPath = this.selectedFrame.bgPath || `src/assets/video_frames/tiktok_frame_bg.jpg`;
+
+        const outDir = `/home/yenai/Downloads/AI.TYPING/${this.data?.uuid || 'exports'}`;
+        const outputPath = `${outDir}/video_frame_${Date.now()}.mp4`;
+
+        this.isExportingFrameVideo = true;
+        this.cd.detectChanges();
+        this.toastr.info('Đang xử lý xuất video lồng khung 9:16 bằng FFmpeg...', 'Đang render');
+
+        try {
+            const res = await electron.renderVideoWithFrame({
+                videoPath: cleanVideoPath,
+                frameBgPath: frameBgPath,
+                outputPath: outputPath,
+                quad: this.selectedFrame.quad,
+                canvasWidth: this.selectedFrame.canvasWidth,
+                canvasHeight: this.selectedFrame.canvasHeight
+            });
+
+            if (res && res.success) {
+                this.toastr.success(`Đã xuất video lồng khung thành công: ${outputPath}`, 'Hoàn tất');
+                if (electron.selectLocalFile) {
+                    electron.selectLocalFile(outputPath);
+                }
+            } else {
+                throw new Error(res?.error || 'Lỗi render FFmpeg');
+            }
+        } catch (err: any) {
+            console.error('[exportVideoWithFrame] Lỗi:', err);
+            this.toastr.error(`Lỗi xuất video: ${err?.message || err}`);
+        } finally {
+            this.isExportingFrameVideo = false;
+            this.cd.detectChanges();
+        }
+    }
 
     // Loading / Blind status
     isExtractingAudio: boolean = false;
@@ -4987,8 +5225,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             cleanUrl = cleanUrl.substring(0, hashIndex);
         }
 
-        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:') || cleanUrl.startsWith('media://') || cleanUrl.startsWith('mediacors://')) {
+        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:') || cleanUrl.startsWith('media://') || cleanUrl.startsWith('mediacors://') || cleanUrl.startsWith('assets/')) {
             cleanUrl = cleanUrl + hash;
+        } else if (cleanUrl.startsWith('src/assets/')) {
+            cleanUrl = cleanUrl.substring(4) + hash;
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
             let originalPath = cleanUrl.split('?')[0];
@@ -5048,6 +5288,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         }
         if (!this.data.uuid) { this.goBack(); return; }
 
+        this.loadFrameAssets();
         this.isSvgReady = false;
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.projectData = this.multiAccountService.getItem(storageKey);

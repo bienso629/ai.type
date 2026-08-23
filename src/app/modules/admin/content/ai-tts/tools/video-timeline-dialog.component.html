@@ -56,6 +56,14 @@
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:plus'"></mat-icon>
             </button>
 
+            <!-- Nút Chọn Khung Mockup Video (Frames 9:16) -->
+            <button mat-icon-button class="text-gray-300 hover:text-indigo-400 transition-colors"
+                [matTooltip]="selectedFrame ? 'Đang dùng khung: ' + selectedFrame.name : 'Chọn khung Mockup TikTok (9:16)'"
+                [ngClass]="{'!text-indigo-400 bg-indigo-950/60 border border-indigo-500/50 rounded-lg': selectedFrame}"
+                (click)="openFrameModal()">
+                <mat-icon class="icon-size-5">layers</mat-icon>
+            </button>
+
             <button mat-icon-button class="text-gray-300 hover:text-white transition-colors" [matTooltip]="'app.auto_broadcast_now' | transloco"
                 (click)="openBroadcastPreviewModal()">
                 <mat-icon class="icon-size-5">voice_chat</mat-icon>
@@ -239,17 +247,55 @@
             <!-- ===== CỘT 2: PREVIEW CHO VIDEO (VIDEO PREVIEW PLAYER) ===== -->
             <div class="flex-1 min-w-0 flex flex-col items-center justify-between bg-[#08080a] relative group p-2 min-h-0 overflow-hidden">
                 <!-- Video / Player Container -->
-                <div class="w-full flex-1 relative flex flex-col items-center justify-center min-h-0 overflow-hidden">
-                    <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                        class="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-2xl"
-                        (click)="toggleTimelinePlay()"
-                        (ended)="onVideoEnded()"
-                        (pause)="onVideoPauseEvent()"
-                        (play)="onVideoPlayEvent()"></video>
+                <div class="w-full flex-1 relative flex flex-col items-center justify-center min-h-0 overflow-hidden"
+                     [ngClass]="selectedFrame && selectedFrame.id !== 'none' ? 'aspect-[9/16] max-h-full py-1' : ''">
 
-                    <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                        class="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-2xl"
-                        (click)="toggleTimelinePlay()" />
+                    <!-- Khi CÓ Frame Template được chọn (Mockup Frame 9:16 HTML5 Hybrid Canvas) -->
+                    <div *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl)"
+                         class="relative aspect-[9/16] h-full max-h-full flex items-center justify-center overflow-hidden rounded-lg shadow-2xl bg-black">
+                        
+                        <!-- 1. Background Image của Khung (Bàn làm việc Gaming & Màn hình PC) -->
+                        <img [src]="selectedFrame.bgDataUrl || getSafeUrl(selectedFrame.bgPath)"
+                             class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10" />
+
+                        <!-- 2. Video nhúng trực tiếp và được scale đúng kích thước & góc nghiêng của màn hình PC -->
+                        <div class="z-20 overflow-hidden bg-black flex items-center justify-center"
+                             [ngStyle]="getMockupBoxStyle()">
+                            <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
+                                class="w-full h-full object-fill cursor-pointer"
+                                (click)="toggleTimelinePlay()"
+                                (ended)="onVideoEnded()"
+                                (pause)="onVideoPauseEvent()"
+                                (play)="onVideoPlayEvent()"></video>
+
+                            <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
+                                class="w-full h-full object-fill cursor-pointer"
+                                (click)="toggleTimelinePlay()" />
+                        </div>
+
+                        <!-- Floating Badge Báo đang dùng Khung -->
+                        <div class="absolute top-2 left-2 z-50 flex items-center gap-1.5 px-2 py-0.5 bg-black/80 backdrop-blur border border-indigo-500/50 rounded text-white text-[10px] shadow-lg">
+                            <mat-icon class="icon-size-3 text-indigo-400">smartphone</mat-icon>
+                            <span class="font-medium truncate max-w-[120px]">{{ selectedFrame.name }}</span>
+                            <button class="ml-1 text-neutral-400 hover:text-red-400" (click)="clearSelectedFrame($event)" title="Tắt khung">
+                                <mat-icon class="icon-size-3">close</mat-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Khi KHÔNG có Frame Template (Normal Standard Player) -->
+                    <ng-container *ngIf="!selectedFrame || selectedFrame.id === 'none'">
+                        <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
+                            class="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-2xl"
+                            (click)="toggleTimelinePlay()"
+                            (ended)="onVideoEnded()"
+                            (pause)="onVideoPauseEvent()"
+                            (play)="onVideoPlayEvent()"></video>
+
+                        <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
+                            class="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-2xl"
+                            (click)="toggleTimelinePlay()" />
+                    </ng-container>
 
                     <div *ngIf="!previewVideoUrl && !previewImageUrl"
                         class="text-neutral-500 flex flex-col items-center justify-center h-full cursor-pointer hover:text-neutral-300 transition-colors"
@@ -304,8 +350,25 @@
                     </div>
 
                     <div class="flex items-center gap-2">
+                        <!-- Nút Xuất Video Khung MP4 (Chỉ hiện khi đang chọn Khung) -->
+                        <button *ngIf="selectedFrame && selectedFrame.id !== 'none'" mat-flat-button
+                            class="!bg-indigo-600 hover:!bg-indigo-500 !text-white !text-[11px] !h-7 !px-2.5 !rounded-sm flex items-center gap-1 shadow-sm"
+                            (click)="exportVideoWithFrame()" [disabled]="isExportingFrameVideo"
+                            title="Xuất video lồng khung thành file MP4 bằng FFmpeg">
+                            <mat-icon class="icon-size-3.5 mr-0.5" [ngClass]="{'animate-spin': isExportingFrameVideo}">
+                                {{ isExportingFrameVideo ? 'sync' : 'movie_creation' }}
+                            </mat-icon>
+                            <span>{{ isExportingFrameVideo ? 'Đang render...' : 'Xuất MP4 với Khung' }}</span>
+                        </button>
+
+                        <button mat-icon-button class="text-neutral-400 hover:text-indigo-400"
+                            [title]="selectedFrame ? 'Đổi khung: ' + selectedFrame.name : 'Chọn khung Video'"
+                            (click)="openFrameModal()">
+                            <mat-icon class="icon-size-4.5" [ngClass]="{'text-indigo-400': selectedFrame}">layers</mat-icon>
+                        </button>
+
                         <span class="px-2 py-0.5 text-[10px] font-mono text-neutral-400 bg-neutral-800/70 border border-neutral-700/50 rounded">
-                            {{ projectData?.aspectRatio || '16:9' }}
+                            {{ selectedFrame && selectedFrame.id !== 'none' ? selectedFrame.aspectRatio : (projectData?.aspectRatio || '16:9') }}
                         </span>
                         <button mat-icon-button (click)="openBroadcastPreviewModal()" title="Mở Live Stream Preview">
                             <mat-icon>sensors</mat-icon>
@@ -916,5 +979,91 @@
             <span>Xuất file phụ đề (.srt / .vtt)</span>
         </button>
     </mat-menu>
+
+    <!-- ===== FRAME TEMPLATES SELECTION MODAL ===== -->
+    <div *ngIf="isFrameModalOpen" class="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-[#14151b] border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            <!-- Header Modal -->
+            <div class="px-5 py-4 bg-[#181a24] border-b border-neutral-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <mat-icon class="icon-size-4.5">layers</mat-icon>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-white">Chọn khung Mockup Video (Frames 9:16)</h3>
+                        <p class="text-xs text-neutral-400">Lồng video của bạn vào màn hình mockup phối cảnh 3D TikTok/Shorts (9:16)</p>
+                    </div>
+                </div>
+                <button mat-icon-button class="text-neutral-400 hover:text-white" (click)="closeFrameModal()">
+                    <mat-icon class="icon-size-5">close</mat-icon>
+                </button>
+            </div>
+
+            <!-- Body: Frames Grid -->
+            <div class="flex-1 overflow-y-auto p-5 space-y-4 scene-scroll-area">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div *ngFor="let frame of AVAILABLE_FRAMES"
+                         (click)="selectFrame(frame)"
+                         class="group relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer bg-[#0f1015] hover:bg-[#161822]"
+                         [ngClass]="{
+                             'border-indigo-500 bg-indigo-950/30 shadow-[0_0_15px_rgba(99,102,241,0.25)]': (selectedFrame?.id === frame.id) || (!selectedFrame && frame.id === 'none'),
+                             'border-neutral-800 hover:border-neutral-700': (selectedFrame?.id !== frame.id) && (selectedFrame || frame.id !== 'none')
+                         }">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <mat-icon class="icon-size-4" [ngClass]="((selectedFrame?.id === frame.id) || (!selectedFrame && frame.id === 'none')) ? 'text-indigo-400' : 'text-neutral-400'">
+                                    {{ frame.icon }}
+                                </mat-icon>
+                                <span class="text-xs font-semibold text-white group-hover:text-indigo-300 transition-colors">
+                                    {{ frame.name }}
+                                </span>
+                            </div>
+                            <span class="px-2 py-0.5 text-[10px] font-mono font-medium rounded"
+                                  [ngClass]="frame.aspectRatio === '9:16' ? 'bg-purple-950 text-purple-300 border border-purple-800/50' : 'bg-neutral-800 text-neutral-400'">
+                                {{ frame.aspectRatio }}
+                            </span>
+                        </div>
+
+                        <p class="text-[11px] text-neutral-400 leading-relaxed mb-3">
+                            {{ frame.description }}
+                        </p>
+
+                        <!-- Preview Thumbnail / Mockup Graphic Box -->
+                        <div class="w-full h-36 bg-black/60 rounded-lg border border-neutral-800/80 flex items-center justify-center overflow-hidden relative">
+                            <img *ngIf="frame.thumbDataUrl || frame.bgDataUrl || frame.thumbPath || frame.bgPath"
+                                 [src]="frame.thumbDataUrl || frame.bgDataUrl || getSafeUrl(frame.thumbPath) || getSafeUrl(frame.bgPath)"
+                                 class="w-full h-full object-cover pointer-events-none" />
+                            <div *ngIf="!frame.thumbDataUrl && !frame.bgDataUrl && !frame.thumbPath && !frame.bgPath" class="flex flex-col items-center justify-center text-neutral-500 gap-1">
+                                <mat-icon class="icon-size-6 opacity-60">fullscreen</mat-icon>
+                                <span class="text-[10px]">Video gốc (Toàn màn hình)</span>
+                            </div>
+                        </div>
+
+                        <!-- Selected Checkmark -->
+                        <div *ngIf="(selectedFrame?.id === frame.id) || (!selectedFrame && frame.id === 'none')" class="absolute top-3 right-3 w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md">
+                            <mat-icon class="icon-size-3">check</mat-icon>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="px-5 py-3.5 bg-[#181a24] border-t border-neutral-800 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs text-neutral-400">
+                    <span *ngIf="selectedFrame && selectedFrame.id !== 'none'" class="text-indigo-400 font-medium">
+                        Đang chọn: {{ selectedFrame.name }}
+                    </span>
+                    <span *ngIf="!selectedFrame || selectedFrame.id === 'none'">
+                        Chế độ: Video gốc (Không dùng khung)
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button mat-button class="!text-xs !text-neutral-400 hover:!text-white" (click)="closeFrameModal()">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </div>
