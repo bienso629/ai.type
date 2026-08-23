@@ -5439,22 +5439,41 @@ app.whenReady().then(async () => {
 
         let srtContent = "";
         let vttContent = "WEBVTT\n\n";
+        let srtViContent = "";
+        let vttViContent = "WEBVTT\n\n";
+        let hasVietnamese = false;
 
         sorted.forEach((seg, idx) => {
             const start = Math.max(0, Number(seg.startTime) || 0);
             const end = Math.max(start + 0.3, Number(seg.endTime) || (start + (Number(seg.duration) || 3)));
             const text = String(seg.text || '').trim();
-            if (!text) return;
+            const viText = String(seg.vietnameseText || seg.viText || text).trim();
 
-            // SRT format
+            if (!text && !viText) return;
+
+            if (seg.vietnameseText && seg.vietnameseText.trim() !== text) {
+                hasVietnamese = true;
+            }
+
+            // Original SRT format
             srtContent += `${idx + 1}\n`;
             srtContent += `${formatSecondsToSRT(start)} --> ${formatSecondsToSRT(end)}\n`;
-            srtContent += `${text}\n\n`;
+            srtContent += `${text || viText}\n\n`;
 
-            // VTT format
+            // Original VTT format
             vttContent += `${idx + 1}\n`;
             vttContent += `${formatSecondsToVTT(start)} --> ${formatSecondsToVTT(end)}\n`;
-            vttContent += `${text}\n\n`;
+            vttContent += `${text || viText}\n\n`;
+
+            // Vietnamese SRT format
+            srtViContent += `${idx + 1}\n`;
+            srtViContent += `${formatSecondsToSRT(start)} --> ${formatSecondsToSRT(end)}\n`;
+            srtViContent += `${viText}\n\n`;
+
+            // Vietnamese VTT format
+            vttViContent += `${idx + 1}\n`;
+            vttViContent += `${formatSecondsToVTT(start)} --> ${formatSecondsToVTT(end)}\n`;
+            vttViContent += `${viText}\n\n`;
         });
 
         try {
@@ -5462,8 +5481,19 @@ app.whenReady().then(async () => {
             const vttPath = path.join(videoDir, `${baseName}.vtt`);
             fs.writeFileSync(srtPath, srtContent.trim() + '\n', 'utf8');
             fs.writeFileSync(vttPath, vttContent.trim() + '\n', 'utf8');
-            sendToRenderer("tools-log", `[Phụ đề] Đã lưu file phụ đề chuẩn .SRT và .VTT vào: ${srtPath}`);
-            return { srtPath, vttPath };
+            sendToRenderer("tools-log", `[Phụ đề] Đã lưu file phụ đề gốc .SRT và .VTT vào: ${srtPath}`);
+
+            let srtViPath = null;
+            let vttViPath = null;
+            if (hasVietnamese || (srtViContent && !baseName.endsWith('_vi'))) {
+                srtViPath = path.join(videoDir, `${baseName}_vi.srt`);
+                vttViPath = path.join(videoDir, `${baseName}_vi.vtt`);
+                fs.writeFileSync(srtViPath, srtViContent.trim() + '\n', 'utf8');
+                fs.writeFileSync(vttViPath, vttViContent.trim() + '\n', 'utf8');
+                sendToRenderer("tools-log", `[Phụ đề Tiếng Việt] Đã tạo thêm file phụ đề Tiếng Việt .SRT vào: ${srtViPath}`);
+            }
+
+            return { srtPath, vttPath, srtViPath, vttViPath };
         } catch (e) {
             console.error('[Phụ đề] Lỗi ghi file subtitle:', e);
             return null;

@@ -961,6 +961,31 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     scene.subtitles = scene.subtitles.filter((sub: any) => sub.text !== '[Âm thanh gốc]');
                 }
             }
+        }
+
+        // Tự động khử trùng lặp các phụ đề và audio trùng nhau trên dòng thời gian
+        const seenSubKeys = new Set<string>();
+        for (const scene of this.projectData.scenes) {
+            if (scene.subtitles && Array.isArray(scene.subtitles)) {
+                scene.subtitles = scene.subtitles.filter((sub: any) => {
+                    const key = `${Math.round((sub.startTime || 0) * 100)}_${Math.round((sub.duration || 0) * 100)}_${String(sub.text || '').trim()}`;
+                    if (seenSubKeys.has(key)) return false;
+                    seenSubKeys.add(key);
+                    return true;
+                });
+            }
+            if (scene.extractedAudios && Array.isArray(scene.extractedAudios)) {
+                const seenAudKeys = new Set<string>();
+                scene.extractedAudios = scene.extractedAudios.filter((aud: any) => {
+                    const key = `${Math.round((aud.startTime || 0) * 100)}_${Math.round((aud.duration || 0) * 100)}_${String(aud.audioUrl || aud.text || '').trim()}`;
+                    if (seenAudKeys.has(key)) return false;
+                    seenAudKeys.add(key);
+                    return true;
+                });
+            }
+        }
+
+        for (const scene of this.projectData.scenes) {
 
             if (!scene.videos || !Array.isArray(scene.videos) || scene.videos.length === 0) {
                 let defaultDuration = scene.forcedDuration || 5;
@@ -2643,6 +2668,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     hasUnsavedChanges: boolean = false;
 
+    isSaving: boolean = false;
+
     markDirty() {
         this.hasUnsavedChanges = true;
         this.cd.detectChanges();
@@ -2660,12 +2687,27 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         };
 
         if (force) {
+            if (this.isSaving) return;
+            this.isSaving = true;
+            this.cd.detectChanges();
+
             if (this.saveTimeout) {
                 clearTimeout(this.saveTimeout);
                 this.saveTimeout = null;
             }
-            await executeSave();
-            this.toastr.success('Đã lưu tiến trình Timeline (Ctrl + S)!');
+
+            try {
+                await executeSave();
+                this.toastr.success('Đã lưu tiến trình Timeline (Ctrl + S)!');
+            } catch (err: any) {
+                console.error('[SaveData] Lỗi lưu:', err);
+                this.toastr.error('Lỗi khi lưu dữ liệu: ' + (err?.message || err));
+            } finally {
+                setTimeout(() => {
+                    this.isSaving = false;
+                    this.cd.detectChanges();
+                }, 300);
+            }
         } else {
             // Đánh dấu cần lưu trong RAM mà không ghi đĩa / DB liên tục gây lag
             this.markDirty();
@@ -3379,7 +3421,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             this.toastr.info('Đang gửi âm thanh cho AI để nhận diện lời thoại & ngắt câu...', 'AI đang xử lý', { timeOut: 10000 });
 
-            let segments: Array<{ text: string, startTime: number, endTime?: number, duration?: number }> = [];
+            let segments: Array<{ text: string, vietnameseText?: string, startTime: number, endTime?: number, duration?: number }> = [];
 
             try {
                 const base64Res = await electron.invoke('read-file-base64', { filePath: extractedAudioPath });
@@ -3387,29 +3429,34 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     throw new Error('Không đọc được file âm thanh: ' + (base64Res?.error || 'Lỗi đọc file'));
                 }
 
-                const prompt = `Bạn là chuyên gia phân tích âm thanh, nhận diện giọng nói và bóc tách phụ đề video chuyên nghiệp.
+                const prompt = `Bạn là chuyên gia phân tích âm thanh, nhận diện giọng nói và bóc tách phụ đề video đa ngôn ngữ chuyên nghiệp.
 Tổng thời lượng của file âm thanh: ${actualDuration.toFixed(2)} giây.
 
 NHIỆM VỤ CỦA BẠN:
 1. Lắng nghe và phân tích toàn bộ file âm thanh từ 0.00s đến ${actualDuration.toFixed(2)}s.
-2. Với các đoạn có lời nói / thoại của nhân vật: ghi chính xác nội dung câu thoại.
-3. Với các đoạn không có lời thoại (nhạc nền, tiếng nổ, tiếng gầm gừ, tiếng cười, nhạc hồi hộp, tiếng bước chân, tiếng xe cộ...): ghi rõ nhãn mô tả âm thanh trong dấu ngoặc vuông (ví dụ: "[Nhạc nền]", "[Tiếng nổ lớn]", "[Gầm gừ]", "[Nhạc kịch tính]", "[Tiếng cười]", "[Tiếng bước chân]").
+2. Với các đoạn có lời nói / thoại của nhân vật:
+   - "text": ghi chính xác câu thoại gốc theo đúng ngôn ngữ gốc của nhân vật (tiếng Anh, tiếng Trung, tiếng Nhật, tiếng Hàn, tiếng Việt...).
+   - "vietnameseText": dịch câu thoại sang Tiếng Việt chuẩn xác, tự nhiên, văn phong điện ảnh mượt mà (nếu bản gốc đã là tiếng Việt thì giữ nguyên).
+3. Với các đoạn không có lời thoại (nhạc nền, tiếng nổ, tiếng gầm gừ, tiếng cười, nhạc hồi hộp, tiếng bước chân, tiếng xe cộ...): ghi nhãn mô tả âm thanh bằng tiếng Việt trong dấu ngoặc vuông (ví dụ: "[Nhạc nền]", "[Tiếng nổ lớn]", "[Gầm gừ]", "[Nhạc kịch tính]", "[Tiếng cười]", "[Tiếng bước chân]") cho cả "text" và "vietnameseText".
 4. Ghi rõ mốc thời gian bắt đầu (startTime) và kết thúc (endTime) bằng giây (ví dụ: 12.35) cho từng đoạn sao cho bao phủ liền mạch toàn bộ dòng thời gian.
 
-TRẢ VỀ DUY NHẤT MẢNG JSON:
+TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
 [
   {
     "text": "[Nhạc nền mở đầu]",
+    "vietnameseText": "[Nhạc nền mở đầu]",
     "startTime": 0.00,
     "endTime": 3.50
   },
   {
-    "text": "Xin chào tất cả các bạn",
+    "text": "Tickets now on sale exclusively at SM Cinema",
+    "vietnameseText": "Vé hiện đã mở bán độc quyền tại SM Cinema",
     "startTime": 3.50,
     "endTime": 6.80
   },
   {
     "text": "[Tiếng nổ lớn]",
+    "vietnameseText": "[Tiếng nổ lớn]",
     "startTime": 6.80,
     "endTime": 9.20
   }
@@ -3455,8 +3502,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
 
                 const cleanSegmentText = (txt: string): string => {
                     let t = String(txt || '').trim();
-                    if (/^"?(?:text|content|sentence|subtitle|dialogue)"?\s*:\s*/i.test(t)) {
-                        t = t.replace(/^"?(?:text|content|sentence|subtitle|dialogue)"?\s*:\s*/i, '');
+                    if (/^"?(?:text|content|sentence|subtitle|dialogue|vietnameseText|viText|translation)"?\s*:\s*/i.test(t)) {
+                        t = t.replace(/^"?(?:text|content|sentence|subtitle|dialogue|vietnameseText|viText|translation)"?\s*:\s*/i, '');
                     }
                     t = t.replace(/^["'\s]+|["',\s]+$/g, '').trim();
                     return t;
@@ -3509,6 +3556,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                     if (list.length > 0) {
                         segments = list.map((item: any) => {
                             let text = cleanSegmentText(item.text || item.content || item.sentence || item.subtitle || item.transcript || item.dialogue || '');
+                            let viText = cleanSegmentText(item.vietnameseText || item.viText || item.translation || item.vietnamese || item.vi || text);
+                            if (!viText) viText = text;
                             if (!text || text.length <= 1) {
                                 return null;
                             }
@@ -3522,6 +3571,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
 
                             return {
                                 text: text,
+                                vietnameseText: viText,
                                 startTime: Math.round(start * 100) / 100,
                                 endTime: Math.round(end * 100) / 100,
                                 duration: Math.round((end - start) * 100) / 100
@@ -3541,11 +3591,13 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                                 parsedItems.push(JSON.parse(m));
                             } catch (e) {
                                 const tMatch = m.match(/"(?:text|content|sentence|subtitle|dialogue)"\s*:\s*"([^"]+)"/i);
+                                const viMatch = m.match(/"(?:vietnameseText|viText|translation|vietnamese)"\s*:\s*"([^"]+)"/i);
                                 const sMatch = m.match(/"(?:startTime|start|start_time|from)"\s*:\s*([\d.]+)/i);
                                 const eMatch = m.match(/"(?:endTime|end|end_time|to)"\s*:\s*([\d.]+)/i);
                                 if (tMatch && sMatch) {
                                     parsedItems.push({
                                         text: tMatch[1],
+                                        vietnameseText: viMatch ? viMatch[1] : tMatch[1],
                                         startTime: parseFloat(sMatch[1]),
                                         endTime: eMatch ? parseFloat(eMatch[1]) : undefined
                                     });
@@ -3555,6 +3607,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                         if (parsedItems.length > 0) {
                             segments = parsedItems.map((item: any) => {
                                 let text = cleanSegmentText(item.text || item.content || item.sentence || item.subtitle || item.transcript || item.dialogue || '');
+                                let viText = cleanSegmentText(item.vietnameseText || item.viText || item.translation || item.vietnamese || item.vi || text);
+                                if (!viText) viText = text;
                                 if (!text || text.length <= 1) return null;
                                 const start = Math.max(0, Math.min(actualDuration - 0.2, Number(item.startTime ?? item.start ?? item.start_time ?? item.from) || 0));
                                 let end = Number(item.endTime ?? item.end ?? item.end_time ?? item.to);
@@ -3565,6 +3619,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                                 end = Math.min(actualDuration, Math.max(start + 0.3, end));
                                 return {
                                     text: text,
+                                    vietnameseText: viText,
                                     startTime: Math.round(start * 100) / 100,
                                     endTime: Math.round(end * 100) / 100,
                                     duration: Math.round((end - start) * 100) / 100
@@ -3617,6 +3672,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                             endSec = Math.min(actualDuration, Math.max(startSec + 0.3, endSec));
                             segments.push({
                                 text: lineText,
+                                vietnameseText: lineText,
                                 startTime: Math.round(startSec * 100) / 100,
                                 endTime: Math.round(endSec * 100) / 100,
                                 duration: Math.round((endSec - startSec) * 100) / 100
@@ -3640,6 +3696,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                             const end = Math.min(actualDuration, curTime + sentDur);
                             segments.push({
                                 text: sent,
+                                vietnameseText: sent,
                                 startTime: Math.round(curTime * 100) / 100,
                                 endTime: Math.round(end * 100) / 100,
                                 duration: Math.round((end - curTime) * 100) / 100
@@ -3661,7 +3718,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
             }
 
             // Lấp đầy 100% dòng thời gian: nếu có khoảng trống > 0.5s giữa các câu, tự chèn [Nhạc nền]
-            const filledSegments: Array<{ text: string, startTime: number, endTime?: number, duration: number }> = [];
+            const filledSegments: Array<{ text: string, vietnameseText?: string, startTime: number, endTime?: number, duration: number }> = [];
             if (segments && segments.length > 0) {
                 const sorted = [...segments].sort((a, b) => a.startTime - b.startTime);
                 let currentCursor = 0;
@@ -3675,6 +3732,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                         const gapDur = Math.round((segStart - currentCursor) * 100) / 100;
                         filledSegments.push({
                             text: '[Nhạc nền]',
+                            vietnameseText: '[Nhạc nền]',
                             startTime: Math.round(currentCursor * 100) / 100,
                             endTime: Math.round(segStart * 100) / 100,
                             duration: gapDur
@@ -3683,6 +3741,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
 
                     filledSegments.push({
                         text: String(seg.text || '').trim() || '[Âm thanh]',
+                        vietnameseText: String((seg as any).vietnameseText || seg.text || '').trim() || '[Âm thanh]',
                         startTime: Math.round(segStart * 100) / 100,
                         endTime: Math.round(segEnd * 100) / 100,
                         duration: Math.round((segEnd - segStart) * 100) / 100
@@ -3696,6 +3755,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                     const gapDur = Math.round((actualDuration - currentCursor) * 100) / 100;
                     filledSegments.push({
                         text: '[Nhạc nền]',
+                        vietnameseText: '[Nhạc nền]',
                         startTime: Math.round(currentCursor * 100) / 100,
                         endTime: Math.round(actualDuration * 100) / 100,
                         duration: gapDur
@@ -3707,8 +3767,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
             // Sắp xếp các đoạn câu thoại tăng dần theo thời gian bắt đầu
             segments.sort((a, b) => a.startTime - b.startTime);
 
-            // 3. Cắt audio thành từng file audio segment bằng FFmpeg
-            this.toastr.info('Đang cắt từng đoạn audio câu thoại...', 'Đang xử lý');
+            // 3. Cắt audio thành từng file audio segment bằng FFmpeg & sinh file .SRT (gốc + tiếng Việt)
+            this.toastr.info('Đang cắt từng đoạn audio câu thoại & sinh file phụ đề SRT...', 'Đang xử lý');
             const splitResults = await electron.splitAudioSegments({
                 audioPath: extractedAudioPath,
                 segments: segments
@@ -3720,24 +3780,19 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
 
             if (this.projectData?.scenes) {
                 for (const sc of this.projectData.scenes) {
-                    if (sc === scene) {
-                        sc.extractedAudios = [];
-                        sc.subtitles = [];
-                    } else {
-                        if (sc.extractedAudios) {
-                            sc.extractedAudios = sc.extractedAudios.filter((a: any) => {
-                                const aStart = Number(a.startTime) || 0;
-                                const aEnd = aStart + (Number(a.duration) || 0);
-                                return aEnd <= videoStart + 0.05 || aStart >= videoEnd - 0.05;
-                            });
-                        }
-                        if (sc.subtitles) {
-                            sc.subtitles = sc.subtitles.filter((s: any) => {
-                                const sStart = Number(s.startTime) || 0;
-                                const sEnd = sStart + (Number(s.duration) || 0);
-                                return sEnd <= videoStart + 0.05 || sStart >= videoEnd - 0.05;
-                            });
-                        }
+                    if (sc.extractedAudios) {
+                        sc.extractedAudios = sc.extractedAudios.filter((a: any) => {
+                            const aStart = Number(a.startTime) || 0;
+                            const aEnd = aStart + (Number(a.duration) || 0);
+                            return aEnd <= videoStart || aStart >= videoEnd;
+                        });
+                    }
+                    if (sc.subtitles) {
+                        sc.subtitles = sc.subtitles.filter((s: any) => {
+                            const sStart = Number(s.startTime) || 0;
+                            const sEnd = sStart + (Number(s.duration) || 0);
+                            return sEnd <= videoStart || sStart >= videoEnd;
+                        });
                     }
                 }
             }
@@ -3756,22 +3811,26 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
                     const segStart = Math.round((videoStart + Number(res.startTime)) * 100) / 100;
                     const segDur = Math.max(0.3, Math.round((Number(res.duration) || (Number(res.endTime) - Number(res.startTime)) || 2) * 100) / 100);
                     const segText = String(res.text || '').trim() || `Phần ${idx + 1}`;
+                    const segViText = String(res.vietnameseText || (segments[idx] as any)?.vietnameseText || segText).trim();
 
                     if (segStart < videoEnd + 0.05 && segDur > 0.2) {
                         // 1. Thêm vào Track Extracted Audio
                         scene.extractedAudios.push({
                             id: Date.now() + idx,
                             text: segText,
+                            vietnameseText: segViText,
                             audioUrl: segUrl,
                             startTime: segStart,
                             duration: segDur,
                             maxDuration: segDur
                         });
 
-                        // 2. Thêm vào Track Subtitles (khớp 1-1 chính xác cùng text với Track Audio)
+                        // 2. Thêm vào Track Subtitles (mặc định hiển thị bản dịch Tiếng Việt và lưu kèm câu thoại gốc)
                         scene.subtitles.push({
                             id: Date.now() + 1000 + idx,
-                            text: segText,
+                            text: segViText || segText,
+                            originalText: segText,
+                            vietnameseText: segViText,
                             startTime: segStart,
                             duration: segDur
                         });
@@ -3799,7 +3858,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
 
             // Dọn dẹp các WaveSurfer mồ côi cũ và cập nhật lại
             this.cleanupOrphanedWaveSurfers();
-            this.toastr.success(`Đã xoá kết quả cũ và trích xuất thành công ${scene.extractedAudios.length} đoạn câu thoại khớp chuẩn vị trí video!`);
+            this.toastr.success(`Đã trích xuất âm thanh AI & tự động tạo file phụ đề Tiếng Việt (.srt) thành công!`, 'Hoàn tất', { timeOut: 6000 });
             this.saveData();
             this.cd.detectChanges();
             setTimeout(() => {
@@ -4056,13 +4115,20 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
     getAllProjectSubtitles(): any[] {
         const list: any[] = [];
         if (!this.projectData || !this.projectData.scenes) return list;
+        const seenKeys = new Set<string>();
+
         for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
             const scene = this.projectData.scenes[sIdx];
             if (scene.subtitles) {
                 for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                    const sub = scene.subtitles[subIdx];
+                    const key = `${Math.round((sub.startTime || 0) * 100)}_${Math.round((sub.duration || 0) * 100)}_${String(sub.text || '').trim()}`;
+                    if (seenKeys.has(key)) continue;
+                    seenKeys.add(key);
+
                     list.push({
-                        ...scene.subtitles[subIdx],
-                        _raw: scene.subtitles[subIdx],
+                        ...sub,
+                        _raw: sub,
                         sceneIdx: sIdx,
                         subIdx: subIdx,
                         type: 'subtitle'
@@ -4071,6 +4137,203 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
             }
         }
         return list;
+    }
+
+    currentSubtitleLang: string = 'vi';
+    isTranslatingSubtitles: boolean = false;
+
+    readonly SUBTITLE_LANGUAGES: Array<{ code: string, label: string, icon: string }> = [
+        { code: 'vi', label: 'Tiếng Việt', icon: '🇻🇳' },
+        { code: 'en', label: 'Tiếng Anh (English)', icon: '🇬🇧' },
+        { code: 'zh', label: 'Tiếng Trung (中文)', icon: '🇨🇳' },
+        { code: 'ja', label: 'Tiếng Nhật (日本語)', icon: '🇯🇵' },
+        { code: 'ko', label: 'Tiếng Hàn (한국어)', icon: '🇰🇷' },
+        { code: 'fr', label: 'Tiếng Pháp (Français)', icon: '🇫🇷' },
+        { code: 'es', label: 'Tiếng Tây Ban Nha (Español)', icon: '🇪🇸' },
+        { code: 'de', label: 'Tiếng Đức (Deutsch)', icon: '🇩🇪' },
+        { code: 'th', label: 'Tiếng Thái (ไทย)', icon: '🇹🇭' }
+    ];
+
+    isLikelyVietnamese(text: string): boolean {
+        if (!text) return false;
+        return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(text);
+    }
+
+    getAvailableSubtitleLanguages(): Array<{ code: string, label: string, count: number, isCurrent: boolean, icon: string }> {
+        const list: Array<{ code: string, label: string, count: number, isCurrent: boolean, icon: string }> = [];
+        const allSubs = this.getAllProjectSubtitles();
+        const totalCount = allSubs.length;
+
+        for (const lang of this.SUBTITLE_LANGUAGES) {
+            list.push({
+                code: lang.code,
+                label: lang.label,
+                count: totalCount,
+                isCurrent: this.currentSubtitleLang === lang.code,
+                icon: lang.icon
+            });
+        }
+
+        return list;
+    }
+
+    applySubtitleLanguage(langCode: string) {
+        if (!this.projectData || !this.projectData.scenes) return;
+
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (scene.subtitles) {
+                for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                    const sub = scene.subtitles[subIdx];
+                    const matchingExt = scene.extractedAudios ? (scene.extractedAudios[subIdx] || scene.extractedAudios.find((a: any) => Math.abs((a.startTime || 0) - (sub.startTime || 0)) < 0.25)) : null;
+
+                    // Lưu trữ bản tiếng Việt gốc nếu chưa lưu
+                    if (!sub.vietnameseText && sub.text && this.isLikelyVietnamese(sub.text)) {
+                        sub.vietnameseText = sub.text;
+                    }
+
+                    if (langCode === 'vi') {
+                        sub.text = sub.vietnameseText || sub.text;
+                    } else if (langCode === 'en') {
+                        if (sub.translations && sub.translations['en']) {
+                            sub.text = sub.translations['en'];
+                        } else if (sub.originalText && !this.isLikelyVietnamese(sub.originalText)) {
+                            sub.text = sub.originalText;
+                        } else if (matchingExt?.text && matchingExt.text !== '[Âm thanh gốc]' && !this.isLikelyVietnamese(matchingExt.text)) {
+                            sub.text = matchingExt.text;
+                        }
+                    } else if (sub.translations && sub.translations[langCode]) {
+                        sub.text = sub.translations[langCode];
+                    }
+                }
+            }
+        }
+
+        this.saveData();
+        this.cd.detectChanges();
+        setTimeout(() => this.updateLines(), 100);
+    }
+
+    async switchSubtitleLanguage(langCode: string) {
+        if (!this.projectData || !this.projectData.scenes) return;
+        this.currentSubtitleLang = langCode;
+
+        const allSubs: any[] = [];
+        for (const scene of this.projectData.scenes) {
+            if (scene.subtitles) {
+                for (const sub of scene.subtitles) {
+                    allSubs.push(sub);
+                }
+            }
+        }
+
+        if (allSubs.length === 0) {
+            this.toastr.warning('Chưa có phụ đề nào để chuyển đổi.');
+            return;
+        }
+
+        const targetLangObj = this.SUBTITLE_LANGUAGES.find(l => l.code === langCode);
+        const targetLangName = targetLangObj ? targetLangObj.label : langCode;
+
+        // Lưu trữ bản tiếng Việt cho tất cả các câu trước khi chuyển đổi
+        for (const sub of allSubs) {
+            if (!sub.vietnameseText && sub.text) {
+                sub.vietnameseText = sub.text;
+            }
+        }
+
+        // Kiểm tra xem TOÀN BỘ các câu thoại đã có bản dịch hợp lệ cho ngôn ngữ này chưa
+        let isFullyTranslated = true;
+        if (langCode === 'vi') {
+            isFullyTranslated = allSubs.every(s => (s.vietnameseText && s.vietnameseText.trim().length > 0) || (s.text && this.isLikelyVietnamese(s.text)));
+        } else if (langCode === 'en') {
+            isFullyTranslated = allSubs.every(s => {
+                if (s.translations && s.translations['en'] && s.translations['en'].trim().length > 0 && !this.isLikelyVietnamese(s.translations['en'])) {
+                    return true;
+                }
+                if (s.originalText && s.originalText.trim().length > 0 && !this.isLikelyVietnamese(s.originalText)) {
+                    return true;
+                }
+                return false;
+            });
+        } else {
+            isFullyTranslated = allSubs.every(s => s.translations && s.translations[langCode] && s.translations[langCode].trim().length > 0);
+        }
+
+        if (isFullyTranslated) {
+            this.applySubtitleLanguage(langCode);
+            this.toastr.success(`Đã chuyển hiển thị phụ đề sang: ${targetLangName}`);
+            return;
+        }
+
+        // Nếu chưa có đầy đủ bản dịch -> Gọi Gemini AI dịch toàn bộ phụ đề sang ngôn ngữ đích
+        try {
+            this.isTranslatingSubtitles = true;
+            this.cd.detectChanges();
+            this.toastr.info(`AI đang dịch ${allSubs.length} đoạn phụ đề sang ${targetLangName}...`, 'Đang dịch AI');
+
+            const subsToTranslate = allSubs.map((s, idx) => ({
+                index: idx,
+                text: s.vietnameseText || s.text || s.originalText || ''
+            }));
+
+            const prompt = `Dịch toàn bộ danh sách phụ đề video sau đây sang ${targetLangName} (mã ngôn ngữ: ${langCode}).
+QUY TẮC BẮT BUỘC:
+1. Phải dịch TẤT CẢ câu thoại sang đúng ${targetLangName}. Tuyệt đối không giữ nguyên tiếng Việt.
+2. Với các nhãn âm thanh trong ngoặc vuông:
+   - Dịch nhãn âm thanh sang ${targetLangName} (ví dụ sang Tiếng Anh: [Nhạc nền hồi hộp] -> [Suspenseful background music], [Tiếng nổ lớn] -> [Loud explosion], [Á!] -> [Ah!]).
+3. Lời thoại dịch tự nhiên, chuẩn phong cách phụ đề điện ảnh/video.
+4. Trả về DUY NHẤT một mảng JSON theo format: [{"index": 0, "translatedText": "..."}]
+
+Danh sách phụ đề cần dịch:
+${JSON.stringify(subsToTranslate, null, 2)}`;
+
+            const response: any = await this._genaiService.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: {
+                    temperature: 0.1,
+                    responseMimeType: 'application/json',
+                    skipTTS: true
+                } as any
+            });
+
+            let rawText = '';
+            if (typeof response === 'string') rawText = response;
+            else if ((response as any)?.text) rawText = typeof (response as any).text === 'function' ? (response as any).text() : (response as any).text;
+            else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.text) {
+                rawText = (response as any).candidates[0].content.parts[0].text;
+            }
+
+            console.log(`[TranslateSubtitles] Kết quả dịch ${targetLangName}:`, rawText);
+            const cleanText = (rawText || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+            const translatedList: Array<{ index: number, translatedText: string }> = JSON.parse(cleanText);
+
+            if (Array.isArray(translatedList)) {
+                for (const item of translatedList) {
+                    if (item.index !== undefined && allSubs[item.index] && item.translatedText) {
+                        const targetSub = allSubs[item.index];
+                        if (!targetSub.translations) targetSub.translations = {};
+                        targetSub.translations[langCode] = item.translatedText;
+                        if (langCode === 'vi') targetSub.vietnameseText = item.translatedText;
+                        if (langCode === 'en') {
+                            targetSub.originalText = item.translatedText;
+                            targetSub.translations['en'] = item.translatedText;
+                        }
+                    }
+                }
+            }
+
+            this.applySubtitleLanguage(langCode);
+            this.toastr.success(`Đã dịch và chuyển phụ đề sang: ${targetLangName}!`);
+        } catch (err: any) {
+            console.error('[SwitchSubtitleLanguage] Lỗi dịch phụ đề AI:', err);
+            this.applySubtitleLanguage(langCode);
+            this.toastr.warning(`Đã chuyển sang ${targetLangName} (Lỗi AI: ${err?.message || err})`);
+        } finally {
+            this.isTranslatingSubtitles = false;
+            this.cd.detectChanges();
+        }
     }
 
     getFilteredMediaItems(): any[] {
@@ -4101,7 +4364,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
         if (!item) return String(index);
         const raw = item._raw || item;
         const id = raw.id || `${item.type}_${item.sceneIdx}_${item.vIdx ?? item.subIdx ?? item.aIdx ?? index}`;
-        return `${item.type}_${id}`;
+        return `${item.type}_${id}_${raw.text || ''}_${this.currentSubtitleLang}`;
     }
 
     playSnippetAudio(url: string, event?: MouseEvent) {
@@ -4175,35 +4438,95 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
         const item = this.activeItem;
         const type = this.getItemType(item);
 
-        if (this.projectData && this.projectData.scenes) {
-            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
-                const scene = this.projectData.scenes[sIdx];
-                if (type === 'text' && scene.subtitles) {
-                    const idx = scene.subtitles.indexOf(item);
-                    if (idx !== -1) {
-                        this.removeSubtitle(sIdx, idx);
-                        this.activeItem = null;
-                        return;
+        let typeTitle = 'mục đang chọn';
+        let typeLabel = 'mục này';
+        if (type === 'text') {
+            typeTitle = 'Phụ đề';
+            typeLabel = 'đoạn phụ đề này';
+        } else if (type === 'audio') {
+            typeTitle = 'Audio';
+            typeLabel = 'đoạn âm thanh này';
+        } else if (type === 'video') {
+            typeTitle = 'Video';
+            typeLabel = 'đoạn video này';
+        }
+
+        const dialogRef = this._fuseConfirmationService.open({
+            title: `Xoá ${typeTitle}?`,
+            message: `Bạn có chắc chắn muốn xoá ${typeLabel} khỏi dự án không? Thao tác này không thể hoàn tác.`,
+            icon: { show: true, name: 'heroicons_outline:trash', color: 'warn' },
+            actions: {
+                confirm: { show: true, label: 'Xoá ngay', color: 'warn' },
+                cancel: { show: true, label: 'Huỷ bỏ' }
+            }
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result !== 'confirmed') return;
+
+            if (this.projectData && this.projectData.scenes) {
+                for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                    const scene = this.projectData.scenes[sIdx];
+                    if (type === 'text' && scene.subtitles) {
+                        const idx = scene.subtitles.indexOf(item);
+                        if (idx !== -1) {
+                            scene.subtitles.splice(idx, 1);
+                            this.activeItem = null;
+                            this.destroyInspectorWaveSurfer();
+                            this.saveData();
+                            this.toastr.warning(`Đã xoá phụ đề!`);
+                            setTimeout(() => this.initWaveSurfers(), 300);
+                            return;
+                        }
                     }
-                }
-                if (type === 'audio' && scene.extractedAudios) {
-                    const idx = scene.extractedAudios.indexOf(item);
-                    if (idx !== -1) {
-                        this.removeExtractedAudio(sIdx, idx);
-                        this.activeItem = null;
-                        return;
+                    if (type === 'audio' && scene.extractedAudios) {
+                        const idx = scene.extractedAudios.indexOf(item);
+                        if (idx !== -1) {
+                            const audio = scene.extractedAudios[idx];
+                            if (scene.videos) {
+                                const video = scene.videos.find((v: any) => v.startTime === audio.startTime);
+                                if (video) video.muted = false;
+                            }
+                            scene.extractedAudios.splice(idx, 1);
+                            this.activeItem = null;
+                            this.destroyInspectorWaveSurfer();
+                            this.saveData();
+                            this.toastr.warning(`Đã xoá âm thanh!`);
+                            setTimeout(() => this.initWaveSurfers(), 300);
+                            return;
+                        }
                     }
-                }
-                if (type === 'video' && scene.videos) {
-                    const idx = scene.videos.indexOf(item);
-                    if (idx !== -1) {
-                        this.removeVideo(sIdx, idx);
-                        this.activeItem = null;
-                        return;
+                    if (type === 'video' && scene.videos) {
+                        const idx = scene.videos.indexOf(item);
+                        if (idx !== -1) {
+                            const deletedVideo = scene.videos[idx];
+                            const shiftAmount = deletedVideo.duration || 0;
+
+                            let passedDeleted = false;
+                            for (let s = 0; s < this.projectData.scenes.length; s++) {
+                                const currentScene = this.projectData.scenes[s];
+                                if (!currentScene.videos) continue;
+                                if (s > sIdx) passedDeleted = true;
+                                for (let v = 0; v < currentScene.videos.length; v++) {
+                                    const vid = currentScene.videos[v];
+                                    if (s === sIdx && v > idx) passedDeleted = true;
+                                    if (passedDeleted) {
+                                        vid.startTime = Math.max(0, (vid.startTime || 0) - shiftAmount);
+                                    }
+                                }
+                            }
+                            scene.videos.splice(idx, 1);
+                            this.activeItem = null;
+                            this.destroyInspectorWaveSurfer();
+                            this.saveData();
+                            this.toastr.warning(`Đã xoá video!`);
+                            this.cd.detectChanges();
+                            return;
+                        }
                     }
                 }
             }
-        }
+        });
     }
 
     removeSubtitle(sceneIdx: number, subIdx: number) {
@@ -4678,23 +5001,23 @@ TRẢ VỀ DUY NHẤT MẢNG JSON:
 
     alert(alert?: any) {
         const dialogRef = this._fuseConfirmationService.open({
-            title: alert ? alert.title : 'Hoàn tất!',
+            title: alert ? alert.title : 'Xác nhận',
             message: alert
                 ? alert.message
-                : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu. <span class="font-medium">Hãy tiếp tục với một URL mới luôn nào!</span>',
-            icon: { show: true, name: 'feather:check', color: 'primary' },
+                : 'Bạn có chắc chắn muốn thực hiện thao tác này?',
+            icon: { show: true, name: alert?.icon || 'heroicons_outline:exclamation-triangle', color: alert?.color || 'warn' },
             actions: {
-                confirm: { show: true, label: alert ? alert.confirm : 'Khởi động lại', color: 'primary' },
-                cancel: { show: false, label: alert ? alert.cancel : 'Đóng cửa sổ' },
+                confirm: { show: true, label: alert ? alert.confirm : 'Xác nhận', color: alert?.color || 'warn' },
+                cancel: { show: true, label: alert ? alert.cancel : 'Huỷ bỏ' },
             },
             dismissible: true,
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                if (alert.cb) alert.cb();
+                if (alert && alert.cb) alert.cb();
             } else {
-                if (alert.cc) alert.cc();
+                if (alert && alert.cc) alert.cc();
             }
         });
     }
