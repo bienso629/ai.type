@@ -10,23 +10,23 @@
     }
 </style>
 <div class="flex flex-col w-full h-full !p-0 bg-black text-gray-100 rounded-none select-none">
-    <div class="flex flex-row justify-between items-center pb-4 mb-0 flex-shrink-0 px-4 pt-4 border-b border-neutral-800 bg-[#121212] relative">
-        <div class="flex items-center text-xl font-normal text-white tracking-tight z-10">
-            <mat-icon class="mr-2 icon-size-5 text-green-400 flex-shrink-0" [svgIcon]="'feather:edit-3'"></mat-icon>
-            <span class="truncate max-w-[30vw] md:max-w-[40vw] tooltip text-white font-medium" [title]="projectData?.title || projectData?.extraPrompt">{{
-                projectData?.title || projectData?.extraPrompt || 'Thiết kế video' }}</span>
+    <div class="flex flex-row justify-between items-center py-2.5 mb-0 flex-shrink-0 px-4 border-b border-neutral-800 bg-[#121212] relative">
+        <div class="flex items-center text-sm md:text-base font-semibold text-white tracking-tight z-10">
+            <mat-icon class="mr-2 icon-size-4.5 text-green-400 flex-shrink-0" [svgIcon]="'feather:edit-3'"></mat-icon>
+            <span class="truncate max-w-[30vw] md:max-w-[40vw] tooltip text-white" [title]="projectData?.title || projectData?.extraPrompt || 'Công cụ chỉnh sửa video bằng AI'">{{
+                projectData?.title || projectData?.extraPrompt || 'Công cụ chỉnh sửa video bằng AI' }}</span>
         </div>
         <!-- Character Grid -->
         <div class="absolute left-1/2 -translate-x-1/2 flex items-center justify-center overflow-x-auto scene-scroll-area z-0">
-            <div class="flex gap-2 items-center">
+            <div class="flex gap-1.5 items-center">
                 <ng-container *ngFor="let char of projectData?.characters || []">
                     <img *ngIf="char.avatarUrls && char.avatarUrls.length > 0" 
                          [src]="getSafeUrl(char.avatarUrls[0])" 
-                         class="w-10 h-10 rounded-xl object-cover border-2 border-neutral-700 hover:border-indigo-400 cursor-pointer transition-colors shadow-sm"
+                         class="w-7 h-7 md:w-8 md:h-8 rounded-lg object-cover border border-neutral-700 hover:border-indigo-400 cursor-pointer transition-colors shadow-sm"
                          [title]="char.name || char.role"
                          (click)="openConfigDialog()">
                     <div *ngIf="!char.avatarUrls || char.avatarUrls.length === 0"
-                         class="w-10 h-10 rounded-xl bg-neutral-800 border-2 border-neutral-700 flex items-center justify-center text-xs text-gray-300 hover:border-indigo-400 cursor-pointer transition-colors shadow-sm"
+                         class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[10px] text-gray-300 hover:border-indigo-400 cursor-pointer transition-colors shadow-sm"
                          [title]="char.name || char.role"
                          (click)="openConfigDialog()">
                          {{ (char.name || char.role)?.substring(0, 1) | uppercase }}
@@ -346,7 +346,7 @@
                             <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Nội dung phụ đề</label>
                             <textarea [(ngModel)]="activeItem.text" (ngModelChange)="markDirty()" rows="3"
                                 placeholder="Nhập nội dung phụ đề..."
-                                class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed font-sans"></textarea>
+                                class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed font-sans"></textarea>
                         </div>
 
                         <!-- Timing Controls -->
@@ -354,17 +354,17 @@
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
                                 <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
-                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
                                 <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
-                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
                             </div>
                         </div>
 
                         <!-- Audio WaveSurfer Visualizer & Player nếu có audioUrl -->
-                        <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-lg flex flex-col gap-2">
+                        <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-sm flex flex-col gap-2">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-1.5">
                                     <mat-icon class="icon-size-3.5 text-indigo-400">graphic_eq</mat-icon>
@@ -376,7 +376,7 @@
                             </div>
 
                             <!-- WaveSurfer Waveform Canvas Container -->
-                            <div class="w-full h-11 bg-neutral-950/90 rounded border border-neutral-800 overflow-hidden relative px-1 flex items-center">
+                            <div class="w-full h-11 bg-neutral-950/90 rounded-sm border border-neutral-800 overflow-hidden relative px-1 flex items-center">
                                 <div id="inspector-waveform-container" class="w-full h-full"></div>
                             </div>
                         </div>
@@ -387,7 +387,7 @@
                     <div *ngIf="getItemType(activeItem) === 'audio'" class="flex flex-col gap-2.5">
                         <div class="flex flex-col gap-1">
                             <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Thông tin Audio</label>
-                            <div class="p-2.5 bg-[#0d0e12] border border-neutral-700 rounded-lg text-xs text-neutral-300 font-mono break-all">
+                            <div class="p-2.5 bg-[#0d0e12] border border-neutral-700 rounded-sm text-xs text-neutral-300 font-mono break-all">
                                 {{ activeItem.title || (activeItem.text && activeItem.text !== '[Âm thanh gốc]' ? activeItem.text : '') || activeItem.audioUrl || 'Âm thanh gốc' }}
                             </div>
                         </div>
@@ -397,17 +397,17 @@
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
                                 <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
-                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-purple-500">
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-purple-500">
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
                                 <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
-                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-purple-500">
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-purple-500">
                             </div>
                         </div>
 
                         <!-- Audio WaveSurfer Visualizer & Player -->
-                        <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-lg flex flex-col gap-2">
+                        <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-sm flex flex-col gap-2">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-1.5">
                                     <mat-icon class="icon-size-3.5 text-purple-400">graphic_eq</mat-icon>
@@ -419,7 +419,7 @@
                             </div>
 
                             <!-- WaveSurfer Waveform Canvas Container -->
-                            <div class="w-full h-11 bg-neutral-950/90 rounded border border-neutral-800 overflow-hidden relative px-1 flex items-center">
+                            <div class="w-full h-11 bg-neutral-950/90 rounded-sm border border-neutral-800 overflow-hidden relative px-1 flex items-center">
                                 <div id="inspector-waveform-container" class="w-full h-full"></div>
                             </div>
                         </div>
@@ -432,7 +432,7 @@
                             <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Prompt / Mô tả cảnh</label>
                             <textarea [(ngModel)]="activeItem.prompt" (ngModelChange)="markDirty()" rows="3"
                                 placeholder="Nhập prompt cảnh video..."
-                                class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 resize-none leading-relaxed font-sans"></textarea>
+                                class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 resize-none leading-relaxed font-sans"></textarea>
                         </div>
 
                         <!-- Timing Controls -->
@@ -440,12 +440,12 @@
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
                                 <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
-                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-blue-500">
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-blue-500">
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
                                 <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
-                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-blue-500">
+                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-blue-500">
                             </div>
                         </div>
                     </div>
@@ -503,11 +503,11 @@
                     (mousedown)="onTimeRulerMouseDown($event)">
 
                     <!-- Sticky Zoom Controls in top-left (0 to 128px) -->
-                    <div class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex items-center justify-between px-2.5 z-[105] shrink-0"
+                    <div class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex items-center justify-between px-3 z-[105] shrink-0 overflow-hidden"
                          (mousedown)="$event.stopPropagation()">
-                        <button mat-icon-button class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded transition-colors !p-0" 
+                        <button type="button" class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded-sm transition-colors disabled:opacity-30 disabled:pointer-events-none p-0" 
                             (click)="zoomOutTimeline($event)" [disabled]="pixelsPerSecond <= 5" title="Thu nhỏ timeline (-)">
-                            <mat-icon class="icon-size-3.5">remove</mat-icon>
+                            <mat-icon class="icon-size-3.5 !w-3.5 !h-3.5 !text-[14px]">remove</mat-icon>
                         </button>
                         
                         <span class="text-[10px] text-neutral-300 font-mono font-medium select-none cursor-pointer hover:text-indigo-300 transition-colors"
@@ -515,9 +515,9 @@
                             {{ (pixelsPerSecond / 20 * 100) | number:'1.0-0' }}%
                         </span>
 
-                        <button mat-icon-button class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded transition-colors !p-0" 
+                        <button type="button" class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded-sm transition-colors disabled:opacity-30 disabled:pointer-events-none p-0" 
                             (click)="zoomInTimeline($event)" [disabled]="pixelsPerSecond >= 100" title="Phóng to timeline (+)">
-                            <mat-icon class="icon-size-3.5">add</mat-icon>
+                            <mat-icon class="icon-size-3.5 !w-3.5 !h-3.5 !text-[14px]">add</mat-icon>
                         </button>
                     </div>
 
