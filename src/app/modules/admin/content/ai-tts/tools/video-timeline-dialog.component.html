@@ -56,13 +56,6 @@
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:plus'"></mat-icon>
             </button>
 
-            <!-- Nút Chọn Khung Mockup Video (Frames 9:16) -->
-            <button mat-icon-button class="text-gray-300 hover:text-indigo-400 transition-colors"
-                [matTooltip]="selectedFrame ? 'Đang dùng khung: ' + selectedFrame.name : 'Chọn khung Mockup TikTok (9:16)'"
-                [ngClass]="{'!text-indigo-400 bg-indigo-950/60 border border-indigo-500/50 rounded-lg': selectedFrame}"
-                (click)="openFrameModal()">
-                <mat-icon class="icon-size-5">layers</mat-icon>
-            </button>
 
             <button mat-icon-button class="text-gray-300 hover:text-white transition-colors" [matTooltip]="'app.auto_broadcast_now' | transloco"
                 (click)="openBroadcastPreviewModal()">
@@ -352,15 +345,13 @@
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <!-- Nút Xuất Video Khung MP4 (Chỉ hiện khi đang chọn Khung) -->
-                        <button *ngIf="selectedFrame && selectedFrame.id !== 'none'" mat-flat-button
-                            class="!bg-indigo-600 hover:!bg-indigo-500 !text-white !text-[11px] !h-7 !px-2.5 !rounded-sm flex items-center gap-1 shadow-sm"
+                        <!-- Nút Xuất Video Khung MP4 (Icon only, chuẩn mat-icon-button) -->
+                        <button *ngIf="selectedFrame && selectedFrame.id !== 'none'" mat-icon-button
                             (click)="exportVideoWithFrame()" [disabled]="isExportingFrameVideo"
-                            title="Xuất video lồng khung thành file MP4 bằng FFmpeg">
-                            <mat-icon class="icon-size-3.5 mr-0.5" [ngClass]="{'animate-spin': isExportingFrameVideo}">
+                            title="Xuất MP4 với Khung">
+                            <mat-icon [ngClass]="{'animate-spin': isExportingFrameVideo}">
                                 {{ isExportingFrameVideo ? 'sync' : 'movie_creation' }}
                             </mat-icon>
-                            <span>{{ isExportingFrameVideo ? 'Đang render...' : 'Xuất MP4 với Khung' }}</span>
                         </button>
 
                         <button mat-icon-button class="text-neutral-400 hover:text-indigo-400"
