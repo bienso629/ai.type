@@ -345,11 +345,12 @@
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <!-- Nút Xuất Video Khung MP4 (Icon only, chuẩn mat-icon-button) -->
+                        <!-- Nút Xuất Video Khung MP4 (Icon only, đồng bộ kích thước icon-size-4.5) -->
                         <button *ngIf="selectedFrame && selectedFrame.id !== 'none'" mat-icon-button
+                            class="text-neutral-400 hover:text-indigo-400"
                             (click)="exportVideoWithFrame()" [disabled]="isExportingFrameVideo"
                             title="Xuất MP4 với Khung">
-                            <mat-icon [ngClass]="{'animate-spin': isExportingFrameVideo}">
+                            <mat-icon class="icon-size-4.5" [ngClass]="{'animate-spin text-indigo-400': isExportingFrameVideo}">
                                 {{ isExportingFrameVideo ? 'sync' : 'movie_creation' }}
                             </mat-icon>
                         </button>
@@ -837,7 +838,7 @@
 
         <button mat-menu-item (click)="magicKlingV3(selectedContextData?.video, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
             <mat-icon class="text-fuchsia-400">auto_awesome</mat-icon>
-            <span>Magic Kling v3 (Tách frame & prompt)</span>
+            <span>Tách frame và sửa</span>
         </button>
 
         <button mat-menu-item (click)="toggleMute(selectedContextData?.video)">
