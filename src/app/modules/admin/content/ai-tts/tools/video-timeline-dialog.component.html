@@ -250,26 +250,28 @@
                 <div class="w-full flex-1 relative flex flex-col items-center justify-center min-h-0 overflow-hidden"
                      [ngClass]="selectedFrame && selectedFrame.id !== 'none' ? 'aspect-[9/16] max-h-full py-1' : ''">
 
-                    <!-- Khi CÓ Frame Template được chọn (Mockup Frame 9:16 HTML5 Hybrid Canvas) -->
-                    <div *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl)"
+                    <!-- Khi CÓ Frame Template được chọn (Mockup Frame 9:16 HTML5 3D Homography Canvas) -->
+                    <div #mockupFrameContainer
+                         *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl)"
                          class="relative aspect-[9/16] h-full max-h-full flex items-center justify-center overflow-hidden rounded-lg shadow-2xl bg-black">
                         
                         <!-- 1. Background Image của Khung (Bàn làm việc Gaming & Màn hình PC) -->
                         <img [src]="selectedFrame.bgDataUrl || getSafeUrl(selectedFrame.bgPath)"
                              class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10" />
 
-                        <!-- 2. Video nhúng trực tiếp và được scale đúng kích thước & góc nghiêng của màn hình PC -->
-                        <div class="z-20 overflow-hidden bg-black flex items-center justify-center"
-                             [ngStyle]="getMockupBoxStyle()">
+                        <!-- 2. Video nhúng trực tiếp và được uốn phối cảnh 3D nghiêng theo góc màn hình PC -->
+                        <div class="absolute inset-0 w-full h-full z-20 pointer-events-auto overflow-hidden">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                                class="w-full h-full object-fill cursor-pointer"
+                                [ngStyle]="getMockupVideoStyle(mockupFrameContainer)"
+                                class="cursor-pointer"
                                 (click)="toggleTimelinePlay()"
                                 (ended)="onVideoEnded()"
                                 (pause)="onVideoPauseEvent()"
                                 (play)="onVideoPlayEvent()"></video>
 
                             <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                                class="w-full h-full object-fill cursor-pointer"
+                                [ngStyle]="getMockupVideoStyle(mockupFrameContainer)"
+                                class="cursor-pointer"
                                 (click)="toggleTimelinePlay()" />
                         </div>
 
@@ -318,11 +320,11 @@
                          class="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-[92%] pointer-events-none z-40 select-none transition-all duration-100 flex flex-col items-center justify-center gap-1 text-center"
                          style="text-shadow: 0 2px 4px #000, 0 0 10px #000, 0 0 20px #000, 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;">
                         <!-- Dòng 1: Ngôn ngữ chính / Gốc (Chữ to, trắng đậm, viền đen điện ảnh) -->
-                        <span class="text-white font-bold text-base md:text-xl lg:text-2xl leading-snug tracking-wide">
+                        <span class="text-white font-bold text-lg md:text-2xl lg:text-3xl leading-snug tracking-wide">
                             {{ currentSubtitleInfo.primaryText }}
                         </span>
                         <!-- Dòng 2: Tiếng Việt (Chữ vàng tươi, to rõ bên dưới) -->
-                        <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold text-sm md:text-base lg:text-lg leading-snug tracking-wide">
+                        <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold text-base md:text-lg lg:text-xl leading-snug tracking-wide">
                             {{ currentSubtitleInfo.secondaryText }}
                         </span>
                     </div>

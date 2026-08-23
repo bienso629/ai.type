@@ -62,6 +62,7 @@ export interface VideoFrameTemplate {
     aspectRatio: '9:16' | '16:9' | '1:1';
     icon: string;
     bgPath: string;
+    maskPath?: string;
     thumbPath: string;
     bgDataUrl?: string;
     thumbDataUrl?: string;
@@ -113,6 +114,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             aspectRatio: '16:9',
             icon: 'fullscreen',
             bgPath: '',
+            maskPath: '',
             thumbPath: '',
             description: 'Phát video toàn màn hình gốc không lồng khung mockup',
             quad: { topLeft: { x: 0, y: 0 }, topRight: { x: 1920, y: 0 }, bottomRight: { x: 1920, y: 1080 }, bottomLeft: { x: 0, y: 1080 } },
@@ -125,13 +127,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             aspectRatio: '9:16',
             icon: 'desktop_windows',
             bgPath: 'src/assets/video_frames/tiktok_frame_bg.jpg',
+            maskPath: 'src/assets/video_frames/tiktok_frame_mask.png',
             thumbPath: 'src/assets/video_frames/tiktok_frame_thumb.jpg',
             description: 'Khung bàn làm việc Gaming PC 3D nghiêng TikTok 9:16 chuẩn nghệ thuật',
             quad: {
-                topLeft: { x: 384, y: 1263.5 },
-                topRight: { x: 1960.5, y: 1380.5 },
-                bottomRight: { x: 1954.5, y: 2273 },
-                bottomLeft: { x: 399, y: 2374 }
+                topLeft: { x: 380.7, y: 1261.2 },
+                topRight: { x: 1964.0, y: 1378.5 },
+                bottomRight: { x: 1958.0, y: 2275.0 },
+                bottomLeft: { x: 395.7, y: 2376.3 }
             },
             canvasWidth: 2286,
             canvasHeight: 4096
@@ -190,43 +193,82 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
-    getMockupBoxStyle(): { [key: string]: string } {
+    getHomographyMatrix3D(src: [number, number][], dst: [number, number][]): number[] {
+        const A: number[][] = [];
+        const B: number[] = [];
+        for (let i = 0; i < 4; i++) {
+            const [sx, sy] = src[i];
+            const [dx, dy] = dst[i];
+            A.push([sx, sy, 1, 0, 0, 0, -dx * sx, -dx * sy]);
+            B.push(dx);
+            A.push([0, 0, 0, sx, sy, 1, -dy * sx, -dy * sy]);
+            B.push(dy);
+        }
+        for (let i = 0; i < 8; i++) {
+            let max = i;
+            for (let j = i + 1; j < 8; j++) {
+                if (Math.abs(A[j][i]) > Math.abs(A[max][i])) max = j;
+            }
+            [A[i], A[max]] = [A[max], A[i]];
+            [B[i], B[max]] = [B[max], B[i]];
+
+            for (let j = i + 1; j < 8; j++) {
+                const factor = A[j][i] / A[i][i];
+                for (let k = i; k < 8; k++) A[j][k] -= factor * A[i][k];
+                B[j] -= factor * B[i];
+            }
+        }
+        const h = new Array(8);
+        for (let i = 7; i >= 0; i--) {
+            let sum = 0;
+            for (let j = i + 1; j < 8; j++) sum += A[i][j] * h[j];
+            h[i] = (B[i] - sum) / A[i][i];
+        }
+        return [
+            h[0], h[3], 0, h[6],
+            h[1], h[4], 0, h[7],
+            0,    0,    1, 0,
+            h[2], h[5], 0, 1
+        ];
+    }
+
+    getMockupVideoStyle(containerEl?: HTMLElement): { [key: string]: string } {
         if (!this.selectedFrame) return {};
         const q = this.selectedFrame.quad;
-        const w = this.selectedFrame.canvasWidth || 2286;
-        const h = this.selectedFrame.canvasHeight || 4096;
+        const canvasW = this.selectedFrame.canvasWidth || 2286;
+        const canvasH = this.selectedFrame.canvasHeight || 4096;
 
-        const minX = Math.min(q.topLeft.x, q.bottomLeft.x);
-        const minY = Math.min(q.topLeft.y, q.topRight.y);
-        const maxX = Math.max(q.topRight.x, q.bottomRight.x);
-        const maxY = Math.max(q.bottomLeft.y, q.bottomRight.y);
+        const frameW = (containerEl && containerEl.clientWidth > 0) ? containerEl.clientWidth : 360;
+        const frameH = (containerEl && containerEl.clientHeight > 0) ? containerEl.clientHeight : 645;
 
-        const boxW = Math.max(1, maxX - minX);
-        const boxH = Math.max(1, maxY - minY);
+        const src: [number, number][] = [
+            [0, 0],
+            [frameW, 0],
+            [frameW, frameH],
+            [0, frameH]
+        ];
 
-        // Tọa độ 4 góc tương đối so với Bounding Box (tính theo %)
-        const p1X = ((q.topLeft.x - minX) / boxW * 100).toFixed(2);
-        const p1Y = ((q.topLeft.y - minY) / boxH * 100).toFixed(2);
+        const dst: [number, number][] = [
+            [q.topLeft.x / canvasW * frameW, q.topLeft.y / canvasH * frameH],
+            [q.topRight.x / canvasW * frameW, q.topRight.y / canvasH * frameH],
+            [q.bottomRight.x / canvasW * frameW, q.bottomRight.y / canvasH * frameH],
+            [q.bottomLeft.x / canvasW * frameW, q.bottomLeft.y / canvasH * frameH]
+        ];
 
-        const p2X = ((q.topRight.x - minX) / boxW * 100).toFixed(2);
-        const p2Y = ((q.topRight.y - minY) / boxH * 100).toFixed(2);
-
-        const p3X = ((q.bottomRight.x - minX) / boxW * 100).toFixed(2);
-        const p3Y = ((q.bottomRight.y - minY) / boxH * 100).toFixed(2);
-
-        const p4X = ((q.bottomLeft.x - minX) / boxW * 100).toFixed(2);
-        const p4Y = ((q.bottomLeft.y - minY) / boxH * 100).toFixed(2);
-
-        const clip = `polygon(${p1X}% ${p1Y}%, ${p2X}% ${p2Y}%, ${p3X}% ${p3Y}%, ${p4X}% ${p4Y}%)`;
+        const m = this.getHomographyMatrix3D(src, dst);
+        const matrixStr = `matrix3d(${m.map(v => Number(v.toFixed(8))).join(', ')})`;
 
         return {
             position: 'absolute',
-            left: `${(minX / w * 100).toFixed(3)}%`,
-            top: `${(minY / h * 100).toFixed(3)}%`,
-            width: `${(boxW / w * 100).toFixed(3)}%`,
-            height: `${(boxH / h * 100).toFixed(3)}%`,
-            'clip-path': clip,
-            '-webkit-clip-path': clip
+            left: '0px',
+            top: '0px',
+            width: `${frameW}px`,
+            height: `${frameH}px`,
+            transform: matrixStr,
+            '-webkit-transform': matrixStr,
+            'transform-origin': '0 0',
+            '-webkit-transform-origin': '0 0',
+            'object-fit': 'fill'
         };
     }
 
@@ -288,22 +330,66 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (cleanVideoPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVideoPath = cleanVideoPath.substring(1);
 
         const frameBgPath = this.selectedFrame.bgPath || `src/assets/video_frames/tiktok_frame_bg.jpg`;
+        const frameMaskPath = this.selectedFrame.maskPath || `src/assets/video_frames/tiktok_frame_mask.png`;
 
         const outDir = `/home/yenai/Downloads/AI.TYPING/${this.data?.uuid || 'exports'}`;
         const outputPath = `${outDir}/video_frame_${Date.now()}.mp4`;
 
+        // Thu thập phụ đề trong project để burn trực tiếp lên video xuất ra
+        const allSubs: any[] = [];
+        if (this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.subtitles) {
+                    for (const sub of scene.subtitles) {
+                        if (sub.disabled) continue;
+                        const matchingExt = scene.extractedAudios ? (scene.extractedAudios.find((a: any) => Math.abs((a.startTime || 0) - (sub.startTime || 0)) < 0.35)) : null;
+
+                        let original = sub.originalText || (sub.translations && sub.translations['original']) || (sub.translations && sub.translations['en']) || matchingExt?.originalText || '';
+                        let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || matchingExt?.vietnameseText || '';
+
+                        if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) {
+                            vietnamese = sub.text;
+                        }
+                        if (!original && sub.text && !this.isLikelyVietnamese(sub.text)) {
+                            original = sub.text;
+                        }
+
+                        let primary = '';
+                        let secondary = '';
+                        if (original && vietnamese && original.trim().toLowerCase() !== vietnamese.trim().toLowerCase()) {
+                            primary = original.trim();
+                            secondary = vietnamese.trim();
+                        } else {
+                            primary = (sub.text || original || vietnamese || '').trim();
+                        }
+
+                        if (primary || secondary) {
+                            allSubs.push({
+                                startTime: Number(sub.startTime) || 0,
+                                duration: Number(sub.duration) || 3,
+                                primaryText: primary,
+                                secondaryText: secondary
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         this.isExportingFrameVideo = true;
         this.cd.detectChanges();
-        this.toastr.info('Đang xử lý xuất video lồng khung 9:16 bằng FFmpeg...', 'Đang render');
+        this.toastr.info(`Đang xuất video lồng khung 9:16${allSubs.length > 0 ? ` cùng ${allSubs.length} đoạn phụ đề` : ''}...`, 'Đang render');
 
         try {
             const res = await electron.renderVideoWithFrame({
                 videoPath: cleanVideoPath,
                 frameBgPath: frameBgPath,
+                frameMaskPath: frameMaskPath,
                 outputPath: outputPath,
                 quad: this.selectedFrame.quad,
                 canvasWidth: this.selectedFrame.canvasWidth,
-                canvasHeight: this.selectedFrame.canvasHeight
+                canvasHeight: this.selectedFrame.canvasHeight,
+                subtitles: allSubs
             });
 
             if (res && res.success) {

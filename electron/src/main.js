@@ -2918,7 +2918,7 @@ ipcMain.handle("scan-subtitles-in-project", async (_event, payload) => {
 });
 
 ipcMain.handle("render-video-with-frame", async (event, payload) => {
-    let { videoPath, frameBgPath, outputPath, quad, canvasWidth, canvasHeight } = payload || {};
+    let { videoPath, frameBgPath, frameMaskPath, outputPath, quad, canvasWidth, canvasHeight, subtitles } = payload || {};
     try {
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
         let cleanVidPath = videoPath;
@@ -2926,7 +2926,7 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
         else if (cleanVidPath.startsWith('file://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(7));
         if (cleanVidPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVidPath = cleanVidPath.substring(1);
 
-        let cleanBgPath = frameBgPath;
+        let cleanBgPath = frameBgPath || 'src/assets/video_frames/tiktok_frame_bg.jpg';
         if (cleanBgPath.startsWith('media://')) cleanBgPath = decodeURIComponent(cleanBgPath.substring(8));
         else if (cleanBgPath.startsWith('file://')) cleanBgPath = decodeURIComponent(cleanBgPath.substring(7));
         if (cleanBgPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanBgPath = cleanBgPath.substring(1);
@@ -2936,6 +2936,18 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
             const cand2 = path.join(__dirname, '..', '..', cleanBgPath);
             if (fs.existsSync(cand1)) cleanBgPath = cand1;
             else if (fs.existsSync(cand2)) cleanBgPath = cand2;
+        }
+
+        let cleanMaskPath = frameMaskPath || 'src/assets/video_frames/tiktok_frame_mask.png';
+        if (cleanMaskPath.startsWith('media://')) cleanMaskPath = decodeURIComponent(cleanMaskPath.substring(8));
+        else if (cleanMaskPath.startsWith('file://')) cleanMaskPath = decodeURIComponent(cleanMaskPath.substring(7));
+        if (cleanMaskPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanMaskPath = cleanMaskPath.substring(1);
+
+        if (!fs.existsSync(cleanMaskPath)) {
+            const cand1 = path.join(process.cwd(), cleanMaskPath);
+            const cand2 = path.join(__dirname, '..', '..', cleanMaskPath);
+            if (fs.existsSync(cand1)) cleanMaskPath = cand1;
+            else if (fs.existsSync(cand2)) cleanMaskPath = cand2;
         }
 
         if (!fs.existsSync(cleanVidPath)) {
@@ -2950,34 +2962,106 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
             fs.mkdirSync(outDir, { recursive: true });
         }
 
-        const X0 = quad?.topLeft?.x || 384;
-        const Y0 = quad?.topLeft?.y || 1263.5;
-        const X1 = quad?.topRight?.x || 1960.5;
-        const Y1 = quad?.topRight?.y || 1380.5;
-        const X2 = quad?.bottomLeft?.x || 399;
-        const Y2 = quad?.bottomLeft?.y || 2374;
-        const X3 = quad?.bottomRight?.x || 1954.5;
-        const Y3 = quad?.bottomRight?.y || 2273;
+        const X0 = quad?.topLeft?.x || 380.7;
+        const Y0 = quad?.topLeft?.y || 1261.2;
+        const X1 = quad?.topRight?.x || 1964.0;
+        const Y1 = quad?.topRight?.y || 1378.5;
+        const X2 = quad?.bottomLeft?.x || 395.7;
+        const Y2 = quad?.bottomLeft?.y || 2376.3;
+        const X3 = quad?.bottomRight?.x || 1958.0;
+        const Y3 = quad?.bottomRight?.y || 2275.0;
         const W = canvasWidth || 2286;
         const H = canvasHeight || 4096;
 
-        const filterComplex = `[0:v]scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination[warped];[1:v]scale=${W}:${H}[bg];[bg][warped]overlay=0:0[outv]`;
+        // Xử lý tạo file phụ đề ASS nếu có danh sách subtitles
+        let assFilePath = null;
+        let subtitleFilter = '';
+        if (Array.isArray(subtitles) && subtitles.length > 0) {
+            function formatAssTime(seconds) {
+                const s = Math.max(0, seconds);
+                const hrs = Math.floor(s / 3600);
+                const mins = Math.floor((s % 3600) / 60);
+                const secs = Math.floor(s % 60);
+                const cs = Math.floor((s % 1) * 100);
+                return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
+            }
 
-        const args = [
-            '-y',
-            '-i', cleanVidPath,
-            '-loop', '1',
-            '-i', cleanBgPath,
-            '-filter_complex', filterComplex,
-            '-map', '[outv]',
-            '-map', '0:a?',
-            '-c:v', 'libx264',
-            '-preset', 'fast',
-            '-crf', '20',
-            '-pix_fmt', 'yuv420p',
-            '-shortest',
-            outputPath
-        ];
+            function escapeAss(text) {
+                if (!text) return "";
+                return String(text).replace(/\\/g, "\\\\").replace(/{/g, "\\{").replace(/}/g, "\\}").replace(/\n/g, "\\N");
+            }
+
+            const assContent = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${W}
+PlayResY: ${H}
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,96,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,100,100,1,0,1,8,4,2,60,60,280,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+` + subtitles.map(sub => {
+                const start = formatAssTime(sub.startTime || 0);
+                const end = formatAssTime((sub.startTime || 0) + (sub.duration || 3));
+                let textLine = "";
+                if (sub.secondaryText && sub.primaryText) {
+                    textLine = `{\\b1\\c&HFFFFFF&}${escapeAss(sub.primaryText)}\\N{\\c&H00E5FF&\\fs82}${escapeAss(sub.secondaryText)}`;
+                } else {
+                    textLine = `{\\b1\\c&HFFFFFF&}${escapeAss(sub.primaryText || sub.secondaryText)}`;
+                }
+                return `Dialogue: 0,${start},${end},Default,,0,0,0,,${textLine}`;
+            }).join("\n") + "\n";
+
+            assFilePath = path.join(outDir, `sub_${Date.now()}.ass`);
+            fs.writeFileSync(assFilePath, assContent, "utf8");
+
+            const escapedAss = assFilePath.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+            subtitleFilter = `,subtitles=filename='${escapedAss}'`;
+        }
+
+        let filterComplex = '';
+        let args = [];
+
+        if (fs.existsSync(cleanMaskPath)) {
+            filterComplex = `[0:v]scale=${W}:${H}:flags=lanczos,perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[2:v]scale=${W}:${H}:flags=lanczos[mask];[warped][mask]alphamerge[warped_masked];[1:v]scale=${W}:${H}:flags=lanczos[bg];[bg][warped_masked]overlay=0:0${subtitleFilter}[outv]`;
+            args = [
+                '-y',
+                '-i', cleanVidPath,
+                '-loop', '1',
+                '-i', cleanBgPath,
+                '-loop', '1',
+                '-i', cleanMaskPath,
+                '-filter_complex', filterComplex,
+                '-map', '[outv]',
+                '-map', '0:a?',
+                '-c:v', 'libx264',
+                '-preset', 'fast',
+                '-crf', '17',
+                '-pix_fmt', 'yuv420p',
+                '-shortest',
+                outputPath
+            ];
+        } else {
+            filterComplex = `[0:v]scale=${W}:${H}:flags=lanczos,perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[1:v]scale=${W}:${H}:flags=lanczos[bg];[bg][warped]overlay=0:0${subtitleFilter}[outv]`;
+            args = [
+                '-y',
+                '-i', cleanVidPath,
+                '-loop', '1',
+                '-i', cleanBgPath,
+                '-filter_complex', filterComplex,
+                '-map', '[outv]',
+                '-map', '0:a?',
+                '-c:v', 'libx264',
+                '-preset', 'fast',
+                '-crf', '17',
+                '-pix_fmt', 'yuv420p',
+                '-shortest',
+                outputPath
+            ];
+        }
 
         console.log('[render-video-with-frame] Executing FFmpeg:', ffmpegPath, args.join(' '));
 
