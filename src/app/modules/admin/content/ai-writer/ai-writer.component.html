@@ -1003,14 +1003,25 @@
                                                     </div>
                                                 </ng-container>
 
-                                                <div class="flex-1 min-w-0 font-normal truncate hover:text-clip"
-                                                    [innerHTML]="item | renderTrustHTML"
-                                                    (dblclick)="edit(source.playlist[0].youtube, i)"></div>
+                                                <div class="flex-1 min-w-0 font-normal truncate hover:text-clip flex flex-col justify-center">
+                                                    <div [innerHTML]="item | renderTrustHTML"
+                                                        (dblclick)="edit(source.playlist[0].youtube, i)"></div>
+                                                    <!-- Progress bar khi đang tải video này -->
+                                                    <div *ngIf="downloadingItemIndex === i" class="w-full bg-neutral-700/60 rounded-full h-1 mt-1.5 overflow-hidden">
+                                                        <div class="bg-indigo-500 h-full transition-all duration-200"
+                                                            [style.width.%]="downloadItemPercent[i] || 0"></div>
+                                                    </div>
+                                                </div>
 
-                                                <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
-                                                    <button mat-icon-button class="icon-size-8"
+                                                <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full relative">
+                                                    <button *ngIf="downloadingItemIndex !== i" mat-icon-button class="icon-size-8"
                                                         [matMenuTriggerFor]="menu">
                                                         <mat-icon>more_horiz</mat-icon>
+                                                    </button>
+                                                    <!-- Nút hiển thị phần trăm khi đang tải -->
+                                                    <button *ngIf="downloadingItemIndex === i" mat-icon-button class="icon-size-8 flex items-center justify-center bg-indigo-500/20 text-indigo-400 font-mono font-bold"
+                                                        [matMenuTriggerFor]="menu" [matTooltip]="'Đang tải video: ' + (downloadItemPercent[i] || 0) + '%'">
+                                                        <span class="text-[9px] leading-none">{{ downloadItemPercent[i] || 0 }}%</span>
                                                     </button>
                                                     <mat-menu #menu="matMenu">
                                                         <button mat-menu-item [color]="'primary'" type="button"
@@ -1020,10 +1031,11 @@
                                                             <span>{{ 'app.auto_video_analysis' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
-                                                            (click)="editVideo(item, i)">
-                                                            <mat-icon class="icon-size-4"
+                                                            (click)="editVideo(item, i)" [disabled]="downloadingItemIndex === i">
+                                                            <mat-icon *ngIf="downloadingItemIndex !== i" class="icon-size-4"
                                                                 svgIcon="feather:video"></mat-icon>
-                                                            <span>{{ 'app.edit_video' | transloco }}</span>
+                                                            <mat-spinner *ngIf="downloadingItemIndex === i" [diameter]="16" class="mr-2"></mat-spinner>
+                                                            <span>{{ downloadingItemIndex === i ? ('Đang tải: ' + (downloadItemPercent[i] || 0) + '%...') : ('app.edit_video' | transloco) }}</span>
                                                         </button>
                                                         <button mat-menu-item [cdkCopyToClipboard]="item | removeHTML"
                                                             [color]="'primary'">

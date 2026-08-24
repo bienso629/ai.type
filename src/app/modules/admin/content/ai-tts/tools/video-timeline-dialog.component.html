@@ -139,7 +139,7 @@
                         Không có media nào phù hợp.
                     </div>
 
-                    <ng-container *ngFor="let item of getFilteredMediaItems(); trackBy: trackByMediaItem">
+                    <ng-container *ngFor="let item of filteredMediaItems; trackBy: trackByMediaItem">
                         <!-- Video Item Card -->
                         <div *ngIf="item.type === 'video'"
                             (click)="setActiveItem(item._raw); seekTimelineTo(item.startTime || 0)"
@@ -150,11 +150,10 @@
                             }">
                             <!-- Thumbnail -->
                             <div class="w-16 h-12 rounded bg-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0 relative pointer-events-none">
-                                <video *ngIf="item.videoUrl" [src]="getSafeUrl(item.videoUrl)" muted preload="metadata" playsinline class="w-full h-full object-cover pointer-events-none"></video>
-                                <img *ngIf="item.imageUrl && !item.videoUrl" [src]="getSafeUrl(item.imageUrl)" class="w-full h-full object-cover pointer-events-none">
-                                <mat-icon *ngIf="!item.videoUrl && !item.imageUrl" class="icon-size-4 text-neutral-500">movie</mat-icon>
+                                <img *ngIf="item.imageUrl" [src]="getSafeUrl(item.imageUrl)" class="w-full h-full object-cover pointer-events-none">
+                                <mat-icon *ngIf="!item.imageUrl" class="icon-size-4 text-neutral-500">movie</mat-icon>
                                 <span class="absolute bottom-0.5 right-0.5 px-1 text-[9px] font-mono bg-black/80 text-neutral-300 rounded">
-                                    {{ item.duration | number:'1.0-1' }}s
+                                    {{ item.duration >= 60 ? formatTimelineTime(item.duration) : (item.duration | number:'1.0-1') + 's' }}
                                 </span>
                             </div>
 
@@ -255,15 +254,16 @@
                         <!-- 2. Video nhúng trực tiếp và được uốn phối cảnh 3D nghiêng theo góc màn hình PC -->
                         <div class="absolute inset-0 w-full h-full z-20 pointer-events-auto overflow-hidden">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                                [ngStyle]="getMockupVideoStyle(mockupFrameContainer)"
+                                [ngStyle]="mockupVideoStyle"
                                 class="cursor-pointer"
+                                (loadedmetadata)="onVideoLoadedMetadata($event)"
                                 (click)="toggleTimelinePlay()"
                                 (ended)="onVideoEnded()"
                                 (pause)="onVideoPauseEvent()"
                                 (play)="onVideoPlayEvent()"></video>
 
                             <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                                [ngStyle]="getMockupVideoStyle(mockupFrameContainer)"
+                                [ngStyle]="mockupVideoStyle"
                                 class="cursor-pointer"
                                 (click)="toggleTimelinePlay()" />
                         </div>
@@ -282,6 +282,7 @@
                     <ng-container *ngIf="!selectedFrame || selectedFrame.id === 'none'">
                         <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
                             class="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-2xl"
+                            (loadedmetadata)="onVideoLoadedMetadata($event)"
                             (click)="toggleTimelinePlay()"
                             (ended)="onVideoEnded()"
                             (pause)="onVideoPauseEvent()"
@@ -435,7 +436,7 @@
 
                             <!-- WaveSurfer Waveform Canvas Container -->
                             <div class="w-full h-11 bg-neutral-950/90 rounded-sm border border-neutral-800 overflow-hidden relative px-1 flex items-center">
-                                <div id="inspector-waveform-container" class="w-full h-full"></div>
+                                <div id="inspector-waveform-sub-container" class="w-full h-full"></div>
                             </div>
                         </div>
 
@@ -478,7 +479,7 @@
 
                             <!-- WaveSurfer Waveform Canvas Container -->
                             <div class="w-full h-11 bg-neutral-950/90 rounded-sm border border-neutral-800 overflow-hidden relative px-1 flex items-center">
-                                <div id="inspector-waveform-container" class="w-full h-full"></div>
+                                <div id="inspector-waveform-audio-container" class="w-full h-full"></div>
                             </div>
                         </div>
 
@@ -542,262 +543,255 @@
 
         </div>
 
-        <div class="flex flex-row flex-shrink-0 overflow-x-auto overflow-y-hidden relative w-full h-fit border-t border-neutral-800 bg-[#0f0f11] scene-scroll-area"
-            id="timeline-scroll-container" (wheel)="onTimelineScroll($event)">
-            <div id="timeline-content-inner" class="relative h-fit select-none" [style.width.px]="timelineTotalWidth"
-                (mousedown)="onTracksAreaMouseDown($event)">
+        <div class="flex flex-row flex-shrink-0 relative w-full h-fit border-t border-neutral-800 bg-[#0f0f11] overflow-hidden">
+            <!-- 1. CỘT CỐ ĐỊNH BÊN TRÁI (TRACK HEADERS & ZOOM - KHÔNG BAO GIỜ CUỘN, LUÔN NẰM TRÊN CÙNG) -->
+            <div class="w-32 flex-shrink-0 z-[150] bg-[#18181b] border-r border-neutral-800 flex flex-col shadow-[4px_0_15px_rgba(0,0,0,0.6)] select-none">
+                <!-- Zoom Controls (h-7) -->
+                <div class="h-7 w-full border-b border-neutral-800 flex items-center justify-between px-3 bg-[#18181b]">
+                    <button type="button" class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded-sm transition-colors disabled:opacity-30 disabled:pointer-events-none p-0" 
+                        (click)="zoomOutTimeline($event)" [disabled]="pixelsPerSecond <= 5" title="Thu nhỏ timeline (-)">
+                        <mat-icon class="icon-size-3.5 !w-3.5 !h-3.5 !text-[14px]">remove</mat-icon>
+                    </button>
+                    
+                    <span class="text-[10px] text-neutral-300 font-mono font-medium select-none cursor-pointer hover:text-indigo-300 transition-colors"
+                        (click)="resetZoom($event)" title="Click để đặt lại 100%">
+                        {{ (pixelsPerSecond / 20 * 100) | number:'1.0-0' }}%
+                    </span>
 
-                <!-- Marquee Selection Rectangle Box -->
-                <div *ngIf="marqueeBox.visible" 
-                     class="absolute z-[200] border-2 border-blue-400 bg-blue-500/25 pointer-events-none rounded shadow-[0_0_15px_rgba(59,130,246,0.7)] transition-none"
-                     [style.left.px]="marqueeBox.left"
-                     [style.top.px]="marqueeBox.top"
-                     [style.width.px]="marqueeBox.width"
-                     [style.height.px]="marqueeBox.height">
+                    <button type="button" class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded-sm transition-colors disabled:opacity-30 disabled:pointer-events-none p-0" 
+                        (click)="zoomInTimeline($event)" [disabled]="pixelsPerSecond >= 100" title="Phóng to timeline (+)">
+                        <mat-icon class="icon-size-3.5 !w-3.5 !h-3.5 !text-[14px]">add</mat-icon>
+                    </button>
                 </div>
 
-                <!-- Timeline Ruler -->
-                <div class="h-7 w-full border-b border-neutral-800 relative bg-[#18181b] z-[90] cursor-text sticky top-0 flex items-center"
-                    (mousedown)="onTimeRulerMouseDown($event)">
-
-                    <!-- Sticky Zoom Controls in top-left (0 to 128px) -->
-                    <div class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex items-center justify-between px-3 z-[105] shrink-0 overflow-hidden"
-                         (mousedown)="$event.stopPropagation()">
-                        <button type="button" class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded-sm transition-colors disabled:opacity-30 disabled:pointer-events-none p-0" 
-                            (click)="zoomOutTimeline($event)" [disabled]="pixelsPerSecond <= 5" title="Thu nhỏ timeline (-)">
-                            <mat-icon class="icon-size-3.5 !w-3.5 !h-3.5 !text-[14px]">remove</mat-icon>
-                        </button>
-                        
-                        <span class="text-[10px] text-neutral-300 font-mono font-medium select-none cursor-pointer hover:text-indigo-300 transition-colors"
-                            (click)="resetZoom($event)" title="Click để đặt lại 100%">
-                            {{ (pixelsPerSecond / 20 * 100) | number:'1.0-0' }}%
-                        </span>
-
-                        <button type="button" class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded-sm transition-colors disabled:opacity-30 disabled:pointer-events-none p-0" 
-                            (click)="zoomInTimeline($event)" [disabled]="pixelsPerSecond >= 100" title="Phóng to timeline (+)">
-                            <mat-icon class="icon-size-3.5 !w-3.5 !h-3.5 !text-[14px]">add</mat-icon>
-                        </button>
-                    </div>
-
-                    <!-- Ticks -->
-                    <div *ngFor="let tick of [].constructor(rulerTickCount); let i = index"
-                        class="absolute top-0 bottom-0 border-l border-neutral-700 pointer-events-none"
-                        [style.left.px]="i * 10 * pixelsPerSecond + 128">
-                        <span class="absolute text-[9px] text-neutral-400 top-1.5 left-1 font-mono pointer-events-none">{{i * 10}}s</span>
-                    </div>
+                <!-- Track 1 Header (h-24) -->
+                <div *ngFor="let tIdx of trackIndices"
+                    class="h-24 border-b border-neutral-800/80 bg-[#18181b] flex flex-col items-center justify-center relative overflow-hidden group">
+                    <span class="text-xs font-semibold text-neutral-300">Track {{tIdx + 1}}</span>
+                    <button *ngIf="tIdx === 0" mat-icon-button [matMenuTriggerFor]="addVideoMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
+                        matTooltip="Thêm Video (File máy / Link Online)">
+                        <mat-icon class="text-neutral-400 hover:text-green-400">add</mat-icon>
+                    </button>
                 </div>
 
-                <!-- Tracks -->
-                <div id="timeline-tracks-container" class="relative h-fit flex flex-col bg-[#0f0f11] select-none">
+                <!-- Track Subtitles Header (h-14) -->
+                <div class="h-14 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden group">
+                    <mat-icon class="icon-size-4 text-amber-400">subtitles</mat-icon>
+                    <span class="text-xs font-semibold text-neutral-300">Phụ đề</span>
+                    <button mat-icon-button [matMenuTriggerFor]="addTextMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
+                        title="Thêm phụ đề / Nhập file .srt">
+                        <mat-icon class="text-neutral-400 hover:text-amber-400">add</mat-icon>
+                    </button>
+                </div>
 
-                    <div *ngFor="let _ of [].constructor(trackCount); let tIdx = index"
-                        class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                <!-- Track Audio Header (h-24) -->
+                <div class="h-24 border-b border-neutral-800/80 bg-[#18181b] flex flex-col items-center justify-center relative overflow-hidden">
+                    <span class="text-xs font-semibold text-neutral-300">{{ 'app.auto_original_sound' | transloco }}</span>
+                    <mat-icon class="icon-size-4 text-indigo-400 mt-1">graphic_eq</mat-icon>
+                </div>
+            </div>
 
-                        <div
-                            class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex flex-col items-center justify-center z-[60] overflow-hidden group">
-                            <span class="text-xs font-semibold text-neutral-300">Track {{tIdx + 1}}</span>
-                            <button *ngIf="tIdx === 0" mat-icon-button [matMenuTriggerFor]="addVideoMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
-                                matTooltip="Thêm Video (File máy / Link Online)">
-                                <mat-icon class="text-neutral-400 hover:text-green-400">add</mat-icon>
-                            </button>
+            <!-- 2. KHUNG CUỘN TIMELINE BÊN PHẢI (CUỘN NGANG TỰ DO, CHẠY PHÍA SAU CỘT CỐ ĐỊNH) -->
+            <div class="flex-1 overflow-x-auto overflow-y-hidden relative h-fit bg-[#0f0f11] scene-scroll-area"
+                id="timeline-scroll-container" (wheel)="onTimelineScroll($event)">
+                <div id="timeline-content-inner" class="relative h-fit select-none" [style.width.px]="timelineTotalWidth"
+                    (mousedown)="onTracksAreaMouseDown($event)">
+
+                    <!-- Marquee Selection Rectangle Box -->
+                    <div *ngIf="marqueeBox.visible" 
+                         class="absolute z-[200] border-2 border-blue-400 bg-blue-500/25 pointer-events-none rounded shadow-[0_0_15px_rgba(59,130,246,0.7)] transition-none"
+                         [style.left.px]="marqueeBox.left"
+                         [style.top.px]="marqueeBox.top"
+                         [style.width.px]="marqueeBox.width"
+                         [style.height.px]="marqueeBox.height">
+                    </div>
+
+                    <!-- Timeline Ruler -->
+                    <div class="h-7 w-full border-b border-neutral-800 relative bg-[#141416] z-[90] cursor-text flex items-center"
+                        (mousedown)="onTimeRulerMouseDown($event)">
+                        <!-- Ticks -->
+                        <div *ngFor="let i of rulerTicks; trackBy: trackByIndex"
+                            class="absolute top-0 bottom-0 border-l border-neutral-700 pointer-events-none"
+                            [style.left.px]="i * 10 * pixelsPerSecond">
+                            <span class="absolute text-[9px] text-neutral-400 top-1.5 left-1 font-mono pointer-events-none">{{i * 10}}s</span>
                         </div>
+                    </div>
 
-                        <!-- Video Blocks in this Track -->
-                        <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
-                            <ng-container *ngIf="scene.videos">
-                                <ng-container *ngFor="let video of scene.videos; let vIdx = index">
-                                        <div class="timeline-block absolute top-2 bottom-2 bg-[#242427] border border-neutral-700/80 rounded-none shadow-sm group flex flex-col transition-all z-10 hover:z-[100]"
-                                            [ngClass]="{
-                                            'opacity-30 grayscale': video.disabled,
-                                            'opacity-100': !video.disabled,
-                                            '!border-blue-400 !border-2 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(video),
-                                            '!border-white': activeItem === video && !isItemSelected(video)
-                                        }" [style.left.px]="(video.startTime || 0) * pixelsPerSecond + 128"
-                                            [style.width.px]="((video.duration || 5) * pixelsPerSecond - 4) > 1 ? ((video.duration || 5) * pixelsPerSecond - 4) : (((video.duration || 5) * pixelsPerSecond) > 1 ? ((video.duration || 5) * pixelsPerSecond) : 1)"
-                                            [id]="'video_' + sceneIdx + '_' + vIdx" [attr.data-scene-idx]="sceneIdx"
-                                            [attr.data-v-idx]="vIdx"
-                                            (contextmenu)="onVideoContextMenu($event, video, scene, sceneIdx, vIdx)">
+                    <!-- Tracks -->
+                    <div id="timeline-tracks-container" class="relative h-fit flex flex-col bg-[#0f0f11] select-none">
 
-                                            <!-- Khung chứa ảnh/video -->
-                                            <div class="w-full h-full relative overflow-hidden rounded-none transition-all cursor-pointer flex flex-col justify-between"
-                                                (click)="setActiveItem(video, $event); openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
+                        <!-- Track 1: Video Blocks -->
+                        <div *ngFor="let tIdx of trackIndices"
+                            class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
 
-                                                <!-- Lớp overlay hiệu ứng blind / sương mù mơ ảo khi đang tạo AI hoặc bóc tách âm thanh -->
-                                                <div *ngIf="video.isGeneratingVideo || video.isGeneratingImage || video.isExtractingAudio"
-                                                    class="absolute inset-0 pointer-events-none rounded-none z-30 transition-all backdrop-blur-[5px] bg-gradient-to-br from-purple-900/50 via-black/70 to-purple-950/60 border border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4)] flex flex-col items-center justify-center overflow-hidden">
-                                                    <!-- Lớp khói/sương mờ trôi bề mặt -->
-                                                    <div class="absolute inset-0 bg-white/20 blur-xl mix-blend-overlay scale-150 animate-pulse"></div>
-                                                    <div class="relative z-10 flex items-center gap-1.5 bg-black/80 px-2 py-0.5 rounded border border-purple-500/50 shadow-lg">
-                                                        <mat-spinner [diameter]="14" class="!text-purple-400"></mat-spinner>
-                                                        <span class="text-[9px] text-purple-200 font-medium whitespace-nowrap">{{ video.isExtractingAudio ? 'Đang bóc tách AI...' : 'Đang tạo AI...' }}</span>
+                            <!-- Video Blocks in this Track -->
+                            <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
+                                <ng-container *ngIf="scene.videos">
+                                    <ng-container *ngFor="let video of scene.videos; let vIdx = index">
+                                            <div class="timeline-block absolute top-2 bottom-2 bg-[#242427] border border-neutral-700/80 rounded-none shadow-sm group flex flex-col transition-all z-10 hover:z-[100]"
+                                                [ngClass]="{
+                                                'opacity-30 grayscale': video.disabled,
+                                                'opacity-100': !video.disabled,
+                                                '!border-blue-400 !border-2 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(video),
+                                                '!border-white': activeItem === video && !isItemSelected(video)
+                                            }" [style.left.px]="(video.startTime || 0) * pixelsPerSecond"
+                                                [style.width.px]="((video.duration || 5) * pixelsPerSecond - 4) > 1 ? ((video.duration || 5) * pixelsPerSecond - 4) : (((video.duration || 5) * pixelsPerSecond) > 1 ? ((video.duration || 5) * pixelsPerSecond) : 1)"
+                                                [id]="'video_' + sceneIdx + '_' + vIdx" [attr.data-scene-idx]="sceneIdx"
+                                                [attr.data-v-idx]="vIdx"
+                                                (contextmenu)="onVideoContextMenu($event, video, scene, sceneIdx, vIdx)">
+
+                                                <!-- Khung chứa ảnh/video -->
+                                                <div class="w-full h-full relative overflow-hidden rounded-none transition-all cursor-pointer flex flex-col justify-between"
+                                                    (click)="setActiveItem(video, $event); openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
+
+                                                    <!-- Lớp overlay hiệu ứng blind / sương mù mơ ảo khi đang tạo AI, tách cảnh hoặc tạo phụ đề -->
+                                                    <div *ngIf="video.isGeneratingVideo || video.isGeneratingImage || video.isExtractingAudio || video.isAnalyzingScenes || video.isSplittingScenes"
+                                                        class="absolute inset-0 pointer-events-none rounded-none z-30 transition-all backdrop-blur-[5px] bg-gradient-to-br from-purple-900/50 via-black/70 to-purple-950/60 border border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4)] flex flex-col items-center justify-center overflow-hidden">
+                                                        <!-- Lớp khói/sương mờ trôi bề mặt -->
+                                                        <div class="absolute inset-0 bg-white/20 blur-xl mix-blend-overlay scale-150 animate-pulse"></div>
+                                                        <div class="relative z-10 flex items-center gap-1.5 bg-black/80 px-2 py-0.5 rounded border border-purple-500/50 shadow-lg">
+                                                            <mat-spinner [diameter]="14" class="!text-purple-400"></mat-spinner>
+                                                            <span class="text-[9px] text-purple-200 font-medium whitespace-nowrap">{{ (video.isAnalyzingScenes || video.isSplittingScenes) ? 'Đang tách cảnh AI...' : (video.isExtractingAudio ? 'Đang tạo phụ đề AI...' : 'Đang tạo AI...') }}</span>
+                                                        </div>
                                                     </div>
-                                                </div>
 
-                                                <!-- Background Image/Video -->
-                                                @if (video.videoUrl) {
-                                                <video #videoEl [src]="getSafeUrl(video.videoUrl + '#t=' + (video.trimStart ? video.trimStart : 0.001))"
-                                                    class="absolute inset-0 w-full h-full block object-cover opacity-70 pointer-events-none"
-                                                    muted playsinline></video>
-                                                } @else if (video.imageUrl) {
-                                                <img [src]="getSafeUrl(video.imageUrl)"
-                                                    class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-70"
-                                                    (error)="$event.target.src='assets/images/placeholder.jpg'" />
-                                                } @else if (video.controlImageUrl) {
-                                                <img [src]="getSafeUrl(video.controlImageUrl)"
-                                                    class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-70"
-                                                    (error)="$event.target.src='assets/images/placeholder.jpg'" />
-                                                } @else {
-                                                <div class="absolute inset-0 flex flex-col text-center w-full h-full items-center justify-center bg-[#1e1e24]">
-                                                    <mat-icon class="text-neutral-500 text-3xl pointer-events-none">image</mat-icon>
-                                                </div>
-                                                }
-
-                                                <!-- Nhãn thời gian & loại video -->
-                                                <div class="relative z-10 flex items-center justify-between p-1 pointer-events-none">
-                                                    <div class="bg-black/80 text-neutral-200 border border-neutral-700/50 font-mono text-[10px] px-1 py-0.5 rounded-none select-none">
-                                                        {{video.duration | number:'1.0-1'}}s
+                                                    <!-- Background Image/Thumbnail -->
+                                                    <img *ngIf="video.imageUrl || video.controlImageUrl"
+                                                        [src]="getSafeUrl(video.imageUrl || video.controlImageUrl)"
+                                                        class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-70" />
+                                                    <div *ngIf="!video.imageUrl && !video.controlImageUrl"
+                                                        class="absolute inset-0 flex flex-col text-center w-full h-full items-center justify-center bg-[#18181b]">
+                                                        <mat-icon class="text-neutral-600 text-3xl pointer-events-none">movie</mat-icon>
                                                     </div>
-                                                    <div *ngIf="video.videoUrl" class="bg-blue-900/80 text-blue-200 border border-blue-700/50 text-[9px] px-1 py-0.5 rounded-none font-medium flex items-center">
-                                                        <mat-icon class="icon-size-3">videocam</mat-icon>
+
+                                                    <!-- Nhãn thời gian & loại video -->
+                                                    <div class="relative z-10 flex items-center justify-between p-1 pointer-events-none">
+                                                        <div class="bg-black/80 text-neutral-200 border border-neutral-700/50 font-mono text-[10px] px-1 py-0.5 rounded-none select-none">
+                                                            {{ video.duration >= 60 ? formatTimelineTime(video.duration) : (video.duration | number:'1.0-1') + 's' }}
+                                                        </div>
+                                                        <div *ngIf="video.videoUrl" class="bg-blue-900/80 text-blue-200 border border-blue-700/50 text-[9px] px-1 py-0.5 rounded-none font-medium flex items-center">
+                                                            <mat-icon class="icon-size-3">videocam</mat-icon>
+                                                        </div>
                                                     </div>
+
+                                                    <!-- Text hiển thị prompt video -->
+                                                    <div class="relative z-10 px-1.5 py-1 bg-black/60 backdrop-blur-xs overflow-hidden cursor-pointer pointer-events-none">
+                                                        <p class="text-[10px] text-neutral-200 leading-tight line-clamp-2"
+                                                            [title]="video.prompt">{{video.prompt || 'Chưa có prompt...'}}
+                                                        </p>
+                                                    </div>
+
+                                                    <!-- Lớp phủ khi hover -->
+                                                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20"></div>
                                                 </div>
 
-                                                <!-- Text hiển thị prompt video -->
-                                                <div class="relative z-10 px-1.5 py-1 bg-black/60 backdrop-blur-xs overflow-hidden cursor-pointer pointer-events-none">
-                                                    <p class="text-[10px] text-neutral-200 leading-tight line-clamp-2"
-                                                        [title]="video.prompt">{{video.prompt || 'Chưa có prompt...'}}
-                                                    </p>
+                                                <!-- Left Drag Handle -->
+                                                <div class="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-none flex items-center justify-center"
+                                                    (mousedown)="onResizeStart($event, video, 'left')">
+                                                    <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
                                                 </div>
 
-                                                <!-- Lớp phủ khi hover -->
-                                                <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20"></div>
-                                            </div>
+                                                <!-- Right Drag Handle -->
+                                                <div class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-none flex items-center justify-center"
+                                                    (mousedown)="onResizeStart($event, video, 'right')"
+                                                    (dblclick)="resetVideoDuration($event, video)">
+                                                    <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
+                                                </div>
 
-                                            <!-- Left Drag Handle -->
-                                            <div class="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-none flex items-center justify-center"
-                                                (mousedown)="onResizeStart($event, video, 'left')">
-                                                <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
+                                                <!-- Center Drag Area -->
+                                                <div class="absolute left-3 right-3 top-0 bottom-0 cursor-move z-20"
+                                                    (mousedown)="onDragBlockStart($event, video, sceneIdx)"
+                                                    (contextmenu)="onVideoContextMenu($event, video, scene, sceneIdx, vIdx)"></div>
                                             </div>
-
-                                            <!-- Right Drag Handle -->
-                                            <div class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-none flex items-center justify-center"
-                                                (mousedown)="onResizeStart($event, video, 'right')"
-                                                (dblclick)="resetVideoDuration($event, video)">
-                                                <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
-                                            </div>
-
-                                            <!-- Center Drag Area -->
-                                            <div class="absolute left-3 right-3 top-0 bottom-0 cursor-move z-20"
-                                                (mousedown)="onDragBlockStart($event, video, sceneIdx)"
-                                                (contextmenu)="onVideoContextMenu($event, video, scene, sceneIdx, vIdx)"></div>
-                                        </div>
+                                    </ng-container>
                                 </ng-container>
                             </ng-container>
-                        </ng-container>
-                    </div>
-
-                    <!-- Track Text (Subtitles / Phụ đề) -->
-                    <div class="relative h-14 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
-                        <!-- Track Header -->
-                        <div
-                            class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex items-center justify-center gap-1.5 z-[60] overflow-hidden px-2 group">
-                            <mat-icon class="icon-size-4 text-amber-400">subtitles</mat-icon>
-                            <span class="text-xs font-semibold text-neutral-300">Phụ đề</span>
-                            <button mat-icon-button [matMenuTriggerFor]="addTextMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
-                                title="Thêm phụ đề / Nhập file .srt">
-                                <mat-icon class="text-neutral-400 hover:text-amber-400">add</mat-icon>
-                            </button>
                         </div>
 
-                        <!-- Text Blocks -->
-                        <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
-                            <ng-container *ngFor="let sub of scene.subtitles; let sIdx = index">
-                                <div class="timeline-block absolute top-1.5 bottom-1.5 bg-amber-950/70 border border-amber-600/50 rounded-none flex items-center overflow-hidden transition-all hover:bg-amber-900/80 cursor-pointer group z-10 hover:z-[100]"
-                                    [ngClass]="{
-                                        'opacity-30 grayscale': sub.disabled,
-                                        'opacity-100': !sub.disabled,
-                                        '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(sub),
-                                        '!border-amber-400 shadow-md': activeItem === sub && !isItemSelected(sub)
-                                    }" [style.left.px]="(sub.startTime || 0) * pixelsPerSecond + 128"
-                                    [style.width.px]="((sub.duration || 3) * pixelsPerSecond - 4) > 1 ? ((sub.duration || 3) * pixelsPerSecond - 4) : (((sub.duration || 3) * pixelsPerSecond) > 1 ? ((sub.duration || 3) * pixelsPerSecond) : 1)" 
-                                    [title]="sub.text"
-                                    (click)="setActiveItem(sub, $event)"
-                                    (dblclick)="openEditTextDialog(sub)"
-                                    (contextmenu)="onTextContextMenu($event, sub, scene, sceneIdx, sIdx)">
+                        <!-- Track Text (Subtitles / Phụ đề) -->
+                        <div class="relative h-14 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                            <!-- Text Blocks -->
+                            <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
+                                <ng-container *ngFor="let sub of scene.subtitles; let sIdx = index">
+                                    <div class="timeline-block absolute top-1.5 bottom-1.5 bg-amber-950/70 border border-amber-600/50 rounded-none flex items-center overflow-hidden transition-all hover:bg-amber-900/80 cursor-pointer group z-10 hover:z-[100]"
+                                        [ngClass]="{
+                                            'opacity-30 grayscale': sub.disabled,
+                                            'opacity-100': !sub.disabled,
+                                            '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(sub),
+                                            '!border-amber-400 shadow-md': activeItem === sub && !isItemSelected(sub)
+                                        }" [style.left.px]="(sub.startTime || 0) * pixelsPerSecond"
+                                        [style.width.px]="((sub.duration || 3) * pixelsPerSecond - 4) > 1 ? ((sub.duration || 3) * pixelsPerSecond - 4) : (((sub.duration || 3) * pixelsPerSecond) > 1 ? ((sub.duration || 3) * pixelsPerSecond) : 1)" 
+                                        [title]="sub.text"
+                                        (click)="setActiveItem(sub, $event)"
+                                        (dblclick)="openEditTextDialog(sub)"
+                                        (contextmenu)="onTextContextMenu($event, sub, scene, sceneIdx, sIdx)">
 
-                                    <div class="w-full h-full flex items-center px-2 justify-between relative select-none">
-                                        <div class="text-[11px] text-amber-100 font-medium truncate flex items-center gap-1.5 flex-1 mr-2">
-                                            <mat-icon class="icon-size-3.5 text-amber-400 flex-shrink-0">title</mat-icon>
-                                            <span class="truncate">{{ sub.text || 'Văn bản trống' }}</span>
-                                        </div>
+                                        <div class="w-full h-full flex items-center px-2 justify-between relative select-none">
+                                            <div class="text-[11px] text-amber-100 font-medium truncate flex items-center gap-1.5 flex-1 mr-2">
+                                                <mat-icon class="icon-size-3.5 text-amber-400 flex-shrink-0">title</mat-icon>
+                                                <span class="truncate">{{ sub.text || 'Văn bản trống' }}</span>
+                                            </div>
 
-                                        <div class="text-[9px] text-amber-300/80 font-mono flex-shrink-0">
-                                            {{sub.duration | number:'1.0-1'}}s
+                                            <div class="text-[9px] text-amber-300/80 font-mono flex-shrink-0">
+                                                {{sub.duration | number:'1.0-1'}}s
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                </ng-container>
                             </ng-container>
-                        </ng-container>
-                    </div>
-
-                    <!-- Track Extracted Audio (Âm thanh gốc) -->
-                    <div class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
-                        <!-- Track Header -->
-                        <div
-                            class="sticky left-0 top-0 h-full w-32 bg-[#18181b] border-r border-neutral-800 flex flex-col items-center justify-center z-[60] overflow-hidden">
-                            <span class="text-xs font-semibold text-neutral-300">{{ 'app.auto_original_sound' | transloco }}</span>
-                            <mat-icon class="icon-size-4 text-indigo-400 mt-1">graphic_eq</mat-icon>
                         </div>
 
-                        <!-- Audio Blocks -->
-                        <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
-                            <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">
-                                <div class="timeline-block absolute top-2 bottom-2 bg-indigo-950/70 border border-indigo-700/60 rounded-none flex flex-col overflow-hidden transition-all hover:bg-indigo-900/80 cursor-pointer group z-10 hover:z-[100]"
-                                    [ngClass]="{
-                                        'opacity-30 grayscale': audio.disabled,
-                                        'opacity-100': !audio.disabled,
-                                        '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(audio),
-                                        '!border-indigo-400 shadow-md': activeItem === audio && !isItemSelected(audio)
-                                    }" [style.left.px]="(audio.startTime || 0) * pixelsPerSecond + 128"
-                                    [style.width.px]="((audio.duration || 5) * pixelsPerSecond - 4) > 1 ? ((audio.duration || 5) * pixelsPerSecond - 4) : (((audio.duration || 5) * pixelsPerSecond) > 1 ? ((audio.duration || 5) * pixelsPerSecond) : 1)" [title]="audio.text"
-                                    (click)="setActiveItem(audio, $event); !audio.disabled && playWaveform('extracted', sceneIdx, aIdx)"
-                                    (contextmenu)="onAudioContextMenu($event, audio, scene, sceneIdx, aIdx, 'extracted')">
+                        <!-- Track Extracted Audio (Âm thanh gốc) -->
+                        <div class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                            <!-- Audio Blocks -->
+                            <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
+                                <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">
+                                    <div class="timeline-block absolute top-2 bottom-2 bg-indigo-950/70 border border-indigo-700/60 rounded-none flex flex-col overflow-hidden transition-all hover:bg-indigo-900/80 cursor-pointer group z-10 hover:z-[100]"
+                                        [ngClass]="{
+                                            'opacity-30 grayscale': audio.disabled,
+                                            'opacity-100': !audio.disabled,
+                                            '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(audio),
+                                            '!border-indigo-400 shadow-md': activeItem === audio && !isItemSelected(audio)
+                                        }" [style.left.px]="(audio.startTime || 0) * pixelsPerSecond"
+                                        [style.width.px]="((audio.duration || 5) * pixelsPerSecond - 4) > 1 ? ((audio.duration || 5) * pixelsPerSecond - 4) : (((audio.duration || 5) * pixelsPerSecond) > 1 ? ((audio.duration || 5) * pixelsPerSecond) : 1)" [title]="audio.text"
+                                        (click)="setActiveItem(audio, $event); !audio.disabled && playWaveform('extracted', sceneIdx, aIdx, audio)"
+                                        (contextmenu)="onAudioContextMenu($event, audio, scene, sceneIdx, aIdx, 'extracted')">
 
-                                    <!-- Label -->
-                                    <div class="w-full h-full flex flex-col p-1.5 justify-center relative">
-                                        <div class="flex flex-row items-center justify-between w-full mb-0.5 gap-2">
-                                            <div
-                                                class="text-[10px] text-indigo-200 font-medium truncate flex items-center gap-1">
-                                                <mat-icon
-                                                    class="icon-size-3 text-green-400 flex-shrink-0">audiotrack</mat-icon>
-                                                <span class="truncate">{{ (audio.text && audio.text !== '[Âm thanh
-                                                    gốc]') ? audio.text : ('Scene ' + (sceneIdx + 1) + ' - Phần ' +
-                                                    (aIdx + 1)) }}</span>
-                                            </div>
-                                            <div class="flex items-center gap-1 z-10">
-                                                <div class="text-[9px] text-indigo-300 font-mono flex-shrink-0">
-                                                    {{audio.duration | number:'1.0-1'}}s
+                                        <!-- Label -->
+                                        <div class="w-full h-full flex flex-col p-1.5 justify-center relative">
+                                            <div class="flex flex-row items-center justify-between w-full mb-0.5 gap-2">
+                                                <div
+                                                    class="text-[10px] text-indigo-200 font-medium truncate flex items-center gap-1">
+                                                    <mat-icon
+                                                        class="icon-size-3 text-green-400 flex-shrink-0">audiotrack</mat-icon>
+                                                    <span class="truncate">{{ (audio.text && audio.text !== '[Âm thanh
+                                                        gốc]') ? audio.text : ('Scene ' + (sceneIdx + 1) + ' - Phần ' +
+                                                        (aIdx + 1)) }}</span>
+                                                </div>
+                                                <div class="flex items-center gap-1 z-10">
+                                                    <div class="text-[9px] text-indigo-300 font-mono flex-shrink-0">
+                                                        {{audio.duration | number:'1.0-1'}}s
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <!-- Container cho WaveSurfer -->
-                                        <div class="w-full flex-1 relative mt-1 pointer-events-none">
-                                            <div [id]="'waveform-' + sceneIdx + '-' + aIdx" class="absolute inset-0">
-                                             </div>
+                                            <!-- Container cho WaveSurfer -->
+                                            <div class="w-full flex-1 relative mt-0.5 pointer-events-none overflow-hidden min-h-[22px]">
+                                                <div [id]="'waveform-' + sceneIdx + '-' + aIdx" class="w-full h-full"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                </ng-container>
                             </ng-container>
-                        </ng-container>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Timeline Scrubber (Red Playhead Needle & Line - Always on top) -->
-                <div class="absolute top-0 bottom-0 w-0.5 bg-red-500 z-[250] shadow-[0_0_8px_rgba(239,68,68,0.9)] cursor-ew-resize pointer-events-auto"
-                    [style.transform]="'translateX(' + (currentTimelineTime * pixelsPerSecond + 128) + 'px)'"
-                    (mousedown)="onScrubberMouseDown($event)">
-                    <div
-                        class="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center pointer-events-auto cursor-ew-resize shadow-md hover:scale-110">
+                    <!-- Timeline Scrubber (Red Playhead Needle & Line - Always on top) -->
+                    <div #playheadNeedle class="absolute top-0 bottom-0 w-0.5 bg-red-500 z-[250] shadow-[0_0_8px_rgba(239,68,68,0.9)] cursor-ew-resize pointer-events-auto"
+                        [style.transform]="'translateX(' + (currentTimelineTime * pixelsPerSecond) + 'px)'"
+                        (mousedown)="onScrubberMouseDown($event)">
+                        <div
+                            class="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center pointer-events-auto cursor-ew-resize shadow-md hover:scale-110">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -836,9 +830,14 @@
             <span>Thêm Track (Scene)</span>
         </button>
 
-        <button mat-menu-item (click)="magicKlingV3(selectedContextData?.video, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+        <button mat-menu-item (click)="splitVideoAtPlayhead(selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+            <mat-icon class="text-cyan-400">content_cut</mat-icon>
+            <span>Tách đoạn video (Cắt tại đây)</span>
+        </button>
+
+        <button mat-menu-item (click)="splitVideoScenesAI(selectedContextData?.video, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
             <mat-icon class="text-fuchsia-400">auto_awesome</mat-icon>
-            <span>Tách frame và sửa</span>
+            <span>Tách cảnh và chỉnh sửa</span>
         </button>
 
         <button mat-menu-item (click)="toggleMute(selectedContextData?.video)">
@@ -847,8 +846,8 @@
         </button>
 
         <button mat-menu-item (click)="extractAudio(selectedContextData?.video, selectedContextData?.sceneIdx)">
-            <mat-icon class="text-purple-400">music_note</mat-icon>
-            <span>{{ hasExtractedAudio(selectedContextData?.scene, selectedContextData?.video) ? 'Trích xuất lại âm thanh (AI)' : 'Trích xuất âm thanh gốc' }}</span>
+            <mat-icon class="text-purple-400">subtitles</mat-icon>
+            <span>{{ hasExtractedAudio(selectedContextData?.scene, selectedContextData?.video) ? 'Tạo lại phụ đề cho video' : 'Tạo phụ đề cho video' }}</span>
         </button>
 
         <button mat-menu-item (click)="selectedContextData.video.disabled = !selectedContextData.video.disabled; markDirty()">
@@ -873,6 +872,11 @@
             <span>Xoá {{ selectedItems.size }} mục đã chọn (Delete)</span>
         </button>
         <mat-divider *ngIf="selectedItems.size > 1"></mat-divider>
+
+        <button *ngIf="selectedContextData?.item" mat-menu-item (click)="splitAudioItem(selectedContextData.item, selectedContextData?.sceneIdx, selectedContextData?.aIdx)">
+            <mat-icon class="text-cyan-400">content_cut</mat-icon>
+            <span>Tách đoạn âm thanh (Split)</span>
+        </button>
 
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="selectedContextData.item.disabled = !selectedContextData.item.disabled">
             <mat-icon [ngClass]="selectedContextData?.item?.disabled ? 'text-red-400' : 'text-neutral-400'">
@@ -900,6 +904,11 @@
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="openEditTextDialog(selectedContextData.item)">
             <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-2'"></mat-icon>
             <span>Sửa nội dung văn bản</span>
+        </button>
+
+        <button *ngIf="selectedContextData?.item" mat-menu-item (click)="splitSubtitleItem(selectedContextData.item, selectedContextData?.sceneIdx, selectedContextData?.subIdx)">
+            <mat-icon class="text-cyan-400">content_cut</mat-icon>
+            <span>Tách đoạn phụ đề (Split)</span>
         </button>
 
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="toggleDisableItem(selectedContextData.item)">

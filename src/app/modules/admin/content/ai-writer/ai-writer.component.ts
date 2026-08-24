@@ -280,6 +280,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     done: any = [];
     trash: any = [];
 
+    downloadingItemIndex: number | null = null;
+    downloadItemPercent: { [index: number]: number } = {};
+
     details: any;
     articlePassword: string = '';
     autoSaveLocal: boolean = localStorage.getItem('ai_type_auto_save_local') !== 'false';
@@ -3934,85 +3937,104 @@ ${contentFromDone || '(Chưa có văn bản)'}
      * Xoá một đoạn văn
      */
     async editVideo(item: any, index: number = -1) {
-        let existingUuid = null;
-        if (typeof item === 'string') {
-            const uuidMatch = item.match(/data-uuid="([^"]+)"/);
-            if (uuidMatch && uuidMatch[1]) {
-                existingUuid = uuidMatch[1];
+        try {
+            let existingUuid = null;
+            if (typeof item === 'string') {
+                const uuidMatch = item.match(/data-uuid="([^"]+)"/);
+                if (uuidMatch && uuidMatch[1]) {
+                    existingUuid = uuidMatch[1];
+                }
             }
-        }
 
-        let localFilePath = this.removeHTML.transform(item);
-        if (!localFilePath || typeof localFilePath !== 'string') return;
-        localFilePath = localFilePath.trim();
+            let localFilePath = this.removeHTML.transform(item);
+            if (!localFilePath || typeof localFilePath !== 'string') return;
+            localFilePath = localFilePath.trim();
 
-        // Fallback: Khôi phục uuid từ map lưu local nếu bị mất khỏi HTML do load từ server
-        let videoMap = this.multiAccountService.getItem('ai_type_video_uuid_map_' + this.uuid) || {};
-        if (!existingUuid && videoMap[localFilePath]) {
-            existingUuid = videoMap[localFilePath];
-        }
+            // Fallback: Khôi phục uuid từ map lưu local nếu bị mất khỏi HTML do load từ server
+            let videoMap = this.multiAccountService.getItem('ai_type_video_uuid_map_' + this.uuid) || {};
+            if (!existingUuid && videoMap[localFilePath]) {
+                existingUuid = videoMap[localFilePath];
+            }
 
-        let electronApi = null;
-        if (window && (window as any).electron) {
-            electronApi = (window as any).electron;
-        }
+            let electronApi = null;
+            if (window && (window as any).electron) {
+                electronApi = (window as any).electron;
+            }
 
-        // 1. Kiểm tra nếu đã có projectData và video đã tải về máy -> Bật dialog lên luôn, không tải lại
-        let projectData: any = null;
-        if (existingUuid) {
-            projectData = await this.multiAccountService.getItem('ai_type_video_ready_data_' + existingUuid);
-            if (projectData && projectData.scenes && projectData.scenes.length > 0 && projectData.scenes[0].videos && projectData.scenes[0].videos.length > 0) {
-                const existingVideoUrl = projectData.scenes[0].videos[0].videoUrl;
-                if (existingVideoUrl) {
-                    let fileExists = true;
-                    if (electronApi && electronApi.checkFileExists) {
-                        fileExists = await electronApi.checkFileExists(existingVideoUrl);
-                    }
-                    if (fileExists) {
-                        // Đã có video tải về sẵn sàng -> Bật dialog lên luôn
-                        this.dialog.open(VideoTimelineDialogComponent, {
-                            width: '100vw',
-                            maxWidth: '100vw',
-                            height: '100vh',
-                            maxHeight: '100vh',
-                            panelClass: ['custom-timeline-container', 'dialog-no-padding', 'overflow-hidden'],
-                            data: {
-                                uuid: existingUuid,
-                                projectData: projectData,
-                                audioList: [],
-                                videoFormat: 'video'
-                            },
-                            disableClose: true,
-                        });
-                        return;
+            // 1. Kiểm tra nếu đã có projectData và video đã tải về máy -> Bật dialog lên luôn, không tải lại
+            let projectData: any = null;
+            if (existingUuid) {
+                projectData = await this.multiAccountService.getItem('ai_type_video_ready_data_' + existingUuid);
+                if (projectData && projectData.scenes && projectData.scenes.length > 0 && projectData.scenes[0].videos && projectData.scenes[0].videos.length > 0) {
+                    const existingVideoUrl = projectData.scenes[0].videos[0].videoUrl;
+                    if (existingVideoUrl) {
+                        let fileExists = true;
+                        if (electronApi && electronApi.checkFileExists) {
+                            fileExists = await electronApi.checkFileExists(existingVideoUrl);
+                        }
+                        if (fileExists) {
+                            // Cập nhật duration chính xác nếu trước đó bị lưu nhầm 5s
+                            if (projectData.scenes.length === 1 && projectData.scenes[0].videos.length === 1) {
+                                const v0 = projectData.scenes[0].videos[0];
+                                if (electronApi && electronApi.getMediaDuration) {
+                                    const durRes = await electronApi.getMediaDuration(existingVideoUrl);
+                                    if (durRes && durRes.success && durRes.duration > 0) {
+                                        v0.duration = Math.round(durRes.duration * 10) / 10;
+                                        v0.maxDuration = v0.duration;
+                                        this.multiAccountService.setItem('ai_type_video_ready_data_' + existingUuid, projectData);
+                                    }
+                                }
+                            }
+
+                            // Đã có video tải về sẵn sàng -> Bật dialog lên luôn
+                            this.dialog.open(VideoTimelineDialogComponent, {
+                                width: '100vw',
+                                maxWidth: '100vw',
+                                height: '100vh',
+                                maxHeight: '100vh',
+                                panelClass: ['custom-timeline-container', 'dialog-no-padding', 'overflow-hidden'],
+                                data: {
+                                    uuid: existingUuid,
+                                    projectData: projectData,
+                                    audioList: [],
+                                    videoFormat: 'video'
+                                },
+                                disableClose: true,
+                            });
+                            return;
+                        }
                     }
                 }
             }
-        }
 
-        let fileUrl = localFilePath;
-        let downloadCache = this.multiAccountService.getItem('ai_type_video_download_cache') || {};
+            let fileUrl = localFilePath;
+            let downloadCache = this.multiAccountService.getItem('ai_type_video_download_cache') || {};
 
-        if (localFilePath.startsWith('http')) {
-            if (electronApi) {
-                // Kiểm tra nếu url này đã được tải về trước đó và file vẫn còn tồn tại
-                let hasCachedFile = false;
-                if (downloadCache[localFilePath]) {
-                    const cachedPath = downloadCache[localFilePath];
-                    if (electronApi.checkFileExists) {
-                        const exists = await electronApi.checkFileExists(cachedPath);
-                        if (exists) {
-                            fileUrl = cachedPath;
-                            hasCachedFile = true;
-                        }
-                    } else {
+            // 2. Kiểm tra nếu url online này đã được tải về local trước đó và file vẫn còn tồn tại trên máy
+            let hasCachedFile = false;
+            if (localFilePath.startsWith('http') && downloadCache[localFilePath]) {
+                const cachedPath = downloadCache[localFilePath];
+                if (electronApi && electronApi.checkFileExists) {
+                    const exists = await electronApi.checkFileExists(cachedPath);
+                    if (exists) {
                         fileUrl = cachedPath;
                         hasCachedFile = true;
                     }
+                } else {
+                    fileUrl = cachedPath;
+                    hasCachedFile = true;
                 }
+            }
 
-                if (!hasCachedFile) {
-                    this.toastr.info('Đang tải video về máy để chỉnh sửa...');
+            // 3. Nếu chưa có trên local và là link online -> Tải video về máy
+            if (localFilePath.startsWith('http') && !hasCachedFile) {
+                if (electronApi) {
+                    if (index >= 0) {
+                        this.downloadingItemIndex = index;
+                        this.downloadItemPercent[index] = 0;
+                        this.cd.detectChanges();
+                    }
+                    this.toastr.info('Đang tải video chất lượng cao nhất về máy để chỉnh sửa...');
                     const payload = {
                         url: localFilePath,
                         customCookies: this.multiAccountService.getItem('setting_cookies') || ''
@@ -4026,115 +4048,118 @@ ${contentFromDone || '(Chưa có văn bản)'}
                         this.toastr.error('Lỗi khi tải video: ' + (downloadResult?.error || 'Unknown error'));
                         return;
                     }
+                } else {
+                    this.toastr.error('Chỉ hỗ trợ trên ứng dụng Desktop.');
+                    return;
+                }
+            }
+
+            // Ensure localFilePath has file:// protocol
+            if (!fileUrl.startsWith('file://')) {
+                fileUrl = `file://${fileUrl.replace(/\\/g, '/')}`;
+            }
+
+            // Lấy thời lượng thực tế của video
+            let actualDuration = 5;
+            try {
+                if (electronApi && electronApi.getMediaDuration) {
+                    const durRes = await electronApi.getMediaDuration(fileUrl);
+                    if (durRes && durRes.success && durRes.duration > 0) {
+                        actualDuration = Math.round(durRes.duration * 10) / 10;
+                    }
+                }
+                if (actualDuration === 5) {
+                    actualDuration = await new Promise<number>((resolve) => {
+                        const video = document.createElement('video');
+                        video.preload = 'metadata';
+                        const cleanup = () => {
+                            video.onloadedmetadata = null;
+                            video.onerror = null;
+                            video.src = '';
+                            try { video.load(); } catch (e) {}
+                        };
+                        video.onloadedmetadata = () => {
+                            const dur = video.duration || 5;
+                            cleanup();
+                            resolve(dur);
+                        };
+                        video.onerror = () => {
+                            cleanup();
+                            resolve(5); // fallback
+                        };
+                        video.src = fileUrl;
+                    });
+                }
+            } catch (e) {
+                actualDuration = 5;
+            }
+
+            let sceneAssets: any[] = [
+                {
+                    id: 1,
+                    videoUrl: fileUrl,
+                    duration: actualDuration,
+                    maxDuration: actualDuration
+                }
+            ];
+
+            const randomUuid = existingUuid || uuid.v4();
+            
+            if (!existingUuid) {
+                let videoMap = this.multiAccountService.getItem('ai_type_video_uuid_map_' + this.uuid) || {};
+                videoMap[localFilePath] = randomUuid;
+                this.multiAccountService.setItem('ai_type_video_uuid_map_' + this.uuid, videoMap);
+            }
+
+            if (projectData && projectData.scenes && projectData.scenes.length > 0) {
+                // Đã có projectData cũ nhưng file video bị mất -> Cập nhật URL file mới tải về vào scenes
+                for (const scene of projectData.scenes) {
+                    if (scene.videos) {
+                        for (const vid of scene.videos) {
+                            vid.videoUrl = fileUrl;
+                            vid.duration = actualDuration;
+                            vid.maxDuration = actualDuration;
+                        }
+                    }
                 }
             } else {
-                this.toastr.error('Chỉ hỗ trợ trên ứng dụng Desktop.');
-                return;
-            }
-        }
-
-        // Ensure localFilePath has file:// protocol
-        if (!fileUrl.startsWith('file://')) {
-            fileUrl = `file://${fileUrl.replace(/\\/g, '/')}`;
-        }
-
-        // Lấy thời lượng thực tế của video
-        let actualDuration = 5;
-        try {
-            actualDuration = await new Promise<number>((resolve) => {
-                const video = document.createElement('video');
-                video.onloadedmetadata = () => {
-                    resolve(video.duration);
-                };
-                video.onerror = () => {
-                    resolve(5); // fallback
-                };
-                video.src = fileUrl;
-            });
-        } catch (e) {
-            actualDuration = 5;
-        }
-
-        let sceneAssets: any[] = [
-            {
-                id: 1,
-                videoUrl: fileUrl,
-                duration: actualDuration,
-                maxDuration: actualDuration
-            }
-        ];
-
-        const randomUuid = existingUuid || uuid.v4();
-        
-        if (!existingUuid) {
-            let videoMap = this.multiAccountService.getItem('ai_type_video_uuid_map_' + this.uuid) || {};
-            videoMap[localFilePath] = randomUuid;
-            this.multiAccountService.setItem('ai_type_video_uuid_map_' + this.uuid, videoMap);
-        }
-
-        if (projectData && projectData.scenes && projectData.scenes.length > 0) {
-            // Đã có projectData cũ nhưng file video bị mất -> Cập nhật URL file mới tải về vào scenes
-            for (const scene of projectData.scenes) {
-                if (scene.videos) {
-                    for (const vid of scene.videos) {
-                        vid.videoUrl = fileUrl;
-                    }
-                }
-            }
-        } else {
-            projectData = {
-                uuid: randomUuid,
-                aspectRatio: '16:9',
-                scenes: [
-                    {
-                        videos: sceneAssets
-                    }
-                ]
-            };
-
-            if (electronApi) {
-                this.toastr.info('Đang xử lý âm thanh gốc, vui lòng đợi...');
-                try {
-                    const audioResult = await electronApi.invoke('extract-audio', fileUrl);
-                    if (audioResult && audioResult.success) {
-                        let audioPath = audioResult.path;
-                        if (!audioPath.startsWith('file://')) {
-                            audioPath = `file://${audioPath.replace(/\\/g, '/')}`;
+                projectData = {
+                    uuid: randomUuid,
+                    aspectRatio: '16:9',
+                    scenes: [
+                        {
+                            videos: sceneAssets
                         }
-                        projectData.scenes[0].extractedAudios = [
-                            {
-                                id: 1,
-                                audioUrl: audioPath,
-                                duration: actualDuration,
-                                maxDuration: actualDuration,
-                                startTime: 0,
-                                text: '[Âm thanh gốc]'
-                            }
-                        ];
-                    }
-                } catch (err) {
-                    console.error('Lỗi khi xuất âm thanh:', err);
-                    this.toastr.warning('Không thể xuất âm thanh gốc.');
-                }
+                    ]
+                };
+            }
+
+            this.multiAccountService.setItem('ai_type_video_ready_data_' + randomUuid, projectData);
+            // Bỏ việc can thiệp vào `item` (HTML string) vì UUID đã được quản lý an toàn qua `videoMap`.
+            const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
+                width: '100vw',
+                maxWidth: '100vw',
+                height: '100vh',
+                maxHeight: '100vh',
+                panelClass: ['custom-timeline-container', 'dialog-no-padding', 'overflow-hidden'],
+                data: {
+                    uuid: randomUuid,
+                    projectData: projectData,
+                    audioList: [],
+                    videoFormat: 'video'
+                },
+                disableClose: true,
+            });
+        } catch (err: any) {
+            console.error('Lỗi khi mở video:', err);
+            this.toastr.error('Lỗi: ' + (err?.message || err));
+        } finally {
+            if (this.downloadingItemIndex === index) {
+                this.downloadingItemIndex = null;
+                if (index >= 0) delete this.downloadItemPercent[index];
+                this.cd.detectChanges();
             }
         }
-
-        this.multiAccountService.setItem('ai_type_video_ready_data_' + randomUuid, projectData);
-        // Bỏ việc can thiệp vào `item` (HTML string) vì UUID đã được quản lý an toàn qua `videoMap`.
-        const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
-            width: '100vw',
-            maxWidth: '100vw',
-            height: '100vh',
-            maxHeight: '100vh',
-            panelClass: ['custom-timeline-container', 'dialog-no-padding', 'overflow-hidden'],
-            data: {
-                uuid: randomUuid,
-                projectData: projectData,
-                audioList: [],
-                videoFormat: 'video'
-            },
-            disableClose: true,
-        });
     }
 
     clearitem(i: number, data?: any, backup?: string) {
@@ -6817,6 +6842,18 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 mainkey: ['', Validators.required],
             }),
         });
+
+        if (typeof window !== 'undefined' && (window as any).electron) {
+            const electronApi = (window as any).electron;
+            if (electronApi.onDownloadSingleVideoProgress) {
+                electronApi.onDownloadSingleVideoProgress((data: any) => {
+                    if (data && this.downloadingItemIndex !== null && this.downloadingItemIndex !== undefined) {
+                        this.downloadItemPercent[this.downloadingItemIndex] = data.percent || 0;
+                        this.cd.detectChanges();
+                    }
+                });
+            }
+        }
 
         const state = history.state;
         if (state && state.wpPosts && state.wpPosts.length > 0) {

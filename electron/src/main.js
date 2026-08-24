@@ -2582,7 +2582,7 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
         const pdfBase64 = dataBuffer.toString('base64');
 
         if (event.sender) {
-            event.sender.send('pdf-analysis-progress', '�?ang gửi trực tiếp file PDF lên hệ thống AI...');
+            event.sender.send('pdf-analysis-progress', '?ang gửi trực tiếp file PDF lên hệ thống AI...');
         }
 
         console.log("RECEIVED configData:", configData);
@@ -2613,7 +2613,7 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
         }
 
         try {
-            // Loại b�? markdown code block nếu có
+            // Loại b? markdown code block nếu có
             let cleanJson = resultText;
             if (cleanJson.startsWith('```json')) {
                 cleanJson = cleanJson.substring(7);
@@ -2633,26 +2633,40 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
 });
 
 // Lắng nghe sự kiện 'select-local-file' từ Renderer process
+// Lắng nghe sự kiện 'select-local-file' từ Renderer process
 ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
     try {
-        const fileName = path.basename(filePath);
+        if (!filePath) return '';
+        let cleanPath = filePath.replace(/^file:\/\//i, '');
+        try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
+        cleanPath = path.normalize(cleanPath);
+
+        if (!fs.existsSync(cleanPath)) {
+            return `file://${cleanPath}`;
+        }
+
+        const ext = path.extname(cleanPath).toLowerCase();
+        const isVideo = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv', '.wmv', '.m4v'].includes(ext);
+        const stat = fs.statSync(cleanPath);
+
+        // Với file video hoặc file lớn hơn 50MB, KHÔNG copy để tránh đóng băng ứng dụng và tốn dung lượng ổ đĩa
+        if (isVideo || stat.size > 50 * 1024 * 1024) {
+            return `file://${path.resolve(cleanPath)}`;
+        }
+
+        const fileName = path.basename(cleanPath);
         const docPath = app.getPath("documents");
         const dataDir = path.join(docPath, "ai.type", "data");
 
         // Nếu file đã nằm trong thư mục data của app rồi thì không cần copy
-        const normalizedFilePath = path.normalize(filePath);
-        const normalizedDataDir = path.normalize(dataDir);
-        if (normalizedFilePath.startsWith(normalizedDataDir)) {
-            console.log(`File already in data dir, skipping copy: ${filePath}`);
-            return `file://${path.resolve(filePath)}`;
+        if (cleanPath.startsWith(path.normalize(dataDir))) {
+            return `file://${path.resolve(cleanPath)}`;
         }
 
-        // Tạo một tên file duy nhất để tránh bị trùng (ví dụ: timestamp_filename)
         const uniqueFileName = `${Date.now()}_${fileName}`;
-
         let destinationPath;
         if (customDir) {
-            const saveDir = path.join(docPath, "ai.type", "data", customDir);
+            const saveDir = path.join(dataDir, customDir);
             if (!fs.existsSync(saveDir)) {
                 fs.mkdirSync(saveDir, { recursive: true });
             }
@@ -2661,16 +2675,12 @@ ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
             destinationPath = path.join(uploadsDir, uniqueFileName);
         }
 
-        // Copy file từ đư�?ng dẫn gốc sang thư mục uploads/custom của app
-        fs.copyFileSync(filePath, destinationPath);
-
-        console.log(`File copied from ${filePath} to ${destinationPath}`);
-
-        // Trả v�? đư�?ng dẫn mới v�? Renderer process.
+        // Copy file bất đồng bộ (Non-blocking async)
+        await fs.promises.copyFile(cleanPath, destinationPath);
         return `file://${path.resolve(destinationPath)}`;
     } catch (error) {
         console.error('Error selecting file:', error);
-        throw error; // Gửi lỗi v�? Renderer process
+        return `file://${filePath}`;
     }
 });
 
@@ -4372,29 +4382,20 @@ app.whenReady().then(async () => {
     startFallbackServer();
     const resolveMediaPath = (originalUrl) => {
         let targetPath = '';
-        let url = decodeURIComponent(originalUrl);
-
-        // Chromium với standard:true sẽ normalize URL:
-        //   media://AUTO_FIND/xxx  ->  media://auto_find/xxx   (lowercase hostname)
-        //   media:///C:/path       ->  media://c/path          (C: bị mất dấu hai chấm)
-        // Nên ta cần so khớp case-insensitive
+        let url = originalUrl;
+        try { url = decodeURIComponent(url); } catch (e) {}
 
         if (url.toLowerCase().startsWith('smart_find/')) {
             const queryString = url.substring(url.indexOf('?') + 1);
             const params = new URLSearchParams(queryString);
             let originalPath = params.get('path') || '';
             originalPath = originalPath.replace(/^file:\/\//i, '');
-            if (originalPath.includes('?')) originalPath = originalPath.split('?')[0];
-            if (originalPath.includes('#')) originalPath = originalPath.split('#')[0];
-            if (originalPath.includes('?')) originalPath = originalPath.split('?')[0];
-            if (originalPath.includes('#')) originalPath = originalPath.split('#')[0];
+            originalPath = originalPath.split('?')[0].split('#')[0];
             const mediaDir = params.get('dir') || '';
             const uuid = params.get('uuid') || 'default';
 
-            // Rút trích basename, b�? timestamp prefix nếu có
             let basename = originalPath ? require('path').basename(originalPath).replace(/^\d{13}_/, '') : '';
 
-            // Khôi phục drive letter bị Chromium lowercase
             let testPath = originalPath;
             if (testPath) {
                 const dm = testPath.match(/^([a-zA-Z])(:?)([\\/])/);
@@ -4402,7 +4403,6 @@ app.whenReady().then(async () => {
                     testPath = dm[1].toUpperCase() + ':' + testPath.substring(1);
                 }
                 if (fs.existsSync(testPath)) return testPath;
-                // Thử với basename gốc (chưa strip timestamp)
                 const rawBasename = require('path').basename(originalPath);
                 if (rawBasename !== basename) {
                     const rawDir = require('path').dirname(testPath);
@@ -4413,17 +4413,9 @@ app.whenReady().then(async () => {
 
             const docPath = app.getPath('documents');
             const ttsAdminDir = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin');
-
-            // Chiến lược tìm kiếm theo thứ tự ưu tiên:
             const searchDirs = [];
-
-            // 1. mediaDir (nếu có)
             if (mediaDir) searchDirs.push(mediaDir);
-
-            // 2. Thư mục uuid hiện tại
             searchDirs.push(require('path').join(ttsAdminDir, uuid));
-
-            // 3. Tất cả thư mục project khác trong tts/admin/
             if (fs.existsSync(ttsAdminDir)) {
                 try {
                     const allDirs = fs.readdirSync(ttsAdminDir, { withFileTypes: true })
@@ -4432,75 +4424,57 @@ app.whenReady().then(async () => {
                     searchDirs.push(...allDirs);
                 } catch (e) { /* ignore */ }
             }
-
-            // 4. Thư mục uploads
             searchDirs.push(uploadsDir);
 
-            // Quét từng thư mục
             for (const dir of searchDirs) {
                 if (!fs.existsSync(dir)) continue;
-
-                // Thử trực tiếp
                 const directPath = require('path').join(dir, basename);
                 if (fs.existsSync(directPath)) return directPath;
-
-                // Thử tìm file có timestamp prefix (ví dụ: 1779705618490_s1p3.mp4)
                 try {
                     const files = fs.readdirSync(dir);
                     const match = files.find(f => f.endsWith(`_${basename}`) || f === basename);
                     if (match) return require('path').join(dir, match);
                 } catch (e) { /* ignore */ }
             }
-
-            // Fallback cuối: trả v�? path mặc định (dù có thể không tồn tại)
             targetPath = require('path').join(ttsAdminDir, uuid, basename);
             return targetPath;
         } else if (url.toLowerCase().startsWith('auto_find/')) {
-            // Cắt b�? phần "auto_find/" (case-insensitive)
             const rest = url.substring('auto_find/'.length);
             const parts = rest.split('/');
             const uuid = parts[0];
-            const basename = parts.slice(1).join('/');
+            const basename = parts.slice(1).join('/').split('?')[0].split('#')[0];
             const docPath = app.getPath('documents');
             targetPath = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin', uuid, basename);
         } else {
-            // Xử lý đư�?ng dẫn ổ đĩa bị Chromium bóp méo
-            // "c/Users/..." -> "C:/Users/..."
-            // "/c/Users/..." -> "C:/Users/..."
-            // "/C:/Users/..." -> "C:/Users/..."
-            let cleaned = url;
-            // B�? dấu / đầu nếu có
+            let cleaned = url.split('?')[0].split('#')[0];
             if (cleaned.startsWith('/')) cleaned = cleaned.substring(1);
-            // Khôi phục drive letter: "c/Users" -> "C:/Users"
             const driveMatch = cleaned.match(/^([a-zA-Z])(:?)\//);
             if (driveMatch) {
                 const driveLetter = driveMatch[1].toUpperCase();
-                // Nếu đã có dấu hai chấm (C:/) thì giữ, nếu không (c/) thì thêm vào
                 if (driveMatch[2] === ':') {
                     cleaned = driveLetter + cleaned.substring(1);
                 } else {
                     cleaned = driveLetter + ':' + cleaned.substring(1);
                 }
             } else {
-                // Trên macOS/Linux: Khôi phục dấu / ở đầu để tạo thành absolute path
                 cleaned = '/' + cleaned;
             }
             targetPath = cleaned;
         }
 
         targetPath = require('path').normalize(targetPath);
+        if (fs.existsSync(targetPath)) return targetPath;
 
-        // Fallback: tìm file có timestamp prefix
-        if (!fs.existsSync(targetPath)) {
-            const dir = require('path').dirname(targetPath);
-            const base = require('path').basename(targetPath);
-            if (fs.existsSync(dir)) {
+        const dir = require('path').dirname(targetPath);
+        const base = require('path').basename(targetPath);
+        if (fs.existsSync(dir)) {
+            try {
                 const files = fs.readdirSync(dir);
                 const match = files.find(f => f.endsWith(`_${base}`) || f === base);
                 if (match) {
                     targetPath = require('path').join(dir, match);
                 }
-            }
+            } catch (e) {}
         }
         return targetPath;
     };
@@ -4508,9 +4482,8 @@ app.whenReady().then(async () => {
     // Native file protocol cho <img>, <video>, <audio> (Hỗ trợ stream, seeking hoàn hảo)
     protocol.registerFileProtocol('media', (request, callback) => {
         try {
-            const url = request.url.replace('media://', '');
+            const url = request.url.replace(/^media:\/+/i, '');
             const targetPath = resolveMediaPath(url);
-            console.log('[Media Protocol - File]', request.url, '-> targetPath:', targetPath);
             return callback({ path: targetPath });
         } catch (error) {
             console.error('Lỗi protocol media:', error);
@@ -4518,7 +4491,6 @@ app.whenReady().then(async () => {
         }
     });
 
-    // Custom protocol cho Wavesurfer dùng fetch() (cần CORS)
     protocol.handle('mediacors', async (request) => {
         const url = request.url.replace('mediacors://', '');
         const targetPath = resolveMediaPath(url);
@@ -5214,22 +5186,43 @@ app.whenReady().then(async () => {
     // Function to get exact media duration using ffmpeg
     const getMediaDuration = (ffmpegPath, filePath) => {
         return new Promise((resolve) => {
-            const child = spawn(ffmpegPath, ['-i', filePath]);
-            let stderr = '';
-            child.stderr.on('data', (data) => stderr += data.toString());
-            child.on('close', () => {
-                const match = stderr.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
-                if (match) {
-                    const hours = parseFloat(match[1]);
-                    const mins = parseFloat(match[2]);
-                    const secs = parseFloat(match[3]);
-                    resolve(hours * 3600 + mins * 60 + secs);
-                } else {
-                    resolve(0);
-                }
-            });
+            const cmd = ffmpegPath || 'ffmpeg';
+            try {
+                const child = spawn(cmd, ['-i', filePath]);
+                let stderr = '';
+                child.stderr.on('data', (data) => stderr += data.toString());
+                child.on('error', () => resolve(0));
+                child.on('close', () => {
+                    const match = stderr.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
+                    if (match) {
+                        const hours = parseFloat(match[1]);
+                        const mins = parseFloat(match[2]);
+                        const secs = parseFloat(match[3]);
+                        resolve(hours * 3600 + mins * 60 + secs);
+                    } else {
+                        resolve(0);
+                    }
+                });
+            } catch (e) {
+                resolve(0);
+            }
         });
     };
+
+    ipcMain.handle('get-media-duration', async (_event, filePath) => {
+        try {
+            let cleanPath = String(filePath || '').trim().replace(/^file:\/{2,3}/i, '').replace(/^media:\/{2,3}/i, '');
+            try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
+            cleanPath = cleanPath.split('?')[0].split('#')[0];
+            if (!cleanPath.startsWith('/') && !/^[a-zA-Z]:/.test(cleanPath)) cleanPath = '/' + cleanPath;
+            cleanPath = path.normalize(cleanPath);
+            const cmd = binaries.ffmpeg || 'ffmpeg';
+            const dur = await getMediaDuration(cmd, cleanPath);
+            return { success: true, duration: dur };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    });
 
     // ===== EXTRACT VIDEO FRAMES IPC =====
     ipcMain.handle("extract-video-frames", async (_event, payload) => {
