@@ -5672,16 +5672,21 @@ app.whenReady().then(async () => {
             return [];
         }
 
-        const videoDir = getVideoWorkingDir(audioPath);
-        const ext = path.extname(audioPath) || ".mp3";
-        const baseName = path.basename(audioPath, ext).replace(/[^\w\d\-_.]/g, '_');
+        let cleanAudioPath = String(audioPath || '').trim();
+        cleanAudioPath = cleanAudioPath.replace(/^file:\/{2,3}/i, '').replace(/^media:\/{2,3}/i, '');
+        if (process.platform === 'win32' && cleanAudioPath.startsWith('/')) cleanAudioPath = cleanAudioPath.slice(1);
+        cleanAudioPath = decodeURIComponent(cleanAudioPath.split('?')[0].split('#')[0]);
+
+        const videoDir = getVideoWorkingDir(cleanAudioPath);
+        const ext = path.extname(cleanAudioPath) || ".mp3";
+        const baseName = path.basename(cleanAudioPath, ext).replace(/[^\w\d\-_.]/g, '_');
         const ffmpegPath = binaries.ffmpeg;
         const results = [];
 
         // Tự động tạo file phụ đề .SRT và .VTT ngay trong thư mục video
         generateSubtitlesFiles(videoDir, baseName, segments);
 
-        sendToRenderer("tools-log", `[FFmpeg] Bắt đầu cắt ${segments.length} đoạn audio vào ${videoDir} từ: ${path.basename(audioPath)}`);
+        sendToRenderer("tools-log", `[FFmpeg] Bắt đầu cắt ${segments.length} đoạn audio vào ${videoDir} từ: ${path.basename(cleanAudioPath)}`);
 
         for (let i = 0; i < segments.length; i++) {
             const seg = segments[i];
@@ -5693,7 +5698,7 @@ app.whenReady().then(async () => {
             const args = [
                 "-y",
                 "-ss", startTime.toFixed(3),
-                "-i", audioPath,
+                "-i", cleanAudioPath,
                 "-t", duration.toFixed(3),
                 "-acodec", "libmp3lame",
                 "-q:a", "2",
