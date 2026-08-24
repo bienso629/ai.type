@@ -4065,13 +4065,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                 }
             } catch (aiErr: any) {
                 console.error('Lỗi khi gọi AI nhận diện âm thanh:', aiErr);
-                this.toastr.error(`Lỗi AI nhận diện âm thanh: ${aiErr?.message || aiErr}`, 'Lỗi bóc tách AI', { timeOut: 8000 });
-                return;
+                this.toastr.warning(`Lỗi AI nhận diện âm thanh: ${aiErr?.message || aiErr}. Hệ thống sẽ sử dụng toàn bộ dải âm thanh gốc.`, 'Dùng âm thanh gốc', { timeOut: 8000 });
+                segments = [];
             }
 
             if (!segments || segments.length === 0) {
-                this.toastr.error('AI không nhận diện được câu thoại nào từ file âm thanh này.', 'Không có kết quả');
-                return;
+                console.warn('[ExtractAudio] Không có segments chi tiết, chuyển sang fallback âm thanh tổng.');
             }
 
             // Lấp đầy 100% dòng thời gian: nếu có khoảng trống > 0.5s giữa các câu, tự chèn [Nhạc nền]
@@ -4517,6 +4516,16 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         { code: 'de', label: 'Tiếng Đức (Deutsch)', icon: '🇩🇪' },
         { code: 'th', label: 'Tiếng Thái (ไทย)', icon: '🇹🇭' }
     ];
+
+    trackByLangCode(index: number, item: any): string {
+        return item?.code || index.toString();
+    }
+
+    getSubtitleLangBadge(): string {
+        if (!this.currentSubtitleLang) return 'VI';
+        if (this.currentSubtitleLang === 'original') return 'OG';
+        return this.currentSubtitleLang.substring(0, 2).toUpperCase();
+    }
 
     isLikelyVietnamese(text: string): boolean {
         if (!text) return false;
