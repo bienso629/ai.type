@@ -8451,85 +8451,79 @@ ipcMain.handle('split-video-clips-ffmpeg', async (event, payload) => {
         const scenesDir = path.join(docPath, 'ai.type', 'data', 'scenes', `split_${Date.now()}`);
         if (!fs.existsSync(scenesDir)) fs.mkdirSync(scenesDir, { recursive: true });
 
-        const clips = [];
+        const clips = new Array(scenes.length);
 
-        for (let i = 0; i < scenes.length; i++) {
-            const sc = scenes[i];
-            const start = Math.max(0, Number(sc.startTime) || 0);
-            const end = Math.max(start + 0.1, Number(sc.endTime) || (start + 3));
-            const duration = Math.max(0.1, Math.round((end - start) * 100) / 100);
+        // Xử lý cắt video song song (concurrency: 3) với độ chính xác tuyệt đối tới từng frame
+        const concurrency = 3;
+        let currentIndex = 0;
 
-            const outClipPath = path.join(scenesDir, `scene_${i + 1}_${Date.now()}.mp4`);
-            const outThumbPath = path.join(scenesDir, `scene_${i + 1}_${Date.now()}_thumb.jpg`);
+        const worker = async () => {
+            while (currentIndex < scenes.length) {
+                const i = currentIndex++;
+                const sc = scenes[i];
+                const start = Math.max(0, Number(sc.startTime) || 0);
+                const end = Math.max(start + 0.1, Number(sc.endTime) || (start + 3));
+                const duration = Math.max(0.1, Math.round((end - start) * 100) / 100);
 
-            // Cắt video siêu tốc bằng copy stream trước, fallback ultrafast nếu cần
-            let cutSuccess = false;
-            try {
-                const fastArgs = [
-                    '-ss', start.toString(),
-                    '-i', cleanPath,
-                    '-t', duration.toString(),
-                    '-c', 'copy',
-                    '-avoid_negative_ts', '1',
-                    '-y',
-                    outClipPath
-                ];
-                const code = await new Promise((res) => {
-                    const child = spawn(ffmpegPath, fastArgs);
-                    child.on('close', res);
-                    child.on('error', () => res(-1));
-                });
-                if (code === 0 && fs.existsSync(outClipPath) && fs.statSync(outClipPath).size > 1000) {
-                    cutSuccess = true;
-                }
-            } catch (fastErr) {}
+                const outClipPath = path.join(scenesDir, `scene_${i + 1}_${Date.now()}_${i}.mp4`);
+                const outThumbPath = path.join(scenesDir, `scene_${i + 1}_${Date.now()}_${i}_thumb.jpg`);
 
-            if (!cutSuccess) {
+                // Frame-accurate re-encode (Loại bỏ triệt để hiện tượng dính frame/GOP của clip trước)
                 const reencodeArgs = [
                     '-ss', start.toString(),
                     '-i', cleanPath,
                     '-t', duration.toString(),
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
-                    '-crf', '23',
+                    '-crf', '19',
                     '-c:a', 'aac',
                     '-avoid_negative_ts', 'make_zero',
                     '-y',
                     outClipPath
                 ];
+
                 await new Promise((resolve) => {
                     const child = spawn(ffmpegPath, reencodeArgs);
                     child.on('close', resolve);
+                    child.on('error', (err) => {
+                        console.error(`[split-video-clips-ffmpeg] cut error on scene ${i + 1}:`, err);
+                        resolve(-1);
+                    });
+                });
+
+                // Trích xuất 1 ảnh thumbnail cho phân cảnh từ clip mới tạo
+                const thumbArgs = [
+                    '-ss', '0',
+                    '-i', outClipPath,
+                    '-vframes', '1',
+                    '-vf', 'scale=640:-1',
+                    '-q:v', '3',
+                    '-y',
+                    outThumbPath
+                ];
+
+                await new Promise((resolve) => {
+                    const child = spawn(ffmpegPath, thumbArgs);
+                    child.on('close', resolve);
                     child.on('error', resolve);
                 });
+
+                clips[i] = {
+                    videoUrl: `file://${outClipPath}`,
+                    imageUrl: fs.existsSync(outThumbPath) ? `file://${outThumbPath}` : null,
+                    duration: duration,
+                    startTime: start,
+                    endTime: end,
+                    prompt: sc.prompt || ''
+                };
             }
+        };
 
-            // Trích xuất 1 ảnh thumbnail cho phân cảnh
-            const thumbArgs = [
-                '-ss', '0',
-                '-i', outClipPath,
-                '-vframes', '1',
-                '-vf', 'scale=640:-1',
-                '-q:v', '3',
-                '-y',
-                outThumbPath
-            ];
-
-            await new Promise((resolve) => {
-                const child = spawn(ffmpegPath, thumbArgs);
-                child.on('close', resolve);
-                child.on('error', resolve);
-            });
-
-            clips.push({
-                videoUrl: `file://${outClipPath}`,
-                imageUrl: fs.existsSync(outThumbPath) ? `file://${outThumbPath}` : null,
-                duration: duration,
-                startTime: start,
-                endTime: end,
-                prompt: sc.prompt || ''
-            });
+        const workers = [];
+        for (let w = 0; w < Math.min(concurrency, scenes.length); w++) {
+            workers.push(worker());
         }
+        await Promise.all(workers);
 
         return {
             success: true,
