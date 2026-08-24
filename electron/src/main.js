@@ -8187,6 +8187,7 @@ ipcMain.handle('trim-video', async (event, payload) => {
         const tempDir = path.join(app.getPath('temp'), 'type_video_trim');
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
+
         // Download file if it's http
         if (isHttp) {
             let urlPathname = new URL(videoPath).pathname;
@@ -8248,6 +8249,294 @@ ipcMain.handle('trim-video', async (event, payload) => {
         });
 
     } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// =====================================================================
+// IPC HANDLER: PHÁT HIỆN VÀ TRÍCH XUẤT KHUNG HÌNH PHÂN CẢNH VIDEO (AI VISION)
+// =====================================================================
+ipcMain.handle('detect-video-scenes-and-frames', async (event, payload) => {
+    try {
+        let { videoPath, startTime, duration } = payload || {};
+        if (!videoPath) {
+            return { success: false, error: 'Thiếu đường dẫn video' };
+        }
+
+        let cleanPath = videoPath.replace(/^file:\/\//i, '').replace(/^media:\/\//i, '');
+        try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
+        cleanPath = path.normalize(cleanPath);
+        if (cleanPath.startsWith('\\') || cleanPath.startsWith('/')) {
+            // Absolute path
+        } else if (!/^[a-zA-Z]:/.test(cleanPath)) {
+            cleanPath = '/' + cleanPath;
+        }
+
+        if (!fs.existsSync(cleanPath)) {
+            return { success: false, error: 'File video không tồn tại: ' + cleanPath };
+        }
+
+        startTime = Math.max(0, Number(startTime) || 0);
+        let totalDuration = Number(duration) || 0;
+        const ffmpegPath = binaries.ffmpeg || 'ffmpeg';
+
+        // Lấy duration thực tế nếu duration <= 0
+        if (totalDuration <= 0) {
+            try {
+                const durCmd = `${ffmpegPath} -i "${cleanPath}" 2>&1`;
+                const output = await new Promise((resolve) => {
+                    exec(durCmd, (err, stdout, stderr) => resolve((stdout || '') + (stderr || '')));
+                });
+                const match = output.match(/Duration:\s*(\d+):(\d+):(\d+\.?\d*)/);
+                if (match) {
+                    totalDuration = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseFloat(match[3]);
+                }
+            } catch (e) {}
+            if (totalDuration <= 0) totalDuration = 10;
+        }
+
+        const tempDir = path.join(app.getPath('temp'), `ai_type_scenes_${Date.now()}`);
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+        // PHÁT HIỆN ĐIỂM CHUYỂN CẢNH THỰC TẾ (NATURAL SCENE CUTS) BẰNG FFMPEG
+        const outPattern = path.join(tempDir, 'scene_%04d.jpg');
+        const ffmpegArgs = [
+            '-ss', startTime.toString(),
+            '-t', totalDuration.toString(),
+            '-i', cleanPath,
+            '-vf', "scale=480:-1,select='gt(scene,0.15)',showinfo",
+            '-fps_mode', 'vfr',
+            '-q:v', '3',
+            '-y',
+            outPattern
+        ];
+
+        let stderr = '';
+        await new Promise((resolve) => {
+            const child = spawn(ffmpegPath, ffmpegArgs);
+            child.stderr.on('data', d => stderr += d);
+            child.on('close', resolve);
+            child.on('error', (err) => {
+                console.error('[detect-video-scenes-and-frames] spawn error:', err);
+                resolve(-1);
+            });
+        });
+
+        // Bóc tách timestamps chuyển cảnh
+        const rawCuts = [];
+        const regex = /pts_time:([0-9.]+)/g;
+        let m;
+        while ((m = regex.exec(stderr)) !== null) {
+            const t = parseFloat(m[1]);
+            if (!isNaN(t)) rawCuts.push(t);
+        }
+
+        // Lọc các mốc chuyển cảnh tự nhiên:
+        // - Khoảng cách tối thiểu giữa 2 cảnh: 2.0s (tránh micro-cuts)
+        // - Khoảng cách tối đa: 25s (nếu cú máy dài, chèn mốc chuyển đoạn)
+        const cuts = [startTime];
+        for (const c of rawCuts) {
+            const actualCut = startTime + c;
+            const last = cuts[cuts.length - 1];
+            if (actualCut - last >= 2.0) {
+                if (actualCut - last > 25.0) {
+                    const count = Math.floor((actualCut - last) / 15.0);
+                    const step = (actualCut - last) / (count + 1);
+                    for (let k = 1; k <= count; k++) {
+                        cuts.push(Math.round((last + k * step) * 100) / 100);
+                    }
+                }
+                cuts.push(Math.round(actualCut * 100) / 100);
+            }
+        }
+        const endTimeline = startTime + totalDuration;
+        if (endTimeline - cuts[cuts.length - 1] >= 2.0) {
+            cuts.push(Math.round(endTimeline * 100) / 100);
+        } else {
+            cuts[cuts.length - 1] = Math.round(endTimeline * 100) / 100;
+        }
+
+        // Tạo danh sách scenes tự nhiên & trích xuất frame đại diện
+        const scenes = [];
+        const frames = [];
+
+        for (let i = 0; i < cuts.length - 1; i++) {
+            const sStart = cuts[i];
+            const sEnd = cuts[i + 1];
+            const sDur = Math.max(0.1, Math.round((sEnd - sStart) * 100) / 100);
+            const sampleTime = Math.min(sEnd - 0.1, sStart + Math.min(0.5, sDur * 0.3));
+            const framePath = path.join(tempDir, `shot_${i + 1}_${Date.now()}.jpg`);
+
+            // Trích xuất frame đại diện sắc nét cho cảnh này
+            const fArgs = [
+                '-ss', sampleTime.toString(),
+                '-i', cleanPath,
+                '-vframes', '1',
+                '-vf', 'scale=640:-1',
+                '-q:v', '3',
+                '-y',
+                framePath
+            ];
+
+            await new Promise(res => {
+                const fChild = spawn(ffmpegPath, fArgs);
+                fChild.on('close', res);
+                fChild.on('error', res);
+            });
+
+            let base64 = '';
+            if (fs.existsSync(framePath)) {
+                try {
+                    base64 = fs.readFileSync(framePath).toString('base64');
+                } catch (e) {}
+            }
+
+            const frameObj = {
+                index: i,
+                timestamp: sStart,
+                duration: sDur,
+                filePath: framePath,
+                url: `file://${framePath}`,
+                base64: base64
+            };
+
+            frames.push(frameObj);
+            scenes.push({
+                index: i,
+                startTime: sStart,
+                endTime: sEnd,
+                duration: sDur,
+                frame: frameObj
+            });
+        }
+
+        return {
+            success: true,
+            totalDuration: totalDuration,
+            cuts: cuts,
+            scenes: scenes,
+            frames: frames
+        };
+    } catch (e) {
+        console.error('Lỗi detect-video-scenes-and-frames:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+// =====================================================================
+// IPC HANDLER: CẮT TÁCH VIDEO THÀNH CÁC PHÂN CẢNH BẰNG FFMPEG
+// =====================================================================
+ipcMain.handle('split-video-clips-ffmpeg', async (event, payload) => {
+    try {
+        let { videoPath, scenes } = payload || {};
+        if (!videoPath || !scenes || !Array.isArray(scenes) || scenes.length === 0) {
+            return { success: false, error: 'Dữ liệu phân cảnh không hợp lệ' };
+        }
+
+        let cleanPath = videoPath.replace(/^file:\/\//i, '').replace(/^media:\/\//i, '');
+        try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
+        cleanPath = path.normalize(cleanPath);
+        if (cleanPath.startsWith('\\') || cleanPath.startsWith('/')) {
+            // Absolute path
+        } else if (!/^[a-zA-Z]:/.test(cleanPath)) {
+            cleanPath = '/' + cleanPath;
+        }
+
+        if (!fs.existsSync(cleanPath)) {
+            return { success: false, error: 'File video không tồn tại: ' + cleanPath };
+        }
+
+        const ffmpegPath = binaries.ffmpeg || 'ffmpeg';
+        const docPath = app.getPath('documents');
+        const scenesDir = path.join(docPath, 'ai.type', 'data', 'scenes', `split_${Date.now()}`);
+        if (!fs.existsSync(scenesDir)) fs.mkdirSync(scenesDir, { recursive: true });
+
+        const clips = [];
+
+        for (let i = 0; i < scenes.length; i++) {
+            const sc = scenes[i];
+            const start = Math.max(0, Number(sc.startTime) || 0);
+            const end = Math.max(start + 0.1, Number(sc.endTime) || (start + 3));
+            const duration = Math.max(0.1, Math.round((end - start) * 100) / 100);
+
+            const outClipPath = path.join(scenesDir, `scene_${i + 1}_${Date.now()}.mp4`);
+            const outThumbPath = path.join(scenesDir, `scene_${i + 1}_${Date.now()}_thumb.jpg`);
+
+            // Cắt video siêu tốc bằng copy stream trước, fallback ultrafast nếu cần
+            let cutSuccess = false;
+            try {
+                const fastArgs = [
+                    '-ss', start.toString(),
+                    '-i', cleanPath,
+                    '-t', duration.toString(),
+                    '-c', 'copy',
+                    '-avoid_negative_ts', '1',
+                    '-y',
+                    outClipPath
+                ];
+                const code = await new Promise((res) => {
+                    const child = spawn(ffmpegPath, fastArgs);
+                    child.on('close', res);
+                    child.on('error', () => res(-1));
+                });
+                if (code === 0 && fs.existsSync(outClipPath) && fs.statSync(outClipPath).size > 1000) {
+                    cutSuccess = true;
+                }
+            } catch (fastErr) {}
+
+            if (!cutSuccess) {
+                const reencodeArgs = [
+                    '-ss', start.toString(),
+                    '-i', cleanPath,
+                    '-t', duration.toString(),
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '23',
+                    '-c:a', 'aac',
+                    '-avoid_negative_ts', 'make_zero',
+                    '-y',
+                    outClipPath
+                ];
+                await new Promise((resolve) => {
+                    const child = spawn(ffmpegPath, reencodeArgs);
+                    child.on('close', resolve);
+                    child.on('error', resolve);
+                });
+            }
+
+            // Trích xuất 1 ảnh thumbnail cho phân cảnh
+            const thumbArgs = [
+                '-ss', '0',
+                '-i', outClipPath,
+                '-vframes', '1',
+                '-vf', 'scale=640:-1',
+                '-q:v', '3',
+                '-y',
+                outThumbPath
+            ];
+
+            await new Promise((resolve) => {
+                const child = spawn(ffmpegPath, thumbArgs);
+                child.on('close', resolve);
+                child.on('error', resolve);
+            });
+
+            clips.push({
+                videoUrl: `file://${outClipPath}`,
+                imageUrl: fs.existsSync(outThumbPath) ? `file://${outThumbPath}` : null,
+                duration: duration,
+                startTime: start,
+                endTime: end,
+                prompt: sc.prompt || ''
+            });
+        }
+
+        return {
+            success: true,
+            clips: clips
+        };
+    } catch (e) {
+        console.error('Lỗi split-video-clips-ffmpeg:', e);
         return { success: false, error: e.message };
     }
 });

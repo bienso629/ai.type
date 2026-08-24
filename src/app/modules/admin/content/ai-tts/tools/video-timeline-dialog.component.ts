@@ -3777,52 +3777,36 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 throw new Error('Không trích xuất được khung hình từ video');
             }
 
-            const frames = extractRes.frames;
+            const frames = extractRes.frames || [];
             const actualDuration = Number(extractRes.totalDuration) || clipDuration;
+            const naturalScenes: any[] = extractRes.scenes || [];
 
-            this.toastr.info(`Đã trích xuất ${frames.length} khung hình. Đang gửi cho Gemini AI phân tích các phân cảnh (scene cuts & prompts)...`, 'AI Vision', { timeOut: 10000 });
+            this.toastr.info(`Đã phát hiện ${naturalScenes.length} phân cảnh tự nhiên. Đang gửi cho Gemini AI phân tích nội dung và góc quay...`, 'AI Vision', { timeOut: 10000 });
 
-            // 2. Chuẩn bị ảnh gửi Gemini AI (tối đa 12 frames đại diện)
-            const maxFramesToSend = Math.min(12, frames.length);
+            // 2. Chuẩn bị ảnh gửi Gemini AI để sinh Prompt cho từng phân cảnh tự nhiên
+            const maxFramesToSend = Math.min(24, frames.length);
             const step = Math.max(1, Math.floor(frames.length / maxFramesToSend));
-            const selectedFrames = [];
+            const selectedFrames: any[] = [];
             for (let i = 0; i < frames.length; i += step) {
                 selectedFrames.push(frames[i]);
                 if (selectedFrames.length >= maxFramesToSend) break;
             }
-            if (frames.length > 1 && selectedFrames[selectedFrames.length - 1].index !== frames[frames.length - 1].index) {
-                selectedFrames.push(frames[frames.length - 1]);
-            }
 
-            const prompt = `Bạn là đạo diễn điện ảnh và chuyên gia phân tích dựng phim AI hàng đầu.
-Dưới đây là các khung hình (frames) được trích xuất từ đoạn video có tổng thời lượng ${actualDuration.toFixed(2)} giây.
-Mốc thời gian của từng khung hình gửi kèm:
-${selectedFrames.map((f, idx) => `- Ảnh ${idx + 1}: tại ${f.timestamp.toFixed(2)}s (index: ${f.index})`).join('\n')}
+            const prompt = `Bạn là chuyên gia phân tích thị giác và đạo diễn điện ảnh AI.
+Dưới đây là các khung hình đại diện cho các phân cảnh tự nhiên vừa được bóc tách từ video (tổng thời lượng ${actualDuration.toFixed(2)}s):
+${selectedFrames.map((f, idx) => `- Ảnh ${idx + 1}: tại ${f.timestamp.toFixed(2)}s (thời lượng phân cảnh: ${(f.duration || 5).toFixed(1)}s)`).join('\n')}
 
 NHIỆM VỤ:
-1. Phân tích sự thay đổi bối cảnh, nhân vật, góc máy, chuyển động để chia đoạn video này thành các PHÂN CẢNH (shots / visual scenes) riêng biệt, liền mạch phủ kín từ 0.00s đến ${actualDuration.toFixed(2)}s.
-2. Với mỗi phân cảnh:
-   - "startTime": Giây bắt đầu phân cảnh (vd: 0.00)
-   - "endTime": Giây kết thúc phân cảnh (vd: 3.50)
-   - "prompt": Mô tả chi tiết phân cảnh bằng tiếng Việt điện ảnh (bối cảnh, nhân vật, hành động, biểu cảm, ánh sáng, màu sắc) và kèm prompt tiếng Anh ngắn gọn.
-   - "cameraMovement": Góc quay / Chuyển động máy quay (ví dụ: "Toàn cảnh, góc rộng", "Cận cảnh nhân vật", "Lia máy sang phải", "Dolly zoom").
-   - "keyframeIndex": Index (từ 0 đến ${frames.length - 1}) của khung hình đại diện tiêu biểu nhất cho phân cảnh này.
+Với mỗi khung hình gửi kèm, hãy quan sát bối cảnh, nhân vật, hành động, ánh sáng để viết mô tả điện ảnh:
+1. "prompt": Mô tả chi tiết phân cảnh bằng tiếng Việt điện ảnh sống động (bối cảnh, nhân vật, hành động, ánh sáng, góc quay) kèm prompt tiếng Anh ngắn gọn.
+2. "cameraMovement": Góc quay / Chuyển động máy (ví dụ: "Toàn cảnh góc rộng", "Cận cảnh nhân vật", "Lia máy", "Dolly zoom", "Camera tĩnh").
 
 TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
 [
   {
-    "startTime": 0.00,
-    "endTime": 3.50,
-    "prompt": "Góc quay toàn cảnh xe vượt địa hình di chuyển trên con đường hoang tàn, hậu tận thế. (Wide cinematic shot of vehicle on wasteland road)",
-    "cameraMovement": "Wide angle, dolly forward",
-    "keyframeIndex": 0
-  },
-  {
-    "startTime": 3.50,
-    "endTime": 7.20,
-    "prompt": "Cận cảnh nhân vật nam chính giương súng nhắm mục tiêu, ánh mắt căng thẳng. (Close up of male character aiming weapon, tense expression)",
-    "cameraMovement": "Close-up, steadycam",
-    "keyframeIndex": 2
+    "index": 0,
+    "prompt": "Cận cảnh nhân vật kiếm sĩ bí ẩn với mái tóc buông xõa trong màn đêm sương mù. (Cinematic close-up of mysterious lone swordsman in misty night)",
+    "cameraMovement": "Close-up, slow pan"
   }
 ]`;
 
@@ -3838,19 +3822,19 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                 }
             }
 
-            let detectedScenes: Array<{ startTime: number, endTime: number, prompt: string, cameraMovement?: string, keyframeIndex?: number }> = [];
+            let aiDescriptions: any[] = [];
 
             try {
                 const response: any = await this._genaiService.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: [{ role: 'user', parts: parts }],
                     config: {
-                        maxOutputTokens: 4096,
+                        maxOutputTokens: 8192,
                         temperature: 0.2,
                         responseMimeType: 'application/json',
                         skipTTS: true,
                         maxTurns: 1,
-                        systemInstruction: 'Bạn là chuyên gia phân tích và bóc tách phân cảnh video. Hãy trả về DUY NHẤT mảng JSON các phân cảnh.'
+                        systemInstruction: 'Bạn là chuyên gia phân tích thị giác video. Hãy mô tả điện ảnh cho từng khung hình phân cảnh được cung cấp.'
                     } as any
                 });
 
@@ -3873,43 +3857,37 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                         try { parsed = JSON.parse(cleanText.substring(sArr, eArr + 1)); } catch (e2) {}
                     }
                 }
-
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    detectedScenes = parsed.map((item: any) => {
-                        const s = Math.max(0, Math.min(actualDuration, Number(item.startTime ?? item.start ?? 0)));
-                        const e = Math.max(s + 0.5, Math.min(actualDuration, Number(item.endTime ?? item.end ?? (s + 3))));
-                        const kIdx = Math.max(0, Math.min(frames.length - 1, Number(item.keyframeIndex ?? item.frameIndex ?? 0)));
-                        return {
-                            startTime: Math.round(s * 100) / 100,
-                            endTime: Math.round(e * 100) / 100,
-                            prompt: String(item.prompt || item.description || item.scene || '').trim(),
-                            cameraMovement: String(item.cameraMovement || item.camera || item.angle || '').trim(),
-                            keyframeIndex: kIdx
-                        };
-                    }).filter(s => s.endTime > s.startTime);
+                if (Array.isArray(parsed)) {
+                    aiDescriptions = parsed;
                 }
             } catch (aiErr) {
                 console.error('[SplitVideoScenesAI] Lỗi gọi AI vision:', aiErr);
             }
 
-            // Fallback nếu AI không trả về phân cảnh hợp lệ: Tách đều (mỗi 3-4s một cảnh)
-            if (!detectedScenes || detectedScenes.length <= 1) {
-                console.log('[SplitVideoScenesAI] Fallback chia phân cảnh theo nhịp video...');
-                const numScenes = Math.max(2, Math.min(6, Math.ceil(actualDuration / 3.2)));
-                const sceneDur = actualDuration / numScenes;
-                detectedScenes = [];
-                for (let i = 0; i < numScenes; i++) {
-                    const s = i * sceneDur;
-                    const e = (i === numScenes - 1) ? actualDuration : (i + 1) * sceneDur;
-                    const kIdx = Math.min(frames.length - 1, Math.floor((i / numScenes) * frames.length));
-                    detectedScenes.push({
-                        startTime: Math.round(s * 100) / 100,
-                        endTime: Math.round(e * 100) / 100,
-                        prompt: `Phân cảnh ${i + 1}: ${video.prompt || 'Đoạn video gốc'} (Mốc ${s.toFixed(1)}s - ${e.toFixed(1)}s)`,
-                        cameraMovement: 'Cinematic shot',
-                        keyframeIndex: kIdx
-                    });
-                }
+            // Gán mô tả AI vào từng phân cảnh tự nhiên
+            let detectedScenes: Array<{ startTime: number, endTime: number, prompt: string, cameraMovement?: string, keyframeIndex?: number }> = [];
+
+            if (naturalScenes.length > 0) {
+                detectedScenes = naturalScenes.map((sc, i) => {
+                    // Tìm mô tả AI gần nhất
+                    const desc = aiDescriptions.find(d => d.index === i) || aiDescriptions[Math.min(aiDescriptions.length - 1, Math.floor((i / naturalScenes.length) * aiDescriptions.length))];
+                    return {
+                        startTime: sc.startTime,
+                        endTime: sc.endTime,
+                        prompt: desc?.prompt ? String(desc.prompt).trim() : `Phân cảnh ${i + 1}: ${video.prompt || 'Đoạn video gốc'} (${sc.startTime}s - ${sc.endTime}s)`,
+                        cameraMovement: desc?.cameraMovement ? String(desc.cameraMovement).trim() : 'Cinematic shot',
+                        keyframeIndex: i
+                    };
+                });
+            } else {
+                // Fallback nếu không có naturalScenes
+                detectedScenes = [{
+                    startTime: 0,
+                    endTime: actualDuration,
+                    prompt: video.prompt || 'Phân cảnh gốc',
+                    cameraMovement: 'Cinematic shot',
+                    keyframeIndex: 0
+                }];
             }
 
             // Sắp xếp và đảm bảo nối liền mạch
