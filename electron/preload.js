@@ -8,6 +8,16 @@ contextBridge.exposeInMainWorld('electron', {
     // Thêm hàm invoke chung để dùng cho TTS và các tính năng async khác
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
 
+    on: (channel, callback) => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on(channel, listener);
+        return () => ipcRenderer.removeListener(channel, listener);
+    },
+    onDownloadSingleVideoProgress: (callback) => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('download-single-video-progress', listener);
+        return () => ipcRenderer.removeListener('download-single-video-progress', listener);
+    },
     onToolsResponse: (callback) => {
         const listener = (_event, data) => callback(data);
         ipcRenderer.on('tools-response', listener);
@@ -74,6 +84,7 @@ contextBridge.exposeInMainWorld('electron', {
         return webUtils.getPathForFile(file);
     },
     extractAudio: (videoPath) => ipcRenderer.invoke('extract-audio', videoPath),
+    getMediaDuration: (filePath) => ipcRenderer.invoke('get-media-duration', filePath),
     splitAudioSegments: (payload) => ipcRenderer.invoke('split-audio-segments', payload),
     exportSubtitles: (payload) => ipcRenderer.invoke('export-subtitles', payload),
     checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
