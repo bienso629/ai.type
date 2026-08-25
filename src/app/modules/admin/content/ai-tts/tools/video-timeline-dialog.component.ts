@@ -96,6 +96,75 @@ export interface VideoFrameTemplate {
         MatMenuModule,
         MatDividerModule
     ],
+    styles: [`
+        input[type=range].volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #27272a;
+            height: 6px;
+            border-radius: 9999px;
+            border: 0 !important;
+            outline: none !important;
+            box-shadow: none !important;
+            cursor: pointer;
+        }
+        input[type=range].volume-slider:focus {
+            outline: none !important;
+            border: 0 !important;
+            box-shadow: none !important;
+        }
+        input[type=range].volume-slider::-webkit-slider-runnable-track {
+            -webkit-appearance: none;
+            border: 0 !important;
+            outline: none !important;
+            box-shadow: none !important;
+            background: transparent;
+            height: 6px;
+        }
+        input[type=range].volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #a855f7;
+            border: 0 !important;
+            outline: none !important;
+            box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
+            cursor: pointer;
+            margin-top: -4px;
+        }
+        input[type=range].volume-slider::-moz-range-track {
+            border: 0 !important;
+            outline: none !important;
+            background: transparent;
+            height: 6px;
+        }
+        input[type=range].volume-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #a855f7;
+            border: 0 !important;
+            outline: none !important;
+            box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
+            cursor: pointer;
+        }
+        select {
+            padding-right: 28px !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+            background-position: right 6px center !important;
+            background-repeat: no-repeat !important;
+            background-size: 16px 16px !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            appearance: none !important;
+        }
+        select option, select optgroup {
+            background-color: #171821;
+            color: #e5e7eb;
+        }
+    `],
     schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterViewInit {
@@ -234,58 +303,58 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         ];
     }
 
-    updateMockupVideoStyle(containerEl?: HTMLElement) {
-        if (!this.selectedFrame) {
-            this.mockupVideoStyle = {};
-            return;
-        }
+    getMockupScreenStyle(containerEl?: HTMLElement): { [key: string]: string } {
+        if (!this.selectedFrame) return {};
         const q = this.selectedFrame.quad;
-        if (!q) {
-            this.mockupVideoStyle = {};
-            return;
-        }
+        if (!q) return {};
         const canvasW = this.selectedFrame.canvasWidth || 2286;
         const canvasH = this.selectedFrame.canvasHeight || 4096;
 
         const frameW = (containerEl && containerEl.clientWidth > 0) ? containerEl.clientWidth : 360;
         const frameH = (containerEl && containerEl.clientHeight > 0) ? containerEl.clientHeight : 645;
 
+        const screenVirtualW = 1920;
+        const screenVirtualH = 1080;
+
         const src: [number, number][] = [
             [0, 0],
-            [frameW, 0],
-            [frameW, frameH],
-            [0, frameH]
+            [screenVirtualW, 0],
+            [screenVirtualW, screenVirtualH],
+            [0, screenVirtualH]
         ];
 
+        // Mở rộng 4 góc ra 4px theo tỷ lệ canvas để phủ khít viền màn hình (scale 4px)
+        const scale4 = 4;
         const dst: [number, number][] = [
-            [q.topLeft.x / canvasW * frameW, q.topLeft.y / canvasH * frameH],
-            [q.topRight.x / canvasW * frameW, q.topRight.y / canvasH * frameH],
-            [q.bottomRight.x / canvasW * frameW, q.bottomRight.y / canvasH * frameH],
-            [q.bottomLeft.x / canvasW * frameW, q.bottomLeft.y / canvasH * frameH]
+            [(q.topLeft.x - scale4) / canvasW * frameW, (q.topLeft.y - scale4) / canvasH * frameH],
+            [(q.topRight.x + scale4) / canvasW * frameW, (q.topRight.y - scale4) / canvasH * frameH],
+            [(q.bottomRight.x + scale4) / canvasW * frameW, (q.bottomRight.y + scale4) / canvasH * frameH],
+            [(q.bottomLeft.x - scale4) / canvasW * frameW, (q.bottomLeft.y + scale4) / canvasH * frameH]
         ];
 
         const m = this.getHomographyMatrix3D(src, dst);
         const matrixStr = `matrix3d(${m.map(v => Number(v.toFixed(8))).join(', ')})`;
 
-        this.mockupVideoStyle = {
+        return {
             position: 'absolute',
             left: '0px',
             top: '0px',
-            width: `${frameW}px`,
-            height: `${frameH}px`,
+            width: `${screenVirtualW}px`,
+            height: `${screenVirtualH}px`,
             transform: matrixStr,
             '-webkit-transform': matrixStr,
             'transform-origin': '0 0',
             '-webkit-transform-origin': '0 0',
-            'object-fit': 'fill'
+            display: 'flex',
+            'align-items': 'center',
+            'justify-content': 'center',
+            'background-color': '#000000',
+            overflow: 'hidden'
         };
     }
 
-    getMockupVideoStyle(containerEl?: HTMLElement): { [key: string]: string } {
-        if (!this.mockupVideoStyle || Object.keys(this.mockupVideoStyle).length === 0) {
-            this.updateMockupVideoStyle(containerEl);
-        }
-        return this.mockupVideoStyle;
+    updateMockupVideoStyle(containerEl?: HTMLElement) {
+        // Handled dynamically by getMockupScreenStyle
     }
 
     clearSelectedFrame(event?: MouseEvent) {
@@ -493,7 +562,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     rulerTicks: number[] = Array.from({ length: 50 }, (_, i) => i);
     trackIndices: number[] = [0];
     timelineTotalWidth: number = 5000;
-    currentSubtitleInfo: { primaryText: string, secondaryText?: string } | null = null;
+    currentSubtitleInfo: { primaryText: string, secondaryText?: string, fontFamily?: string, fontSize?: number } | null = null;
     filteredMediaItems: any[] = [];
     mockupVideoStyle: { [key: string]: string } = {};
 
@@ -601,13 +670,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         if (original && vietnamese && original.trim().toLowerCase() !== vietnamese.trim().toLowerCase()) {
                             this.currentSubtitleInfo = {
                                 primaryText: original.trim(),
-                                secondaryText: vietnamese.trim()
+                                secondaryText: vietnamese.trim(),
+                                fontFamily: sub.fontFamily,
+                                fontSize: sub.fontSize
                             };
                             return;
                         }
 
                         const mainText = sub.text || original || vietnamese || '';
-                        this.currentSubtitleInfo = mainText ? { primaryText: mainText } : null;
+                        this.currentSubtitleInfo = mainText ? { 
+                            primaryText: mainText,
+                            fontFamily: sub.fontFamily,
+                            fontSize: sub.fontSize
+                        } : null;
                         return;
                     }
                 }
@@ -709,11 +784,50 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 visible: true
             };
 
-            // Tính toán khoảng thời gian được quét
+            // Tính toán khoảng thời gian (trục X)
             const selStartPx = Math.max(0, left);
             const selEndPx = Math.max(0, left + width);
             const selStartTime = selStartPx / this.pixelsPerSecond;
             const selEndTime = selEndPx / this.pixelsPerSecond;
+
+            // Tính toán khoảng quét theo trục Y (để chọn riêng từng Track: Video, Phụ đề, hoặc Audio)
+            const selTop = top;
+            const selBottom = top + height;
+
+            const videoTrackEl = document.getElementById('timeline-track-video');
+            const subsTrackEl = document.getElementById('timeline-track-subtitles');
+            const audioTrackEl = document.getElementById('timeline-track-audio');
+
+            let selectVideo = false;
+            let selectSubs = false;
+            let selectAudio = false;
+
+            if (videoTrackEl) {
+                const tr = videoTrackEl.getBoundingClientRect();
+                const trackTop = tr.top - rect.top;
+                const trackBottom = tr.bottom - rect.top;
+                if (selBottom >= trackTop && selTop <= trackBottom) selectVideo = true;
+            } else {
+                if (selBottom >= 28 && selTop <= 124) selectVideo = true;
+            }
+
+            if (subsTrackEl) {
+                const tr = subsTrackEl.getBoundingClientRect();
+                const trackTop = tr.top - rect.top;
+                const trackBottom = tr.bottom - rect.top;
+                if (selBottom >= trackTop && selTop <= trackBottom) selectSubs = true;
+            } else {
+                if (selBottom >= 124 && selTop <= 180) selectSubs = true;
+            }
+
+            if (audioTrackEl) {
+                const tr = audioTrackEl.getBoundingClientRect();
+                const trackTop = tr.top - rect.top;
+                const trackBottom = tr.bottom - rect.top;
+                if (selBottom >= trackTop && selTop <= trackBottom) selectAudio = true;
+            } else {
+                if (selBottom >= 180 && selTop <= 280) selectAudio = true;
+            }
 
             if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
                 this.selectedItems.clear();
@@ -721,8 +835,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             if (this.projectData && this.projectData.scenes) {
                 for (const scene of this.projectData.scenes) {
-                    // Check videos
-                    if (scene.videos) {
+                    // Check videos (chỉ khi vùng chọn chạm vào dòng Video)
+                    if (selectVideo && scene.videos) {
                         for (const v of scene.videos) {
                             const vStart = v.startTime || 0;
                             const vEnd = vStart + (v.duration || 5);
@@ -731,8 +845,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             }
                         }
                     }
-                    // Check subtitles (Text track & Audio track)
-                    if (scene.subtitles) {
+                    // Check subtitles (chỉ khi vùng chọn chạm vào dòng Phụ đề)
+                    if (selectSubs && scene.subtitles) {
                         for (const sub of scene.subtitles) {
                             const sStart = sub.startTime || 0;
                             const sEnd = sStart + (sub.duration || 3);
@@ -741,8 +855,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             }
                         }
                     }
-                    // Check extractedAudios (Âm thanh gốc)
-                    if (scene.extractedAudios) {
+                    // Check extractedAudios (chỉ khi vùng chọn chạm vào dòng Âm thanh gốc)
+                    if (selectAudio && scene.extractedAudios) {
                         for (const ext of scene.extractedAudios) {
                             const eStart = ext.startTime || 0;
                             const eEnd = eStart + (ext.duration || 5);
@@ -761,6 +875,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (!this.isMarqueeSelecting) return;
         this.isMarqueeSelecting = false;
         this.marqueeBox.visible = false;
+        if (this.selectedItems.size > 0 && !this.activeItem) {
+            this.activeItem = Array.from(this.selectedItems)[0];
+        }
+        this.cd.detectChanges();
     }
 
     selectAllItems() {
@@ -1215,6 +1333,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
                         if (isPlayingNow) {
                             const expectedTime = Math.max(0, this.currentTimelineTime - start);
+                            const vol = audio.volume !== undefined ? Math.max(0, audio.volume / 100) : 1;
+                            try { ws.setVolume(vol); } catch (e) {}
                             if (this.isPlayingTimeline) {
                                 if (!ws.isPlaying()) {
                                     ws.setTime(expectedTime);
@@ -5639,6 +5759,12 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.toastr.success(`Đã chuyển hiển thị phụ đề sang: ${targetLangName}`);
     }
 
+    setMediaFilterTab(tab: 'all' | 'video' | 'audio' | 'text') {
+        this.mediaFilterTab = tab;
+        this.updateFilteredMediaItems();
+        this.cd.detectChanges();
+    }
+
     updateFilteredMediaItems() {
         let items: any[] = [];
         if (this.mediaFilterTab === 'all' || this.mediaFilterTab === 'video') {
@@ -5664,7 +5790,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     }
 
     getFilteredMediaItems(): any[] {
-        if (!this.filteredMediaItems || this.filteredMediaItems.length === 0) {
+        if (!this.filteredMediaItems) {
             this.updateFilteredMediaItems();
         }
         return this.filteredMediaItems;
@@ -5706,6 +5832,327 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         };
     }
 
+    getSelectedAudios(): any[] {
+        const audios: any[] = [];
+        if (this.selectedItems && this.selectedItems.size > 0) {
+            for (const item of this.selectedItems) {
+                if (this.getItemType(item) === 'audio') {
+                    audios.push(item);
+                }
+            }
+        }
+        if (audios.length === 0 && this.activeItem && this.getItemType(this.activeItem) === 'audio') {
+            audios.push(this.activeItem);
+        }
+        return audios;
+    }
+
+    get hasAudioSelection(): boolean {
+        return this.getSelectedAudios().length > 0;
+    }
+
+    get isMultiAudioSelected(): boolean {
+        return this.getSelectedAudios().length > 1;
+    }
+
+    get selectedAudioCount(): number {
+        return this.getSelectedAudios().length;
+    }
+
+    getSelectedSubtitles(): any[] {
+        const subs: any[] = [];
+        if (this.selectedItems && this.selectedItems.size > 0) {
+            for (const item of this.selectedItems) {
+                if (this.getItemType(item) === 'text') {
+                    subs.push(item);
+                }
+            }
+        }
+        if (subs.length === 0 && this.activeItem && this.getItemType(this.activeItem) === 'text') {
+            subs.push(this.activeItem);
+        }
+        return subs;
+    }
+
+    get hasTextSelection(): boolean {
+        return this.getSelectedSubtitles().length > 0;
+    }
+
+    get isMultiTextSelected(): boolean {
+        return this.getSelectedSubtitles().length > 1;
+    }
+
+    get selectedTextCount(): number {
+        return this.getSelectedSubtitles().length;
+    }
+
+    getSelectedVideos(): any[] {
+        const vids: any[] = [];
+        if (this.selectedItems && this.selectedItems.size > 0) {
+            for (const item of this.selectedItems) {
+                if (this.getItemType(item) === 'video') {
+                    vids.push(item);
+                }
+            }
+        }
+        if (vids.length === 0 && this.activeItem && this.getItemType(this.activeItem) === 'video') {
+            vids.push(this.activeItem);
+        }
+        return vids;
+    }
+
+    get hasVideoSelection(): boolean {
+        return this.getSelectedVideos().length > 0;
+    }
+
+    get isMultiVideoSelected(): boolean {
+        return this.getSelectedVideos().length > 1;
+    }
+
+    get selectedVideoCount(): number {
+        return this.getSelectedVideos().length;
+    }
+
+    get currentInspectorType(): 'audio' | 'text' | 'video' | 'empty' {
+        if (this.activeItem) {
+            const t = this.getItemType(this.activeItem);
+            if (t === 'audio' && this.hasAudioSelection) return 'audio';
+            if (t === 'text' && this.hasTextSelection) return 'text';
+            if (t === 'video' && this.hasVideoSelection) return 'video';
+        }
+        if (this.hasAudioSelection) return 'audio';
+        if (this.hasTextSelection) return 'text';
+        if (this.hasVideoSelection) return 'video';
+        return 'empty';
+    }
+
+    DEFAULT_FONTS = [
+        { label: 'Mặc định (Sans-Serif)', value: 'sans-serif' },
+        { label: 'Be Vietnam Pro', value: 'Be Vietnam Pro, sans-serif' },
+        { label: 'Montserrat', value: 'Montserrat, sans-serif' },
+        { label: 'Roboto', value: 'Roboto, sans-serif' },
+        { label: 'Inter', value: 'Inter, sans-serif' },
+        { label: 'Oswald (Đậm cá tính)', value: 'Oswald, sans-serif' },
+        { label: 'Playfair Display (Serif sang trọng)', value: 'Playfair Display, serif' },
+        { label: 'DejaVu Sans (Chuẩn Video/ASS)', value: 'DejaVu Sans, sans-serif' },
+        { label: 'Arial', value: 'Arial, sans-serif' },
+        { label: 'Courier New (Monospace)', value: 'Courier New, monospace' }
+    ];
+
+    systemFontList: { label: string; value: string; folderName?: string }[] = [];
+
+    async loadSystemFonts(): Promise<void> {
+        try {
+            let groups: any[] = [];
+            if ((window as any).electron && (window as any).electron.invoke) {
+                const res = await (window as any).electron.invoke('fonts:list');
+                if (res && res.success && res.groups) {
+                    groups = res.groups;
+                }
+            } else {
+                const saved = localStorage.getItem('ai_type_web_font_groups');
+                if (saved) {
+                    groups = JSON.parse(saved);
+                }
+            }
+
+            const sysFonts: { label: string; value: string; folderName?: string }[] = [];
+            for (const group of groups) {
+                if (!group.fonts) continue;
+                for (const item of group.fonts) {
+                    if (!item.fontName) continue;
+                    sysFonts.push({
+                        label: item.fontName,
+                        value: item.fontName,
+                        folderName: group.folderName
+                    });
+
+                    // Đăng ký @font-face vào document head để hiển thị trực tiếp
+                    if (item.dataUrl) {
+                        const styleId = `font-face-timeline-${item.fontName.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+                        if (!document.getElementById(styleId)) {
+                            const styleEl = document.createElement('style');
+                            styleEl.id = styleId;
+                            let format = 'truetype';
+                            if (item.extension === '.otf') format = 'opentype';
+                            else if (item.extension === '.woff') format = 'woff';
+                            else if (item.extension === '.woff2') format = 'woff2';
+
+                            styleEl.appendChild(document.createTextNode(`
+                                @font-face {
+                                    font-family: '${item.fontName}';
+                                    src: url('${item.dataUrl}') format('${format}');
+                                    font-weight: normal;
+                                    font-style: normal;
+                                    font-display: swap;
+                                }
+                            `));
+                            document.head.appendChild(styleEl);
+                        }
+                    }
+                }
+            }
+            this.systemFontList = sysFonts;
+            this.cd.detectChanges();
+        } catch (e) {
+            console.warn('Lỗi nạp font hệ thống cho Video Timeline:', e);
+        }
+    }
+
+    get currentSubtitleFont(): string {
+        const subs = this.getSelectedSubtitles();
+        if (subs.length > 0 && subs[0].fontFamily) return subs[0].fontFamily;
+        if (this.projectData && this.projectData.subtitleFontFamily) return this.projectData.subtitleFontFamily;
+        return 'sans-serif';
+    }
+
+    setSubtitleFont(font: string) {
+        const subs = this.getSelectedSubtitles();
+        for (const sub of subs) {
+            sub.fontFamily = font;
+        }
+        if (this.projectData) {
+            this.projectData.subtitleFontFamily = font;
+        }
+        this.markDirty();
+        this.cd.detectChanges();
+    }
+
+    get currentSubtitleFontSize(): number {
+        const subs = this.getSelectedSubtitles();
+        if (subs.length > 0 && subs[0].fontSize) return subs[0].fontSize;
+        if (this.projectData && this.projectData.subtitleFontSize) return this.projectData.subtitleFontSize;
+        return 24;
+    }
+
+    setSubtitleFontSize(size: number | string, isFinal = true) {
+        if (size === '' || size === null || size === undefined) return;
+        const num = Number(size);
+        if (isNaN(num)) return;
+
+        let numSize = num;
+        if (isFinal) {
+            numSize = Math.max(12, Math.min(72, num));
+        } else {
+            if (num < 1 || num > 150) return;
+        }
+
+        const subs = this.getSelectedSubtitles();
+        for (const sub of subs) {
+            sub.fontSize = numSize;
+        }
+        if (this.projectData) {
+            this.projectData.subtitleFontSize = numSize;
+        }
+        this.markDirty();
+        this.cd.detectChanges();
+    }
+
+    onSubtitleFontSizeBlur(event: any) {
+        const val = event.target.value;
+        const num = Number(val);
+        const clamped = isNaN(num) || !val ? 24 : Math.max(12, Math.min(72, num));
+        event.target.value = clamped;
+        this.setSubtitleFontSize(clamped, true);
+    }
+
+    onIndividualSubFontSizeInput(sub: any, val: string) {
+        if (!val || val.trim() === '') return;
+        const num = Number(val);
+        if (!isNaN(num) && num >= 1 && num <= 150) {
+            sub.fontSize = num;
+            this.markDirty();
+        }
+    }
+
+    onIndividualSubFontSizeBlur(sub: any, event: any) {
+        const val = event.target.value;
+        const num = Number(val);
+        const clamped = isNaN(num) || !val ? (this.currentSubtitleFontSize || 24) : Math.max(12, Math.min(72, num));
+        sub.fontSize = clamped;
+        event.target.value = clamped;
+        this.markDirty();
+        this.cd.detectChanges();
+    }
+
+    applySubtitleStyleToAll() {
+        if (!this.projectData || !this.projectData.scenes) return;
+        const font = this.currentSubtitleFont;
+        const size = this.currentSubtitleFontSize;
+        let count = 0;
+        for (const scene of this.projectData.scenes) {
+            if (scene.subtitles) {
+                for (const sub of scene.subtitles) {
+                    sub.fontFamily = font;
+                    sub.fontSize = size;
+                    count++;
+                }
+            }
+        }
+        this.markDirty();
+        this.toastr.success(`Đã áp dụng Font và Cỡ chữ cho toàn bộ ${count} phụ đề trong dự án!`);
+        this.cd.detectChanges();
+    }
+
+    get audioVolumeValue(): number {
+        const audios = this.getSelectedAudios();
+        if (audios.length > 0) {
+            return audios[0].volume !== undefined ? audios[0].volume : 100;
+        }
+        return 100;
+    }
+
+    setAudioVolume(val: number | string, isFinal = true) {
+        if (val === '' || val === null || val === undefined) return;
+        const num = Number(val);
+        if (isNaN(num)) return;
+
+        let numVal = num;
+        if (isFinal) {
+            numVal = Math.max(0, Math.min(200, num));
+        } else {
+            if (num < 0 || num > 300) return;
+        }
+
+        const audios = this.getSelectedAudios();
+        for (const audio of audios) {
+            audio.volume = numVal;
+        }
+
+        // Cập nhật real-time âm lượng cho các Wavesurfer đang phát
+        if (this.projectData && this.projectData.scenes) {
+            for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+                const scene = this.projectData.scenes[sceneIdx];
+                if (scene.extractedAudios) {
+                    for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                        const audio = scene.extractedAudios[aIdx];
+                        if (audios.includes(audio)) {
+                            const ws = this.wavesurfers[`waveform-${sceneIdx}-${aIdx}`];
+                            if (ws) {
+                                try { ws.setVolume(numVal / 100); } catch (e) {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (this.inspectorWaveSurfer) {
+            try { this.inspectorWaveSurfer.setVolume(numVal / 100); } catch (e) {}
+        }
+
+        this.markDirty();
+        this.cd.detectChanges();
+    }
+
+    onAudioVolumeBlur(event: any) {
+        const val = event.target.value;
+        const num = Number(val);
+        const clamped = isNaN(num) || !val ? 100 : Math.max(0, Math.min(200, num));
+        event.target.value = clamped;
+        this.setAudioVolume(clamped, true);
+    }
+
     getItemType(item: any): 'text' | 'audio' | 'video' | 'unknown' {
         if (!item) return 'unknown';
 
@@ -5744,6 +6191,14 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     }
 
     deleteActiveItem() {
+        if (this.selectedItems && this.selectedItems.size > 1) {
+            this.deleteSelectedItems();
+            return;
+        }
+        if (!this.activeItem && this.selectedItems.size > 0) {
+            this.deleteSelectedItems();
+            return;
+        }
         if (!this.activeItem) return;
         const item = this.activeItem;
         const type = this.getItemType(item);
@@ -6313,6 +6768,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             this.normalizeData();
             this.saveData(true);
             this.updateTimelineTotalWidth();
+            this.updateFilteredMediaItems();
             this.cd.detectChanges();
             setTimeout(() => {
                 this.initWaveSurfers();
@@ -6367,6 +6823,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         if (!this.data.uuid) { this.goBack(); return; }
 
         this.loadFrameAssets();
+        this.loadSystemFonts();
         this.isSvgReady = false;
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         const readyKey = `ai_type_video_ready_data_${this.data.uuid}`;
@@ -6414,6 +6871,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.normalizeData();
         this.syncVideoDurationsWithDisk();
         this.autoScanAndLoadCompanionAssets();
+        this.updateFilteredMediaItems();
 
         // Select the first video by default
         if (this.projectData && this.projectData.scenes && this.projectData.scenes.length > 0) {
