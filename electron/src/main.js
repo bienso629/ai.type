@@ -3042,9 +3042,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         const x3 = (X3 + scale4).toFixed(1);
         const y3 = (Y3 + scale4).toFixed(1);
 
-        // 1. Scale video vào khung 1920x1080 với height 100% và width auto (căn giữa, đệm đen nếu khác tỷ lệ)
+        // Tính kích thước tự nhiên thực tế của vùng Mockup Quad
+        const topEdge = Math.hypot(X1 - X0, Y1 - Y0);
+        const bottomEdge = Math.hypot(X3 - X2, Y3 - Y2);
+        const leftEdge = Math.hypot(X2 - X0, Y2 - Y0);
+        const rightEdge = Math.hypot(X3 - X1, Y3 - Y1);
+        const screenW = Math.max(100, Math.round((topEdge + bottomEdge) / 2));
+        const screenH = Math.max(100, Math.round((leftEdge + rightEdge) / 2));
+
+        // 1. Scale video vào khung tự nhiên của Mockup với max-width, max-height (căn giữa, đệm đen nếu khác tỷ lệ)
         // 2. Nghiêng theo góc nhìn 3D của Mockup (perspective) và scale +4px để phủ khít viền màn hình
-        const filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[0:v]scale=w=1920:h=1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,perspective=x0=${x0}:y0=${y0}:x1=${x1}:y1=${y1}:x2=${x2}:y2=${y2}:x3=${x3}:y3=${y3}:sense=destination:interpolation=cubic[warped];[bg][warped]overlay=0:0${subtitleFilter}[outv]`;
+        const filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[0:v]scale=w=${screenW}:h=${screenH}:force_original_aspect_ratio=decrease,pad=${screenW}:${screenH}:(ow-iw)/2:(oh-ih)/2:black,perspective=x0=${x0}:y0=${y0}:x1=${x1}:y1=${y1}:x2=${x2}:y2=${y2}:x3=${x3}:y3=${y3}:sense=destination:interpolation=cubic[warped];[bg][warped]overlay=0:0${subtitleFilter}[outv]`;
         const args = [
             '-y',
             '-i', cleanVidPath,
@@ -5497,6 +5505,20 @@ app.whenReady().then(async () => {
                 const outputFileName = `${baseName}_audio_${Date.now()}.mp3`;
                 const outputPath = path.join(videoDir, outputFileName);
 
+                // Dọn dẹp các file audio cũ của video này trong videoDir
+                try {
+                    if (fs.existsSync(videoDir)) {
+                        const existingFiles = fs.readdirSync(videoDir);
+                        for (const f of existingFiles) {
+                            if (f.startsWith(baseName) && f.includes('_audio_') && f.endsWith('.mp3')) {
+                                try { fs.unlinkSync(path.join(videoDir, f)); } catch (e) {}
+                            }
+                        }
+                    }
+                } catch (cleanErr) {
+                    console.warn('[extract-audio] Lỗi dọn dẹp audio cũ:', cleanErr);
+                }
+
                 const ffmpegPath = binaries.ffmpeg;
                 const args = ["-y"];
 
@@ -5664,6 +5686,20 @@ app.whenReady().then(async () => {
         const ffmpegPath = binaries.ffmpeg;
         const results = [];
 
+        // Dọn dẹp sạch sẽ các file segment cũ và file phụ đề cũ của video này trước khi tạo mới
+        try {
+            if (fs.existsSync(videoDir)) {
+                const existingFiles = fs.readdirSync(videoDir);
+                for (const f of existingFiles) {
+                    if (f.startsWith(baseName) && (f.includes('_seg_') || f.endsWith('.srt') || f.endsWith('.vtt'))) {
+                        try { fs.unlinkSync(path.join(videoDir, f)); } catch (e) {}
+                    }
+                }
+            }
+        } catch (cleanErr) {
+            console.warn('[split-audio-segments] Lỗi dọn dẹp file segment/sub cũ:', cleanErr);
+        }
+
         // Tự động tạo file phụ đề .SRT và .VTT ngay trong thư mục video
         generateSubtitlesFiles(videoDir, baseName, segments);
 
@@ -5678,8 +5714,8 @@ app.whenReady().then(async () => {
 
             const args = [
                 "-y",
-                "-ss", startTime.toFixed(3),
                 "-i", cleanAudioPath,
+                "-ss", startTime.toFixed(3),
                 "-t", duration.toFixed(3),
                 "-acodec", "libmp3lame",
                 "-q:a", "2",
@@ -7277,7 +7313,8 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
             '--rm-cache-dir',
             '--js-runtimes', 'node',
             '--extractor-args', 'youtube:player_client=ios,android,web',
-            '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
+            '-f', 'bestvideo+bestaudio/best',
+            '--merge-output-format', 'mp4'
         ];
         if (binaries.ffmpeg) {
             args.push('--ffmpeg-location', binaries.ffmpeg);
@@ -7424,7 +7461,8 @@ ipcMain.handle('download-video', async (event, payload) => {
                 '--rm-cache-dir',
                 '--js-runtimes', 'node',
                 '--extractor-args', 'youtube:player_client=ios,android,web',
-                '-f', 'bestvideo+bestaudio/best'
+                '-f', 'bestvideo+bestaudio/best',
+                '--merge-output-format', 'mp4'
             ];
             if (binaries.ffmpeg) {
                 args.push('--ffmpeg-location', binaries.ffmpeg);
@@ -7865,7 +7903,8 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 '--ignore-errors',
                 '--js-runtimes', 'node',
                 '--extractor-args', 'youtube:player_client=ios,android,web',
-                '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+                '-f', 'bestvideo+bestaudio/best',
+                '--merge-output-format', 'mp4',
                 '--write-auto-subs',
                 '--write-subs',
                 '--sub-lang', 'vi,en.*'

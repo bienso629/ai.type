@@ -180,6 +180,12 @@ export class GenaiService {
             if (this._umodelverseUrl && !this._umodelverseUrl.startsWith('http')) {
                 this._umodelverseUrl = 'https://' + this._umodelverseUrl;
             }
+            // Chuẩn hoá URL: Tự động loại bỏ các path phụ đuôi như /v1/chat/completions, /chat/completions, /v1, /v1beta...
+            this._umodelverseUrl = this._umodelverseUrl
+                .replace(/\/v1\/chat\/completions\/?$/i, '')
+                .replace(/\/chat\/completions\/?$/i, '')
+                .replace(/\/v1\/?$/i, '')
+                .replace(/\/v1beta\/?$/i, '');
             if (this._umodelverseUrl.endsWith('/')) {
                 this._umodelverseUrl = this._umodelverseUrl.slice(0, -1);
             }
@@ -1025,13 +1031,26 @@ export class GenaiService {
     }
 
     private async generateChatUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
+        let hasAudio = false;
+        if (params.contents && Array.isArray(params.contents)) {
+            for (const content of params.contents) {
+                const parts = (content as any)?.parts;
+                if (parts && Array.isArray(parts)) {
+                    if (parts.some((p: any) => p.inlineData?.mimeType?.startsWith('audio/'))) {
+                        hasAudio = true;
+                        break;
+                    }
+                }
+            }
+        }
+
         let overrideModel = params.model;
-        if (overrideModel && (overrideModel.includes('gemini') || overrideModel === 'agent')) {
+        if (!hasAudio && overrideModel && (overrideModel.includes('gemini') || overrideModel === 'agent')) {
             overrideModel = null;
         }
-        let targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
+        let targetModel = overrideModel || this._umodelverseChatModel || (hasAudio ? 'gemini-2.5-flash' : 'gpt-4o');
         if (targetModel === 'agent') {
-            targetModel = this._umodelverseChatModel || 'gpt-4o';
+            targetModel = this._umodelverseChatModel || (hasAudio ? 'gemini-2.5-flash' : 'gpt-4o');
         }
         const config = getTextModelConfig(targetModel);
 
@@ -1173,7 +1192,12 @@ export class GenaiService {
             }
         }
 
-        let finalUrl = url;
+        let finalUrl = (url || '').trim();
+        finalUrl = finalUrl
+            .replace(/\/v1\/chat\/completions\/?$/i, '')
+            .replace(/\/chat\/completions\/?$/i, '')
+            .replace(/\/v1\/?$/i, '')
+            .replace(/\/v1beta\/?$/i, '');
         if (finalUrl.endsWith('/')) {
             finalUrl = finalUrl.slice(0, -1);
         }
