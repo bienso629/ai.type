@@ -8,6 +8,7 @@
     "scripts": {
         "ng": "ng",
         "dev": "ng serve",
+        "dev:electron": "node dev-electron.js",
         "build": "ng build --configuration=production",
         "watch": "ng build --watch --configuration development",
         "test": "ng test"
