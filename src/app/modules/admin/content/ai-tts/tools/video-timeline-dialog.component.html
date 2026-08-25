@@ -97,23 +97,23 @@
                     <div class="flex items-center bg-[#0d0e12] p-0.5 rounded-lg border border-neutral-800/80 text-[11px] font-medium">
                         <button class="flex-1 py-1 rounded transition-colors"
                             [ngClass]="mediaFilterTab === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
-                            (click)="mediaFilterTab = 'all'">
+                            (click)="setMediaFilterTab('all')">
                             Tất cả
                         </button>
                         <button class="flex-1 py-1 rounded transition-colors"
                             [ngClass]="mediaFilterTab === 'video' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
-                            (click)="mediaFilterTab = 'video'">
+                            (click)="setMediaFilterTab('video')">
                             Video
                         </button>
                         <button class="flex-1 py-1 rounded transition-colors"
                             [ngClass]="mediaFilterTab === 'audio' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
-                            (click)="mediaFilterTab = 'audio'">
+                            (click)="setMediaFilterTab('audio')">
                             Audio
                         </button>
                         <div class="flex-1 flex items-center justify-between relative rounded overflow-hidden"
                             [ngClass]="mediaFilterTab === 'text' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-transparent text-neutral-400 hover:text-neutral-200'">
                             <button class="flex-1 py-1 pl-2 pr-1 flex items-center justify-center text-inherit"
-                                (click)="mediaFilterTab = 'text'">
+                                (click)="setMediaFilterTab('text')">
                                 <span>Text</span>
                             </button>
                             <button [matMenuTriggerFor]="subtitleLangMenu"
@@ -128,7 +128,7 @@
                     <!-- Search Box -->
                     <div class="relative flex items-center">
                         <mat-icon class="absolute left-2 icon-size-3.5 text-neutral-500 pointer-events-none">search</mat-icon>
-                        <input [(ngModel)]="mediaSearchText" placeholder="Tìm kiếm media, phụ đề..."
+                        <input [(ngModel)]="mediaSearchText" (ngModelChange)="updateFilteredMediaItems()" placeholder="Tìm kiếm media, phụ đề..."
                             class="w-full pl-7 pr-2 py-1 text-[11px] bg-[#0d0e12] border border-neutral-800 rounded text-neutral-300 placeholder-neutral-500 focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
@@ -242,20 +242,20 @@
                 <div class="w-full flex-1 relative flex flex-col items-center justify-center min-h-0 overflow-hidden"
                      [ngClass]="selectedFrame && selectedFrame.id !== 'none' ? 'aspect-[9/16] max-h-full py-1' : ''">
 
-                    <!-- Khi CÓ Frame Template được chọn (Mockup Frame 9:16 HTML5 3D Homography Canvas) -->
+                    <!-- Khi CÓ Frame Template được chọn (Mockup Frame 9:16) -->
                     <div #mockupFrameContainer
                          *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl)"
-                         class="relative aspect-[9/16] h-full max-h-full flex items-center justify-center overflow-hidden rounded-lg shadow-2xl bg-black">
+                         class="relative aspect-[9/16] h-full max-h-full flex items-center justify-center overflow-hidden rounded-lg shadow-2xl bg-black select-none">
                         
-                        <!-- 1. Background Image của Khung (Bàn làm việc Gaming & Màn hình PC) -->
+                        <!-- 1. Background Image của Khung (Bàn làm việc Gaming & Màn hình PC cố định) -->
                         <img [src]="selectedFrame.bgDataUrl || getSafeUrl(selectedFrame.bgPath)"
                              class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10" />
 
-                        <!-- 2. Video nhúng trực tiếp và được uốn phối cảnh 3D nghiêng theo góc màn hình PC -->
-                        <div class="absolute inset-0 w-full h-full z-20 pointer-events-auto overflow-hidden">
+                        <!-- 2. Vùng màn hình PC 3D nghiêng theo góc nhìn Mockup (+ scale 4px): Video nằm lọt trong màn hình với height 100% và width auto -->
+                        <div class="absolute z-20 overflow-hidden flex items-center justify-center bg-black pointer-events-auto"
+                             [ngStyle]="getMockupScreenStyle(mockupFrameContainer)">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                                [ngStyle]="mockupVideoStyle"
-                                class="cursor-pointer"
+                                class="h-full w-auto max-h-full max-w-full object-contain cursor-pointer block mx-auto select-none"
                                 (loadedmetadata)="onVideoLoadedMetadata($event)"
                                 (click)="toggleTimelinePlay()"
                                 (ended)="onVideoEnded()"
@@ -263,8 +263,7 @@
                                 (play)="onVideoPlayEvent()"></video>
 
                             <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                                [ngStyle]="mockupVideoStyle"
-                                class="cursor-pointer"
+                                class="h-full w-auto max-h-full max-w-full object-contain cursor-pointer block mx-auto select-none"
                                 (click)="toggleTimelinePlay()" />
                         </div>
 
@@ -312,13 +311,16 @@
                     <!-- Subtitle Caption Overlay on Video Preview (Song ngữ Dual Subtitles - Clean Cinematic Style) -->
                     <div *ngIf="currentSubtitleInfo" 
                          class="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-[92%] pointer-events-none z-40 select-none transition-all duration-100 flex flex-col items-center justify-center gap-1 text-center"
+                         [style.fontFamily]="currentSubtitleInfo.fontFamily || currentSubtitleFont"
                          style="text-shadow: 0 2px 4px #000, 0 0 10px #000, 0 0 20px #000, 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;">
                         <!-- Dòng 1: Ngôn ngữ chính / Gốc (Chữ to, trắng đậm, viền đen điện ảnh) -->
-                        <span class="text-white font-bold text-lg md:text-2xl lg:text-3xl leading-snug tracking-wide">
+                        <span class="text-white font-bold leading-snug tracking-wide"
+                              [style.fontSize.px]="currentSubtitleInfo.fontSize || currentSubtitleFontSize">
                             {{ currentSubtitleInfo.primaryText }}
                         </span>
                         <!-- Dòng 2: Tiếng Việt (Chữ vàng tươi, to rõ bên dưới) -->
-                        <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold text-base md:text-lg lg:text-xl leading-snug tracking-wide">
+                        <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold leading-snug tracking-wide"
+                              [style.fontSize.px]="(currentSubtitleInfo.fontSize || currentSubtitleFontSize) * 0.85">
                             {{ currentSubtitleInfo.secondaryText }}
                         </span>
                     </div>
@@ -378,20 +380,36 @@
                 <!-- Header Cột 3 -->
                 <div class="px-3.5 py-2.5 bg-[#171820] border-b border-neutral-800 flex items-center justify-between flex-shrink-0">
                     <div class="flex items-center gap-2">
-                        <mat-icon class="icon-size-4 text-amber-400">tune</mat-icon>
-                        <span class="text-xs font-semibold text-neutral-200 uppercase tracking-wider">Chỉnh sửa</span>
-                        <span *ngIf="activeItem" class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded"
-                            [ngClass]="{
-                                'bg-amber-950 text-amber-300 border border-amber-700/50': getItemType(activeItem) === 'text',
-                                'bg-purple-950 text-purple-300 border border-purple-700/50': getItemType(activeItem) === 'audio',
-                                'bg-blue-950 text-blue-300 border border-blue-700/50': getItemType(activeItem) === 'video'
-                            }">
-                            {{ getItemType(activeItem) === 'text' ? 'Phụ đề' : (getItemType(activeItem) === 'audio' ? 'Audio' : 'Video') }}
+                        <mat-icon class="icon-size-4" [ngClass]="{
+                            'text-purple-400': currentInspectorType === 'audio',
+                            'text-amber-400': currentInspectorType === 'text',
+                            'text-blue-400': currentInspectorType === 'video',
+                            'text-neutral-400': currentInspectorType === 'empty'
+                        }">
+                            {{ currentInspectorType === 'audio' ? 'graphic_eq' : (currentInspectorType === 'text' ? 'title' : (currentInspectorType === 'video' ? 'movie' : 'tune')) }}
+                        </mat-icon>
+                        <span class="text-xs font-semibold text-neutral-200 uppercase tracking-wider">
+                            {{ currentInspectorType === 'audio' ? 'Chỉnh sửa Audio' : (currentInspectorType === 'text' ? 'Chỉnh sửa Phụ đề' : (currentInspectorType === 'video' ? 'Chỉnh sửa Video' : 'Chỉnh sửa')) }}
+                        </span>
+                        
+                        <!-- Badge Audio -->
+                        <span *ngIf="currentInspectorType === 'audio'" class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded bg-purple-950 text-purple-300 border border-purple-700/50">
+                            {{ isMultiAudioSelected ? ('Đã chọn ' + selectedAudioCount + ' Audio') : 'Audio' }}
+                        </span>
+                        
+                        <!-- Badge Subtitles / Text -->
+                        <span *ngIf="currentInspectorType === 'text'" class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded bg-amber-950 text-amber-300 border border-amber-700/50">
+                            {{ isMultiTextSelected ? ('Đã chọn ' + selectedTextCount + ' Phụ đề') : 'Phụ đề' }}
+                        </span>
+
+                        <!-- Badge Video -->
+                        <span *ngIf="currentInspectorType === 'video'" class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded bg-blue-950 text-blue-300 border border-blue-700/50">
+                            {{ isMultiVideoSelected ? ('Đã chọn ' + selectedVideoCount + ' Video') : 'Video' }}
                         </span>
                     </div>
 
-                    <button *ngIf="activeItem" mat-icon-button class="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-red-400 !p-0"
-                        (click)="deleteActiveItem()" title="Xoá mục đang chọn">
+                    <button *ngIf="currentInspectorType !== 'empty'" mat-icon-button class="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-red-400 !p-0"
+                        (click)="deleteActiveItem()" [title]="(selectedItems.size > 1) ? 'Xoá các mục đang chọn' : 'Xoá mục đang chọn'">
                         <mat-icon class="icon-size-4">delete_outline</mat-icon>
                     </button>
                 </div>
@@ -399,74 +417,101 @@
                 <!-- Inspector Body -->
                 <div class="flex-1 overflow-y-auto p-3 space-y-3 scene-scroll-area">
                     
-                    <!-- TH 1: ĐANG CHỌN PHỤ ĐỀ / TEXT -->
-                    <div *ngIf="getItemType(activeItem) === 'text'" class="flex flex-col gap-2.5">
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Nội dung phụ đề</label>
-                            <textarea [(ngModel)]="activeItem.text" (ngModelChange)="markDirty()" rows="3"
-                                placeholder="Nhập nội dung phụ đề..."
-                                class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed font-sans"></textarea>
-                        </div>
-
-                        <!-- Timing Controls -->
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
-                                <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
-                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
-                                <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
-                                    class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
-                            </div>
-                        </div>
-
-                        <!-- Audio WaveSurfer Visualizer & Player nếu có audioUrl -->
-                        <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-sm flex flex-col gap-2">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-1.5">
-                                    <mat-icon class="icon-size-3.5 text-indigo-400">graphic_eq</mat-icon>
-                                    <span class="text-[11px] font-semibold text-neutral-300">Sóng âm thanh (WaveSurfer)</span>
-                                </div>
-                                <button mat-icon-button (click)="toggleInspectorWaveSurfer()" [title]="isInspectorAudioPlaying ? 'Tạm dừng' : 'Phát audio'">
-                                    <mat-icon>{{ isInspectorAudioPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
-                                </button>
-                            </div>
-
-                            <!-- WaveSurfer Waveform Canvas Container -->
-                            <div class="w-full h-11 bg-neutral-950/90 rounded-sm border border-neutral-800 overflow-hidden relative px-1 flex items-center">
-                                <div id="inspector-waveform-sub-container" class="w-full h-full"></div>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- TH 2: ĐANG CHỌN ÂM THANH (AUDIO / EXTRACTED AUDIO) -->
-                    <div *ngIf="getItemType(activeItem) === 'audio'" class="flex flex-col gap-2.5">
+                    <!-- TH 1: ĐANG CHỌN ÂM THANH (1 HOẶC NHIỀU AUDIO) -->
+                    <div *ngIf="currentInspectorType === 'audio'" class="flex flex-col gap-3">
+                        <!-- Thông tin Audio -->
                         <div class="flex flex-col gap-1">
                             <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Thông tin Audio</label>
-                            <div class="p-2.5 bg-[#0d0e12] border border-neutral-700 rounded-sm text-xs text-neutral-300 font-mono break-all">
-                                {{ activeItem.title || (activeItem.text && activeItem.text !== '[Âm thanh gốc]' ? activeItem.text : '') || activeItem.audioUrl || 'Âm thanh gốc' }}
+                            <div class="p-2.5 bg-[#0d0e12] border border-neutral-700 rounded-sm text-xs text-neutral-300 font-mono break-all flex items-center justify-between">
+                                <span class="truncate" *ngIf="!isMultiAudioSelected">
+                                    {{ activeItem?.title || (activeItem?.text && activeItem?.text !== '[Âm thanh gốc]' ? activeItem?.text : '') || activeItem?.audioUrl || 'Âm thanh gốc' }}
+                                </span>
+                                <span class="truncate text-purple-300 font-sans font-medium" *ngIf="isMultiAudioSelected">
+                                    Đang chọn {{ selectedAudioCount }} đoạn Audio đồng thời
+                                </span>
+                                <span *ngIf="isMultiAudioSelected" class="text-[10px] text-neutral-400 font-sans ml-2 flex-shrink-0">
+                                    (Chỉnh sửa hàng loạt)
+                                </span>
                             </div>
                         </div>
 
-                        <!-- Timing Controls -->
+                        <!-- Chỉnh sửa Âm lượng (Volume Controls) -->
+                        <div class="p-3 bg-[#161722] border border-purple-900/50 rounded-md flex flex-col gap-2.5 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5">
+                                    <mat-icon class="icon-size-4" [ngClass]="audioVolumeValue === 0 ? 'text-red-400' : 'text-purple-400'">
+                                        {{ audioVolumeValue === 0 ? 'volume_off' : (audioVolumeValue < 50 ? 'volume_down' : 'volume_up') }}
+                                    </mat-icon>
+                                    <span class="text-xs font-semibold text-neutral-200">Âm lượng</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" min="0" max="200" step="5" [value]="audioVolumeValue"
+                                        (input)="setAudioVolume($any($event.target).value, false)"
+                                        (blur)="onAudioVolumeBlur($event)"
+                                        (keydown.enter)="$any($event.target).blur()"
+                                        class="w-14 px-1.5 py-0.5 text-xs text-center font-mono font-bold bg-[#0d0e12] border border-neutral-700 rounded text-purple-300 focus:outline-none focus:border-purple-500">
+                                    <span class="text-xs text-neutral-400 font-mono">%</span>
+                                </div>
+                            </div>
+
+                            <!-- Slider -->
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-neutral-500 font-mono select-none">0%</span>
+                                <input type="range" min="0" max="200" step="1" [value]="audioVolumeValue"
+                                    (input)="setAudioVolume($any($event.target).value)"
+                                    class="volume-slider w-full !border-0 !outline-none !shadow-none ring-0">
+                                <span class="text-[10px] text-neutral-500 font-mono select-none">200%</span>
+                            </div>
+
+                            <!-- Quick Preset Buttons -->
+                            <div class="flex items-center justify-between gap-1 pt-1 border-t border-neutral-800/80">
+                                <button type="button" (click)="setAudioVolume(0)" 
+                                    class="px-2 py-0.5 text-[10px] font-medium rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors">
+                                    Tắt tiếng (0%)
+                                </button>
+                                <button type="button" (click)="setAudioVolume(50)" 
+                                    class="px-2 py-0.5 text-[10px] font-medium rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors">
+                                    50%
+                                </button>
+                                <button type="button" (click)="setAudioVolume(100)" 
+                                    class="px-2 py-0.5 text-[10px] font-medium rounded bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/40 transition-colors">
+                                    Mặc định (100%)
+                                </button>
+                                <button type="button" (click)="setAudioVolume(150)" 
+                                    class="px-2 py-0.5 text-[10px] font-medium rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors">
+                                    150%
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Timing Controls (Bắt đầu & Thời lượng) -->
                         <div class="grid grid-cols-2 gap-2">
                             <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
-                                <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                <div class="flex items-center justify-between">
+                                    <label class="text-[10px] font-medium" [ngClass]="isMultiAudioSelected ? 'text-neutral-500' : 'text-neutral-400'">Bắt đầu (giây)</label>
+                                    <span *ngIf="isMultiAudioSelected" class="text-[9px] text-amber-400/80 font-mono">Khóa</span>
+                                </div>
+                                <input *ngIf="!isMultiAudioSelected && activeItem" type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
                                     class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-purple-500">
+                                <input *ngIf="isMultiAudioSelected" type="text" disabled value="Nhiều mục (Disabled)"
+                                    class="px-2.5 py-1.5 text-xs bg-neutral-900/50 border border-neutral-800/80 rounded-sm text-neutral-500 font-mono cursor-not-allowed select-none"
+                                    title="Không thể chỉnh sửa đồng thời vị trí bắt đầu khi chọn nhiều Audio">
                             </div>
                             <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
-                                <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                <div class="flex items-center justify-between">
+                                    <label class="text-[10px] font-medium" [ngClass]="isMultiAudioSelected ? 'text-neutral-500' : 'text-neutral-400'">Thời lượng (giây)</label>
+                                    <span *ngIf="isMultiAudioSelected" class="text-[9px] text-amber-400/80 font-mono">Khóa</span>
+                                </div>
+                                <input *ngIf="!isMultiAudioSelected && activeItem" type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
                                     class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-purple-500">
+                                <input *ngIf="isMultiAudioSelected" type="text" disabled value="Nhiều mục (Disabled)"
+                                    class="px-2.5 py-1.5 text-xs bg-neutral-900/50 border border-neutral-800/80 rounded-sm text-neutral-500 font-mono cursor-not-allowed select-none"
+                                    title="Không thể chỉnh sửa đồng thời thời lượng khi chọn nhiều Audio">
                             </div>
                         </div>
 
-                        <!-- Audio WaveSurfer Visualizer & Player -->
-                        <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-sm flex flex-col gap-2">
+                        <!-- Audio WaveSurfer Visualizer & Player (khi chọn 1 audio) -->
+                        <div *ngIf="!isMultiAudioSelected && activeItem?.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-sm flex flex-col gap-2">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-1.5">
                                     <mat-icon class="icon-size-3.5 text-purple-400">graphic_eq</mat-icon>
@@ -485,32 +530,260 @@
 
                     </div>
 
-                    <!-- TH 3: ĐANG CHỌN VIDEO -->
-                    <div *ngIf="getItemType(activeItem) === 'video'" class="flex flex-col gap-2.5">
+                    <!-- TH 2: ĐANG CHỌN PHỤ ĐỀ / TEXT (1 HOẶC NHIỀU) -->
+                    <div *ngIf="currentInspectorType === 'text'" class="flex flex-col gap-3">
+                        
+                        <!-- 1. Định dạng Font chữ & Cỡ chữ (Typography Controls) -->
+                        <div class="p-3 bg-[#161722] border border-amber-900/40 rounded-md flex flex-col gap-2.5 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5">
+                                    <mat-icon class="icon-size-4 text-amber-400">font_download</mat-icon>
+                                    <span class="text-xs font-semibold text-neutral-200">Định dạng Phụ đề</span>
+                                </div>
+                                <span *ngIf="isMultiTextSelected" class="text-[10px] text-amber-400/80 font-mono">
+                                    (Áp dụng {{ selectedTextCount }} mục)
+                                </span>
+                            </div>
+
+                            <!-- Chọn Phông chữ (Font Family) với 2 nhóm: Mặc định & Hệ thống -->
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-neutral-400 font-medium">Phông chữ (Font Family)</label>
+                                <select [ngModel]="currentSubtitleFont" (ngModelChange)="setSubtitleFont($event)"
+                                    class="w-full h-8 pl-2.5 pr-7 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 focus:outline-none focus:border-amber-500 cursor-pointer">
+                                    <optgroup label="── 1. Font Mặc Định ──">
+                                        <option *ngFor="let f of DEFAULT_FONTS" [value]="f.value">{{ f.label }}</option>
+                                    </optgroup>
+                                    <optgroup *ngIf="systemFontList.length > 0" label="── 2. Font Hệ Thống / Đã Cài Đặt ({{ systemFontList.length }}) ──">
+                                        <option *ngFor="let f of systemFontList" [value]="f.value">{{ f.label }}</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                            <!-- Chọn Cỡ chữ (Font Size) -->
+                            <div class="flex flex-col gap-1.5 pt-1">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-[10px] text-neutral-400 font-medium">Cỡ chữ (Font Size)</label>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" min="12" max="72" step="1" [value]="currentSubtitleFontSize"
+                                            (input)="setSubtitleFontSize($any($event.target).value, false)"
+                                            (blur)="onSubtitleFontSizeBlur($event)"
+                                            (keydown.enter)="$any($event.target).blur()"
+                                            class="w-12 px-1.5 py-0.5 text-xs text-center font-mono font-bold bg-[#0d0e12] border border-neutral-700 rounded text-amber-300 focus:outline-none focus:border-amber-500">
+                                        <span class="text-xs text-neutral-400 font-mono">px</span>
+                                    </div>
+                                </div>
+
+                                <!-- Slider Cỡ chữ -->
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-neutral-500 font-mono select-none">12</span>
+                                    <input type="range" min="12" max="72" step="1" [value]="currentSubtitleFontSize"
+                                        (input)="setSubtitleFontSize($any($event.target).value, true)"
+                                        class="volume-slider w-full !border-0 !outline-none !shadow-none ring-0">
+                                    <span class="text-[10px] text-neutral-500 font-mono select-none">72</span>
+                                </div>
+
+                                <!-- Quick Size Presets -->
+                                <div class="flex items-center justify-between gap-1 pt-1 border-t border-neutral-800/80">
+                                    <button type="button" (click)="setSubtitleFontSize(18)" 
+                                        class="px-2 py-0.5 text-[10px] font-medium rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors">
+                                        Nhỏ (18)
+                                    </button>
+                                    <button type="button" (click)="setSubtitleFontSize(24)" 
+                                        class="px-2 py-0.5 text-[10px] font-medium rounded bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-600/40 transition-colors">
+                                        Chuẩn (24)
+                                    </button>
+                                    <button type="button" (click)="setSubtitleFontSize(32)" 
+                                        class="px-2 py-0.5 text-[10px] font-medium rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors">
+                                        Lớn (32)
+                                    </button>
+                                    <button type="button" (click)="setSubtitleFontSize(44)" 
+                                        class="px-2 py-0.5 text-[10px] font-medium rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors">
+                                        Rất lớn (44)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Button Áp dụng cho toàn bộ phụ đề -->
+                            <button *ngIf="!isMultiTextSelected" type="button" (click)="applySubtitleStyleToAll()"
+                                class="w-full mt-1 px-2 py-1 text-[10px] font-medium text-amber-300 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-700/40 rounded transition-colors flex items-center justify-center gap-1">
+                                <mat-icon class="icon-size-3">done_all</mat-icon>
+                                <span>Áp dụng Font & Size cho tất cả phụ đề</span>
+                            </button>
+                        </div>
+
+                        <!-- 2. Danh sách chỉnh sửa nội dung Phụ đề -->
+                        
+                        <!-- Trường hợp 1: Chọn 1 đoạn Phụ đề -->
+                        <div *ngIf="!isMultiTextSelected && activeItem" class="flex flex-col gap-2.5">
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Nội dung phụ đề</label>
+                                <textarea [(ngModel)]="activeItem.text" (ngModelChange)="markDirty()" rows="3"
+                                    placeholder="Nhập nội dung phụ đề..."
+                                    [style.fontFamily]="activeItem.fontFamily || currentSubtitleFont"
+                                    class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed font-sans"></textarea>
+                            </div>
+
+                            <!-- Timing Controls -->
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
+                                    <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                        class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
+                                    <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                        class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-amber-500">
+                                </div>
+                            </div>
+
+                            <!-- Audio WaveSurfer Visualizer & Player nếu có audioUrl -->
+                            <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-sm flex flex-col gap-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <mat-icon class="icon-size-3.5 text-indigo-400">graphic_eq</mat-icon>
+                                        <span class="text-[11px] font-semibold text-neutral-300">Sóng âm thanh (WaveSurfer)</span>
+                                    </div>
+                                    <button mat-icon-button (click)="toggleInspectorWaveSurfer()" [title]="isInspectorAudioPlaying ? 'Tạm dừng' : 'Phát audio'">
+                                        <mat-icon>{{ isInspectorAudioPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+                                    </button>
+                                </div>
+
+                                <!-- WaveSurfer Waveform Canvas Container -->
+                                <div class="w-full h-11 bg-neutral-950/90 rounded-sm border border-neutral-800 overflow-hidden relative px-1 flex items-center">
+                                    <div id="inspector-waveform-sub-container" class="w-full h-full"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Trường hợp 2: Chọn NHIỀU đoạn Phụ đề (Multi-select) -> Xuất danh sách toàn bộ text để sửa từng đoạn -->
+                        <div *ngIf="isMultiTextSelected" class="flex flex-col gap-2.5">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                                    PHỤ ĐỀ ĐÃ CHỌN ({{ selectedTextCount }})
+                                </label>
+                                <span class="text-[10px] text-amber-400/80 font-mono">Trực tiếp</span>
+                            </div>
+
+                            <!-- Danh sách các thẻ phụ đề có thể sửa text + font + size riêng -->
+                            <div class="flex flex-col gap-2.5 max-h-[420px] overflow-y-auto pr-1 scene-scroll-area">
+                                <div *ngFor="let sub of getSelectedSubtitles(); let idx = index"
+                                    class="p-2.5 bg-[#0e0f14] border border-neutral-800 hover:border-neutral-700 rounded-md flex flex-col gap-2 transition-colors">
+                                    
+                                    <!-- Header từng dòng phụ đề -->
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="w-5 h-5 flex items-center justify-center rounded bg-amber-950 text-amber-300 font-mono font-bold text-[10px]">
+                                                #{{ idx + 1 }}
+                                            </span>
+                                            <span class="text-neutral-400 font-mono text-[10px]">
+                                                {{ (sub.startTime || 0) | number:'1.1-1' }}s - {{ ((sub.startTime || 0) + (sub.duration || 3)) | number:'1.1-1' }}s
+                                            </span>
+                                        </div>
+
+                                        <div class="flex items-center gap-1">
+                                            <!-- Nút phát audio của riêng đoạn này (nếu có audioUrl) -->
+                                            <button *ngIf="sub.audioUrl" type="button" (click)="playSnippetAudio(sub.audioUrl, $event)"
+                                                class="w-5 h-5 flex items-center justify-center rounded hover:bg-neutral-800 text-indigo-400 transition-colors"
+                                                [title]="playingAudioSnippetUrl === sub.audioUrl ? 'Dừng' : 'Nghe đoạn audio này'">
+                                                <mat-icon class="icon-size-3.5">{{ playingAudioSnippetUrl === sub.audioUrl ? 'pause' : 'play_arrow' }}</mat-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Textarea sửa text từng đoạn -->
+                                    <textarea [(ngModel)]="sub.text" (ngModelChange)="markDirty()" rows="2"
+                                        placeholder="Nhập nội dung phụ đề #{{ idx + 1 }}..."
+                                        [style.fontFamily]="sub.fontFamily || currentSubtitleFont"
+                                        class="w-full p-2 text-xs bg-[#08080a] border border-neutral-700/80 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed font-sans"></textarea>
+
+                                    <!-- Thanh chỉnh Font & Cỡ chữ riêng cho từng đoạn -->
+                                    <div class="flex items-center gap-2 pt-1 border-t border-neutral-800/80">
+                                        <!-- Font riêng cho đoạn này (size bằng input) -->
+                                        <div class="flex-1 min-w-0 flex items-center gap-1.5">
+                                            <mat-icon class="icon-size-3.5 text-neutral-400 flex-shrink-0">text_fields</mat-icon>
+                                            <select [(ngModel)]="sub.fontFamily" (ngModelChange)="markDirty()"
+                                                class="w-full h-7 pl-2 pr-7 py-1 text-xs bg-[#08080a] border border-neutral-700 rounded text-neutral-300 focus:outline-none focus:border-amber-500 cursor-pointer truncate">
+                                                <option [value]="undefined">Mặc định (Chung)</option>
+                                                <optgroup label="── 1. Font Mặc Định ──">
+                                                    <option *ngFor="let f of DEFAULT_FONTS" [value]="f.value">{{ f.label }}</option>
+                                                </optgroup>
+                                                <optgroup *ngIf="systemFontList.length > 0" label="── 2. Font Hệ Thống ──">
+                                                    <option *ngFor="let f of systemFontList" [value]="f.value">{{ f.label }}</option>
+                                                </optgroup>
+                                            </select>
+                                        </div>
+
+                                        <!-- Cỡ chữ riêng cho đoạn này -->
+                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                            <mat-icon class="icon-size-3.5 text-neutral-400 flex-shrink-0">format_size</mat-icon>
+                                            <input type="number" min="12" max="72" step="1" 
+                                                [placeholder]="currentSubtitleFontSize + 'px'"
+                                                [value]="sub.fontSize || currentSubtitleFontSize"
+                                                (input)="onIndividualSubFontSizeInput(sub, $any($event.target).value)"
+                                                (blur)="onIndividualSubFontSizeBlur(sub, $event)"
+                                                (keydown.enter)="$any($event.target).blur()"
+                                                class="w-12 h-7 px-1.5 py-1 text-xs text-center font-mono font-bold bg-[#08080a] border border-neutral-700 rounded text-amber-300 focus:outline-none focus:border-amber-500"
+                                                title="Cỡ chữ riêng cho đoạn này (px)">
+                                            <span class="text-[10px] text-neutral-500 font-mono">px</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- TH 3: ĐANG CHỌN VIDEO (1 HOẶC NHIỀU) -->
+                    <div *ngIf="currentInspectorType === 'video'" class="flex flex-col gap-2.5">
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Prompt / Mô tả cảnh</label>
-                            <textarea [(ngModel)]="activeItem.prompt" (ngModelChange)="markDirty()" rows="3"
+                            
+                            <!-- Khi chọn 1 Video -->
+                            <textarea *ngIf="!isMultiVideoSelected && activeItem" [(ngModel)]="activeItem.prompt" (ngModelChange)="markDirty()" rows="3"
                                 placeholder="Nhập prompt cảnh video..."
                                 class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 resize-none leading-relaxed font-sans"></textarea>
+                            
+                            <!-- Khi chọn nhiều Video -->
+                            <div *ngIf="isMultiVideoSelected" class="p-2.5 bg-[#0d0e12] border border-neutral-700 rounded-sm text-xs text-neutral-300 font-mono break-all flex items-center justify-between">
+                                <span class="truncate text-blue-300 font-sans font-medium">
+                                    Đang chọn {{ selectedVideoCount }} clip Video đồng thời
+                                </span>
+                                <span class="text-[10px] text-neutral-400 font-sans ml-2 flex-shrink-0">
+                                    (Chỉnh sửa hàng loạt)
+                                </span>
+                            </div>
                         </div>
 
                         <!-- Timing Controls -->
                         <div class="grid grid-cols-2 gap-2">
                             <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-neutral-400 font-medium">Bắt đầu (giây)</label>
-                                <input type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                <div class="flex items-center justify-between">
+                                    <label class="text-[10px] font-medium" [ngClass]="isMultiVideoSelected ? 'text-neutral-500' : 'text-neutral-400'">Bắt đầu (giây)</label>
+                                    <span *ngIf="isMultiVideoSelected" class="text-[9px] text-amber-400/80 font-mono">Khóa</span>
+                                </div>
+                                <input *ngIf="!isMultiVideoSelected && activeItem" type="number" step="0.1" [(ngModel)]="activeItem.startTime" (ngModelChange)="markDirty(); updateTimelineSync();"
                                     class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-blue-500">
+                                <input *ngIf="isMultiVideoSelected" type="text" disabled value="Nhiều mục (Disabled)"
+                                    class="px-2.5 py-1.5 text-xs bg-neutral-900/50 border border-neutral-800/80 rounded-sm text-neutral-500 font-mono cursor-not-allowed select-none"
+                                    title="Không thể chỉnh sửa đồng thời vị trí bắt đầu khi chọn nhiều Video">
                             </div>
                             <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-neutral-400 font-medium">Thời lượng (giây)</label>
-                                <input type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
+                                <div class="flex items-center justify-between">
+                                    <label class="text-[10px] font-medium" [ngClass]="isMultiVideoSelected ? 'text-neutral-500' : 'text-neutral-400'">Thời lượng (giây)</label>
+                                    <span *ngIf="isMultiVideoSelected" class="text-[9px] text-amber-400/80 font-mono">Khóa</span>
+                                </div>
+                                <input *ngIf="!isMultiVideoSelected && activeItem" type="number" step="0.1" min="0.1" [(ngModel)]="activeItem.duration" (ngModelChange)="markDirty(); updateTimelineSync();"
                                     class="px-2.5 py-1.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-neutral-200 font-mono focus:outline-none focus:border-blue-500">
+                                <input *ngIf="isMultiVideoSelected" type="text" disabled value="Nhiều mục (Disabled)"
+                                    class="px-2.5 py-1.5 text-xs bg-neutral-900/50 border border-neutral-800/80 rounded-sm text-neutral-500 font-mono cursor-not-allowed select-none"
+                                    title="Không thể chỉnh sửa đồng thời thời lượng khi chọn nhiều Video">
                             </div>
                         </div>
                     </div>
 
                     <!-- TH 4: CHƯA CHỌN MỤC NÀO (TỔNG QUAN DỰ ÁN) -->
-                    <div *ngIf="!activeItem || getItemType(activeItem) === 'unknown'" class="flex flex-col gap-3 py-1">
+                    <div *ngIf="currentInspectorType === 'empty'" class="flex flex-col gap-3 py-1">
                         <div class="p-3 bg-[#161720] border border-neutral-800 rounded-xl flex flex-col gap-2">
                             <span class="text-xs font-semibold text-white truncate" [title]="projectData?.title || projectData?.extraPrompt">
                                 {{ projectData?.title || projectData?.extraPrompt || 'Dự án Video' }}
@@ -622,6 +895,7 @@
 
                         <!-- Track 1: Video Blocks -->
                         <div *ngFor="let tIdx of trackIndices"
+                            id="timeline-track-video"
                             class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
 
                             <!-- Video Blocks in this Track -->
@@ -709,7 +983,7 @@
                         </div>
 
                         <!-- Track Text (Subtitles / Phụ đề) -->
-                        <div class="relative h-14 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                        <div id="timeline-track-subtitles" class="relative h-14 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
                             <!-- Text Blocks -->
                             <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                                 <ng-container *ngFor="let sub of scene.subtitles; let sIdx = index">
@@ -742,7 +1016,7 @@
                         </div>
 
                         <!-- Track Extracted Audio (Âm thanh gốc) -->
-                        <div class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                        <div id="timeline-track-audio" class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
                             <!-- Audio Blocks -->
                             <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                                 <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">

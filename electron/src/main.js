@@ -3032,46 +3032,34 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             subtitleFilter = `,subtitles=filename='${escapedAss}'`;
         }
 
-        let filterComplex = '';
-        let args = [];
+        const scale4 = 4;
+        const x0 = (X0 - scale4).toFixed(1);
+        const y0 = (Y0 - scale4).toFixed(1);
+        const x1 = (X1 + scale4).toFixed(1);
+        const y1 = (Y1 - scale4).toFixed(1);
+        const x2 = (X2 - scale4).toFixed(1);
+        const y2 = (Y2 + scale4).toFixed(1);
+        const x3 = (X3 + scale4).toFixed(1);
+        const y3 = (Y3 + scale4).toFixed(1);
 
-        if (fs.existsSync(cleanMaskPath)) {
-            filterComplex = `[0:v]scale=${W}:${H}:flags=lanczos,perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[2:v]scale=${W}:${H}:flags=lanczos[mask];[warped][mask]alphamerge[warped_masked];[1:v]scale=${W}:${H}:flags=lanczos[bg];[bg][warped_masked]overlay=0:0${subtitleFilter}[outv]`;
-            args = [
-                '-y',
-                '-i', cleanVidPath,
-                '-loop', '1',
-                '-i', cleanBgPath,
-                '-loop', '1',
-                '-i', cleanMaskPath,
-                '-filter_complex', filterComplex,
-                '-map', '[outv]',
-                '-map', '0:a?',
-                '-c:v', 'libx264',
-                '-preset', 'fast',
-                '-crf', '17',
-                '-pix_fmt', 'yuv420p',
-                '-shortest',
-                outputPath
-            ];
-        } else {
-            filterComplex = `[0:v]scale=${W}:${H}:flags=lanczos,perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[1:v]scale=${W}:${H}:flags=lanczos[bg];[bg][warped]overlay=0:0${subtitleFilter}[outv]`;
-            args = [
-                '-y',
-                '-i', cleanVidPath,
-                '-loop', '1',
-                '-i', cleanBgPath,
-                '-filter_complex', filterComplex,
-                '-map', '[outv]',
-                '-map', '0:a?',
-                '-c:v', 'libx264',
-                '-preset', 'fast',
-                '-crf', '17',
-                '-pix_fmt', 'yuv420p',
-                '-shortest',
-                outputPath
-            ];
-        }
+        // 1. Scale video vào khung 1920x1080 với height 100% và width auto (căn giữa, đệm đen nếu khác tỷ lệ)
+        // 2. Nghiêng theo góc nhìn 3D của Mockup (perspective) và scale +4px để phủ khít viền màn hình
+        const filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[0:v]scale=w=1920:h=1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,perspective=x0=${x0}:y0=${y0}:x1=${x1}:y1=${y1}:x2=${x2}:y2=${y2}:x3=${x3}:y3=${y3}:sense=destination:interpolation=cubic[warped];[bg][warped]overlay=0:0${subtitleFilter}[outv]`;
+        const args = [
+            '-y',
+            '-i', cleanVidPath,
+            '-loop', '1',
+            '-i', cleanBgPath,
+            '-filter_complex', filterComplex,
+            '-map', '[outv]',
+            '-map', '0:a?',
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-crf', '17',
+            '-pix_fmt', 'yuv420p',
+            '-shortest',
+            outputPath
+        ];
 
         console.log('[render-video-with-frame] Executing FFmpeg:', ffmpegPath, args.join(' '));
 
