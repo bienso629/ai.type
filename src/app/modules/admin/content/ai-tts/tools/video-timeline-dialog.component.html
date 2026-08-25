@@ -150,8 +150,9 @@
                             }">
                             <!-- Thumbnail -->
                             <div class="w-16 h-12 rounded bg-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0 relative pointer-events-none">
-                                <img *ngIf="item.imageUrl" [src]="getSafeUrl(item.imageUrl)" class="w-full h-full object-cover pointer-events-none">
-                                <mat-icon *ngIf="!item.imageUrl" class="icon-size-4 text-neutral-500">movie</mat-icon>
+                                <img *ngIf="item.imageUrl || item.controlImageUrl" [src]="getSafeUrl(item.imageUrl || item.controlImageUrl)" class="w-full h-full object-cover pointer-events-none">
+                                <video *ngIf="!item.imageUrl && !item.controlImageUrl && item.videoUrl" [src]="getSafeUrl(item.videoUrl)" class="w-full h-full object-cover pointer-events-none" preload="metadata" muted></video>
+                                <mat-icon *ngIf="!item.imageUrl && !item.controlImageUrl && !item.videoUrl" class="icon-size-4 text-neutral-500">movie</mat-icon>
                                 <span class="absolute bottom-0.5 right-0.5 px-1 text-[9px] font-mono bg-black/80 text-neutral-300 rounded">
                                     {{ item.duration >= 60 ? formatTimelineTime(item.duration) : (item.duration | number:'1.0-1') + 's' }}
                                 </span>
@@ -617,7 +618,7 @@
                         <div *ngIf="!isMultiTextSelected && activeItem" class="flex flex-col gap-2.5">
                             <div class="flex flex-col gap-1.5">
                                 <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Nội dung phụ đề</label>
-                                <textarea [(ngModel)]="activeItem.text" (ngModelChange)="markDirty()" rows="3"
+                                <textarea [(ngModel)]="activeItem.text" (ngModelChange)="onSubtitleTextChange(activeItem)" rows="3"
                                     placeholder="Nhập nội dung phụ đề..."
                                     [style.fontFamily]="activeItem.fontFamily || currentSubtitleFont"
                                     class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed font-sans"></textarea>
@@ -692,7 +693,7 @@
                                     </div>
 
                                     <!-- Textarea sửa text từng đoạn -->
-                                    <textarea [(ngModel)]="sub.text" (ngModelChange)="markDirty()" rows="2"
+                                    <textarea [(ngModel)]="sub.text" (ngModelChange)="onSubtitleTextChange(sub)" rows="2"
                                         placeholder="Nhập nội dung phụ đề #{{ idx + 1 }}..."
                                         [style.fontFamily]="sub.fontFamily || currentSubtitleFont"
                                         class="w-full p-2 text-xs bg-[#08080a] border border-neutral-700/80 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed font-sans"></textarea>
@@ -902,7 +903,7 @@
                             <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                                 <ng-container *ngIf="scene.videos">
                                     <ng-container *ngFor="let video of scene.videos; let vIdx = index">
-                                            <div class="timeline-block absolute top-2 bottom-2 bg-[#242427] border border-neutral-700/80 rounded-none shadow-sm group flex flex-col transition-all z-10 hover:z-[100]"
+                                            <div class="timeline-block absolute top-2 bottom-2 bg-[#242427] border border-neutral-700/80 rounded-sm shadow-sm group flex flex-col transition-all z-10 hover:z-[100]"
                                                 [ngClass]="{
                                                 'opacity-30 grayscale': video.disabled,
                                                 'opacity-100': !video.disabled,
@@ -915,12 +916,12 @@
                                                 (contextmenu)="onVideoContextMenu($event, video, scene, sceneIdx, vIdx)">
 
                                                 <!-- Khung chứa ảnh/video -->
-                                                <div class="w-full h-full relative overflow-hidden rounded-none transition-all cursor-pointer flex flex-col justify-between"
+                                                <div class="w-full h-full relative overflow-hidden rounded-sm transition-all cursor-pointer flex flex-col justify-between"
                                                     (click)="setActiveItem(video, $event); openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
 
                                                     <!-- Lớp overlay hiệu ứng blind / sương mù mơ ảo khi đang tạo AI, tách cảnh hoặc tạo phụ đề -->
                                                     <div *ngIf="video.isGeneratingVideo || video.isGeneratingImage || video.isExtractingAudio || video.isAnalyzingScenes || video.isSplittingScenes"
-                                                        class="absolute inset-0 pointer-events-none rounded-none z-30 transition-all backdrop-blur-[5px] bg-gradient-to-br from-purple-900/50 via-black/70 to-purple-950/60 border border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4)] flex flex-col items-center justify-center overflow-hidden">
+                                                        class="absolute inset-0 pointer-events-none rounded-sm z-30 transition-all backdrop-blur-[5px] bg-gradient-to-br from-purple-900/50 via-black/70 to-purple-950/60 border border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4)] flex flex-col items-center justify-center overflow-hidden">
                                                         <!-- Lớp khói/sương mờ trôi bề mặt -->
                                                         <div class="absolute inset-0 bg-white/20 blur-xl mix-blend-overlay scale-150 animate-pulse"></div>
                                                         <div class="relative z-10 flex items-center gap-1.5 bg-black/80 px-2 py-0.5 rounded border border-purple-500/50 shadow-lg">
@@ -932,19 +933,20 @@
                                                     <!-- Background Image/Thumbnail -->
                                                     <img *ngIf="video.imageUrl || video.controlImageUrl"
                                                         [src]="getSafeUrl(video.imageUrl || video.controlImageUrl)"
-                                                        class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-70" />
-                                                    <div *ngIf="!video.imageUrl && !video.controlImageUrl"
-                                                        class="absolute inset-0 flex flex-col text-center w-full h-full items-center justify-center bg-[#18181b]">
+                                                        class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-70 rounded-sm" />
+                                                    <video *ngIf="!video.imageUrl && !video.controlImageUrl && video.videoUrl"
+                                                        [src]="getSafeUrl(video.videoUrl)"
+                                                        class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-70 rounded-sm"
+                                                        preload="metadata" muted></video>
+                                                    <div *ngIf="!video.imageUrl && !video.controlImageUrl && !video.videoUrl"
+                                                        class="absolute inset-0 flex flex-col text-center w-full h-full items-center justify-center bg-[#18181b] rounded-sm">
                                                         <mat-icon class="text-neutral-600 text-3xl pointer-events-none">movie</mat-icon>
                                                     </div>
 
-                                                    <!-- Nhãn thời gian & loại video -->
-                                                    <div class="relative z-10 flex items-center justify-between p-1 pointer-events-none">
-                                                        <div class="bg-black/80 text-neutral-200 border border-neutral-700/50 font-mono text-[10px] px-1 py-0.5 rounded-none select-none">
+                                                    <!-- Nhãn thời gian video -->
+                                                    <div class="relative z-10 flex items-center p-1 pointer-events-none">
+                                                        <div class="bg-black/80 text-neutral-200 border border-neutral-700/50 font-mono text-[10px] px-1 py-0.5 rounded-sm select-none">
                                                             {{ video.duration >= 60 ? formatTimelineTime(video.duration) : (video.duration | number:'1.0-1') + 's' }}
-                                                        </div>
-                                                        <div *ngIf="video.videoUrl" class="bg-blue-900/80 text-blue-200 border border-blue-700/50 text-[9px] px-1 py-0.5 rounded-none font-medium flex items-center">
-                                                            <mat-icon class="icon-size-3">videocam</mat-icon>
                                                         </div>
                                                     </div>
 
@@ -956,17 +958,42 @@
                                                     </div>
 
                                                     <!-- Lớp phủ khi hover -->
-                                                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20"></div>
+                                                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 rounded-sm"></div>
+                                                </div>
+
+                                                <!-- Action Buttons Nổi (z-50): Tắt âm thanh & Tạm tắt video -->
+                                                <div class="absolute top-1 right-1 z-50 flex items-center gap-1 pointer-events-auto select-none"
+                                                    (mousedown)="$event.stopPropagation()"
+                                                    (click)="$event.stopPropagation()">
+                                                    <!-- Nút Tắt/Bật Âm Thanh Video -->
+                                                    <button type="button" 
+                                                        (mousedown)="$event.stopPropagation()"
+                                                        (click)="$event.stopPropagation(); toggleMute(video)"
+                                                        [title]="video.muted ? 'Bật âm thanh video' : 'Tắt âm thanh video'"
+                                                        class="w-5 h-5 flex items-center justify-center rounded-sm bg-black/90 hover:bg-black border border-neutral-700/80 transition-all cursor-pointer shadow-md active:scale-95"
+                                                        [ngClass]="video.muted ? '!text-orange-400 !border-orange-500/90 !bg-orange-950/90' : 'text-neutral-300 hover:text-white'">
+                                                        <mat-icon class="!text-[13px] !w-[13px] !h-[13px] flex items-center justify-center">{{ video.muted ? 'volume_off' : 'volume_up' }}</mat-icon>
+                                                    </button>
+
+                                                    <!-- Nút Tạm Tắt/Bật Lại Video -->
+                                                    <button type="button" 
+                                                        (mousedown)="$event.stopPropagation()"
+                                                        (click)="$event.stopPropagation(); toggleVideoDisabled(video)"
+                                                        [title]="video.disabled ? 'Bật lại video' : 'Tạm tắt video'"
+                                                        class="w-5 h-5 flex items-center justify-center rounded-sm bg-black/90 hover:bg-black border border-neutral-700/80 transition-all cursor-pointer shadow-md active:scale-95"
+                                                        [ngClass]="video.disabled ? '!text-red-400 !border-red-500/90 !bg-red-950/90' : 'text-neutral-300 hover:text-white'">
+                                                        <mat-icon class="!text-[13px] !w-[13px] !h-[13px] flex items-center justify-center">{{ video.disabled ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                                    </button>
                                                 </div>
 
                                                 <!-- Left Drag Handle -->
-                                                <div class="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-none flex items-center justify-center"
+                                                <div class="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-l-sm flex items-center justify-center"
                                                     (mousedown)="onResizeStart($event, video, 'left')">
                                                     <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
                                                 </div>
 
                                                 <!-- Right Drag Handle -->
-                                                <div class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-none flex items-center justify-center"
+                                                <div class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-r-sm flex items-center justify-center"
                                                     (mousedown)="onResizeStart($event, video, 'right')"
                                                     (dblclick)="resetVideoDuration($event, video)">
                                                     <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
@@ -987,7 +1014,7 @@
                             <!-- Text Blocks -->
                             <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                                 <ng-container *ngFor="let sub of scene.subtitles; let sIdx = index">
-                                    <div class="timeline-block absolute top-1.5 bottom-1.5 bg-amber-950/70 border border-amber-600/50 rounded-none flex items-center overflow-hidden transition-all hover:bg-amber-900/80 cursor-pointer group z-10 hover:z-[100]"
+                                    <div class="timeline-block absolute top-1.5 bottom-1.5 bg-amber-950/70 border border-amber-600/50 rounded-sm flex items-center overflow-hidden transition-all hover:bg-amber-900/80 cursor-pointer group z-10 hover:z-[100]"
                                         [ngClass]="{
                                             'opacity-30 grayscale': sub.disabled,
                                             'opacity-100': !sub.disabled,
@@ -1020,15 +1047,15 @@
                             <!-- Audio Blocks -->
                             <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                                 <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">
-                                    <div class="timeline-block absolute top-2 bottom-2 bg-indigo-950/70 border border-indigo-700/60 rounded-none flex flex-col overflow-hidden transition-all hover:bg-indigo-900/80 cursor-pointer group z-10 hover:z-[100]"
+                                    <div class="timeline-block absolute top-2 bottom-2 bg-indigo-950/70 border border-indigo-700/60 rounded-sm flex flex-col overflow-hidden transition-all hover:bg-indigo-900/80 cursor-pointer group z-10 hover:z-[100]"
                                         [ngClass]="{
-                                            'opacity-30 grayscale': audio.disabled,
-                                            'opacity-100': !audio.disabled,
+                                            'opacity-30 grayscale': isAudioMuted(audio, scene),
+                                            'opacity-100': !isAudioMuted(audio, scene),
                                             '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(audio),
                                             '!border-indigo-400 shadow-md': activeItem === audio && !isItemSelected(audio)
                                         }" [style.left.px]="(audio.startTime || 0) * pixelsPerSecond"
                                         [style.width.px]="((audio.duration || 5) * pixelsPerSecond - 4) > 1 ? ((audio.duration || 5) * pixelsPerSecond - 4) : (((audio.duration || 5) * pixelsPerSecond) > 1 ? ((audio.duration || 5) * pixelsPerSecond) : 1)" [title]="audio.text"
-                                        (click)="setActiveItem(audio, $event); !audio.disabled && playWaveform('extracted', sceneIdx, aIdx, audio)"
+                                        (click)="setActiveItem(audio, $event); !isAudioMuted(audio, scene) && playWaveform('extracted', sceneIdx, aIdx, audio)"
                                         (contextmenu)="onAudioContextMenu($event, audio, scene, sceneIdx, aIdx, 'extracted')">
 
                                         <!-- Label -->
@@ -1104,31 +1131,14 @@
             <span>Thêm Track (Scene)</span>
         </button>
 
-        <button mat-menu-item (click)="splitVideoAtPlayhead(selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
-            <mat-icon class="text-cyan-400">content_cut</mat-icon>
-            <span>Tách đoạn video (Cắt tại đây)</span>
-        </button>
-
         <button mat-menu-item (click)="splitVideoScenesAI(selectedContextData?.video, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
             <mat-icon class="text-fuchsia-400">auto_awesome</mat-icon>
             <span>Tách cảnh và chỉnh sửa</span>
         </button>
 
-        <button mat-menu-item (click)="toggleMute(selectedContextData?.video)">
-            <mat-icon class="text-orange-400">{{ selectedContextData?.video?.muted ? 'volume_off' : 'volume_up' }}</mat-icon>
-            <span>{{ selectedContextData?.video?.muted ? 'Bật âm thanh video' : 'Tắt âm thanh video' }}</span>
-        </button>
-
         <button mat-menu-item (click)="extractAudio(selectedContextData?.video, selectedContextData?.sceneIdx)">
             <mat-icon class="text-purple-400">subtitles</mat-icon>
             <span>{{ hasExtractedAudio(selectedContextData?.scene, selectedContextData?.video) ? 'Tạo lại phụ đề cho video' : 'Tạo phụ đề cho video' }}</span>
-        </button>
-
-        <button mat-menu-item (click)="selectedContextData.video.disabled = !selectedContextData.video.disabled; markDirty()">
-            <mat-icon [ngClass]="selectedContextData?.video?.disabled ? 'text-red-400' : 'text-neutral-400'">
-                {{ selectedContextData?.video?.disabled ? 'visibility_off' : 'visibility' }}
-            </mat-icon>
-            <span>{{ selectedContextData?.video?.disabled ? 'Bật lại video' : 'Tạm tắt video' }}</span>
         </button>
 
         <mat-divider></mat-divider>

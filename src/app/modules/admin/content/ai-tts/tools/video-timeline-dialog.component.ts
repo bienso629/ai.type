@@ -659,6 +659,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         let original = sub.originalText || (sub.translations && sub.translations['original']) || (sub.translations && sub.translations['en']) || matchingExt?.originalText || '';
                         let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || matchingExt?.vietnameseText || '';
 
+                        if (this.currentSubtitleLang === 'vi' && sub.text) {
+                            vietnamese = sub.text;
+                        } else if (this.currentSubtitleLang === 'original' && sub.text) {
+                            original = sub.text;
+                        }
+
                         if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) {
                             vietnamese = sub.text;
                         }
@@ -689,6 +695,33 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
         }
         this.currentSubtitleInfo = null;
+    }
+
+    onSubtitleTextChange(sub: any) {
+        if (!sub) return;
+        if (this.currentSubtitleLang === 'vi') {
+            sub.vietnameseText = sub.text;
+            if (!sub.translations) sub.translations = {};
+            sub.translations['vi'] = sub.text;
+        } else if (this.currentSubtitleLang === 'original') {
+            sub.originalText = sub.text;
+            if (!sub.translations) sub.translations = {};
+            sub.translations['original'] = sub.text;
+        } else if (this.currentSubtitleLang) {
+            if (!sub.translations) sub.translations = {};
+            sub.translations[this.currentSubtitleLang] = sub.text;
+        }
+
+        if (this.isLikelyVietnamese(sub.text)) {
+            sub.vietnameseText = sub.text;
+        } else if (sub.text) {
+            sub.originalText = sub.text;
+        }
+
+        this.updateActiveSubtitleInfo();
+        this.updateFilteredMediaItems();
+        this.markDirty();
+        this.cd.detectChanges();
     }
 
     get currentSubtitleText(): string | null {
@@ -1329,7 +1362,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (ws) {
                         const start = audio.startTime || 0;
                         const end = start + (audio.duration || 5);
-                        const isPlayingNow = !audio.disabled && this.currentTimelineTime >= start && this.currentTimelineTime < end;
+                        const isMuted = this.isAudioMuted(audio, scene);
+                        const isPlayingNow = !isMuted && this.currentTimelineTime >= start && this.currentTimelineTime < end;
 
                         if (isPlayingNow) {
                             const expectedTime = Math.max(0, this.currentTimelineTime - start);
@@ -2853,7 +2887,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         } else if ((event.ctrlKey || event.metaKey) && (event.key === 's' || event.key === 'S')) {
             event.preventDefault();
             this.saveData(true);
-        } else if ((event.ctrlKey || event.metaKey) && (event.key === 'b' || event.key === 'B')) {
+        } else if ((event.ctrlKey || event.metaKey) && (event.key === 'b' || event.key === 'B' || event.code === 'KeyB')) {
+            if (isEditingInput) return;
             event.preventDefault();
             this.splitVideoAtPlayhead();
         } else if (event.code === 'Space') {
@@ -2882,7 +2917,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     splitVideoAtPlayhead(targetVideo?: any, targetSceneIdx?: number, targetVIdx?: number) {
         const time = this.currentTimelineTime;
-        const vidToSplit = targetVideo || (this.activeItem && this.activeItem.videoUrl ? this.activeItem : null);
+        let vidToSplit = targetVideo || (this.activeItem && (this.activeItem.videoUrl || this.activeItem.videoId) ? this.activeItem : null);
+
+        // Nếu chưa chọn video cụ thể, tìm video đang nằm trực tiếp dưới kim phát Playhead
+        if (!vidToSplit && this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos) {
+                    for (const v of scene.videos) {
+                        const start = v.startTime || 0;
+                        const end = start + (v.duration || 0);
+                        if (time >= start && time <= end) {
+                            vidToSplit = v;
+                            break;
+                        }
+                    }
+                }
+                if (vidToSplit) break;
+            }
+        }
         
         for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
             const scene = this.projectData.scenes[sceneIdx];
@@ -2890,7 +2942,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             
             for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
                 const video = scene.videos[vIdx];
-                if (vidToSplit && video !== vidToSplit) continue;
+                if (vidToSplit && video !== vidToSplit && video.id !== vidToSplit.id) continue;
 
                 const start = video.startTime || 0;
                 const duration = video.duration || 0;
@@ -2923,12 +2975,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     
                     this.normalizeData();
                     this.saveData(true);
-                    this.toastr.success('Đã tách đoạn video thành công.');
+                    this.updateTimelineTotalWidth();
+                    this.updateFilteredMediaItems();
+                    this.toastr.success('Đã tách đoạn video (Ctrl + B) thành công.');
                     
                     // Focus new video
                     setTimeout(() => {
                         this.setActiveItem(newVideo);
                         this.cd.detectChanges();
+                        this.updateLines();
                     });
                     
                     return; // Done
@@ -4453,9 +4508,92 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         });
     }
 
+    isAudioMuted(audio: any, scene?: any): boolean {
+        if (!audio) return false;
+        if (audio.muted || audio.disabled) return true;
+        const parentScene = scene || (this.projectData?.scenes ? this.projectData.scenes.find((s: any) => s.extractedAudios && s.extractedAudios.includes(audio)) : null);
+        if (parentScene && parentScene.videos) {
+            const start = audio.startTime || 0;
+            const end = start + (audio.duration || 5);
+            const cov = parentScene.videos.find((v: any) => {
+                const vStart = v.startTime || 0;
+                const vEnd = vStart + (v.duration || 5);
+                return (start >= vStart - 0.05 && start < vEnd) || (end > vStart && end <= vEnd + 0.05);
+            });
+            if (cov && (cov.muted || cov.disabled)) return true;
+        }
+        return false;
+    }
+
     toggleMute(video: any) {
+        if (!video) return;
         video.muted = !video.muted;
+
+        const vStart = video.startTime || 0;
+        const vEnd = vStart + (video.duration || 5);
+
+        if (this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos && scene.videos.includes(video) && scene.extractedAudios) {
+                    for (const audio of scene.extractedAudios) {
+                        const aStart = audio.startTime || 0;
+                        const aEnd = aStart + (audio.duration || 5);
+                        if ((aStart >= vStart - 0.05 && aStart < vEnd) || (aEnd > vStart && aEnd <= vEnd + 0.05)) {
+                            audio.muted = video.muted;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Tạm dừng ngay lập tức bất kỳ wavesurfer nào đang phát nếu bị mute
+        if (video.muted) {
+            for (const key in this.wavesurfers) {
+                if (this.wavesurfers[key].isPlaying()) {
+                    this.wavesurfers[key].pause();
+                }
+            }
+        }
+
+        this.updateTimelineSync(true);
         this.saveData();
+        this.cd.detectChanges();
+        this.toastr.info(video.muted ? 'Đã tắt âm thanh video và âm thanh gốc.' : 'Đã bật lại âm thanh video và âm thanh gốc.');
+    }
+
+    toggleVideoDisabled(video: any) {
+        if (!video) return;
+        video.disabled = !video.disabled;
+
+        const vStart = video.startTime || 0;
+        const vEnd = vStart + (video.duration || 5);
+
+        if (this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos && scene.videos.includes(video) && scene.extractedAudios) {
+                    for (const audio of scene.extractedAudios) {
+                        const aStart = audio.startTime || 0;
+                        const aEnd = aStart + (audio.duration || 5);
+                        if ((aStart >= vStart - 0.05 && aStart < vEnd) || (aEnd > vStart && aEnd <= vEnd + 0.05)) {
+                            audio.disabled = video.disabled;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (video.disabled) {
+            for (const key in this.wavesurfers) {
+                if (this.wavesurfers[key].isPlaying()) {
+                    this.wavesurfers[key].pause();
+                }
+            }
+        }
+
+        this.updateTimelineSync(true);
+        this.saveData();
+        this.cd.detectChanges();
+        this.toastr.info(video.disabled ? 'Đã tạm tắt video và âm thanh gốc.' : 'Đã bật lại video và âm thanh gốc.');
     }
 
     async extractAudio(video: any, sceneIdx: number) {
@@ -5265,7 +5403,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                         get startTime() { return v.startTime; },
                         get maxDuration() { return v.maxDuration; },
                         get prompt() { return v.prompt; },
-                        get imageUrl() { return v.imageUrl; },
+                        get imageUrl() { return v.imageUrl || v.controlImageUrl; },
+                        get controlImageUrl() { return v.controlImageUrl; },
                         get videoUrl() { return v.videoUrl; },
                         _raw: v,
                         sceneIdx: sIdx,
@@ -5621,6 +5760,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         if (!this.projectData || !this.projectData.scenes) return;
 
         this.currentSubtitleLang = langCode;
+        this.syncSubtitlesWithExtractedAudios();
 
         for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
             const scene = this.projectData.scenes[sIdx];
@@ -5629,9 +5769,11 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     const sub = scene.subtitles[subIdx];
 
                     if (langCode === 'vi') {
-                        sub.text = sub.vietnameseText || (sub.translations && sub.translations['vi']) || sub.text;
-                    } else if (langCode === 'original' || langCode === 'en') {
-                        sub.text = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || sub.text;
+                        const vi = sub.vietnameseText || (sub.translations && sub.translations['vi']);
+                        if (vi) sub.text = vi;
+                    } else if (langCode === 'original' || langCode === 'en' || langCode === 'zh') {
+                        const orig = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['zh'] || sub.translations['en']));
+                        if (orig) sub.text = orig;
                     } else if (sub.translations && sub.translations[langCode]) {
                         sub.text = sub.translations[langCode];
                     }
@@ -5639,6 +5781,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
             }
         }
 
+        this.updateFilteredMediaItems();
         this.markDirty();
         this.saveData();
         this.cd.markForCheck();
@@ -6617,6 +6760,89 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.router.navigate(['../'], { relativeTo: this.route });
     }
 
+    async captureVideoThumbnail(videoUrl: string, seekTime = 0.5): Promise<string> {
+        return new Promise((resolve) => {
+            try {
+                const rawUrl = this.getRawMediaUrl(videoUrl);
+                if (!rawUrl) {
+                    resolve('');
+                    return;
+                }
+                const video = document.createElement('video');
+                video.crossOrigin = 'anonymous';
+                video.src = rawUrl as string;
+                video.muted = true;
+                video.preload = 'auto';
+
+                let resolved = false;
+                const finish = (result: string) => {
+                    if (resolved) return;
+                    resolved = true;
+                    clearTimeout(timeout);
+                    try { video.removeAttribute('src'); video.load(); video.remove(); } catch (e) {}
+                    resolve(result);
+                };
+
+                const timeout = setTimeout(() => {
+                    finish('');
+                }, 4000);
+
+                video.onloadeddata = () => {
+                    video.currentTime = Math.min(seekTime, (video.duration && video.duration > 1) ? seekTime : 0.1);
+                };
+
+                video.onseeked = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.min(video.videoWidth || 640, 640);
+                        canvas.height = Math.round(canvas.width * (video.videoHeight || 360) / (video.videoWidth || 640)) || 360;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                            finish(dataUrl);
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('[captureVideoThumbnail] Canvas error:', e);
+                    }
+                    finish('');
+                };
+
+                video.onerror = () => {
+                    finish('');
+                };
+            } catch (err) {
+                resolve('');
+            }
+        });
+    }
+
+    async autoGenerateMissingVideoThumbnails() {
+        if (!this.projectData || !this.projectData.scenes) return;
+        let anyGenerated = false;
+
+        for (const scene of this.projectData.scenes) {
+            if (scene.videos) {
+                for (const video of scene.videos) {
+                    if (video.videoUrl && !video.imageUrl && !video.controlImageUrl) {
+                        const thumb = await this.captureVideoThumbnail(video.videoUrl);
+                        if (thumb) {
+                            video.imageUrl = thumb;
+                            anyGenerated = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (anyGenerated) {
+            this.saveData(true);
+            this.updateFilteredMediaItems();
+            this.cd.detectChanges();
+        }
+    }
+
     async syncVideoDurationsWithDisk() {
         const electron = (window as any).electron;
         if (!electron || !electron.getMediaDuration) return;
@@ -6685,27 +6911,44 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     let parsedViSubs: any[] = [];
                     let parsedOrigSubs: any[] = [];
 
-                    if (res.srtContent) {
-                        parsedViSubs = this.parseSrtContent(res.srtContent);
+                    const rawVi = res.viContent || res.viSrtContent;
+                    const rawOrig = res.originalContent || res.origSrtContent;
+
+                    if (rawVi) {
+                        parsedViSubs = this.parseSrtContent(rawVi);
                     }
-                    if (res.origSrtContent) {
-                        parsedOrigSubs = this.parseSrtContent(res.origSrtContent);
+                    if (rawOrig) {
+                        parsedOrigSubs = this.parseSrtContent(rawOrig);
                     }
 
+                    if (parsedViSubs.length === 0 && parsedOrigSubs.length === 0 && res.srtContent) {
+                        const parsed = this.parseSrtContent(res.srtContent);
+                        if (parsed.length > 0) {
+                            if (this.isLikelyVietnamese(parsed[0].text)) {
+                                parsedViSubs = parsed;
+                            } else {
+                                parsedOrigSubs = parsed;
+                            }
+                        }
+                    }
+
+                    const count = Math.max(parsedViSubs.length, parsedOrigSubs.length);
                     const videoStart = Number(video.startTime) || 0;
-                    const segments = parsedViSubs.length > 0 ? parsedViSubs : parsedOrigSubs;
                     const audioSegs = res.audioSegments || [];
 
-                    if (segments.length > 0) {
+                    if (count > 0) {
                         const newSubs: any[] = [];
                         const newAudios: any[] = [];
 
-                        segments.forEach((seg: any, idx: number) => {
+                        for (let idx = 0; idx < count; idx++) {
                             const origSub = parsedOrigSubs[idx];
-                            const viText = seg.text || origSub?.text || '';
-                            const origText = origSub?.text || seg.text || '';
-                            const segStart = Math.round((videoStart + Number(seg.startTime)) * 100) / 100;
-                            const segDur = Math.max(0.3, Math.round(Number(seg.duration) * 100) / 100);
+                            const viSub = parsedViSubs[idx];
+                            const baseSeg = origSub || viSub;
+
+                            const origText = origSub?.text || (baseSeg && !this.isLikelyVietnamese(baseSeg.text) ? baseSeg.text : '');
+                            const viText = viSub?.text || (baseSeg && this.isLikelyVietnamese(baseSeg.text) ? baseSeg.text : '');
+                            const segStart = Math.round((videoStart + Number(baseSeg.startTime)) * 100) / 100;
+                            const segDur = Math.max(0.3, Math.round(Number(baseSeg.duration) * 100) / 100);
 
                             // Match audio segment
                             const matchingAudio = audioSegs.find((a: any) => a.index === idx) || audioSegs[idx];
@@ -6726,9 +6969,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
                             const isMusicOrSoundTag = (origText.startsWith('[') && origText.endsWith(']')) || (viText.startsWith('[') && viText.endsWith(']'));
                             if (!isMusicOrSoundTag && (viText || origText)) {
+                                const currentText = this.currentSubtitleLang === 'vi' ? (viText || origText) : (origText || viText);
                                 newSubs.push({
                                     id: Date.now() + 1000 + idx,
-                                    text: this.currentSubtitleLang === 'original' || this.currentSubtitleLang === 'en' ? (origText || viText) : (viText || origText),
+                                    text: currentText,
                                     originalText: origText || viText,
                                     vietnameseText: viText || origText,
                                     translations: {
@@ -6740,7 +6984,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                                     duration: segDur
                                 });
                             }
-                        });
+                        }
 
                         if (newSubs.length > 0 || newAudios.length > 0) {
                             if (!hasSubs || force) scene.subtitles = newSubs;
@@ -6871,6 +7115,13 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.normalizeData();
         this.syncVideoDurationsWithDisk();
         this.autoScanAndLoadCompanionAssets();
+        this.autoGenerateMissingVideoThumbnails();
+        this.syncSubtitlesWithExtractedAudios();
+        const allSubs = this.getAllProjectSubtitles();
+        if (allSubs.length > 0) {
+            const viCount = allSubs.filter(s => this.isLikelyVietnamese(s.text)).length;
+            this.currentSubtitleLang = (viCount > allSubs.length / 2) ? 'vi' : 'original';
+        }
         this.updateFilteredMediaItems();
 
         // Select the first video by default
