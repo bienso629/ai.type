@@ -8535,6 +8535,118 @@ ipcMain.handle('split-video-clips-ffmpeg', async (event, payload) => {
     }
 });
 
+// =====================================================================
+// IPC HANDLER: TỰ ĐỘNG QUÉT THƯ MỤC VIDEO TÌM PHỤ ĐỀ (.SRT/.VTT) & AUDIO SEGMENTS
+// =====================================================================
+ipcMain.handle('scan-companion-video-assets', async (_event, payload) => {
+    try {
+        let { videoPath } = payload || {};
+        if (!videoPath) return { success: false, error: 'Thiếu đường dẫn video' };
+
+        let cleanPath = String(videoPath).replace(/^file:\/{2,3}/i, '').replace(/^media:\/{2,3}/i, '');
+        try { cleanPath = decodeURIComponent(cleanPath.split('?')[0].split('#')[0]); } catch (e) {}
+        cleanPath = path.normalize(cleanPath);
+        if (cleanPath.startsWith('\\') || cleanPath.startsWith('/')) {
+            // Absolute
+        } else if (!/^[a-zA-Z]:/.test(cleanPath)) {
+            cleanPath = '/' + cleanPath;
+        }
+
+        if (!fs.existsSync(cleanPath)) {
+            return { success: false, error: 'File video không tồn tại: ' + cleanPath };
+        }
+
+        const videoDir = path.dirname(cleanPath);
+        const files = fs.readdirSync(videoDir);
+
+        // 1. Tìm file phụ đề (.srt / .vtt)
+        let selectedSrtPath = null;
+        let selectedOrigSrtPath = null;
+
+        const srtFiles = files.filter(f => f.endsWith('.srt') || f.endsWith('.vtt'));
+        if (srtFiles.length > 0) {
+            const viSrt = srtFiles.filter(f => f.toLowerCase().includes('_vi.') || f.toLowerCase().includes('.vi.'));
+            if (viSrt.length > 0) {
+                viSrt.sort((a, b) => fs.statSync(path.join(videoDir, b)).mtimeMs - fs.statSync(path.join(videoDir, a)).mtimeMs);
+                selectedSrtPath = path.join(videoDir, viSrt[0]);
+            }
+
+            const origSrt = srtFiles.filter(f => !f.toLowerCase().includes('_vi.') && !f.toLowerCase().includes('.vi.'));
+            if (origSrt.length > 0) {
+                origSrt.sort((a, b) => fs.statSync(path.join(videoDir, b)).mtimeMs - fs.statSync(path.join(videoDir, a)).mtimeMs);
+                selectedOrigSrtPath = path.join(videoDir, origSrt[0]);
+            }
+
+            if (!selectedSrtPath && selectedOrigSrtPath) {
+                selectedSrtPath = selectedOrigSrtPath;
+            }
+        }
+
+        let srtContent = null;
+        let origSrtContent = null;
+        if (selectedSrtPath && fs.existsSync(selectedSrtPath)) {
+            srtContent = fs.readFileSync(selectedSrtPath, 'utf8');
+        }
+        if (selectedOrigSrtPath && fs.existsSync(selectedOrigSrtPath) && selectedOrigSrtPath !== selectedSrtPath) {
+            origSrtContent = fs.readFileSync(selectedOrigSrtPath, 'utf8');
+        }
+
+        // 2. Tìm các audio segments (_seg_*.mp3)
+        const segFiles = files.filter(f => f.includes('_seg_') && (f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.m4a') || f.endsWith('.aac')));
+        const audioSegments = [];
+
+        if (segFiles.length > 0) {
+            const byIndex = new Map();
+            for (const f of segFiles) {
+                const match = f.match(/_seg_(\d+)/);
+                if (match) {
+                    const idx = parseInt(match[1], 10);
+                    const fullPath = path.join(videoDir, f);
+                    const mtime = fs.statSync(fullPath).mtimeMs;
+                    if (!byIndex.has(idx) || byIndex.get(idx).mtime < mtime) {
+                        byIndex.set(idx, { path: fullPath, fileName: f, mtime, index: idx });
+                    }
+                }
+            }
+
+            const sortedIndices = Array.from(byIndex.keys()).sort((a, b) => a - b);
+            for (const idx of sortedIndices) {
+                const item = byIndex.get(idx);
+                audioSegments.push({
+                    index: idx,
+                    audioPath: item.path,
+                    audioUrl: `media://${item.path.replace(/\\/g, '/')}`
+                });
+            }
+        }
+
+        // 3. Tìm full audio nếu có
+        const fullAudioFiles = files.filter(f => !f.includes('_seg_') && (f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.m4a') || f.endsWith('.aac')));
+        let fullAudioUrl = null;
+        if (fullAudioFiles.length > 0) {
+            fullAudioFiles.sort((a, b) => fs.statSync(path.join(videoDir, b)).mtimeMs - fs.statSync(path.join(videoDir, a)).mtimeMs);
+            const fullPath = path.join(videoDir, fullAudioFiles[0]);
+            fullAudioUrl = `media://${fullPath.replace(/\\/g, '/')}`;
+        }
+
+        const hasCompanion = !!(srtContent || audioSegments.length > 0 || fullAudioUrl);
+
+        return {
+            success: true,
+            hasCompanion: hasCompanion,
+            videoDir: videoDir,
+            srtContent: srtContent,
+            origSrtContent: origSrtContent,
+            selectedSrtPath: selectedSrtPath,
+            audioSegments: audioSegments,
+            fullAudioUrl: fullAudioUrl
+        };
+    } catch (err) {
+        console.error('Lỗi scan-companion-video-assets:', err);
+        return { success: false, error: err.message };
+    }
+});
+
 ipcMain.handle('open-external', async (event, targetPath) => {
     try {
         if (fs.existsSync(targetPath)) {
