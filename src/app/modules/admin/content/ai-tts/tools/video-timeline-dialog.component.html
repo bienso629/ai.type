@@ -244,7 +244,7 @@
                 <!-- Floating Badge Báo đang dùng Khung (Góc trên bên trái khung div Preview) -->
                 <div *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl)"
                      class="absolute top-3 left-3 z-50 flex items-center gap-1.5 px-2.5 py-1 bg-black/85 backdrop-blur-md border border-indigo-500/60 rounded-lg text-white text-xs shadow-xl pointer-events-auto">
-                    <mat-icon class="icon-size-3.5 text-indigo-400">smartphone</mat-icon>
+                    <mat-icon class="icon-size-3.5 text-indigo-400">{{ selectedFrame.aspectRatio === '16:9' ? 'smart_display' : 'smartphone' }}</mat-icon>
                     <span class="font-medium truncate max-w-[160px]">{{ selectedFrame.name }}</span>
                     <button class="ml-1 text-neutral-400 hover:text-red-400 flex items-center justify-center" (click)="clearSelectedFrame($event)" title="Tắt khung">
                         <mat-icon class="icon-size-3.5">close</mat-icon>
@@ -253,12 +253,13 @@
 
                 <!-- Video / Player Container -->
                 <div class="w-full flex-1 relative flex flex-col items-center justify-center min-h-0 overflow-hidden"
-                     [ngClass]="selectedFrame && selectedFrame.id !== 'none' ? 'aspect-[9/16] max-h-full py-1' : ''">
+                     [ngClass]="selectedFrame && selectedFrame.id !== 'none' ? (selectedFrame.aspectRatio === '16:9' ? 'aspect-[16/9] max-h-full py-1' : 'aspect-[9/16] max-h-full py-1') : ''">
 
-                    <!-- Khi CÓ Frame Template được chọn (Mockup Frame 9:16) -->
+                    <!-- Khi CÓ Frame Template được chọn (Mockup Frame 9:16 hoặc 16:9) -->
                     <div #mockupFrameContainer
                          *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl)"
-                         class="relative aspect-[9/16] h-full max-h-full flex items-center justify-center overflow-hidden rounded-lg shadow-2xl bg-black select-none">
+                         class="relative h-full max-h-full flex items-center justify-center overflow-hidden rounded-lg shadow-2xl bg-black select-none"
+                         [ngClass]="selectedFrame.aspectRatio === '16:9' ? 'aspect-[16/9]' : 'aspect-[9/16]'">
                         
                         <!-- 1. Background Image của Khung (Bàn làm việc Gaming & Màn hình PC cố định) -->
                         <img [src]="selectedFrame.bgDataUrl || getSafeUrl(selectedFrame.bgPath)"
@@ -1338,8 +1339,8 @@
                         <mat-icon class="icon-size-4.5">layers</mat-icon>
                     </div>
                     <div>
-                        <h3 class="text-sm font-semibold text-white">Chọn khung Mockup Video (Frames 9:16)</h3>
-                        <p class="text-xs text-neutral-400">Lồng video của bạn vào màn hình mockup phối cảnh 3D TikTok/Shorts (9:16)</p>
+                        <h3 class="text-sm font-semibold text-white">Chọn khung Mockup Video (TikTok 9:16 & YouTube 16:9)</h3>
+                        <p class="text-xs text-neutral-400">Lồng video của bạn vào màn hình mockup phối cảnh 3D TikTok/Shorts (9:16) hoặc YouTube TV (16:9)</p>
                     </div>
                 </div>
                 <button mat-icon-button class="text-neutral-400 hover:text-white" (click)="closeFrameModal()">
@@ -1349,7 +1350,7 @@
 
             <!-- Body: Frames Grid -->
             <div class="flex-1 overflow-y-auto p-5 space-y-4 scene-scroll-area">
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                     <div *ngFor="let frame of AVAILABLE_FRAMES"
                          (click)="selectFrame(frame)"
                          class="group relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer bg-[#0f1015] hover:bg-[#161822]"
@@ -1367,7 +1368,7 @@
                                 </span>
                             </div>
                             <span class="px-2 py-0.5 text-[10px] font-mono font-medium rounded"
-                                  [ngClass]="frame.aspectRatio === '9:16' ? 'bg-purple-950 text-purple-300 border border-purple-800/50' : 'bg-neutral-800 text-neutral-400'">
+                                  [ngClass]="frame.aspectRatio === '9:16' ? 'bg-purple-950 text-purple-300 border border-purple-800/50' : (frame.aspectRatio === '16:9' && frame.id !== 'none' ? 'bg-blue-950 text-blue-300 border border-blue-800/50' : 'bg-neutral-800 text-neutral-400')">
                                 {{ frame.aspectRatio }}
                             </span>
                         </div>

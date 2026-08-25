@@ -225,6 +225,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             },
             canvasWidth: 2286,
             canvasHeight: 4096
+        },
+        {
+            id: 'youtube_frame_3',
+            name: 'YouTube Video Frame No.3 (16:9)',
+            aspectRatio: '16:9',
+            icon: 'smart_display',
+            bgPath: 'src/assets/video_frames/youtube_frame_3_bg.jpg',
+            maskPath: 'src/assets/video_frames/youtube_frame_3_mask.png',
+            thumbPath: 'src/assets/video_frames/youtube_frame_3_thumb.jpg',
+            description: 'Khung TV phòng khách gia đình YouTube 16:9 siêu nét, không gian ấm cúng',
+            quad: {
+                topLeft: { x: 1128.0, y: 532.0 },
+                topRight: { x: 2970.0, y: 532.0 },
+                bottomRight: { x: 2970.0, y: 1581.0 },
+                bottomLeft: { x: 1135.5, y: 1588.0 }
+            },
+            canvasWidth: 4096,
+            canvasHeight: 2286
         }
     ];
 
@@ -328,8 +346,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const canvasW = this.selectedFrame.canvasWidth || 2286;
         const canvasH = this.selectedFrame.canvasHeight || 4096;
 
-        const frameW = (containerEl && containerEl.clientWidth > 0) ? containerEl.clientWidth : 360;
-        const frameH = (containerEl && containerEl.clientHeight > 0) ? containerEl.clientHeight : 645;
+        const frameW = (containerEl && containerEl.clientWidth > 0) ? containerEl.clientWidth : (this.selectedFrame.aspectRatio === '16:9' ? 640 : 360);
+        const frameH = (containerEl && containerEl.clientHeight > 0) ? containerEl.clientHeight : (this.selectedFrame.aspectRatio === '16:9' ? 360 : 645);
 
         // Tính kích thước tự nhiên thực tế của vùng Mockup Quad
         const topEdge = Math.hypot(q.topRight.x - q.topLeft.x, q.topRight.y - q.topLeft.y);
