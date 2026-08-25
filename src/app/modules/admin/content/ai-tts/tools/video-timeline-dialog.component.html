@@ -252,11 +252,11 @@
                         <img [src]="selectedFrame.bgDataUrl || getSafeUrl(selectedFrame.bgPath)"
                              class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10" />
 
-                        <!-- 2. Vùng màn hình PC 3D nghiêng theo góc nhìn Mockup (+ scale 4px): Video nằm lọt trong màn hình với height 100% và width auto -->
+                        <!-- 2. Vùng màn hình Mockup 3D (+ scale 4px): Video luôn nằm trọn trong mockup với max-width, max-height và đúng tỷ lệ gốc -->
                         <div class="absolute z-20 overflow-hidden flex items-center justify-center bg-black pointer-events-auto"
                              [ngStyle]="getMockupScreenStyle(mockupFrameContainer)">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                                class="h-full w-auto max-h-full max-w-full object-contain cursor-pointer block mx-auto select-none"
+                                class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none"
                                 (loadedmetadata)="onVideoLoadedMetadata($event)"
                                 (click)="toggleTimelinePlay()"
                                 (ended)="onVideoEnded()"
@@ -264,7 +264,7 @@
                                 (play)="onVideoPlayEvent()"></video>
 
                             <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                                class="h-full w-auto max-h-full max-w-full object-contain cursor-pointer block mx-auto select-none"
+                                class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none"
                                 (click)="toggleTimelinePlay()" />
                         </div>
 
@@ -1269,7 +1269,7 @@
 
     <!-- ===== FRAME TEMPLATES SELECTION MODAL ===== -->
     <div *ngIf="isFrameModalOpen" class="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-[#14151b] border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        <div class="bg-[#14151b] border border-neutral-800 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
             <!-- Header Modal -->
             <div class="px-5 py-4 bg-[#181a24] border-b border-neutral-800 flex items-center justify-between">
                 <div class="flex items-center gap-2.5">
@@ -1288,7 +1288,7 @@
 
             <!-- Body: Frames Grid -->
             <div class="flex-1 overflow-y-auto p-5 space-y-4 scene-scroll-area">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div *ngFor="let frame of AVAILABLE_FRAMES"
                          (click)="selectFrame(frame)"
                          class="group relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer bg-[#0f1015] hover:bg-[#161822]"

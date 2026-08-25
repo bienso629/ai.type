@@ -207,6 +207,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             },
             canvasWidth: 2286,
             canvasHeight: 4096
+        },
+        {
+            id: 'tiktok_frame_2',
+            name: 'TikTok Video Frame Group 1 (9:16)',
+            aspectRatio: '9:16',
+            icon: 'tv',
+            bgPath: 'src/assets/video_frames/tiktok_frame_2_bg.jpg',
+            maskPath: 'src/assets/video_frames/tiktok_frame_2_mask.png',
+            thumbPath: 'src/assets/video_frames/tiktok_frame_2_thumb.jpg',
+            description: 'Khung Mockup Group 1 TikTok 9:16 sang trọng, phối cảnh chuẩn nét',
+            quad: {
+                topLeft: { x: 536.0, y: 519.0 },
+                topRight: { x: 1798.0, y: 519.0 },
+                bottomRight: { x: 1798.0, y: 2618.5 },
+                bottomLeft: { x: 548.0, y: 2618.5 }
+            },
+            canvasWidth: 2286,
+            canvasHeight: 4096
         }
     ];
 
@@ -313,8 +331,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const frameW = (containerEl && containerEl.clientWidth > 0) ? containerEl.clientWidth : 360;
         const frameH = (containerEl && containerEl.clientHeight > 0) ? containerEl.clientHeight : 645;
 
-        const screenVirtualW = 1920;
-        const screenVirtualH = 1080;
+        // Tính kích thước tự nhiên thực tế của vùng Mockup Quad
+        const topEdge = Math.hypot(q.topRight.x - q.topLeft.x, q.topRight.y - q.topLeft.y);
+        const bottomEdge = Math.hypot(q.bottomRight.x - q.bottomLeft.x, q.bottomRight.y - q.bottomLeft.y);
+        const leftEdge = Math.hypot(q.bottomLeft.x - q.topLeft.x, q.bottomLeft.y - q.topLeft.y);
+        const rightEdge = Math.hypot(q.bottomRight.x - q.topRight.x, q.bottomRight.y - q.topRight.y);
+
+        const screenVirtualW = Math.max(100, Math.round((topEdge + bottomEdge) / 2));
+        const screenVirtualH = Math.max(100, Math.round((leftEdge + rightEdge) / 2));
 
         const src: [number, number][] = [
             [0, 0],
@@ -4652,31 +4676,51 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     throw new Error('Không đọc được file âm thanh: ' + (base64Res?.error || 'Lỗi đọc file'));
                 }
 
-                const prompt = `Bạn là chuyên gia phân tích âm thanh, nhận diện giọng nói và bóc tách phụ đề video đa ngôn ngữ chuẩn quốc tế.
-Tổng thời lượng của file âm thanh: ${actualDuration.toFixed(2)} giây.
+                const prompt = `Bạn là chuyên gia phân tích âm thanh, nhận diện giọng nói và bóc tách phụ đề đa ngôn ngữ hàng đầu thế giới.
+Tổng thời lượng file âm thanh: ${actualDuration.toFixed(2)} giây.
 
-QUY TẮC BÓC TÁCH PHỤ ĐỀ CHUẨN ĐIỆN ẢNH & VIDEO NGẮN:
-1. Lắng nghe và phân tích toàn bộ file âm thanh từ 0.00s đến ${actualDuration.toFixed(2)}s.
-2. Với các đoạn có lời nói / thoại của nhân vật:
-   - "text": ghi câu thoại gốc theo đúng ngôn ngữ gốc của nhân vật (tiếng Anh, tiếng Trung, tiếng Nhật, tiếng Hàn, tiếng Việt...).
-   - "vietnameseText": dịch câu thoại sang Tiếng Việt chuẩn xác, tự nhiên, văn phong điện ảnh mượt mà (nếu bản gốc là tiếng Việt thì giữ nguyên).
-   - ⚠️ QUY TẮC NGẮT CÂU NGẮN (CỰC KỲ QUAN TRỌNG): Mỗi đoạn phụ đề chỉ dài từ 4 đến 10 từ (hoặc dưới 40 ký tự), thời lượng mỗi đoạn từ 1.5s đến 3.5s. Nếu câu thoại dài, BẮT BUỘC PHẢI CHIA NHỎ THÀNH NHIỀU PHÂN ĐOẠN NGẮN (chia theo nhịp thở / dấu phẩy / cụm từ tự nhiên) để người xem kịp đọc và hiển thị vừa vặn trên màn hình video, TUYỆT ĐỐI KHÔNG gộp một câu quá dài vào 1 phân đoạn.
-3. Với các đoạn không có lời thoại (nhạc nền, tiếng nổ, tiếng gầm gừ, tiếng cười, nhạc hồi hộp, tiếng bước chân...): ghi nhãn mô tả ngắn gọn trong dấu ngoặc vuông (ví dụ: "[Nhạc nền]", "[Tiếng nổ lớn]", "[Gầm gừ]", "[Nhạc kịch tính]", "[Tiếng cười]") cho cả "text" và "vietnameseText".
-4. Ghi rõ mốc thời gian bắt đầu (startTime) và kết thúc (endTime) bằng giây (ví dụ: 12.35) cho từng đoạn sao cho bao phủ liền mạch toàn bộ dòng thời gian.
+NHIỆM VỤ QUAN TRỌNG:
+1. BÓC TÁCH LIỀN MẠCH, BAO PHỦ 100% DÒNG THỜI GIAN (TUYỆT ĐỐI KHÔNG BỎ SÓT BẤT KỲ ĐOẠN NÀO):
+   - Phân đoạn đầu tiên BẮT BUỘC bắt đầu từ 0.00s.
+   - Phân đoạn cuối cùng BẮT BUỘC kết thúc đúng tại ${actualDuration.toFixed(2)}s.
+   - Các phân đoạn phải nối tiếp nhau liên tục từ 0.00s đến ${actualDuration.toFixed(2)}s sao cho toàn bộ dải âm thanh được bao phủ trọn vẹn 100%.
+   - Phân loại rõ ràng:
+     + Đoạn có câu thoại nhân vật: Ghi trọn vẹn cả câu thoại hoàn chỉnh (thời lượng tự nhiên từ 1.5s đến 4.5s). TUYỆT ĐỐI KHÔNG ngắt vụn từng từ đơn lẻ 0.5s - 0.7s làm rách câu/mất nghĩa.
+     + Đoạn không có lời thoại (nhạc nền mở đầu, tiếng nổ, tiếng bước chân, nhạc kịch tính, khoảng lặng, nhạc kết thúc): ghi nhãn mô tả trong ngoặc vuông (ví dụ: "[Nhạc nền mở đầu]", "[Tiếng nổ]", "[Nhạc kịch tính]", "[Nhạc kết thúc]").
 
-TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
+2. DỊCH VÀ XUẤT ĐẦY ĐỦ 2 NGÔN NGỮ (NGÔN NGỮ GỐC & TIẾNG VIỆT) CHO TẤT CẢ PHÂN ĐOẠN:
+   - "text": Câu thoại gốc đúng từng từ theo ngôn ngữ gốc nhân vật nói (tiếng Anh, tiếng Trung, tiếng Nhật, tiếng Hàn, tiếng Pháp, tiếng Việt...) hoặc nhãn âm thanh gốc.
+   - "vietnameseText": BẮT BUỘC dịch chuẩn xác, tự nhiên, sát nghĩa sang Tiếng Việt chuẩn điện ảnh (nếu câu thoại gốc đã là tiếng Việt thì giữ nguyên).
+
+3. ĐỘ CHÍNH XÁC MỐC THỜI GIAN (TIMESTAMP):
+   - "startTime": Mốc thời gian bắt đầu (giây, chính xác 2 chữ số thập phân, vd: 0.00, 1.80, 4.20).
+   - "endTime": Mốc thời gian kết thúc (giây, chính xác 2 chữ số thập phân, vd: 1.80, 4.20, ${actualDuration.toFixed(2)}).
+
+TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
 [
   {
-    "text": "Tickets now on sale",
-    "vietnameseText": "Vé hiện đã mở bán",
+    "text": "[Nhạc nền mở đầu]",
+    "vietnameseText": "[Nhạc nền mở đầu]",
     "startTime": 0.00,
-    "endTime": 2.20
+    "endTime": 1.80
   },
   {
-    "text": "exclusively at SM Cinema",
-    "vietnameseText": "độc quyền tại SM Cinema",
-    "startTime": 2.20,
-    "endTime": 4.50
+    "text": "We're survivors.",
+    "vietnameseText": "Chúng ta là những người sống sót.",
+    "startTime": 1.80,
+    "endTime": 3.90
+  },
+  {
+    "text": "Shoot first, then inquire afterwards.",
+    "vietnameseText": "Bắn trước, rồi hỏi sau.",
+    "startTime": 3.90,
+    "endTime": 6.70
+  },
+  {
+    "text": "[Nhạc kịch tính kết thúc]",
+    "vietnameseText": "[Nhạc kịch tính kết thúc]",
+    "startTime": 6.70,
+    "endTime": ${actualDuration.toFixed(2)}
   }
 ]`;
 
@@ -4713,10 +4757,15 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     rawText = typeof (response as any).text === 'function' ? (response as any).text() : (response as any).text;
                 } else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.text) {
                     rawText = (response as any).candidates[0].content.parts[0].text;
+                } else if ((response as any)?.choices?.[0]?.message?.content) {
+                    rawText = (response as any).choices[0].message.content;
                 }
 
                 console.log('[ExtractAudio] Phản hồi thô từ AI:', rawText);
-                const cleanText = (rawText || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+                const cleanText = (rawText || '')
+                    .replace(/```json\s*/gi, '')
+                    .replace(/```\s*/g, '')
+                    .trim();
 
                 const cleanSegmentText = (txt: string): string => {
                     let t = String(txt || '').trim();
@@ -4934,43 +4983,46 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                 console.warn('[ExtractAudio] Không có segments chi tiết, chuyển sang fallback âm thanh tổng.');
             }
 
-            // Lấp đầy 100% dòng thời gian: nếu có khoảng trống > 0.5s giữa các câu, tự chèn [Nhạc nền]
-            const filledSegments: Array<{ text: string, vietnameseText?: string, startTime: number, endTime?: number, duration: number }> = [];
+            // Chuẩn hoá và Lấp đầy 100% dòng thời gian để bảo toàn toàn bộ âm thanh của video (Track 3)
+            const fullCoverageSegments: Array<{ text: string, vietnameseText?: string, startTime: number, endTime?: number, duration: number }> = [];
             if (segments && segments.length > 0) {
-                const sorted = [...segments].sort((a, b) => a.startTime - b.startTime);
+                const validRaw = segments
+                    .map(seg => {
+                        const sStart = Math.max(0, Math.min(actualDuration, Number(seg.startTime) || 0));
+                        const sEnd = Math.max(sStart + 0.3, Math.min(actualDuration, Number(seg.endTime) || (sStart + 2)));
+                        return {
+                            text: String(seg.text || '').trim(),
+                            vietnameseText: String((seg as any).vietnameseText || seg.text || '').trim(),
+                            startTime: Math.round(sStart * 100) / 100,
+                            endTime: Math.round(sEnd * 100) / 100,
+                            duration: Math.round((sEnd - sStart) * 100) / 100
+                        };
+                    })
+                    .filter(seg => seg.text && seg.text.length > 0 && seg.duration > 0.2)
+                    .sort((a, b) => a.startTime - b.startTime);
+
                 let currentCursor = 0;
-
-                for (const seg of sorted) {
-                    const segStart = Math.max(0, Math.min(actualDuration, Number(seg.startTime) || 0));
-                    const segEnd = Math.max(segStart + 0.3, Math.min(actualDuration, Number(seg.endTime) || (segStart + 3)));
-
-                    // Lấp đầy khoảng trống phía trước nếu có (> 0.5s)
-                    if (segStart - currentCursor > 0.5) {
-                        const gapDur = Math.round((segStart - currentCursor) * 100) / 100;
-                        filledSegments.push({
+                for (const seg of validRaw) {
+                    // Nếu có khoảng trống phía trước (> 0.15s), tự động chèn phân đoạn âm thanh [Nhạc nền] để không bị mất tiếng
+                    if (seg.startTime - currentCursor > 0.15) {
+                        const gapDur = Math.round((seg.startTime - currentCursor) * 100) / 100;
+                        fullCoverageSegments.push({
                             text: '[Nhạc nền]',
                             vietnameseText: '[Nhạc nền]',
                             startTime: Math.round(currentCursor * 100) / 100,
-                            endTime: Math.round(segStart * 100) / 100,
+                            endTime: Math.round(seg.startTime * 100) / 100,
                             duration: gapDur
                         });
                     }
 
-                    filledSegments.push({
-                        text: String(seg.text || '').trim() || '[Âm thanh]',
-                        vietnameseText: String((seg as any).vietnameseText || seg.text || '').trim() || '[Âm thanh]',
-                        startTime: Math.round(segStart * 100) / 100,
-                        endTime: Math.round(segEnd * 100) / 100,
-                        duration: Math.round((segEnd - segStart) * 100) / 100
-                    });
-
-                    currentCursor = Math.max(currentCursor, segEnd);
+                    fullCoverageSegments.push(seg);
+                    currentCursor = Math.max(currentCursor, seg.endTime);
                 }
 
-                // Lấp đầy khoảng trống còn lại đến cuối video (> 0.5s)
-                if (actualDuration - currentCursor > 0.5) {
+                // Nếu còn khoảng trống ở cuối đến hết video (> 0.15s)
+                if (actualDuration - currentCursor > 0.15) {
                     const gapDur = Math.round((actualDuration - currentCursor) * 100) / 100;
-                    filledSegments.push({
+                    fullCoverageSegments.push({
                         text: '[Nhạc nền]',
                         vietnameseText: '[Nhạc nền]',
                         startTime: Math.round(currentCursor * 100) / 100,
@@ -4978,11 +5030,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                         duration: gapDur
                     });
                 }
-                segments = filledSegments;
+                segments = fullCoverageSegments;
             }
-
-            // Sắp xếp các đoạn câu thoại tăng dần theo thời gian bắt đầu
-            segments.sort((a, b) => a.startTime - b.startTime);
 
             // 3. Cắt audio thành từng file audio segment bằng FFmpeg & sinh file .SRT (gốc + tiếng Việt)
             this.toastr.info('Đang cắt từng đoạn audio câu thoại & sinh file phụ đề SRT...', 'Đang xử lý');
@@ -5065,7 +5114,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     const segViText = String(res.vietnameseText || (segments[idx] as any)?.vietnameseText || segOrigText).trim();
 
                     if (segStart < videoEnd + 0.05 && segDur > 0.2) {
-                        // 1. Thêm vào Track Extracted Audio
+                        // 1. Thêm vào Track Extracted Audio (Bảo toàn 100% âm thanh toàn bộ video)
                         scene.extractedAudios.push({
                             id: Date.now() + idx,
                             text: segOrigText,
@@ -5077,12 +5126,14 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                             maxDuration: segDur
                         });
 
-                        // 2. Thêm vào Track Subtitles (chỉ thêm câu thoại thực tế, bỏ qua nhãn nhạc nền để không làm rác track phụ đề)
-                        const isMusicOrSoundTag = segOrigText.startsWith('[') && segOrigText.endsWith(']');
+                        // 2. Thêm vào Track Subtitles (CHỈ THÊM CÂU THOẠI THẬT, loại bỏ nhãn [Nhạc nền], [Âm thanh])
+                        const isMusicOrSoundTag = (segOrigText.startsWith('[') && segOrigText.endsWith(']')) || 
+                                                  (segViText.startsWith('[') && segViText.endsWith(']'));
                         if (!isMusicOrSoundTag && (segViText || segOrigText)) {
+                            const subText = (this.currentSubtitleLang === 'vi') ? (segViText || segOrigText) : (segOrigText || segViText);
                             scene.subtitles.push({
                                 id: Date.now() + 1000 + idx,
-                                text: this.currentSubtitleLang === 'original' || this.currentSubtitleLang === 'en' ? (segOrigText || segViText) : (segViText || segOrigText),
+                                text: subText,
                                 originalText: segOrigText,
                                 vietnameseText: segViText,
                                 translations: {
@@ -5111,14 +5162,22 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
             // Tự động chuẩn hoá dòng thời gian, chống đè chập và khử trùng lặp
             this.normalizeData();
 
-            // Dọn dẹp các WaveSurfer mồ côi cũ và cập nhật lại
+            // Đồng bộ hoá danh sách media bên trái, subtitle preview và dọn dẹp WaveSurfers
+            this.syncSubtitlesWithExtractedAudios();
+            this.updateFilteredMediaItems();
+            this.updateActiveSubtitleInfo();
+            this.updateTimelineSync(true);
             this.cleanupOrphanedWaveSurfers();
-            this.toastr.success(`Đã trích xuất âm thanh AI & tự động tạo file phụ đề Tiếng Việt (.srt) thành công!`, 'Hoàn tất', { timeOut: 6000 });
+
+            this.toastr.success(`Đã trích xuất âm thanh AI & tự động tạo mới phụ đề Tiếng Việt (.srt) thành công!`, 'Hoàn tất', { timeOut: 6000 });
             this.saveData(true);
             this.cd.detectChanges();
             setTimeout(() => {
                 this.initWaveSurfers();
                 this.updateLines();
+                this.updateFilteredMediaItems();
+                this.updateActiveSubtitleInfo();
+                this.cd.detectChanges();
             }, 300);
         } catch (err: any) {
             console.error('Extract audio error', err);
