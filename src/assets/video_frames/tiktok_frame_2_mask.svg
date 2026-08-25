@@ -1,3 +1,4 @@
-<svg width="2286" height="4096" viewBox="0 0 2286 4096" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M536 519H1798V2618.5H548.008L536 519Z" fill="#000000"/>
+<svg width="2286" height="4096" viewBox="0 0 2286 4096" xmlns="http://www.w3.org/2000/svg">
+  <rect width="2286" height="4096" fill="black"/>
+  <polygon points="493,421 1794,421 1794,2589 505.4,2597" fill="white"/>
 </svg>

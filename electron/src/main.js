@@ -2927,8 +2927,108 @@ ipcMain.handle("scan-subtitles-in-project", async (_event, payload) => {
     }
 });
 
+function getFlatFontsDir() {
+    const flatDir = path.join(os.tmpdir(), "ai_type_all_fonts");
+    if (!fs.existsSync(flatDir)) {
+        fs.mkdirSync(flatDir, { recursive: true });
+    }
+    const baseFontsDir = path.join(app ? app.getPath("documents") : path.join(os.homedir(), "Documents"), "ai.type", "fonts");
+    if (fs.existsSync(baseFontsDir)) {
+        const fontExtensions = ['.ttf', '.otf', '.woff', '.woff2'];
+        function scanAndCopy(dir) {
+            try {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        scanAndCopy(fullPath);
+                    } else if (entry.isFile()) {
+                        const ext = path.extname(entry.name).toLowerCase();
+                        if (fontExtensions.includes(ext) && !entry.name.startsWith('._')) {
+                            const destPath = path.join(flatDir, entry.name);
+                            if (!fs.existsSync(destPath)) {
+                                try {
+                                    fs.copyFileSync(fullPath, destPath);
+                                } catch (ce) {}
+                            }
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+        scanAndCopy(baseFontsDir);
+    }
+    return flatDir;
+}
+
+let cachedFontFamilyMap = null;
+
+function getResolvedFontName(requestedFontName) {
+    if (!requestedFontName || requestedFontName === 'sans-serif') return 'DejaVu Sans';
+    
+    // Làm sạch chuỗi
+    let clean = String(requestedFontName).split(',')[0].trim().replace(/['"]/g, '');
+    if (!clean || clean === 'sans-serif') return 'DejaVu Sans';
+    
+    const standardFonts = ['DejaVu Sans', 'Arial', 'Montserrat', 'Roboto', 'Inter', 'Oswald', 'Playfair Display', 'Courier New'];
+    if (standardFonts.includes(clean)) return clean;
+    
+    if (!cachedFontFamilyMap) {
+        cachedFontFamilyMap = new Map();
+        try {
+            const flatFontsDir = getFlatFontsDir();
+            const { execSync } = require('child_process');
+            const out = execSync(`fc-scan --format "%{file}@@@%{family[0]}@@@%{fullname[0]}@@@%{postscriptname[0]}\\n" "${flatFontsDir}"/* 2>/dev/null`, { encoding: 'utf-8', timeout: 5000 });
+            const lines = out.split('\n');
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const parts = line.split('@@@');
+                const file = parts[0];
+                const family = parts[1] || '';
+                const fullname = parts[2] || '';
+                const postscriptname = parts[3] || '';
+                const baseName = path.basename(file, path.extname(file));
+                
+                const bestTarget = fullname || family || postscriptname || baseName;
+                
+                const keys = [
+                    baseName,
+                    baseName.toLowerCase(),
+                    baseName.replace(/[-_]/g, ' '),
+                    baseName.replace(/[-_ ]/g, '').toLowerCase(),
+                    fullname,
+                    fullname.toLowerCase(),
+                    family,
+                    family.toLowerCase(),
+                    postscriptname,
+                    postscriptname.toLowerCase()
+                ];
+                for (const k of keys) {
+                    if (k && !cachedFontFamilyMap.has(k)) {
+                        cachedFontFamilyMap.set(k, bestTarget);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[getResolvedFontName] error building font map:', e);
+        }
+    }
+    
+    const key = clean;
+    const lower = clean.toLowerCase();
+    const spaceKey = clean.replace(/[-_]/g, ' ').toLowerCase();
+    const compactKey = clean.replace(/[-_ ]/g, '').toLowerCase();
+    
+    if (cachedFontFamilyMap.has(key)) return cachedFontFamilyMap.get(key);
+    if (cachedFontFamilyMap.has(lower)) return cachedFontFamilyMap.get(lower);
+    if (cachedFontFamilyMap.has(spaceKey)) return cachedFontFamilyMap.get(spaceKey);
+    if (cachedFontFamilyMap.has(compactKey)) return cachedFontFamilyMap.get(compactKey);
+    
+    return clean;
+}
+
 ipcMain.handle("render-video-with-frame", async (event, payload) => {
-    let { videoPath, frameBgPath, frameMaskPath, outputPath, quad, canvasWidth, canvasHeight, subtitles } = payload || {};
+    let { videoPath, frameBgPath, frameMaskPath, outputPath, quad, canvasWidth, canvasHeight, subtitles, subtitleBottom, subtitleFontSize, subtitleFontFamily, previewHeight } = payload || {};
     try {
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
         let cleanVidPath = videoPath;
@@ -2966,17 +3066,20 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
         if (!fs.existsSync(cleanBgPath)) {
             return { success: false, error: "Frame background image not found: " + cleanBgPath };
         }
+        if (!fs.existsSync(cleanMaskPath)) {
+            return { success: false, error: "Frame mask image not found: " + cleanMaskPath };
+        }
 
         const outDir = path.dirname(outputPath);
         if (!fs.existsSync(outDir)) {
             fs.mkdirSync(outDir, { recursive: true });
         }
 
-        const X0 = quad?.topLeft?.x || 380.7;
-        const Y0 = quad?.topLeft?.y || 1261.2;
-        const X1 = quad?.topRight?.x || 1964.0;
-        const Y1 = quad?.topRight?.y || 1378.5;
-        const X2 = quad?.bottomLeft?.x || 395.7;
+        const X0 = quad?.topLeft?.x || 172.0;
+        const Y0 = quad?.topLeft?.y || 1238.4;
+        const X1 = quad?.topRight?.x || 2110.0;
+        const Y1 = quad?.topRight?.y || 1162.0;
+        const X2 = quad?.bottomLeft?.x || 33.0;
         const Y2 = quad?.bottomLeft?.y || 2376.3;
         const X3 = quad?.bottomRight?.x || 1958.0;
         const Y3 = quad?.bottomRight?.y || 2275.0;
@@ -3001,6 +3104,16 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
                 return String(text).replace(/\\/g, "\\\\").replace(/{/g, "\\{").replace(/}/g, "\\}").replace(/\n/g, "\\N");
             }
 
+            const flatFontsDir = getFlatFontsDir();
+            const escapedFontsDir = flatFontsDir.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+            
+            // Tỷ lệ chuẩn tương ứng với độ phân giải của khung hình Mockup (PlayResY = 4096)
+            const previewH = Number(previewHeight) || 570;
+            const marginV = Math.max(15, Math.round((Number(subtitleBottom !== undefined ? subtitleBottom : 20) / previewH) * H));
+            const cleanFontName = getResolvedFontName(subtitleFontFamily);
+            const primaryFontSize = Math.max(30, Math.round((Number(subtitleFontSize || 24) / previewH) * H));
+            const secondaryFontSize = Math.round(primaryFontSize * 0.85);
+
             const assContent = `[Script Info]
 ScriptType: v4.00+
 PlayResX: ${W}
@@ -3009,55 +3122,49 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,DejaVu Sans,96,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,100,100,1,0,1,8,4,2,60,60,280,1
+Style: Default,${cleanFontName},${primaryFontSize},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,100,100,1,0,1,8,4,2,60,60,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 ` + subtitles.map(sub => {
                 const start = formatAssTime(sub.startTime || 0);
                 const end = formatAssTime((sub.startTime || 0) + (sub.duration || 3));
+                const itemFont = getResolvedFontName(sub.fontFamily || subtitleFontFamily);
+                const itemSize = sub.fontSize ? Math.max(40, Math.round((Number(sub.fontSize) / 450) * H)) : primaryFontSize;
+                const itemSecSize = Math.round(itemSize * 0.85);
                 let textLine = "";
                 if (sub.secondaryText && sub.primaryText) {
-                    textLine = `{\\b1\\c&HFFFFFF&}${escapeAss(sub.primaryText)}\\N{\\c&H00E5FF&\\fs82}${escapeAss(sub.secondaryText)}`;
+                    textLine = `{\\fn${itemFont}\\fs${itemSize}\\b1\\c&HFFFFFF&}${escapeAss(sub.primaryText)}\\N{\\fn${itemFont}\\fs${itemSecSize}\\c&H00E5FF&}${escapeAss(sub.secondaryText)}`;
                 } else {
-                    textLine = `{\\b1\\c&HFFFFFF&}${escapeAss(sub.primaryText || sub.secondaryText)}`;
+                    textLine = `{\\fn${itemFont}\\fs${itemSize}\\b1\\c&HFFFFFF&}${escapeAss(sub.primaryText || sub.secondaryText)}`;
                 }
                 return `Dialogue: 0,${start},${end},Default,,0,0,0,,${textLine}`;
             }).join("\n") + "\n";
 
-            assFilePath = path.join(outDir, `sub_${Date.now()}.ass`);
+            assFilePath = path.join(os.tmpdir(), `tmp_frame_sub_${Date.now()}_${Math.random().toString(36).substring(7)}.ass`);
             fs.writeFileSync(assFilePath, assContent, "utf8");
 
             const escapedAss = assFilePath.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
-            subtitleFilter = `,subtitles=filename='${escapedAss}'`;
+            subtitleFilter = `subtitles=filename='${escapedAss}':fontsdir='${escapedFontsDir}'`;
         }
 
-        const scale4 = 4;
-        const x0 = (X0 - scale4).toFixed(1);
-        const y0 = (Y0 - scale4).toFixed(1);
-        const x1 = (X1 + scale4).toFixed(1);
-        const y1 = (Y1 - scale4).toFixed(1);
-        const x2 = (X2 - scale4).toFixed(1);
-        const y2 = (Y2 + scale4).toFixed(1);
-        const x3 = (X3 + scale4).toFixed(1);
-        const y3 = (Y3 + scale4).toFixed(1);
-
-        // Tính kích thước tự nhiên thực tế của vùng Mockup Quad
-        const topEdge = Math.hypot(X1 - X0, Y1 - Y0);
-        const bottomEdge = Math.hypot(X3 - X2, Y3 - Y2);
-        const leftEdge = Math.hypot(X2 - X0, Y2 - Y0);
-        const rightEdge = Math.hypot(X3 - X1, Y3 - Y1);
-        const screenW = Math.max(100, Math.round((topEdge + bottomEdge) / 2));
-        const screenH = Math.max(100, Math.round((leftEdge + rightEdge) / 2));
-
-        // 1. Scale video vào khung tự nhiên của Mockup với max-width, max-height (căn giữa, đệm đen nếu khác tỷ lệ)
-        // 2. Nghiêng theo góc nhìn 3D của Mockup (perspective) và scale +4px để phủ khít viền màn hình
-        const filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[0:v]scale=w=${screenW}:h=${screenH}:force_original_aspect_ratio=decrease,pad=${screenW}:${screenH}:(ow-iw)/2:(oh-ih)/2:black,perspective=x0=${x0}:y0=${y0}:x1=${x1}:y1=${y1}:x2=${x2}:y2=${y2}:x3=${x3}:y3=${y3}:sense=destination:interpolation=cubic[warped];[bg][warped]overlay=0:0${subtitleFilter}[outv]`;
+        const videoSubFilter = subtitleFilter ? `[0:v]${subtitleFilter}[subbed];[subbed]` : `[0:v]`;
+        let filterComplex = '';
         const args = [
             '-y',
             '-i', cleanVidPath,
             '-loop', '1',
-            '-i', cleanBgPath,
+            '-i', cleanBgPath
+        ];
+
+        if (cleanMaskPath && fs.existsSync(cleanMaskPath)) {
+            args.push('-loop', '1', '-i', cleanMaskPath);
+            filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[2:v]scale=${W}:${H}:flags=lanczos,format=gray[mask];${videoSubFilter}scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[warped][mask]alphamerge[maskedvid];[bg][maskedvid]overlay=0:0[outv]`;
+        } else {
+            filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];${videoSubFilter}scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[bg][warped]overlay=0:0[outv]`;
+        }
+
+        args.push(
             '-filter_complex', filterComplex,
             '-map', '[outv]',
             '-map', '0:a?',
@@ -3067,9 +3174,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             '-pix_fmt', 'yuv420p',
             '-shortest',
             outputPath
-        ];
+        );
 
         console.log('[render-video-with-frame] Executing FFmpeg:', ffmpegPath, args.join(' '));
+
+        const cleanupTempAss = () => {
+            if (assFilePath && fs.existsSync(assFilePath)) {
+                try { fs.unlinkSync(assFilePath); } catch (e) {}
+            }
+        };
 
         return new Promise((resolve) => {
             const child = spawn(ffmpegPath, args);
@@ -3078,6 +3191,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 stderrData += d.toString();
             });
             child.on('close', (code) => {
+                cleanupTempAss();
                 if (code === 0) {
                     console.log('[render-video-with-frame] Xuất video thành công:', outputPath);
                     resolve({ success: true, outputPath });
@@ -3087,11 +3201,156 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 }
             });
             child.on('error', (err) => {
+                cleanupTempAss();
                 resolve({ success: false, error: err.message });
             });
         });
     } catch (e) {
         console.error('[render-video-with-frame] Exception:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle("render-video-with-subtitles", async (event, payload) => {
+    let { videoPath, outputPath, subtitles, subtitleBottom, subtitleFontSize, subtitleFontFamily, previewHeight } = payload || {};
+    try {
+        const ffmpegPath = binaries.ffmpeg || "ffmpeg";
+        let cleanVidPath = videoPath;
+        if (cleanVidPath.startsWith('media://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(8));
+        else if (cleanVidPath.startsWith('file://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(7));
+        if (cleanVidPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVidPath = cleanVidPath.substring(1);
+
+        if (!fs.existsSync(cleanVidPath)) {
+            return { success: false, error: "Video input not found: " + cleanVidPath };
+        }
+
+        const outDir = path.dirname(outputPath);
+        if (!fs.existsSync(outDir)) {
+            fs.mkdirSync(outDir, { recursive: true });
+        }
+
+        // Lấy kích thước video đầu vào để scale font và marginV chính xác
+        let vidW = 1920;
+        let vidH = 1080;
+        try {
+            const probeOutput = execSync(`"${ffmpegPath}" -i "${cleanVidPath}" 2>&1`, { encoding: 'utf-8' });
+            const dimMatch = probeOutput && probeOutput.match(/Video:.*,\s*(\d{3,5})x(\d{3,5})/);
+            if (dimMatch) {
+                vidW = parseInt(dimMatch[1], 10);
+                vidH = parseInt(dimMatch[2], 10);
+            }
+        } catch (pe) {
+            const out = (pe && (pe.stdout || pe.stderr || pe.message)) || '';
+            const dimMatch = out.match(/Video:.*,\s*(\d{3,5})x(\d{3,5})/);
+            if (dimMatch) {
+                vidW = parseInt(dimMatch[1], 10);
+                vidH = parseInt(dimMatch[2], 10);
+            }
+        }
+
+        let assFilePath = null;
+        let vfFilter = null;
+        if (Array.isArray(subtitles) && subtitles.length > 0) {
+            function formatAssTime(seconds) {
+                const s = Math.max(0, seconds);
+                const hrs = Math.floor(s / 3600);
+                const mins = Math.floor((s % 3600) / 60);
+                const secs = Math.floor(s % 60);
+                const cs = Math.floor((s % 1) * 100);
+                return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
+            }
+
+            function escapeAss(text) {
+                if (!text) return "";
+                return String(text).replace(/\\/g, "\\\\").replace(/{/g, "\\{").replace(/}/g, "\\}").replace(/\n/g, "\\N");
+            }
+
+            const flatFontsDir = getFlatFontsDir();
+            const escapedFontsDir = flatFontsDir.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+
+            // Tỷ lệ chuẩn tương ứng với độ phân giải video đầu vào (PlayResY = vidH)
+            const previewH = Number(previewHeight) || 500;
+            const marginV = Math.max(8, Math.round((Number(subtitleBottom !== undefined ? subtitleBottom : 20) / previewH) * vidH));
+            const cleanFontName = getResolvedFontName(subtitleFontFamily);
+            const primaryFontSize = Math.max(16, Math.round((Number(subtitleFontSize || 24) / previewH) * vidH));
+            const secondaryFontSize = Math.round(primaryFontSize * 0.85);
+
+            const assContent = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${vidW}
+PlayResY: ${vidH}
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,${cleanFontName},${primaryFontSize},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,100,100,1,0,1,6,3,2,40,40,${marginV},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+` + subtitles.map(sub => {
+                const start = formatAssTime(sub.startTime || 0);
+                const end = formatAssTime((sub.startTime || 0) + (sub.duration || 3));
+                const itemFont = getResolvedFontName(sub.fontFamily || subtitleFontFamily);
+                const itemSize = sub.fontSize ? Math.max(16, Math.round((Number(sub.fontSize) / previewH) * vidH)) : primaryFontSize;
+                const itemSecSize = Math.round(itemSize * 0.85);
+                let textLine = "";
+                if (sub.secondaryText && sub.primaryText) {
+                    textLine = `{\\fn${itemFont}\\fs${itemSize}\\b1\\c&HFFFFFF&}${escapeAss(sub.primaryText)}\\N{\\fn${itemFont}\\fs${itemSecSize}\\c&H00E5FF&}${escapeAss(sub.secondaryText)}`;
+                } else {
+                    textLine = `{\\fn${itemFont}\\fs${itemSize}\\b1\\c&HFFFFFF&}${escapeAss(sub.primaryText || sub.secondaryText)}`;
+                }
+                return `Dialogue: 0,${start},${end},Default,,0,0,0,,${textLine}`;
+            }).join("\n") + "\n";
+
+            assFilePath = path.join(os.tmpdir(), `tmp_burn_sub_${Date.now()}_${Math.random().toString(36).substring(7)}.ass`);
+            fs.writeFileSync(assFilePath, assContent, "utf8");
+
+            const escapedAss = assFilePath.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+            vfFilter = `subtitles=filename='${escapedAss}':fontsdir='${escapedFontsDir}'`;
+        }
+
+        const args = [
+            '-y',
+            '-i', cleanVidPath,
+            ...(vfFilter ? ['-vf', vfFilter] : []),
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-crf', '18',
+            '-c:a', 'copy',
+            outputPath
+        ];
+
+        console.log('[render-video-with-subtitles] Executing FFmpeg:', ffmpegPath, args.join(' '));
+
+        const cleanupTempAss = () => {
+            if (assFilePath && fs.existsSync(assFilePath)) {
+                try { fs.unlinkSync(assFilePath); } catch (e) {}
+            }
+        };
+
+        return new Promise((resolve) => {
+            const child = spawn(ffmpegPath, args);
+            let stderrData = '';
+            child.stderr.on('data', (d) => {
+                stderrData += d.toString();
+            });
+            child.on('close', (code) => {
+                cleanupTempAss();
+                if (code === 0) {
+                    console.log('[render-video-with-subtitles] Xuất video thành công:', outputPath);
+                    resolve({ success: true, outputPath });
+                } else {
+                    console.error('[render-video-with-subtitles] Lỗi FFmpeg:', stderrData.slice(-500));
+                    resolve({ success: false, error: `FFmpeg exited with code ${code}` });
+                }
+            });
+            child.on('error', (err) => {
+                cleanupTempAss();
+                resolve({ success: false, error: err.message });
+            });
+        });
+    } catch (e) {
+        console.error('[render-video-with-subtitles] Exception:', e);
         return { success: false, error: e.message };
     }
 });

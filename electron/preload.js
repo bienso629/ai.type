@@ -91,6 +91,7 @@ contextBridge.exposeInMainWorld('electron', {
     readTextFile: (filePath) => ipcRenderer.invoke('read-text-file', { filePath }),
     scanSubtitlesInProject: (payload) => ipcRenderer.invoke('scan-subtitles-in-project', payload),
     renderVideoWithFrame: (payload) => ipcRenderer.invoke('render-video-with-frame', payload),
+    renderVideoWithSubtitles: (payload) => ipcRenderer.invoke('render-video-with-subtitles', payload),
     extractLastFrame: (videoPath) => ipcRenderer.invoke('extract-last-frame', videoPath),
     extractVideoFrames: (videoPath) => ipcRenderer.invoke('extract-video-frames', videoPath),
     extractOnlineVideoStream: (payload) => ipcRenderer.invoke('extract-online-video-stream', payload),
