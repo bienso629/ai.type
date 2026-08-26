@@ -11,6 +11,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-editor-settings-dialog/video-editor-settings-dialog.component';
 import { ArticlePasswordDialog } from './article-password-dialog';
 import * as CryptoJS from 'crypto-js';
+import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
 
 interface ScreenplayLine {
     type: string;
@@ -663,16 +664,14 @@ export class AIScriptComponent implements OnInit, OnDestroy {
                         dialogRef.afterClosed().subscribe((resPass: any) => {
                             if (resPass && resPass.password) {
                                 const cipher = targetDoc.cipher || targetDoc.source?.cipher;
+                                const masterCipher = targetDoc.master_cipher || targetDoc.source?.master_cipher;
                                 let isValid = false;
-                                if (cipher) {
-                                    try {
-                                        const bytes = CryptoJS.AES.decrypt(cipher, resPass.password);
-                                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                                            isValid = true;
-                                        }
-                                    } catch (e) {
-                                        isValid = false;
+                                if (isMasterKey(resPass.password)) {
+                                    isValid = true;
+                                } else if (cipher || masterCipher) {
+                                    const decryptedText = tryDecryptWithMasterFallback(cipher, resPass.password, masterCipher);
+                                    if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
+                                        isValid = true;
                                     }
                                 } else {
                                     isValid = true;

@@ -17,6 +17,7 @@ import { BlogService } from 'app/_services/blog';
 import { MatDialog } from '@angular/material/dialog';
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
 import * as CryptoJS from 'crypto-js';
+import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
 
 @Component({
     selector: 'app-collection',
@@ -105,6 +106,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                     type: 'collection',
                     title: colName,
                     validator: (pwd: string) => {
+                        if (isMasterKey(pwd)) return true;
                         const cipher = col.cipher;
                         if (cipher) {
                             try {
@@ -372,6 +374,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                     type: 'collection',
                     title: collection.title,
                     validator: (pwd: string) => {
+                        if (isMasterKey(pwd)) return true;
                         const cipher = collection.cipher;
                         if (cipher) {
                             try {
@@ -415,23 +418,21 @@ export class CollectionComponent implements OnInit, OnDestroy {
                     type: 'article',
                     title: row.title || 'Bài viết',
                     validator: async (pwd: string) => {
+                        if (isMasterKey(pwd)) return true;
                         let cipher = this.selectedCollection?.cipher || row.cipher || row.source?.cipher;
+                        let masterCipher = row.master_cipher || row.source?.master_cipher;
                         if (!cipher && row.uuid) {
                             try {
                                 const res: any = await firstValueFrom(this._crawlService.detail({ uuid: row.uuid, username: this.user.name }));
                                 if (res && res.success && res.data) {
                                     cipher = res.data.cipher || res.data.source?.cipher;
+                                    masterCipher = res.data.master_cipher || res.data.source?.master_cipher;
                                 }
                             } catch (e) {}
                         }
-                        if (cipher) {
-                            try {
-                                const bytes = CryptoJS.AES.decrypt(cipher, pwd);
-                                const text = bytes.toString(CryptoJS.enc.Utf8);
-                                return !!text && text.length > 0;
-                            } catch (e) {
-                                return false;
-                            }
+                        if (cipher || masterCipher) {
+                            const text = tryDecryptWithMasterFallback(cipher, pwd, masterCipher);
+                            return !!text && text.length > 0;
                         }
                         return pwd && pwd.length > 0;
                     }
@@ -647,16 +648,14 @@ export class CollectionComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe((res: any) => {
             if (res && res.password) {
                 const cipher = targetObj.cipher || this.selectedCollection?.cipher || targetObj.source?.cipher;
+                const masterCipher = targetObj.master_cipher || targetObj.source?.master_cipher;
                 let isValid = false;
-                if (cipher) {
-                    try {
-                        const bytes = CryptoJS.AES.decrypt(cipher, res.password);
-                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                            isValid = true;
-                        }
-                    } catch (e) {
-                        isValid = false;
+                if (isMasterKey(res.password)) {
+                    isValid = true;
+                } else if (cipher || masterCipher) {
+                    const decryptedText = tryDecryptWithMasterFallback(cipher, res.password, masterCipher);
+                    if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
+                        isValid = true;
                     }
                 } else {
                     isValid = true;

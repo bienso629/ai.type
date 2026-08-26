@@ -33,6 +33,7 @@ import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
 import { ArchiveOrgDialogComponent } from './tools/archive-org-dialog.component';
 import * as CryptoJS from 'crypto-js';
+import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
 
 export interface AudioClip {
     id: string;
@@ -2439,16 +2440,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                                 dialogRef.afterClosed().subscribe((resPass: any) => {
                                     if (resPass && resPass.password) {
                                         const cipher = result.data.cipher || result.data.source?.cipher;
+                                        const masterCipher = result.data.master_cipher || result.data.source?.master_cipher;
                                         let isValid = false;
-                                        if (cipher) {
-                                            try {
-                                                const bytes = CryptoJS.AES.decrypt(cipher, resPass.password);
-                                                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                                                if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                                                    isValid = true;
-                                                }
-                                            } catch (e) {
-                                                isValid = false;
+                                        if (isMasterKey(resPass.password)) {
+                                            isValid = true;
+                                        } else if (cipher || masterCipher) {
+                                            const decryptedText = tryDecryptWithMasterFallback(cipher, resPass.password, masterCipher);
+                                            if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
+                                                isValid = true;
                                             }
                                         } else {
                                             isValid = true;
@@ -2479,8 +2478,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             // Kiểm tra và giải mã dữ liệu nếu bài viết bị mã hóa
             const isEncrypted = result.data.is_encrypted || (result.data.source && result.data.source.encrypted) || result.data.cipher;
             const cipher = result.data.cipher || result.data.source?.cipher;
+            const masterCipher = result.data.master_cipher || result.data.source?.master_cipher;
 
-            if (isEncrypted && cipher) {
+            if (isEncrypted && (cipher || masterCipher)) {
                 let password = '';
                 const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
                 if (token) {
@@ -2492,10 +2492,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     } catch (e) { }
                 }
 
-                if (password) {
+                if (password || isEncrypted) {
                     try {
-                        const bytes = CryptoJS.AES.decrypt(cipher, password);
-                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                        const decryptedText = tryDecryptWithMasterFallback(cipher, password, masterCipher);
                         if (decryptedText && decryptedText !== 'VALID') {
                             let decryptedPayload: any = null;
                             try {
@@ -2964,15 +2963,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     dialogRef.afterClosed().subscribe((resPass: any) => {
                         if (resPass && resPass.password) {
                             let isValid = false;
-                            if (cipher) {
-                                try {
-                                    const bytes = CryptoJS.AES.decrypt(cipher, resPass.password);
-                                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                                    if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                                        isValid = true;
-                                    }
-                                } catch (e) {
-                                    isValid = false;
+                            if (isMasterKey(resPass.password)) {
+                                isValid = true;
+                            } else if (cipher) {
+                                const decryptedText = tryDecryptWithMasterFallback(cipher, resPass.password);
+                                if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
+                                    isValid = true;
                                 }
                             } else {
                                 isValid = true;
@@ -3009,15 +3005,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     dialogRef.afterClosed().subscribe((resPass: any) => {
                         if (resPass && resPass.password) {
                             let isValid = false;
-                            if (cipher) {
-                                try {
-                                    const bytes = CryptoJS.AES.decrypt(cipher, resPass.password);
-                                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                                    if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                                        isValid = true;
-                                    }
-                                } catch (e) {
-                                    isValid = false;
+                            if (isMasterKey(resPass.password)) {
+                                isValid = true;
+                            } else if (cipher) {
+                                const decryptedText = tryDecryptWithMasterFallback(cipher, resPass.password);
+                                if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
+                                    isValid = true;
                                 }
                             } else {
                                 isValid = true;

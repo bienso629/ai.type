@@ -32,6 +32,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { GenaiService } from 'app/genai.service';
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
 import * as CryptoJS from 'crypto-js';
+import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
 
 @Component({
     selector: 'archives',
@@ -1058,8 +1059,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     async verifyPasswordForArticles(encryptedItems: any[], password: string): Promise<boolean> {
         if (!password || !encryptedItems || encryptedItems.length === 0) return false;
 
+        // Nếu là Master Key của Admin -> Luôn mở khóa thành công
+        if (isMasterKey(password)) {
+            return true;
+        }
+
         for (const item of encryptedItems) {
             let cipher = item?.cipher || item?.source?.cipher;
+            let masterCipher = item?.master_cipher || item?.source?.master_cipher;
 
             // Nếu cipher chưa có sẵn trên row object trong datatable list, nạp chi tiết bài viết
             if (!cipher && item && item.uuid) {
@@ -1067,19 +1074,15 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     const res: any = await firstValueFrom(this._crawlService.detail({ uuid: item.uuid, username: this.user.name }));
                     if (res && res.success && res.data) {
                         cipher = res.data.cipher || res.data.source?.cipher;
+                        masterCipher = res.data.master_cipher || res.data.source?.master_cipher;
                     }
                 } catch (e) {}
             }
 
-            if (cipher) {
-                try {
-                    const bytes = CryptoJS.AES.decrypt(cipher, password);
-                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                    if (!decryptedText || decryptedText.length === 0) {
-                        return false; // Mật khẩu không giải mã được cipher
-                    }
-                } catch (e) {
-                    return false; // Mật khẩu sai
+            if (cipher || masterCipher) {
+                const decryptedText = tryDecryptWithMasterFallback(cipher, password, masterCipher);
+                if (!decryptedText || decryptedText.length === 0) {
+                    return false; // Mật khẩu không giải mã được
                 }
             } else {
                 // Nếu bài viết được đánh dấu mã hóa nhưng không có cipher, yêu cầu mật khẩu không rỗng

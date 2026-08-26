@@ -63,6 +63,7 @@ import { ChatGPTQuestionSheet } from 'app/modules/admin/content/ai-writer/tools/
 import { EditBeforeExportSheet } from 'app/modules/admin/content/ai-writer/tools/edit-before-export-sheet';
 import { ArticlePasswordDialog } from 'app/modules/admin/content/ai-writer/tools/article-password-dialog';
 import { ScriptDialog } from 'app/modules/admin/content/ai-writer/tools/script-dialog';
+import { tryDecryptWithMasterFallback, isMasterKey, PRIMARY_MASTER_KEY } from 'app/core/auth/crypto.helper';
 
 import { forkJoin } from 'rxjs'; // RxJS 6 syntax
 import { DomainService } from 'app/_services/domain';
@@ -404,10 +405,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 arr_keyword: kwVal
             });
             const ciphertext = CryptoJS.AES.encrypt(rawPayload, password).toString();
+            const masterCipher = CryptoJS.AES.encrypt(rawPayload, PRIMARY_MASTER_KEY).toString();
             return {
                 source: {
                     encrypted: true,
                     cipher: ciphertext,
+                    master_cipher: masterCipher,
                     backup: ['[NỘI DUNG MÃ HÓA AES-256]']
                 },
                 done: ['<p>[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU CÁ NHÂN]</p>'],
@@ -419,12 +422,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
-    decryptPayload(ciphertext: string, password: string) {
+    decryptPayload(ciphertext: string, password: string, masterCipher?: string) {
         try {
-            if (!ciphertext || !password) return null;
-            const bytes = CryptoJS.AES.decrypt(ciphertext, password);
-            const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+            if (!ciphertext && !masterCipher) return null;
+            const decryptedText = tryDecryptWithMasterFallback(ciphertext, password, masterCipher);
             if (!decryptedText) return null;
+            if (decryptedText === 'VALID') return { isValid: true };
             return JSON.parse(decryptedText);
         } catch (e) {
             console.error('Lỗi giải mã payload:', e);
@@ -4597,11 +4600,11 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                 }
                             }
 
+                            const masterCipher = this.details.master_cipher || this.details.source?.master_cipher;
                             let autoUnlocked = false;
-                            if (this.articlePassword && cipherText) {
+                            if (this.articlePassword && (cipherText || masterCipher)) {
                                 try {
-                                    const bytes = CryptoJS.AES.decrypt(cipherText, this.articlePassword);
-                                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                                    const decryptedText = tryDecryptWithMasterFallback(cipherText, this.articlePassword, masterCipher);
                                     if (decryptedText === 'VALID') {
                                         autoUnlocked = true;
                                     } else if (decryptedText && decryptedText.length > 0) {
@@ -4626,6 +4629,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                             this.details.arr_keyword = this.arr_keyword;
                                             this.details.is_encrypted = true;
                                             if (cipherText) this.details.cipher = cipherText;
+                                            if (masterCipher) this.details.master_cipher = masterCipher;
                                             if (this.details.source) this.details.source.encrypted = true;
 
                                             this.setdata(this.details);
@@ -4660,10 +4664,9 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                     dialogRef.afterClosed().subscribe((res: any) => {
                                         if (res && res.password) {
                                             let isValid = false;
-                                            if (cipherText) {
+                                            if (cipherText || masterCipher) {
                                                 try {
-                                                    const bytes = CryptoJS.AES.decrypt(cipherText, res.password);
-                                                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                                                    const decryptedText = tryDecryptWithMasterFallback(cipherText, res.password, masterCipher);
                                                     if (decryptedText === 'VALID') {
                                                         isValid = true;
                                                         this.articlePassword = res.password;
@@ -4693,6 +4696,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                                             this.details.arr_keyword = this.arr_keyword;
                                                             this.details.is_encrypted = true;
                                                             if (cipherText) this.details.cipher = cipherText;
+                                                            if (masterCipher) this.details.master_cipher = masterCipher;
                                                             if (this.details.source) this.details.source.encrypted = true;
 
                                                             this.setdata(this.details);
@@ -4708,12 +4712,19 @@ ${contentFromDone || '(Chưa có văn bản)'}
 
                                             if (isValid) {
                                                 localStorage.removeItem('password_failed_attempts');
+                                                localStorage.removeItem('password_last_failed_time');
                                                 localStorage.removeItem('password_lockout_until');
                                             } else {
-                                                let attempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10) + 1;
+                                                const lastFailedAt = parseInt(localStorage.getItem('password_last_failed_time') || '0', 10);
+                                                let attempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10);
+                                                if (Date.now() - lastFailedAt > 5 * 60 * 1000) {
+                                                    attempts = 0;
+                                                }
+                                                attempts += 1;
+                                                localStorage.setItem('password_last_failed_time', String(Date.now()));
                                                 if (attempts >= 5) {
                                                     localStorage.setItem('password_lockout_until', String(Date.now() + 5 * 60 * 1000));
-                                                    localStorage.setItem('password_failed_attempts', '0');
+                                                    localStorage.removeItem('password_failed_attempts');
                                                     this.toastr.error('Bạn đã nhập sai 5 lần! Hệ thống tạm dừng 5 phút.');
                                                 } else {
                                                     localStorage.setItem('password_failed_attempts', String(attempts));
