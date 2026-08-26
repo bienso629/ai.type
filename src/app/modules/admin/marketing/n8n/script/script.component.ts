@@ -83,6 +83,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
 
     turnOffLiveStream = false;
     isProfileRunning = false;
+    platform: string = 'tiktok';
 
     // AI Chat Assistant State & Profile Mention Popup (@)
     @ViewChild('scriptChatInput') scriptChatInputRef?: ElementRef<HTMLInputElement>;
@@ -569,7 +570,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             verify: true,
             filter: 'running',
             include_accounts: true,
-            platform: 'tiktok',
+            platform: this.platform || 'tiktok',
             username: this.user?.name || 'admin'
         }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
             next: (result: any) => {
@@ -1693,7 +1694,7 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
 
     interimTranscript: string = '';
 
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
+    protected _unsubscribeAll: Subject<any> = new Subject<any>();
 
     // --- VARIABLES FOR DIALOG ---
     @ViewChild('commentDialog') commentDialog: TemplateRef<any>;
@@ -1718,19 +1719,19 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
 
     // --- CONSTRUCTOR & INIT ---
     constructor(
-        private titleService: Title,
-        private _userService: UserService,
-        private _mxhautoService: MXHAutoService,
-        private toastr: ToastrService,
-        private _fuseConfigService: FuseConfigService,
-        private _fuseConfirmationService: FuseConfirmationService,
-        private router: Router,
-        private cd: ChangeDetectorRef,
-        private zone: NgZone,
-        private _matDialog: MatDialog,
-        private _n8nService: N8nService, // Inject N8nService
-        private multiAccountService: MultiAccountService,
-        private _genaiService: GenaiService
+        protected titleService: Title,
+        protected _userService: UserService,
+        protected _mxhautoService: MXHAutoService,
+        protected toastr: ToastrService,
+        protected _fuseConfigService: FuseConfigService,
+        protected _fuseConfirmationService: FuseConfirmationService,
+        protected router: Router,
+        protected cd: ChangeDetectorRef,
+        protected zone: NgZone,
+        protected _matDialog: MatDialog,
+        protected _n8nService: N8nService, // Inject N8nService
+        protected multiAccountService: MultiAccountService,
+        protected _genaiService: GenaiService
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
@@ -1872,7 +1873,7 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
     // --- PROFILES & DATA ---
     getProfiles(): void {
         this._mxhautoService.profiles({
-            profiles_root: this.getProfilesRoot(), host: '127.0.0.1', verify: true, filter: "running", include_accounts: true, platform: 'tiktok', username: this.user.name
+            profiles_root: this.getProfilesRoot(), host: '127.0.0.1', verify: true, filter: "running", include_accounts: true, platform: this.platform || 'tiktok', username: this.user.name
         }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
             next: async (result: any) => {
                 if (result && result.ok) {

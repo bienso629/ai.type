@@ -52,13 +52,19 @@ export class AMXHComponent implements OnInit, OnDestroy {
             id: 'shopee',
             icon: 'feather:shopping-bag',
             title: 'Shopee',
-            description: 'Xem livestream, bấm like, viết comment tự động Shopee',
+            description: 'Xem live và mua hàng trực tiếp trên Shopee',
+        },
+        {
+            id: 'type',
+            icon: 'feather:type',
+            title: 'Diễn đàn Type',
+            description: 'Chia sẻ bài viết lên diễn đàn',
         },
         {
             id: 'share',
             icon: 'feather:share-2',
             title: 'Facebook',
-            description: 'Tải video về và chia sẻ lên Facebook',
+            description: 'Chia sẻ bài viết lên Facebook',
         }
     ];
 
@@ -94,7 +100,7 @@ export class AMXHComponent implements OnInit, OnDestroy {
         const hasTiktok = !!(mxhautoVal && mxhautoVal !== '' && mxhautoVal !== 'http://localhost:404');
 
         this.panels = this.allPanels.filter(p => {
-            if (p.id === 'profiles' || p.id === 'script' || p.id === 'shopee') {
+            if (p.id === 'profiles' || p.id === 'script' || p.id === 'shopee' || p.id === 'type') {
                 return hasTiktok;
             }
             return true;
@@ -138,10 +144,11 @@ export class AMXHComponent implements OnInit, OnDestroy {
      */
     goToPanel(panel: string): void {
         this.selectedPanel = panel;
+        this._changeDetectorRef.markForCheck();
 
         this.router.navigate([], {
             relativeTo: this.activatedRoute,
-            queryParams: { panel: panel },
+            queryParams: { tab: panel, panel: null },
             queryParamsHandling: 'merge'
         });
 
@@ -202,8 +209,12 @@ export class AMXHComponent implements OnInit, OnDestroy {
         this.activatedRoute.queryParams.subscribe((params: Params) => {
             if (params && params.uuid && params.tab && params.user) {
                 this.detail(params.uuid, params.user, params.tab);
-            } else if (params && params.panel) {
-                this.selectedPanel = params.panel;
+            } else if (params && (params.tab || params.panel)) {
+                let tabName = params.tab || params.panel;
+                if (tabName === 'tiktok') tabName = 'script';
+                if (tabName === 'facebook') tabName = 'share';
+                this.selectedPanel = tabName;
+                this._changeDetectorRef.markForCheck();
             }
         });
 
