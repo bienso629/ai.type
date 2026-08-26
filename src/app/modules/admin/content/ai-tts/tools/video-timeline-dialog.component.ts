@@ -4831,15 +4831,24 @@ NHIỆM VỤ QUAN TRỌNG:
    - Phân đoạn đầu tiên BẮT BUỘC bắt đầu từ 0.00s.
    - Phân đoạn cuối cùng BẮT BUỘC kết thúc đúng tại ${actualDuration.toFixed(2)}s.
    - Các phân đoạn phải nối tiếp nhau liên tục từ 0.00s đến ${actualDuration.toFixed(2)}s sao cho toàn bộ dải âm thanh được bao phủ trọn vẹn 100%.
-   - Phân loại rõ ràng:
-     + Đoạn có câu thoại nhân vật: Ghi trọn vẹn cả câu thoại hoàn chỉnh (thời lượng tự nhiên từ 1.5s đến 4.5s). TUYỆT ĐỐI KHÔNG ngắt vụn từng từ đơn lẻ 0.5s - 0.7s làm rách câu/mất nghĩa.
-     + Đoạn không có lời thoại (nhạc nền mở đầu, tiếng nổ, tiếng bước chân, nhạc kịch tính, khoảng lặng, nhạc kết thúc): ghi nhãn mô tả trong ngoặc vuông (ví dụ: "[Nhạc nền mở đầu]", "[Tiếng nổ]", "[Nhạc kịch tính]", "[Nhạc kết thúc]").
 
-2. DỊCH VÀ XUẤT ĐẦY ĐỦ 2 NGÔN NGỮ (NGÔN NGỮ GỐC & TIẾNG VIỆT) CHO TẤT CẢ PHÂN ĐOẠN:
+2. QUY TẮC NGẮT CÂU & PHÂN ĐOẠN PHỤ ĐỀ BẮT BUỘC (CỰC KỲ QUAN TRỌNG - BẮT BUỘC TUÂN THỦ):
+   - TUYỆT ĐỐI KHÔNG TẠO CÂU PHỤ ĐỀ DÀI HOẶC GỘP NHIỀU CÂU/VẾ CÂU VÀO MỘT PHÂN ĐOẠN.
+   - CỨ CÓ DẤU CÂU (dấu chấm '.', dấu hỏi '?', dấu than '!', dấu phẩy ',', ';', ':', hoặc xuống dòng '\n') LÀ BẮT BUỘC PHẢI NGẮT THÀNH MỘT PHÂN ĐOẠN MỚI RIÊNG BIỆT.
+   - Mỗi phân đoạn câu thoại chỉ dài từ 3 đến 8 từ (tối đa 40 ký tự), thời lượng chuẩn từ 1.0s đến 3.0s để người xem kịp đọc.
+   - Ví dụ:
+     * Thay vì gộp 1 câu dài: "Hello everyone. I'm Donnie Yen, creative consultant for Phantom Blade Zero and the actor behind."
+     * BẮT BUỘC PHẢI TÁCH THÀNH 3 PHÂN ĐOẠN RIÊNG BIỆT:
+       1) "text": "Hello everyone.", "vietnameseText": "Chào mọi người.", "startTime": 54.70, "endTime": 56.00
+       2) "text": "I'm Donnie Yen, creative consultant for Phantom Blade Zero", "vietnameseText": "Tôi là Chân Tử Đan, cố vấn sáng tạo cho Phantom Blade Zero", "startTime": 56.00, "endTime": 59.10
+       3) "text": "and the actor behind.", "vietnameseText": "và là diễn viên đứng sau.", "startTime": 59.10, "endTime": 60.30
+   - Đoạn không có lời thoại (nhạc nền mở đầu, tiếng nổ, tiếng bước chân, nhạc kịch tính, khoảng lặng, nhạc kết thúc): ghi nhãn mô tả trong ngoặc vuông (ví dụ: "[Nhạc nền mở đầu]", "[Tiếng nổ]", "[Nhạc kịch tính]", "[Nhạc kết thúc]").
+
+3. DỊCH VÀ XUẤT ĐẦY ĐỦ 2 NGÔN NGỮ (NGÔN NGỮ GỐC & TIẾNG VIỆT) CHO TẤT CẢ PHÂN ĐOẠN:
    - "text": Câu thoại gốc đúng từng từ theo ngôn ngữ gốc nhân vật nói (tiếng Anh, tiếng Trung, tiếng Nhật, tiếng Hàn, tiếng Pháp, tiếng Việt...) hoặc nhãn âm thanh gốc.
    - "vietnameseText": BẮT BUỘC dịch chuẩn xác, tự nhiên, sát nghĩa sang Tiếng Việt chuẩn điện ảnh (nếu câu thoại gốc đã là tiếng Việt thì giữ nguyên).
 
-3. ĐỘ CHÍNH XÁC MỐC THỜI GIAN (TIMESTAMP):
+4. ĐỘ CHÍNH XÁC MỐC THỜI GIAN (TIMESTAMP):
    - "startTime": Mốc thời gian bắt đầu (giây, chính xác 2 chữ số thập phân, vd: 0.00, 1.80, 4.20).
    - "endTime": Mốc thời gian kết thúc (giây, chính xác 2 chữ số thập phân, vd: 1.80, 4.20, ${actualDuration.toFixed(2)}).
 
@@ -4852,21 +4861,21 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
     "endTime": 1.80
   },
   {
-    "text": "We're survivors.",
-    "vietnameseText": "Chúng ta là những người sống sót.",
+    "text": "Hello everyone.",
+    "vietnameseText": "Chào mọi người.",
     "startTime": 1.80,
-    "endTime": 3.90
+    "endTime": 3.10
   },
   {
-    "text": "Shoot first, then inquire afterwards.",
-    "vietnameseText": "Bắn trước, rồi hỏi sau.",
-    "startTime": 3.90,
-    "endTime": 6.70
+    "text": "We're survivors.",
+    "vietnameseText": "Chúng ta là những người sống sót.",
+    "startTime": 3.10,
+    "endTime": 4.90
   },
   {
     "text": "[Nhạc kịch tính kết thúc]",
     "vietnameseText": "[Nhạc kịch tính kết thúc]",
-    "startTime": 6.70,
+    "startTime": 4.90,
     "endTime": ${actualDuration.toFixed(2)}
   }
 ]`;
@@ -5133,7 +5142,113 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             // Chuẩn hoá và Lấp đầy 100% dòng thời gian để bảo toàn toàn bộ âm thanh của video (Track 3)
             const fullCoverageSegments: Array<{ text: string, vietnameseText?: string, startTime: number, endTime?: number, duration: number }> = [];
             if (segments && segments.length > 0) {
-                const validRaw = segments
+                const splitRawSegmentsByPunctuation = (rawList: any[]): any[] => {
+                    const output: any[] = [];
+                    for (const seg of rawList) {
+                        const text = String(seg.text || '').trim();
+                        const viText = String(seg.vietnameseText || seg.viText || text).trim();
+                        const start = Math.max(0, Number(seg.startTime) || 0);
+                        const end = Math.max(start + 0.3, Number(seg.endTime) || (start + (Number(seg.duration) || 2)));
+                        const totalDur = end - start;
+
+                        // Nếu là nhãn âm thanh hệ thống (ví dụ: [Nhạc nền], [Tiếng nổ]), không ngắt
+                        if (/^\[.+\]$/.test(text) || totalDur < 0.8) {
+                            output.push({
+                                text: text,
+                                vietnameseText: viText,
+                                startTime: Math.round(start * 100) / 100,
+                                endTime: Math.round(end * 100) / 100,
+                                duration: Math.round(totalDur * 100) / 100
+                            });
+                            continue;
+                        }
+
+                        // 1. Tách theo dấu kết câu trước: chấm (.), hỏi (?), than (!), ba chấm (…), xuống dòng (\n)
+                        let parts = text.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+
+                        // 2. Nếu một phần vẫn còn dài (> 32 ký tự hoặc > 6 từ) và có dấu phẩy/chấm phẩy/hai chấm/gạch ngang -> tách tiếp theo vế câu
+                        const refinedParts: string[] = [];
+                        for (const p of parts) {
+                            const pWords = p.split(/\s+/).filter(w => w.length > 0);
+                            if ((p.length > 32 || pWords.length > 6) && /[,;:—–]/.test(p)) {
+                                const subParts = p.split(/(?<=[,;:—–])\s+/).map(sp => sp.trim()).filter(sp => sp.length > 0);
+                                refinedParts.push(...subParts);
+                            } else {
+                                refinedParts.push(p);
+                            }
+                        }
+                        parts = refinedParts;
+
+                        if (parts.length <= 1) {
+                            output.push({
+                                text: text,
+                                vietnameseText: viText,
+                                startTime: Math.round(start * 100) / 100,
+                                endTime: Math.round(end * 100) / 100,
+                                duration: Math.round(totalDur * 100) / 100
+                            });
+                            continue;
+                        }
+
+                        // Tách câu tiếng Việt tương ứng
+                        let viParts: string[] = [];
+                        if (viText && viText !== text) {
+                            viParts = viText.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                            const refinedVi: string[] = [];
+                            for (const vp of viParts) {
+                                const vpWords = vp.split(/\s+/).filter(w => w.length > 0);
+                                if ((vp.length > 32 || vpWords.length > 6) && /[,;:—–]/.test(vp)) {
+                                    refinedVi.push(...vp.split(/(?<=[,;:—–])\s+/).map(sp => sp.trim()).filter(sp => sp.length > 0));
+                                } else {
+                                    refinedVi.push(vp);
+                                }
+                            }
+                            viParts = refinedVi;
+
+                            if (viParts.length !== parts.length) {
+                                const viWords = viText.split(/\s+/).filter(w => w.length > 0);
+                                const totalWords = viWords.length;
+                                viParts = [];
+                                let viWordCursor = 0;
+                                const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+                                for (let i = 0; i < parts.length; i++) {
+                                    if (i === parts.length - 1) {
+                                        viParts.push(viWords.slice(viWordCursor).join(' '));
+                                    } else {
+                                        const chunkCount = Math.max(1, Math.round(totalWords * (parts[i].length / totalChars)));
+                                        viParts.push(viWords.slice(viWordCursor, viWordCursor + chunkCount).join(' '));
+                                        viWordCursor += chunkCount;
+                                    }
+                                }
+                            }
+                        }
+
+                        const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+                        let curTime = start;
+
+                        for (let i = 0; i < parts.length; i++) {
+                            const pText = parts[i];
+                            const pVi = viParts[i] || (this.isLikelyVietnamese(pText) ? pText : '');
+                            const pDur = (i === parts.length - 1)
+                                ? Math.max(0.3, Math.round((end - curTime) * 100) / 100)
+                                : Math.max(0.3, Math.round((totalDur * (pText.length / totalChars)) * 100) / 100);
+                            const pEnd = Math.min(end, Math.round((curTime + pDur) * 100) / 100);
+
+                            output.push({
+                                text: pText,
+                                vietnameseText: pVi,
+                                startTime: Math.round(curTime * 100) / 100,
+                                endTime: pEnd,
+                                duration: Math.round((pEnd - curTime) * 100) / 100
+                            });
+
+                            curTime = pEnd;
+                        }
+                    }
+                    return output;
+                };
+
+                const validRaw = splitRawSegmentsByPunctuation(segments)
                     .map(seg => {
                         const sStart = Math.max(0, Math.min(actualDuration, Number(seg.startTime) || 0));
                         const sEnd = Math.max(sStart + 0.3, Math.min(actualDuration, Number(seg.endTime) || (sStart + 2)));
@@ -5343,57 +5458,435 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         );
     }
 
-    splitSubtitleItem(sub: any, sceneIdx: number, sIdx: number) {
-        if (!sub) return;
-        const scene = this.projectData?.scenes?.[sceneIdx];
-        if (!scene || !scene.subtitles) return;
+    findSubtitleSceneAndIndex(sub: any): { scene: any, sceneIdx: number, subIdx: number } | null {
+        if (!sub || !this.projectData?.scenes) return null;
+        const target = sub._raw || sub;
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (scene.subtitles && Array.isArray(scene.subtitles)) {
+                const idx = scene.subtitles.findIndex((s: any) => s === target || (target.id && s.id === target.id));
+                if (idx !== -1) {
+                    return { scene, sceneIdx: sIdx, subIdx: idx };
+                }
+            }
+        }
+        return null;
+    }
 
-        const start = Number(sub.startTime) || 0;
-        const duration = Number(sub.duration) || 3;
+    splitTextAndTranslations(sub: any, splitRatio: number, customPart1Text?: string, customPart2Text?: string) {
+        const text = String(sub.text || '').trim();
+        let part1Text = customPart1Text;
+        let part2Text = customPart2Text;
+
+        if (part1Text === undefined || part2Text === undefined) {
+            const words = text.split(/\s+/).filter(w => w.length > 0);
+            if (words.length > 1) {
+                const midIndex = Math.max(1, Math.min(words.length - 1, Math.round(words.length * splitRatio)));
+                part1Text = words.slice(0, midIndex).join(' ');
+                part2Text = words.slice(midIndex).join(' ');
+            } else {
+                const midChar = Math.max(1, Math.round(text.length * splitRatio));
+                part1Text = text.substring(0, midChar);
+                part2Text = text.substring(midChar);
+            }
+        }
+
+        const splitSecondary = (secText: string): { part1: string, part2: string } => {
+            const clean = String(secText || '').trim();
+            if (!clean) return { part1: '', part2: '' };
+            if (clean === text) return { part1: part1Text!, part2: part2Text! };
+
+            const endsWithPunct = /[.?!;:\n]$/.test(part1Text!.trim());
+            if (endsWithPunct) {
+                const punctMatch = clean.match(/^([\s\S]+?[.?!;:\n])\s+([\s\S]+)$/);
+                if (punctMatch && punctMatch[1] && punctMatch[2]) {
+                    return { part1: punctMatch[1].trim(), part2: punctMatch[2].trim() };
+                }
+            }
+
+            const secWords = clean.split(/\s+/).filter(w => w.length > 0);
+            if (secWords.length > 1) {
+                const midSec = Math.max(1, Math.min(secWords.length - 1, Math.round(secWords.length * splitRatio)));
+                return {
+                    part1: secWords.slice(0, midSec).join(' '),
+                    part2: secWords.slice(midSec).join(' ')
+                };
+            }
+            return { part1: clean, part2: '' };
+        };
+
+        const viSplit = splitSecondary(sub.vietnameseText);
+        const origSplit = splitSecondary(sub.originalText);
+
+        const trans1: any = {};
+        const trans2: any = {};
+        if (sub.translations && typeof sub.translations === 'object') {
+            for (const k in sub.translations) {
+                const s = splitSecondary(sub.translations[k]);
+                trans1[k] = s.part1;
+                trans2[k] = s.part2;
+            }
+        }
+
+        return {
+            part1Text: (part1Text || '').trim(),
+            part2Text: (part2Text || '').trim(),
+            viPart1: viSplit.part1 || (this.isLikelyVietnamese(part1Text || '') ? (part1Text || '').trim() : ''),
+            viPart2: viSplit.part2 || (this.isLikelyVietnamese(part2Text || '') ? (part2Text || '').trim() : ''),
+            origPart1: origSplit.part1 || (!this.isLikelyVietnamese(part1Text || '') ? (part1Text || '').trim() : ''),
+            origPart2: origSplit.part2 || (!this.isLikelyVietnamese(part2Text || '') ? (part2Text || '').trim() : ''),
+            trans1,
+            trans2
+        };
+    }
+
+    splitSubtitleItem(sub: any, sceneIdx?: number, sIdx?: number, customCutTime?: number) {
+        if (!sub) sub = this.activeItem;
+        if (!sub) return;
+
+        const loc = this.findSubtitleSceneAndIndex(sub);
+        if (!loc) return;
+        const scene = loc.scene;
+        const targetIdx = loc.subIdx;
+        const targetSub = scene.subtitles[targetIdx];
+
+        const start = Number(targetSub.startTime) || 0;
+        const duration = Number(targetSub.duration) || 3;
         const end = start + duration;
 
-        // Tính điểm cắt: Nếu Playhead nằm trong khoảng của sub thì cắt tại Playhead, ngược lại chia đôi thời lượng
-        let cutTime = this.currentTimelineTime;
-        if (cutTime <= start + 0.3 || cutTime >= end - 0.3) {
+        let cutTime = customCutTime !== undefined ? customCutTime : this.currentTimelineTime;
+        if (cutTime <= start + 0.2 || cutTime >= end - 0.2) {
             cutTime = start + (duration / 2);
         }
 
         const firstDuration = Math.max(0.2, Math.round((cutTime - start) * 100) / 100);
         const secondDuration = Math.max(0.2, Math.round((end - cutTime) * 100) / 100);
+        const ratio = Math.max(0.1, Math.min(0.9, firstDuration / duration));
 
-        // Chia text thành 2 phần nếu có thể (chia theo từ)
-        const text = String(sub.text || '').trim();
-        const words = text.split(/\s+/);
-        let firstText = text;
-        let secondText = text;
+        const splitData = this.splitTextAndTranslations(targetSub, ratio);
 
-        if (words.length > 1) {
-            const midIndex = Math.ceil(words.length * (firstDuration / duration));
-            firstText = words.slice(0, midIndex).join(' ');
-            secondText = words.slice(midIndex).join(' ');
-        }
+        targetSub.duration = firstDuration;
+        targetSub.text = splitData.part1Text;
+        targetSub.vietnameseText = splitData.viPart1;
+        targetSub.originalText = splitData.origPart1;
+        targetSub.translations = splitData.trans1;
 
-        // Cập nhật sub hiện tại
-        sub.duration = firstDuration;
-        sub.text = firstText;
-
-        // Tạo sub mới nối tiếp
         const newSub = {
-            ...sub,
+            ...targetSub,
             id: Date.now() + Math.random(),
             startTime: Math.round(cutTime * 100) / 100,
             duration: secondDuration,
-            text: secondText,
-            vietnameseText: secondText
+            text: splitData.part2Text,
+            vietnameseText: splitData.viPart2,
+            originalText: splitData.origPart2,
+            translations: splitData.trans2
         };
 
-        const targetIdx = (sIdx !== undefined && sIdx >= 0) ? sIdx + 1 : scene.subtitles.indexOf(sub) + 1;
-        scene.subtitles.splice(targetIdx, 0, newSub);
+        scene.subtitles.splice(targetIdx + 1, 0, newSub);
 
         this.normalizeData();
         this.saveData(true);
+        this.updateActiveSubtitleInfo();
+        this.updateFilteredMediaItems();
         this.cd.detectChanges();
         this.toastr.success('Đã tách phân đoạn phụ đề thành công!');
+    }
+
+    splitActiveSubtitleAtCursor(textarea?: any) {
+        const sub = this.activeItem;
+        if (!sub) {
+            this.toastr.warning('Vui lòng chọn một phân đoạn phụ đề để tách.');
+            return;
+        }
+
+        const loc = this.findSubtitleSceneAndIndex(sub);
+        if (!loc) return;
+        const targetSub = loc.scene.subtitles[loc.subIdx];
+        const text = String(targetSub.text || '');
+
+        let cursorPos = -1;
+        if (textarea && typeof textarea.selectionStart === 'number') {
+            cursorPos = textarea.selectionStart;
+        }
+
+        if (cursorPos <= 0 || cursorPos >= text.length) {
+            const punctIdx = text.search(/[.?!…\n]/);
+            if (punctIdx > 0 && punctIdx < text.length - 1) {
+                cursorPos = punctIdx + 1;
+            } else {
+                const words = text.split(/\s+/).filter(w => w.length > 0);
+                if (words.length > 1) {
+                    const mid = Math.ceil(words.length / 2);
+                    const p1 = words.slice(0, mid).join(' ');
+                    cursorPos = p1.length;
+                } else {
+                    cursorPos = Math.floor(text.length / 2);
+                }
+            }
+        }
+
+        const p1 = text.substring(0, cursorPos).trim();
+        const p2 = text.substring(cursorPos).trim();
+
+        if (!p1 || !p2) {
+            this.toastr.warning('Vui lòng đặt con trỏ vào giữa ô văn bản để tách.');
+            return;
+        }
+
+        const totalLen = Math.max(1, text.length);
+        const ratio = Math.max(0.1, Math.min(0.9, p1.length / totalLen));
+
+        const totalDur = Number(targetSub.duration) || 3;
+        const d1 = Math.max(0.3, Math.round(totalDur * ratio * 10) / 10);
+        const d2 = Math.max(0.3, Math.round((totalDur - d1) * 10) / 10);
+        const start = Number(targetSub.startTime) || 0;
+        const cutTime = Math.round((start + d1) * 100) / 100;
+
+        const splitData = this.splitTextAndTranslations(targetSub, ratio, p1, p2);
+
+        targetSub.duration = d1;
+        targetSub.text = splitData.part1Text;
+        targetSub.vietnameseText = splitData.viPart1;
+        targetSub.originalText = splitData.origPart1;
+        targetSub.translations = splitData.trans1;
+
+        const newSub = {
+            ...targetSub,
+            id: Date.now() + Math.random(),
+            startTime: cutTime,
+            duration: d2,
+            text: splitData.part2Text,
+            vietnameseText: splitData.viPart2,
+            originalText: splitData.origPart2,
+            translations: splitData.trans2
+        };
+
+        loc.scene.subtitles.splice(loc.subIdx + 1, 0, newSub);
+
+        this.normalizeData();
+        this.saveData(true);
+        this.updateActiveSubtitleInfo();
+        this.updateFilteredMediaItems();
+        this.cd.detectChanges();
+        this.toastr.success(`Đã tách phụ đề thành 2 đoạn: "${p1.length > 20 ? p1.substring(0, 20) + '...' : p1}" (${d1}s) và "${p2.length > 20 ? p2.substring(0, 20) + '...' : p2}" (${d2}s)!`);
+    }
+
+    splitActiveSubtitleAtPlayhead() {
+        if (!this.activeItem) return;
+        const loc = this.findSubtitleSceneAndIndex(this.activeItem);
+        if (!loc) return;
+        this.splitSubtitleItem(this.activeItem, loc.sceneIdx, loc.subIdx, this.currentTimelineTime);
+    }
+
+    splitActiveSubtitleInHalf(targetSub?: any) {
+        const sub = targetSub || this.activeItem;
+        if (!sub) return;
+        const loc = this.findSubtitleSceneAndIndex(sub);
+        if (!loc) return;
+        const target = loc.scene.subtitles[loc.subIdx];
+        const cutTime = (Number(target.startTime) || 0) + ((Number(target.duration) || 3) / 2);
+        this.splitSubtitleItem(target, loc.sceneIdx, loc.subIdx, cutTime);
+    }
+
+    smartAutoSplitSubtitle(targetSub?: any) {
+        const sub = targetSub || this.activeItem;
+        if (!sub) return;
+
+        const loc = this.findSubtitleSceneAndIndex(sub);
+        if (!loc) return;
+        const target = loc.scene.subtitles[loc.subIdx];
+        const text = String(target.text || '').trim();
+        const duration = Number(target.duration) || 3;
+        const startTime = Number(target.startTime) || 0;
+
+        let parts = text.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+        if (parts.length <= 1) {
+            parts = text.split(/(?<=[,;:—–])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+        }
+        if (parts.length <= 1) {
+            const words = text.split(/\s+/).filter(w => w.length > 0);
+            if (words.length >= 6) {
+                const mid = Math.ceil(words.length / 2);
+                parts = [
+                    words.slice(0, mid).join(' '),
+                    words.slice(mid).join(' ')
+                ];
+            }
+        }
+
+        if (parts.length <= 1) {
+            this.toastr.info('Phụ đề này đã đủ ngắn gọn, không cần tách thêm.');
+            return;
+        }
+
+        let viParts: string[] = [];
+        if (target.vietnameseText && target.vietnameseText.trim() !== text) {
+            const viText = target.vietnameseText.trim();
+            viParts = viText.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+            if (viParts.length !== parts.length) {
+                viParts = viText.split(/(?<=[,;:—–])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+            }
+            if (viParts.length !== parts.length) {
+                const viWords = viText.split(/\s+/).filter(w => w.length > 0);
+                const totalWords = viWords.length;
+                viParts = [];
+                let viWordCursor = 0;
+                const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+                for (let i = 0; i < parts.length; i++) {
+                    if (i === parts.length - 1) {
+                        viParts.push(viWords.slice(viWordCursor).join(' '));
+                    } else {
+                        const chunkCount = Math.max(1, Math.round(totalWords * (parts[i].length / totalChars)));
+                        viParts.push(viWords.slice(viWordCursor, viWordCursor + chunkCount).join(' '));
+                        viWordCursor += chunkCount;
+                    }
+                }
+            }
+        }
+
+        const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+        const newSubs: any[] = [];
+        let curTime = startTime;
+
+        for (let i = 0; i < parts.length; i++) {
+            const pText = parts[i];
+            const pViText = viParts[i] || (this.isLikelyVietnamese(pText) ? pText : '');
+            const pDur = (i === parts.length - 1)
+                ? Math.max(0.3, Math.round((startTime + duration - curTime) * 100) / 100)
+                : Math.max(0.3, Math.round(duration * (pText.length / totalChars) * 100) / 100);
+
+            newSubs.push({
+                ...target,
+                id: Date.now() + i + Math.random(),
+                startTime: Math.round(curTime * 100) / 100,
+                duration: pDur,
+                text: pText,
+                vietnameseText: pViText,
+                originalText: !this.isLikelyVietnamese(pText) ? pText : '',
+                translations: {
+                    'vi': pViText,
+                    'original': !this.isLikelyVietnamese(pText) ? pText : pText,
+                    'en': !this.isLikelyVietnamese(pText) ? pText : ''
+                }
+            });
+
+            curTime += pDur;
+        }
+
+        loc.scene.subtitles.splice(loc.subIdx, 1, ...newSubs);
+
+        this.activeItem = newSubs[0];
+        this.normalizeData();
+        this.saveData(true);
+        this.updateActiveSubtitleInfo();
+        this.updateFilteredMediaItems();
+        this.cd.detectChanges();
+        this.toastr.success(`Đã tự động tách phụ đề thành ${newSubs.length} phân đoạn ngắn gọn!`);
+    }
+
+    autoSplitAllLongSubtitles(scope: 'all' | 'selected' = 'all') {
+        if (!this.projectData?.scenes) return;
+
+        let splitCount = 0;
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (!scene.subtitles || !Array.isArray(scene.subtitles)) continue;
+
+            const newSubList: any[] = [];
+            for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                const sub = scene.subtitles[subIdx];
+                if (scope === 'selected' && !this.selectedItems.has(sub) && this.activeItem !== sub) {
+                    newSubList.push(sub);
+                    continue;
+                }
+
+                const text = String(sub.text || '').trim();
+                const words = text.split(/\s+/).filter(w => w.length > 0);
+                const hasMultipleSentences = /(?<=[.?!…\n])\s+/.test(text);
+                const isLong = text.length > 35 || words.length > 8 || hasMultipleSentences;
+
+                if (isLong && (Number(sub.duration) || 0) >= 1.5) {
+                    let parts = text.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                    if (parts.length <= 1) {
+                        parts = text.split(/(?<=[,;:—–])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                    }
+                    if (parts.length <= 1 && words.length >= 8) {
+                        const mid = Math.ceil(words.length / 2);
+                        parts = [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+                    }
+
+                    if (parts.length > 1) {
+                        splitCount++;
+                        const duration = Number(sub.duration) || 3;
+                        const startTime = Number(sub.startTime) || 0;
+                        const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+
+                        let viParts: string[] = [];
+                        if (sub.vietnameseText && sub.vietnameseText.trim() !== text) {
+                            const viText = sub.vietnameseText.trim();
+                            viParts = viText.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                            if (viParts.length !== parts.length) {
+                                viParts = viText.split(/(?<=[,;:—–])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                            }
+                            if (viParts.length !== parts.length) {
+                                const viWords = viText.split(/\s+/).filter(w => w.length > 0);
+                                const totalWords = viWords.length;
+                                viParts = [];
+                                let viWordCursor = 0;
+                                for (let i = 0; i < parts.length; i++) {
+                                    if (i === parts.length - 1) {
+                                        viParts.push(viWords.slice(viWordCursor).join(' '));
+                                    } else {
+                                        const chunkCount = Math.max(1, Math.round(totalWords * (parts[i].length / totalChars)));
+                                        viParts.push(viWords.slice(viWordCursor, viWordCursor + chunkCount).join(' '));
+                                        viWordCursor += chunkCount;
+                                    }
+                                }
+                            }
+                        }
+
+                        let curTime = startTime;
+                        for (let i = 0; i < parts.length; i++) {
+                            const pText = parts[i];
+                            const pViText = viParts[i] || (this.isLikelyVietnamese(pText) ? pText : '');
+                            const pDur = (i === parts.length - 1)
+                                ? Math.max(0.3, Math.round((startTime + duration - curTime) * 100) / 100)
+                                : Math.max(0.3, Math.round(duration * (pText.length / totalChars) * 100) / 100);
+
+                            newSubList.push({
+                                ...sub,
+                                id: Date.now() + i + Math.random(),
+                                startTime: Math.round(curTime * 100) / 100,
+                                duration: pDur,
+                                text: pText,
+                                vietnameseText: pViText,
+                                originalText: !this.isLikelyVietnamese(pText) ? pText : '',
+                                translations: {
+                                    'vi': pViText,
+                                    'original': !this.isLikelyVietnamese(pText) ? pText : pText,
+                                    'en': !this.isLikelyVietnamese(pText) ? pText : ''
+                                }
+                            });
+                            curTime += pDur;
+                        }
+                        continue;
+                    }
+                }
+                newSubList.push(sub);
+            }
+            scene.subtitles = newSubList;
+        }
+
+        if (splitCount > 0) {
+            this.normalizeData();
+            this.saveData(true);
+            this.updateActiveSubtitleInfo();
+            this.updateFilteredMediaItems();
+            this.cd.detectChanges();
+            this.toastr.success(`Đã tự động tách ${splitCount} câu phụ đề dài thành các phân đoạn ngắn!`);
+        } else {
+            this.toastr.info('Không có phân đoạn phụ đề nào quá dài cần tách.');
+        }
     }
 
     async exportCurrentSubtitles() {

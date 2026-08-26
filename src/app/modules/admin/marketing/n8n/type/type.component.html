@@ -1,0 +1,275 @@
+<div class="flex flex-col sm:flex-row flex-0 h-full bg-transparent overflow-hidden">
+    <!-- Left Panel: Trợ lý AI - Lên kịch bản (Diễn đàn Type) -->
+    <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white">
+        <!-- Header Bar -->
+        <div class="flex flex-row h-[72px] min-h-[72px] max-h-[72px] px-6 border-b items-center justify-between bg-white shrink-0">
+            <div class="flex items-center gap-2">
+                <mat-icon class="icon-size-5 text-primary-600" [svgIcon]="'feather:type'"></mat-icon>
+                <h3 class="text-base font-bold text-gray-900 m-0">Trợ lý AI - Diễn đàn Type</h3>
+            </div>
+            <div class="flex items-center gap-1 text-gray-400">
+                <button mat-icon-button (click)="clearChatMessages()" matTooltip="Xóa trò chuyện">
+                    <mat-icon class="icon-size-4.5 text-gray-500" [svgIcon]="'feather:trash-2'"></mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Lưu kịch bản">
+                    <mat-icon class="icon-size-4.5 text-gray-500" [svgIcon]="'feather:bookmark'"></mat-icon>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div #chatScrollContainer (scroll)="onChatScroll($event)" class="flex-1 overflow-y-auto p-6 space-y-4 bg-white">
+            <!-- Empty State Placeholder -->
+            <div *ngIf="!chatMessages || chatMessages.length === 0" class="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400">
+                <div class="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-3 text-indigo-600">
+                    <mat-icon class="icon-size-8" [svgIcon]="'feather:type'"></mat-icon>
+                </div>
+                <h4 class="text-base font-bold text-gray-700 m-0 mb-1">Chưa có nội dung trao đổi</h4>
+                <p class="text-sm text-gray-400 m-0 max-w-xs">
+                    Hãy chọn một hoặc nhiều bài viết bên phải, sau đó nhập yêu cầu để Trợ lý AI tạo nội dung chia sẻ lên Diễn đàn Type.
+                </p>
+            </div>
+
+            <ng-container *ngFor="let msg of chatMessages">
+                <!-- Assistant Message Bubble -->
+                <div *ngIf="msg.role === 'assistant'" class="flex flex-col gap-1.5 max-w-[95%]">
+                    <div class="ai-chat-bubble bg-gray-100/80 border border-gray-200/50 rounded-xl p-4 text-base text-gray-800 leading-relaxed shadow-2xs"
+                         (click)="onChatBubbleClick($event)"
+                         [innerHTML]="msg.content">
+                    </div>
+
+                    <!-- Interactive Action Confirmation / Status Card -->
+                    <div *ngIf="msg.confirmAction" class="p-3 bg-white dark:bg-gray-800 rounded-xl border border-teal-200 dark:border-teal-800/60 shadow-2xs space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <mat-icon class="icon-size-3.5 text-teal-600" [svgIcon]="'feather:cpu'"></mat-icon>
+                                Tác vụ tự động hóa
+                            </span>
+                            <span *ngIf="msg.confirmAction.status === 'executed'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                <mat-icon class="icon-size-3" [svgIcon]="'feather:check'"></mat-icon> Đang thực thi
+                            </span>
+                            <span *ngIf="msg.confirmAction.status === 'pending'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                <mat-icon class="icon-size-3" [svgIcon]="'feather:clock'"></mat-icon> Chờ xác nhận
+                            </span>
+                            <span *ngIf="msg.confirmAction.status === 'cancelled'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                                <mat-icon class="icon-size-3" [svgIcon]="'feather:x'"></mat-icon> Đã hủy
+                            </span>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex items-center flex-wrap gap-2 pt-0.5">
+                            <button *ngIf="msg.confirmAction.status === 'pending'" 
+                                    type="button" 
+                                    (click)="confirmAndExecuteAction(msg)"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600 hover:bg-teal-700 text-white shadow-2xs transition-all flex items-center gap-1 cursor-pointer">
+                                <mat-icon class="icon-size-3.5" [svgIcon]="'feather:play'"></mat-icon>
+                                Xác nhận & Thực thi ngay
+                            </button>
+                            <button *ngIf="msg.confirmAction.status === 'executed'" 
+                                    type="button" 
+                                    (click)="confirmAndExecuteAction(msg)"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 transition-colors flex items-center gap-1 cursor-pointer">
+                                <mat-icon class="icon-size-3.5" [svgIcon]="'feather:rotate-cw'"></mat-icon>
+                                Chạy lại tác vụ
+                            </button>
+                            <button type="button" 
+                                    (click)="continuePrompt(msg)"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-teal-50 hover:bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 transition-colors flex items-center gap-1 cursor-pointer">
+                                <mat-icon class="icon-size-3.5" [svgIcon]="'feather:edit-3'"></mat-icon>
+                                Viết tiếp prompt cho câu hỏi này
+                            </button>
+                            <button *ngIf="msg.confirmAction.status === 'pending'" 
+                                    type="button" 
+                                    (click)="cancelAction(msg)"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer">
+                                Hủy bỏ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Follow-up Suggested Prompt Chips -->
+                    <div *ngIf="msg.followUpPrompts && msg.followUpPrompts.length > 0" class="flex flex-wrap gap-1.5 mt-1">
+                        <button *ngFor="let p of msg.followUpPrompts" 
+                                type="button" 
+                                (click)="applyFollowUpPrompt(p)"
+                                class="px-3 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-800 hover:bg-teal-50 dark:hover:bg-teal-950/60 text-teal-800 dark:text-teal-200 border border-teal-200/80 dark:border-teal-800/80 hover:border-teal-400 transition-all shadow-2xs cursor-pointer flex items-center gap-1.5">
+                            <span>{{ p }}</span>
+                        </button>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="flex items-center gap-3 px-1 text-xs text-gray-400 select-none">
+                        <span>{{ getMessageTime(msg) }}</span>
+                        <button type="button" (click)="copyMessageContent(msg)" class="hover:text-gray-600 dark:hover:text-gray-200 transition-colors inline-flex items-center gap-1 cursor-pointer">
+                            <mat-icon class="icon-size-3.5" [svgIcon]="'feather:copy'"></mat-icon>
+                            Sao chép
+                        </button>
+                        <button type="button" (click)="continuePrompt(msg)" class="hover:text-gray-600 dark:hover:text-gray-200 transition-colors inline-flex items-center gap-1 cursor-pointer">
+                            <mat-icon class="icon-size-3.5" [svgIcon]="'feather:edit-3'"></mat-icon>
+                            Viết tiếp prompt
+                        </button>
+                        <button type="button" (click)="askAgain(msg)" class="hover:text-gray-600 dark:hover:text-gray-200 transition-colors inline-flex items-center gap-1 cursor-pointer">
+                            <mat-icon class="icon-size-3.5" [svgIcon]="'feather:rotate-cw'"></mat-icon>
+                            Hỏi lại
+                        </button>
+                    </div>
+                </div>
+
+                <!-- User Message Bubble -->
+                <div *ngIf="msg.role === 'user'" class="flex flex-col items-end gap-1.5 max-w-[90%] ml-auto">
+                    <div class="bg-primary text-on-primary rounded-2xl rounded-tr-xs px-4 py-3 text-base shadow-2xs whitespace-pre-wrap">
+                        {{ msg.content }}
+                    </div>
+                    <span class="text-xs text-gray-400 px-1">{{ getMessageTime(msg) }}</span>
+                </div>
+            </ng-container>
+        </div>
+
+        <!-- Chat Controls & Input Section -->
+        <div class="p-4 border-t bg-white shrink-0 space-y-3">
+            <!-- Profile Mention Dropdown Bar -->
+            <div *ngIf="showNgSelectBar" class="flex items-center gap-2 animate-fadeIn">
+                <ng-select [items]="runningProfiles"
+                           [multiple]="true"
+                           [closeOnSelect]="false"
+                           [searchable]="true"
+                           bindValue="name"
+                           bindLabel="name"
+                           placeholder="Chọn profile để gắn thẻ..."
+                           [(ngModel)]="selectedProfilesForScript"
+                           (ngModelChange)="onNgSelectProfilesChange($event)"
+                           class="flex-1 custom-profile-select text-base"
+                           appendTo="body">
+                    <ng-template ng-header-tmp>
+                        <div class="flex items-center justify-between p-2 border-b border-gray-100 bg-gray-50 text-xs">
+                            <button type="button" mat-button (click)="selectAllNgProfiles()" class="text-primary font-semibold !text-xs !py-0 !px-2 !min-h-0 !h-6">
+                                Chọn tất cả
+                            </button>
+                            <button type="button" mat-button (click)="clearAllNgProfiles()" class="text-gray-500 font-semibold !text-xs !py-0 !px-2 !min-h-0 !h-6">
+                                Bỏ chọn
+                            </button>
+                        </div>
+                    </ng-template>
+                    <ng-option *ngFor="let user of runningProfiles" [value]="user.name">
+                        <div class="flex items-center gap-2 py-0.5">
+                            <img [src]="getProfileAvatar(user)"
+                                 (error)="onImgError($event)"
+                                 class="w-6 h-6 rounded-full object-cover shrink-0 border border-gray-200" />
+                            <span class="text-base text-gray-800 dark:text-gray-200">
+                                {{ user.persona?.alias ? user.persona.alias + ' (' + user.name + ')' : user.name }}
+                            </span>
+                        </div>
+                    </ng-option>
+                    <ng-template ng-footer-tmp>
+                        <button mat-flat-button class="w-full" [color]="'primary'"
+                            [disabled]="selectedProfilesForScript.length === 0"
+                            (click)="applyNgProfilesToPrompt()">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
+                            <span class="ml-2 text-base">Sử dụng các Profile này ({{ selectedProfilesForScript.length }})</span>
+                        </button>
+                    </ng-template>
+                </ng-select>
+            </div>
+
+            <!-- Chat Input Bar -->
+            <div class="script-chat-input-container flex items-center gap-3 border border-gray-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-xl px-4 py-2.5 bg-white shadow-2xs transition-all">
+                <button type="button" mat-icon-button class="text-gray-400 hover:text-gray-600" (click)="insertSelectedArticlesToPrompt()" matTooltip="Đưa bài viết đã chọn vào prompt">
+                    <mat-icon class="icon-size-5" [svgIcon]="'feather:file-text'"></mat-icon>
+                </button>
+                <button type="button" 
+                        (click)="toggleProfileMentionPopup()" 
+                        matTooltip="Chọn Profile đang chạy (@)"
+                        [class.text-primary]="showProfileMentionPopup || showNgSelectBar"
+                        [class.bg-primary-50]="showProfileMentionPopup || showNgSelectBar"
+                        class="px-2 py-1 rounded-md text-base font-bold text-gray-500 hover:text-primary hover:bg-gray-100 transition-all cursor-pointer">
+                    {{ '@' }}
+                </button>
+                <input #scriptChatInput
+                       type="text" 
+                       [(ngModel)]="chatInput" 
+                       (input)="onChatInputChange($event)"
+                       (keydown)="onChatInputKeydown($event)"
+                       (keyup.enter)="sendChatMessage()"
+                       placeholder="Nhập yêu cầu tạo nội dung chia sẻ lên Diễn đàn... (nhập @ để chọn profile)" 
+                       class="flex-1 border-0 outline-none focus:ring-0 text-base text-gray-800 placeholder-gray-400 bg-transparent py-1" />
+                <button type="button" 
+                        (click)="sendChatMessage()"
+                        [disabled]="!chatInput || !chatInput.trim()"
+                        class="text-gray-400 hover:text-primary disabled:opacity-40 transition-colors p-1">
+                    <mat-icon class="icon-size-5 text-primary" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Ngx-Datatable Kho bài viết (Archives) -->
+    <div class="relative flex flex-col shrink-0 border-l w-[780px] h-full bg-white overflow-hidden">
+        <!-- Datatable Area -->
+        <div class="relative flex-auto w-full h-full overflow-hidden">
+            <ngx-datatable #archiveTable 
+                           class="material fullscreen h-full w-full" 
+                           [appScrollLock]="archiveIsLoading"
+                           [virtualization]="true" 
+                           [columnMode]="ColumnMode.force"
+                           [class.opacity-50]="archiveIsLoading"
+                           [selected]="archiveSelected" 
+                           [selectionType]="SelectionType.checkbox" 
+                           [selectAllRowsOnPage]="false"
+                           [displayCheck]="displayCheck" 
+                           (select)="onArchiveSelect($event)" 
+                           [externalPaging]="true" 
+                           [externalSorting]="true"
+                           [count]="archiveTotalElements" 
+                           [offset]="archivePageNumber" 
+                           (page)="setArchivePage($event)" 
+                           [headerHeight]="50"
+                           [footerHeight]="0" 
+                           [rowHeight]="50" 
+                           [scrollbarV]="true" 
+                           [rows]="archiveRows" 
+                           [rowClass]="getRowClass"
+                           [messages]="{ emptyMessage: 'Không có dữ liệu bài viết', totalMessage: 'bài viết' }">
+
+                <!-- Checkbox Column -->
+                <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                                      [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="displayCheck">
+                </ngx-datatable-column>
+
+                <!-- Title Column -->
+                <ngx-datatable-column name="Tiêu đề" [width]="500" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
+                            <div class="flex items-center w-full gap-2 my-auto cursor-pointer" (click)="insertArticleToPrompt(row)">
+                                <mat-icon *ngIf="isRowEncrypted(row)" class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto" [svgIcon]="'feather:lock'" [matTooltip]="'Nội dung đã được mã hóa AES-256'"></mat-icon>
+                                <p class="font-normal truncate flex-1 my-auto leading-normal hover:underline" [matTooltip]="row.title">{{ row.title || 'Không có tiêu đề' }}</p>
+                            </div>
+                        </ng-container>
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <!-- Domain Column -->
+                <ngx-datatable-column name="Domain" [width]="140" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="true">
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        <span *ngIf="!row?.isGroupHeader && getDomainString(row)" 
+                              (click)="$event.stopPropagation(); openWPPost(row)"
+                              [matTooltip]="getDomainString(row)"
+                              class="truncate block w-full text-blue-600 cursor-pointer hover:underline">
+                            {{ getDomainString(row) }}
+                        </span>
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <!-- Date Column -->
+                <ngx-datatable-column name="Ngày sửa" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
+                            <span class="text-base font-medium text-secondary">
+                                {{ getDateDisplay(row) }}
+                            </span>
+                        </ng-container>
+                    </ng-template>
+                </ngx-datatable-column>
+            </ngx-datatable>
+        </div>
+    </div>
+</div>

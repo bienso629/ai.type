@@ -301,7 +301,7 @@ export class GenaiService {
         const bypassAiAgent = (params.config as any)?.bypassAiAgent === true;
 
         const configuredAgentModel = settingsRaw?.aiAgentModel || 'glm-5.3';
-        if (isAiAgentActive && !isVideoRequest && !bypassAiAgent) {
+        if (isAiAgentActive && !isVideoRequest && !isImageRequest && !bypassAiAgent) {
             params.model = configuredAgentModel;
         }
 
@@ -548,7 +548,7 @@ export class GenaiService {
         
         formData.append('prompt', finalPrompt);
         const settings = this.getSettingsFromStorage();
-        const configuredAgentModel = settings.aiAgentModel || params.model || 'glm-5.3';
+        const configuredAgentModel = isImageRequest ? (params.model || 'gemini-3.7-flash') : (settings.aiAgentModel || params.model || 'gemini-3.7-flash');
         formData.append('model', configuredAgentModel);
         let sysContent = '';
         if (params.config && params.config.systemInstruction) {
