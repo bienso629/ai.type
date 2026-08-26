@@ -9,6 +9,7 @@
         "build:win": "npm run obfuscate && electron-builder --win -p always",
         "build:mac": "npm run obfuscate && electron-builder --mac",
         "build:linux": "npm run obfuscate && electron-builder --linux",
+        "build:all": "npm run obfuscate && electron-builder --win --mac --linux",
         "start": "npm run obfuscate && electron --no-sandbox .",
         "build:win:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --win -c build-lite.json",
         "build:mac:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --mac -c build-lite.json",

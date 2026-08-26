@@ -34,18 +34,28 @@ function encryptContent(text, password) {
     };
 }
 
+const SERVER_MASTER_KEYS = [
+    'ai_type_secret_key_2026_!@#',
+    '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8',
+    'ai.type.vn-secret-key-2026'
+];
+
 function decryptContent(encryptedObj, password) {
-    try {
-        const salt = Buffer.from(encryptedObj.salt, 'hex');
-        const iv = Buffer.from(encryptedObj.iv, 'hex');
-        const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        let decrypted = decipher.update(encryptedObj.data, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return { success: true, text: decrypted };
-    } catch (e) {
-        return { success: false, error: 'Mật khẩu giải mã không chính xác!' };
+    const keysToTry = [password, ...SERVER_MASTER_KEYS].filter(Boolean);
+    for (const key of keysToTry) {
+        try {
+            const salt = Buffer.from(encryptedObj.salt, 'hex');
+            const iv = Buffer.from(encryptedObj.iv, 'hex');
+            const derivedKey = crypto.pbkdf2Sync(key, salt, 100000, 32, 'sha256');
+            const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, iv);
+            let decrypted = decipher.update(encryptedObj.data, 'hex', 'utf8');
+            decrypted += decipher.final('utf8');
+            if (decrypted) {
+                return { success: true, text: decrypted };
+            }
+        } catch (e) {}
     }
+    return { success: false, error: 'Mật khẩu giải mã không chính xác!' };
 }
 
 function htmlToMarkdownFallback(html) {

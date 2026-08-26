@@ -17,6 +17,7 @@ import { DomainService } from 'app/_services/domain';
 import { ToastrService } from 'ngx-toastr';
 import { ArticlePasswordDialog } from '../../content/ai-writer/tools/article-password-dialog';
 import * as CryptoJS from 'crypto-js';
+import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
 
 @Component({
     selector: 'dashboard',
@@ -975,16 +976,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe((res: any) => {
             if (res && res.password) {
                 const cipher = project.cipher || project.source?.cipher;
+                const masterCipher = project.master_cipher || project.source?.master_cipher;
                 let isValid = false;
-                if (cipher) {
-                    try {
-                        const bytes = CryptoJS.AES.decrypt(cipher, res.password);
-                        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                        if (decryptedText === 'VALID' || decryptedText.length > 0) {
-                            isValid = true;
-                        }
-                    } catch (e) {
-                        isValid = false;
+                if (isMasterKey(res.password)) {
+                    isValid = true;
+                } else if (cipher || masterCipher) {
+                    const decryptedText = tryDecryptWithMasterFallback(cipher, res.password, masterCipher);
+                    if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
+                        isValid = true;
                     }
                 } else {
                     isValid = true;

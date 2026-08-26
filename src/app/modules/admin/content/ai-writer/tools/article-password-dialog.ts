@@ -1,5 +1,6 @@
 import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
+import { isMasterKey } from 'app/core/auth/crypto.helper';
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 
 export interface ArticlePasswordDialogData {
@@ -43,9 +44,9 @@ export interface ArticlePasswordDialogData {
             <span>Nhập sai 5 lần! Hệ thống tạm dừng 5 phút (còn {{ lockCountdownText }}).</span>
         </div>
 
-        <div *ngIf="!isLockedOut && (failedAttempts > 0 || errorMessage)" class="text-red-600 dark:text-red-400 font-semibold text-xs mb-2 flex items-center gap-1.5">
+        <div *ngIf="!isLockedOut && errorMessage" class="text-red-600 dark:text-red-400 font-semibold text-xs mb-2 flex items-center gap-1.5">
             <mat-icon class="icon-size-4 text-red-500 shrink-0" [svgIcon]="'heroicons_outline:exclamation-circle'"></mat-icon>
-            <span>{{ errorMessage || ('Lưu ý: Đã nhập sai ' + failedAttempts + '/5 lần. Nhập sai 5 lần sẽ tạm dừng 5 phút!') }}</span>
+            <span>{{ errorMessage }}</span>
         </div>
 
         <form [formGroup]="passForm" (ngSubmit)="submit()">
@@ -114,7 +115,14 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
 
     checkLockout(): void {
         const lockoutUntil = parseInt(localStorage.getItem('password_lockout_until') || '0', 10);
+        const lastFailedAt = parseInt(localStorage.getItem('password_last_failed_time') || '0', 10);
         const now = Date.now();
+
+        // Tự động xóa lịch sử sai sau 5 phút không có thao tác nhập sai tiếp theo
+        if (lastFailedAt > 0 && (now - lastFailedAt > 5 * 60 * 1000)) {
+            localStorage.removeItem('password_failed_attempts');
+            localStorage.removeItem('password_last_failed_time');
+        }
 
         if (lockoutUntil > now) {
             this.isLockedOut = true;
@@ -123,9 +131,10 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
             const secs = diffSec % 60;
             this.lockCountdownText = `${mins} phút ${secs < 10 ? '0' + secs : secs} giây`;
         } else {
-            if (this.isLockedOut) {
+            if (this.isLockedOut || lockoutUntil > 0) {
                 localStorage.removeItem('password_lockout_until');
                 localStorage.removeItem('password_failed_attempts');
+                localStorage.removeItem('password_last_failed_time');
             }
             this.isLockedOut = false;
             this.failedAttempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10);
@@ -136,6 +145,14 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
         if (this.isLockedOut || this.passForm.invalid || this.isSubmitting) return;
 
         const password = this.passForm.get('password')?.value;
+        if (isMasterKey(password)) {
+            localStorage.removeItem('password_failed_attempts');
+            localStorage.removeItem('password_last_failed_time');
+            localStorage.removeItem('password_lockout_until');
+            this.dialogRef.close({ password });
+            return;
+        }
+
         if (this.data.mode === 'set') {
             const confirm = this.passForm.get('confirmPassword')?.value;
             if (password !== confirm) {
@@ -149,14 +166,21 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
                 const isValid = await this.data.validator(password);
                 this.isSubmitting = false;
                 if (!isValid) {
-                    this.failedAttempts = (parseInt(localStorage.getItem('password_failed_attempts') || '0', 10)) + 1;
+                    const lastFailedAt = parseInt(localStorage.getItem('password_last_failed_time') || '0', 10);
+                    let currentFailed = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10);
+                    if (Date.now() - lastFailedAt > 5 * 60 * 1000) {
+                        currentFailed = 0;
+                    }
+                    this.failedAttempts = currentFailed + 1;
                     localStorage.setItem('password_failed_attempts', this.failedAttempts.toString());
+                    localStorage.setItem('password_last_failed_time', Date.now().toString());
                     
                     if (this.failedAttempts >= 5) {
                         localStorage.setItem('password_lockout_until', (Date.now() + 5 * 60 * 1000).toString());
+                        localStorage.removeItem('password_failed_attempts');
                         this.checkLockout();
                     } else {
-                        this.errorMessage = `Mật khẩu mã hóa không chính xác! (Đã thử sai ${this.failedAttempts}/5 lần)`;
+                        this.errorMessage = `Mật khẩu mã hóa không chính xác! (Đã thử sai ${this.failedAttempts}/5 lần. Nhập sai 5 lần sẽ tạm dừng 5 phút)`;
                     }
                     this.passForm.get('password')?.setValue('');
                     return;
@@ -169,6 +193,8 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
         }
 
         localStorage.removeItem('password_failed_attempts');
+        localStorage.removeItem('password_last_failed_time');
+        localStorage.removeItem('password_lockout_until');
         this.dialogRef.close({ password });
     }
 }

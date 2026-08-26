@@ -9,7 +9,12 @@
         "ng": "ng",
         "dev": "ng serve",
         "dev:electron": "node dev-electron.js",
-        "build": "ng build --configuration=production",
+        "build": "node build-all.js",
+        "build:all": "node build-all.js --all",
+        "build:win": "node build-all.js --win",
+        "build:linux": "node build-all.js --linux",
+        "build:mac": "node build-all.js --mac",
+        "build:frontend": "ng build --configuration=production",
         "watch": "ng build --watch --configuration development",
         "test": "ng test"
     },
