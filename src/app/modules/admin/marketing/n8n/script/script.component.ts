@@ -363,15 +363,25 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         ca.status = 'executed';
 
         if (ca.runPayload) {
+            ca.runPayload.mode = "replace";
+            ca.runPayload.window_state = "maximized";
+            ca.runPayload.extra_args = ["--ignore-certificate-errors", "--disable-quic"];
             this._mxhautoService.run(ca.runPayload)
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
-                    next: () => {
-                        this.toastr.success(`Đang mở ${ca.profiles.length} profile truy cập video...`);
+                    next: (res: any) => {
+                        if (res && res.results) {
+                            this.toastr.success(`Đang mở ${ca.profiles.length} profile: ${ca.profiles.join(', ')}`);
+                        } else if (res && res.ok === false) {
+                            this.toastr.error(res.error || res.message || 'Lỗi khi khởi chạy profile');
+                        } else {
+                            this.toastr.success(`Đã gửi lệnh chạy Opera cho ${ca.profiles.length} profile.`);
+                        }
+
                         if (ca.isLikeIntent && ca.videoUrl) {
                             setTimeout(() => {
                                 const likePayload = {
-                                    site: "tiktok.com",
+                                    site: this.platform === 'shopee' ? 'shopee.vn' : (this.platform === 'type' ? 'type.vn' : 'tiktok.com'),
                                     title: "Thả tim",
                                     profiles: ca.profiles,
                                     profiles_root: this.getProfilesRoot(),
@@ -385,7 +395,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                             }, 3000);
                         }
                     },
-                    error: () => this.toastr.error('Lỗi khi khởi chạy profile')
+                    error: (err: any) => this.toastr.error(`Lỗi khi khởi chạy profile: ${err?.message || 'Không thể kết nối Opera service'}`)
                 });
         }
         this.cd.markForCheck();
@@ -561,7 +571,12 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     fetchRunningProfiles(): void {
         // 1. Dùng danh sách items / profiles có sẵn hiển thị 0ms
         const currentList = (this.items && this.items.length > 0) ? this.items : this.profiles;
-        this.populateRunningProfilesList(currentList);
+        if (currentList && currentList.length > 0) {
+            this.populateRunningProfilesList(currentList);
+        }
+
+        const username = this.user?.name || (this as any).currentUsername || 'admin';
+        const platformParam = (this.platform && this.platform !== 'type') ? this.platform : 'tiktok';
 
         // 2. Tải thêm từ server để đồng bộ mới nhất
         this._mxhautoService.profiles({
@@ -570,8 +585,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             verify: true,
             filter: 'running',
             include_accounts: true,
-            platform: this.platform || 'tiktok',
-            username: this.user?.name || 'admin'
+            platform: platformParam,
+            username: username
         }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
             next: (result: any) => {
                 if (result && result.ok && Array.isArray(result.results)) {
@@ -740,13 +755,68 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         }, 50);
     }
 
+    attachedFiles: { file: File, name: string, size: string, isImage: boolean, preview?: string }[] = [];
+
+    onFileSelected(event: any): void {
+        const files: FileList = event?.target?.files;
+        if (!files || files.length === 0) return;
+
+        Array.from(files).forEach((file: File) => {
+            const isImage = file.type.startsWith('image/');
+            const sizeFormatted = file.size > 1024 * 1024 
+                ? (file.size / (1024 * 1024)).toFixed(1) + ' MB' 
+                : Math.round(file.size / 1024) + ' KB';
+
+            const item: { file: File, name: string, size: string, isImage: boolean, preview?: string } = {
+                file: file,
+                name: file.name,
+                size: sizeFormatted,
+                isImage: isImage
+            };
+
+            if (isImage) {
+                const reader = new FileReader();
+                reader.onload = (e: any) => {
+                    item.preview = e.target.result;
+                    this.cd.markForCheck();
+                };
+                reader.readAsDataURL(file);
+            }
+
+            this.attachedFiles.push(item);
+        });
+
+        this.toastr.success(`Đã đính kèm ${files.length} tệp.`);
+        if (event.target) event.target.value = '';
+        this.cd.markForCheck();
+    }
+
+    removeAttachedFile(index: number): void {
+        if (index >= 0 && index < this.attachedFiles.length) {
+            this.attachedFiles.splice(index, 1);
+            this.cd.markForCheck();
+        }
+    }
+
     async sendChatMessage(): Promise<void> {
         this.closeProfileMentionPopup();
-        if (!this.chatInput || !this.chatInput.trim()) return;
-        const text = this.chatInput.trim();
+        const hasText = !!(this.chatInput && this.chatInput.trim());
+        const hasFiles = this.attachedFiles && this.attachedFiles.length > 0;
+        if (!hasText && !hasFiles) return;
+
+        const text = (this.chatInput || '').trim();
+        const filesToSend = [...this.attachedFiles];
         const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        this.chatMessages.push({ role: 'user', content: text, time: nowTime } as any);
+        
+        this.chatMessages.push({
+            role: 'user',
+            content: text,
+            files: filesToSend,
+            time: nowTime
+        } as any);
+
         this.chatInput = '';
+        this.attachedFiles = [];
         this.cd.markForCheck();
 
         const loadingMsg: { role: 'user' | 'assistant'; content: string; time?: string } = {
@@ -776,39 +846,97 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             ].filter(Boolean);
 
             const isMatch = tokens.some(tok => text.toLowerCase().includes(tok.toLowerCase()));
-            if (isMatch && !mentionedProfiles.some(m => (m.profile || m.name) === (p.profile || p.name))) {
+        if (isMatch && !mentionedProfiles.some(m => (m.profile || m.name) === (p.profile || p.name))) {
                 mentionedProfiles.push(p);
             }
         });
 
-        const isLikeIntent = /(like|thích|thả tim|tha tim)/i.test(text);
-        const isCommentIntent = /(comment|bình luận|viet comment|cmt)/i.test(text);
-        const isViewIntent = /(xem|xem video|truy cập|vao xem|mở video|open)/i.test(text);
+        const isStopIntent = /(dừng|dừng lại|ngừng|tắt|đóng|dong|tat|dung|kill|stop|close|exit|terminate)/i.test(text);
+        const isRunIntent = /(mở|chạy|khởi chạy|bật|open|run|start|truy cập|vao xem)/i.test(text);
+        const isLikeIntent = /(like|thích|thả tim|tha tim|tym|upvote)/i.test(text);
+        const isCommentIntent = /(comment|bình luận|viet comment|cmt|trả lời|thảo luận)/i.test(text);
+        const isShareIntent = /(chia sẻ|share|đăng bài|post|đăng lên|bài viết)/i.test(text);
+        const isActionRequested = isStopIntent || isRunIntent || isLikeIntent || isCommentIntent || isShareIntent || !!targetUrl;
 
-        // NẾU CÓ CHỈ ĐẠO HÀNH ĐỘNG VÀ LINK VIDEO (HOẶC PROFILES GẮN THẺ) -> THỰC THI NGAY
-        if (targetUrl && (mentionedProfiles.length > 0 || isLikeIntent || isViewIntent)) {
-            const targetProfiles = mentionedProfiles.length > 0 
+        // THỰC THI NGAY MỌI HÀNH ĐỘNG - KHÔNG HỎI LẠI
+        if (isActionRequested) {
+            let targetProfiles = mentionedProfiles.length > 0 
                 ? mentionedProfiles 
-                : (this.selectedProfilesForScript?.length ? this.selectedProfilesForScript.map(n => ({ profile: n, name: n })) : [{ profile: 'Profile000', name: 'Profile000' }]);
-            const profileNames = targetProfiles.map(p => p.profile || p.name);
+                : (this.selectedProfilesForScript?.length 
+                    ? this.selectedProfilesForScript.map(n => ({ profile: n, name: n })) 
+                    : (this.runningProfiles.length > 0 ? this.runningProfiles : (this.profiles && this.profiles.length > 0 ? this.profiles : [])));
+            
+            let profileNames = targetProfiles.map(p => p.profile || p.name).filter(Boolean);
+            if (profileNames.length === 0) {
+                const defaultProfile = this.getProfileName() || 'Profile001';
+                profileNames = [defaultProfile];
+            }
+
+            if (isStopIntent) {
+                this._mxhautoService.killProfiles({
+                    profiles_root: this.getProfilesRoot(),
+                    profiles: profileNames,
+                    mode: "force",
+                    force: true,
+                    cache_action: "prune",
+                    username: this.user ? this.user.name : (this as any).currentUsername || ''
+                }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                    next: () => {
+                        this.toastr.info(`Đã đóng ${profileNames.length} profile: ${profileNames.join(', ')}`);
+                        this.fetchRunningProfiles();
+                    },
+                    error: () => this.toastr.error('Có lỗi xảy ra khi đóng profile')
+                });
+
+                loadingMsg.content = `
+                    <div class="space-y-2">
+                        <div class="font-semibold text-gray-800 dark:text-gray-100">🛑 <b>Đã tiếp nhận yêu cầu và đang đóng các trình duyệt Opera:</b></div>
+                        <div class="space-y-1.5 text-sm text-gray-700 dark:text-gray-300">
+                            <div class="font-medium flex items-center gap-1.5 text-gray-800 dark:text-gray-200">✨ <b>Chi tiết tác vụ:</b></div>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li><b>Profiles dừng:</b> ${profileNames.join(', ')}</li>
+                                <li><b>Hành động:</b> Đóng hoàn toàn tiến trình Opera</li>
+                                <li><b>Trạng thái:</b> <span class="text-amber-600 font-bold">Đã dừng (Stopped)</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                this.cd.markForCheck();
+                this.scrollToBottom();
+                return;
+            }
+
+            let actionText = 'Mở trình duyệt Opera & Điều hướng tác vụ';
+            if (isLikeIntent) actionText = 'Tự động bấm Thích / Thả tim (❤️)';
+            else if (isCommentIntent) actionText = 'Soạn nội dung & Đăng bình luận tự động';
+            else if (isShareIntent) actionText = 'Chia sẻ / Đăng bài viết lên nền tảng';
+            else if (isRunIntent) actionText = 'Khởi chạy trình duyệt Opera Profile';
+
+            let destUrl = targetUrl;
+            if (!destUrl) {
+                if (this.platform === 'type') destUrl = 'https://type.vn';
+                else if (this.platform === 'shopee') destUrl = 'https://shopee.vn';
+                else destUrl = 'https://www.tiktok.com';
+            }
 
             // 1. Tự động Khởi chạy / Điều hướng Opera cho danh sách Profile
             const runPayload: any = {
                 profiles: profileNames,
                 base_debug_port: 0,
                 opera_path: this.getOperaPath(),
+                extra_args: ["--ignore-certificate-errors", "--disable-quic"],
                 devtools_ready_timeout_ms: 8000,
                 close_tabs_on_start: false,
                 leave_one_tab: false,
-                new_tab_url: targetUrl,
-                mode: "skip",
-                window_state: "normal",
+                new_tab_url: destUrl,
+                mode: "replace",
+                window_state: "maximized",
                 headless: false,
                 prefix_title_with_profile: true,
                 title_prefix_apply_all_tabs: true,
                 post_open_wait_ms: 800,
                 activate_opened_tab: true,
-                username: this.user ? this.user.name : ''
+                username: this.user ? this.user.name : (this as any).currentUsername || ''
             };
             const root = this.getProfilesRoot();
             if (root) runPayload.profiles_root = root;
@@ -817,17 +945,22 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: (res: any) => {
-                        this.toastr.success(`Đang mở ${profileNames.length} profile truy cập video...`);
+                        if (res && res.results) {
+                            this.toastr.success(`Đã khởi chạy Opera cho ${profileNames.length} profile: ${profileNames.join(', ')}`);
+                        } else if (res && res.ok) {
+                            this.toastr.success(`Đang thực thi mở Opera cho ${profileNames.join(', ')}`);
+                        } else if (res && res.ok === false) {
+                            this.toastr.error(res.error || res.message || 'Lỗi từ dịch vụ Opera');
+                        }
 
-                        // 2. Nếu có yêu cầu Like / Thả tim, tự động kích hoạt Like API sau 3s (để trang load)
-                        if (isLikeIntent) {
+                        if (isLikeIntent && destUrl) {
                             setTimeout(() => {
                                 const likePayload = {
-                                    site: "tiktok.com",
+                                    site: this.platform === 'shopee' ? 'shopee.vn' : (this.platform === 'type' ? 'type.vn' : 'tiktok.com'),
                                     title: "Thả tim",
                                     profiles: profileNames,
                                     profiles_root: this.getProfilesRoot(),
-                                    profile_urls: profileNames.reduce((acc: any, cur: string) => { acc[cur] = targetUrl; return acc; }, {}),
+                                    profile_urls: profileNames.reduce((acc: any, cur: string) => { acc[cur] = destUrl; return acc; }, {}),
                                     coords_file: "mouse_coords.json"
                                 };
                                 this._mxhautoService.like(likePayload).subscribe({
@@ -840,11 +973,11 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                         }
                     },
                     error: (err: any) => {
-                        this.toastr.error('Có lỗi xảy ra khi khởi chạy profile');
+                        this.toastr.error(`Lỗi khi khởi chạy Opera: ${err?.message || 'Không thể kết nối dịch vụ Opera'}`);
                     }
                 });
 
-            // 3. Tự động thêm vào Timeline Kịch bản để người dùng theo dõi
+            // 2. Tự động thêm vào Timeline Kịch bản để theo dõi
             targetProfiles.forEach(tp => {
                 const pName = tp.profile || tp.name;
                 let actor = this.items.find(it => it.name === pName);
@@ -853,56 +986,42 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                         id: this.items.length + 1,
                         name: pName,
                         streamItems: [
-                            { name: "Thả tim", meta: [] },
-                            { name: "Viết comment trong Live", meta: [] }
+                            { name: actionText, meta: [{ title: text, start: new Date(), videoUrl: destUrl }] }
                         ],
                         persona: tp.persona || {}
                     };
                     this.items.push(actor);
-                }
-                if (isLikeIntent) {
-                    const likeStream = actor.streamItems?.find(s => s.name === "Thả tim");
-                    if (likeStream) {
-                        likeStream.meta.push({
-                            title: 'Thả tim video',
-                            start: new Date(),
-                            videoUrl: targetUrl
-                        });
-                    }
+                } else {
+                    if (!actor.streamItems) actor.streamItems = [];
+                    actor.streamItems.push({ name: actionText, meta: [{ title: text, start: new Date(), videoUrl: destUrl }] });
                 }
             });
             this.items = [...this.items];
             this.saveScriptState();
 
-            // 4. Render thông báo thực thi trực quan trong chat
-            const actionText = isLikeIntent 
-                ? 'Mở trình duyệt Opera, truy cập video & tự động bấm Thích (Like ❤️)' 
-                : 'Mở trình duyệt Opera & Xem video';
-
+            // 3. Render thông báo thực thi trực quan trong chat
             loadingMsg.content = `
-                <div class="space-y-3">
-                    <div class="font-semibold text-gray-800 dark:text-gray-100">🚀 <b>Đã tiếp nhận chỉ đạo và đang thực thi tự động ngay:</b></div>
-                    <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 space-y-2">
-                        <div class="font-bold flex items-center gap-1.5"><span class="text-base">✨</span> Chi tiết tác vụ tự động:</div>
-                        <ul class="list-disc pl-5 text-sm space-y-1">
+                <div class="space-y-2">
+                    <div class="font-semibold text-gray-800 dark:text-gray-100">🚀 <b>Đã tiếp nhận yêu cầu và đang tự động thực thi ngay:</b></div>
+                    <div class="space-y-1.5 text-sm text-gray-700 dark:text-gray-300">
+                        <div class="font-medium flex items-center gap-1.5 text-gray-800 dark:text-gray-200">✨ <b>Chi tiết tác vụ thực thi:</b></div>
+                        <ul class="list-disc pl-5 space-y-1">
                             <li><b>Profiles thực hiện:</b> ${profileNames.join(', ')}</li>
-                            <li><b>Đường dẫn Video:</b> <a href="${targetUrl}" target="_blank" class="underline text-primary-600 font-medium">${targetUrl}</a></li>
+                            ${destUrl ? `<li><b>Đích đến / Video:</b> <a href="${destUrl}" target="_blank" class="underline text-primary-600 font-medium">${destUrl}</a></li>` : ''}
                             <li><b>Hành động:</b> ${actionText}</li>
-                            <li><b>Trạng thái:</b> <span class="text-green-600 font-bold">Đang khởi chạy Opera và thực hiện...</span></li>
+                            <li><b>Trạng thái:</b> <span class="text-green-600 font-bold">Đang chạy trực tiếp...</span></li>
                         </ul>
                     </div>
                 </div>
             `;
             (loadingMsg as any).confirmAction = {
-                actionType: 'video_interaction',
+                actionType: 'direct_execution',
                 profiles: profileNames,
-                videoUrl: targetUrl,
+                videoUrl: destUrl,
                 status: 'executed',
-                isLikeIntent: isLikeIntent,
                 runPayload: runPayload
             };
 
-            // AI tự động phân tích và sinh ra các câu hỏi/prompt gợi ý tiếp theo dựa trên video và profiles
             this._genaiService.generateFollowUpPrompts(
                 text,
                 `Đã thực thi mở Opera xem video ${targetUrl} cho các profile: ${profileNames.join(', ')}`,
@@ -1010,16 +1129,11 @@ YÊU CẦU CỦA NGUỜI DÙNG: "${text}"${personaContext}
 
 Nhiệm vụ của bạn:
 1. Trả lời câu hỏi hoặc xây dựng kịch bản/nội dung theo yêu cầu bằng HTML sạch sẽ, sinh động, chuẩn phong cách.
-2. Đánh giá xem câu trả lời có chứa tác vụ/kế hoạch cần người dùng Xác nhận (Confirm) trước khi chạy hay không ("need_confirm": true/false).
+2. Tuyệt đối KHÔNG hỏi lại hay yêu cầu người dùng xác nhận lại tác vụ. Hãy hoàn thành trọn vẹn câu trả lời.
 3. TỰ ĐỘNG NGHĨ RA 3-4 câu hỏi hoặc prompt gợi ý tiếp theo (suggestions) có tính liên kết chặt chẽ nhất với câu trả lời vừa rồi để người dùng có thể bấm hỏi tiếp.
 4. Trả về ĐÚNG định dạng JSON duy nhất (không bọc trong code block markdown):
 {
   "reply": "Nội dung phản hồi chi tiết bằng HTML sạch sẽ...",
-  "need_confirm": false,
-  "confirm_details": {
-    "action": "Tên tác vụ nếu cần confirm",
-    "description": "Mô tả tác vụ"
-  },
   "suggestions": [
     "Emoji Gợi ý 1 do AI tự nghĩ ra theo ngữ cảnh",
     "Emoji Gợi ý 2 do AI tự nghĩ ra theo ngữ cảnh",
@@ -1049,16 +1163,6 @@ Nhiệm vụ của bạn:
                 let formatted = this.formatAiResponse(parsedData.reply);
                 formatted = this.enhanceClickableRoomLinks(formatted);
                 loadingMsg.content = formatted;
-
-                if (parsedData.need_confirm && parsedData.confirm_details) {
-                    (loadingMsg as any).confirmAction = {
-                        actionType: 'script_execution',
-                        profiles: mentioned.map(p => p.name || p.profile),
-                        status: 'pending',
-                        title: parsedData.confirm_details.action || 'Xác nhận hành động',
-                        description: parsedData.confirm_details.description || ''
-                    };
-                }
 
                 if (Array.isArray(parsedData.suggestions) && parsedData.suggestions.length > 0) {
                     (loadingMsg as any).followUpPrompts = parsedData.suggestions;
@@ -2413,7 +2517,7 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
     getOperaPath(): string {
         const stored = localStorage.getItem('opera_executable_path');
         if (stored && stored.trim()) return stored.trim();
-        return '';
+        return '/usr/bin/opera-gx';
     }
 
     getProfilesRoot(): string {
