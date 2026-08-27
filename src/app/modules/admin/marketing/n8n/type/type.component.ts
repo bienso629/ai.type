@@ -120,12 +120,16 @@ export class AMXHTypeComponent extends AMXHScriptAppComponent implements OnInit,
                     this.user = user;
                     this.loadArchiveCollections();
                     this.searchArchiveNode();
+                    this.fetchRunningProfiles();
                 }
             });
 
         if (this.currentUsername && this.currentUsername !== 'admin') {
             this.loadArchiveCollections();
             this.searchArchiveNode();
+            this.fetchRunningProfiles();
+        } else {
+            this.fetchRunningProfiles();
         }
     }
 

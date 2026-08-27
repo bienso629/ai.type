@@ -28,6 +28,7 @@ const { registerExportImportHandlers } = require("./export-import-project");
 const { registerLocalArticlesHandlers } = require("./local-articles");
 const { registerProfileHandlers } = require("./local-profiles");
 const { registerFontsHandlers } = require("./fonts");
+const { registerOperaCodecHandlers } = require("./opera-codec");
 const { initDatabase } = require("./database");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn, execSync } = require("child_process");
@@ -4774,6 +4775,7 @@ app.whenReady().then(async () => {
     registerLocalArticlesHandlers();
     registerProfileHandlers();
     registerFontsHandlers();
+    registerOperaCodecHandlers(ipcMain);
     initDatabase(app, ipcMain);
     if (process.platform === 'win32') {
         app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn

@@ -18,7 +18,7 @@
         </div>
 
         <!-- Chat Messages Area -->
-        <div #chatScrollContainer (scroll)="onChatScroll($event)" class="flex-1 overflow-y-auto p-6 space-y-4 bg-white">
+        <div #chatScrollContainer (scroll)="onChatScroll($event)" class="flex-1 overflow-y-auto p-6 pb-10 space-y-6 bg-white">
             <!-- Empty State Placeholder -->
             <div *ngIf="!chatMessages || chatMessages.length === 0" class="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400">
                 <div class="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-3 text-indigo-600">
@@ -38,37 +38,23 @@
                          [innerHTML]="msg.content">
                     </div>
 
-                    <!-- Interactive Action Confirmation / Status Card -->
+                    <!-- Action Execution Status Card -->
                     <div *ngIf="msg.confirmAction" class="p-3 bg-white dark:bg-gray-800 rounded-xl border border-teal-200 dark:border-teal-800/60 shadow-2xs space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
                                 <mat-icon class="icon-size-3.5 text-teal-600" [svgIcon]="'feather:cpu'"></mat-icon>
                                 Tác vụ tự động hóa
                             </span>
-                            <span *ngIf="msg.confirmAction.status === 'executed'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                                 <mat-icon class="icon-size-3" [svgIcon]="'feather:check'"></mat-icon> Đang thực thi
-                            </span>
-                            <span *ngIf="msg.confirmAction.status === 'pending'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                <mat-icon class="icon-size-3" [svgIcon]="'feather:clock'"></mat-icon> Chờ xác nhận
-                            </span>
-                            <span *ngIf="msg.confirmAction.status === 'cancelled'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                                <mat-icon class="icon-size-3" [svgIcon]="'feather:x'"></mat-icon> Đã hủy
                             </span>
                         </div>
 
                         <!-- Action Buttons -->
                         <div class="flex items-center flex-wrap gap-2 pt-0.5">
-                            <button *ngIf="msg.confirmAction.status === 'pending'" 
-                                    type="button" 
+                            <button type="button" 
                                     (click)="confirmAndExecuteAction(msg)"
-                                    class="px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600 hover:bg-teal-700 text-white shadow-2xs transition-all flex items-center gap-1 cursor-pointer">
-                                <mat-icon class="icon-size-3.5" [svgIcon]="'feather:play'"></mat-icon>
-                                Xác nhận & Thực thi ngay
-                            </button>
-                            <button *ngIf="msg.confirmAction.status === 'executed'" 
-                                    type="button" 
-                                    (click)="confirmAndExecuteAction(msg)"
-                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 transition-colors flex items-center gap-1 cursor-pointer">
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 shadow-2xs transition-colors flex items-center gap-1 cursor-pointer">
                                 <mat-icon class="icon-size-3.5" [svgIcon]="'feather:rotate-cw'"></mat-icon>
                                 Chạy lại tác vụ
                             </button>
@@ -77,12 +63,6 @@
                                     class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-teal-50 hover:bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 transition-colors flex items-center gap-1 cursor-pointer">
                                 <mat-icon class="icon-size-3.5" [svgIcon]="'feather:edit-3'"></mat-icon>
                                 Viết tiếp prompt cho câu hỏi này
-                            </button>
-                            <button *ngIf="msg.confirmAction.status === 'pending'" 
-                                    type="button" 
-                                    (click)="cancelAction(msg)"
-                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer">
-                                Hủy bỏ
                             </button>
                         </div>
                     </div>
@@ -117,18 +97,45 @@
 
                 <!-- User Message Bubble -->
                 <div *ngIf="msg.role === 'user'" class="flex flex-col items-end gap-1.5 max-w-[90%] ml-auto">
-                    <div class="bg-primary text-on-primary rounded-2xl rounded-tr-xs px-4 py-3 text-base shadow-2xs whitespace-pre-wrap">
+                    <!-- Attached Files in User Bubble -->
+                    <div *ngIf="msg.files && msg.files.length > 0" class="flex flex-wrap gap-2 justify-end mb-1">
+                        <div *ngFor="let f of msg.files" class="flex items-center gap-1.5 bg-primary-100 dark:bg-primary-950/60 text-primary-900 dark:text-primary-200 px-2.5 py-1 rounded-xl text-xs border border-primary-200 dark:border-primary-800">
+                            <img *ngIf="f.isImage && f.preview" [src]="f.preview" class="w-7 h-7 rounded object-cover border" />
+                            <mat-icon *ngIf="!f.isImage || !f.preview" class="icon-size-3.5" [svgIcon]="'feather:file'"></mat-icon>
+                            <span class="truncate max-w-[120px] font-medium">{{ f.name }}</span>
+                        </div>
+                    </div>
+                    <div *ngIf="msg.content" class="bg-primary text-on-primary rounded-xl rounded-tr-xs px-4 py-3 text-base shadow-2xs whitespace-pre-wrap">
                         {{ msg.content }}
                     </div>
                     <span class="text-xs text-gray-400 px-1">{{ getMessageTime(msg) }}</span>
                 </div>
             </ng-container>
+
+            <!-- Bottom Spacer to prevent sticking to input bar -->
+            <div class="h-6 shrink-0 w-full pointer-events-none"></div>
         </div>
 
         <!-- Chat Controls & Input Section -->
         <div class="p-4 border-t bg-white shrink-0 space-y-3">
+            <!-- Attached Files Preview Bar -->
+            <div *ngIf="attachedFiles && attachedFiles.length > 0" class="flex flex-wrap items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 animate-fadeIn">
+                <div *ngFor="let item of attachedFiles; let i = index" 
+                     class="flex items-center gap-2 bg-white dark:bg-gray-700 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 shadow-2xs text-xs">
+                    <img *ngIf="item.isImage && item.preview" [src]="item.preview" class="w-6 h-6 rounded object-cover border" />
+                    <mat-icon *ngIf="!item.isImage || !item.preview" class="icon-size-4 text-primary" [svgIcon]="'feather:file-text'"></mat-icon>
+                    <div class="flex flex-col min-w-0 max-w-[140px]">
+                        <span class="font-medium text-gray-800 dark:text-gray-200 truncate" [title]="item.name">{{ item.name }}</span>
+                        <span class="text-[10px] text-gray-400">{{ item.size }}</span>
+                    </div>
+                    <button type="button" (click)="removeAttachedFile(i)" class="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full">
+                        <mat-icon class="icon-size-3" [svgIcon]="'feather:x'"></mat-icon>
+                    </button>
+                </div>
+            </div>
+
             <!-- Profile Mention Dropdown Bar -->
-            <div *ngIf="showNgSelectBar" class="flex items-center gap-2 animate-fadeIn">
+            <div *ngIf="showNgSelectBar" class="flex items-center gap-2 animate-fadeIn w-full">
                 <ng-select [items]="runningProfiles"
                            [multiple]="true"
                            [closeOnSelect]="false"
@@ -138,18 +145,9 @@
                            placeholder="Chọn profile để gắn thẻ..."
                            [(ngModel)]="selectedProfilesForScript"
                            (ngModelChange)="onNgSelectProfilesChange($event)"
-                           class="flex-1 custom-profile-select text-base"
+                           class="w-full flex-1 custom-profile-select text-base"
+                           [dropdownPosition]="'top'"
                            appendTo="body">
-                    <ng-template ng-header-tmp>
-                        <div class="flex items-center justify-between p-2 border-b border-gray-100 bg-gray-50 text-xs">
-                            <button type="button" mat-button (click)="selectAllNgProfiles()" class="text-primary font-semibold !text-xs !py-0 !px-2 !min-h-0 !h-6">
-                                Chọn tất cả
-                            </button>
-                            <button type="button" mat-button (click)="clearAllNgProfiles()" class="text-gray-500 font-semibold !text-xs !py-0 !px-2 !min-h-0 !h-6">
-                                Bỏ chọn
-                            </button>
-                        </div>
-                    </ng-template>
                     <ng-option *ngFor="let user of runningProfiles" [value]="user.name">
                         <div class="flex items-center gap-2 py-0.5">
                             <img [src]="getProfileAvatar(user)"
@@ -161,11 +159,10 @@
                         </div>
                     </ng-option>
                     <ng-template ng-footer-tmp>
-                        <button mat-flat-button class="w-full" [color]="'primary'"
+                        <button mat-flat-button class="w-full whitespace-nowrap flex items-center justify-center !py-2 !px-4" [color]="'primary'"
                             [disabled]="selectedProfilesForScript.length === 0"
                             (click)="applyNgProfilesToPrompt()">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
-                            <span class="ml-2 text-base">Sử dụng các Profile này ({{ selectedProfilesForScript.length }})</span>
+                            <span class="text-sm font-semibold whitespace-nowrap">Sử dụng các Profile này ({{ selectedProfilesForScript.length }})</span>
                         </button>
                     </ng-template>
                 </ng-select>
@@ -173,8 +170,9 @@
 
             <!-- Chat Input Bar -->
             <div class="script-chat-input-container flex items-center gap-3 border border-gray-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-xl px-4 py-2.5 bg-white shadow-2xs transition-all">
-                <button type="button" mat-icon-button class="text-gray-400 hover:text-gray-600" (click)="insertSelectedArticlesToPrompt()" matTooltip="Đưa bài viết đã chọn vào prompt">
-                    <mat-icon class="icon-size-5" [svgIcon]="'feather:file-text'"></mat-icon>
+                <input type="file" #fileInput multiple (change)="onFileSelected($event)" class="hidden">
+                <button type="button" mat-icon-button class="text-gray-400 hover:text-gray-600" (click)="fileInput.click()" matTooltip="Đính kèm tệp / hình ảnh">
+                    <mat-icon class="icon-size-5" [svgIcon]="'feather:paperclip'"></mat-icon>
                 </button>
                 <button type="button" 
                         (click)="toggleProfileMentionPopup()" 
@@ -194,7 +192,7 @@
                        class="flex-1 border-0 outline-none focus:ring-0 text-base text-gray-800 placeholder-gray-400 bg-transparent py-1" />
                 <button type="button" 
                         (click)="sendChatMessage()"
-                        [disabled]="!chatInput || !chatInput.trim()"
+                        [disabled]="(!chatInput || !chatInput.trim()) && (!attachedFiles || attachedFiles.length === 0)"
                         class="text-gray-400 hover:text-primary disabled:opacity-40 transition-colors p-1">
                     <mat-icon class="icon-size-5 text-primary" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
                 </button>
@@ -239,7 +237,7 @@
                 <ngx-datatable-column name="Tiêu đề" [width]="500" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                     <ng-template let-row="row" ngx-datatable-cell-template>
                         <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
-                            <div class="flex items-center w-full gap-2 my-auto cursor-pointer" (click)="insertArticleToPrompt(row)">
+                            <div class="flex items-center w-full gap-2 my-auto cursor-pointer" (click)="openRowArticle(row)">
                                 <mat-icon *ngIf="isRowEncrypted(row)" class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto" [svgIcon]="'feather:lock'" [matTooltip]="'Nội dung đã được mã hóa AES-256'"></mat-icon>
                                 <p class="font-normal truncate flex-1 my-auto leading-normal hover:underline" [matTooltip]="row.title">{{ row.title || 'Không có tiêu đề' }}</p>
                             </div>
