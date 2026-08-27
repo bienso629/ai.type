@@ -3149,7 +3149,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             subtitleFilter = `subtitles=filename='${escapedAss}':fontsdir='${escapedFontsDir}'`;
         }
 
-        const videoSubFilter = subtitleFilter ? `[0:v]${subtitleFilter}[subbed];[subbed]` : `[0:v]`;
         let filterComplex = '';
         const args = [
             '-y',
@@ -3160,9 +3159,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         if (cleanMaskPath && fs.existsSync(cleanMaskPath)) {
             args.push('-loop', '1', '-i', cleanMaskPath);
-            filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[2:v]scale=${W}:${H}:flags=lanczos,format=gray[mask];${videoSubFilter}scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[warped][mask]alphamerge[maskedvid];[bg][maskedvid]overlay=0:0[outv]`;
+            filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[2:v]scale=${W}:${H}:flags=lanczos,format=gray[mask];[0:v]scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[warped][mask]alphamerge[maskedvid];[bg][maskedvid]overlay=0:0${subtitleFilter ? `[merged];[merged]${subtitleFilter}[outv]` : `[outv]`}`;
         } else {
-            filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];${videoSubFilter}scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[bg][warped]overlay=0:0[outv]`;
+            filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[0:v]scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[bg][warped]overlay=0:0${subtitleFilter ? `[merged];[merged]${subtitleFilter}[outv]` : `[outv]`}`;
         }
 
         args.push(

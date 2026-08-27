@@ -26,7 +26,7 @@
                 </div>
                 <h4 class="text-base font-bold text-gray-700 m-0 mb-1">Chưa có nội dung trao đổi</h4>
                 <p class="text-sm text-gray-400 m-0 max-w-xs">
-                    Hãy chọn một hoặc nhiều bài viết bên phải, sau đó nhập yêu cầu để Trợ lý AI tạo nội dung chia sẻ lên Diễn đàn Type.
+                    Hãy chọn bài viết bên phải, sau đó nhập yêu cầu để Trợ lý AI tạo nội dung chia sẻ lên Diễn đàn Type.
                 </p>
             </div>
 
@@ -211,9 +211,7 @@
                            [columnMode]="ColumnMode.force"
                            [class.opacity-50]="archiveIsLoading"
                            [selected]="archiveSelected" 
-                           [selectionType]="SelectionType.checkbox" 
-                           [selectAllRowsOnPage]="false"
-                           [displayCheck]="displayCheck" 
+                           [selectionType]="SelectionType.single" 
                            (select)="onArchiveSelect($event)" 
                            [externalPaging]="true" 
                            [externalSorting]="true"
@@ -228,25 +226,27 @@
                            [rowClass]="getRowClass"
                            [messages]="{ emptyMessage: 'Không có dữ liệu bài viết', totalMessage: 'bài viết' }">
 
-                <!-- Checkbox Column -->
-                <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                                      [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="displayCheck">
-                </ngx-datatable-column>
-
                 <!-- Title Column -->
-                <ngx-datatable-column name="Tiêu đề" [width]="500" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
+                <ngx-datatable-column name="Tiêu đề" [width]="520" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                     <ng-template let-row="row" ngx-datatable-cell-template>
                         <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
-                            <div class="flex items-center w-full gap-2 my-auto cursor-pointer" (click)="openRowArticle(row)">
+                            <div class="flex items-center w-full gap-2 my-auto cursor-pointer group" (click)="mentionArticle(row)">
                                 <mat-icon *ngIf="isRowEncrypted(row)" class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto" [svgIcon]="'feather:lock'" [matTooltip]="'Nội dung đã được mã hóa AES-256'"></mat-icon>
-                                <p class="font-normal truncate flex-1 my-auto leading-normal hover:underline" [matTooltip]="row.title">{{ row.title || 'Không có tiêu đề' }}</p>
+                                <p class="font-normal truncate flex-1 my-auto leading-normal hover:text-primary transition-colors" [matTooltip]="'Click để mention @' + row.uuid + ' vào prompt: ' + (row.title || '')">{{ row.title || 'Không có tiêu đề' }}</p>
+                                <button type="button" 
+                                        mat-icon-button 
+                                        class="w-6 h-6 text-gray-400 hover:text-primary shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                        (click)="$event.stopPropagation(); openRowArticle(row)" 
+                                        [matTooltip]="'Mở bài viết chi tiết'">
+                                    <mat-icon class="icon-size-3.5" [svgIcon]="'feather:external-link'"></mat-icon>
+                                </button>
                             </div>
                         </ng-container>
                     </ng-template>
                 </ngx-datatable-column>
 
                 <!-- Domain Column -->
-                <ngx-datatable-column name="Domain" [width]="140" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="true">
+                <ngx-datatable-column name="Domain" [width]="180" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="true">
                     <ng-template let-row="row" ngx-datatable-cell-template>
                         <span *ngIf="!row?.isGroupHeader && getDomainString(row)" 
                               (click)="$event.stopPropagation(); openWPPost(row)"
@@ -254,17 +254,6 @@
                               class="truncate block w-full text-blue-600 cursor-pointer hover:underline">
                             {{ getDomainString(row) }}
                         </span>
-                    </ng-template>
-                </ngx-datatable-column>
-
-                <!-- Date Column -->
-                <ngx-datatable-column name="Ngày sửa" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                    <ng-template let-row="row" ngx-datatable-cell-template>
-                        <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
-                            <span class="text-base font-medium text-secondary">
-                                {{ getDateDisplay(row) }}
-                            </span>
-                        </ng-container>
                     </ng-template>
                 </ngx-datatable-column>
             </ngx-datatable>
