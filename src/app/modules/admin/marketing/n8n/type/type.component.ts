@@ -373,7 +373,45 @@ export class AMXHTypeComponent extends AMXHScriptAppComponent implements OnInit,
     // --- SELECTION & ROW HELPERS ---
     onArchiveSelect(event: { selected: any[] }): void {
         this.archiveSelected = event.selected || [];
+        if (this.archiveSelected && this.archiveSelected.length > 0) {
+            const row = this.archiveSelected[0];
+            if (row && row.uuid) {
+                this.mentionArticle(row);
+            }
+        }
         this.cd.markForCheck();
+    }
+
+    mentionArticle(row: any): void {
+        if (!row || !row.uuid) return;
+
+        const uuid = row.uuid;
+        const mentionToken = `@${uuid}`;
+
+        let cur = (this.chatInput || '').trim();
+
+        if (!cur.includes(mentionToken)) {
+            const lastAtIndex = cur.lastIndexOf('@');
+            if (lastAtIndex !== -1 && lastAtIndex === cur.length - 1) {
+                cur = cur.slice(0, lastAtIndex) + mentionToken;
+            } else {
+                cur = cur ? `${cur} ${mentionToken}` : mentionToken;
+            }
+            this.chatInput = `${cur} `;
+        }
+
+        this.archiveSelected = [row];
+        this.cd.markForCheck();
+
+        setTimeout(() => {
+            if (this.scriptChatInputRef?.nativeElement) {
+                this.scriptChatInputRef.nativeElement.focus();
+                const len = this.scriptChatInputRef.nativeElement.value.length;
+                this.scriptChatInputRef.nativeElement.setSelectionRange(len, len);
+            }
+        }, 50);
+
+        this.toastr.info(`Đã mention @${uuid} vào prompt chat.`);
     }
 
     displayCheck(row: any): boolean {

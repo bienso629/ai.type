@@ -243,6 +243,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             },
             canvasWidth: 4096,
             canvasHeight: 2286
+        },
+        {
+            id: 'tiktok_frame_4',
+            name: 'TikTok Video Frame No.4 (9:16)',
+            aspectRatio: '9:16',
+            icon: 'stay_current_portrait',
+            bgPath: 'src/assets/video_frames/tiktok_frame_4_bg.jpg',
+            maskPath: 'src/assets/video_frames/tiktok_frame_4_mask.png',
+            thumbPath: 'src/assets/video_frames/tiktok_frame_4_thumb.jpg',
+            description: 'Khung Mockup No.4 TikTok 9:16 phối cảnh 3D nghiêng hiện đại',
+            quad: {
+                topLeft: { x: 819.0, y: 1012.5 },
+                topRight: { x: 1670.5, y: 879.5 },
+                bottomRight: { x: 1660.5, y: 2632.5 },
+                bottomLeft: { x: 828.0, y: 2546.0 }
+            },
+            canvasWidth: 2286,
+            canvasHeight: 4096
         }
     ];
 
@@ -499,7 +517,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 startTime: Number(sub.startTime) || 0,
                                 duration: Number(sub.duration) || 3,
                                 primaryText: primary,
-                                secondaryText: secondary
+                                secondaryText: secondary,
+                                fontFamily: sub.fontFamily || this.currentSubtitleFont,
+                                fontSize: sub.fontSize || this.currentSubtitleFontSize
                             });
                         }
                     }
@@ -524,8 +544,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 subtitleBottom: this.currentSubtitleBottom,
                 subtitleFontSize: this.currentSubtitleFontSize,
                 subtitleFontFamily: this.currentSubtitleFont,
-                previewHeight: this.mainVideoPlayer?.nativeElement?.clientHeight || 450,
-                previewWidth: this.mainVideoPlayer?.nativeElement?.clientWidth || 800
+                previewHeight: this.mockupFrameContainer?.nativeElement?.clientHeight || this.mainVideoPlayer?.nativeElement?.clientHeight || 570,
+                previewWidth: this.mockupFrameContainer?.nativeElement?.clientWidth || this.mainVideoPlayer?.nativeElement?.clientWidth || 320
             });
 
             if (res && res.success) {
@@ -907,6 +927,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     activeAudio: any = null;
 
     // Khai báo ViewChild để truy cập video tag trong template
+    @ViewChild('mockupFrameContainer') mockupFrameContainer?: ElementRef<HTMLDivElement>;
     @ViewChild('mainVideoPlayer') mainVideoPlayer?: ElementRef<HTMLVideoElement>;
     @ViewChild('mainAudioPlayer') mainAudioPlayer?: ElementRef<HTMLAudioElement>;
     @ViewChild('playheadNeedle') playheadNeedle?: ElementRef<HTMLDivElement>;
