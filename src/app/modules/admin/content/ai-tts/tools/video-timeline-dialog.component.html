@@ -98,14 +98,14 @@
                     <!-- Tab Buttons -->
                     <div class="flex items-center bg-[#0d0e12] p-0.5 rounded-lg border border-neutral-800/80 text-[11px] font-medium">
                         <button class="flex-1 py-1 rounded transition-colors"
-                            [ngClass]="mediaFilterTab === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
-                            (click)="setMediaFilterTab('all')">
-                            Tất cả
-                        </button>
-                        <button class="flex-1 py-1 rounded transition-colors"
                             [ngClass]="mediaFilterTab === 'video' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
                             (click)="setMediaFilterTab('video')">
                             Video
+                        </button>
+                        <button class="flex-1 py-1 rounded transition-colors"
+                            [ngClass]="mediaFilterTab === 'image' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
+                            (click)="setMediaFilterTab('image')">
+                            Hình ảnh
                         </button>
                         <button class="flex-1 py-1 rounded transition-colors"
                             [ngClass]="mediaFilterTab === 'audio' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'"
@@ -171,6 +171,35 @@
                                 </div>
                                 <span class="text-xs text-neutral-200 truncate" [title]="item.prompt || 'Video cảnh ' + (item.sceneIdx + 1)">
                                     {{ item.prompt || ('Video cảnh ' + (item.sceneIdx + 1)) }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Image Item Card -->
+                        <div *ngIf="item.type === 'image'"
+                            (click)="setActiveItem(item._raw); seekTimelineTo(item.startTime || 0)"
+                            class="p-2 rounded-lg border transition-colors cursor-pointer flex gap-2.5 group/item"
+                            [ngClass]="{
+                                'bg-indigo-950/50 border-indigo-500/80 shadow-[0_0_10px_rgba(99,102,241,0.3)]': activeItem === item._raw,
+                                'bg-[#171821]/70 border-neutral-800/80 hover:bg-neutral-800/60 hover:border-neutral-700': activeItem !== item._raw
+                            }">
+                            <!-- Thumbnail -->
+                            <div class="w-16 h-12 rounded bg-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0 relative pointer-events-none">
+                                <img *ngIf="item.imageUrl || item.controlImageUrl" [src]="getSafeUrl(item.imageUrl || item.controlImageUrl)" class="w-full h-full object-cover pointer-events-none">
+                                <mat-icon *ngIf="!item.imageUrl && !item.controlImageUrl" class="icon-size-4 text-neutral-500">image</mat-icon>
+                            </div>
+
+                            <div class="flex-1 min-w-0 flex flex-col justify-between">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/40">
+                                        Hình ảnh
+                                    </span>
+                                    <span class="text-[10px] font-mono text-neutral-500">
+                                        {{ formatTimelineTime(item.startTime || 0) }}
+                                    </span>
+                                </div>
+                                <span class="text-xs text-neutral-200 truncate" [title]="item.title || 'Hình ảnh cảnh ' + (item.sceneIdx + 1)">
+                                    {{ item.title || ('Hình ảnh cảnh ' + (item.sceneIdx + 1)) }}
                                 </span>
                             </div>
                         </div>

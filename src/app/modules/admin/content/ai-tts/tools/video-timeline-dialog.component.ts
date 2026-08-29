@@ -6080,7 +6080,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         }
     }
 
-    mediaFilterTab: 'all' | 'video' | 'audio' | 'text' = 'all';
+    mediaFilterTab: 'image' | 'video' | 'audio' | 'text' = 'video';
     mediaSearchText: string = '';
     previewSnippetAudio: HTMLAudioElement | null = null;
     playingAudioSnippetUrl: string | null = null;
@@ -6128,6 +6128,37 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         sceneIdx: sIdx,
                         vIdx: vIdx,
                         type: 'video'
+                    });
+                }
+            }
+        }
+        return list;
+    }
+
+    getAllProjectImages(): any[] {
+        const list: any[] = [];
+        if (!this.projectData || !this.projectData.scenes) return list;
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (scene.videos) {
+                for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
+                    const v = scene.videos[vIdx];
+                    const imgUrl = v.imageUrl || v.controlImageUrl;
+                    if (!imgUrl) continue;
+                    list.push({
+                        ...v,
+                        get duration() { return v.duration; },
+                        get startTime() { return v.startTime; },
+                        get maxDuration() { return v.maxDuration; },
+                        get prompt() { return v.prompt; },
+                        get imageUrl() { return imgUrl; },
+                        get controlImageUrl() { return v.controlImageUrl; },
+                        get videoUrl() { return v.videoUrl; },
+                        _raw: v,
+                        sceneIdx: sIdx,
+                        vIdx: vIdx,
+                        type: 'image',
+                        title: v.imagePrompt || v.prompt || ('Hình ảnh cảnh ' + (sIdx + 1))
                     });
                 }
             }
@@ -6663,7 +6694,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.toastr.success(`Đã chuyển hiển thị phụ đề sang: ${targetLangName}`);
     }
 
-    setMediaFilterTab(tab: 'all' | 'video' | 'audio' | 'text') {
+    setMediaFilterTab(tab: 'image' | 'video' | 'audio' | 'text') {
         this.mediaFilterTab = tab;
         this.updateFilteredMediaItems();
         this.cd.detectChanges();
@@ -6671,13 +6702,16 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
     updateFilteredMediaItems() {
         let items: any[] = [];
-        if (this.mediaFilterTab === 'all' || this.mediaFilterTab === 'video') {
-            items = items.concat(this.getAllProjectVideos());
+        if (this.mediaFilterTab === 'video') {
+            items = items.concat(this.getAllProjectVideos().filter(v => v.videoUrl));
         }
-        if (this.mediaFilterTab === 'all' || this.mediaFilterTab === 'audio') {
+        if (this.mediaFilterTab === 'image') {
+            items = items.concat(this.getAllProjectImages());
+        }
+        if (this.mediaFilterTab === 'audio') {
             items = items.concat(this.getAllProjectAudios());
         }
-        if (this.mediaFilterTab === 'all' || this.mediaFilterTab === 'text') {
+        if (this.mediaFilterTab === 'text') {
             items = items.concat(this.getAllProjectSubtitles());
         }
 
