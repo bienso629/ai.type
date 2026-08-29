@@ -376,20 +376,122 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         this.titleService.setTitle(`quản lý tên miền | ai.type - công cụ tạo content`);
     }
 
+    private async fetchWebsiteMetadata(rawDomain: string): Promise<{ title: string; description: string; keywords: string; sampleText: string; isLive: boolean }> {
+        let targetUrl = rawDomain.trim();
+        if (!/^https?:\/\//i.test(targetUrl)) {
+            targetUrl = 'https://' + targetUrl;
+        }
+
+        const fallback = { title: '', description: '', keywords: '', sampleText: '', isLive: false };
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+            const resp = await fetch(targetUrl, {
+                method: 'GET',
+                signal: controller.signal,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                }
+            });
+            clearTimeout(timeoutId);
+
+            if (!resp.ok) {
+                return fallback;
+            }
+
+            const html = await resp.text();
+            if (!html) return fallback;
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const title = doc.querySelector('title')?.textContent?.trim() || 
+                          doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || '';
+
+            const description = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() ||
+                                doc.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim() ||
+                                doc.querySelector('meta[name="twitter:description"]')?.getAttribute('content')?.trim() || '';
+
+            const keywords = doc.querySelector('meta[name="keywords"]')?.getAttribute('content')?.trim() ||
+                             doc.querySelector('meta[name="news_keywords"]')?.getAttribute('content')?.trim() || '';
+
+            // Loại bỏ các thẻ script, style, noscript, svg, header/footer phụ
+            doc.querySelectorAll('script, style, noscript, iframe, svg').forEach(el => el.remove());
+
+            const headings = Array.from(doc.querySelectorAll('h1, h2, h3'))
+                .map(h => h.textContent?.trim())
+                .filter(t => !!t)
+                .slice(0, 8)
+                .join(' | ');
+
+            let rawText = doc.body?.textContent || '';
+            rawText = rawText.replace(/\s+/g, ' ').trim();
+            const sampleText = (headings ? `Tiêu đề mục: ${headings}. ` : '') + rawText.substring(0, 1000);
+
+            return {
+                title,
+                description,
+                keywords,
+                sampleText,
+                isLive: true
+            };
+        } catch (e) {
+            console.warn(`Không thể tự động tải nội dung từ ${targetUrl}:`, e);
+            return fallback;
+        }
+    }
+
     async analyzeDomains() {
         if (this.selected.length === 0) {
             this.toastr.warning('Vui lòng chọn ít nhất một tên miền để phân tích.');
             return;
         }
         
-        const domains = this.selected.map(r => r.domain).join(', ');
-        this.toastr.info(`Đang phân tích nội dung & chức năng cho: ${domains}...`, 'Đang xử lý');
+        const domainsList = this.selected.map(r => r.domain);
+        this.toastr.info(`Đang thu thập nội dung trang chủ (Title, Description, Keywords) & phân tích cho: ${domainsList.join(', ')}...`, 'Đang xử lý');
         
         this.isAnalyzing = true;
         this.cd.markForCheck();
         
         try {
-            const prompt = `Phân tích ngắn gọn (tối đa 2 câu) về chủ đề, nội dung và chức năng của các tên miền sau dựa vào tên miền (không cần lướt web nếu không thể). Trả về ĐÚNG định dạng JSON mảng các object: [{"domain": "tên miền", "analysis": "nội dung phân tích"}]. Danh sách tên miền: ${domains}`;
+            // 1. Quét nội dung metadata thực tế của từng tên miền
+            const crawledData: any[] = [];
+            for (const d of domainsList) {
+                const meta = await this.fetchWebsiteMetadata(d);
+                crawledData.push({
+                    domain: d,
+                    ...meta
+                });
+            }
+
+            // 2. Tạo prompt kèm dữ liệu thực tế đã bóc tách
+            const domainsContext = crawledData.map(item => {
+                let info = `Tên miền: ${item.domain}\n`;
+                if (item.isLive) {
+                    if (item.title) info += `- Tiêu đề website (Title): ${item.title}\n`;
+                    if (item.description) info += `- Thẻ mô tả (Meta Description): ${item.description}\n`;
+                    if (item.keywords) info += `- Từ khóa (Meta Keywords): ${item.keywords}\n`;
+                    if (item.sampleText) info += `- Trích đoạn nội dung chính: ${item.sampleText}\n`;
+                } else {
+                    info += `- Ghi chú: Không truy cập được trực tiếp nội dung web, hãy phân tích dựa trên tên miền và đặc trưng ngành nghề.\n`;
+                }
+                return info;
+            }).join('\n---\n');
+
+            const prompt = `Bạn là chuyên gia phân tích website, nội dung số và SEO. Hãy phân tích ngắn gọn, chính xác (từ 1 đến 2 câu súc tích) về chủ đề hoạt động, đối tượng phục vụ, sản phẩm/dịch vụ cốt lõi và định hướng nội dung của từng tên miền dưới đây.
+
+BẮT BUỘC: Bạn phải căn cứ sát vào dữ liệu Tiêu đề (Title), Thẻ mô tả (Description), Từ khóa (Keywords) và Trích đoạn nội dung trang web đã thu thập được để phân tích thật chính xác, không suy đoán vô căn cứ.
+
+Dữ liệu thu thập:
+${domainsContext}
+
+Trả về ĐÚNG định dạng JSON mảng các object:
+[
+  {"domain": "tên miền", "analysis": "nội dung phân tích súc tích"}
+]`;
             
             const response: any = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
@@ -428,7 +530,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             }
             
             this.rows = [...this.rows];
-            this.toastr.success(`Đã phân tích và lưu thành công ${updatedCount} tên miền!`);
+            this.toastr.success(`Đã phân tích dựa trên nội dung thực tế và lưu thành công ${updatedCount} tên miền!`);
         } catch (error) {
             console.error('Lỗi khi phân tích:', error);
             this.toastr.error('Có lỗi xảy ra trong quá trình phân tích bằng AI.');
