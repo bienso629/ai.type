@@ -1385,5 +1385,6 @@
     "app.create_writing_style": "Create writing style",
     "app.renewal": "Renewal",
     "app.maintain_operation": "Maintain operation",
-    "app.connect_your_website": "Connect your website"
+    "app.connect_your_website": "Connect your website",
+    "app.auto_original_sound": "Audio"
 }

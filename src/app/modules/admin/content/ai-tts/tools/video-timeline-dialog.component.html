@@ -225,7 +225,7 @@
                                 <div class="flex items-center justify-between">
                                     <span class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded"
                                         [ngClass]="item.type === 'extractedAudio' ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-700/40' : 'bg-purple-950/80 text-purple-300 border border-purple-700/40'">
-                                        {{ item.type === 'extractedAudio' ? 'Âm thanh gốc' : 'Track Audio' }}
+                                        {{ item.type === 'extractedAudio' ? 'Âm thanh' : 'Track Audio' }}
                                     </span>
                                     <span class="text-[10px] font-mono text-neutral-500">
                                         {{ item.duration | number:'1.0-1' }}s
@@ -254,6 +254,33 @@
                                 <div class="flex items-center justify-between">
                                     <span class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded bg-amber-950/80 text-amber-300 border border-amber-700/40">
                                         Phụ đề
+                                    </span>
+                                    <span class="text-[10px] font-mono text-neutral-500">
+                                        {{ formatTimelineTime(item.startTime || 0) }}
+                                    </span>
+                                </div>
+                                <span class="text-xs text-neutral-200 truncate" [title]="item.text">
+                                    {{ item.text || '(Chưa có nội dung)' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Custom Text Item Card (Track Text) -->
+                        <div *ngIf="item.type === 'customText'"
+                            (click)="setActiveItem(item._raw); seekTimelineTo(item.startTime || 0)"
+                            class="p-2 rounded-lg border transition-all cursor-pointer flex gap-2.5 group/item"
+                            [ngClass]="{
+                                'bg-indigo-950/50 border-indigo-500/80 shadow-[0_0_10px_rgba(99,102,241,0.3)]': activeItem === item._raw,
+                                'bg-[#171821]/70 border-neutral-800/80 hover:bg-neutral-800/60 hover:border-neutral-700': activeItem !== item._raw
+                            }">
+                            <div class="w-10 h-10 rounded bg-neutral-900 border border-neutral-800 flex items-center justify-center flex-shrink-0">
+                                <mat-icon class="icon-size-4.5 text-emerald-400">text_fields</mat-icon>
+                            </div>
+
+                            <div class="flex-1 min-w-0 flex flex-col justify-between">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-1.5 py-0.2 text-[9px] font-medium uppercase rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/40">
+                                        Text
                                     </span>
                                     <span class="text-[10px] font-mono text-neutral-500">
                                         {{ formatTimelineTime(item.startTime || 0) }}
@@ -479,7 +506,7 @@
                             <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Thông tin Audio</label>
                             <div class="p-2.5 bg-[#0d0e12] border border-neutral-700 rounded-sm text-xs text-neutral-300 font-mono break-all flex items-center justify-between">
                                 <span class="truncate" *ngIf="!isMultiAudioSelected">
-                                    {{ activeItem?.title || (activeItem?.text && activeItem?.text !== '[Âm thanh gốc]' ? activeItem?.text : '') || activeItem?.audioUrl || 'Âm thanh gốc' }}
+                                    {{ activeItem?.title || (activeItem?.text && activeItem?.text !== '[Âm thanh gốc]' ? activeItem?.text : '') || activeItem?.audioUrl || 'Âm thanh' }}
                                 </span>
                                 <span class="truncate text-purple-300 font-sans font-medium" *ngIf="isMultiAudioSelected">
                                     Đang chọn {{ selectedAudioCount }} đoạn Audio đồng thời
@@ -1003,9 +1030,19 @@
                     </button>
                 </div>
 
-                <!-- Track 1 Header (h-24) -->
+                <!-- Track Images Header (h-20) -->
+                <div class="h-20 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden group">
+                    <mat-icon class="icon-size-4 text-emerald-400">image</mat-icon>
+                    <span class="text-xs font-semibold text-neutral-300">Hình ảnh</span>
+                    <button mat-icon-button (click)="addNewImageItem()" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
+                        title="Thêm Hình ảnh mới">
+                        <mat-icon class="text-neutral-400 hover:text-emerald-400">add</mat-icon>
+                    </button>
+                </div>
+
+                <!-- Track 1 Header (h-20) -->
                 <div *ngFor="let tIdx of trackIndices"
-                    class="h-24 border-b border-neutral-800/80 bg-[#18181b] flex flex-col items-center justify-center relative overflow-hidden group">
+                    class="h-20 border-b border-neutral-800/80 bg-[#18181b] flex flex-col items-center justify-center relative overflow-hidden group">
                     <span class="text-xs font-semibold text-neutral-300">Track {{tIdx + 1}}</span>
                     <button *ngIf="tIdx === 0" mat-icon-button [matMenuTriggerFor]="addVideoMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
                         matTooltip="Thêm Video (File máy / Link Online)">
@@ -1013,20 +1050,30 @@
                     </button>
                 </div>
 
-                <!-- Track Subtitles Header (h-14) -->
-                <div class="h-14 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden group">
-                    <mat-icon class="icon-size-4 text-amber-400">subtitles</mat-icon>
-                    <span class="text-xs font-semibold text-neutral-300">Phụ đề</span>
-                    <button mat-icon-button [matMenuTriggerFor]="addTextMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
+                <!-- Track Subtitles Header (h-10) -->
+                <div class="h-10 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden group">
+                    <mat-icon class="icon-size-3.5 text-amber-400">subtitles</mat-icon>
+                    <span class="text-[11px] font-semibold text-neutral-300">Phụ đề</span>
+                    <button mat-icon-button [matMenuTriggerFor]="addSubtitleMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
                         title="Thêm phụ đề / Nhập file .srt">
                         <mat-icon class="text-neutral-400 hover:text-amber-400">add</mat-icon>
                     </button>
                 </div>
 
-                <!-- Track Audio Header (h-24) -->
-                <div class="h-24 border-b border-neutral-800/80 bg-[#18181b] flex flex-col items-center justify-center relative overflow-hidden">
+                <!-- Track Text Header (h-10) -->
+                <div class="h-10 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden group">
+                    <mat-icon class="icon-size-3.5 text-emerald-400">text_fields</mat-icon>
+                    <span class="text-[11px] font-semibold text-neutral-300">Text</span>
+                    <button mat-icon-button (click)="addNewCustomTextItem()" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
+                        title="Thêm đoạn Text mới">
+                        <mat-icon class="text-neutral-400 hover:text-emerald-400">add</mat-icon>
+                    </button>
+                </div>
+
+                <!-- Track Audio Header (h-20) -->
+                <div class="h-20 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden">
+                    <mat-icon class="icon-size-4 text-indigo-400 flex-shrink-0">graphic_eq</mat-icon>
                     <span class="text-xs font-semibold text-neutral-300">{{ 'app.auto_original_sound' | transloco }}</span>
-                    <mat-icon class="icon-size-4 text-indigo-400 mt-1">graphic_eq</mat-icon>
                 </div>
             </div>
 
@@ -1059,16 +1106,99 @@
                     <!-- Tracks -->
                     <div id="timeline-tracks-container" class="relative h-fit flex flex-col bg-[#0f0f11] select-none">
 
+                        <!-- Track Images (Hình ảnh - Phía trên Track 1) -->
+                        <div id="timeline-track-images" class="relative h-20 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                            <!-- Image Blocks -->
+                            <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
+                                <ng-container *ngFor="let img of scene.images; let imgIdx = index">
+                                    <div class="timeline-block absolute top-1.5 bottom-1.5 bg-[#242427] border border-neutral-700/80 rounded-sm shadow-sm group flex flex-col transition-all z-10 hover:z-[100]"
+                                        [ngClass]="{
+                                            'opacity-30 grayscale': img.disabled,
+                                            'opacity-100': !img.disabled,
+                                            '!border-blue-400 !border-2 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(img),
+                                            '!border-white': activeItem === img && !isItemSelected(img)
+                                        }" [style.left.px]="(img.startTime || 0) * pixelsPerSecond"
+                                        [style.width.px]="((img.duration || 5) * pixelsPerSecond - 4) > 1 ? ((img.duration || 5) * pixelsPerSecond - 4) : (((img.duration || 5) * pixelsPerSecond) > 1 ? ((img.duration || 5) * pixelsPerSecond) : 1)"
+                                        [id]="'img_' + sceneIdx + '_' + imgIdx"
+                                        (contextmenu)="onImageContextMenu($event, img, scene, sceneIdx, imgIdx)">
+
+                                        <div class="w-full h-full relative overflow-hidden rounded-sm transition-all cursor-pointer flex flex-col justify-between"
+                                            (click)="setActiveItem(img, $event)">
+
+                                            <!-- Thumbnail / Image Background -->
+                                            <img *ngIf="img.imageUrl || img.controlImageUrl"
+                                                [src]="getSafeUrl(img.imageUrl || img.controlImageUrl)"
+                                                class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-80 rounded-sm" />
+                                            <div *ngIf="!img.imageUrl && !img.controlImageUrl"
+                                                class="absolute inset-0 flex flex-col text-center w-full h-full items-center justify-center bg-[#18181b] rounded-sm">
+                                                <mat-icon class="text-neutral-500 icon-size-5 pointer-events-none">image</mat-icon>
+                                            </div>
+
+                                            <!-- Nhãn thời gian hình ảnh -->
+                                            <div class="relative z-10 flex items-center p-1 pointer-events-none">
+                                                <div class="bg-black/80 text-neutral-200 border border-neutral-700/50 font-mono text-[9px] px-1 py-0.5 rounded-sm select-none">
+                                                    {{ (img.duration || 5) | number:'1.0-1' }}s
+                                                </div>
+                                            </div>
+
+                                            <!-- Text hiển thị prompt / title -->
+                                            <div class="relative z-10 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs overflow-hidden cursor-pointer pointer-events-none">
+                                                <p class="text-[9px] text-neutral-200 leading-tight truncate"
+                                                    [title]="img.title || img.prompt || ('Hình ảnh ' + (imgIdx + 1))">
+                                                    {{ img.title || img.prompt || ('Hình ảnh ' + (imgIdx + 1)) }}
+                                                </p>
+                                            </div>
+
+                                            <!-- Lớp phủ khi hover -->
+                                            <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 rounded-sm"></div>
+                                        </div>
+
+                                        <!-- Action Buttons Nổi: Tạm tắt hình ảnh -->
+                                        <div class="absolute top-1 right-1 z-50 flex items-center gap-1 pointer-events-auto select-none"
+                                            (mousedown)="$event.stopPropagation()"
+                                            (click)="$event.stopPropagation()">
+                                            <button type="button" 
+                                                (mousedown)="$event.stopPropagation()"
+                                                (click)="$event.stopPropagation(); toggleDisableItem(img)"
+                                                [title]="img.disabled ? 'Bật lại hình ảnh' : 'Tạm tắt hình ảnh'"
+                                                class="w-5 h-5 flex items-center justify-center rounded-sm bg-black/90 hover:bg-black border border-neutral-700/80 transition-all cursor-pointer shadow-md active:scale-95"
+                                                [ngClass]="img.disabled ? '!text-red-400 !border-red-500/90 !bg-red-950/90' : 'text-neutral-300 hover:text-white'">
+                                                <mat-icon class="!text-[13px] !w-[13px] !h-[13px] flex items-center justify-center">{{ img.disabled ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                            </button>
+                                        </div>
+
+                                        <!-- Left Drag Handle -->
+                                        <div class="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-l-sm flex items-center justify-center"
+                                            (mousedown)="onResizeStart($event, img, 'left')">
+                                            <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
+                                        </div>
+
+                                        <!-- Right Drag Handle -->
+                                        <div class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-r-sm flex items-center justify-center"
+                                            (mousedown)="onResizeStart($event, img, 'right')"
+                                            (dblclick)="resetVideoDuration($event, img)">
+                                            <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
+                                        </div>
+
+                                        <!-- Center Drag Area -->
+                                        <div class="absolute left-3 right-3 top-0 bottom-0 cursor-move z-20"
+                                            (mousedown)="onDragBlockStart($event, img, sceneIdx)"
+                                            (contextmenu)="onImageContextMenu($event, img, scene, sceneIdx, imgIdx)"></div>
+                                    </div>
+                                </ng-container>
+                            </ng-container>
+                        </div>
+
                         <!-- Track 1: Video Blocks -->
                         <div *ngFor="let tIdx of trackIndices"
                             id="timeline-track-video"
-                            class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                            class="relative h-20 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
 
                             <!-- Video Blocks in this Track -->
                             <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                                 <ng-container *ngIf="scene.videos">
                                     <ng-container *ngFor="let video of scene.videos; let vIdx = index">
-                                            <div class="timeline-block absolute top-2 bottom-2 bg-[#242427] border border-neutral-700/80 rounded-sm shadow-sm group flex flex-col transition-all z-10 hover:z-[100]"
+                                            <div class="timeline-block absolute top-1.5 bottom-1.5 bg-[#242427] border border-neutral-700/80 rounded-sm shadow-sm group flex flex-col transition-all z-10 hover:z-[100]"
                                                 [ngClass]="{
                                                 'opacity-30 grayscale': video.disabled,
                                                 'opacity-100': !video.disabled,
@@ -1174,12 +1304,12 @@
                             </ng-container>
                         </div>
 
-                        <!-- Track Text (Subtitles / Phụ đề) -->
-                        <div id="timeline-track-subtitles" class="relative h-14 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
-                            <!-- Text Blocks -->
+                        <!-- Track Subtitles (Phụ đề) -->
+                        <div id="timeline-track-subtitles" class="relative h-10 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                            <!-- Subtitle Blocks -->
                             <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                                 <ng-container *ngFor="let sub of scene.subtitles; let sIdx = index">
-                                    <div class="timeline-block absolute top-1.5 bottom-1.5 bg-amber-950/70 border border-amber-600/50 rounded-sm flex items-center overflow-hidden transition-all hover:bg-amber-900/80 cursor-pointer group z-10 hover:z-[100]"
+                                    <div class="timeline-block absolute top-1 bottom-1 bg-amber-950/70 border border-amber-600/50 rounded-sm flex items-center overflow-hidden transition-all hover:bg-amber-900/80 cursor-pointer group z-10 hover:z-[100]"
                                         [ngClass]="{
                                             'opacity-30 grayscale': sub.disabled,
                                             'opacity-100': !sub.disabled,
@@ -1190,25 +1320,94 @@
                                         [title]="sub.text"
                                         (click)="setActiveItem(sub, $event)"
                                         (dblclick)="openEditTextDialog(sub)"
-                                        (contextmenu)="onTextContextMenu($event, sub, scene, sceneIdx, sIdx)">
+                                        (contextmenu)="onSubtitleContextMenu($event, sub, scene, sceneIdx, sIdx)">
 
+                                        <!-- Content -->
                                         <div class="w-full h-full flex items-center px-2 justify-between relative select-none">
-                                            <div class="text-[11px] text-amber-100 font-medium truncate flex items-center gap-1.5 flex-1 mr-2">
-                                                <mat-icon class="icon-size-3.5 text-amber-400 flex-shrink-0">title</mat-icon>
-                                                <span class="truncate">{{ sub.text || 'Văn bản trống' }}</span>
+                                            <div class="text-[11px] text-amber-100 font-medium truncate flex items-center gap-1.5 flex-1 mr-2 pointer-events-none">
+                                                <mat-icon class="icon-size-3.5 text-amber-400 flex-shrink-0">subtitles</mat-icon>
+                                                <span class="truncate">{{ sub.text || 'Phụ đề trống' }}</span>
                                             </div>
 
-                                            <div class="text-[9px] text-amber-300/80 font-mono flex-shrink-0">
+                                            <div class="text-[9px] text-amber-300/80 font-mono flex-shrink-0 pointer-events-none">
                                                 {{sub.duration | number:'1.0-1'}}s
                                             </div>
                                         </div>
+
+                                        <!-- Left Drag Handle (Kéo chỉnh thời gian đầu) -->
+                                        <div class="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-400/50 z-40 rounded-l-sm flex items-center justify-center group-hover:opacity-100 opacity-60 transition-opacity"
+                                            (mousedown)="onResizeStart($event, sub, 'left')">
+                                            <div class="w-0.5 h-3 bg-amber-200/80 rounded-none pointer-events-none"></div>
+                                        </div>
+
+                                        <!-- Right Drag Handle (Kéo chỉnh thời gian đuôi) -->
+                                        <div class="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-400/50 z-40 rounded-r-sm flex items-center justify-center group-hover:opacity-100 opacity-60 transition-opacity"
+                                            (mousedown)="onResizeStart($event, sub, 'right')">
+                                            <div class="w-0.5 h-3 bg-amber-200/80 rounded-none pointer-events-none"></div>
+                                        </div>
+
+                                        <!-- Center Drag Area (Cầm di chuyển toàn bộ block) -->
+                                        <div class="absolute left-2.5 right-2.5 top-0 bottom-0 cursor-move z-20"
+                                            (mousedown)="onDragBlockStart($event, sub, sceneIdx)"
+                                            (contextmenu)="onSubtitleContextMenu($event, sub, scene, sceneIdx, sIdx)"></div>
+                                    </div>
+                                </ng-container>
+                            </ng-container>
+                        </div>
+
+                        <!-- Track Text (Văn bản / Text Track riêng biệt) -->
+                        <div id="timeline-track-texts" class="relative h-10 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                            <!-- Text Blocks -->
+                            <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
+                                <ng-container *ngFor="let txt of scene.texts; let tIdx = index">
+                                    <div class="timeline-block absolute top-1 bottom-1 bg-emerald-950/70 border border-emerald-600/50 rounded-sm flex items-center overflow-hidden transition-all hover:bg-emerald-900/80 cursor-pointer group z-10 hover:z-[100]"
+                                        [ngClass]="{
+                                            'opacity-30 grayscale': txt.disabled,
+                                            'opacity-100': !txt.disabled,
+                                            '!border-blue-400 !border-2 !bg-blue-950/90 shadow-[0_0_15px_rgba(59,130,246,0.9)] !z-40': isItemSelected(txt),
+                                            '!border-emerald-400 shadow-md': activeItem === txt && !isItemSelected(txt)
+                                        }" [style.left.px]="(txt.startTime || 0) * pixelsPerSecond"
+                                        [style.width.px]="((txt.duration || 3) * pixelsPerSecond - 4) > 1 ? ((txt.duration || 3) * pixelsPerSecond - 4) : (((txt.duration || 3) * pixelsPerSecond) > 1 ? ((txt.duration || 3) * pixelsPerSecond) : 1)" 
+                                        [title]="txt.text"
+                                        (click)="setActiveItem(txt, $event)"
+                                        (dblclick)="openEditCustomTextDialog(txt)"
+                                        (contextmenu)="onCustomTextContextMenu($event, txt, scene, sceneIdx, tIdx)">
+
+                                        <!-- Content -->
+                                        <div class="w-full h-full flex items-center px-2 justify-between relative select-none">
+                                            <div class="text-[11px] text-emerald-100 font-medium truncate flex items-center gap-1.5 flex-1 mr-2 pointer-events-none">
+                                                <mat-icon class="icon-size-3.5 text-emerald-400 flex-shrink-0">title</mat-icon>
+                                                <span class="truncate">{{ txt.text || 'Văn bản trống' }}</span>
+                                            </div>
+
+                                            <div class="text-[9px] text-emerald-300/80 font-mono flex-shrink-0 pointer-events-none">
+                                                {{txt.duration | number:'1.0-1'}}s
+                                            </div>
+                                        </div>
+
+                                        <!-- Left Drag Handle (Kéo chỉnh thời gian đầu) -->
+                                        <div class="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-emerald-400/50 z-40 rounded-l-sm flex items-center justify-center group-hover:opacity-100 opacity-60 transition-opacity"
+                                            (mousedown)="onResizeStart($event, txt, 'left')">
+                                            <div class="w-0.5 h-3 bg-emerald-200/80 rounded-none pointer-events-none"></div>
+                                        </div>
+
+                                        <!-- Right Drag Handle (Kéo chỉnh thời gian đuôi) -->
+                                        <div class="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-emerald-400/50 z-40 rounded-r-sm flex items-center justify-center group-hover:opacity-100 opacity-60 transition-opacity"
+                                            (mousedown)="onResizeStart($event, txt, 'right')">
+                                            <div class="w-0.5 h-3 bg-emerald-200/80 rounded-none pointer-events-none"></div>
+                                        </div>
+
+                                        <!-- Center Drag Area (Cầm di chuyển toàn bộ block) -->
+                                        <div class="absolute left-2.5 right-2.5 top-0 bottom-0 cursor-move z-20"
+                                            (mousedown)="onDragBlockStart($event, txt, sceneIdx)"
+                                            (contextmenu)="onCustomTextContextMenu($event, txt, scene, sceneIdx, tIdx)"></div>
                                     </div>
                                 </ng-container>
                             </ng-container>
                         </div>
 
                         <!-- Track Extracted Audio (Âm thanh gốc) -->
-                        <div id="timeline-track-audio" class="relative h-24 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
+                        <div id="timeline-track-audio" class="relative h-20 border-b border-neutral-800/80 bg-[#121214] flex-shrink-0 w-full">
                             <!-- Audio Blocks -->
                             <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                                 <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">
@@ -1259,12 +1458,20 @@
                             class="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center pointer-events-auto cursor-ew-resize shadow-md hover:scale-110">
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
+
     </div>
 
-    <!-- Context Menu Triggers -->
+    <!-- Hidden Context Menu Triggers -->
+    <div style="visibility: hidden; position: fixed"
+         [style.left.px]="contextMenuPosition.x"
+         [style.top.px]="contextMenuPosition.y"
+         #imageContextMenuTrigger="matMenuTrigger"
+         [matMenuTriggerFor]="imageContextMenu"></div>
+
     <div style="visibility: hidden; position: fixed"
          [style.left.px]="contextMenuPosition.x"
          [style.top.px]="contextMenuPosition.y"
@@ -1282,6 +1489,12 @@
          [style.top.px]="contextMenuPosition.y"
          #textContextMenuTrigger="matMenuTrigger"
          [matMenuTriggerFor]="textContextMenu"></div>
+
+    <div style="visibility: hidden; position: fixed"
+         [style.left.px]="contextMenuPosition.x"
+         [style.top.px]="contextMenuPosition.y"
+         #customTextContextMenuTrigger="matMenuTrigger"
+         [matMenuTriggerFor]="customTextContextMenu"></div>
 
     <!-- Video Context Menu -->
     <mat-menu #videoContextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
@@ -1342,7 +1555,7 @@
         </button>
     </mat-menu>
 
-    <!-- Text Context Menu -->
+    <!-- Subtitle Context Menu (Phụ đề) -->
     <mat-menu #textContextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
         <button *ngIf="selectedItems.size > 1" mat-menu-item (click)="deleteSelectedItems()" class="menu-item-danger">
             <mat-icon class="text-red-500">delete_sweep</mat-icon>
@@ -1356,7 +1569,7 @@
 
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="openEditTextDialog(selectedContextData.item)">
             <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-2'"></mat-icon>
-            <span>Sửa nội dung văn bản</span>
+            <span>Sửa nội dung phụ đề</span>
         </button>
 
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="splitSubtitleItem(selectedContextData.item, selectedContextData?.sceneIdx, selectedContextData?.subIdx)">
@@ -1372,12 +1585,61 @@
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="toggleDisableItem(selectedContextData.item)">
             <mat-icon [ngClass]="selectedContextData?.item?.disabled ? 'text-red-400' : 'text-neutral-400'" 
                       [svgIcon]="selectedContextData?.item?.disabled ? 'feather:eye' : 'feather:eye-off'"></mat-icon>
-            <span>{{ selectedContextData?.item?.disabled ? 'Bật hiển thị text' : 'Tạm tắt text' }}</span>
+            <span>{{ selectedContextData?.item?.disabled ? 'Bật hiển thị phụ đề' : 'Tạm tắt phụ đề' }}</span>
         </button>
 
         <mat-divider></mat-divider>
 
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="removeSubtitle(selectedContextData?.sceneIdx, selectedContextData?.subIdx)" class="menu-item-danger">
+            <mat-icon class="text-red-500">delete_forever</mat-icon>
+            <span>Xoá phụ đề</span>
+        </button>
+    </mat-menu>
+
+    <!-- Image Context Menu (Track Hình ảnh Riêng Biệt) -->
+    <mat-menu #imageContextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <button *ngIf="selectedItems.size > 1" mat-menu-item (click)="deleteSelectedItems()" class="menu-item-danger">
+            <mat-icon class="text-red-500">delete_sweep</mat-icon>
+            <span>Xoá {{ selectedItems.size }} mục đã chọn (Delete)</span>
+        </button>
+        <mat-divider *ngIf="selectedItems.size > 1"></mat-divider>
+
+        <button *ngIf="selectedContextData?.item" mat-menu-item (click)="toggleDisableItem(selectedContextData.item)">
+            <mat-icon [ngClass]="selectedContextData?.item?.disabled ? 'text-red-400' : 'text-neutral-400'" 
+                      [svgIcon]="selectedContextData?.item?.disabled ? 'feather:eye' : 'feather:eye-off'"></mat-icon>
+            <span>{{ selectedContextData?.item?.disabled ? 'Bật hiển thị hình ảnh' : 'Tạm tắt hình ảnh' }}</span>
+        </button>
+
+        <mat-divider></mat-divider>
+
+        <button *ngIf="selectedContextData?.item" mat-menu-item (click)="removeImageItem(selectedContextData?.sceneIdx, selectedContextData?.imgIdx)" class="menu-item-danger">
+            <mat-icon class="text-red-500">delete_forever</mat-icon>
+            <span>Xoá hình ảnh</span>
+        </button>
+    </mat-menu>
+
+    <!-- Custom Text Context Menu (Track Text Riêng Biệt) -->
+    <mat-menu #customTextContextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <button *ngIf="selectedItems.size > 1" mat-menu-item (click)="deleteSelectedItems()" class="menu-item-danger">
+            <mat-icon class="text-red-500">delete_sweep</mat-icon>
+            <span>Xoá {{ selectedItems.size }} mục đã chọn (Delete)</span>
+        </button>
+        <mat-divider *ngIf="selectedItems.size > 1"></mat-divider>
+
+        <button *ngIf="selectedContextData?.item" mat-menu-item (click)="openEditCustomTextDialog(selectedContextData.item)">
+            <mat-icon class="text-emerald-400" [svgIcon]="'feather:edit-2'"></mat-icon>
+            <span>Sửa nội dung văn bản</span>
+        </button>
+
+        <button *ngIf="selectedContextData?.item" mat-menu-item (click)="toggleDisableItem(selectedContextData.item)">
+            <mat-icon [ngClass]="selectedContextData?.item?.disabled ? 'text-red-400' : 'text-neutral-400'" 
+                      [svgIcon]="selectedContextData?.item?.disabled ? 'feather:eye' : 'feather:eye-off'"></mat-icon>
+            <span>{{ selectedContextData?.item?.disabled ? 'Bật hiển thị text' : 'Tạm tắt text' }}</span>
+        </button>
+
+        <mat-divider></mat-divider>
+
+        <button *ngIf="selectedContextData?.item" mat-menu-item (click)="removeCustomText(selectedContextData?.sceneIdx, selectedContextData?.textIdx)" class="menu-item-danger">
             <mat-icon class="text-red-500">delete_forever</mat-icon>
             <span>Xoá đoạn text</span>
         </button>
@@ -1397,9 +1659,13 @@
             <mat-icon class="text-purple-400">audiotrack</mat-icon>
             <span>Thêm audio</span>
         </button>
-        <button mat-menu-item (click)="addNewTextTrackItem()">
-            <mat-icon class="text-amber-400">text_fields</mat-icon>
-            <span>Thêm text</span>
+        <button mat-menu-item (click)="addNewSubtitleItem()">
+            <mat-icon class="text-amber-400">subtitles</mat-icon>
+            <span>Thêm phụ đề</span>
+        </button>
+        <button mat-menu-item (click)="addNewCustomTextItem()">
+            <mat-icon class="text-emerald-400">text_fields</mat-icon>
+            <span>Thêm đoạn text</span>
         </button>
         <mat-divider></mat-divider>
         <button mat-menu-item (click)="addOnlineVideoBlock()">
@@ -1408,11 +1674,11 @@
         </button>
     </mat-menu>
 
-    <!-- Add Text / Subtitles Options Menu -->
-    <mat-menu #addTextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
-        <button mat-menu-item (click)="addNewTextTrackItem()">
+    <!-- Add Subtitles Options Menu -->
+    <mat-menu #addSubtitleMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <button mat-menu-item (click)="addNewSubtitleItem()">
             <mat-icon class="text-amber-400">add</mat-icon>
-            <span>Thêm một đoạn văn bản mới</span>
+            <span>Thêm một đoạn phụ đề mới</span>
         </button>
         <button mat-menu-item (click)="importSrtFile()">
             <mat-icon class="text-green-400">subtitles</mat-icon>
@@ -1421,6 +1687,14 @@
         <button mat-menu-item (click)="autoSplitAllLongSubtitles('all')">
             <mat-icon class="text-indigo-400">auto_fix_high</mat-icon>
             <span>Tự động tách toàn bộ câu dài (Auto Split)</span>
+        </button>
+    </mat-menu>
+
+    <!-- Add Text Options Menu -->
+    <mat-menu #addTextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <button mat-menu-item (click)="addNewCustomTextItem()">
+            <mat-icon class="text-emerald-400">add</mat-icon>
+            <span>Thêm một đoạn Text mới</span>
         </button>
     </mat-menu>
 
