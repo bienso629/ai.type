@@ -1168,7 +1168,7 @@
     "app.auto_automatically_split": "Tự động chia nhỏ",
     "app.auto_synchronize_settings_down_to_t": "Đồng bộ Cài đặt xuống các dòng dưới",
     "app.auto_voice_transformation_using_ai": "Biến đổi giọng bằng AI (RVC)",
-    "app.auto_original_sound": "Âm thanh gốc",
+    "app.auto_original_sound": "Âm thanh",
     "app.auto_broadcast_now": "Phát sóng ngay",
     "app.auto_apply_video_trimming": "Áp dụng cắt video",
     "app.auto_role": "Vai\n                                    trò:",
@@ -1385,5 +1385,6 @@
     "app.create_writing_style": "Tạo phong cách viết",
     "app.renewal": "Gia hạn",
     "app.maintain_operation": "Duy trì hoạt động",
-    "app.connect_your_website": "Kết nối website của bạn"
+    "app.connect_your_website": "Kết nối website của bạn",
+    "app.auto_original_sound": "Âm thanh"
 }
