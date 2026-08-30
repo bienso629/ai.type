@@ -1549,7 +1549,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         });
     }
 
-    addNewImageItem() {
+    async addNewImageItem() {
         if (!this.projectData) this.projectData = { scenes: [] };
         if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
             this.projectData.scenes.push({
@@ -1561,6 +1561,60 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 prompt: ''
             });
         }
+
+        const electronApi = (window as any).electron;
+        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e: any) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const originalPath = electronApi.getPathForFile(file);
+                if (!originalPath) {
+                    this.toastr.error('Không thể xác nhận đường dẫn file.');
+                    return;
+                }
+
+                this.toastr.info('Đang xử lý hình ảnh, vui lòng đợi...');
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
+                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+
+                const firstScene = this.projectData.scenes[0];
+                if (!firstScene.images) firstScene.images = [];
+
+                let maxStart = this.currentTimelineTime || 0;
+                firstScene.images.forEach((img: any) => {
+                    const end = (img.startTime || 0) + (img.duration || 5);
+                    if (end > maxStart) maxStart = end;
+                });
+
+                const newItem = {
+                    id: Date.now(),
+                    imageUrl: finalPath,
+                    title: file.name || ('Hình ảnh ' + (firstScene.images.length + 1)),
+                    startTime: maxStart,
+                    duration: 5,
+                    type: 'image'
+                };
+                firstScene.images.push(newItem);
+
+                this.setActiveItem(newItem);
+                this.previewImageUrl = finalPath;
+                this.previewVideoUrl = null;
+                this.updateTimelineTotalWidth();
+                this.updateRulerTicks();
+                this.saveData(true);
+                this.cd.detectChanges();
+                this.toastr.success('Đã thêm Hình ảnh mới vào Track Hình ảnh!');
+            };
+            input.click();
+            return;
+        }
+
         const imgUrl = prompt('Nhập đường dẫn hình ảnh (URL hoặc đường dẫn file):');
         if (!imgUrl || !imgUrl.trim()) return;
 
@@ -1579,9 +1633,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         firstScene.images.push(newItem);
 
         this.setActiveItem(newItem);
+        this.previewImageUrl = imgUrl.trim();
+        this.previewVideoUrl = null;
         this.updateTimelineTotalWidth();
         this.updateRulerTicks();
-        this.saveData();
+        this.saveData(true);
         this.cd.detectChanges();
         this.toastr.success('Đã thêm Hình ảnh mới vào Track Hình ảnh!');
     }
@@ -4304,7 +4360,37 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             // Mặc định ném vào scene cuối cùng
             const scene = this.projectData.scenes[this.projectData.scenes.length - 1];
 
-            if (type === 'video' || type === 'image') {
+            if (type === 'image') {
+                if (!scene.images) scene.images = [];
+                let maxStart = 0;
+                scene.images.forEach((img: any) => {
+                    const end = (img.startTime || 0) + (img.duration || 5);
+                    if (end > maxStart) maxStart = end;
+                });
+
+                const newImage: any = {
+                    id: Date.now(),
+                    imageUrl: finalPath,
+                    title: file.name || ('Hình ảnh ' + (scene.images.length + 1)),
+                    startTime: maxStart,
+                    duration: 5,
+                    type: 'image'
+                };
+
+                scene.images.push(newImage);
+                this.setActiveItem(newImage);
+                this.previewImageUrl = finalPath;
+                this.previewVideoUrl = null;
+                this.updateTimelineTotalWidth();
+                this.updateRulerTicks();
+                this.normalizeData();
+                this.saveData(true);
+                this.cd.detectChanges();
+                setTimeout(() => {
+                    this.autoScanAndLoadCompanionAssets();
+                    this.updateLines();
+                }, 100);
+            } else if (type === 'video') {
                 if (!scene.videos) scene.videos = [];
                 let maxStart = 0;
                 scene.videos.forEach((v: any) => {
@@ -4313,8 +4399,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 });
 
                 let realDur = 5;
-                const isVideo = type === 'video' && (file.type.startsWith('video/') || !!file.name.match(/\.(mp4|webm|avi|mov|mkv)$/i));
-                if (isVideo && electronApi.getMediaDuration) {
+                if (electronApi.getMediaDuration) {
                     try {
                         const durRes = await electronApi.getMediaDuration(finalPath);
                         if (durRes && durRes.success && durRes.duration > 0) {
@@ -4329,19 +4414,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     startTime: maxStart,
                     duration: realDur,
                     maxDuration: realDur,
+                    videoUrl: finalPath,
                     isCompleted: true
                 };
-
-                if (isVideo) {
-                    newVideo.videoUrl = finalPath;
-                } else {
-                    newVideo.imageUrl = finalPath;
-                }
 
                 scene.videos.push(newVideo);
                 this.setActiveItem(newVideo);
                 this.previewVideoUrl = newVideo.videoUrl || null;
-                this.previewImageUrl = newVideo.imageUrl || null;
+                this.previewImageUrl = null;
                 this.normalizeData();
                 this.saveData(true);
                 this.cd.detectChanges();
