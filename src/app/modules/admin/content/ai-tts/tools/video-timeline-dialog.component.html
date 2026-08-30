@@ -1064,7 +1064,7 @@
                 <div class="h-10 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden group">
                     <mat-icon class="icon-size-3.5 text-emerald-400">text_fields</mat-icon>
                     <span class="text-[11px] font-semibold text-neutral-300">Text</span>
-                    <button mat-icon-button (click)="addNewCustomTextItem()" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
+                    <button mat-icon-button [matMenuTriggerFor]="addTextMenu" class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
                         title="Thêm đoạn Text mới">
                         <mat-icon class="text-neutral-400 hover:text-emerald-400">add</mat-icon>
                     </button>
