@@ -3845,7 +3845,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    async addNewMediaBlock(type: 'video' | 'audio') {
+    async addNewMediaBlock(type: 'video' | 'image' | 'audio') {
         const electronApi = (window as any).electron;
         if (!electronApi || !electronApi.getPathForFile) {
             this.toastr.error('Lỗi cấu hình. Tính năng này chỉ dùng trên App Desktop.');
@@ -3855,7 +3855,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const input = document.createElement('input');
         input.type = 'file';
         if (type === 'video') {
-            input.accept = 'video/*,image/*';
+            input.accept = 'video/*';
+        } else if (type === 'image') {
+            input.accept = 'image/*';
         } else {
             input.accept = 'audio/*';
         }
@@ -3890,7 +3892,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             // Mặc định ném vào scene cuối cùng
             const scene = this.projectData.scenes[this.projectData.scenes.length - 1];
 
-            if (type === 'video') {
+            if (type === 'video' || type === 'image') {
                 if (!scene.videos) scene.videos = [];
                 let maxStart = 0;
                 scene.videos.forEach((v: any) => {
@@ -3899,7 +3901,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 });
 
                 let realDur = 5;
-                const isVideo = file.type.startsWith('video/') || !!file.name.match(/\.(mp4|webm|avi|mov|mkv)$/i);
+                const isVideo = type === 'video' && (file.type.startsWith('video/') || !!file.name.match(/\.(mp4|webm|avi|mov|mkv)$/i));
                 if (isVideo && electronApi.getMediaDuration) {
                     try {
                         const durRes = await electronApi.getMediaDuration(finalPath);

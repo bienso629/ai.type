@@ -4038,9 +4038,21 @@ ${contentFromDone || '(Chưa có văn bản)'}
                         this.cd.detectChanges();
                     }
                     this.toastr.info('Đang tải video chất lượng cao nhất về máy để chỉnh sửa...');
+                    let customCookies = this.settings?.customCookies || '';
+                    if (!customCookies) {
+                        const settingsStr = localStorage.getItem('settings');
+                        if (settingsStr) {
+                            try {
+                                customCookies = JSON.parse(settingsStr).customCookies || '';
+                            } catch (e) {}
+                        }
+                    }
+                    if (!customCookies) {
+                        customCookies = this.multiAccountService.getItem('setting_cookies') || '';
+                    }
                     const payload = {
                         url: localFilePath,
-                        customCookies: this.multiAccountService.getItem('setting_cookies') || ''
+                        customCookies: customCookies
                     };
                     const downloadResult = await electronApi.invoke('download-single-video-temp', payload);
                     if (downloadResult && downloadResult.success) {

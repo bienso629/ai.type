@@ -1383,12 +1383,25 @@
         </button>
     </mat-menu>
 
-    <!-- Add Video Options Menu -->
+    <!-- Add Video / Media Options Menu -->
     <mat-menu #addVideoMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
         <button mat-menu-item (click)="addNewMediaBlock('video')">
-            <mat-icon class="text-indigo-400">upload_file</mat-icon>
-            <span>Chọn file video / ảnh từ máy tính</span>
+            <mat-icon class="text-indigo-400">videocam</mat-icon>
+            <span>Thêm video từ máy tính</span>
         </button>
+        <button mat-menu-item (click)="addNewMediaBlock('image')">
+            <mat-icon class="text-emerald-400">image</mat-icon>
+            <span>Thêm hình ảnh</span>
+        </button>
+        <button mat-menu-item (click)="addNewMediaBlock('audio')">
+            <mat-icon class="text-purple-400">audiotrack</mat-icon>
+            <span>Thêm audio</span>
+        </button>
+        <button mat-menu-item (click)="addNewTextTrackItem()">
+            <mat-icon class="text-amber-400">text_fields</mat-icon>
+            <span>Thêm text</span>
+        </button>
+        <mat-divider></mat-divider>
         <button mat-menu-item (click)="addOnlineVideoBlock()">
             <mat-icon class="text-blue-400">link</mat-icon>
             <span>Thêm từ link Online (Facebook, YouTube, TikTok...)</span>

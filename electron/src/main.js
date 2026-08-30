@@ -7555,7 +7555,7 @@ ipcMain.handle('check-file-exists', async (event, filePath) => {
 ipcMain.handle('download-single-video-temp', async (event, payload) => {
     try {
         const url = typeof payload === 'string' ? payload : payload.url;
-        const customCookies = typeof payload === 'object' ? payload.customCookies : '';
+        let customCookies = typeof payload === 'object' ? payload.customCookies : '';
         const ytdlpPath = binaries.ytdlp || "yt-dlp";
         const downloadsPath = app.getPath('downloads');
         const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
@@ -7569,11 +7569,12 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
         const outputTemplate = path.join(videoFolder, `video.%(ext)s`);
         const args = [
             '-o', outputTemplate,
+            '--newline',
             '--no-warnings',
             '--rm-cache-dir',
             '--js-runtimes', 'node',
             '--extractor-args', 'youtube:player_client=ios,android,web',
-            '-f', 'bestvideo+bestaudio/best',
+            '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best',
             '--merge-output-format', 'mp4'
         ];
         if (binaries.ffmpeg) {
@@ -7581,6 +7582,16 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
         }
 
         const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
+        
+        if (!customCookies || !customCookies.trim()) {
+            const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+            if (fs.existsSync(cookiesJsonPath)) {
+                try {
+                    customCookies = fs.readFileSync(cookiesJsonPath, 'utf8');
+                } catch (e) {}
+            }
+        }
+
         if (customCookies && customCookies.trim().length > 0) {
             try {
                 let cookieContent = customCookies.trim();
@@ -7624,12 +7635,24 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
         await new Promise((resolve, reject) => {
             const child = spawn(ytdlpPath, args);
             let stderrOutput = "";
+            child.stdout.on('data', (data) => {
+                const text = data.toString();
+                const match = text.match(/\[download\]\s+([\d\.]+)%/);
+                if (match && match[1]) {
+                    const percent = Math.round(parseFloat(match[1]));
+                    sendToRenderer('download-single-video-progress', { percent });
+                }
+            });
             child.stderr.on('data', (data) => {
                 stderrOutput += data.toString();
             });
             child.on('close', (code) => {
-                if (code === 0) resolve();
-                else reject(new Error(`yt-dlp exited with code ${code}. Error: ${stderrOutput}`));
+                if (code === 0) {
+                    sendToRenderer('download-single-video-progress', { percent: 100 });
+                    resolve();
+                } else {
+                    reject(new Error(`yt-dlp exited with code ${code}. Error: ${stderrOutput}`));
+                }
             });
         });
 

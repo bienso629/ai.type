@@ -86,6 +86,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('photoFileInput') photoFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('avatarFileInput') avatarFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('actionFileInput') actionFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('audioFileInput') audioFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('textFileInput') textFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('promptFileInput') promptFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('promptInputArea') promptInputArea?: ElementRef<HTMLTextAreaElement>;
 
@@ -1176,9 +1178,87 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /** Trigger thêm hình ảnh */
+  triggerAddImage(): void {
+    this.photoFileInput?.nativeElement?.click();
+  }
+
+  /** Trigger thêm audio */
+  triggerAddAudio(): void {
+    this.audioFileInput?.nativeElement?.click();
+  }
+
+  /** Trigger thêm text */
+  triggerAddText(): void {
+    this.textFileInput?.nativeElement?.click();
+  }
+
+  /** Xử lý khi user chọn file Audio */
+  async onAudioSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    input.value = '';
+
+    try {
+      const audioUrl = URL.createObjectURL(file);
+      const audio = new Audio(audioUrl);
+      audio.play().catch(e => console.warn('[Profile] Audio play error:', e));
+      this.toastr.success(`Đã thêm và phát âm thanh: "${file.name}"`, 'Thêm Audio');
+    } catch (err: any) {
+      console.error('[Profile] Audio load error:', err);
+      this.toastr.error('Không thể phát file audio này.', 'Lỗi Audio');
+    }
+  }
+
+  /** Xử lý khi user chọn file Text (txt, json, md, srt, vtt) */
+  async onTextFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    input.value = '';
+
+    try {
+      const textContent = await file.text();
+      // Hiển thị lên cả hai màn hình của góc làm việc 3D
+      this.sceneService.showDateTimeOnMonitor('both', {
+        screenText: textContent.slice(0, 150)
+      });
+      // Đưa nội dung vào prompt input nếu đang trống
+      if (!this.promptText) {
+        this.promptText = textContent.slice(0, 200);
+      }
+      this.toastr.success(`Đã nạp văn bản từ "${file.name}" lên màn hình 3D!`, 'Thêm Text');
+      this.cdr.markForCheck();
+    } catch (err: any) {
+      console.error('[Profile] Text file read error:', err);
+      this.toastr.error('Không thể đọc file văn bản.', 'Lỗi Text');
+    }
+  }
+
   /** Trigger thêm đồ vật mới */
   triggerAddProp(): void {
-    console.log('[Profile] Trigger add prop dialog/upload');
+    const newProp = {
+      id: 'prop_' + Date.now(),
+      name: 'Đồ vật mới ' + (this.roomProps.length + 1),
+      category: 'furniture',
+      color: '#06b6d4',
+      position: { x: 0, y: 1.2, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 0.4, y: 0.4, z: 0.4 },
+      visible: true,
+      events: [],
+      subDevices: []
+    };
+    this.roomProps.unshift(newProp);
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    this.profileDataService.saveProps(this.roomProps).subscribe();
+    this.sceneService.syncProps(this.roomProps);
+    this.onSearchChange();
+    this.cdr.markForCheck();
+    this.toastr.success(`Đã thêm đồ vật mới "${newProp.name}"!`, 'Thêm đồ vật');
   }
 
   /** Mở dialog chọn file ảnh đính kèm cho prompt */
