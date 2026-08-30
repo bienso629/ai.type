@@ -6,6 +6,10 @@
   <input #avatarFileInput type="file" accept="image/*" style="display:none" (change)="onAvatarSelected($event)">
   <!-- Hidden action GLB file input -->
   <input #actionFileInput type="file" accept=".glb" style="display:none" (change)="onActionFileSelected($event)">
+  <!-- Hidden audio file input -->
+  <input #audioFileInput type="file" accept="audio/*" style="display:none" (change)="onAudioSelected($event)">
+  <!-- Hidden text file input -->
+  <input #textFileInput type="file" accept=".txt,.json,.md,.srt,.vtt" style="display:none" (change)="onTextFileSelected($event)">
 
   <!-- LEFT SIDEBAR -->
   <div class="profile-sidebar" [class.is-collapsed]="isSidebarCollapsed">
@@ -81,9 +85,9 @@
               <button type="button" 
                       mat-icon-button 
                       matPrefix 
-                      (click)="triggerAddProp()" 
-                      title="Thêm đồ vật..." 
-                      [matTooltip]="'Thêm đồ vật...'" 
+                      [matMenuTriggerFor]="addMenu" 
+                      title="Thêm mới..." 
+                      [matTooltip]="'Thêm mới...'" 
                       class="text-teal-600 dark:text-teal-400">
                 <mat-icon class="icon-size-3.5">add</mat-icon>
               </button>
@@ -240,6 +244,27 @@
         <button mat-menu-item (click)="triggerUpload()" class="hover:bg-teal-50 text-teal-600">
           <mat-icon class="icon-size-6 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
           <span class="text-base font-semibold">Thêm trang phục...</span>
+        </button>
+      </mat-menu>
+
+      <!-- Add Menu (Thêm mới đồ vật, hình ảnh, audio, text) -->
+      <mat-menu #addMenu="matMenu" class="rounded-xl py-1 w-56" panelClass="faint-shadow-menu">
+        <button mat-menu-item (click)="triggerAddImage()" class="hover:bg-teal-50 text-slate-700 hover:text-teal-700">
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">image</mat-icon>
+          <span class="text-base font-medium">Thêm hình ảnh</span>
+        </button>
+        <button mat-menu-item (click)="triggerAddAudio()" class="hover:bg-teal-50 text-slate-700 hover:text-teal-700">
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">audiotrack</mat-icon>
+          <span class="text-base font-medium">Thêm audio</span>
+        </button>
+        <button mat-menu-item (click)="triggerAddText()" class="hover:bg-teal-50 text-slate-700 hover:text-teal-700">
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">text_fields</mat-icon>
+          <span class="text-base font-medium">Thêm text</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="triggerAddProp()" class="hover:bg-teal-50 text-teal-600">
+          <mat-icon class="icon-size-5 text-teal-600 mr-2.5">add_circle_outline</mat-icon>
+          <span class="text-base font-semibold">Thêm đồ vật...</span>
         </button>
       </mat-menu>
 
