@@ -286,6 +286,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     isFrameModalOpen: boolean = false;
     isExportingFrameVideo: boolean = false;
     showGrid: boolean = true;
+    frameFilterRatio: 'all' | '16:9' | '9:16' = 'all';
+
+    get filteredFrames(): VideoFrameTemplate[] {
+        if (this.frameFilterRatio === 'all') {
+            return this.AVAILABLE_FRAMES;
+        }
+        return this.AVAILABLE_FRAMES.filter(frame => frame.id === 'none' || frame.aspectRatio === this.frameFilterRatio);
+    }
 
     getEffectiveAspectRatio(): string {
         if (this.selectedFrame && this.selectedFrame.id !== 'none' && this.selectedFrame.aspectRatio) {
@@ -1354,6 +1362,55 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.updateLines();
                 this.initWaveSurfers();
             }, 50);
+        }
+    }
+
+    onPreviewContextMenu(event: MouseEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.activeVideo) {
+            // Tìm sceneIdx và vIdx của activeVideo
+            let foundScene = null;
+            let foundSceneIdx = -1;
+            let foundVIdx = -1;
+            if (this.projectData?.scenes) {
+                for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                    const scene = this.projectData.scenes[sIdx];
+                    if (scene.videos) {
+                        const vIdx = scene.videos.indexOf(this.activeVideo);
+                        if (vIdx !== -1) {
+                            foundScene = scene;
+                            foundSceneIdx = sIdx;
+                            foundVIdx = vIdx;
+                            break;
+                        }
+                    }
+                }
+            }
+            this.onVideoContextMenu(event, this.activeVideo, foundScene, foundSceneIdx, foundVIdx);
+        } else if (this.activeItem && this.activeItem.imageUrl) {
+            let foundScene = null;
+            let foundSceneIdx = -1;
+            let foundImgIdx = -1;
+            if (this.projectData?.scenes) {
+                for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                    const scene = this.projectData.scenes[sIdx];
+                    if (scene.images) {
+                        const imgIdx = scene.images.indexOf(this.activeItem);
+                        if (imgIdx !== -1) {
+                            foundScene = scene;
+                            foundSceneIdx = sIdx;
+                            foundImgIdx = imgIdx;
+                            break;
+                        }
+                    }
+                }
+            }
+            this.onImageContextMenu(event, this.activeItem, foundScene, foundSceneIdx, foundImgIdx);
+        } else if (this.projectData?.scenes?.length && this.projectData.scenes[0]?.videos?.length) {
+            const firstScene = this.projectData.scenes[0];
+            const firstVideo = firstScene.videos[0];
+            this.onVideoContextMenu(event, firstVideo, firstScene, 0, 0);
         }
     }
 

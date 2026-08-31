@@ -77,6 +77,71 @@ app.on('web-contents-created', (e, webContents) => {
             event.preventDefault();
         }
     });
+
+    // Thêm Context Menu (Menu chuột phải) cho toàn bộ webContents
+    webContents.on('context-menu', (event, params) => {
+        const { Menu, clipboard } = require('electron');
+        const template = [];
+
+        if (params.linkURL) {
+            template.push({
+                label: 'Copy Link',
+                click: () => {
+                    clipboard.writeText(params.linkURL);
+                }
+            });
+        }
+
+        if (params.hasImageContents) {
+            template.push({ role: 'copyImage', label: 'Sao chép hình ảnh' });
+        }
+
+        if (params.isEditable) {
+            template.push({ role: 'undo', label: 'Hoàn tác' });
+            template.push({ role: 'redo', label: 'Làm lại' });
+            template.push({ type: 'separator' });
+            template.push({ role: 'cut', label: 'Cắt' });
+            template.push({ role: 'copy', label: 'Sao chép' });
+            template.push({ role: 'paste', label: 'Dán' });
+            template.push({ role: 'selectAll', label: 'Chọn tất cả' });
+        } else {
+            if (params.selectionText && params.selectionText.trim().length > 0) {
+                template.push({ role: 'copy', label: 'Sao chép' });
+                template.push({ role: 'selectAll', label: 'Chọn tất cả' });
+            }
+        }
+
+        if (template.length > 0) {
+            template.push({ type: 'separator' });
+        }
+
+        template.push({
+            label: 'Tải lại trang (Reload)',
+            accelerator: 'CmdOrCtrl+R',
+            click: () => {
+                const url = webContents.getURL();
+                if (url.startsWith('file://') && mainWindow && !mainWindow.isDestroyed()) {
+                    const hashMatch = url.match(/#.*$/);
+                    const hash = hashMatch ? hashMatch[0].substring(1) : '';
+                    mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html"), { hash });
+                } else {
+                    webContents.reload();
+                }
+            }
+        });
+
+        if (!app.isPackaged) {
+            template.push({
+                label: 'Kiểm tra phần tử (Inspect Element)',
+                click: () => {
+                    webContents.inspectElement(params.x, params.y);
+                }
+            });
+        }
+
+        const menu = Menu.buildFromTemplate(template);
+        menu.popup();
+    });
 });
 
 protocol.registerSchemesAsPrivileged([
