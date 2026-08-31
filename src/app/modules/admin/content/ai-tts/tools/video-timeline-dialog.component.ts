@@ -859,6 +859,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     // --- Preview Area ---
     previewVideoUrl: string | null = null;
     previewImageUrl: string | null = null;
+    previewOverlayImageUrl: string | null = null;
     previewAudioUrl: string | null = null;
 
     // --- Timeline Player ---
@@ -1825,36 +1826,44 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.playheadNeedle.nativeElement.style.transform = `translateX(${this.currentTimelineTime * this.pixelsPerSecond}px)`;
             }
 
-            // Chỉ chuyển cảnh khi hết clip hiện tại hoặc bước vào clip mới
+            // Kiểm tra và phát hiện chuyển cảnh / chuyển đổi giữa Video hoặc Hình ảnh
             let sceneChanged = false;
-            if (this.activeVideo) {
-                const vidStart = this.activeVideo.startTime || 0;
-                const vidEnd = vidStart + (this.activeVideo.duration || 5);
-                if (this.currentTimelineTime >= vidEnd || this.currentTimelineTime < vidStart) {
-                    this.updateTimelineSync();
-                    sceneChanged = true;
-                }
-            } else {
-                let hasVideoAtTime = false;
-                if (this.projectData?.scenes) {
-                    for (const sc of this.projectData.scenes) {
-                        if (sc.videos) {
-                            for (const v of sc.videos) {
-                                const s = v.startTime || 0;
-                                const e = s + (v.duration || 5);
-                                if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
-                                    hasVideoAtTime = true;
-                                    break;
-                                }
+            let currentPlayingVideo = null;
+            let currentPlayingImage = null;
+
+            if (this.projectData?.scenes) {
+                for (const sc of this.projectData.scenes) {
+                    if (sc.videos) {
+                        for (const v of sc.videos) {
+                            if (v.disabled) continue;
+                            const s = v.startTime || 0;
+                            const e = s + (v.duration || 5);
+                            if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
+                                currentPlayingVideo = v;
+                                break;
                             }
                         }
-                        if (hasVideoAtTime) break;
                     }
+                    if (sc.images) {
+                        for (const img of sc.images) {
+                            if (img.disabled) continue;
+                            const s = img.startTime || 0;
+                            const e = s + (img.duration || 5);
+                            if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
+                                currentPlayingImage = img;
+                                break;
+                            }
+                        }
+                    }
+                    if (currentPlayingVideo && currentPlayingImage) break;
                 }
-                if (hasVideoAtTime) {
-                    this.updateTimelineSync();
-                    sceneChanged = true;
-                }
+            }
+
+            const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.controlImageUrl || null) : null;
+
+            if (currentPlayingVideo !== this.activeVideo || this.previewOverlayImageUrl !== activeOverlayUrl) {
+                this.updateTimelineSync();
+                sceneChanged = true;
             }
 
             // Đồng bộ âm thanh (WaveSurfers) theo từng mili-giây của timeline
@@ -1972,6 +1981,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         let foundVideo = null;
         let foundScene = null;
+        let foundImage = null;
 
         for (const scene of this.projectData.scenes) {
             // Find active video
@@ -1987,8 +1997,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
             }
-            if (foundVideo) break;
+            // Find active overlay image (Track Images)
+            if (scene.images) {
+                for (const img of scene.images) {
+                    if (img.disabled) continue;
+                    const start = img.startTime || 0;
+                    const end = start + (img.duration || 5);
+                    if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
+                        foundImage = img;
+                        break;
+                    }
+                }
+            }
+            if (foundVideo && foundImage) break;
         }
+
+        // Cập nhật URL ảnh Overlay từ Track Images
+        const targetOverlayImageUrl = foundImage ? (foundImage.imageUrl || foundImage.controlImageUrl || null) : null;
+        this.previewOverlayImageUrl = targetOverlayImageUrl;
 
         // Kiểm tra xem clip video này đã có phân đoạn âm thanh rời (extracted audio) chưa
         const isVideoCoveredByExtractedAudio = foundVideo && foundScene && this.hasExtractedAudio(foundScene, foundVideo);
@@ -1998,10 +2024,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const targetVideoUrl = foundVideo?.videoUrl || null;
         const targetImageUrl = foundVideo?.imageUrl || null;
 
-        if (this.previewVideoUrl !== targetVideoUrl || this.previewImageUrl !== targetImageUrl || foundVideo !== this.activeVideo) {
+        if (this.previewVideoUrl !== targetVideoUrl || this.previewImageUrl !== (targetImageUrl || (targetVideoUrl ? null : targetOverlayImageUrl)) || foundVideo !== this.activeVideo) {
             this.activeVideo = foundVideo;
             this.previewVideoUrl = targetVideoUrl;
-            this.previewImageUrl = targetImageUrl;
+            this.previewImageUrl = targetImageUrl || (targetVideoUrl ? null : targetOverlayImageUrl);
 
             if (foundVideo && targetVideoUrl) {
                 // Cần setTimeout để chờ view update tag video/img
