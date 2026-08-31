@@ -261,6 +261,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             },
             canvasWidth: 2286,
             canvasHeight: 4096
+        },
+        {
+            id: 'tiktok_frame_5',
+            name: 'TikTok Video Frame No.5 (9:16)',
+            aspectRatio: '9:16',
+            icon: 'mobile_friendly',
+            bgPath: 'src/assets/video_frames/tiktok_frame_5_bg.jpg',
+            maskPath: 'src/assets/video_frames/tiktok_frame_5_mask.png',
+            thumbPath: 'src/assets/video_frames/tiktok_frame_5_thumb.jpg',
+            description: 'Khung Mockup No.5 TikTok 9:16 góc nghiêng nghệ thuật, phối cảnh độc đáo',
+            quad: {
+                topLeft: { x: 135.0, y: 901.5 },
+                topRight: { x: 2234.5, y: 679.0 },
+                bottomRight: { x: 2158.5, y: 2329.5 },
+                bottomLeft: { x: 200.5, y: 2059.0 }
+            },
+            canvasWidth: 2286,
+            canvasHeight: 4096
         }
     ];
 
