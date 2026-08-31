@@ -267,6 +267,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     selectedFrame: VideoFrameTemplate | null = null;
     isFrameModalOpen: boolean = false;
     isExportingFrameVideo: boolean = false;
+    showGrid: boolean = true;
+
+    getEffectiveAspectRatio(): string {
+        if (this.selectedFrame && this.selectedFrame.id !== 'none' && this.selectedFrame.aspectRatio) {
+            return this.selectedFrame.aspectRatio;
+        }
+        return this.projectData?.aspectRatio || '16:9';
+    }
+
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+    }
 
     async loadFrameAssets() {
         const electron = (window as any).electron;
