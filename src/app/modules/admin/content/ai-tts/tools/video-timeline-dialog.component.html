@@ -315,7 +315,8 @@
                     <div #mockupFrameContainer
                          *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl)"
                          class="relative h-full max-h-full flex items-center justify-center overflow-hidden rounded-none shadow-2xl bg-black select-none"
-                         [ngClass]="selectedFrame.aspectRatio === '16:9' ? 'aspect-[16/9]' : 'aspect-[9/16]'">
+                         [ngClass]="selectedFrame.aspectRatio === '16:9' ? 'aspect-[16/9]' : 'aspect-[9/16]'"
+                         (contextmenu)="onPreviewContextMenu($event)">
                         
                         <!-- 1. Background Image của Khung (Bàn làm việc Gaming & Màn hình PC cố định) -->
                         <img [src]="selectedFrame.bgDataUrl || getSafeUrl(selectedFrame.bgPath)"
@@ -386,7 +387,8 @@
                     <ng-container *ngIf="!selectedFrame || selectedFrame.id === 'none'">
                         <!-- Container chuẩn theo tỉ lệ xuất video (16:9 hoặc 9:16) -->
                         <div class="relative max-w-full max-h-full inline-flex items-center justify-center m-auto overflow-hidden rounded-none shadow-2xl bg-black"
-                             [ngClass]="getEffectiveAspectRatio() === '16:9' ? 'aspect-[16/9] w-full h-auto max-h-full' : (getEffectiveAspectRatio() === '9:16' ? 'aspect-[9/16] h-full w-auto max-w-full' : '')">
+                             [ngClass]="getEffectiveAspectRatio() === '16:9' ? 'aspect-[16/9] w-full h-auto max-h-full' : (getEffectiveAspectRatio() === '9:16' ? 'aspect-[9/16] h-full w-auto max-w-full' : '')"
+                             (contextmenu)="onPreviewContextMenu($event)">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
                                 class="max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden"
                                 (loadedmetadata)="onVideoLoadedMetadata($event)"
@@ -1604,6 +1606,11 @@
         </button>
         <mat-divider *ngIf="selectedItems.size > 1"></mat-divider>
 
+        <button *ngIf="selectedContextData?.video" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+            <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
+            <span>Chỉnh sửa Prompt & Frame Video</span>
+        </button>
+
         <button mat-menu-item (click)="addNewScene(selectedContextData?.sceneIdx)">
             <mat-icon class="text-indigo-400">add</mat-icon>
             <span>Thêm Track (Scene)</span>
@@ -1703,6 +1710,11 @@
             <span>Xoá {{ selectedItems.size }} mục đã chọn (Delete)</span>
         </button>
         <mat-divider *ngIf="selectedItems.size > 1"></mat-divider>
+
+        <button *ngIf="selectedContextData?.item" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.item, selectedContextData?.sceneIdx, selectedContextData?.imgIdx)">
+            <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
+            <span>Chỉnh sửa Prompt & Frame Image</span>
+        </button>
 
         <button *ngIf="selectedContextData?.item" mat-menu-item (click)="toggleDisableItem(selectedContextData.item)">
             <mat-icon [ngClass]="selectedContextData?.item?.disabled ? 'text-red-400' : 'text-neutral-400'" 
@@ -1846,15 +1858,26 @@
                         <p class="text-xs text-neutral-400">Lồng video của bạn vào màn hình mockup phối cảnh 3D TikTok/Shorts (9:16) hoặc YouTube TV (16:9)</p>
                     </div>
                 </div>
-                <button mat-icon-button class="text-neutral-400 hover:text-white" (click)="closeFrameModal()">
-                    <mat-icon class="icon-size-5">close</mat-icon>
-                </button>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-neutral-400 font-medium">Tỉ lệ khung:</label>
+                        <select [(ngModel)]="frameFilterRatio"
+                                class="bg-[#101116] border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer">
+                            <option value="all">Tất cả tỉ lệ</option>
+                            <option value="16:9">16:9 (Ngang - YouTube TV)</option>
+                            <option value="9:16">9:16 (Dọc - TikTok / Shorts)</option>
+                        </select>
+                    </div>
+                    <button mat-icon-button class="text-neutral-400 hover:text-white" (click)="closeFrameModal()">
+                        <mat-icon class="icon-size-5">close</mat-icon>
+                    </button>
+                </div>
             </div>
 
             <!-- Body: Frames Grid -->
             <div class="flex-1 overflow-y-auto p-5 space-y-4 scene-scroll-area">
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <div *ngFor="let frame of AVAILABLE_FRAMES"
+                    <div *ngFor="let frame of filteredFrames"
                          (click)="selectFrame(frame)"
                          class="group relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer bg-[#0f1015] hover:bg-[#161822]"
                          [ngClass]="{
