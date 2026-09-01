@@ -271,5 +271,10 @@
 
     </div>
 
+    <button mat-stroked-button color="accent" (click)="generateVideo()" [disabled]="isGeneratingVideo || isGeneratingImage" class="gap-1.5 border-amber-500/50 text-amber-600 hover:bg-amber-50">
+        <mat-spinner *ngIf="isGeneratingVideo" diameter="18" class="mr-1"></mat-spinner>
+        <mat-icon *ngIf="!isGeneratingVideo" class="icon-size-4 text-amber-600">videocam</mat-icon>
+        <span>{{ isGeneratingVideo ? 'Đang tạo Video...' : 'Tạo Video AI' }}</span>
+    </button>
     <button mat-flat-button color="primary" (click)="save()">{{ 'app.auto_save_information' | transloco }}</button>
 </mat-dialog-actions>

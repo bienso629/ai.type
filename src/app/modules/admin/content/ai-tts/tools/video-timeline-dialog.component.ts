@@ -3394,16 +3394,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const isProxy = this._genaiService.isUModelverseEnabled();
             
             let referenceImages: any[] = [];
-            // Gắn thêm ảnh Storyboard làm reference
-            if (video.imageUrl) {
+            // Gắn thêm ảnh tham chiếu Frame / Storyboard làm reference
+            const refImg = video.aiReferenceImageLocalUrl || video.imageUrl;
+            if (refImg) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(video.imageUrl);
+                    const base64Data = await this.getBase64FromImageUrl(refImg);
                     referenceImages.push({
                         image: { imageBytes: base64Data, mimeType: 'image/jpeg' },
                         referenceType: 'START_FRAME'
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh Storyboard làm reference cho video:', e);
+                    console.error('Không thể đọc ảnh Storyboard/Frame làm reference cho video:', e);
                 }
             }
 
@@ -4081,6 +4082,66 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         this.saveData();
         this.toastr.success(`Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`);
+    }
+
+    selectVideoForFrameEdit(scene: any, video: any, index: number, vIdx: number = -1): void {
+        if (!video) {
+            this.toastr.warning('Không tìm thấy thông tin video cần xử lý!');
+            return;
+        }
+
+        // 1. Cập nhật tỷ lệ khung hình và ảnh nền frame vào video tham chiếu
+        if (this.selectedFrame && this.selectedFrame.id !== 'none') {
+            if (this.selectedFrame.aspectRatio) {
+                video.aspectRatio = this.selectedFrame.aspectRatio;
+            }
+            const bgImage = this.selectedFrame.bgDataUrl || this.selectedFrame.bgPath;
+            if (bgImage) {
+                video.aiReferenceImageLocalUrl = bgImage;
+            }
+        }
+
+        // 2. Kích hoạt video sang cột Inspector bên phải
+        this.selectedContextData = { scene, video, sceneIdx: index, vIdx, type: 'video' };
+        this.setActiveItem(video);
+
+        // Lưu trạng thái dữ liệu
+        this.saveData();
+        this.cd.detectChanges();
+
+        this.toastr.success('Đã chọn video và gắn ảnh nền Frame! Bạn có thể chỉnh sửa prompt và bấm Tạo Video AI bên phải.');
+    }
+
+    generateVideoFromInspector(videoItem: any): void {
+        if (!videoItem) return;
+        const ctx = this.findVideoContext(videoItem);
+        if (!ctx) {
+            this.toastr.warning('Không xác định được phân cảnh của video!');
+            return;
+        }
+        this.autoGenerateVideo(ctx.scene, videoItem, ctx.sceneIdx, ctx.vIdx);
+    }
+
+    removeAttachedImageFromVideo(videoItem: any): void {
+        if (!videoItem) return;
+        videoItem.imageUrl = null;
+        videoItem.aiReferenceImageLocalUrl = null;
+        this.saveData();
+        this.cd.detectChanges();
+        this.toastr.info('Đã gỡ ảnh tham chiếu khỏi video.');
+    }
+
+    onInspectorVideoImageSelected(event: any, videoItem: any): void {
+        const file = event.target.files?.[0];
+        if (file && videoItem) {
+            const url = URL.createObjectURL(file);
+            videoItem.imageUrl = url;
+            videoItem.aiReferenceImageLocalUrl = url;
+            this.saveData();
+            this.cd.detectChanges();
+            this.toastr.success('Đã tải ảnh tham chiếu lên cho video.');
+        }
+        event.target.value = '';
     }
 
     openEditScenePromptDialog(scene: any, video: any, index: number, vIdx: number = -1) {
