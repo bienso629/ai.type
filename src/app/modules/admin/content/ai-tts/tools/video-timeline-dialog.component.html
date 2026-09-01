@@ -1075,6 +1075,17 @@
                                     title="Không thể chỉnh sửa đồng thời thời lượng khi chọn nhiều Video">
                             </div>
                         </div>
+
+                        <!-- Công cụ Crop Video đã chọn -->
+                        <div *ngIf="!isMultiVideoSelected && activeItem?.videoUrl" class="pt-2 border-t border-neutral-800 flex flex-col gap-2">
+                            <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Công cụ Video</label>
+                            <button type="button" 
+                                (click)="openCropVideoDialog(activeItem, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)"
+                                class="w-full py-2 px-3 text-xs font-semibold rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-500/60 transition-colors flex items-center justify-center gap-2 shadow-sm">
+                                <mat-icon class="icon-size-4 text-indigo-400">crop</mat-icon>
+                                <span>Cắt Khung Hình Video (Crop Video)</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- TH 4: CHƯA CHỌN MỤC NÀO (TỔNG QUAN DỰ ÁN) -->
@@ -1610,6 +1621,10 @@
             <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
             <span>Chỉnh sửa Prompt & Frame Video</span>
         </button>
+        <button *ngIf="selectedContextData?.video && selectedContextData?.video?.videoUrl" mat-menu-item (click)="openCropVideoDialog(selectedContextData?.video, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+            <mat-icon class="text-indigo-400">crop</mat-icon>
+            <span>Cắt Khung Hình Video (Crop Video)</span>
+        </button>
         <button *ngIf="selectedContextData?.item && selectedContextData?.type === 'image'" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.item, selectedContextData?.sceneIdx, selectedContextData?.imgIdx)">
             <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
             <span>Chỉnh sửa Prompt & Frame Image</span>
@@ -1632,6 +1647,11 @@
         <button mat-menu-item (click)="splitVideoScenesAI(selectedContextData?.video, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
             <mat-icon class="text-fuchsia-400">auto_awesome</mat-icon>
             <span>Tách cảnh và chỉnh sửa</span>
+        </button>
+
+        <button *ngIf="selectedContextData?.video?.videoUrl" mat-menu-item (click)="openCropVideoDialog(selectedContextData?.video, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+            <mat-icon class="text-indigo-400">crop</mat-icon>
+            <span>Cắt Khung Hình Video (Crop Video)</span>
         </button>
 
         <button mat-menu-item (click)="extractAudio(selectedContextData?.video, selectedContextData?.sceneIdx)">
