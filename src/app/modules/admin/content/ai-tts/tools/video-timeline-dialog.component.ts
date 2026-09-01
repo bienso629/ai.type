@@ -1038,6 +1038,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     @ViewChild('playheadNeedle') playheadNeedle?: ElementRef<HTMLDivElement>;
     @ViewChild('imageContextMenuTrigger', { read: MatMenuTrigger }) imageContextMenuTrigger?: MatMenuTrigger;
     @ViewChild('videoContextMenuTrigger', { read: MatMenuTrigger }) videoContextMenuTrigger?: MatMenuTrigger;
+    @ViewChild('gridPreviewContextMenuTrigger', { read: MatMenuTrigger }) gridPreviewContextMenuTrigger?: MatMenuTrigger;
     @ViewChild('audioContextMenuTrigger', { read: MatMenuTrigger }) audioContextMenuTrigger?: MatMenuTrigger;
     @ViewChild('textContextMenuTrigger', { read: MatMenuTrigger }) textContextMenuTrigger?: MatMenuTrigger;
     @ViewChild('customTextContextMenuTrigger', { read: MatMenuTrigger }) customTextContextMenuTrigger?: MatMenuTrigger;
@@ -1387,7 +1388,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
             }
-            this.onVideoContextMenu(event, this.activeVideo, foundScene, foundSceneIdx, foundVIdx);
+            this.onGridPreviewContextMenu(event, this.activeVideo, foundScene, foundSceneIdx, foundVIdx, 'video');
         } else if (this.activeItem && this.activeItem.imageUrl) {
             let foundScene = null;
             let foundSceneIdx = -1;
@@ -1406,11 +1407,34 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
             }
-            this.onImageContextMenu(event, this.activeItem, foundScene, foundSceneIdx, foundImgIdx);
+            this.onGridPreviewContextMenu(event, this.activeItem, foundScene, foundSceneIdx, foundImgIdx, 'image');
         } else if (this.projectData?.scenes?.length && this.projectData.scenes[0]?.videos?.length) {
             const firstScene = this.projectData.scenes[0];
             const firstVideo = firstScene.videos[0];
-            this.onVideoContextMenu(event, firstVideo, firstScene, 0, 0);
+            this.onGridPreviewContextMenu(event, firstVideo, firstScene, 0, 0, 'video');
+        }
+    }
+
+    onGridPreviewContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, itemIdx: number, type: 'video' | 'image' = 'video') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (item && !this.selectedItems.has(item)) {
+            this.selectedItems.clear();
+            this.selectedItems.add(item);
+            this.activeItem = item;
+            if (type === 'video') {
+                this.activeVideo = item;
+            }
+        }
+        if (type === 'video') {
+            this.selectedContextData = { video: item, scene, sceneIdx, vIdx: itemIdx, type: 'video' };
+        } else {
+            this.selectedContextData = { item, scene, sceneIdx, imgIdx: itemIdx, type: 'image' };
+        }
+        this.contextMenuPosition = { x: event.clientX, y: event.clientY };
+        this.cd.detectChanges();
+        if (this.gridPreviewContextMenuTrigger) {
+            this.gridPreviewContextMenuTrigger.openMenu();
         }
     }
 
@@ -6763,28 +6787,6 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         imgIdx: imgIdx,
                         type: 'image',
                         title: img.title || img.prompt || ('Hình ảnh ' + (imgIdx + 1))
-                    });
-                }
-            }
-            if (scene.videos) {
-                for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
-                    const v = scene.videos[vIdx];
-                    const imgUrl = v.imageUrl || v.controlImageUrl;
-                    if (!imgUrl) continue;
-                    list.push({
-                        ...v,
-                        get duration() { return v.duration; },
-                        get startTime() { return v.startTime; },
-                        get maxDuration() { return v.maxDuration; },
-                        get prompt() { return v.prompt; },
-                        get imageUrl() { return imgUrl; },
-                        get controlImageUrl() { return v.controlImageUrl; },
-                        get videoUrl() { return v.videoUrl; },
-                        _raw: v,
-                        sceneIdx: sIdx,
-                        vIdx: vIdx,
-                        type: 'image',
-                        title: v.imagePrompt || v.prompt || ('Hình ảnh cảnh ' + (sIdx + 1))
                     });
                 }
             }

@@ -1583,6 +1583,12 @@
     <div style="visibility: hidden; position: fixed"
          [style.left.px]="contextMenuPosition.x"
          [style.top.px]="contextMenuPosition.y"
+         #gridPreviewContextMenuTrigger="matMenuTrigger"
+         [matMenuTriggerFor]="gridPreviewContextMenu"></div>
+
+    <div style="visibility: hidden; position: fixed"
+         [style.left.px]="contextMenuPosition.x"
+         [style.top.px]="contextMenuPosition.y"
          #audioContextMenuTrigger="matMenuTrigger"
          [matMenuTriggerFor]="audioContextMenu"></div>
 
@@ -1598,18 +1604,25 @@
          #customTextContextMenuTrigger="matMenuTrigger"
          [matMenuTriggerFor]="customTextContextMenu"></div>
 
-    <!-- Video Context Menu -->
+    <!-- Grid Preview Context Menu (Chỉ chứa Chỉnh sửa Prompt & Frame Video) -->
+    <mat-menu #gridPreviewContextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <button *ngIf="selectedContextData?.video" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+            <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
+            <span>Chỉnh sửa Prompt & Frame Video</span>
+        </button>
+        <button *ngIf="selectedContextData?.item && selectedContextData?.type === 'image'" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.item, selectedContextData?.sceneIdx, selectedContextData?.imgIdx)">
+            <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
+            <span>Chỉnh sửa Prompt & Frame Image</span>
+        </button>
+    </mat-menu>
+
+    <!-- Video Context Menu (Đầy đủ cho Track 1) -->
     <mat-menu #videoContextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
         <button *ngIf="selectedItems.size > 1" mat-menu-item (click)="deleteSelectedItems()" class="menu-item-danger">
             <mat-icon class="text-red-500">delete_sweep</mat-icon>
             <span class="text-red-400">Xoá {{ selectedItems.size }} mục đã chọn (Delete)</span>
         </button>
         <mat-divider *ngIf="selectedItems.size > 1"></mat-divider>
-
-        <button *ngIf="selectedContextData?.video" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
-            <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
-            <span>Chỉnh sửa Prompt & Frame Video</span>
-        </button>
 
         <button mat-menu-item (click)="addNewScene(selectedContextData?.sceneIdx)">
             <mat-icon class="text-indigo-400">add</mat-icon>
@@ -1757,29 +1770,12 @@
         </button>
     </mat-menu>
 
-    <!-- Add Video / Media Options Menu -->
+    <!-- Add Video Options Menu -->
     <mat-menu #addVideoMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
         <button mat-menu-item (click)="addNewMediaBlock('video')">
-            <mat-icon class="text-indigo-400">videocam</mat-icon>
-            <span>Thêm video từ máy tính</span>
+            <mat-icon class="text-indigo-400">upload_file</mat-icon>
+            <span>Chọn file video / ảnh từ máy tính</span>
         </button>
-        <button mat-menu-item (click)="addNewMediaBlock('image')">
-            <mat-icon class="text-emerald-400">image</mat-icon>
-            <span>Thêm hình ảnh</span>
-        </button>
-        <button mat-menu-item (click)="addNewMediaBlock('audio')">
-            <mat-icon class="text-purple-400">audiotrack</mat-icon>
-            <span>Thêm audio</span>
-        </button>
-        <button mat-menu-item (click)="addNewSubtitleItem()">
-            <mat-icon class="text-amber-400">subtitles</mat-icon>
-            <span>Thêm phụ đề</span>
-        </button>
-        <button mat-menu-item (click)="addNewCustomTextItem()">
-            <mat-icon class="text-emerald-400">text_fields</mat-icon>
-            <span>Thêm đoạn text</span>
-        </button>
-        <mat-divider></mat-divider>
         <button mat-menu-item (click)="addOnlineVideoBlock()">
             <mat-icon class="text-blue-400">link</mat-icon>
             <span>Thêm từ link Online (Facebook, YouTube, TikTok...)</span>
