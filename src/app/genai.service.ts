@@ -180,11 +180,10 @@ export class GenaiService {
             if (this._umodelverseUrl && !this._umodelverseUrl.startsWith('http')) {
                 this._umodelverseUrl = 'https://' + this._umodelverseUrl;
             }
-            // Chuẩn hoá URL: Tự động loại bỏ các path phụ đuôi như /v1/chat/completions, /chat/completions, /v1, /v1beta...
+            // Chuẩn hoá URL: Tự động loại bỏ các path phụ đuôi như /v1/chat/completions, /chat/completions...
             this._umodelverseUrl = this._umodelverseUrl
                 .replace(/\/v1\/chat\/completions\/?$/i, '')
                 .replace(/\/chat\/completions\/?$/i, '')
-                .replace(/\/v1\/?$/i, '')
                 .replace(/\/v1beta\/?$/i, '');
             if (this._umodelverseUrl.endsWith('/')) {
                 this._umodelverseUrl = this._umodelverseUrl.slice(0, -1);
@@ -212,6 +211,7 @@ export class GenaiService {
             this._umodelverseKey = '';
             this._umodelverseChatModel = '';
             this._umodelverseImageModel = '';
+            this._umodelverseVideoModel = '';
         }
     }
 
@@ -232,7 +232,10 @@ export class GenaiService {
             return [];
         }
         try {
-            const modelsRes = await fetch(`${this._umodelverseUrl}/models`, {
+            const modelsEndpoint = this._umodelverseUrl.endsWith('/v1')
+                ? `${this._umodelverseUrl}/models`
+                : `${this._umodelverseUrl}/v1/models`;
+            const modelsRes = await fetch(modelsEndpoint, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${this._umodelverseKey}`
@@ -1652,8 +1655,9 @@ export class GenaiService {
 
         // --- KIỂM TRA MODEL CÓ ĐƯỢC HỖ TRỢ TRÊN PROXY KHÔNG ---
         try {
-            console.log(`[UModelverse] Đang kiểm tra danh sách model được hỗ trợ từ: ${url}/models ...`);
-            const modelsRes = await fetch(`${url}/models`, {
+            const modelsEndpoint = url.endsWith('/v1') ? `${url}/models` : `${url}/v1/models`;
+            console.log(`[UModelverse] Đang kiểm tra danh sách model được hỗ trợ từ: ${modelsEndpoint} ...`);
+            const modelsRes = await fetch(modelsEndpoint, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${key}`
@@ -2206,11 +2210,19 @@ export class GenaiService {
         let taskEndpointUsed = '';
         let lastErrorMsg = '';
 
+        const baseNoV1 = url.replace(/\/v1\/?$/i, '');
+        const baseWithV1 = url.endsWith('/v1') ? url : `${url}/v1`;
+
         const taskEndpoints = [
             `${url}/tasks/submit`,
             `${url}/tasks`,
-            `${url}/videos/generations`
-        ];
+            `${url}/videos/generations`,
+            `${baseNoV1}/tasks/submit`,
+            `${baseNoV1}/tasks`,
+            `${baseWithV1}/videos/generations`,
+            `${baseWithV1}/tasks/submit`,
+            `${baseWithV1}/tasks`
+        ].filter((ep, idx, arr) => arr.indexOf(ep) === idx);
 
         console.log(`[UModelverse Async Video] Trực tiếp thử gửi yêu cầu dạng Asynchronous Task...`);
         for (const endpoint of taskEndpoints) {
