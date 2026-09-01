@@ -49,6 +49,8 @@ export class EditScenePromptDialogComponent {
     aiReferenceImageLocalUrl: string | null = null;
     aiReferenceVideoLocalUrl: string | null = null;
     aiReferenceVideoBase64: string | null = null;
+    frameBgUrl: string | null = null;
+    frameTemplateName: string | null = null;
 
 
     onReferenceImageSelected(event: any) {
@@ -342,6 +344,25 @@ export class EditScenePromptDialogComponent {
         this.editingVideoIndex = data.vIdx !== undefined ? data.vIdx : -1;
         this.editingScenePrompt = data.video ? { ...data.video } : { ...data.scene };
         this.selectedAspectRatio = this.editingScenePrompt.aspectRatio || data.projectAspectRatio || '16:9';
+
+        // Nếu mở từ chế độ chỉnh sửa Frame Video (có frame data kèm theo)
+        if (data.frame) {
+            if (data.frame.aspectRatio) {
+                this.selectedAspectRatio = data.frame.aspectRatio;
+                this.editingScenePrompt.aspectRatio = data.frame.aspectRatio;
+            }
+            this.frameTemplateName = data.frame.name || 'Khung Video';
+            const bgImage = data.frame.bgDataUrl || data.frame.bgPath;
+            if (bgImage) {
+                this.frameBgUrl = bgImage;
+                this.aiReferenceImageLocalUrl = bgImage;
+                // Nếu video/scene hiện tại chưa có ảnh Storyboard thì gán luôn ảnh nền frame làm storyboard
+                if (!this.editingScenePrompt.imageUrl) {
+                    this.editingScenePrompt.imageUrl = bgImage;
+                }
+            }
+        }
+
         this.characters = data.characters || [];
         this.masterPrompt = data.masterPrompt ? data.masterPrompt.trim() : '';
         this.globalContext = data.globalContext || null;

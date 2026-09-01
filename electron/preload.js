@@ -159,6 +159,9 @@ contextBridge.exposeInMainWorld('electron', {
 
     // ── Legacy aliases (giữ để không break code cũ) ──
     saveCharacterGlb: (username, buffer) => ipcRenderer.invoke('character:upload-glb', { username, buffer }),
+
+    // ── Terminal Current Directory Tracker ──
+    getTerminalLastDirectory: () => ipcRenderer.invoke('terminal:get-last-directory'),
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...

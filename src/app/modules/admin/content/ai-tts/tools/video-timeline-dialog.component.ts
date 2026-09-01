@@ -1390,7 +1390,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
             this.onGridPreviewContextMenu(event, this.activeVideo, foundScene, foundSceneIdx, foundVIdx, 'video');
-        } else if (this.activeItem && this.activeItem.imageUrl) {
+        } else if (this.activeItem && this.activeItem.imageUrl && !this.activeItem.videoUrl) {
             let foundScene = null;
             let foundSceneIdx = -1;
             let foundImgIdx = -1;
@@ -1409,10 +1409,42 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
             this.onGridPreviewContextMenu(event, this.activeItem, foundScene, foundSceneIdx, foundImgIdx, 'image');
-        } else if (this.projectData?.scenes?.length && this.projectData.scenes[0]?.videos?.length) {
-            const firstScene = this.projectData.scenes[0];
-            const firstVideo = firstScene.videos[0];
-            this.onGridPreviewContextMenu(event, firstVideo, firstScene, 0, 0, 'video');
+        } else {
+            // Tìm video tại mốc thời gian hiện tại
+            let currentVideo = null;
+            let currentScene = null;
+            let currentSceneIdx = -1;
+            let currentVIdx = -1;
+            const cTime = this.currentTimelineTime || 0;
+
+            if (this.projectData?.scenes) {
+                for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                    const scene = this.projectData.scenes[sIdx];
+                    if (scene.videos) {
+                        for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
+                            const v = scene.videos[vIdx];
+                            const vStart = v.startTime || 0;
+                            const vEnd = vStart + (v.duration || 5);
+                            if (cTime >= vStart && cTime <= vEnd) {
+                                currentVideo = v;
+                                currentScene = scene;
+                                currentSceneIdx = sIdx;
+                                currentVIdx = vIdx;
+                                break;
+                            }
+                        }
+                    }
+                    if (currentVideo) break;
+                }
+            }
+
+            if (currentVideo) {
+                this.onGridPreviewContextMenu(event, currentVideo, currentScene, currentSceneIdx, currentVIdx, 'video');
+            } else if (this.projectData?.scenes?.length && this.projectData.scenes[0]?.videos?.length) {
+                const firstScene = this.projectData.scenes[0];
+                const firstVideo = firstScene.videos[0];
+                this.onGridPreviewContextMenu(event, firstVideo, firstScene, 0, 0, 'video');
+            }
         }
     }
 
@@ -4080,7 +4112,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 globalContext: this.projectData?.globalContext || null,
                 mediaDir: this.projectData?.mediaDir || '',
                 uuid: this.projectData?.uuid || this.data?.uuid,
-                username: this.projectData?.username || this.data?.username
+                username: this.projectData?.username || this.data?.username,
+                frame: (this.selectedFrame && this.selectedFrame.id !== 'none') ? { ...this.selectedFrame } : null
             },
             width: '75vw',
             maxWidth: '90vw',
@@ -6659,14 +6692,260 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         if (item && item.videoUrl) {
             this.previewVideoUrl = item.videoUrl;
             this.previewImageUrl = item.imageUrl || null;
+            this.activeVideo = item;
         } else if (item && item.imageUrl && !item.videoUrl) {
             this.previewVideoUrl = null;
             this.previewImageUrl = item.imageUrl;
         }
 
+        // Tự động đồng bộ context data khi chọn item
+        if (item) {
+            const itemType = this.getItemType(item);
+            if (itemType === 'video') {
+                const ctx = this.findVideoContext(item);
+                if (ctx) {
+                    this.selectedContextData = { video: item, scene: ctx.scene, sceneIdx: ctx.sceneIdx, vIdx: ctx.vIdx, type: 'video' };
+                }
+            }
+        }
+
         if (!item) {
             this.updateTimelineSync();
         }
+    }
+
+    findVideoContext(videoItem: any): { scene: any, sceneIdx: number, vIdx: number } | null {
+        if (!videoItem || !this.projectData?.scenes) return null;
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (scene.videos) {
+                const vIdx = scene.videos.indexOf(videoItem);
+                if (vIdx !== -1) {
+                    return { scene, sceneIdx: sIdx, vIdx };
+                }
+            }
+        }
+        return null;
+    }
+
+    findPreviousVideoUrl(videoItem: any): string | null {
+        const ctx = this.findVideoContext(videoItem);
+        if (!ctx) return null;
+        const { scene, sceneIdx, vIdx } = ctx;
+        if (vIdx > 0 && scene.videos && scene.videos[vIdx - 1]) {
+            return scene.videos[vIdx - 1].videoUrl || null;
+        } else if (sceneIdx > 0 && this.projectData?.scenes?.[sceneIdx - 1]) {
+            const prevScene = this.projectData.scenes[sceneIdx - 1];
+            if (prevScene.videos && prevScene.videos.length > 0) {
+                return prevScene.videos[prevScene.videos.length - 1].videoUrl || null;
+            } else if (prevScene.videoUrl) {
+                return prevScene.videoUrl;
+            }
+        }
+        return null;
+    }
+
+    isReferenceCharSelectedForVideo(videoItem: any, char: any): boolean {
+        if (!videoItem || !char) return false;
+        const charName = char.name || char.role || '';
+        if (!charName) return false;
+        const prompt = (videoItem.prompt || '') + ' ' + (videoItem.imagePrompt || '');
+        return prompt.includes(`[Character '${charName}'`) || prompt.includes(`[Character '${charName}':`);
+    }
+
+    toggleReferenceCharForVideo(videoItem: any, char: any) {
+        if (!videoItem || !char) return;
+        const charName = char.name || char.role || '';
+        if (!charName) return;
+
+        const charToken = `[Character '${charName}'`;
+        const charDesc = char.prompt || char.appearance || '';
+        const fullCharTag = `[Character '${charName}': ${charDesc}]`;
+
+        let p = videoItem.prompt || '';
+        if (p.includes(charToken)) {
+            const escapedName = charName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(`\\s*\\[Character '${escapedName}'[\\s\\S]*?\\]`, 'g');
+            videoItem.prompt = p.replace(regex, '').trim();
+            this.toastr.info(`Đã gỡ nhân vật ${charName} khỏi prompt video.`);
+        } else {
+            videoItem.prompt = p ? `${fullCharTag}\n\n${p}` : fullCharTag;
+            this.toastr.success(`Đã thêm nhân vật ${charName} vào prompt video.`);
+        }
+        this.markDirty();
+        this.cd.detectChanges();
+    }
+
+    getDialogueForVideo(videoItem: any): string {
+        const ctx = this.findVideoContext(videoItem);
+        if (!ctx) return '';
+        const { scene, vIdx } = ctx;
+        if (!scene || !scene.subtitles || !scene.videos) return '';
+
+        let partStartTime = 0;
+        if (vIdx >= 0) {
+            for (let i = 0; i < vIdx; i++) {
+                partStartTime += scene.videos[i].duration || 0;
+            }
+        }
+
+        const dur = videoItem.duration || 0;
+        let partEndTime = dur > 0 ? partStartTime + dur : 99999;
+
+        let dialogueWords: string[] = [];
+        let currentSubTime = 0;
+
+        for (const sub of scene.subtitles) {
+            let subDuration = 0;
+            if (sub.duration) {
+                subDuration = sub.duration;
+            } else if (sub.text) {
+                subDuration = Math.max(1, sub.text.trim().split(/\s+/).length / 4);
+            }
+
+            const subStartTime = currentSubTime;
+            const subEndTime = currentSubTime + subDuration;
+
+            if (subStartTime < partEndTime && subEndTime > partStartTime) {
+                if (sub.text) {
+                    const textStr = sub.text.trim();
+                    const words = textStr.split(/\s+/);
+                    if (subStartTime >= partStartTime && subEndTime <= partEndTime) {
+                        dialogueWords.push(...words);
+                    } else {
+                        const overlapStart = Math.max(0, partStartTime - subStartTime);
+                        const overlapEnd = Math.min(subDuration, partEndTime - subStartTime);
+                        const startRatio = overlapStart / subDuration;
+                        const endRatio = overlapEnd / subDuration;
+                        let startIndex = Math.round(startRatio * words.length);
+                        let endIndex = Math.round(endRatio * words.length);
+                        dialogueWords.push(...words.slice(startIndex, endIndex));
+                    }
+                }
+            }
+            currentSubTime = subEndTime;
+        }
+
+        return dialogueWords.join(' ').trim();
+    }
+
+    addDialogueToVideoPrompt(videoItem: any) {
+        if (!videoItem) return;
+        let dialogue = this.getDialogueForVideo(videoItem);
+        if (!dialogue) {
+            dialogue = 'Nhập lời thoại của bạn vào đây...';
+            this.toastr.info('Không tìm thấy lời thoại trong cảnh, đã chèn mẫu lời thoại.');
+        }
+
+        const dialogText = `[Speaker says: "${dialogue}"]`;
+        if (videoItem.prompt) {
+            if (videoItem.prompt.includes(dialogText)) {
+                this.toastr.info('Lời thoại đã tồn tại trong prompt.');
+                return;
+            }
+            videoItem.prompt += '\n\n' + dialogText;
+        } else {
+            videoItem.prompt = dialogText;
+        }
+        this.markDirty();
+        this.cd.detectChanges();
+        this.toastr.success('Đã thêm lời thoại vào prompt video!');
+    }
+
+    openDirectorModeForVideo(videoItem: any) {
+        if (!videoItem) return;
+        const dialogRef = this.dialog.open(DirectorModeComponent, {
+            width: '650px',
+            maxWidth: '95vw',
+            panelClass: 'dark-theme-dialog',
+            data: {
+                prompt: videoItem.prompt || '',
+                videoPrompt: videoItem.videoPrompt || '',
+                targetName: 'Apply to Scene Prompt',
+                controlImageUrl: videoItem.controlImageUrl || null,
+                aspectRatio: this.projectData?.aspectRatio || '16:9'
+            }
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result) {
+                let promptResult = typeof result === 'string' ? result : result.prompt;
+                if (typeof result !== 'string' && result.controlImageUrl !== undefined) {
+                    videoItem.controlImageUrl = result.controlImageUrl;
+                }
+
+                let currentPrompt = videoItem.prompt ? videoItem.prompt.trim() : '';
+                currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+                if (currentPrompt) {
+                    videoItem.prompt = '[Cinematography: ' + promptResult + ']\n\n' + currentPrompt;
+                } else {
+                    videoItem.prompt = '[Cinematography: ' + promptResult + ']';
+                }
+
+                if (videoItem.imagePrompt !== undefined) {
+                    let curImgPrompt = videoItem.imagePrompt ? videoItem.imagePrompt.trim() : '';
+                    curImgPrompt = curImgPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                    videoItem.imagePrompt = curImgPrompt ? '[Cinematography: ' + promptResult + ']\n\n' + curImgPrompt : '[Cinematography: ' + promptResult + ']';
+                }
+
+                this.markDirty();
+                this.saveData();
+                this.cd.detectChanges();
+                this.toastr.success('Đã áp dụng thông số Director Mode cho Video!');
+            }
+        });
+    }
+
+    async onVideoImageUpload(event: any, videoItem: any) {
+        const file = event.target.files?.[0];
+        if (!file || !videoItem) return;
+
+        const electron = (window as any).electron;
+        if (electron && electron.saveFile) {
+            try {
+                const reader = new FileReader();
+                reader.onload = async (e: any) => {
+                    const base64 = e.target.result;
+                    const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
+                    const saveRes = await electron.saveBase64({
+                        base64Data: cleanBase64,
+                        filename: `video_thumb_${Date.now()}.png`,
+                        subDir: this.projectData?.mediaDir || 'video_assets'
+                    });
+                    if (saveRes && saveRes.success) {
+                        videoItem.imageUrl = 'file://' + saveRes.path;
+                        this.previewImageUrl = videoItem.imageUrl;
+                        this.markDirty();
+                        this.saveData();
+                        this.cd.detectChanges();
+                        this.toastr.success('Đã tải ảnh lên cho Video!');
+                    }
+                };
+                reader.readAsDataURL(file);
+            } catch (err: any) {
+                this.toastr.error('Lỗi khi lưu ảnh: ' + err.message);
+            }
+        } else {
+            const url = URL.createObjectURL(file);
+            videoItem.imageUrl = url;
+            this.previewImageUrl = url;
+            this.markDirty();
+            this.cd.detectChanges();
+            this.toastr.success('Đã tải ảnh preview lên!');
+        }
+        event.target.value = '';
+    }
+
+    removeVideoImage(videoItem: any) {
+        if (!videoItem) return;
+        videoItem.imageUrl = null;
+        videoItem.controlImageUrl = null;
+        this.previewImageUrl = null;
+        this.markDirty();
+        this.saveData();
+        this.cd.detectChanges();
+        this.toastr.info('Đã gỡ ảnh khỏi video.');
     }
 
     inspectorWaveSurfer: WaveSurfer | null = null;
