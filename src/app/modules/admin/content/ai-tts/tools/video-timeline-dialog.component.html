@@ -1055,6 +1055,26 @@
                             <div class="flex items-center justify-between">
                                 <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Prompt Video</label>
                             </div>
+
+                            <!-- Hiển thị File Attach tham chiếu AI khi đã áp dụng Frame Video -->
+                            <div *ngIf="!isMultiVideoSelected && activeItem && activeItem.aiReferenceImageLocalUrl"
+                                class="flex items-center justify-between p-2 bg-[#171822] border border-indigo-500/40 rounded-sm">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <img [src]="getSafeUrl(activeItem.aiReferenceImageLocalUrl)" 
+                                         class="w-10 h-10 object-cover rounded border border-indigo-400/60 shrink-0">
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="text-[11px] font-medium text-indigo-200 truncate">
+                                            {{ (selectedFrame && selectedFrame.id !== 'none') ? ('Ảnh nền Frame: ' + selectedFrame.name) : 'Ảnh đính kèm Frame' }}
+                                        </span>
+                                        <span class="text-[9px] text-neutral-400 font-mono">Tỉ lệ: {{ activeItem.aspectRatio || (selectedFrame ? selectedFrame.aspectRatio : '16:9') }}</span>
+                                    </div>
+                                </div>
+                                <button mat-icon-button (click)="removeAttachedImageFromVideo(activeItem)" 
+                                    class="w-6 h-6 min-w-0 min-h-0 text-neutral-400 hover:text-red-400 p-0 flex items-center justify-center"
+                                    title="Gỡ ảnh đính kèm">
+                                    <mat-icon class="icon-size-3.5">close</mat-icon>
+                                </button>
+                            </div>
                             
                             <!-- Khi chọn 1 Video -->
                             <textarea *ngIf="!isMultiVideoSelected && activeItem" [(ngModel)]="activeItem.prompt" (ngModelChange)="markDirty()" rows="4"
@@ -1106,9 +1126,19 @@
                                     class="w-3.5 h-3.5 text-indigo-600 rounded bg-[#0d0e12] border-neutral-700">
                                 <span class="text-xs text-neutral-300">Kế thừa frame cuối từ cảnh trước</span>
                             </label>
+
+                            <!-- Nút Tạo Video AI nằm dưới đường kẻ phân cách hr/border-t -->
+                            <button type="button" 
+                                (click)="generateVideoFromInspector(activeItem)"
+                                [disabled]="activeItem.isGeneratingVideo"
+                                class="w-full py-2 px-3 text-xs font-semibold rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 transition-colors flex items-center justify-center gap-2 shadow-sm">
+                                <mat-spinner *ngIf="activeItem.isGeneratingVideo" diameter="16" strokeWidth="2" class="text-amber-400"></mat-spinner>
+                                <mat-icon *ngIf="!activeItem.isGeneratingVideo" class="icon-size-4 text-amber-400">videocam</mat-icon>
+                                <span>{{ activeItem.isGeneratingVideo ? 'Đang tạo Video AI...' : 'Tạo Video AI' }}</span>
+                            </button>
                         </div>
 
-                        <!-- Công cụ AI & Video Actions -->
+                        <!-- Công cụ Video Actions -->
                         <div *ngIf="!isMultiVideoSelected && activeItem && activeItem.videoUrl" class="pt-2 border-t border-neutral-800 flex flex-col gap-2">
                             <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Công cụ Video</label>
                             
@@ -1651,7 +1681,7 @@
 
     <!-- Grid Preview Context Menu -->
     <mat-menu #gridPreviewContextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
-        <button *ngIf="selectedFrame && selectedFrame.id !== 'none' && selectedContextData?.video && selectedContextData?.type === 'video'" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+        <button *ngIf="selectedFrame && selectedFrame.id !== 'none' && selectedContextData?.video && selectedContextData?.type === 'video'" mat-menu-item (click)="selectVideoForFrameEdit(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
             <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
             <span>Chỉnh sửa Frame Video</span>
         </button>
