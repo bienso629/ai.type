@@ -318,8 +318,16 @@
                          [ngClass]="selectedFrame.aspectRatio === '16:9' ? 'aspect-[16/9]' : 'aspect-[9/16]'"
                          (contextmenu)="onPreviewContextMenu($event)">
                         
-                        <!-- 1. Background Image của Khung (Bàn làm việc Gaming & Màn hình PC cố định) -->
-                        <img [src]="selectedFrame.bgDataUrl || getSafeUrl(selectedFrame.bgPath)"
+                        <!-- 1. Background của Khung: Video hoặc Ảnh (Bàn làm việc Gaming & Màn hình PC) -->
+                        <video *ngIf="selectedFrame.bgVideoUrl"
+                               [src]="getSafeUrl(selectedFrame.bgVideoUrl)"
+                               autoplay
+                               loop
+                               muted
+                               playsinline
+                               class="absolute inset-0 w-full h-full object-cover pointer-events-none select-none z-10"></video>
+                        <img *ngIf="!selectedFrame.bgVideoUrl"
+                             [src]="selectedFrame.bgDataUrl || getSafeUrl(selectedFrame.bgPath)"
                              class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10" />
 
                         <!-- 2. Vùng màn hình Mockup 3D (+ scale 4px): Video luôn nằm trọn trong mockup với max-width, max-height và đúng tỷ lệ gốc -->
@@ -1684,6 +1692,11 @@
         <button *ngIf="selectedFrame && selectedFrame.id !== 'none' && selectedContextData?.video && selectedContextData?.type === 'video'" mat-menu-item (click)="selectVideoForFrameEdit(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
             <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
             <span>Chỉnh sửa Frame Video</span>
+        </button>
+
+        <button *ngIf="selectedFrame && selectedFrame.id !== 'none' && selectedContextData?.video && selectedContextData?.type === 'video'" mat-menu-item (click)="replaceFrameBackgroundWithVideo(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+            <mat-icon class="text-indigo-400">video_library</mat-icon>
+            <span>Thay ảnh nền bằng video</span>
         </button>
 
         <button *ngIf="selectedContextData?.item && selectedContextData?.type === 'image'" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.item, selectedContextData?.sceneIdx, selectedContextData?.imgIdx)">

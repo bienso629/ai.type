@@ -67,6 +67,7 @@ export interface VideoFrameTemplate {
     thumbPath: string;
     bgDataUrl?: string;
     thumbDataUrl?: string;
+    bgVideoUrl?: string;
     description?: string;
     quad: {
         topLeft: { x: number, y: number };
@@ -3124,8 +3125,49 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 return;
             }
 
+            // 1. Nếu đã là Data URI base64
+            if (url.startsWith('data:image/') || url.startsWith('data:video/')) {
+                const parts = url.split(',');
+                if (parts.length > 1) {
+                    resolve(parts[1]);
+                    return;
+                }
+            }
+
+            // 2. Thử đọc file trực tiếp qua Electron Bridge (Ưu tiên số 1 cho Desktop App)
+            const electron = (window as any).electron;
+            if (electron) {
+                try {
+                    let pathCandidate = url.replace(/^file:\/\//i, '').replace(/^unsafe:/i, '');
+                    if (pathCandidate.startsWith('media://SMART_FIND/')) {
+                        const urlObj = new URL(pathCandidate);
+                        pathCandidate = urlObj.searchParams.get('path') || pathCandidate;
+                    }
+                    if (electron.readFileBase64) {
+                        const fileRes = await electron.readFileBase64(pathCandidate);
+                        if (fileRes && fileRes.success && fileRes.base64) {
+                            resolve(fileRes.base64);
+                            return;
+                        }
+                    } else if (electron.invoke) {
+                        const fileRes = await electron.invoke('read-file-base64', { filePath: pathCandidate });
+                        if (fileRes && fileRes.success && fileRes.base64) {
+                            resolve(fileRes.base64);
+                            return;
+                        }
+                    }
+                } catch (electronErr) {
+                    console.warn('[getBase64FromImageUrl] Thử đọc qua Electron IPC thất bại, thử các cách tiếp theo...', electronErr);
+                }
+            }
+
             let finalUrl = url;
-            if (!finalUrl.startsWith('http') && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:') && !finalUrl.startsWith('media://')) {
+
+            // Xử lý các đường dẫn asset nội bộ (src/assets/... hoặc assets/...)
+            if (finalUrl.includes('assets/')) {
+                const assetIdx = finalUrl.indexOf('assets/');
+                finalUrl = finalUrl.substring(assetIdx); // lấy từ assets/...
+            } else if (!finalUrl.startsWith('http') && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:') && !finalUrl.startsWith('media://')) {
                 finalUrl = finalUrl.replace(/^unsafe:/, '');
                 let originalPath = finalUrl.split('?')[0];
                 originalPath = originalPath.replace(/^file:\/\//i, '');
@@ -3137,17 +3179,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             try {
-                if (finalUrl.startsWith('media://') || finalUrl.startsWith('blob:') || finalUrl.startsWith('data:video/')) {
+                if (finalUrl.startsWith('media://') || finalUrl.startsWith('blob:') || finalUrl.startsWith('data:video/') || finalUrl.startsWith('assets/') || finalUrl.startsWith('http')) {
                     const res = await fetch(finalUrl);
-                    const blob = await res.blob();
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        const result = reader.result as string;
-                        resolve(result.split(',')[1]);
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                    return;
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const result = reader.result as string;
+                            resolve(result.split(',')[1]);
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                        return;
+                    }
                 }
             } catch (e) {
                 console.warn('Fetch fallback failed, trying Image element...', e);
@@ -3564,14 +3608,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.toastr.warning(`Đoạn video có tổng độ dài prompt (${byteLength} bytes) vượt quá 2500 của hệ thống. Đã bỏ qua đoạn này.`);
                 return;
             }
+            const effectiveAspectRatio = video.aspectRatio || (this.selectedFrame && this.selectedFrame.id !== 'none' ? this.selectedFrame.aspectRatio : null) || this.projectData?.aspectRatio || '16:9';
             if (isProxy || isMagic) {
+                const modelName = isMagic ? 'kling-v3-motion-control' : (this._genaiService.umodelverseVideoModel || undefined);
                 base64 = await this._genaiService.generateVideoUModelverse(
                     finalPrompt,
-                    this.projectData?.aspectRatio || '16:9',
+                    effectiveAspectRatio,
                     referenceImages,
                     video.duration,
                     undefined,
-                    isMagic ? 'kling-v3-motion-control' : undefined
+                    modelName
                 );
             } else {
                 const apiKey = this.getGeminiKey();
@@ -4084,7 +4130,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.toastr.success(`Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`);
     }
 
-    selectVideoForFrameEdit(scene: any, video: any, index: number, vIdx: number = -1): void {
+    async selectVideoForFrameEdit(scene: any, video: any, index: number, vIdx: number = -1): Promise<void> {
         if (!video) {
             this.toastr.warning('Không tìm thấy thông tin video cần xử lý!');
             return;
@@ -4094,6 +4140,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (this.selectedFrame && this.selectedFrame.id !== 'none') {
             if (this.selectedFrame.aspectRatio) {
                 video.aspectRatio = this.selectedFrame.aspectRatio;
+            }
+            if (!this.selectedFrame.bgDataUrl) {
+                await this.loadFrameAssets();
             }
             const bgImage = this.selectedFrame.bgDataUrl || this.selectedFrame.bgPath;
             if (bgImage) {
@@ -4110,6 +4159,50 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
 
         this.toastr.success('Đã chọn video và gắn ảnh nền Frame! Bạn có thể chỉnh sửa prompt và bấm Tạo Video AI bên phải.');
+    }
+
+    async replaceFrameBackgroundWithVideo(scene: any, video: any, index: number, vIdx: number = -1): Promise<void> {
+        if (!this.selectedFrame || this.selectedFrame.id === 'none') {
+            this.toastr.warning('Vui lòng chọn một Frame trước khi thay nền bằng video!');
+            return;
+        }
+
+        const electronApi = (window as any).electron;
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'video/mp4,video/webm,video/quicktime,video/*';
+        input.onchange = async (e: any) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            try {
+                this.toastr.info('Đang nạp video làm nền cho khung...', 'Hệ thống');
+                let finalVideoPath = '';
+
+                if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+                    const originalPath = electronApi.getPathForFile(file);
+                    if (originalPath) {
+                        const uuid = this.projectData?.uuid || this.data?.uuid;
+                        const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                        const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
+                        finalVideoPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                    }
+                }
+
+                if (!finalVideoPath) {
+                    finalVideoPath = URL.createObjectURL(file);
+                }
+
+                this.selectedFrame.bgVideoUrl = finalVideoPath;
+                this.saveData();
+                this.cd.detectChanges();
+                this.toastr.success('Đã thay thế ảnh nền khung bằng video thành công!', 'Thành công');
+            } catch (err) {
+                console.error('[replaceFrameBackgroundWithVideo] Lỗi nạp video nền:', err);
+                this.toastr.error('Không thể thay video nền khung: ' + (err as any)?.message);
+            }
+        };
+        input.click();
     }
 
     generateVideoFromInspector(videoItem: any): void {
