@@ -325,22 +325,6 @@
                         <!-- 2. Vùng màn hình Mockup 3D (+ scale 4px): Video luôn nằm trọn trong mockup với max-width, max-height và đúng tỷ lệ gốc -->
                         <div class="absolute z-20 overflow-hidden flex items-center justify-center bg-black pointer-events-auto"
                              [ngStyle]="getMockupScreenStyle(mockupFrameContainer)">
-                            <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                                class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none"
-                                (loadedmetadata)="onVideoLoadedMetadata($event)"
-                                (click)="toggleTimelinePlay()"
-                                (ended)="onVideoEnded()"
-                                (pause)="onVideoPauseEvent()"
-                                (play)="onVideoPlayEvent()"></video>
-
-                            <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                                class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none"
-                                (click)="toggleTimelinePlay()" />
-
-                            <!-- Lớp Hình Ảnh Nằm Đè Lên Video (Track Images Overlay) -->
-                            <img [src]="getSafeUrl(previewOverlayImageUrl)" *ngIf="previewOverlayImageUrl"
-                                class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-25 transition-opacity duration-75 block" />
-
                             <!-- Lưới Grid Hỗ Trợ Tỉ Lệ 16:9 & 9:16 cho Mockup Screen -->
                             <div *ngIf="showGrid"
                                  class="absolute inset-0 pointer-events-none z-30 select-none overflow-hidden">
@@ -380,17 +364,9 @@
                                     <div class="h-full w-[1px] absolute" [ngClass]="getEffectiveAspectRatio() === '9:16' ? 'bg-emerald-400' : 'bg-cyan-400'"></div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Khi KHÔNG có Frame Template (Normal Standard Player) -->
-                    <ng-container *ngIf="!selectedFrame || selectedFrame.id === 'none'">
-                        <!-- Container chuẩn theo tỉ lệ xuất video (16:9 hoặc 9:16) -->
-                        <div class="relative max-w-full max-h-full inline-flex items-center justify-center m-auto overflow-hidden rounded-none shadow-2xl bg-black"
-                             [ngClass]="getEffectiveAspectRatio() === '16:9' ? 'aspect-[16/9] w-full h-auto max-h-full' : (getEffectiveAspectRatio() === '9:16' ? 'aspect-[9/16] h-full w-auto max-w-full' : '')"
-                             (contextmenu)="onPreviewContextMenu($event)">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                                class="max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden"
+                                class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none relative z-20"
                                 (loadedmetadata)="onVideoLoadedMetadata($event)"
                                 (click)="toggleTimelinePlay()"
                                 (ended)="onVideoEnded()"
@@ -398,14 +374,36 @@
                                 (play)="onVideoPlayEvent()"></video>
 
                             <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                                class="max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden"
+                                class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none relative z-20"
+                                (click)="toggleTimelinePlay()" />
+
+                            <!-- Lớp Hình Ảnh Nằm Đè Lên Video (Track Images Overlay) -->
+                            <img [src]="getSafeUrl(previewOverlayImageUrl)" *ngIf="previewOverlayImageUrl"
+                                class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-25 transition-opacity duration-75 block" />
+                        </div>
+                    </div>
+
+                    <!-- Khi KHÔNG có Frame Template (Normal Standard Player) -->
+                    <ng-container *ngIf="!selectedFrame || selectedFrame.id === 'none'">
+                        <!-- Container chuẩn theo tỉ lệ xuất video (16:9 hoặc 9:16) -->
+                        <div class="relative max-w-full max-h-full flex items-center justify-center m-auto overflow-hidden rounded-none shadow-2xl bg-black select-none">
+                            <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
+                                class="max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden relative z-20"
+                                (loadedmetadata)="onVideoLoadedMetadata($event)"
+                                (click)="toggleTimelinePlay()"
+                                (ended)="onVideoEnded()"
+                                (pause)="onVideoPauseEvent()"
+                                (play)="onVideoPlayEvent()"></video>
+
+                            <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
+                                class="max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden relative z-20"
                                 (click)="toggleTimelinePlay()" />
 
                             <!-- Lớp Hình Ảnh Nằm Đè Lên Video (Track Images Overlay) -->
                             <img [src]="getSafeUrl(previewOverlayImageUrl)" *ngIf="previewOverlayImageUrl"
                                 class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-25 transition-opacity duration-75 block" />
 
-                            <!-- Lưới Grid Hỗ Trợ Tỉ Lệ 16:9 & 9:16 cho Standard Player -->
+                            <!-- Lưới Grid Hỗ Trợ Tỉ Lệ 16:9 & 9:16 cho Standard Player (Bao trọn khung video) -->
                             <div *ngIf="showGrid"
                                  class="absolute inset-0 pointer-events-none z-30 select-none overflow-hidden">
                                 <!-- Viền khung ngoài và 4 góc sắc nét (Corner Brackets) -->
@@ -1030,12 +1028,36 @@
                     </div>
 
                     <!-- TH 3: ĐANG CHỌN VIDEO (1 HOẶC NHIỀU) -->
-                    <div *ngIf="currentInspectorType === 'video'" class="flex flex-col gap-2.5">
+                    <div *ngIf="currentInspectorType === 'video'" class="flex flex-col gap-3">
+                        <!-- Reference Characters (Nhân vật tham khảo) -->
+                        <div *ngIf="!isMultiVideoSelected && activeItem && projectData?.characters?.length" class="flex flex-col gap-1.5 p-2.5 bg-[#0d0e12] border border-neutral-800 rounded-sm">
+                            <span class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Nhân vật tham chiếu</span>
+                            <div class="flex flex-wrap gap-2 pt-1">
+                                <div *ngFor="let char of projectData.characters" 
+                                    (click)="toggleReferenceCharForVideo(activeItem, char)"
+                                    class="relative cursor-pointer border rounded p-1 transition-all flex flex-col items-center gap-1"
+                                    [ngClass]="isReferenceCharSelectedForVideo(activeItem, char) ? 'border-blue-500 bg-blue-950/40' : 'border-neutral-800 hover:border-neutral-700 bg-neutral-900/60'"
+                                    [title]="char.name || char.role">
+                                    <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls[0])" 
+                                         [src]="getSafeUrl(char.avatarUrl || char.avatarUrls[0])" 
+                                         class="w-8 h-8 object-cover rounded">
+                                    <div *ngIf="isReferenceCharSelectedForVideo(activeItem, char)" 
+                                         class="absolute -top-1 -right-1 bg-blue-500 rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                                        <mat-icon class="!text-[10px] !w-[10px] !h-[10px] text-white flex items-center justify-center">check</mat-icon>
+                                    </div>
+                                    <span class="text-[9px] text-neutral-300 w-10 truncate text-center">{{ char.name || char.role }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Prompt / Mô tả Video -->
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Prompt / Mô tả cảnh</label>
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Prompt Video</label>
+                            </div>
                             
                             <!-- Khi chọn 1 Video -->
-                            <textarea *ngIf="!isMultiVideoSelected && activeItem" [(ngModel)]="activeItem.prompt" (ngModelChange)="markDirty()" rows="3"
+                            <textarea *ngIf="!isMultiVideoSelected && activeItem" [(ngModel)]="activeItem.prompt" (ngModelChange)="markDirty()" rows="4"
                                 placeholder="Nhập prompt cảnh video..."
                                 class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 resize-none leading-relaxed font-sans"></textarea>
                             
@@ -1049,6 +1071,7 @@
                                 </span>
                             </div>
                         </div>
+
 
                         <!-- Timing Controls -->
                         <div class="grid grid-cols-2 gap-2">
@@ -1076,10 +1099,21 @@
                             </div>
                         </div>
 
-                        <!-- Công cụ Crop Video đã chọn -->
-                        <div *ngIf="!isMultiVideoSelected && activeItem?.videoUrl" class="pt-2 border-t border-neutral-800 flex flex-col gap-2">
+                        <!-- Cấu hình Nối tiếp & Tùy chọn video -->
+                        <div *ngIf="!isMultiVideoSelected && activeItem" class="flex flex-col gap-2 pt-2 border-t border-neutral-800">
+                            <label *ngIf="findPreviousVideoUrl(activeItem)" class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" [(ngModel)]="activeItem.usePreviousSceneFrame" (ngModelChange)="markDirty()"
+                                    class="w-3.5 h-3.5 text-indigo-600 rounded bg-[#0d0e12] border-neutral-700">
+                                <span class="text-xs text-neutral-300">Kế thừa frame cuối từ cảnh trước</span>
+                            </label>
+                        </div>
+
+                        <!-- Công cụ AI & Video Actions -->
+                        <div *ngIf="!isMultiVideoSelected && activeItem && activeItem.videoUrl" class="pt-2 border-t border-neutral-800 flex flex-col gap-2">
                             <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Công cụ Video</label>
-                            <button type="button" 
+                            
+                            <!-- Crop Video -->
+                            <button *ngIf="activeItem.videoUrl" type="button" 
                                 (click)="openCropVideoDialog(activeItem, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)"
                                 class="w-full py-2 px-3 text-xs font-semibold rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-500/60 transition-colors flex items-center justify-center gap-2 shadow-sm">
                                 <mat-icon class="icon-size-4 text-indigo-400">crop</mat-icon>
@@ -1325,7 +1359,7 @@
 
                                                 <!-- Khung chứa ảnh/video -->
                                                 <div class="w-full h-full relative overflow-hidden rounded-sm transition-all cursor-pointer flex flex-col justify-between"
-                                                    (click)="setActiveItem(video, $event); openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
+                                                    (click)="setActiveItem(video, $event)">
 
                                                     <!-- Lớp overlay hiệu ứng blind / sương mù mơ ảo khi đang tạo AI, tách cảnh hoặc tạo phụ đề -->
                                                     <div *ngIf="video.isGeneratingVideo || video.isGeneratingImage || video.isExtractingAudio || video.isAnalyzingScenes || video.isSplittingScenes"
@@ -1615,16 +1649,13 @@
          #customTextContextMenuTrigger="matMenuTrigger"
          [matMenuTriggerFor]="customTextContextMenu"></div>
 
-    <!-- Grid Preview Context Menu (Chỉ chứa Chỉnh sửa Prompt & Frame Video) -->
+    <!-- Grid Preview Context Menu -->
     <mat-menu #gridPreviewContextMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
-        <button *ngIf="selectedContextData?.video" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
+        <button *ngIf="selectedFrame && selectedFrame.id !== 'none' && selectedContextData?.video && selectedContextData?.type === 'video'" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.video, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
             <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
-            <span>Chỉnh sửa Prompt & Frame Video</span>
+            <span>Chỉnh sửa Frame Video</span>
         </button>
-        <button *ngIf="selectedContextData?.video && selectedContextData?.video?.videoUrl" mat-menu-item (click)="openCropVideoDialog(selectedContextData?.video, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)">
-            <mat-icon class="text-indigo-400">crop</mat-icon>
-            <span>Cắt Khung Hình Video (Crop Video)</span>
-        </button>
+
         <button *ngIf="selectedContextData?.item && selectedContextData?.type === 'image'" mat-menu-item (click)="openEditScenePromptDialog(selectedContextData?.scene, selectedContextData?.item, selectedContextData?.sceneIdx, selectedContextData?.imgIdx)">
             <mat-icon class="text-amber-400" [svgIcon]="'feather:edit-3'"></mat-icon>
             <span>Chỉnh sửa Prompt & Frame Image</span>

@@ -78,69 +78,9 @@ app.on('web-contents-created', (e, webContents) => {
         }
     });
 
-    // Thêm Context Menu (Menu chuột phải) cho toàn bộ webContents
+    // Context menu mặc định đã được vô hiệu hóa theo yêu cầu
     webContents.on('context-menu', (event, params) => {
-        const { Menu, clipboard } = require('electron');
-        const template = [];
-
-        if (params.linkURL) {
-            template.push({
-                label: 'Copy Link',
-                click: () => {
-                    clipboard.writeText(params.linkURL);
-                }
-            });
-        }
-
-        if (params.hasImageContents) {
-            template.push({ role: 'copyImage', label: 'Sao chép hình ảnh' });
-        }
-
-        if (params.isEditable) {
-            template.push({ role: 'undo', label: 'Hoàn tác' });
-            template.push({ role: 'redo', label: 'Làm lại' });
-            template.push({ type: 'separator' });
-            template.push({ role: 'cut', label: 'Cắt' });
-            template.push({ role: 'copy', label: 'Sao chép' });
-            template.push({ role: 'paste', label: 'Dán' });
-            template.push({ role: 'selectAll', label: 'Chọn tất cả' });
-        } else {
-            if (params.selectionText && params.selectionText.trim().length > 0) {
-                template.push({ role: 'copy', label: 'Sao chép' });
-                template.push({ role: 'selectAll', label: 'Chọn tất cả' });
-            }
-        }
-
-        if (template.length > 0) {
-            template.push({ type: 'separator' });
-        }
-
-        template.push({
-            label: 'Tải lại trang (Reload)',
-            accelerator: 'CmdOrCtrl+R',
-            click: () => {
-                const url = webContents.getURL();
-                if (url.startsWith('file://') && mainWindow && !mainWindow.isDestroyed()) {
-                    const hashMatch = url.match(/#.*$/);
-                    const hash = hashMatch ? hashMatch[0].substring(1) : '';
-                    mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html"), { hash });
-                } else {
-                    webContents.reload();
-                }
-            }
-        });
-
-        if (!app.isPackaged) {
-            template.push({
-                label: 'Kiểm tra phần tử (Inspect Element)',
-                click: () => {
-                    webContents.inspectElement(params.x, params.y);
-                }
-            });
-        }
-
-        const menu = Menu.buildFromTemplate(template);
-        menu.popup();
+        // Không hiển thị menu popup chuột phải
     });
 });
 
@@ -1490,6 +1430,27 @@ ipcMain.handle('delete-local-file', async (event, filePath) => {
         return { success: false, error: 'File not found' };
     } catch (e) {
         return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('terminal:get-last-directory', async () => {
+    try {
+        const candidates = [
+            path.join(app.getPath('userData'), 'last_directory.txt'),
+            path.join(os.homedir(), '.config', 'AI.Type', 'last_directory.txt'),
+            path.join(os.homedir(), 'Documents', 'ai.type', 'last_directory.txt'),
+        ];
+        for (const p of candidates) {
+            if (fs.existsSync(p)) {
+                const dir = fs.readFileSync(p, 'utf-8').trim();
+                if (dir && fs.existsSync(dir)) {
+                    return { success: true, directory: dir };
+                }
+            }
+        }
+        return { success: true, directory: process.cwd() };
+    } catch (e) {
+        return { success: false, error: e.message, directory: process.cwd() };
     }
 });
 
@@ -5022,53 +4983,9 @@ app.whenReady().then(async () => {
                 emit: (...args) => fakeEmitter.emit(...args),
             };
 
-            // Bổ sung menu chuột phải cho webview
+            // Vô hiệu hóa menu chuột phải cho webview
             contents.on('context-menu', (event, params) => {
-                const { Menu } = require('electron');
-                const template = [];
-
-                if (params.linkURL) {
-                    template.push({
-                        label: 'Copy Link',
-                        click: () => {
-                            const { clipboard } = require('electron');
-                            clipboard.writeText(params.linkURL);
-                        }
-                    });
-                }
-
-                if (params.hasImageContents) {
-                    template.push({ role: 'copyImage', label: 'Copy Image' });
-                }
-
-                if (params.editFlags.canCopy) {
-                    template.push({ role: 'copy', label: 'Copy' });
-                }
-                if (params.editFlags.canPaste) {
-                    template.push({ role: 'paste', label: 'Paste' });
-                }
-                if (params.editFlags.canCut) {
-                    template.push({ role: 'cut', label: 'Cut' });
-                }
-                if (params.editFlags.canSelectAll) {
-                    template.push({ role: 'selectAll', label: 'Select All' });
-                }
-
-                if (template.length > 0) {
-                    template.push({ type: 'separator' });
-                }
-
-                template.push({
-                    label: 'Reload',
-                    click: () => { contents.reload(); }
-                });
-                template.push({
-                    label: 'Inspect Element',
-                    click: () => { contents.inspectElement(params.x, params.y); }
-                });
-
-                const menu = Menu.buildFromTemplate(template);
-                menu.popup();
+                // Không hiển thị menu popup
             });
 
             contents.on('console-message', (event) => {

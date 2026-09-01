@@ -11,6 +11,17 @@
 </div>
 
 <mat-dialog-content class="flex flex-col gap-4 p-0 overflow-x-hidden scrollbar-hide !max-h-none">
+    <!-- Frame Attachment Banner -->
+    <div *ngIf="frameBgUrl" class="flex items-center justify-between p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-900 text-xs">
+        <div class="flex items-center gap-2">
+            <mat-icon class="text-amber-600 icon-size-4">auto_fix_high</mat-icon>
+            <span>
+                Đang gắn <strong>ảnh nền của Frame ({{ frameTemplateName }})</strong> vào tệp đính kèm tham chiếu (Reference Image) với tỷ lệ <strong>{{ selectedAspectRatio }}</strong> để tạo video khớp khung hình.
+            </span>
+        </div>
+        <img [src]="getSafeUrl(frameBgUrl)" class="w-8 h-8 rounded object-cover border border-amber-300 ml-2 shrink-0">
+    </div>
+
     <!-- Reference Images Section -->
     @if (characters && characters.length > 0) {
     <div class="flex flex-col mt-2">
