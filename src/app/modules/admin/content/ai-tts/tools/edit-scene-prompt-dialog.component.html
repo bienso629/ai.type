@@ -247,8 +247,16 @@
             </span>
         </a>
 
+        <ng-container *ngIf="editingScenePrompt?.videoUrl">
+            <div class="w-px h-4 bg-slate-300"></div>
 
-
+            <a href="javascript:void(0)" class="text-indigo-700 text-sm hover:text-indigo-900"
+                (click)="openCropVideoDialog()">
+                <span class="flex items-center">
+                    <mat-icon class="icon-size-4 mr-1.5 text-indigo-600">crop</mat-icon> Crop Video
+                </span>
+            </a>
+        </ng-container>
 
     </div>
 

@@ -8911,6 +8911,116 @@ ipcMain.handle('split-video-clips-ffmpeg', async (event, payload) => {
 });
 
 // =====================================================================
+// IPC HANDLER: CROP KHUNG HÌNH VIDEO (CROP VIDEO FRAME) BẰNG FFMPEG
+// =====================================================================
+ipcMain.handle('crop-video-ffmpeg', async (_event, payload) => {
+    try {
+        let { videoPath, cropX, cropY, cropWidth, cropHeight, originalWidth, originalHeight } = payload || {};
+        if (!videoPath) {
+            return { success: false, error: 'Thiếu đường dẫn file video' };
+        }
+
+        let cleanPath = videoPath.replace(/^file:\/\//i, '').replace(/^media:\/\//i, '');
+        try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
+        cleanPath = path.normalize(cleanPath);
+        if (cleanPath.startsWith('\\') || cleanPath.startsWith('/')) {
+            // Absolute path
+        } else if (!/^[a-zA-Z]:/.test(cleanPath)) {
+            cleanPath = '/' + cleanPath;
+        }
+
+        if (!fs.existsSync(cleanPath)) {
+            return { success: false, error: 'File video không tồn tại: ' + cleanPath };
+        }
+
+        const ffmpegPath = binaries.ffmpeg || 'ffmpeg';
+        const docPath = app.getPath('documents');
+        const cropDir = path.join(docPath, 'ai.type', 'data', 'cropped_videos');
+        if (!fs.existsSync(cropDir)) fs.mkdirSync(cropDir, { recursive: true });
+
+        // Làm tròn số chẵn cho x, y, width, height theo chuẩn H.264
+        let w = Math.round(Number(cropWidth) || 0);
+        let h = Math.round(Number(cropHeight) || 0);
+        let x = Math.round(Number(cropX) || 0);
+        let y = Math.round(Number(cropY) || 0);
+
+        if (w % 2 !== 0) w -= 1;
+        if (h % 2 !== 0) h -= 1;
+        if (x % 2 !== 0) x -= 1;
+        if (y % 2 !== 0) y -= 1;
+
+        if (w <= 0 || h <= 0) {
+            return { success: false, error: 'Kích thước vùng crop không hợp lệ' };
+        }
+
+        const baseName = path.basename(cleanPath, path.extname(cleanPath));
+        const outVideoPath = path.join(cropDir, `${baseName}_crop_${Date.now()}.mp4`);
+        const outThumbPath = path.join(cropDir, `${baseName}_crop_${Date.now()}_thumb.jpg`);
+
+        const cropFilter = `crop=${w}:${h}:${Math.max(0, x)}:${Math.max(0, y)}`;
+
+        const cropArgs = [
+            '-y',
+            '-i', cleanPath,
+            '-vf', cropFilter,
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-crf', '18',
+            '-c:a', 'copy',
+            outVideoPath
+        ];
+
+        sendToRenderer('tools-log', `[FFmpeg] Crop video: ${cropArgs.join(' ')}`);
+
+        const cropCode = await new Promise((resolve) => {
+            const child = spawn(ffmpegPath, cropArgs);
+            let stderrOutput = '';
+            child.stderr.on('data', (d) => { stderrOutput += d.toString(); });
+            child.on('close', (code) => {
+                if (code !== 0) console.error('[crop-video-ffmpeg] Lỗi:', stderrOutput);
+                resolve(code);
+            });
+            child.on('error', (err) => {
+                console.error('[crop-video-ffmpeg] spawn error:', err);
+                resolve(-1);
+            });
+        });
+
+        if (cropCode !== 0 || !fs.existsSync(outVideoPath)) {
+            return { success: false, error: 'Lỗi thực thi FFmpeg khi crop video' };
+        }
+
+        // Trích xuất 1 ảnh thumbnail cho video vừa crop
+        const thumbArgs = [
+            '-ss', '0',
+            '-i', outVideoPath,
+            '-vframes', '1',
+            '-vf', 'scale=640:-1',
+            '-q:v', '3',
+            '-y',
+            outThumbPath
+        ];
+
+        await new Promise((resolve) => {
+            const child = spawn(ffmpegPath, thumbArgs);
+            child.on('close', resolve);
+            child.on('error', resolve);
+        });
+
+        return {
+            success: true,
+            videoUrl: `file://${outVideoPath}`,
+            imageUrl: fs.existsSync(outThumbPath) ? `file://${outThumbPath}` : null,
+            width: w,
+            height: h
+        };
+    } catch (e) {
+        console.error('Lỗi crop-video-ffmpeg:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+// =====================================================================
 // IPC HANDLER: TỰ ĐỘNG QUÉT THƯ MỤC VIDEO TÌM PHỤ ĐỀ (.SRT/.VTT) & AUDIO SEGMENTS
 // =====================================================================
 ipcMain.handle('scan-companion-video-assets', async (_event, payload) => {

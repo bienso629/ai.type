@@ -51,6 +51,7 @@ import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.compo
 import { GenaiService } from 'app/genai.service';
 import { VideoProjectConfigDialogComponent } from './video-project-config-dialog.component';
 import { BroadcastPreviewDialogComponent } from './broadcast-preview-dialog.component';
+import { CropVideoDialogComponent } from './crop-video-dialog.component';
 
 interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
@@ -4107,6 +4108,42 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     this.cd.detectChanges();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
                 }
+            }
+        });
+    }
+
+    openCropVideoDialog(video: any, scene: any, sceneIdx: number, vIdx: number = -1): void {
+        if (!video || !video.videoUrl) {
+            this.toastr.warning('Vui lòng chọn video có file phát để cắt khung hình!');
+            return;
+        }
+
+        const dialogRef = this.dialog.open(CropVideoDialogComponent, {
+            data: {
+                video,
+                scene,
+                sceneIdx,
+                vIdx
+            },
+            width: '85vw',
+            maxWidth: '1200px',
+            maxHeight: '90vh',
+            panelClass: 'dark-theme-dialog',
+            disableClose: true
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result && result.videoUrl) {
+                video.videoUrl = result.videoUrl;
+                if (result.imageUrl) {
+                    video.imageUrl = result.imageUrl;
+                }
+                if (result.aspectRatio) {
+                    video.aspectRatio = result.aspectRatio;
+                }
+                this.saveData();
+                this.cd.detectChanges();
+                this.toastr.success('Đã cập nhật video sau khi Crop!');
             }
         });
     }

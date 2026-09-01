@@ -1765,11 +1765,16 @@ timeline-calendar .date-marker {
     }
 }
 
+.dark-theme-dialog,
+.cdk-overlay-pane.dark-theme-dialog,
+.cdk-overlay-pane:has(.dark-theme-dialog),
 .dark-broadcast-dialog,
 .cdk-overlay-pane.dark-broadcast-dialog,
 .cdk-overlay-pane:has(.dark-broadcast-dialog) {
     background: transparent !important;
     background-color: transparent !important;
+    overflow: hidden !important;
+    border-radius: 16px !important;
 
     .mat-mdc-dialog-container,
     .mat-dialog-container,

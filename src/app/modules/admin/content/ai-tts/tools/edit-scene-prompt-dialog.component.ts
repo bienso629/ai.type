@@ -20,6 +20,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatMenuModule } from '@angular/material/menu';
 
 import { ControlNetDialogComponent } from './controlnet-dialog.component';
+import { CropVideoDialogComponent } from './crop-video-dialog.component';
 
 @Component({
     selector: 'app-edit-scene-prompt-dialog',
@@ -526,6 +527,42 @@ export class EditScenePromptDialogComponent {
                 }
 
                 this.cd.detectChanges();
+            }
+        });
+    }
+
+    openCropVideoDialog() {
+        if (!this.editingScenePrompt?.videoUrl) {
+            this.toastr.warning('Phân cảnh này chưa có file Video để cắt khung hình!');
+            return;
+        }
+
+        const dialogRef = this.dialog.open(CropVideoDialogComponent, {
+            data: {
+                video: this.editingScenePrompt,
+                scene: this.data?.scene,
+                sceneIdx: this.data?.index,
+                vIdx: this.data?.vIdx
+            },
+            width: '85vw',
+            maxWidth: '1200px',
+            maxHeight: '90vh',
+            panelClass: 'dark-theme-dialog',
+            disableClose: true
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result && result.videoUrl) {
+                this.editingScenePrompt.videoUrl = result.videoUrl;
+                if (result.imageUrl) {
+                    this.editingScenePrompt.imageUrl = result.imageUrl;
+                }
+                if (result.aspectRatio) {
+                    this.editingScenePrompt.aspectRatio = result.aspectRatio;
+                    this.selectedAspectRatio = result.aspectRatio;
+                }
+                this.cd.detectChanges();
+                this.toastr.success('Đã cập nhật video sau khi Crop!');
             }
         });
     }
