@@ -936,48 +936,48 @@ ${domainRows.join('\n')}
     }
 
     isTaskSelected(task: any): boolean {
-        return this.selectedGroupTaskIds.has(this.getTaskUniqueKey(task));
+        return !!task?._selected;
     }
 
-    toggleSelectTask(task: any, event?: Event) {
-        if (event) event.stopPropagation();
-        const key = this.getTaskUniqueKey(task);
-        if (this.selectedGroupTaskIds.has(key)) {
-            this.selectedGroupTaskIds.delete(key);
-        } else {
-            this.selectedGroupTaskIds.add(key);
+    toggleSelectTask(task: any, event?: any) {
+        if (event && event.stopPropagation) event.stopPropagation();
+        if (task) {
+            task._selected = !task._selected;
         }
-        this.cd.markForCheck();
+        this.cd.detectChanges();
     }
 
     isAllGroupTasksSelected(): boolean {
         const tasks = this.selectedGroupItem?.tasks;
         if (!tasks || tasks.length === 0) return false;
-        return tasks.every((t: any) => this.selectedGroupTaskIds.has(this.getTaskUniqueKey(t)));
+        return tasks.every((t: any) => !!t._selected);
     }
 
     isSomeGroupTasksSelected(): boolean {
         const tasks = this.selectedGroupItem?.tasks;
         if (!tasks || tasks.length === 0) return false;
-        const count = tasks.filter((t: any) => this.selectedGroupTaskIds.has(this.getTaskUniqueKey(t))).length;
+        const count = tasks.filter((t: any) => !!t._selected).length;
         return count > 0 && count < tasks.length;
     }
 
     toggleSelectAllGroupTasks(event?: any) {
         const tasks = this.selectedGroupItem?.tasks;
         if (!tasks || tasks.length === 0) return;
-        if (this.isAllGroupTasksSelected()) {
-            this.selectedGroupTaskIds.clear();
-        } else {
-            tasks.forEach((t: any) => this.selectedGroupTaskIds.add(this.getTaskUniqueKey(t)));
-        }
-        this.cd.markForCheck();
+        const targetState = !this.isAllGroupTasksSelected();
+        tasks.forEach((t: any) => t._selected = targetState);
+        this.cd.detectChanges();
     }
 
     getSelectedGroupTasks(): any[] {
         const tasks = this.selectedGroupItem?.tasks;
         if (!tasks) return [];
-        return tasks.filter((t: any) => this.selectedGroupTaskIds.has(this.getTaskUniqueKey(t)));
+        return tasks.filter((t: any) => !!t._selected);
+    }
+
+    hasSelectedGroupTasks(): boolean {
+        const tasks = this.selectedGroupItem?.tasks;
+        if (!tasks) return false;
+        return tasks.some((t: any) => !!t._selected);
     }
 
     markSelectedTasksDone(done: boolean) {
@@ -2558,12 +2558,12 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         return deletedCount;
     }
 
-    resetCurrentMonth() {
-        const currentMonth = this.month || (new Date().getMonth() + 1);
-        const currentYear = new Date().getFullYear();
+    resetCurrentMonth(targetMonthParam?: number, targetYearParam?: number) {
+        const currentMonth = targetMonthParam || this.month || (new Date().getMonth() + 1);
+        const currentYear = targetYearParam || new Date().getFullYear();
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Khôi phục Mặc định',
-            message: `Bạn có chắc chắn muốn xóa toàn bộ công việc trong tháng ${currentMonth} không? Hành động này không thể hoàn tác!`,
+            message: `Bạn có chắc chắn muốn xóa toàn bộ công việc trong tháng ${currentMonth}/${currentYear} không? Hành động này không thể hoàn tác!`,
             icon: { show: true, name: 'feather:alert-triangle', color: 'error' },
             actions: { confirm: { show: true, label: 'Xóa Tất Cả', color: 'warn' }, cancel: { show: true, label: 'Hủy' } },
             dismissible: true
@@ -2571,7 +2571,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
         dialogRef.afterClosed().subscribe(async (result) => {
             if (result === 'confirmed') {
-                // Thu thập các task thuộc tháng hiện tại trong bộ nhớ trước khi làm rỗng
+                // Thu thập các task thuộc tháng mục tiêu trong bộ nhớ trước khi làm rỗng
                 const monthTasksToDelete: any[] = [];
                 for (const domain of this.items) {
                     if (!domain || domain.id === 'total-summary-row' || domain.id === 'monthly-total-summary-row') continue;
@@ -2585,17 +2585,27 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                     });
                 }
 
-                // 1. Xóa triệt để items trên giao diện TỨC THÌ (0ms chờ)
+                // 1. Lọc bỏ các task của tháng mục tiêu trên giao diện TỨC THÌ (giữ lại các tháng khác)
                 for (let i = 0; i < this.items.length; i++) {
                     const domain = this.items[i];
                     if (!domain || domain.id === 'total-summary-row' || domain.id === 'monthly-total-summary-row') continue;
 
-                    if (domain.domainData) {
-                        domain.domainData.plan = [];
+                    const filterFn = (t: any) => {
+                        if (!t || !t.startDate) return true;
+                        const dObj = this.safeDate(t.startDate);
+                        return !(dObj && dObj.getFullYear() === currentYear && (dObj.getMonth() + 1) === currentMonth);
+                    };
+
+                    if (domain.domainData && domain.domainData.plan) {
+                        domain.domainData.plan = domain.domainData.plan.filter(filterFn);
                     }
-                    domain.streamItems = [];
-                    domain.childrenItems = [];
-                    this.applyPackedTasks(domain, []);
+                    if (domain.streamItems) {
+                        domain.streamItems = domain.streamItems.filter(filterFn);
+                    }
+                    if (domain.childrenItems?.[0]?.streamItems) {
+                        domain.childrenItems[0].streamItems = domain.childrenItems[0].streamItems.filter(filterFn);
+                    }
+                    this.applyPackedTasks(domain, domain.domainData?.plan || domain.childrenItems?.[0]?.streamItems || []);
                 }
 
                 // Xóa luôn plan trong bộ nhớ allDomainsList
@@ -2616,7 +2626,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 this.items = [...this.items];
                 this.saveScriptState();
                 this.cd.detectChanges();
-                this.toastr.success(`Đã xóa sạch công việc tháng ${currentMonth}!`);
+                this.toastr.success(`Đã xóa sạch công việc tháng ${currentMonth}/${currentYear}!`);
 
                 // 2. Xóa ngầm CSDL mà KHÔNG cần gọi lại API /tasks/all
                 if (monthTasksToDelete.length > 0) {
@@ -2901,7 +2911,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         };
 
         // Group tasks by month to create 1 total bar per month
-        const monthGroups: { [key: string]: { monthName: string; startDate: Date; endDate: Date; tasks: any[] } } = {};
+        const monthGroups: { [key: string]: { monthName: string; monthNumber: number; yearNumber: number; startDate: Date; endDate: Date; tasks: any[] } } = {};
 
         const startRange = this.timelineStartDate || (allMonthTasks.length > 0 ? new Date(Math.min(...allMonthTasks.map(t => this.safeDate(t.startDate)?.getTime() || Date.now()))) : new Date());
         const endRange = this.timelineEndDate || (allMonthTasks.length > 0 ? new Date(Math.max(...allMonthTasks.map(t => this.safeDate(t.endDate || t.startDate)?.getTime() || Date.now()))) : new Date());
@@ -2919,6 +2929,8 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
             monthGroups[key] = {
                 monthName: monthLabel,
+                monthNumber: m + 1,
+                yearNumber: y,
                 startDate: mStart,
                 endDate: mEnd,
                 tasks: []
@@ -2977,6 +2989,8 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                     tasks: mg.tasks,
                     taskCount: mg.tasks.length,
                     monthLabel: mg.monthName,
+                    monthNumber: mg.monthNumber,
+                    yearNumber: mg.yearNumber,
                     domainId: 'monthly-total-summary-row'
                 });
             }
@@ -3572,6 +3586,16 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 icon: 'heroicons_outline:calendar'
             },
             {
+                label: `Xóa công việc tháng ${monthStr}`,
+                text: `Xóa toàn bộ công việc tháng ${monthStr}/${year}`,
+                icon: 'heroicons_outline:trash'
+            },
+            {
+                label: `Xóa công việc tháng ${nextMonthStr}`,
+                text: `Xóa toàn bộ công việc tháng ${nextMonthStr}/${nextMonthYear}`,
+                icon: 'heroicons_outline:trash'
+            },
+            {
                 label: `Cập nhật công việc ngày ${dayStr}/${monthStr}`,
                 text: `Cập nhật công việc ngày ${dayStr}/${monthStr} cho tất cả tên miền`,
                 icon: 'heroicons_outline:refresh'
@@ -3586,7 +3610,8 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
     usePromptSuggestion(text: string) {
         this.chatPrompt = text;
-        this.sendChat();
+        this.isChatFocused = true;
+        this.cd.detectChanges();
     }
 
     async sendChat(event?: Event) {
@@ -3986,6 +4011,19 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             } else {
                                 targetDate = new Date(requestYear, requestMonth - 1, 1);
                             }
+                        }
+
+                        const isDeleteMonthIntent = !!userMessage.match(/(?:xóa|xoa|clear|reset|hủy|huy)\s*(?:toàn bộ\s*|sạch\s*|hết\s*)?(?:công việc|task|tasks|lịch)?\s*tháng\s*(\d{1,2})(?:[\/\-](\d{4}))?/i);
+                        if (isDeleteMonthIntent) {
+                            const delMatch = userMessage.match(/tháng\s*(\d{1,2})(?:[\/\-](\d{4}))?/i);
+                            const delMonth = delMatch ? parseInt(delMatch[1], 10) : (this.month || (new Date().getMonth() + 1));
+                            const delYear = delMatch && delMatch[2] ? parseInt(delMatch[2], 10) : new Date().getFullYear();
+
+                            this.resetCurrentMonth(delMonth, delYear);
+                            this.isChatting = false;
+                            this.cd.detectChanges();
+                            this.scrollToBottom();
+                            return;
                         }
 
                         // BẮT BUỘC hiển thị Thẻ Xác Nhận Kế Hoạch đối với lệnh tạo/sửa công việc (ngoại trừ lệnh viết blog)
