@@ -588,10 +588,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
         this.toastr.info(`Đang xuất video lồng khung 9:16${allSubs.length > 0 ? ` cùng ${allSubs.length} đoạn phụ đề` : ''}...`, 'Đang render');
 
+        let cleanBgVideoPath = this.selectedFrame.bgVideoUrl || '';
+        if (cleanBgVideoPath) {
+            if (cleanBgVideoPath.startsWith('media://')) cleanBgVideoPath = decodeURIComponent(cleanBgVideoPath.substring(8));
+            else if (cleanBgVideoPath.startsWith('file://')) cleanBgVideoPath = decodeURIComponent(cleanBgVideoPath.substring(7));
+            if (cleanBgVideoPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanBgVideoPath = cleanBgVideoPath.substring(1);
+        }
+
         try {
             const res = await electron.renderVideoWithFrame({
                 videoPath: cleanVideoPath,
                 frameBgPath: frameBgPath,
+                frameBgVideoPath: cleanBgVideoPath,
                 frameMaskPath: frameMaskPath,
                 outputPath: outputPath,
                 quad: this.selectedFrame.quad,

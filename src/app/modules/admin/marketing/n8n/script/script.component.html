@@ -79,15 +79,15 @@
                     <!-- Footer: Thời gian, Nút Copy, Nút Viết tiếp prompt, Nút Hỏi lại -->
                     <div class="flex items-center gap-3 px-1 text-xs text-gray-400 select-none">
                         <span>{{ getMessageTime(msg) }}</span>
-                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
                             <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
                             <span class="text-[11px]">Copy</span>
                         </button>
-                        <button type="button" (click)="continuePrompt(msg)" class="flex items-center hover:text-teal-600 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Viết tiếp prompt từ câu trả lời này">
+                        <button type="button" (click)="continuePrompt(msg)" class="flex items-center hover:text-teal-600 transition-colors p-0.5 rounded cursor-pointer" title="Viết tiếp prompt từ câu trả lời này">
                             <mat-icon class="icon-size-3.5 mr-1 text-teal-600" [svgIcon]="'feather:edit-3'"></mat-icon>
                             <span class="text-[11px] text-teal-700 font-medium">Viết tiếp prompt</span>
                         </button>
-                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại nội dung này">
+                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại nội dung này">
                             <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
                             <span class="text-[11px]">Hỏi lại</span>
                         </button>
@@ -102,15 +102,15 @@
                     <!-- Footer: Thời gian, Nút Copy, Nút Viết tiếp, Nút Hỏi lại -->
                     <div class="flex items-center gap-3 px-1 text-xs text-gray-400 select-none justify-end">
                         <span>{{ getMessageTime(msg) }}</span>
-                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
                             <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
                             <span class="text-[11px]">Copy</span>
                         </button>
-                        <button type="button" (click)="continuePrompt(msg)" class="flex items-center hover:text-teal-600 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Viết tiếp prompt từ câu hỏi này">
+                        <button type="button" (click)="continuePrompt(msg)" class="flex items-center hover:text-teal-600 transition-colors p-0.5 rounded cursor-pointer" title="Viết tiếp prompt từ câu hỏi này">
                             <mat-icon class="icon-size-3.5 mr-1 text-teal-600" [svgIcon]="'feather:edit-3'"></mat-icon>
                             <span class="text-[11px] text-teal-700 font-medium">Viết tiếp prompt</span>
                         </button>
-                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại nội dung này">
+                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại nội dung này">
                             <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
                             <span class="text-[11px]">Hỏi lại</span>
                         </button>

@@ -183,11 +183,11 @@
                                     <!-- Footer dưới mỗi bong bóng: Thời gian, Nút Copy, Nút Hỏi lại -->
                                     <div class="flex items-center gap-2 mt-1 px-1 text-xs text-gray-400 select-none" [ngClass]="msg.role === 'user' ? 'justify-end' : 'justify-start'">
                                         <span>{{ getMessageTime(msg) }}</span>
-                                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
                                             <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
                                             <span class="text-[11px]">Copy</span>
                                         </button>
-                                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại nội dung này">
+                                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại nội dung này">
                                             <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
                                             <span class="text-[11px]">Hỏi lại</span>
                                         </button>
@@ -348,11 +348,11 @@
             </p>
         </div>
 
-        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
-            <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0 gap-2">
+            <button mat-button (click)="_matDialog.closeAll()">
                 {{ 'app.auto_cancel' | transloco }}
             </button>
-            <button mat-flat-button color="primary" (click)="confirmGenerateComment()" class="ml-2">
+            <button mat-flat-button color="primary" (click)="confirmGenerateComment()">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:check'"></mat-icon>
                 <span class="ml-2">{{ 'app.auto_confirm_script_creation' | transloco }}</span>
             </button>
@@ -534,8 +534,8 @@
                 <span class="text-blue-600 mr-4">Comment: {{ countTypeInGroups("COMMENT") }}</span>
                 <span class="text-pink-600">Thả tim: {{ countTypeInGroups("LIKE") }}</span>
             </div>
-            <div class="flex gap-2 mr-2">
-                <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+            <div class="flex items-center gap-2">
+                <button mat-button (click)="_matDialog.closeAll()">
                     Đóng
                 </button>
                 <button mat-flat-button color="primary" (click)="submitToN8n()" [disabled]="totalSelected === 0">
@@ -589,11 +589,12 @@
             </p>
         </div>
 
-        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
-            <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+        <!-- Dialog Footer -->
+        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0 gap-2">
+            <button mat-button (click)="_matDialog.closeAll()">
                 {{ 'app.auto_cancel' | transloco }}
             </button>
-            <button mat-flat-button color="primary" (click)="confirmGenerateLike()" class="ml-2 px-6">
+            <button mat-flat-button color="primary" (click)="confirmGenerateLike()" class="px-6">
                 {{ 'app.auto_confirm_creation' | transloco }}
             </button>
         </div>
@@ -601,7 +602,7 @@
 </ng-template>
 
 <ng-template #groupTasksDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 680px; min-width: 480px;">
+    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 720px; min-width: 520px;">
         <div class="flex items-center justify-between p-6 bg-gray-50 border-b border-gray-200 shrink-0">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded bg-primary text-white flex items-center justify-center">
@@ -624,14 +625,51 @@
             </button>
         </div>
 
+        <!-- Toolbar chọn nhiều (Multi-select bar) -->
+        <div class="flex items-center justify-between px-6 py-2.5 bg-slate-50 border-b border-gray-200 shrink-0 select-none">
+            <div class="flex items-center gap-2">
+                <mat-checkbox color="primary" 
+                              [checked]="isAllGroupTasksSelected()" 
+                              [indeterminate]="isSomeGroupTasksSelected()" 
+                              (change)="toggleSelectAllGroupTasks($event)">
+                    <span class="text-xs font-semibold text-gray-700">Chọn tất cả</span>
+                </mat-checkbox>
+                <span class="text-xs text-gray-500 font-medium ml-1" *ngIf="selectedGroupTaskIds.size > 0">
+                    (Đã chọn: <span class="font-bold text-primary">{{ selectedGroupTaskIds.size }}</span>)
+                </span>
+            </div>
+
+            <!-- Các nút thao tác hàng loạt cho các task được chọn -->
+            <div class="flex items-center gap-2" *ngIf="selectedGroupTaskIds.size > 0">
+                <button mat-flat-button color="primary" (click)="markSelectedTasksDone(false)" [matTooltip]="'Chuyển các mục đã chọn về trạng thái Chờ xử lý để làm lại'">
+                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:rotate-ccw'"></mat-icon>
+                    <span class="ml-2">Đánh dấu làm lại</span>
+                </button>
+                <button mat-flat-button color="primary" (click)="markSelectedTasksDone(true)" [matTooltip]="'Đánh dấu hoàn thành các mục đã chọn'">
+                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:check-circle'"></mat-icon>
+                    <span class="ml-2">Đã hoàn thành</span>
+                </button>
+            </div>
+        </div>
+
         <div class="p-6 overflow-y-auto max-h-[70vh] flex flex-col gap-3 bg-white">
             <div *ngFor="let task of selectedGroupItem?.tasks; let i = index" 
-                 class="flex flex-col shrink-0 rounded border border-gray-200 bg-white overflow-hidden transition-all duration-150">
+                 class="flex flex-col shrink-0 rounded border border-gray-200 bg-white overflow-hidden transition-all duration-150"
+                 [class.border-primary]="isTaskSelected(task)"
+                 [class.bg-blue-50]="isTaskSelected(task)">
 
                 <!-- Accordion Header -->
                 <div (click)="toggleTaskExpanded(task, $event)"
-                     class="flex items-center justify-between p-3.5 cursor-pointer bg-white hover:bg-slate-50 transition-colors select-none">
+                     class="flex items-center justify-between p-3.5 cursor-pointer hover:bg-slate-50 transition-colors select-none">
                     <div class="flex items-center gap-3 min-w-0 pr-2">
+                        <!-- Checkbox Multi-select -->
+                        <div (click)="$event.stopPropagation()" class="flex items-center shrink-0">
+                            <mat-checkbox color="primary" 
+                                          [checked]="isTaskSelected(task)" 
+                                          (change)="toggleSelectTask(task, $event)">
+                            </mat-checkbox>
+                        </div>
+
                         <span class="w-7 h-7 rounded text-xs font-bold flex items-center justify-center shrink-0 transition-colors"
                               [ngClass]="task.done ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'">
                             #{{ task.taskIndex || (i + 1) }}
@@ -676,8 +714,8 @@
                                 Status: <span class="font-semibold" [ngClass]="task.done ? 'text-emerald-600' : 'text-amber-600'">{{ task.done ? 'Đã hoàn thành' : 'Đang chờ xử lý' }}</span>
                             </div>
                             <div class="flex items-center gap-1">
-                                <button mat-icon-button [matTooltip]="task.done ? 'Hủy đánh dấu' : 'Đánh dấu đã xong'" (click)="toggleTaskDone(task, $event)">
-                                    <mat-icon class="icon-size-4" [ngClass]="task.done ? 'text-emerald-600' : 'text-amber-500'" [svgIcon]="task.done ? 'feather:rotate-ccw' : 'feather:check-circle'"></mat-icon>
+                                <button mat-icon-button [matTooltip]="task.done ? 'Đánh dấu làm lại' : 'Đánh dấu đã xong'" (click)="toggleTaskDone(task, $event)">
+                                    <mat-icon class="icon-size-4" [ngClass]="task.done ? 'text-amber-600' : 'text-emerald-600'" [svgIcon]="task.done ? 'feather:rotate-ccw' : 'feather:check-circle'"></mat-icon>
                                 </button>
                                 <button mat-icon-button color="primary" [matTooltip]="'Chỉnh sửa / AI Edit'" (click)="openSingleTaskDetail(task)">
                                     <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
@@ -691,7 +729,7 @@
         </div>
 
         <!-- Dialog Footer -->
-        <div class="flex items-center justify-start p-6 bg-gray-50 border-t border-gray-200 shrink-0">
+        <div class="flex items-center justify-between p-6 bg-gray-50 border-t border-gray-200 shrink-0">
             <div class="flex items-center gap-2">
                 <button mat-flat-button color="primary" (click)="toggleAllGroupTasks(true)">
                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:chevrons-down'"></mat-icon>
@@ -701,6 +739,10 @@
                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:chevrons-up'"></mat-icon>
                     <span class="ml-2">Thu gọn</span>
                 </button>
+            </div>
+            
+            <div class="flex items-center gap-2" *ngIf="selectedGroupTaskIds.size > 0">
+                <span class="text-xs text-gray-500 font-medium">Đã chọn: <b class="text-primary">{{ selectedGroupTaskIds.size }}</b> mục</span>
             </div>
         </div>
     </div>

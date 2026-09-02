@@ -49,6 +49,7 @@ import { CrawlService } from 'app/_services/crawl';
 import { GlobalAgentService } from 'app/_services/global-agent.service';
 import { HelperService } from 'app/helper.service';
 import { ForumService } from 'app/_services/forum';
+import * as uuid from 'uuid';
 registerLocaleData(localeVi);
 
 export interface ICustomTimelineItem extends ITimelineItem {
@@ -242,47 +243,20 @@ Yêu cầu:${styleInstructions}
                 config: { ttsVoice: 'none' } as any
             });
 
-            let jsonText = response.text || (response as any).response?.text() || '';
-            let articleData: any = null;
-            if (jsonText) {
-                try {
-                    const jsonMatch = jsonText.match(/```json([\s\S]*?)```/);
-                    if (jsonMatch) jsonText = jsonMatch[1];
-                    articleData = JSON.parse(jsonText.trim());
-                } catch (e) {
-                    articleData = { title: task.name, content: jsonText };
-                }
-            }
+            let rawText = response.text || (response as any).response?.text() || '';
+            let articleData = this.parseArticleDataSafely(rawText, task.name);
 
             const pendingArticles = this.multiAccountService.getItem('pending_articles') || [];
-            let archivePayload = {
-                title: articleData?.title || task.name,
-                url: task._id || task.id || Math.random().toString(36).substring(7),
-                source: {
-                    title: [], description: [], url: [], domain: [],
-                    img: [], h: [], a: [], p: [], source: [],
-                    iframe: [], pre: [ articleData?.image_prompt || '' ], type: 'html', prompt: [ task.name ],
-                    synonyms: [], keyword: '', wp_post_id: null,
-                    wp_domain: domainName, wpPosts: [],
-                    nodes: [], totalNodes: 1, wp_task_id: task._id || task.id
-                },
-                done: [ articleData?.content || '' ],
-                trash: [],
-                seo: {
-                    description: { length: 0, text: articleData?.description || '' },
-                    title: { length: 0, text: articleData?.title || task.name },
-                    links: 0, words: { basic: 0, total: 0 },
-                    images: { total: 0, alt: 0 },
-                    heading: {
-                        h1: { total: 0, keys: [] }, h2: { total: 0, keys: [] },
-                        h3: { total: 0, keys: [] }, h4: { total: 0, keys: [] }
-                    }, kw: []
-                },
-                arr_keyword: [],
-                domain: domainName,
-                username: this.user.name,
-                thumbnail: articleData?.image_prompt || ''
-            };
+            let archivePayload = this.buildArchivePayload({
+                title: articleData.title || task.name,
+                content: articleData.content || '',
+                description: articleData.description || '',
+                image_prompt: articleData.image_prompt || '',
+                tags: articleData.tags || [],
+                domainData: { domain: domainName, name: domainName },
+                rawUrl: task._id || task.id || Math.random().toString(36).substring(7),
+                taskId: task._id || task.id
+            });
 
             // 1. Save to Crawl Service archive
             try {
@@ -392,14 +366,19 @@ Yêu cầu:${styleInstructions}
     }
 
     getMessageTime(msg: any): string {
-        if (msg?.time) return msg.time;
-        if (msg?.timestamp) {
+        if (!msg) return '';
+        if (msg.time) return msg.time;
+        if (msg.timestamp) {
             const d = new Date(msg.timestamp);
             if (!isNaN(d.getTime())) {
-                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const formatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                msg.time = formatted;
+                return formatted;
             }
         }
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const nowFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        msg.time = nowFormatted;
+        return nowFormatted;
     }
 
     reAskMessage(msg: any) {
@@ -937,6 +916,8 @@ ${domainRows.join('\n')}
     editingItemDomain: string = '';
     editingItemWritingStyle: string = '';
 
+    selectedGroupTaskIds: Set<string> = new Set<string>();
+
     toggleTaskExpanded(task: any, event?: Event) {
         if (event) event.stopPropagation();
         task._expanded = !task._expanded;
@@ -950,9 +931,93 @@ ${domainRows.join('\n')}
         }
     }
 
+    getTaskUniqueKey(task: any): string {
+        return task._id || task.id || (task.name + '_' + (task.taskIndex || ''));
+    }
+
+    isTaskSelected(task: any): boolean {
+        return this.selectedGroupTaskIds.has(this.getTaskUniqueKey(task));
+    }
+
+    toggleSelectTask(task: any, event?: Event) {
+        if (event) event.stopPropagation();
+        const key = this.getTaskUniqueKey(task);
+        if (this.selectedGroupTaskIds.has(key)) {
+            this.selectedGroupTaskIds.delete(key);
+        } else {
+            this.selectedGroupTaskIds.add(key);
+        }
+        this.cd.markForCheck();
+    }
+
+    isAllGroupTasksSelected(): boolean {
+        const tasks = this.selectedGroupItem?.tasks;
+        if (!tasks || tasks.length === 0) return false;
+        return tasks.every((t: any) => this.selectedGroupTaskIds.has(this.getTaskUniqueKey(t)));
+    }
+
+    isSomeGroupTasksSelected(): boolean {
+        const tasks = this.selectedGroupItem?.tasks;
+        if (!tasks || tasks.length === 0) return false;
+        const count = tasks.filter((t: any) => this.selectedGroupTaskIds.has(this.getTaskUniqueKey(t))).length;
+        return count > 0 && count < tasks.length;
+    }
+
+    toggleSelectAllGroupTasks(event?: any) {
+        const tasks = this.selectedGroupItem?.tasks;
+        if (!tasks || tasks.length === 0) return;
+        if (this.isAllGroupTasksSelected()) {
+            this.selectedGroupTaskIds.clear();
+        } else {
+            tasks.forEach((t: any) => this.selectedGroupTaskIds.add(this.getTaskUniqueKey(t)));
+        }
+        this.cd.markForCheck();
+    }
+
+    getSelectedGroupTasks(): any[] {
+        const tasks = this.selectedGroupItem?.tasks;
+        if (!tasks) return [];
+        return tasks.filter((t: any) => this.selectedGroupTaskIds.has(this.getTaskUniqueKey(t)));
+    }
+
+    markSelectedTasksDone(done: boolean) {
+        const selectedTasks = this.getSelectedGroupTasks();
+        if (selectedTasks.length === 0) {
+            this.toastr.warning('Vui lòng chọn ít nhất 1 công việc để thực hiện.');
+            return;
+        }
+
+        selectedTasks.forEach(task => {
+            task.done = done;
+            task.status = done ? 'done' : 'pending';
+            if (task.originalTask) {
+                task.originalTask.done = done;
+                task.originalTask.status = done ? 'done' : 'pending';
+                if (done) {
+                    task.originalTask.meta = (task.originalTask.meta ? task.originalTask.meta.replace(/done/gi, '').trim() + ' ' : '') + 'Done';
+                }
+            }
+            if (this._tasksService) {
+                this._tasksService.edit({ username: this.user?.name, task: task }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+            }
+        });
+
+        this.toastr.success(done ? `Đã đánh dấu hoàn thành ${selectedTasks.length} công việc.` : `Đã chuyển ${selectedTasks.length} công việc về trạng thái làm lại (chờ xử lý).`);
+        this.selectedGroupTaskIds.clear();
+        this.cd.markForCheck();
+    }
+
     toggleTaskDone(task: any, event?: Event) {
         if (event) event.stopPropagation();
         task.done = !task.done;
+        task.status = task.done ? 'done' : 'pending';
+        if (task.originalTask) {
+            task.originalTask.done = task.done;
+            task.originalTask.status = task.status;
+            if (task.done) {
+                task.originalTask.meta = (task.originalTask.meta ? task.originalTask.meta.replace(/done/gi, '').trim() + ' ' : '') + 'Done';
+            }
+        }
         if (this._tasksService) {
             this._tasksService.edit({ username: this.user?.name, task: task }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
         }
@@ -1025,6 +1090,7 @@ ${domainRows.join('\n')}
                 this.selectedGroupStartDate = minTime !== Infinity ? new Date(minTime) : item.startDate;
                 this.selectedGroupEndDate = maxTime !== -Infinity ? new Date(maxTime) : item.endDate;
             }
+            this.selectedGroupTaskIds.clear();
             if (this.selectedGroupItem && this.selectedGroupItem.tasks) {
                 this.selectedGroupItem.tasks.forEach((t: any) => {
                     t._expanded = false;
@@ -3091,6 +3157,311 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
     }
 
     // -----------------------------------------------------------------------------------------------------
+    // @ NEW: Hỗ trợ phân tách và định dạng dàn ý cho màn hình Soạn bài
+    // -----------------------------------------------------------------------------------------------------
+    cleanArticleJsonString(text: string): string {
+        if (!text) return '';
+        let cleaned = text.trim();
+        const jsonBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+            cleaned = jsonBlockMatch[1].trim();
+        } else {
+            const firstBrace = cleaned.indexOf('{');
+            const lastBrace = cleaned.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                cleaned = cleaned.substring(firstBrace, lastBrace + 1).trim();
+            }
+        }
+        return cleaned;
+    }
+
+    parseArticleDataSafely(rawText: string, fallbackTitle: string = 'Bài viết mới'): any {
+        if (!rawText) return { title: fallbackTitle, content: '', description: '', image_prompt: '' };
+        
+        // 1. Thử parse JSON hoàn chỉnh
+        const cleaned = this.cleanArticleJsonString(rawText);
+        try {
+            const parsed = JSON.parse(cleaned);
+            if (parsed && typeof parsed === 'object') {
+                return {
+                    title: parsed.title || fallbackTitle,
+                    content: parsed.content || '',
+                    description: parsed.description || '',
+                    image_prompt: parsed.image_prompt || '',
+                    tags: Array.isArray(parsed.tags) ? parsed.tags : []
+                };
+            }
+        } catch (e) {}
+
+        // 2. Thử bóc tách từng trường qua Regex (nếu JSON bị cắt đuôi hoặc bị lỗi format)
+        let title = fallbackTitle;
+        let content = '';
+        let description = '';
+        let imagePrompt = '';
+
+        const titleMatch = rawText.match(/"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i);
+        if (titleMatch && titleMatch[1]) {
+            try {
+                title = JSON.parse(`"${titleMatch[1]}"`);
+            } catch (e) {
+                title = titleMatch[1].replace(/\\"/g, '"');
+            }
+        }
+
+        const descMatch = rawText.match(/"description"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i);
+        if (descMatch && descMatch[1]) {
+            try {
+                description = JSON.parse(`"${descMatch[1]}"`);
+            } catch (e) {
+                description = descMatch[1].replace(/\\"/g, '"');
+            }
+        }
+
+        const imgMatch = rawText.match(/"image_prompt"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i);
+        if (imgMatch && imgMatch[1]) {
+            try {
+                imagePrompt = JSON.parse(`"${imgMatch[1]}"`);
+            } catch (e) {
+                imagePrompt = imgMatch[1].replace(/\\"/g, '"');
+            }
+        }
+
+        // Bóc tách content
+        const contentMatch = rawText.match(/"content"\s*:\s*"([\s\S]+?)(?=(?:",\s*"(?:description|image_prompt|tags|title)"|"\s*\}|$))/i);
+        if (contentMatch && contentMatch[1]) {
+            let rawContentStr = contentMatch[1];
+            // Xóa phần nháy kép đóng thừa ở cuối nếu có
+            if (rawContentStr.endsWith('"')) {
+                rawContentStr = rawContentStr.slice(0, -1);
+            }
+            try {
+                content = JSON.parse(`"${rawContentStr.replace(/"/g, '\\"').replace(/\\"/g, '\\"')}"`);
+            } catch (e) {
+                content = rawContentStr
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\r/g, '')
+                    .replace(/\\t/g, ' ')
+                    .replace(/\\"/g, '"')
+                    .replace(/\\\\/g, '\\');
+            }
+        }
+
+        // 3. Fallback: Nếu không bóc tách được content từ JSON, dùng toàn bộ rawText nếu nó chứa HTML hoặc text tự do
+        if (!content) {
+            let stripped = rawText.trim();
+            // Nếu rawText chỉ là dấu mở ngoặc JSON lỗi như "{\n" hoặc "```"
+            if (stripped.startsWith('{') && stripped.length < 10) {
+                content = '';
+            } else {
+                content = stripped.replace(/```(?:html|json)?/gi, '').replace(/```/g, '').trim();
+            }
+        }
+
+        return {
+            title: title || fallbackTitle,
+            content: content || '',
+            description: description || '',
+            image_prompt: imagePrompt || '',
+            tags: []
+        };
+    }
+
+    splitContentToBlocks(content: any): string[] {
+        if (!content) return [];
+        let html = '';
+        if (Array.isArray(content)) {
+            html = content.join('\n');
+        } else {
+            html = String(content);
+        }
+
+        html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+        if (!html) return [];
+
+        const blocks: string[] = [];
+
+        // Thử parse bằng DOMParser
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const body = doc.body;
+
+            if (body && body.children && body.children.length > 0) {
+                Array.from(body.children).forEach(child => {
+                    const tag = child.tagName.toLowerCase();
+                    const inner = child.innerHTML.trim();
+                    if (!inner && !['img', 'iframe', 'hr', 'br'].includes(tag)) return;
+
+                    if (tag === 'p') {
+                        const id = child.getAttribute('id') || `source-p-${uuid.v4()}`;
+                        blocks.push(`<p id="${id}">${inner}</p>`);
+                    } else if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)) {
+                        blocks.push(`<${tag}>${inner}</${tag}>`);
+                    } else if (['ul', 'ol', 'blockquote', 'div', 'table', 'pre', 'figure'].includes(tag)) {
+                        blocks.push(child.outerHTML);
+                    } else {
+                        blocks.push(`<p id="source-p-${uuid.v4()}">${child.outerHTML}</p>`);
+                    }
+                });
+            }
+        } catch (e) {}
+
+        // Nếu DOMParser không tách được hoặc nội dung là text thuần / Markdown
+        if (blocks.length === 0) {
+            const lines = html.split(/\r?\n\r?\n|\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            lines.forEach(l => {
+                if (/^##\s+/.test(l)) {
+                    blocks.push(`<h2>${l.replace(/^##\s+/, '').trim()}</h2>`);
+                } else if (/^###\s+/.test(l)) {
+                    blocks.push(`<h3>${l.replace(/^###\s+/, '').trim()}</h3>`);
+                } else if (/^#\s+/.test(l)) {
+                    blocks.push(`<h1>${l.replace(/^#\s+/, '').trim()}</h1>`);
+                } else if (/^<(p|h[1-6]|div|ul|ol|li|blockquote|table|pre|figure)\b/i.test(l)) {
+                    if (/^<p\b/i.test(l) && !l.includes('id=')) {
+                        blocks.push(l.replace(/^<p\b/i, `<p id="source-p-${uuid.v4()}"`));
+                    } else {
+                        blocks.push(l);
+                    }
+                } else {
+                    blocks.push(`<p id="source-p-${uuid.v4()}">${l}</p>`);
+                }
+            });
+        }
+
+        return blocks;
+    }
+
+    buildArchivePayload(params: {
+        title: string;
+        content: string;
+        description: string;
+        image_prompt: string;
+        tags?: string[];
+        domainData: any;
+        rawUrl?: string;
+        taskId?: string;
+    }): any {
+        const title = params.title || 'Bài viết mới';
+        const rawContent = params.content || '';
+        const description = params.description || '';
+        const imagePrompt = params.image_prompt || '';
+        const domainData = params.domainData || {};
+        const taskId = params.taskId || null;
+        const tags = params.tags || [];
+
+        const blocks = this.splitContentToBlocks(rawContent);
+        const doneParagraphs: string[] = [];
+        const trashHeadings: string[] = [];
+        const sourceP: string[] = [];
+        const sourceH2: string[] = [];
+        const sourceH: string[] = [];
+
+        blocks.forEach(b => {
+            const clean = b.trim();
+            if (!clean) return;
+
+            if (/^<h2\b/i.test(clean)) {
+                sourceH2.push(clean);
+                sourceH.push(clean);
+                trashHeadings.push(clean);
+            } else if (/^<h[1-6]\b/i.test(clean)) {
+                sourceH.push(clean);
+                trashHeadings.push(clean);
+            } else if (/^<p\b/i.test(clean)) {
+                sourceP.push(clean);
+                doneParagraphs.push(clean);
+            } else {
+                const wrapped = `<p id="source-p-${uuid.v4()}">${clean}</p>`;
+                sourceP.push(wrapped);
+                doneParagraphs.push(wrapped);
+            }
+        });
+
+        // Fallback nếu không có đoạn văn nào
+        if (doneParagraphs.length === 0 && rawContent) {
+            const fallbackP = `<p id="source-p-${uuid.v4()}">${rawContent}</p>`;
+            doneParagraphs.push(fallbackP);
+            sourceP.push(fallbackP);
+        }
+
+        const wordCount = rawContent.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(w => w.length > 0).length;
+        const prePrompt = imagePrompt ? [`<p id="source-pre-${uuid.v4()}">${imagePrompt}</p>`] : [];
+        const promptList = description ? [`<p id="source-prompt-${uuid.v4()}">${description}</p>`] : (title ? [`<p id="source-prompt-${uuid.v4()}">${title}</p>`] : []);
+
+        return {
+            title: title,
+            url: params.rawUrl || (taskId ? String(taskId) : ('draft_' + Date.now() + Math.floor(Math.random() * 1000))),
+            source: {
+                p: sourceP,
+                span: [],
+                li: [],
+                i: [],
+                dd: [],
+                td: [],
+                label: [],
+                h1: [],
+                h2: sourceH2,
+                h3: [],
+                h4: [],
+                h5: [],
+                a: [],
+                table: [],
+                img: [],
+                audios: [],
+                source: [],
+                iframe: [],
+                pre: prePrompt,
+                prompt: promptList,
+                word: [],
+                chatgpt: [],
+                text: [],
+                empty: [],
+                backup: blocks.length > 0 ? blocks : (rawContent ? [rawContent] : []),
+                playlist: [
+                    {
+                        youtube: [],
+                        tiktok: [],
+                        facebook: [],
+                    },
+                    {
+                        mp3: [],
+                    },
+                ],
+                type: 'html',
+                synonyms: [],
+                keyword: tags.join(', '),
+                wp_post_id: null,
+                wp_domain: domainData.domain || '',
+                wpPosts: [],
+                nodes: [],
+                totalNodes: 1,
+                wp_task_id: taskId
+            },
+            done: doneParagraphs,
+            trash: trashHeadings,
+            seo: {
+                mainkey: title,
+                title: { length: title.length, text: title, words: title.split(/\s+/).length, characters: title.length, findmainkey: 0 },
+                description: { length: description.length, text: description, words: description.split(/\s+/).length, characters: description.length, findmainkey: 0 },
+                links: 0,
+                words: { basic: wordCount, total: wordCount, find_mainkey_in_first_paragraph: 0, find_mainkey_in_words: 0, mainkey_percent_in_words: 0 },
+                images: { total: 0, alt: 0, find_mainkey_in_alt: 0 },
+                heading: {
+                    h1: { total: 0, keys: [] },
+                    h2: { total: sourceH2.length, keys: [] },
+                    h3: { total: 0, keys: [] },
+                    h4: { total: 0, keys: [] }
+                },
+                kw: []
+            },
+            arr_keyword: tags,
+            domain: domainData.domain || domainData.name || 'https://type.vn',
+            username: this.user.name,
+            thumbnail: imagePrompt
+        };
+    }
+
+    // -----------------------------------------------------------------------------------------------------
     // @ NEW: Tự động lưu vào Soạn bài
     // -----------------------------------------------------------------------------------------------------
     saveDraftsToAiWriter(drafts: any[]) {
@@ -3110,34 +3481,15 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
             
             let domainData = matchedItem?.domainData || { domain: draft.domain || '' };
             
-            let archivePayload = {
+            let archivePayload = this.buildArchivePayload({
                 title: draft.title || 'Bài viết mới',
-                url: 'draft_' + Date.now() + Math.floor(Math.random() * 1000),
-                source: {
-                    title: [], description: [], url: [], domain: [],
-                    img: [], h: [], a: [], p: [], source: [],
-                    iframe: [], pre: [ draft.image_prompt || '' ], type: 'html', prompt: [ draft.title ],
-                    synonyms: [], keyword: '', wp_post_id: null,
-                    wp_domain: domainData.domain || draft.domain, wpPosts: [],
-                    nodes: [], totalNodes: 1, wp_task_id: null
-                },
-                done: [ draft.content || '' ],
-                trash: [],
-                seo: {
-                    description: { length: 0, text: draft.description || '' },
-                    title: { length: 0, text: draft.title || '' },
-                    links: 0, words: { basic: 0, total: 0 },
-                    images: { total: 0, alt: 0 },
-                    heading: {
-                        h1: { total: 0, keys: [] }, h2: { total: 0, keys: [] },
-                        h3: { total: 0, keys: [] }, h4: { total: 0, keys: [] }
-                    }
-                },
-                arr_keyword: draft.tags || [],
-                domain: domainData,
-                username: this.user.name,
-                thumbnail: draft.image_prompt || ''
-            };
+                content: draft.content || '',
+                description: draft.description || '',
+                image_prompt: draft.image_prompt || '',
+                tags: draft.tags || [],
+                domainData: domainData,
+                taskId: draft.task_id || null
+            });
 
             try {
                 const res: any = await firstValueFrom(this._crawlService.storeArchive(archivePayload));
@@ -3298,17 +3650,54 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 const targetDateIso = `${targetYear}-${monthStr}-${dayStr}`;
                 const targetDateLocal = `${dayStr}/${monthStr}/${targetYear}`;
 
-                let tasksToProcess: any[] = [];
-                const sourceLists = [
-                    ...(this.items || []).flatMap((d: any) => (d?.childrenItems?.[0]?.streamItems || d?.domainData?.plan || []).map((t: any) => ({ ...t, domain: d.name, originalTask: t }))),
-                    ...(this.allDomainsList || []).flatMap((d: any) => (d?.plan || []).map((t: any) => ({ ...t, domain: d.domain || d.name, originalTask: t })))
-                ];
+                // 1. Collect all tasks from RAM domain items (unpacking group items)
+                const sourceLists: any[] = [];
+                (this.items || []).forEach((d: any) => {
+                    if (!d || d.id === 'total-summary-row' || d.id === 'monthly-total-summary-row') return;
+                    const domainName = d.name || d.domain || d.domainData?.domain || d.domainData?.name;
+                    
+                    // From domainData.plan
+                    if (d.domainData?.plan && Array.isArray(d.domainData.plan)) {
+                        d.domainData.plan.forEach((t: any) => {
+                            if (t) sourceLists.push({ ...t, domain: domainName, originalTask: t });
+                        });
+                    }
 
+                    // From streamItems & childrenItems (unpack group items)
+                    const streamList = [
+                        ...(d.streamItems || []),
+                        ...(d.childrenItems?.[0]?.streamItems || [])
+                    ];
+                    streamList.forEach((st: any) => {
+                        if (!st) return;
+                        if (st.isGroup && Array.isArray(st.tasks)) {
+                            st.tasks.forEach((t: any) => {
+                                if (t) sourceLists.push({ ...t, domain: domainName, originalTask: t });
+                            });
+                        } else if (!st.isGroup) {
+                            sourceLists.push({ ...st, domain: domainName, originalTask: st });
+                        }
+                    });
+                });
+
+                // From allDomainsList
+                (this.allDomainsList || []).forEach((d: any) => {
+                    const domainName = d.domain || d.name;
+                    if (d.plan && Array.isArray(d.plan)) {
+                        d.plan.forEach((t: any) => {
+                            if (t) sourceLists.push({ ...t, domain: domainName, originalTask: t });
+                        });
+                    }
+                });
+
+                // If RAM has no tasks for targetDateIso, also try fetching from server
+                let tasksToProcess: any[] = [];
                 const seenIds = new Set();
+
                 sourceLists.forEach((task: any) => {
                     if (!task || !task.startDate) return;
                     const dObj = this.safeDate(task.startDate);
-                    if (!dObj) return;
+                    if (!dObj || isNaN(dObj.getTime())) return;
                     const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
                     if (dIso === targetDateIso && !this.isTaskDone(task)) {
                         const taskId = task._id || task.id || (task.name + dIso);
@@ -3318,6 +3707,37 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                         }
                     }
                 });
+
+                // Fallback to CouchDB server query if RAM tasks list is empty
+                if (tasksToProcess.length === 0 && this._tasksService && this.user?.name) {
+                    try {
+                        const serverRes: any = await firstValueFrom(this._tasksService.fetch({ username: this.user.name, year: targetYear })).catch(() => null);
+                        let serverTasks: any[] = [];
+                        if (Array.isArray(serverRes)) serverTasks = serverRes;
+                        else if (serverRes && Array.isArray(serverRes.data)) serverTasks = serverRes.data;
+                        else if (serverRes && Array.isArray(serverRes.result)) serverTasks = serverRes.result;
+
+                        serverTasks.forEach((st: any) => {
+                            if (!st || !st.startDate) return;
+                            const dObj = this.safeDate(st.startDate);
+                            if (!dObj || isNaN(dObj.getTime())) return;
+                            const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
+                            if (dIso === targetDateIso && !this.isTaskDone(st)) {
+                                const taskId = st._id || st.id || (st.name + dIso);
+                                if (!seenIds.has(taskId)) {
+                                    seenIds.add(taskId);
+                                    tasksToProcess.push({
+                                        ...st,
+                                        domain: st.domain || st.domainName || (this.items?.[0]?.name) || 'default',
+                                        originalTask: st
+                                    });
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error('Lỗi khi nạp task từ CSDL phục vụ viết blog:', e);
+                    }
+                }
 
                 if (tasksToProcess.length === 0) {
                     this.chatHistory.push({ role: 'model', content: `Dạ Sếp ơi, ngày **${targetDateLocal}** không có task nào chưa hoàn thành để viết bài cả ạ! Sếp nghỉ ngơi đi ạ! 😎` });
@@ -3379,45 +3799,19 @@ Yêu cầu:${styleInstructions}
                             config: { ttsVoice: 'none' } as any
                         });
                         
-                        let jsonText = response.text || (response as any).response?.text() || '';
-                        let articleData = null;
-                        if (jsonText) {
-                            try {
-                                const jsonMatch = jsonText.match(/```json([\s\S]*?)```/);
-                                if (jsonMatch) jsonText = jsonMatch[1];
-                                articleData = JSON.parse(jsonText.trim());
-                            } catch (e) {
-                                articleData = { title: task.name, content: jsonText };
-                            }
-                        }
-                        let archivePayload = {
-                            title: articleData?.title || task.name,
-                            url: task._id || task.id || Math.random().toString(36).substring(7),
-                            source: {
-                                title: [], description: [], url: [], domain: [],
-                                img: [], h: [], a: [], p: [], source: [],
-                                iframe: [], pre: [ articleData?.image_prompt || '' ], type: 'html', prompt: [ task.name ],
-                                synonyms: [], keyword: '', wp_post_id: null,
-                                wp_domain: domainData.domain || task.domain, wpPosts: [],
-                                nodes: [], totalNodes: 1, wp_task_id: task._id || task.id
-                            },
-                            done: [ articleData?.content || '' ],
-                            trash: [],
-                            seo: {
-                                description: { length: 0, text: articleData?.description || '' },
-                                title: { length: 0, text: articleData?.title || task.name },
-                                links: 0, words: { basic: 0, total: 0 },
-                                images: { total: 0, alt: 0 },
-                                heading: {
-                                    h1: { total: 0, keys: [] }, h2: { total: 0, keys: [] },
-                                    h3: { total: 0, keys: [] }, h4: { total: 0, keys: [] }
-                                }, kw: []
-                            },
-                            arr_keyword: [],
-                            domain: domainData,
-                            username: this.user.name,
-                            thumbnail: articleData?.image_prompt || ''
-                        };
+                        let rawText = response.text || (response as any).response?.text() || '';
+                        let articleData = this.parseArticleDataSafely(rawText, task.name);
+
+                        let archivePayload = this.buildArchivePayload({
+                            title: articleData.title || task.name,
+                            content: articleData.content || '',
+                            description: articleData.description || '',
+                            image_prompt: articleData.image_prompt || '',
+                            tags: articleData.tags || [],
+                            domainData: domainData,
+                            rawUrl: task._id || task.id || Math.random().toString(36).substring(7),
+                            taskId: task._id || task.id
+                        });
 
                         // 1. Save to Crawl Service archive
                         try {

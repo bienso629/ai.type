@@ -288,14 +288,19 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     }
 
     getMessageTime(msg: any): string {
-        if (msg?.time) return msg.time;
-        if (msg?.timestamp) {
+        if (!msg) return '';
+        if (msg.time) return msg.time;
+        if (msg.timestamp) {
             const d = new Date(msg.timestamp);
             if (!isNaN(d.getTime())) {
-                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const formatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                msg.time = formatted;
+                return formatted;
             }
         }
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const nowFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        msg.time = nowFormatted;
+        return nowFormatted;
     }
 
     reAskMessage(msg: any) {

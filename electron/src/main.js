@@ -3055,13 +3055,26 @@ function getResolvedFontName(requestedFontName) {
 }
 
 ipcMain.handle("render-video-with-frame", async (event, payload) => {
-    let { videoPath, frameBgPath, frameMaskPath, outputPath, quad, canvasWidth, canvasHeight, subtitles, subtitleBottom, subtitleFontSize, subtitleFontFamily, previewHeight } = payload || {};
+    let { videoPath, frameBgPath, frameBgVideoPath, frameMaskPath, outputPath, quad, canvasWidth, canvasHeight, subtitles, subtitleBottom, subtitleFontSize, subtitleFontFamily, previewHeight } = payload || {};
     try {
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
         let cleanVidPath = videoPath;
         if (cleanVidPath.startsWith('media://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(8));
         else if (cleanVidPath.startsWith('file://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(7));
         if (cleanVidPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVidPath = cleanVidPath.substring(1);
+
+        let cleanBgVideoPath = frameBgVideoPath || '';
+        if (cleanBgVideoPath) {
+            if (cleanBgVideoPath.startsWith('media://')) cleanBgVideoPath = decodeURIComponent(cleanBgVideoPath.substring(8));
+            else if (cleanBgVideoPath.startsWith('file://')) cleanBgVideoPath = decodeURIComponent(cleanBgVideoPath.substring(7));
+            if (cleanBgVideoPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanBgVideoPath = cleanBgVideoPath.substring(1);
+            if (!fs.existsSync(cleanBgVideoPath)) {
+                const cand1 = path.join(process.cwd(), cleanBgVideoPath);
+                const cand2 = path.join(__dirname, '..', '..', cleanBgVideoPath);
+                if (fs.existsSync(cand1)) cleanBgVideoPath = cand1;
+                else if (fs.existsSync(cand2)) cleanBgVideoPath = cand2;
+            }
+        }
 
         let cleanBgPath = frameBgPath || 'src/assets/video_frames/tiktok_frame_bg.jpg';
         if (cleanBgPath.startsWith('media://')) cleanBgPath = decodeURIComponent(cleanBgPath.substring(8));
@@ -3090,8 +3103,9 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
         if (!fs.existsSync(cleanVidPath)) {
             return { success: false, error: "Video input not found: " + cleanVidPath };
         }
-        if (!fs.existsSync(cleanBgPath)) {
-            return { success: false, error: "Frame background image not found: " + cleanBgPath };
+        const hasBgVideo = !!cleanBgVideoPath && fs.existsSync(cleanBgVideoPath);
+        if (!hasBgVideo && !fs.existsSync(cleanBgPath)) {
+            return { success: false, error: "Frame background not found: " + cleanBgPath };
         }
         if (!fs.existsSync(cleanMaskPath)) {
             return { success: false, error: "Frame mask image not found: " + cleanMaskPath };
@@ -3178,10 +3192,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         let filterComplex = '';
         const args = [
             '-y',
-            '-i', cleanVidPath,
-            '-loop', '1',
-            '-i', cleanBgPath
+            '-i', cleanVidPath
         ];
+
+        if (hasBgVideo) {
+            // Sử dụng video nền lặp lại
+            args.push('-stream_loop', '-1', '-i', cleanBgVideoPath);
+        } else {
+            // Sử dụng ảnh nền tĩnh lặp lại
+            args.push('-loop', '1', '-i', cleanBgPath);
+        }
 
         if (cleanMaskPath && fs.existsSync(cleanMaskPath)) {
             args.push('-loop', '1', '-i', cleanMaskPath);

@@ -162,14 +162,27 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     }
 
     getMessageTime(msg: any): string {
-        if (msg?.time) return msg.time;
-        if (msg?.timestamp) {
+        if (!msg) return '';
+        if (msg.time) return msg.time;
+        if (msg.timestamp) {
             const d = new Date(msg.timestamp);
             if (!isNaN(d.getTime())) {
-                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const formatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                msg.time = formatted;
+                return formatted;
             }
         }
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (this.activeChatRow?.updatedAt) {
+            const d = new Date(this.activeChatRow.updatedAt);
+            if (!isNaN(d.getTime())) {
+                const formatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                msg.time = formatted;
+                return formatted;
+            }
+        }
+        const nowFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        msg.time = nowFormatted;
+        return nowFormatted;
     }
 
     reAskMessage(text: string) {
@@ -738,7 +751,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     prompt = `${systemContext}Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
                 }
                 const parts: any[] = [{ text: prompt }];
-                const userMsg: any = { role: 'user', text: question };
+                const currentTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const userMsg: any = { role: 'user', text: question, time: currentTimeStr, timestamp: Date.now() };
 
                 if (this.attachedFileMain) {
                     parts.push({
@@ -812,10 +826,15 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         currentStreamedText = tempText;
 
                         newRow.answer = currentStreamedText;
+                        const modelTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         if (newRow.messages.length === 1) {
-                            newRow.messages.push({ role: 'model', text: currentStreamedText });
+                            newRow.messages.push({ role: 'model', text: currentStreamedText, time: modelTimeStr, timestamp: Date.now() });
                         } else {
                             newRow.messages[1].text = currentStreamedText;
+                            if (!newRow.messages[1].time) {
+                                newRow.messages[1].time = modelTimeStr;
+                                newRow.messages[1].timestamp = Date.now();
+                            }
                         }
                         this.cdref.detectChanges();
                         this.scrollToBottom();
@@ -1169,6 +1188,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
     getMessages(row: any): any[] {
         if (!row) return [];
+        const fallbackDate = row.updatedAt || row.createdAt;
+        const rowTimeStr = fallbackDate ? new Date(fallbackDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        const rowTimestamp = fallbackDate ? new Date(fallbackDate).getTime() : undefined;
+
         if (!row.messages) {
             let ans = row.answer || '';
             let inlineData: any = null;
@@ -1178,9 +1201,11 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 ans = ans.replace(match[0], '').trim();
             }
 
-            const modelMsg = { role: 'model', text: ans, inlineData: inlineData };
+            const defaultTimeStr = rowTimeStr || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const defaultTimestamp = rowTimestamp || Date.now();
+            const modelMsg = { role: 'model', text: ans, inlineData: inlineData, time: defaultTimeStr, timestamp: defaultTimestamp };
             row.messages = [
-                { role: 'user', text: row.question || '' },
+                { role: 'user', text: row.question || '', time: defaultTimeStr, timestamp: defaultTimestamp },
                 modelMsg
             ];
 
@@ -1189,6 +1214,14 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     row.messages[1] = { ...modelMsg };
                     row.messages = [...row.messages];
                     this.cdref.detectChanges();
+                }
+            });
+        } else if (Array.isArray(row.messages)) {
+            // Nếu messages đã có từ database, gán fallback time/timestamp từ updatedAt/createdAt nếu phần tử chưa có
+            row.messages.forEach((m: any) => {
+                if (m && !m.time && rowTimeStr) {
+                    m.time = rowTimeStr;
+                    m.timestamp = rowTimestamp;
                 }
             });
         }
@@ -1228,7 +1261,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         const settings = this.multiAccountService.getItem('settings');
         const isAiAgentEnabled = settings?.enableAiAgent === true;
 
-        const userMsg: any = { role: 'user', text: newQuestion };
+        const followUpTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const userMsg: any = { role: 'user', text: newQuestion, time: followUpTimeStr, timestamp: Date.now() };
         if (this.attachedFileFollow) {
             userMsg.inlineData = {
                 mimeType: this.attachedFileFollow.type,

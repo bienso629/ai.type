@@ -247,11 +247,11 @@
                             <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
                             <div class="flex items-center gap-2 px-1 text-xs text-gray-400 dark:text-gray-400 select-none">
                                 <span>{{ getMessageTime(msg) }}</span>
-                                <button type="button" (click)="copyMessage(msg.text)" class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                                <button type="button" (click)="copyMessage(msg.text)" class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
                                     <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
                                     <span class="text-[11px]">Copy</span>
                                 </button>
-                                <button type="button" (click)="reAskMessage(msg.text)" class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại nội dung này">
+                                <button type="button" (click)="reAskMessage(msg.text)" class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại nội dung này">
                                     <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
                                     <span class="text-[11px]">Hỏi lại</span>
                                 </button>
@@ -277,11 +277,11 @@
                             <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
                             <div class="flex items-center gap-2 px-1 text-xs text-gray-400 dark:text-gray-400 select-none">
                                 <span>{{ getMessageTime(msg) }}</span>
-                                <button type="button" (click)="copyMessage(msg.text)" class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Sao chép nội dung">
+                                <button type="button" (click)="copyMessage(msg.text)" class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
                                     <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
                                     <span class="text-[11px]">Copy</span>
                                 </button>
-                                <button type="button" (click)="reAskModelMessage(msg, activeChatRow)" class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer" matTooltip="Hỏi lại câu trả lời này">
+                                <button type="button" (click)="reAskModelMessage(msg, activeChatRow)" class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại câu trả lời này">
                                     <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
                                     <span class="text-[11px]">Hỏi lại</span>
                                 </button>

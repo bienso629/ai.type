@@ -6095,7 +6095,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 });
             }
 
-            if (!this.source.playlist) {
+            if (!this.source.playlist || !Array.isArray(this.source.playlist) || this.source.playlist.length === 0 || !this.source.playlist[0]) {
                 this.source.playlist = [
                     {
                         youtube: [],
@@ -6106,6 +6106,15 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                         mp3: [],
                     },
                 ];
+            } else {
+                if (!this.source.playlist[0].youtube) this.source.playlist[0].youtube = [];
+                if (!this.source.playlist[0].tiktok) this.source.playlist[0].tiktok = [];
+                if (!this.source.playlist[0].facebook) this.source.playlist[0].facebook = [];
+                if (!this.source.playlist[1]) {
+                    this.source.playlist[1] = { mp3: [] };
+                } else if (!this.source.playlist[1].mp3) {
+                    this.source.playlist[1].mp3 = [];
+                }
             }
 
             // bật tự động lưu

@@ -663,10 +663,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
             let currentPeriodTotal = 0;
             let previousPeriodTotal = 0;
             
+            let now = new Date();
+            let currentYear = now.getFullYear();
+            let currentMonth = now.getMonth() + 1; // 1-based (1-12)
+
             if (this.selectedMonth !== 'all') {
                  let m = parseInt(this.selectedMonth, 10);
                  currentPeriodTotal = monthlyTotals[m-1];
                  previousPeriodTotal = m > 1 ? monthlyTotals[m-2] : 0;
+            } else if (this.selectedYear === currentYear) {
+                 currentPeriodTotal = monthlyTotals[currentMonth - 1] || 0;
+                 previousPeriodTotal = currentMonth > 1 ? (monthlyTotals[currentMonth - 2] || 0) : 0;
             } else {
                  let lastActiveMonth = 11;
                  while(lastActiveMonth >= 0 && monthlyTotals[lastActiveMonth] === 0) lastActiveMonth--;
@@ -703,10 +710,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
             let evalMonth = 1;
             if (this.selectedMonth !== 'all') {
                  evalMonth = parseInt(this.selectedMonth, 10);
+            } else if (this.selectedYear === currentYear) {
+                 evalMonth = currentMonth;
             } else {
                  let lastActiveMonth = 11;
                  while(lastActiveMonth >= 0 && monthlyTotals[lastActiveMonth] === 0) lastActiveMonth--;
-                 evalMonth = lastActiveMonth >= 0 ? lastActiveMonth + 1 : 1;
+                 evalMonth = lastActiveMonth >= 0 ? lastActiveMonth + 1 : 12;
             }
 
             let totalTargetForAllDomains = 0;
@@ -728,7 +737,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.progressTarget = totalTargetForAllDomains;
             
             // Calculate the first active month for each domain to estimate historical domain counts
-            let currentMonthNum = new Date().getMonth() + 1;
+            let currentMonthNum = currentMonth;
             let domainCreatedMonth: { [key: string]: number } = {};
             this.allDomains.forEach(dom => {
                  let d = dom.domain;
@@ -810,19 +819,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             };
 
             // Calculate progressCurrent from progressMonthlyTotals for Card 3
-            let currentProgressPeriodTotal = 0;
-            if (this.selectedMonth !== 'all') {
-                 let m = parseInt(this.selectedMonth, 10);
-                 currentProgressPeriodTotal = progressMonthlyTotals[m-1];
-            } else {
-                 let lastActiveMonth = 11;
-                 while(lastActiveMonth >= 0 && monthlyTotals[lastActiveMonth] === 0) lastActiveMonth--;
-                 if (lastActiveMonth >= 0) {
-                     currentProgressPeriodTotal = progressMonthlyTotals[lastActiveMonth];
-                 } else {
-                     currentProgressPeriodTotal = progressMonthlyTotals[0];
-                 }
-            }
+            let currentProgressPeriodTotal = progressMonthlyTotals[evalMonth - 1] || 0;
 
             this.progressCurrent = currentProgressPeriodTotal;
             this.progressPercent = this.progressTarget > 0 ? Math.min(100, Math.round((this.progressCurrent / this.progressTarget) * 100)) : 0;
