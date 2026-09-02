@@ -97,7 +97,7 @@ hr {
 .mat-autocomplete-panel,
 .faint-shadow-menu {
     border: 1px solid var(--fuse-border, #e2e8f0) !important;
-    box-shadow: none !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
     filter: none !important;
     border-radius: 8px !important;
     background-color: #ffffff !important;
@@ -109,6 +109,8 @@ hr {
     --mat-menu-container-elevation-shadow: none !important;
     --mat-select-panel-elevation-shadow: none !important;
     --mat-autocomplete-elevation-shadow: none !important;
+    max-height: 280px !important;
+    overflow-y: auto !important;
 
     .mat-mdc-menu-content {
         background-color: #ffffff !important;
@@ -119,14 +121,16 @@ hr {
     .mat-menu-item,
     .mat-mdc-option,
     .mat-option {
-        min-height: 38px !important;
-        height: 38px !important;
-        line-height: 38px !important;
-        padding: 0 16px !important;
+        min-height: 40px !important;
+        height: auto !important;
+        line-height: 1.4 !important;
+        padding: 8px 16px !important;
         font-size: 0.875rem !important; /* text-sm */
+        color: #1e293b !important; /* text-slate-800 */
         border: none !important;
         border-radius: 0 !important;
         background-color: transparent !important;
+        white-space: normal !important;
 
         &.user-info-item,
         &.mat-menu-item-multiline,
@@ -141,11 +145,14 @@ hr {
                 line-height: normal !important;
                 width: 100% !important;
                 display: block !important;
+                white-space: normal !important;
             }
 
             span {
                 font-size: inherit !important;
                 line-height: inherit !important;
+                color: inherit !important;
+                white-space: normal !important;
             }
         }
 
@@ -153,6 +160,10 @@ hr {
         .mat-mdc-menu-item-text,
         span {
             font-size: 0.875rem !important; /* text-sm */
+            line-height: 1.4 !important;
+            color: #1e293b !important;
+            white-space: normal !important;
+            word-break: break-word !important;
         }
 
         .mat-icon {
@@ -162,6 +173,7 @@ hr {
             min-width: 18px !important;
             min-height: 18px !important;
             margin-right: 10px !important;
+            color: #475569 !important;
 
             svg {
                 width: 18px !important;
@@ -176,11 +188,19 @@ hr {
     .mat-mdc-option:hover:not(.mdc-list-item--disabled),
     .mat-mdc-option.mat-mdc-option-active {
         background-color: #f1f5f9 !important;
+        color: #0f172a !important;
     }
 
     .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
         background-color: #e0f2fe !important;
         border-color: #93c5fd !important;
+        color: #0284c7 !important;
+
+        .mdc-list-item__primary-text,
+        span {
+            color: #0284c7 !important;
+            font-weight: 500 !important;
+        }
     }
 
     /* Radio buttons & custom elements in menu (e.g. Submenus) */
@@ -253,8 +273,10 @@ hr {
     --mat-menu-container-elevation-shadow: none !important;
     --mat-select-panel-elevation-shadow: none !important;
     --mat-autocomplete-elevation-shadow: none !important;
-    box-shadow: none !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5) !important;
     filter: none !important;
+    max-height: 280px !important;
+    overflow-y: auto !important;
 
     .mat-mdc-menu-content {
         background-color: #0f172a !important;
@@ -265,14 +287,16 @@ hr {
     .mat-menu-item,
     .mat-mdc-option,
     .mat-option {
-        min-height: 38px !important;
-        height: 38px !important;
-        line-height: 38px !important;
-        padding: 0 16px !important;
+        min-height: 40px !important;
+        height: auto !important;
+        line-height: 1.4 !important;
+        padding: 8px 16px !important;
         font-size: 0.875rem !important; /* text-sm */
+        color: #f8fafc !important; /* text-slate-50 */
         border: none !important;
         border-radius: 0 !important;
         background-color: transparent !important;
+        white-space: normal !important;
 
         &.user-info-item,
         &.mat-menu-item-multiline,
@@ -287,11 +311,14 @@ hr {
                 line-height: normal !important;
                 width: 100% !important;
                 display: block !important;
+                white-space: normal !important;
             }
 
             span {
                 font-size: inherit !important;
                 line-height: inherit !important;
+                color: inherit !important;
+                white-space: normal !important;
             }
         }
 
@@ -299,6 +326,10 @@ hr {
         .mat-mdc-menu-item-text,
         span {
             font-size: 0.875rem !important; /* text-sm */
+            line-height: 1.4 !important;
+            color: #f8fafc !important;
+            white-space: normal !important;
+            word-break: break-word !important;
         }
 
         .mat-icon {
@@ -308,6 +339,7 @@ hr {
             min-width: 18px !important;
             min-height: 18px !important;
             margin-right: 10px !important;
+            color: #94a3b8 !important;
 
             svg {
                 width: 18px !important;
@@ -322,11 +354,19 @@ hr {
     .mat-mdc-option:hover:not(.mdc-list-item--disabled),
     .mat-mdc-option.mat-mdc-option-active {
         background-color: #1e293b !important;
+        color: #ffffff !important;
     }
 
     .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
         background-color: #1e3a8a !important;
         border-color: #3b82f6 !important;
+        color: #60a5fa !important;
+
+        .mdc-list-item__primary-text,
+        span {
+            color: #60a5fa !important;
+            font-weight: 500 !important;
+        }
     }
 
     /* Radio buttons & custom elements in menu (e.g. Submenus) */
