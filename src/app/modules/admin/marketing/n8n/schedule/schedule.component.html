@@ -5,9 +5,6 @@
             <button mat-icon-button (click)="zoomOut()" matTooltip="Thu nhỏ">
                 <mat-icon [svgIcon]="'heroicons_outline:minus'"></mat-icon>
             </button>
-            <button mat-icon-button color="warn" (click)="resetCurrentMonth()" matTooltip="Xóa toàn bộ tasks tháng này">
-                <mat-icon [svgIcon]="'heroicons_outline:trash'"></mat-icon>
-            </button>
             <button mat-icon-button (click)="scrollToToday()" matTooltip="Về hôm nay">
                 <mat-icon [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
             </button>
@@ -40,10 +37,10 @@
                          }"
                          [matTooltip]="item.isMonthlyTotalBar ? (item.monthLabel + ': ' + item.taskCount + ' công việc') : (item.isGroup ? 'Bấm để xem danh sách ' + item.taskCount + ' công việc' : (item.name + (item.meta && item.meta.length ? '\n' + item.meta : '')))">
                         
-                        <!-- Monthly Total Bar Centered White Text (1 Per Month) -->
-                        <div *ngIf="item.isMonthlyTotalBar" class="flex items-center justify-center text-center font-bold text-base text-white pointer-events-none w-full h-full min-w-0 overflow-hidden">
-                            <mat-icon class="icon-size-4 mr-1.5 shrink-0 text-white" [svgIcon]="'feather:bar-chart-2'"></mat-icon>
-                            <span class="truncate font-bold text-white text-base min-w-0">
+                        <!-- Monthly Total Bar Centered Content -->
+                        <div *ngIf="item.isMonthlyTotalBar" class="flex items-center justify-center font-bold text-base text-white w-full h-full min-w-0 overflow-hidden px-2 gap-2">
+                            <mat-icon class="icon-size-4 text-white shrink-0" [svgIcon]="'feather:bar-chart-2'"></mat-icon>
+                            <span class="truncate font-bold text-white text-base">
                                 {{ item.monthLabel }}: {{ item.taskCount }} công việc
                             </span>
                         </div>
@@ -254,7 +251,7 @@
                                 </div>
                             </div>
                                 
-                            <!-- Send/Stop button -->
+                            <!-- Send/Loading button -->
                             <ng-container *ngIf="!isChatting">
                                 <button mat-icon-button color="primary" class="shrink-0 mb-0.5 mr-0.5"
                                         (click)="sendChat()" 
@@ -264,9 +261,10 @@
                             </ng-container>
 
                             <ng-container *ngIf="isChatting">
-                                <button mat-icon-button color="warn" class="shrink-0 mb-0.5 mr-0.5"
-                                        (click)="stopChat()">
-                                    <mat-icon [svgIcon]="'feather:square'"></mat-icon>
+                                <button mat-icon-button color="primary" class="shrink-0 mb-0.5 mr-0.5"
+                                        (click)="stopChat()"
+                                        matTooltip="Đang xử lý... Bấm để dừng">
+                                    <mat-icon class="animate-spin text-primary" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
                                 </button>
                             </ng-container>
                         </div>
@@ -626,7 +624,7 @@
         </div>
 
         <!-- Toolbar chọn nhiều (Multi-select bar) -->
-        <div class="flex items-center justify-between px-6 py-2.5 bg-slate-50 border-b border-gray-200 shrink-0 select-none">
+        <div class="flex items-center px-6 py-2.5 bg-slate-50 border-b border-gray-200 shrink-0 select-none">
             <div class="flex items-center gap-2">
                 <mat-checkbox color="primary" 
                               [checked]="isAllGroupTasksSelected()" 
@@ -634,21 +632,6 @@
                               (change)="toggleSelectAllGroupTasks($event)">
                     <span class="text-xs font-semibold text-gray-700">Chọn tất cả</span>
                 </mat-checkbox>
-                <span class="text-xs text-gray-500 font-medium ml-1" *ngIf="selectedGroupTaskIds.size > 0">
-                    (Đã chọn: <span class="font-bold text-primary">{{ selectedGroupTaskIds.size }}</span>)
-                </span>
-            </div>
-
-            <!-- Các nút thao tác hàng loạt cho các task được chọn -->
-            <div class="flex items-center gap-2" *ngIf="selectedGroupTaskIds.size > 0">
-                <button mat-flat-button color="primary" (click)="markSelectedTasksDone(false)" [matTooltip]="'Chuyển các mục đã chọn về trạng thái Chờ xử lý để làm lại'">
-                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:rotate-ccw'"></mat-icon>
-                    <span class="ml-2">Đánh dấu làm lại</span>
-                </button>
-                <button mat-flat-button color="primary" (click)="markSelectedTasksDone(true)" [matTooltip]="'Đánh dấu hoàn thành các mục đã chọn'">
-                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:check-circle'"></mat-icon>
-                    <span class="ml-2">Đã hoàn thành</span>
-                </button>
             </div>
         </div>
 
@@ -729,21 +712,15 @@
         </div>
 
         <!-- Dialog Footer -->
-        <div class="flex items-center justify-between p-6 bg-gray-50 border-t border-gray-200 shrink-0">
-            <div class="flex items-center gap-2">
-                <button mat-flat-button color="primary" (click)="toggleAllGroupTasks(true)">
-                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:chevrons-down'"></mat-icon>
-                    <span class="ml-2">Mở tất cả</span>
-                </button>
-                <button mat-flat-button class="btn-gray" (click)="toggleAllGroupTasks(false)">
-                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:chevrons-up'"></mat-icon>
-                    <span class="ml-2">Thu gọn</span>
-                </button>
-            </div>
-            
-            <div class="flex items-center gap-2" *ngIf="selectedGroupTaskIds.size > 0">
-                <span class="text-xs text-gray-500 font-medium">Đã chọn: <b class="text-primary">{{ selectedGroupTaskIds.size }}</b> mục</span>
-            </div>
+        <div class="flex items-center justify-end gap-2 p-4 bg-gray-50 border-t border-gray-200 shrink-0">
+            <button mat-flat-button class="!bg-amber-500 hover:!bg-amber-600 !text-white" (click)="markSelectedTasksDone(false)" [matTooltip]="'Chuyển các mục đã chọn về trạng thái Chờ xử lý để làm lại'">
+                <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:rotate-ccw'"></mat-icon>
+                <span class="ml-2">Đánh dấu làm lại</span>
+            </button>
+            <button mat-flat-button color="primary" (click)="markSelectedTasksDone(true)" [matTooltip]="'Đánh dấu hoàn thành các mục đã chọn'">
+                <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:check-circle'"></mat-icon>
+                <span class="ml-2">Đã hoàn thành</span>
+            </button>
         </div>
     </div>
 </ng-template>
