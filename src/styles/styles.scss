@@ -1084,7 +1084,6 @@ mat-icon {
     }
 }
 
-.mat-mdc-button,
 .mat-mdc-raised-button,
 .mat-mdc-outlined-button,
 .mat-mdc-unelevated-button,
@@ -1097,13 +1096,20 @@ mat-icon {
     bottom: 0px;
 }
 
-.mat-mdc-button:hover,
 .mat-mdc-raised-button:hover,
 .mat-mdc-outlined-button:hover,
 .mat-mdc-unelevated-button:hover,
 .mat-mdc-fab:hover,
 .mat-mdc-mini-fab:hover {
     border-bottom-width: 2px !important;
+}
+
+.mat-mdc-button {
+    border: none !important;
+    border-radius: 4px !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
 }
 
 .mat-mdc-tab-group .mat-mdc-tab-header .mat-mdc-tab-label-container {

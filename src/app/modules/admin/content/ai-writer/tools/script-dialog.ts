@@ -53,7 +53,7 @@ interface ScreenplayLine {
                 <mat-icon class="icon-size-4 mr-2" svgIcon="heroicons_outline:clipboard-copy"></mat-icon>
                 Copy kịch bản
             </button>
-            <button mat-flat-button mat-dialog-close color="warn">
+            <button mat-button mat-dialog-close>
                 Đóng
             </button>
         </div>

@@ -56,7 +56,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         </div>
 
         <div mat-dialog-actions class="p-0 mt-4 flex justify-end gap-2">
-            <button mat-flat-button color="medium" mat-dialog-close>Đóng cửa sổ</button>
+            <button mat-button mat-dialog-close>Đóng cửa sổ</button>
             <button mat-flat-button color="primary" (click)="sendEmail()" [disabled]="isSending">
                 {{ isSending ? 'Đang gửi...' : 'Gửi Email' }}
             </button>

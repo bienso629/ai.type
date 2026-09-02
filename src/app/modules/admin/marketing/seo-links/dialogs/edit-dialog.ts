@@ -39,7 +39,7 @@ import { TranslocoService } from "@ngneat/transloco";
     <button mat-flat-button (click)="save()" color="primary" class="">
             {{ 'app.edit_link' | transloco }}
         </button>
-    <button mat-flat-button (click)="onNoClick()" color="medium" class="">{{ 'app.close_window' | transloco }}</button>
+    <button mat-button (click)="onNoClick()" class="">{{ 'app.close_window' | transloco }}</button>
 </div>`,
 })
 export class EditDialog implements OnInit, OnDestroy {

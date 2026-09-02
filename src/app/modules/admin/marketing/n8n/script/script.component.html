@@ -504,7 +504,7 @@
         </div>
 
         <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
-            <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+            <button mat-button (click)="_matDialog.closeAll()">
                 {{ 'app.auto_cancel' | transloco }}
             </button>
             <button mat-flat-button color="primary" (click)="confirmGenerateComment()" class="ml-2">
@@ -690,7 +690,7 @@
                 <span class="text-pink-600">Thả tim: {{ countTypeInGroups("LIKE") }}</span>
             </div>
             <div class="flex gap-2 mr-2">
-                <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+                <button mat-button (click)="_matDialog.closeAll()">
                     Đóng
                 </button>
                 <button mat-flat-button color="primary" (click)="submitToN8n()" [disabled]="totalSelected === 0">
@@ -745,7 +745,7 @@
         </div>
 
         <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
-            <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+            <button mat-button (click)="_matDialog.closeAll()">
                 {{ 'app.auto_cancel' | transloco }}
             </button>
             <button mat-flat-button color="primary" (click)="confirmGenerateLike()" class="ml-2 px-6">
