@@ -62,7 +62,7 @@ import { Subject, takeUntil } from "rxjs";
     <button mat-flat-button (click)="save()" color="primary" class="">
             Cập nhật
         </button>
-    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
+    <button mat-button (click)="onNoClick()" class="">Đóng cửa sổ</button>
 </div>`,
 })
 export class EditDialog implements OnInit, OnDestroy {

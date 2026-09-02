@@ -581,7 +581,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
     <div mat-dialog-actions class="p-0 mt-4">
         <button mat-flat-button color="primary" class="float-right" (click)="copy()">Sao chép</button>
-        <button mat-flat-button class="float-right ml-2" [mat-dialog-close]>Đóng cửa sổ</button>
+        <button mat-button class="float-right ml-2" [mat-dialog-close]>Đóng cửa sổ</button>
     </div>`,
 })
 export class NodeDetailsDialog implements OnInit, OnDestroy {

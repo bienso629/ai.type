@@ -24,7 +24,7 @@ import { Subject, takeUntil } from "rxjs";
     <button mat-flat-button (click)="send()" color="primary" class="">
             Gửi tin nhắn
         </button>
-    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
+    <button mat-button (click)="onNoClick()" class="">Đóng cửa sổ</button>
 </div>`,
 })
 export class SMSDialog implements OnInit {

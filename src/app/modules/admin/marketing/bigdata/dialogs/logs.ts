@@ -49,7 +49,7 @@ import { auditTime, Subject, Subscription, takeUntil } from "rxjs";
             Tắt chương trình
         </button>
 
-        <button mat-flat-button (click)="onNoClick()" color="medium" class="float-right">Đóng cửa sổ</button>
+        <button mat-button (click)="onNoClick()" class="float-right">Đóng cửa sổ</button>
     </div>`,
 })
 export class BigDataLogsDialog implements OnInit {

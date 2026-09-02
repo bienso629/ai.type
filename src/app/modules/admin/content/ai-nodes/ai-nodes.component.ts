@@ -497,7 +497,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
     </div>
 
     <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button color="primary" class="float-right" [mat-dialog-close]>Đóng cửa sổ</button>
+        <button mat-button class="float-right" [mat-dialog-close]>Đóng cửa sổ</button>
     </div>`,
 })
 export class NodeDetailsDialog implements OnInit, OnDestroy {
