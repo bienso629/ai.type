@@ -1644,10 +1644,6 @@ export class GenaiService {
         }
         model = model || this._umodelverseVideoModel || 'cogvideox-5b';
 
-        // DEBUG: Hiển thị thông tin xác thực (che bớt key) để xác minh cấu hình
-        const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : '(EMPTY)';
-        console.error(`[UModelverse Auth Debug] URL: ${url}, Key: ${maskedKey}, Key Length: ${key?.length || 0}, Model: ${model}`);
-
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${key}`

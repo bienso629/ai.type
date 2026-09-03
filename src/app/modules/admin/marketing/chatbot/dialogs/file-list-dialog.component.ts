@@ -94,9 +94,6 @@ export class FileListDialogComponent implements AfterViewInit {
                                             url: settings.umodelverseUrl || '',
                                             key: settings.umodelverseKey || ''
                                         };
-                                        console.log("Constructed configData:", configData);
-                                    } else {
-                                        console.log("settings is empty or null!");
                                     }
                                 } catch (e) {
                                     console.error("Error loading settings:", e);
