@@ -857,8 +857,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (this.rulerTicks.length !== count) {
             this.rulerTicks = Array.from({ length: count }, (_, i) => i);
         }
-        if (this.trackIndices.length !== this.trackCount) {
-            this.trackIndices = Array.from({ length: this.trackCount }, (_, i) => i);
+        if (this.trackIndices.length !== this.trackCount || (this.trackCount > 1 && this.trackIndices[0] === 0)) {
+            // Hiển thị Track cao hơn ở trên (Track 2 nằm trên Track 1)
+            this.trackIndices = Array.from({ length: this.trackCount }, (_, i) => this.trackCount - 1 - i);
         }
     }
 
@@ -2298,6 +2299,47 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
+    deleteMediaItemFromTab(item: any, event?: MouseEvent) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        if (!item) return;
+
+        this.ensureMediaLibraryPool();
+        if (!this.projectData.mediaLibraryPool.deletedKeys) {
+            this.projectData.mediaLibraryPool.deletedKeys = [];
+        }
+
+        const pool = this.projectData.mediaLibraryPool;
+        const targetId = item.id;
+        const targetKey = (item.videoUrl || item.imageUrl || item.controlImageUrl || item.audioUrl || item.url || item.src || item.text || item.id || '').trim();
+
+        if (targetKey) {
+            pool.deletedKeys.push(targetKey);
+        }
+        if (targetId) {
+            pool.deletedKeys.push(String(targetId));
+        }
+
+        if (item.type === 'video') {
+            pool.videos = (pool.videos || []).filter((v: any) => v.id !== targetId && (v.videoUrl || v.id) !== targetKey);
+        } else if (item.type === 'image') {
+            pool.images = (pool.images || []).filter((img: any) => img.id !== targetId && (img.imageUrl || img.id) !== targetKey);
+        } else if (item.type === 'audio' || item.type === 'extractedAudio') {
+            pool.audios = (pool.audios || []).filter((a: any) => a.id !== targetId && (a.audioUrl || a.id) !== targetKey);
+        } else if (item.type === 'subtitle') {
+            pool.subtitles = (pool.subtitles || []).filter((s: any) => s.id !== targetId && (s.text || s.id) !== targetKey);
+        } else if (item.type === 'customText') {
+            pool.texts = (pool.texts || []).filter((t: any) => t.id !== targetId && (t.text || t.id) !== targetKey);
+        }
+
+        this.saveData(true);
+        this.updateFilteredMediaItems();
+        this.cd.detectChanges();
+        this.toastr.success('Đã xóa mục khỏi tab media!');
+    }
+
     wavesurfers: { [key: string]: WaveSurfer } = {};
 
     playPreview(video: any) {
@@ -2451,14 +2493,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             if (this.projectData?.scenes) {
                 for (const sc of this.projectData.scenes) {
-                    if (sc.videos && !currentPlayingVideo) {
-                        for (const v of sc.videos) {
+                    if (sc.videos) {
+                        const sortedVideos = [...sc.videos].sort((a, b) => (b.trackIndex || 0) - (a.trackIndex || 0));
+                        for (const v of sortedVideos) {
                             if (v.disabled) continue;
                             const s = v.startTime || 0;
                             const e = s + (v.duration || 5);
                             if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
-                                currentPlayingVideo = v;
-                                break;
+                                if (!currentPlayingVideo || (v.trackIndex || 0) > (currentPlayingVideo.trackIndex || 0)) {
+                                    currentPlayingVideo = v;
+                                }
                             }
                         }
                     }
@@ -2602,16 +2646,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         let foundImage = null;
 
         for (const scene of this.projectData.scenes) {
-            // Find active video
-            if (scene.videos && !foundVideo) {
-                for (const v of scene.videos) {
+            // Find active video (Ưu tiên video ở Track cao hơn: Track 2 đè lên Track 1)
+            if (scene.videos) {
+                // Sắp xếp kiểm tra video ở Track 2 trước Track 1
+                const sortedVideos = [...scene.videos].sort((a, b) => (b.trackIndex || 0) - (a.trackIndex || 0));
+                for (const v of sortedVideos) {
                     if (v.disabled) continue;
                     const start = v.startTime || 0;
                     const end = start + (v.duration || 5);
                     if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
-                        foundVideo = v;
-                        foundScene = scene;
-                        break;
+                        if (!foundVideo || (v.trackIndex || 0) > (foundVideo.trackIndex || 0)) {
+                            foundVideo = v;
+                            foundScene = scene;
+                        }
                     }
                 }
             }
@@ -2819,9 +2866,74 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
-    // Tính toán số Track hiển thị
+    // Tính toán số Track hiển thị (Track 1, Track 2,...)
     get trackCount(): number {
-        return 1;
+        return Math.max(1, this.projectData?.trackCount || this.customTrackCount || 1);
+    }
+
+    customTrackCount: number = 1;
+
+    toggleExpandTracks() {
+        if (this.trackCount <= 1) {
+            this.setTrackCount(2);
+            this.toastr.success('Đã mở rộng thêm Track 2 (Multi-track Video)!');
+        } else {
+            this.setTrackCount(1);
+            this.toastr.info('Đã thu gọn về 1 Track Video.');
+        }
+    }
+
+    addVideoTrack() {
+        const next = this.trackCount + 1;
+        this.setTrackCount(next);
+        this.toastr.success(`Đã thêm Track ${next}!`);
+    }
+
+    removeVideoTrack(trackIdx: number) {
+        if (this.trackCount <= 1) return;
+        // Chuyển video từ track bị xóa về track trước đó
+        if (this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos) {
+                    for (const v of scene.videos) {
+                        if (v.trackIndex === trackIdx) {
+                            v.trackIndex = Math.max(0, trackIdx - 1);
+                        } else if (v.trackIndex > trackIdx) {
+                            v.trackIndex = v.trackIndex - 1;
+                        }
+                    }
+                }
+            }
+        }
+        const next = Math.max(1, this.trackCount - 1);
+        this.setTrackCount(next);
+        this.toastr.warning(`Đã xóa Track ${trackIdx + 1}!`);
+    }
+
+    moveVideoToTrack(video: any, targetTrackIdx: number) {
+        if (!video) return;
+        video.trackIndex = targetTrackIdx;
+        if (targetTrackIdx >= this.trackCount) {
+            this.setTrackCount(targetTrackIdx + 1);
+        }
+        this.saveData(true);
+        this.cd.detectChanges();
+        this.toastr.success(`Đã chuyển video sang Track ${targetTrackIdx + 1}!`);
+    }
+
+    selectedTargetTrackIdx: number = 0;
+
+    openAddVideoMenuForTrack(trackIdx: number) {
+        this.selectedTargetTrackIdx = trackIdx;
+    }
+
+    setTrackCount(count: number) {
+        this.customTrackCount = Math.max(1, count);
+        if (!this.projectData) this.projectData = { scenes: [] };
+        this.projectData.trackCount = this.customTrackCount;
+        this.updateRulerTicks();
+        this.saveData(true);
+        this.cd.detectChanges();
     }
 
     packTimeline(save: boolean = true) {
@@ -5261,6 +5373,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     duration: realDur,
                     maxDuration: realDur,
                     videoUrl: finalPath,
+                    trackIndex: this.selectedTargetTrackIdx || 0,
                     isCompleted: true
                 };
 
@@ -5364,6 +5477,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 maxDuration: res.duration || 10,
                 videoUrl: res.streamUrl,
                 sourceUrl: url.trim(),
+                trackIndex: this.selectedTargetTrackIdx || 0,
                 isOnlineStream: true,
                 isCompleted: true
             };
@@ -7715,17 +7829,18 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
 
         // 1. Quét từ pool đã lưu
         for (const v of this.projectData.mediaLibraryPool.videos) {
             const key = (v.videoUrl || v.imageUrl || v.controlImageUrl || v.id || '').trim();
-            if (!key || seenKeys.has(key)) continue;
+            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id)))) continue;
             seenKeys.add(key);
             list.push({
                 ...v,
-                get duration() { return v.duration; },
+                get duration() { return v.duration || v.maxDuration || 5; },
                 get startTime() { return v.startTime; },
-                get maxDuration() { return v.maxDuration; },
+                get maxDuration() { return v.maxDuration || v.duration || 5; },
                 get prompt() { return v.prompt; },
                 get imageUrl() { return v.imageUrl || v.controlImageUrl; },
                 get controlImageUrl() { return v.controlImageUrl; },
@@ -7743,7 +7858,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
                         const v = scene.videos[vIdx];
                         const key = (v.videoUrl || v.imageUrl || v.controlImageUrl || v.id || `${sIdx}_${vIdx}`).trim();
-                        if (!key) continue;
+                        if (!key || deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id)))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             const poolItem = {
@@ -7752,7 +7867,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                 videoUrl: v.videoUrl || null,
                                 imageUrl: v.imageUrl || null,
                                 controlImageUrl: v.controlImageUrl || null,
-                                duration: v.duration || 5,
+                                duration: v.duration || v.maxDuration || 5,
                                 maxDuration: v.maxDuration || v.duration || 5,
                                 sceneIdx: sIdx,
                                 vIdx: vIdx,
@@ -7761,6 +7876,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             this.projectData.mediaLibraryPool.videos.push(poolItem);
                             list.push({
                                 ...poolItem,
+                                get duration() { return v.duration || v.maxDuration || poolItem.duration || 5; },
+                                get maxDuration() { return v.maxDuration || v.duration || poolItem.maxDuration || 5; },
                                 _raw: v,
                                 type: 'video'
                             });
@@ -7776,17 +7893,18 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
 
         // 1. Quét từ pool đã lưu
         for (const img of this.projectData.mediaLibraryPool.images) {
             const key = (img.imageUrl || img.controlImageUrl || img.url || img.src || img.id || '').trim();
-            if (!key || seenKeys.has(key)) continue;
+            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id)))) continue;
             seenKeys.add(key);
             list.push({
                 ...img,
-                get duration() { return img.duration; },
+                get duration() { return img.duration || 5; },
                 get startTime() { return img.startTime; },
-                get maxDuration() { return img.maxDuration; },
+                get maxDuration() { return img.maxDuration || 5; },
                 get prompt() { return img.prompt || img.title; },
                 get imageUrl() { return img.imageUrl || img.controlImageUrl; },
                 get controlImageUrl() { return img.controlImageUrl; },
@@ -7804,7 +7922,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     for (let imgIdx = 0; imgIdx < scene.images.length; imgIdx++) {
                         const img = scene.images[imgIdx];
                         const key = (img.imageUrl || img.controlImageUrl || img.url || img.src || img.id || `${sIdx}_${imgIdx}`).trim();
-                        if (!key) continue;
+                        if (!key || deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id)))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             const poolItem = {
@@ -7837,11 +7955,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
 
         // 1. Quét từ pool đã lưu
         for (const aud of this.projectData.mediaLibraryPool.audios) {
             const key = (aud.audioUrl || aud.url || aud.id || '').trim();
-            if (!key || seenKeys.has(key)) continue;
+            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (aud.id && deletedKeys.has(String(aud.id)))) continue;
             seenKeys.add(key);
             list.push({
                 ...aud,
@@ -7859,7 +7978,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
                         const aud = scene.extractedAudios[aIdx];
                         const key = (aud.audioUrl || aud.url || aud.id || `ext_${sIdx}_${aIdx}`).trim();
-                        if (!key) continue;
+                        if (!key || deletedKeys.has(key) || (aud.id && deletedKeys.has(String(aud.id)))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             const poolItem = {
@@ -7887,7 +8006,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         const sub = scene.subtitles[subIdx];
                         if (sub.audioUrl) {
                             const key = (sub.audioUrl || sub.id || `sub_${sIdx}_${subIdx}`).trim();
-                            if (!key) continue;
+                            if (!key || deletedKeys.has(key) || (sub.id && deletedKeys.has(String(sub.id)))) continue;
                             if (!seenKeys.has(key)) {
                                 seenKeys.add(key);
                                 const poolItem = {
@@ -7920,11 +8039,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
 
         // 1. Quét từ pool đã lưu
         for (const sub of this.projectData.mediaLibraryPool.subtitles) {
             const key = (sub.text || sub.id || '').trim();
-            if (!key || seenKeys.has(key)) continue;
+            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (sub.id && deletedKeys.has(String(sub.id)))) continue;
             seenKeys.add(key);
             list.push({
                 ...sub,
@@ -7941,7 +8061,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
                         const sub = scene.subtitles[subIdx];
                         const key = (sub.text || sub.id || `${sIdx}_${subIdx}`).trim();
-                        if (!key) continue;
+                        if (!key || deletedKeys.has(key) || (sub.id && deletedKeys.has(String(sub.id)))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             const poolItem = {
@@ -7970,11 +8090,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
 
         // 1. Quét từ pool đã lưu
         for (const txt of this.projectData.mediaLibraryPool.texts) {
             const key = (txt.text || txt.id || '').trim();
-            if (!key || seenKeys.has(key)) continue;
+            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (txt.id && deletedKeys.has(String(txt.id)))) continue;
             seenKeys.add(key);
             list.push({
                 ...txt,
@@ -7991,7 +8112,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     for (let textIdx = 0; textIdx < scene.texts.length; textIdx++) {
                         const txt = scene.texts[textIdx];
                         const key = (txt.text || txt.id || `${sIdx}_${textIdx}`).trim();
-                        if (!key) continue;
+                        if (!key || deletedKeys.has(key) || (txt.id && deletedKeys.has(String(txt.id)))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             const poolItem = {
@@ -8483,6 +8604,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
     setMediaFilterTab(tab: 'image' | 'video' | 'audio' | 'text') {
         this.mediaFilterTab = tab;
+        if (tab === 'video') {
+            this.syncVideoDurationsWithDisk();
+        }
         this.updateFilteredMediaItems();
         this.cd.detectChanges();
     }
@@ -9496,32 +9620,93 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         }
     }
 
-    async syncVideoDurationsWithDisk() {
+    async getMediaDurationAsync(videoUrl: string): Promise<number> {
+        if (!videoUrl) return 0;
         const electron = (window as any).electron;
-        if (!electron || !electron.getMediaDuration) return;
-        if (!this.projectData?.scenes) return;
+        if (electron && electron.getMediaDuration) {
+            try {
+                const res = await electron.getMediaDuration(videoUrl);
+                if (res && res.success && res.duration > 0) {
+                    return Math.round(res.duration * 10) / 10;
+                }
+            } catch (e) {}
+        }
+        // Fallback qua HTML5 Video
+        return new Promise<number>((resolve) => {
+            try {
+                const rawUrl = this.getRawMediaUrl(videoUrl);
+                if (!rawUrl) return resolve(0);
+                const vid = document.createElement('video');
+                vid.preload = 'metadata';
+                vid.src = rawUrl as string;
+                let finished = false;
+                const done = (dur: number) => {
+                    if (finished) return;
+                    finished = true;
+                    try { vid.removeAttribute('src'); vid.load(); vid.remove(); } catch (e) {}
+                    resolve(dur);
+                };
+                const timer = setTimeout(() => done(0), 3000);
+                vid.onloadedmetadata = () => {
+                    clearTimeout(timer);
+                    if (vid.duration && !isNaN(vid.duration) && vid.duration > 0) {
+                        done(Math.round(vid.duration * 10) / 10);
+                    } else {
+                        done(0);
+                    }
+                };
+                vid.onerror = () => {
+                    clearTimeout(timer);
+                    done(0);
+                };
+            } catch (err) {
+                resolve(0);
+            }
+        });
+    }
+
+    async syncVideoDurationsWithDisk() {
+        if (!this.projectData) return;
 
         let changed = false;
-        for (const scene of this.projectData.scenes) {
-            if (scene.videos) {
-                for (const vid of scene.videos) {
-                    if (vid.videoUrl && (vid.duration === 5 || !vid.maxDuration || vid.duration <= 0)) {
-                        try {
-                            const res = await electron.getMediaDuration(vid.videoUrl);
-                            if (res && res.success && res.duration > 0) {
-                                const realDur = Math.round(res.duration * 10) / 10;
-                                vid.duration = realDur;
-                                vid.maxDuration = realDur;
-                                changed = true;
-                            }
-                        } catch (e) {}
+        if (this.projectData.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos) {
+                    for (const vid of scene.videos) {
+                        if (vid.videoUrl) {
+                            try {
+                                const realDur = await this.getMediaDurationAsync(vid.videoUrl);
+                                if (realDur > 0 && Math.abs((vid.duration || 0) - realDur) > 0.05) {
+                                    vid.duration = realDur;
+                                    vid.maxDuration = realDur;
+                                    changed = true;
+                                }
+                            } catch (e) {}
+                        }
                     }
                 }
             }
         }
+
+        if (this.projectData.mediaLibraryPool?.videos) {
+            for (const vid of this.projectData.mediaLibraryPool.videos) {
+                if (vid.videoUrl) {
+                    try {
+                        const realDur = await this.getMediaDurationAsync(vid.videoUrl);
+                        if (realDur > 0 && Math.abs((vid.duration || 0) - realDur) > 0.05) {
+                            vid.duration = realDur;
+                            vid.maxDuration = realDur;
+                            changed = true;
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
+
         if (changed) {
             this.normalizeData();
             this.updateTimelineTotalWidth();
+            this.updateFilteredMediaItems();
             this.cd.detectChanges();
         }
     }
