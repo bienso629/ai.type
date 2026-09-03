@@ -14,6 +14,8 @@ import { SharedModule } from 'app/shared.module';
 import { AuthSignUpComponent } from 'app/modules/auth/sign-up/sign-up.component';
 import { authSignupRoutes } from 'app/modules/auth/sign-up/sign-up.routing';
 
+import { UserClientService } from 'app/_services/user';
+
 @NgModule({
     declarations: [
         AuthSignUpComponent
@@ -28,7 +30,12 @@ import { authSignupRoutes } from 'app/modules/auth/sign-up/sign-up.routing';
         MatProgressSpinnerModule,
         FuseCardModule,
         FuseAlertModule,
-        SharedModule
+        SharedModule,
+        TranslocoModule,
+        MatTooltipModule
+    ],
+    providers: [
+        UserClientService
     ]
 })
 export class AuthSignUpModule

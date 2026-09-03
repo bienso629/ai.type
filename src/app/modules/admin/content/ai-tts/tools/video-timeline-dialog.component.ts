@@ -281,6 +281,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             },
             canvasWidth: 2286,
             canvasHeight: 4096
+        },
+        {
+            id: 'tiktok_frame_6',
+            name: 'TikTok Video Frame No.6 (9:16)',
+            aspectRatio: '9:16',
+            icon: 'stay_current_portrait',
+            bgPath: 'src/assets/video_frames/tiktok_frame_6_bg.jpg',
+            maskPath: 'src/assets/video_frames/tiktok_frame_6_mask.png',
+            thumbPath: 'src/assets/video_frames/tiktok_frame_6_thumb.jpg',
+            description: 'Khung Mockup No.6 TikTok 9:16 phối cảnh chuẩn nét từ Group 7',
+            quad: {
+                topLeft: { x: 589.5, y: 640.5 },
+                topRight: { x: 1613.0, y: 640.5 },
+                bottomRight: { x: 1613.0, y: 2410.5 },
+                bottomLeft: { x: 575.5, y: 2410.5 }
+            },
+            canvasWidth: 2286,
+            canvasHeight: 4096
         }
     ];
 

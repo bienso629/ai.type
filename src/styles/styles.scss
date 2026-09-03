@@ -122,15 +122,18 @@ hr {
     .mat-mdc-option,
     .mat-option {
         min-height: 40px !important;
-        height: auto !important;
-        line-height: 1.4 !important;
-        padding: 8px 16px !important;
+        height: 40px !important;
+        display: flex !important;
+        align-items: center !important;
+        padding: 0 16px !important;
         font-size: 0.875rem !important; /* text-sm */
         color: #1e293b !important; /* text-slate-800 */
         border: none !important;
         border-radius: 0 !important;
         background-color: transparent !important;
-        white-space: normal !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
 
         &.user-info-item,
         &.mat-menu-item-multiline,
@@ -160,10 +163,13 @@ hr {
         .mat-mdc-menu-item-text,
         span {
             font-size: 0.875rem !important; /* text-sm */
-            line-height: 1.4 !important;
             color: #1e293b !important;
-            white-space: normal !important;
-            word-break: break-word !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            max-width: 100% !important;
         }
 
         .mat-icon {
@@ -173,6 +179,9 @@ hr {
             min-width: 18px !important;
             min-height: 18px !important;
             margin-right: 10px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             color: #475569 !important;
 
             svg {
@@ -288,15 +297,18 @@ hr {
     .mat-mdc-option,
     .mat-option {
         min-height: 40px !important;
-        height: auto !important;
-        line-height: 1.4 !important;
-        padding: 8px 16px !important;
+        height: 40px !important;
+        display: flex !important;
+        align-items: center !important;
+        padding: 0 16px !important;
         font-size: 0.875rem !important; /* text-sm */
         color: #f8fafc !important; /* text-slate-50 */
         border: none !important;
         border-radius: 0 !important;
         background-color: transparent !important;
-        white-space: normal !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
 
         &.user-info-item,
         &.mat-menu-item-multiline,
@@ -326,10 +338,13 @@ hr {
         .mat-mdc-menu-item-text,
         span {
             font-size: 0.875rem !important; /* text-sm */
-            line-height: 1.4 !important;
             color: #f8fafc !important;
-            white-space: normal !important;
-            word-break: break-word !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            max-width: 100% !important;
         }
 
         .mat-icon {
@@ -339,6 +354,9 @@ hr {
             min-width: 18px !important;
             min-height: 18px !important;
             margin-right: 10px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             color: #94a3b8 !important;
 
             svg {
@@ -1834,5 +1852,113 @@ timeline-calendar .date-marker {
         overflow: hidden !important;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75) !important;
         border: none !important;
+    }
+}
+
+auth-sign-up,
+auth-sign-in,
+auth-forgot-password,
+auth-reset-password,
+auth-confirmation-required {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+}
+
+body:has(auth-sign-up),
+body:has(auth-sign-in),
+html:has(auth-sign-up),
+html:has(auth-sign-in) {
+    overflow: hidden !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+}
+
+/* Đảm bảo màu chữ trong menu popup và option tương thích chuẩn theo theme */
+.mat-mdc-menu-item,
+.mat-menu-item,
+.mat-mdc-option,
+.mat-option {
+    color: #1e293b !important;
+
+    .mdc-list-item__primary-text,
+    .mat-mdc-menu-item-text,
+    .mat-option-text,
+    span {
+        color: #1e293b !important;
+        font-weight: 500 !important;
+        opacity: 1 !important;
+    }
+
+    .mat-icon,
+    svg {
+        color: #475569 !important;
+    }
+}
+
+.dark .mat-mdc-menu-item,
+.dark .mat-menu-item,
+.dark .mat-mdc-option,
+.dark .mat-option,
+.dark-theme-dialog .mat-mdc-menu-item,
+.dark-theme-dialog .mat-mdc-option,
+.cdk-overlay-container:has(.dark) .mat-mdc-menu-item,
+.cdk-overlay-container:has(.dark) .mat-mdc-option {
+    color: #f8fafc !important;
+
+    .mdc-list-item__primary-text,
+    .mat-mdc-menu-item-text,
+    .mat-option-text,
+    span {
+        color: #f8fafc !important;
+        font-weight: 500 !important;
+        opacity: 1 !important;
+    }
+
+    .mat-icon,
+    svg {
+        color: #94a3b8 !important;
+    }
+}
+
+/* RIÊNG BIỆT: Menu popup trong Dialog chỉnh sửa Video Timeline (dark-context-menu) -> Màu xanh */
+.dark-context-menu,
+.mat-mdc-menu-panel.dark-context-menu,
+.cdk-overlay-pane:has(.dark-context-menu) {
+    .mat-mdc-menu-item,
+    .mat-menu-item {
+        color: #3b82f6 !important; /* Blue 500 / 600 */
+
+        .mdc-list-item__primary-text,
+        .mat-mdc-menu-item-text,
+        span {
+            color: #3b82f6 !important;
+            font-weight: 500 !important;
+            opacity: 1 !important;
+        }
+
+        .mat-icon,
+        svg {
+            color: #3b82f6 !important;
+        }
+
+        &.menu-item-danger {
+            color: #ef4444 !important;
+
+            .mdc-list-item__primary-text,
+            .mat-mdc-menu-item-text,
+            span {
+                color: #ef4444 !important;
+            }
+
+            .mat-icon,
+            svg {
+                color: #ef4444 !important;
+            }
+        }
     }
 }

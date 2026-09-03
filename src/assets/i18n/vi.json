@@ -154,6 +154,8 @@
             "qr_hint": "Chấp nhận link nhận tiền từ MoMo, Paypal",
             "autosave": "Tự động lưu bài viết",
             "autosave_hint": "(tránh việc mất bài viết)",
+            "auto_save_local": "Lưu cục bộ",
+            "auto_save_local_hint": "(tự động sao lưu .md & .json xuống ổ đĩa máy tính)",
             "language": "Ngôn ngữ",
             "lang_vi": "Tiếng Việt",
             "lang_en": "Tiếng Anh"
@@ -990,7 +992,7 @@
     "app.auto_remember_account": "Nhớ tài khoản",
     "app.auto_forgot_your_account": "Quên tài khoản?",
     "app.auto_access_the_application": "Truy cập ứng dụng",
-    "app.auto_contact_to_request_an_account": "Liên hệ yêu cầu tài khoản?",
+    "app.auto_contact_to_request_an_account": "Tại sao tôi không đăng nhập được?",
     "app.auto_or_by_another_way": "Hoặc bằng cách khác",
     "app.auto_enhance": "Tăng cường",
     "app.auto_the_power_of_content": "sức mạnh Content",
