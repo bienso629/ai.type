@@ -101,8 +101,8 @@
                 <div class="flex items-center mt-4">
                     <div class="flex-auto mt-px border-t"></div>
                     <div class="mx-2 text-secondary text-base">
-                        <a class="text-md font-medium text-primary-500 hover:underline text-center"
-                            href="tel:0968661631">{{ 'app.auto_contact_to_request_an_account' | transloco }}</a>
+                        <a class="text-md font-medium text-primary-500 hover:underline text-center cursor-pointer"
+                            (click)="openTelegramDialog()">{{ 'app.auto_contact_to_request_an_account' | transloco }}</a>
                     </div>
                     <div class="flex-auto mt-px border-t"></div>
                 </div>

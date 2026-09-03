@@ -95,6 +95,9 @@ export class SettingsAccountComponent implements OnInit {
                         if (result && result.success && result.data) {
                             // lưu cấu hình mới nhất về máy
                             this.multiAccountService.setItem('settings', settings);
+                            if (settings.autoSaveLocal !== undefined) {
+                                localStorage.setItem('ai_type_auto_save_local', settings.autoSaveLocal ? 'true' : 'false');
+                            }
                             
                             // Cập nhật giá trị cấu hình trực tiếp vào in-memory config để các component khác nhận ngay
                             this._fuseConfigService.config = {
@@ -331,6 +334,7 @@ export class SettingsAccountComponent implements OnInit {
             saveimages: [(settings && settings.saveimages) ? settings.saveimages : false],
             statusTypeLite: [true],
             autosave: [(settings && settings.autosave) ? settings.autosave : false],
+            autoSaveLocal: [(settings && settings.autoSaveLocal !== undefined) ? settings.autoSaveLocal : (localStorage.getItem('ai_type_auto_save_local') !== 'false')],
             closethread: [false],
             proccessing: [false],
             linkDonate: [(settings && settings.linkDonate) ? settings.linkDonate : ''],

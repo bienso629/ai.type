@@ -1,28 +1,29 @@
-<div class="flex flex-col sm:flex-row items-center md:items-start sm:justify-center md:justify-start flex-auto min-w-0">
+<div
+    class="flex flex-col sm:flex-row items-center md:items-start sm:justify-center md:justify-start flex-auto min-w-0 sm:bg-white h-full overflow-hidden">
     <div
-        class="md:flex md:items-center md:justify-end w-full sm:w-auto md:h-full md:w-1/2 py-8 px-4 sm:p-12 md:p-16 sm:rounded-2xl md:rounded-none sm:shadow md:shadow-none">
-        <div class="w-full max-w-80 sm:w-80 mx-auto sm:mx-0">
+        class="md:flex md:items-center md:justify-end w-full sm:w-auto md:h-full md:w-1/2 py-4 px-4 sm:p-6 md:p-8 sm:rounded-2xl md:rounded-none sm:shadow md:shadow-none overflow-hidden">
+        <div class="w-full max-w-80 sm:w-100 mx-auto sm:mx-0">
             <!-- Logo -->
             <div class="w-50 cursor-pointer" [routerLink]="['/']">
                 <img src="assets/images/logo/typing-logo.svg">
             </div>
 
             <!-- Title -->
-            <div class="mt-8 text-4xl font-extrabold tracking-tight leading-tight">{{ 'app.auto_register_an_account' | transloco }}</div>
-            <div class="flex items-baseline mt-0.5 font-medium text-base">
+            <div class="mt-4 text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight">{{ 'app.auto_register_an_account' | transloco }}</div>
+            <div class="flex items-baseline mt-1 font-medium text-base">
                 <div>{{ 'app.auto_already_have_an_account' | transloco }}</div>
                 <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['/sign-in']">{{ 'app.auto_log_in' | transloco }}
                 </a>
             </div>
 
             <!-- Alert -->
-            <fuse-alert class="mt-8" *ngIf="showAlert" [appearance]="'outline'" [showIcon]="false" [type]="alert.type"
+            <fuse-alert class="mt-4" *ngIf="showAlert" [appearance]="'outline'" [showIcon]="false" [type]="alert.type"
                 [@shake]="alert.type === 'error'">
                 {{alert.message}}
             </fuse-alert>
 
             <!-- Sign Up form -->
-            <form class="mt-8" [formGroup]="signUpForm" #signUpNgForm="ngForm">
+            <form class="mt-4" [formGroup]="signUpForm" #signUpNgForm="ngForm">
 
                 <!-- Name field -->
                 <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
@@ -34,7 +35,7 @@
                 </mat-form-field>
 
                 <!-- Email field -->
-                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                <mat-form-field class="w-full mt-1 fuse-mat-dense fuse-mat-emphasized-affix">
                     <mat-label>{{ 'app.auto_email_address' | transloco }}</mat-label>
                     <input id="email" matInput [formControlName]="'email'">
                     <mat-error *ngIf="signUpForm.get('email').hasError('required')">
@@ -46,7 +47,7 @@
                 </mat-form-field>
 
                 <!-- Password field -->
-                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                <mat-form-field class="w-full mt-1 fuse-mat-dense fuse-mat-emphasized-affix">
                     <mat-label>{{ 'app.auto_password' | transloco }}</mat-label>
                     <input id="password" matInput type="password" [formControlName]="'password'" #passwordField>
                     <button mat-icon-button type="button"
@@ -63,7 +64,7 @@
                 </mat-form-field>
 
                 <!-- ToS and PP -->
-                <div class="inline-flex items-end w-full mt-1.5">
+                <div class="inline-flex items-end w-full mt-1">
                     <mat-checkbox class="-ml-2" [color]="'primary'" [formControlName]="'agreements'">
                         <span>{{ 'app.auto_i_agree_with' | transloco }}</span>
                         <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['./']">{{ 'app.auto_term' | transloco }}
@@ -75,7 +76,7 @@
                 </div>
 
                 <!-- Submit button -->
-                <button class="fuse-mat-button-large w-full mt-6" mat-flat-button [color]="'primary'"
+                <button class="w-full mt-4" mat-flat-button [color]="'primary'"
                     [disabled]="signUpForm.disabled" (click)="signUp()">
                     <span *ngIf="!signUpForm.disabled">
                         {{ 'app.auto_register_an_ai_type_account' | transloco }}
@@ -100,14 +101,28 @@
             <!-- <div class="mt-6 text-base tracking-tight leading-6 text-dark-400 max-w-2xl">
                 {{ 'app.auto_ai_type_is_software_that_suppo' | transloco }}
             </div> -->
-            <div class="flex items-center mt-8">
+            <div class="flex items-center mt-8" *ngIf="accounts && accounts.length > 0">
                 <div class="flex flex-0 items-center -space-x-1.5">
-                    <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/female-18.jpg">
-                    <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/female-11.jpg">
-                    <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/male-09.jpg">
-                    <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/male-16.jpg">
+                    <ng-container *ngFor="let account of accounts; let i = index">
+                        <ng-container *ngIf="account.profile">
+                            <ng-container
+                                *ngIf="account.profile.avatar && account.profile.avatar !== 'https://type.vnnull'">
+                                <img *ngIf="account && account.profile"
+                                    class="flex-0 w-10 h-10 rounded-full object-cover cursor-pointer hover:scale-110 hover:z-10 transition-transform duration-200"
+                                    (click)="onSelectAccount(account.id, i)" src="assets/images/avatars/female-18.jpg"
+                                    [src]="account.profile.avatar" />
+                            </ng-container>
+
+                            <ng-container *ngIf="account.profile.avatar === 'https://type.vnnull'">
+                                <div (click)="onSelectAccount(account.id, i)"
+                                    class="flex flex-0 items-center justify-center w-10 h-10 rounded-full cursor-pointer hover:scale-110 hover:z-10 transition-transform duration-200 text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                                    <span>{{account.id.charAt(0)}}</span>
+                                </div>
+                            </ng-container>
+                        </ng-container>
+                    </ng-container>
                 </div>
-                <div class="ml-4 text-base tracking-tight leading-6 text-gray-700">{{ 'app.auto_more_than_1k_members_participa' | transloco }}</div>
+                <div class="ml-4 text-base tracking-tight leading-6 text-gray-700">{{ 'app.auto_ai_type_participating_member' | transloco }}</div>
             </div>
         </div>
     </div>

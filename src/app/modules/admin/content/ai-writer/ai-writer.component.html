@@ -2726,10 +2726,6 @@
                                 </button>
 
                                 <div class="ml-auto flex items-center gap-3">
-                                    <mat-slide-toggle [checked]="autoSaveLocal" (change)="toggleAutoSaveLocal($event)" [color]="'primary'" class="text-xs text-gray-700 dark:text-gray-300 font-medium" [matTooltip]="'Tự động sao lưu bản sao (.md & .json) xuống ổ đĩa cục bộ'">
-                                        Lưu cục bộ
-                                    </mat-slide-toggle>
-
                                     <button mat-icon-button (click)="openEncryptionDialog()" [color]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'warn' : 'accent'" [matTooltip]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'Bài viết đã được mã hóa AES-256 (Đã bật bảo vệ)' : 'Đặt mật khẩu mã hóa AES-256 cho bài viết'">
                                         <mat-icon class="icon-size-5" [svgIcon]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
                                     </button>

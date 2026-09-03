@@ -26,6 +26,9 @@ import { UserClientService } from 'app/_services/user';
 import { User } from 'app/core/user/user.types';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
+import { MatDialog } from '@angular/material/dialog';
+import { TelegramSupportDialogComponent } from './dialogs/telegram-support-dialog.component';
+
 @Component({
     selector: 'auth-sign-in',
     templateUrl: './sign-in.component.html',
@@ -60,6 +63,13 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     showAlert: boolean = false;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    openTelegramDialog(): void {
+        this._matDialog.open(TelegramSupportDialogComponent, {
+            autoFocus: false,
+            panelClass: 'dark-theme-dialog'
+        });
+    }
 
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
@@ -217,7 +227,8 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         private _formBuilder: UntypedFormBuilder,
         private _forumService: ForumService,
         private _router: Router,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _matDialog: MatDialog
     ) {
     }
 

@@ -154,6 +154,8 @@
             "qr_hint": "Accepts receive links from MoMo, Paypal",
             "autosave": "Auto Save Posts",
             "autosave_hint": "(prevents losing posts)",
+            "auto_save_local": "Save Locally",
+            "auto_save_local_hint": "(automatically backup .md & .json to local disk)",
             "language": "Language",
             "lang_vi": "Vietnamese",
             "lang_en": "English"
@@ -990,7 +992,7 @@
     "app.auto_remember_account": "Remember account",
     "app.auto_forgot_your_account": "Forgot your account?",
     "app.auto_access_the_application": "Access the application",
-    "app.auto_contact_to_request_an_account": "Contact to request an account?",
+    "app.auto_contact_to_request_an_account": "Why can't I log in?",
     "app.auto_or_by_another_way": "Or by another way",
     "app.auto_enhance": "Enhance",
     "app.auto_the_power_of_content": "the power of Content",

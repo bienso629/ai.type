@@ -12,11 +12,13 @@ import { FuseCardModule } from '@fuse/components/card';
 import { FuseAlertModule } from '@fuse/components/alert';
 import { SharedModule } from 'app/shared.module';
 import { AuthSignInComponent } from 'app/modules/auth/sign-in/sign-in.component';
+import { TelegramSupportDialogComponent } from 'app/modules/auth/sign-in/dialogs/telegram-support-dialog.component';
 import { authSignInRoutes } from 'app/modules/auth/sign-in/sign-in.routing';
 
 @NgModule({
     declarations: [
-        AuthSignInComponent
+        AuthSignInComponent,
+        TelegramSupportDialogComponent
     ],
     imports: [
         TranslocoModule,
