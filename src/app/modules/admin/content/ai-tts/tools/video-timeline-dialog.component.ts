@@ -1839,6 +1839,465 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.saveData();
     }
 
+    addNextImageAfter(img: any, sceneIdx: number, imgIdx: number) {
+        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        if (!targetScene) return;
+        if (!targetScene.images) targetScene.images = [];
+
+        const nextStartTime = (img?.startTime || 0) + (img?.duration || 5);
+        const electronApi = (window as any).electron;
+
+        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e: any) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const originalPath = electronApi.getPathForFile(file);
+                if (!originalPath) {
+                    this.toastr.error('Không thể xác nhận đường dẫn file.');
+                    return;
+                }
+
+                this.toastr.info('Đang xử lý hình ảnh, vui lòng đợi...');
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
+                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+
+                const newItem = {
+                    id: Date.now(),
+                    imageUrl: finalPath,
+                    title: file.name || ('Hình ảnh ' + (targetScene.images.length + 1)),
+                    startTime: nextStartTime,
+                    duration: 5,
+                    type: 'image'
+                };
+                targetScene.images.splice(imgIdx + 1, 0, newItem);
+
+                this.setActiveItem(newItem);
+                this.previewImageUrl = finalPath;
+                this.previewVideoUrl = null;
+                this.updateTimelineTotalWidth();
+                this.updateRulerTicks();
+                this.saveData(true);
+                this.cd.detectChanges();
+                this.toastr.success('Đã thêm Hình ảnh tiếp theo vào timeline!');
+            };
+            input.click();
+            return;
+        }
+
+        const imgUrl = prompt('Nhập đường dẫn hình ảnh tiếp theo (URL hoặc file):');
+        if (!imgUrl || !imgUrl.trim()) return;
+
+        const newItem = {
+            id: Date.now(),
+            imageUrl: imgUrl.trim(),
+            title: 'Hình ảnh ' + (targetScene.images.length + 1),
+            startTime: nextStartTime,
+            duration: 5,
+            type: 'image'
+        };
+        targetScene.images.splice(imgIdx + 1, 0, newItem);
+
+        this.setActiveItem(newItem);
+        this.previewImageUrl = imgUrl.trim();
+        this.previewVideoUrl = null;
+        this.updateTimelineTotalWidth();
+        this.updateRulerTicks();
+        this.saveData(true);
+        this.cd.detectChanges();
+        this.toastr.success('Đã thêm Hình ảnh tiếp theo vào timeline!');
+    }
+
+    addNextVideoAfter(video: any, sceneIdx: number, vIdx: number) {
+        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        if (!targetScene) return;
+        if (!targetScene.videos) targetScene.videos = [];
+
+        const nextStartTime = (video?.startTime || 0) + (video?.duration || 5);
+        const electronApi = (window as any).electron;
+
+        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'video/*,image/*';
+            input.onchange = async (e: any) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const originalPath = electronApi.getPathForFile(file);
+                if (!originalPath) {
+                    this.toastr.error('Không thể xác nhận đường dẫn file.');
+                    return;
+                }
+
+                this.toastr.info('Đang xử lý media, vui lòng đợi...');
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
+                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+
+                let realDur = 5;
+                if (electronApi.getMediaDuration) {
+                    try {
+                        const durRes = await electronApi.getMediaDuration(finalPath);
+                        if (durRes && durRes.success && durRes.duration > 0) {
+                            realDur = Math.round(durRes.duration * 10) / 10;
+                        }
+                    } catch (err) {}
+                }
+
+                const isImage = file.type && file.type.startsWith('image/');
+                const newVideo: any = {
+                    id: `video_${Date.now()}`,
+                    prompt: '',
+                    startTime: nextStartTime,
+                    duration: realDur,
+                    maxDuration: realDur,
+                    videoUrl: isImage ? null : finalPath,
+                    imageUrl: isImage ? finalPath : null,
+                    isCompleted: true
+                };
+
+                targetScene.videos.splice(vIdx + 1, 0, newVideo);
+                this.setActiveItem(newVideo);
+                if (newVideo.videoUrl) {
+                    this.previewVideoUrl = newVideo.videoUrl;
+                    this.previewImageUrl = null;
+                } else {
+                    this.previewVideoUrl = null;
+                    this.previewImageUrl = newVideo.imageUrl;
+                }
+                this.updateTimelineTotalWidth();
+                this.updateRulerTicks();
+                this.normalizeData();
+                this.saveData(true);
+                this.cd.detectChanges();
+                this.toastr.success('Đã thêm Video/Media tiếp theo vào timeline!');
+            };
+            input.click();
+            return;
+        }
+
+        const onlineUrl = prompt('Nhập đường dẫn Video hoặc Ảnh tiếp theo (URL online hoặc file):');
+        if (!onlineUrl || !onlineUrl.trim()) return;
+
+        const isImg = /\.(jpg|jpeg|png|webp|gif|bmp)(\?.*)?$/i.test(onlineUrl.trim());
+        const newVideo: any = {
+            id: `video_${Date.now()}`,
+            prompt: '',
+            startTime: nextStartTime,
+            duration: 5,
+            maxDuration: 5,
+            videoUrl: isImg ? null : onlineUrl.trim(),
+            imageUrl: isImg ? onlineUrl.trim() : null,
+            isCompleted: true
+        };
+
+        targetScene.videos.splice(vIdx + 1, 0, newVideo);
+        this.setActiveItem(newVideo);
+        if (newVideo.videoUrl) {
+            this.previewVideoUrl = newVideo.videoUrl;
+            this.previewImageUrl = null;
+        } else {
+            this.previewVideoUrl = null;
+            this.previewImageUrl = newVideo.imageUrl;
+        }
+        this.updateTimelineTotalWidth();
+        this.updateRulerTicks();
+        this.normalizeData();
+        this.saveData(true);
+        this.cd.detectChanges();
+        this.toastr.success('Đã thêm Video/Media tiếp theo vào timeline!');
+    }
+
+    addNextSubtitleAfter(sub: any, sceneIdx: number, sIdx: number) {
+        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        if (!targetScene) return;
+        if (!targetScene.subtitles) targetScene.subtitles = [];
+
+        const nextStartTime = (sub?.startTime || 0) + (sub?.duration || 3);
+        const text = prompt('Nhập nội dung đoạn phụ đề kế tiếp:');
+        if (!text || !text.trim()) return;
+
+        const newItem = {
+            id: Date.now(),
+            text: text.trim(),
+            startTime: nextStartTime,
+            duration: 3,
+            type: 'subtitle'
+        };
+        targetScene.subtitles.splice(sIdx + 1, 0, newItem);
+
+        this.setActiveItem(newItem);
+        this.updateTimelineTotalWidth();
+        this.updateRulerTicks();
+        this.updateActiveSubtitleInfo();
+        this.saveData();
+        this.cd.detectChanges();
+        this.toastr.success('Đã thêm đoạn phụ đề kế tiếp vào timeline!');
+    }
+
+    addNextTextAfter(txt: any, sceneIdx: number, tIdx: number) {
+        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        if (!targetScene) return;
+        if (!targetScene.texts) targetScene.texts = [];
+
+        const nextStartTime = (txt?.startTime || 0) + (txt?.duration || 3);
+        const text = prompt('Nhập nội dung đoạn Text kế tiếp:');
+        if (!text || !text.trim()) return;
+
+        const newItem = {
+            id: Date.now(),
+            text: text.trim(),
+            startTime: nextStartTime,
+            duration: 3,
+            type: 'customText'
+        };
+        targetScene.texts.splice(tIdx + 1, 0, newItem);
+
+        this.setActiveItem(newItem);
+        this.updateTimelineTotalWidth();
+        this.updateRulerTicks();
+        this.saveData();
+        this.cd.detectChanges();
+        this.toastr.success('Đã thêm đoạn Text kế tiếp vào timeline!');
+    }
+
+    addNextAudioAfter(audio: any, sceneIdx: number, aIdx: number) {
+        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        if (!targetScene) return;
+        if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
+
+        const nextStartTime = (audio?.startTime || 0) + (audio?.duration || 5);
+        const electronApi = (window as any).electron;
+
+        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'audio/*';
+            input.onchange = async (e: any) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const originalPath = electronApi.getPathForFile(file);
+                if (!originalPath) {
+                    this.toastr.error('Không thể xác nhận đường dẫn file.');
+                    return;
+                }
+
+                this.toastr.info('Đang xử lý file âm thanh, vui lòng đợi...');
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
+                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+
+                let realDur = 5;
+                if (electronApi.getMediaDuration) {
+                    try {
+                        const durRes = await electronApi.getMediaDuration(finalPath);
+                        if (durRes && durRes.success && durRes.duration > 0) {
+                            realDur = Math.round(durRes.duration * 10) / 10;
+                        }
+                    } catch (err) {}
+                }
+
+                const newAudio: any = {
+                    id: `audio_${Date.now()}`,
+                    audioUrl: finalPath,
+                    text: file.name || 'Âm thanh tải lên',
+                    startTime: nextStartTime,
+                    duration: realDur,
+                    maxDuration: realDur
+                };
+
+                targetScene.extractedAudios.splice(aIdx + 1, 0, newAudio);
+                this.setActiveItem(newAudio);
+                this.updateTimelineTotalWidth();
+                this.updateRulerTicks();
+                this.saveData(true);
+                this.cd.detectChanges();
+                this.toastr.success('Đã thêm File âm thanh tiếp theo vào timeline!');
+            };
+            input.click();
+            return;
+        }
+
+        const audioUrl = prompt('Nhập đường dẫn File âm thanh tiếp theo (URL hoặc file):');
+        if (!audioUrl || !audioUrl.trim()) return;
+
+        const newAudio: any = {
+            id: `audio_${Date.now()}`,
+            audioUrl: audioUrl.trim(),
+            text: 'Âm thanh tải lên',
+            startTime: nextStartTime,
+            duration: 5,
+            maxDuration: 5
+        };
+
+        targetScene.extractedAudios.splice(aIdx + 1, 0, newAudio);
+        this.setActiveItem(newAudio);
+        this.updateTimelineTotalWidth();
+        this.updateRulerTicks();
+        this.saveData(true);
+        this.cd.detectChanges();
+        this.toastr.success('Đã thêm File âm thanh tiếp theo vào timeline!');
+    }
+
+    appendMediaItemToTimeline(item: any, event?: MouseEvent) {
+        if (event) event.stopPropagation();
+        if (!item || !this.projectData) return;
+        if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+            this.projectData.scenes.push({
+                id: `scene_${Date.now()}`,
+                subtitles: [],
+                texts: [],
+                videos: [],
+                images: [],
+                prompt: ''
+            });
+        }
+
+        const raw = item._raw || item;
+        const targetSceneIdx = item.sceneIdx !== undefined && item.sceneIdx >= 0 && item.sceneIdx < this.projectData.scenes.length ? item.sceneIdx : 0;
+        const targetScene = this.projectData.scenes[targetSceneIdx];
+
+        if (item.type === 'video') {
+            if (!targetScene.videos) targetScene.videos = [];
+            // Tính max end time trong track videos
+            let maxEnd = 0;
+            targetScene.videos.forEach((v: any) => {
+                const end = (v.startTime || 0) + (v.duration || 5);
+                if (end > maxEnd) maxEnd = end;
+            });
+            const vIdx = item.vIdx !== undefined && item.vIdx >= 0 ? item.vIdx : targetScene.videos.length - 1;
+            const insertIndex = vIdx >= 0 ? vIdx + 1 : targetScene.videos.length;
+
+            const cloned: any = {
+                ...raw,
+                id: `video_${Date.now()}`,
+                startTime: maxEnd,
+                duration: raw.duration || 5,
+                maxDuration: raw.maxDuration || raw.duration || 5
+            };
+            targetScene.videos.splice(insertIndex, 0, cloned);
+            this.setActiveItem(cloned);
+            if (cloned.videoUrl) {
+                this.previewVideoUrl = cloned.videoUrl;
+                this.previewImageUrl = null;
+            } else {
+                this.previewVideoUrl = null;
+                this.previewImageUrl = cloned.imageUrl;
+            }
+            this.updateTimelineTotalWidth();
+            this.updateRulerTicks();
+            this.normalizeData();
+            this.saveData(true);
+            this.cd.detectChanges();
+            this.toastr.success('Đã thêm Video xuống timeline tiếp tục kế bên!');
+        } else if (item.type === 'image') {
+            if (!targetScene.images) targetScene.images = [];
+            let maxEnd = 0;
+            targetScene.images.forEach((img: any) => {
+                const end = (img.startTime || 0) + (img.duration || 5);
+                if (end > maxEnd) maxEnd = end;
+            });
+            const imgIdx = item.imgIdx !== undefined && item.imgIdx >= 0 ? item.imgIdx : targetScene.images.length - 1;
+            const insertIndex = imgIdx >= 0 ? imgIdx + 1 : targetScene.images.length;
+
+            const cloned: any = {
+                ...raw,
+                id: Date.now(),
+                startTime: maxEnd,
+                duration: raw.duration || 5
+            };
+            targetScene.images.splice(insertIndex, 0, cloned);
+            this.setActiveItem(cloned);
+            this.previewImageUrl = cloned.imageUrl || cloned.controlImageUrl;
+            this.previewVideoUrl = null;
+            this.updateTimelineTotalWidth();
+            this.updateRulerTicks();
+            this.saveData(true);
+            this.cd.detectChanges();
+            this.toastr.success('Đã thêm Hình ảnh xuống timeline tiếp tục kế bên!');
+        } else if (item.type === 'audio' || item.type === 'extractedAudio') {
+            if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
+            let maxEnd = 0;
+            targetScene.extractedAudios.forEach((a: any) => {
+                const end = (a.startTime || 0) + (a.duration || 5);
+                if (end > maxEnd) maxEnd = end;
+            });
+            const aIdx = item.aIdx !== undefined && item.aIdx >= 0 ? item.aIdx : targetScene.extractedAudios.length - 1;
+            const insertIndex = aIdx >= 0 ? aIdx + 1 : targetScene.extractedAudios.length;
+
+            const cloned: any = {
+                ...raw,
+                id: `audio_${Date.now()}`,
+                startTime: maxEnd,
+                duration: raw.duration || 5,
+                maxDuration: raw.maxDuration || raw.duration || 5
+            };
+            targetScene.extractedAudios.splice(insertIndex, 0, cloned);
+            this.setActiveItem(cloned);
+            this.updateTimelineTotalWidth();
+            this.updateRulerTicks();
+            this.saveData(true);
+            this.cd.detectChanges();
+            this.toastr.success('Đã thêm Audio xuống timeline tiếp tục kế bên!');
+        } else if (item.type === 'subtitle') {
+            if (!targetScene.subtitles) targetScene.subtitles = [];
+            let maxEnd = 0;
+            targetScene.subtitles.forEach((s: any) => {
+                const end = (s.startTime || 0) + (s.duration || 3);
+                if (end > maxEnd) maxEnd = end;
+            });
+            const subIdx = item.subIdx !== undefined && item.subIdx >= 0 ? item.subIdx : targetScene.subtitles.length - 1;
+            const insertIndex = subIdx >= 0 ? subIdx + 1 : targetScene.subtitles.length;
+
+            const cloned: any = {
+                ...raw,
+                id: Date.now(),
+                startTime: maxEnd,
+                duration: raw.duration || 3
+            };
+            targetScene.subtitles.splice(insertIndex, 0, cloned);
+            this.setActiveItem(cloned);
+            this.updateTimelineTotalWidth();
+            this.updateRulerTicks();
+            this.updateActiveSubtitleInfo();
+            this.saveData();
+            this.cd.detectChanges();
+            this.toastr.success('Đã thêm Phụ đề xuống timeline tiếp tục kế bên!');
+        } else if (item.type === 'customText') {
+            if (!targetScene.texts) targetScene.texts = [];
+            let maxEnd = 0;
+            targetScene.texts.forEach((t: any) => {
+                const end = (t.startTime || 0) + (t.duration || 3);
+                if (end > maxEnd) maxEnd = end;
+            });
+            const textIdx = item.textIdx !== undefined && item.textIdx >= 0 ? item.textIdx : targetScene.texts.length - 1;
+            const insertIndex = textIdx >= 0 ? textIdx + 1 : targetScene.texts.length;
+
+            const cloned: any = {
+                ...raw,
+                id: Date.now(),
+                startTime: maxEnd,
+                duration: raw.duration || 3
+            };
+            targetScene.texts.splice(insertIndex, 0, cloned);
+            this.setActiveItem(cloned);
+            this.updateTimelineTotalWidth();
+            this.updateRulerTicks();
+            this.saveData();
+            this.cd.detectChanges();
+            this.toastr.success('Đã thêm Text xuống timeline tiếp tục kế bên!');
+        }
+    }
+
     wavesurfers: { [key: string]: WaveSurfer } = {};
 
     playPreview(video: any) {
@@ -1992,7 +2451,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             if (this.projectData?.scenes) {
                 for (const sc of this.projectData.scenes) {
-                    if (sc.videos) {
+                    if (sc.videos && !currentPlayingVideo) {
                         for (const v of sc.videos) {
                             if (v.disabled) continue;
                             const s = v.startTime || 0;
@@ -2003,7 +2462,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             }
                         }
                     }
-                    if (sc.images) {
+                    if (sc.images && !currentPlayingImage) {
                         for (const img of sc.images) {
                             if (img.disabled) continue;
                             const s = img.startTime || 0;
@@ -2018,7 +2477,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
 
-            const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.controlImageUrl || null) : null;
+            const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.url || currentPlayingImage.src || currentPlayingImage.controlImageUrl || currentPlayingImage.imagePath || currentPlayingImage.path || currentPlayingImage.dataUrl || null) : null;
 
             if (currentPlayingVideo !== this.activeVideo || this.previewOverlayImageUrl !== activeOverlayUrl) {
                 this.updateTimelineSync();
@@ -2144,7 +2603,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         for (const scene of this.projectData.scenes) {
             // Find active video
-            if (scene.videos) {
+            if (scene.videos && !foundVideo) {
                 for (const v of scene.videos) {
                     if (v.disabled) continue;
                     const start = v.startTime || 0;
@@ -2157,7 +2616,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
             // Find active overlay image (Track Images)
-            if (scene.images) {
+            if (scene.images && !foundImage) {
                 for (const img of scene.images) {
                     if (img.disabled) continue;
                     const start = img.startTime || 0;
@@ -2172,7 +2631,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         // Cập nhật URL ảnh Overlay từ Track Images
-        const targetOverlayImageUrl = foundImage ? (foundImage.imageUrl || foundImage.controlImageUrl || null) : null;
+        const targetOverlayImageUrl = foundImage ? (foundImage.imageUrl || foundImage.url || foundImage.src || foundImage.controlImageUrl || foundImage.imagePath || foundImage.path || foundImage.dataUrl || null) : null;
         this.previewOverlayImageUrl = targetOverlayImageUrl;
 
         // Kiểm tra xem clip video này đã có phân đoạn âm thanh rời (extracted audio) chưa
@@ -7234,28 +7693,79 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
+    ensureMediaLibraryPool() {
+        if (!this.projectData) this.projectData = { scenes: [] };
+        if (!this.projectData.mediaLibraryPool) {
+            this.projectData.mediaLibraryPool = {
+                videos: [],
+                images: [],
+                audios: [],
+                subtitles: [],
+                texts: []
+            };
+        }
+        if (!this.projectData.mediaLibraryPool.videos) this.projectData.mediaLibraryPool.videos = [];
+        if (!this.projectData.mediaLibraryPool.images) this.projectData.mediaLibraryPool.images = [];
+        if (!this.projectData.mediaLibraryPool.audios) this.projectData.mediaLibraryPool.audios = [];
+        if (!this.projectData.mediaLibraryPool.subtitles) this.projectData.mediaLibraryPool.subtitles = [];
+        if (!this.projectData.mediaLibraryPool.texts) this.projectData.mediaLibraryPool.texts = [];
+    }
+
     getAllProjectVideos(): any[] {
+        this.ensureMediaLibraryPool();
         const list: any[] = [];
-        if (!this.projectData || !this.projectData.scenes) return list;
-        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
-            const scene = this.projectData.scenes[sIdx];
-            if (scene.videos) {
-                for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
-                    const v = scene.videos[vIdx];
-                    list.push({
-                        ...v,
-                        get duration() { return v.duration; },
-                        get startTime() { return v.startTime; },
-                        get maxDuration() { return v.maxDuration; },
-                        get prompt() { return v.prompt; },
-                        get imageUrl() { return v.imageUrl || v.controlImageUrl; },
-                        get controlImageUrl() { return v.controlImageUrl; },
-                        get videoUrl() { return v.videoUrl; },
-                        _raw: v,
-                        sceneIdx: sIdx,
-                        vIdx: vIdx,
-                        type: 'video'
-                    });
+        const seenKeys = new Set<string>();
+
+        // 1. Quét từ pool đã lưu
+        for (const v of this.projectData.mediaLibraryPool.videos) {
+            const key = (v.videoUrl || v.imageUrl || v.controlImageUrl || v.id || '').trim();
+            if (!key || seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            list.push({
+                ...v,
+                get duration() { return v.duration; },
+                get startTime() { return v.startTime; },
+                get maxDuration() { return v.maxDuration; },
+                get prompt() { return v.prompt; },
+                get imageUrl() { return v.imageUrl || v.controlImageUrl; },
+                get controlImageUrl() { return v.controlImageUrl; },
+                get videoUrl() { return v.videoUrl; },
+                _raw: v,
+                type: 'video'
+            });
+        }
+
+        // 2. Quét từ các Scene trên timeline và bổ sung vào pool
+        if (this.projectData.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+                if (scene.videos) {
+                    for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
+                        const v = scene.videos[vIdx];
+                        const key = (v.videoUrl || v.imageUrl || v.controlImageUrl || v.id || `${sIdx}_${vIdx}`).trim();
+                        if (!key) continue;
+                        if (!seenKeys.has(key)) {
+                            seenKeys.add(key);
+                            const poolItem = {
+                                id: v.id || `video_pool_${Date.now()}_${vIdx}`,
+                                prompt: v.prompt || '',
+                                videoUrl: v.videoUrl || null,
+                                imageUrl: v.imageUrl || null,
+                                controlImageUrl: v.controlImageUrl || null,
+                                duration: v.duration || 5,
+                                maxDuration: v.maxDuration || v.duration || 5,
+                                sceneIdx: sIdx,
+                                vIdx: vIdx,
+                                type: 'video'
+                            };
+                            this.projectData.mediaLibraryPool.videos.push(poolItem);
+                            list.push({
+                                ...poolItem,
+                                _raw: v,
+                                type: 'video'
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -7263,27 +7773,60 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
     }
 
     getAllProjectImages(): any[] {
+        this.ensureMediaLibraryPool();
         const list: any[] = [];
-        if (!this.projectData || !this.projectData.scenes) return list;
-        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
-            const scene = this.projectData.scenes[sIdx];
-            if (scene.images) {
-                for (let imgIdx = 0; imgIdx < scene.images.length; imgIdx++) {
-                    const img = scene.images[imgIdx];
-                    list.push({
-                        ...img,
-                        get duration() { return img.duration; },
-                        get startTime() { return img.startTime; },
-                        get maxDuration() { return img.maxDuration; },
-                        get prompt() { return img.prompt || img.title; },
-                        get imageUrl() { return img.imageUrl || img.controlImageUrl; },
-                        get controlImageUrl() { return img.controlImageUrl; },
-                        _raw: img,
-                        sceneIdx: sIdx,
-                        imgIdx: imgIdx,
-                        type: 'image',
-                        title: img.title || img.prompt || ('Hình ảnh ' + (imgIdx + 1))
-                    });
+        const seenKeys = new Set<string>();
+
+        // 1. Quét từ pool đã lưu
+        for (const img of this.projectData.mediaLibraryPool.images) {
+            const key = (img.imageUrl || img.controlImageUrl || img.url || img.src || img.id || '').trim();
+            if (!key || seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            list.push({
+                ...img,
+                get duration() { return img.duration; },
+                get startTime() { return img.startTime; },
+                get maxDuration() { return img.maxDuration; },
+                get prompt() { return img.prompt || img.title; },
+                get imageUrl() { return img.imageUrl || img.controlImageUrl; },
+                get controlImageUrl() { return img.controlImageUrl; },
+                _raw: img,
+                type: 'image',
+                title: img.title || img.prompt || 'Hình ảnh'
+            });
+        }
+
+        // 2. Quét từ timeline và bổ sung vào pool
+        if (this.projectData.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+                if (scene.images) {
+                    for (let imgIdx = 0; imgIdx < scene.images.length; imgIdx++) {
+                        const img = scene.images[imgIdx];
+                        const key = (img.imageUrl || img.controlImageUrl || img.url || img.src || img.id || `${sIdx}_${imgIdx}`).trim();
+                        if (!key) continue;
+                        if (!seenKeys.has(key)) {
+                            seenKeys.add(key);
+                            const poolItem = {
+                                id: img.id || Date.now(),
+                                imageUrl: img.imageUrl || img.controlImageUrl || null,
+                                controlImageUrl: img.controlImageUrl || null,
+                                title: img.title || img.prompt || ('Hình ảnh ' + (imgIdx + 1)),
+                                prompt: img.prompt || '',
+                                duration: img.duration || 5,
+                                maxDuration: img.maxDuration || 5,
+                                sceneIdx: sIdx,
+                                imgIdx: imgIdx,
+                                type: 'image'
+                            };
+                            this.projectData.mediaLibraryPool.images.push(poolItem);
+                            list.push({
+                                ...poolItem,
+                                _raw: img,
+                                type: 'image'
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -7291,34 +7834,81 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
     }
 
     getAllProjectAudios(): any[] {
+        this.ensureMediaLibraryPool();
         const list: any[] = [];
-        if (!this.projectData || !this.projectData.scenes) return list;
-        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
-            const scene = this.projectData.scenes[sIdx];
-            if (scene.extractedAudios) {
-                for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
-                    list.push({
-                        ...scene.extractedAudios[aIdx],
-                        _raw: scene.extractedAudios[aIdx],
-                        sceneIdx: sIdx,
-                        aIdx: aIdx,
-                        type: 'extractedAudio',
-                        title: 'Âm thanh #' + (aIdx + 1)
-                    });
+        const seenKeys = new Set<string>();
+
+        // 1. Quét từ pool đã lưu
+        for (const aud of this.projectData.mediaLibraryPool.audios) {
+            const key = (aud.audioUrl || aud.url || aud.id || '').trim();
+            if (!key || seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            list.push({
+                ...aud,
+                _raw: aud,
+                type: aud.type || 'extractedAudio',
+                title: aud.text || aud.title || 'Âm thanh'
+            });
+        }
+
+        // 2. Quét từ timeline và bổ sung vào pool
+        if (this.projectData.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+                if (scene.extractedAudios) {
+                    for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                        const aud = scene.extractedAudios[aIdx];
+                        const key = (aud.audioUrl || aud.url || aud.id || `ext_${sIdx}_${aIdx}`).trim();
+                        if (!key) continue;
+                        if (!seenKeys.has(key)) {
+                            seenKeys.add(key);
+                            const poolItem = {
+                                id: aud.id || `audio_pool_${Date.now()}_${aIdx}`,
+                                audioUrl: aud.audioUrl || aud.url || null,
+                                text: aud.text || ('Âm thanh #' + (aIdx + 1)),
+                                duration: aud.duration || 5,
+                                maxDuration: aud.maxDuration || 5,
+                                sceneIdx: sIdx,
+                                aIdx: aIdx,
+                                type: 'extractedAudio',
+                                title: aud.text || ('Âm thanh #' + (aIdx + 1))
+                            };
+                            this.projectData.mediaLibraryPool.audios.push(poolItem);
+                            list.push({
+                                ...poolItem,
+                                _raw: aud,
+                                type: 'extractedAudio'
+                            });
+                        }
+                    }
                 }
-            }
-            if (scene.subtitles) {
-                for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
-                    const sub = scene.subtitles[subIdx];
-                    if (sub.audioUrl) {
-                        list.push({
-                            ...sub,
-                            _raw: sub,
-                            sceneIdx: sIdx,
-                            subIdx: subIdx,
-                            type: 'audio',
-                            title: sub.text ? (sub.text.length > 25 ? sub.text.substring(0, 25) + '...' : sub.text) : ('Audio #' + (subIdx + 1))
-                        });
+                if (scene.subtitles) {
+                    for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                        const sub = scene.subtitles[subIdx];
+                        if (sub.audioUrl) {
+                            const key = (sub.audioUrl || sub.id || `sub_${sIdx}_${subIdx}`).trim();
+                            if (!key) continue;
+                            if (!seenKeys.has(key)) {
+                                seenKeys.add(key);
+                                const poolItem = {
+                                    id: sub.id || `audio_sub_${Date.now()}_${subIdx}`,
+                                    audioUrl: sub.audioUrl,
+                                    text: sub.text || ('Audio #' + (subIdx + 1)),
+                                    duration: sub.duration || 5,
+                                    maxDuration: sub.maxDuration || 5,
+                                    sceneIdx: sIdx,
+                                    subIdx: subIdx,
+                                    type: 'audio',
+                                    title: sub.text ? (sub.text.length > 25 ? sub.text.substring(0, 25) + '...' : sub.text) : ('Audio #' + (subIdx + 1))
+                                };
+                                this.projectData.mediaLibraryPool.audios.push(poolItem);
+                                list.push({
+                                    ...poolItem,
+                                    _raw: sub,
+                                    type: 'audio'
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -7327,26 +7917,49 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
     }
 
     getAllProjectSubtitles(): any[] {
+        this.ensureMediaLibraryPool();
         const list: any[] = [];
-        if (!this.projectData || !this.projectData.scenes) return list;
         const seenKeys = new Set<string>();
 
-        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
-            const scene = this.projectData.scenes[sIdx];
-            if (scene.subtitles) {
-                for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
-                    const sub = scene.subtitles[subIdx];
-                    const key = `${sub.id || `${sIdx}_${subIdx}`}_${Math.round((sub.startTime || 0) * 100)}`;
-                    if (seenKeys.has(key)) continue;
-                    seenKeys.add(key);
+        // 1. Quét từ pool đã lưu
+        for (const sub of this.projectData.mediaLibraryPool.subtitles) {
+            const key = (sub.text || sub.id || '').trim();
+            if (!key || seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            list.push({
+                ...sub,
+                _raw: sub,
+                type: 'subtitle'
+            });
+        }
 
-                    list.push({
-                        ...sub,
-                        _raw: sub,
-                        sceneIdx: sIdx,
-                        subIdx: subIdx,
-                        type: 'subtitle'
-                    });
+        // 2. Quét từ timeline và bổ sung vào pool
+        if (this.projectData.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+                if (scene.subtitles) {
+                    for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                        const sub = scene.subtitles[subIdx];
+                        const key = (sub.text || sub.id || `${sIdx}_${subIdx}`).trim();
+                        if (!key) continue;
+                        if (!seenKeys.has(key)) {
+                            seenKeys.add(key);
+                            const poolItem = {
+                                id: sub.id || Date.now(),
+                                text: sub.text || '',
+                                duration: sub.duration || 3,
+                                sceneIdx: sIdx,
+                                subIdx: subIdx,
+                                type: 'subtitle'
+                            };
+                            this.projectData.mediaLibraryPool.subtitles.push(poolItem);
+                            list.push({
+                                ...poolItem,
+                                _raw: sub,
+                                type: 'subtitle'
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -7354,26 +7967,49 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
     }
 
     getAllProjectTexts(): any[] {
+        this.ensureMediaLibraryPool();
         const list: any[] = [];
-        if (!this.projectData || !this.projectData.scenes) return list;
         const seenKeys = new Set<string>();
 
-        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
-            const scene = this.projectData.scenes[sIdx];
-            if (scene.texts) {
-                for (let textIdx = 0; textIdx < scene.texts.length; textIdx++) {
-                    const txt = scene.texts[textIdx];
-                    const key = `${txt.id || `${sIdx}_${textIdx}`}_${Math.round((txt.startTime || 0) * 100)}`;
-                    if (seenKeys.has(key)) continue;
-                    seenKeys.add(key);
+        // 1. Quét từ pool đã lưu
+        for (const txt of this.projectData.mediaLibraryPool.texts) {
+            const key = (txt.text || txt.id || '').trim();
+            if (!key || seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            list.push({
+                ...txt,
+                _raw: txt,
+                type: 'customText'
+            });
+        }
 
-                    list.push({
-                        ...txt,
-                        _raw: txt,
-                        sceneIdx: sIdx,
-                        textIdx: textIdx,
-                        type: 'customText'
-                    });
+        // 2. Quét từ timeline và bổ sung vào pool
+        if (this.projectData.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+                if (scene.texts) {
+                    for (let textIdx = 0; textIdx < scene.texts.length; textIdx++) {
+                        const txt = scene.texts[textIdx];
+                        const key = (txt.text || txt.id || `${sIdx}_${textIdx}`).trim();
+                        if (!key) continue;
+                        if (!seenKeys.has(key)) {
+                            seenKeys.add(key);
+                            const poolItem = {
+                                id: txt.id || Date.now(),
+                                text: txt.text || '',
+                                duration: txt.duration || 3,
+                                sceneIdx: sIdx,
+                                textIdx: textIdx,
+                                type: 'customText'
+                            };
+                            this.projectData.mediaLibraryPool.texts.push(poolItem);
+                            list.push({
+                                ...poolItem,
+                                _raw: txt,
+                                type: 'customText'
+                            });
+                        }
+                    }
                 }
             }
         }
