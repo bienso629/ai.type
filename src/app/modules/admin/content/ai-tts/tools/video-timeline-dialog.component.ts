@@ -498,51 +498,98 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         };
     }
 
-    async exportVideoWithFrame() {
-        if (!this.selectedFrame || this.selectedFrame.id === 'none') {
-            this.toastr.warning('Vui lòng chọn 1 khung Frame trước khi xuất!');
-            return;
+    private cleanPathForExport(rawPath: string): string {
+        if (!rawPath) return '';
+        let p = String(rawPath).trim();
+        if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+        else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+        if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+        if (p.startsWith('http://localhost') || p.startsWith('http://127.0.0.1')) {
+            try {
+                const parsed = new URL(p);
+                const rawFile = parsed.searchParams.get('file') || parsed.searchParams.get('path');
+                if (rawFile) p = rawFile;
+            } catch (e) {}
         }
+        return p;
+    }
 
-        const electron = (window as any).electron;
-        if (!electron || !electron.renderVideoWithFrame) {
-            this.toastr.error('Môi trường Electron chưa hỗ trợ render video with frame!');
-            return;
-        }
+    collectTimelineExportData() {
+        const totalDuration = Math.max(1, this.getMaxTimelineTime());
+        const baseClips: any[] = [];
+        const overlayClips: any[] = [];
+        const allSubs: any[] = [];
+        const audioClips: any[] = [];
 
-        let rawVideoUrl = this.previewVideoUrl;
-        if (!rawVideoUrl && this.projectData?.scenes) {
-            for (const scene of this.projectData.scenes) {
-                if (scene.videos && scene.videos.length > 0) {
-                    const vid = scene.videos.find((v: any) => v.videoUrl);
-                    if (vid) {
-                        rawVideoUrl = vid.videoUrl;
-                        break;
+        if (this.projectData?.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+
+                // 1. Thu thập Video Clips (Track 0 làm base/nền, Track 1+ làm overlay)
+                if (scene.videos) {
+                    for (const v of scene.videos) {
+                        if (v.disabled) continue;
+                        const p = this.cleanPathForExport(v.videoUrl);
+                        if (!p) continue;
+                        const tIdx = Number(v.trackIndex) || 0;
+                        const sTime = Number(v.startTime) || 0;
+                        const dur = Number(v.duration) || 5;
+                        const trimS = Number(v.trimStart) || 0;
+
+                        if (tIdx === 0) {
+                            baseClips.push({
+                                type: 'video',
+                                path: p,
+                                startTime: sTime,
+                                duration: dur,
+                                trimStart: trimS,
+                                trackIndex: 0
+                            });
+                        } else {
+                            overlayClips.push({
+                                type: 'video',
+                                path: p,
+                                startTime: sTime,
+                                duration: dur,
+                                trimStart: trimS,
+                                trackIndex: tIdx
+                            });
+                        }
+
+                        // Nếu video này có âm thanh và chưa bị mute hoặc chưa bị tách thành extracted audio
+                        const isMuted = v.muted || this.hasExtractedAudio(scene, v);
+                        if (!isMuted) {
+                            audioClips.push({
+                                path: p,
+                                startTime: sTime,
+                                duration: dur,
+                                trimStart: trimS,
+                                volume: 1
+                            });
+                        }
                     }
                 }
-            }
-        }
 
-        if (!rawVideoUrl) {
-            this.toastr.error('Chưa tìm thấy video nguồn để ghép vào khung!');
-            return;
-        }
+                // 2. Thu thập Image Clips (Track Images -> đưa vào overlayClips)
+                if (scene.images) {
+                    for (const img of scene.images) {
+                        if (img.disabled) continue;
+                        const imgUrl = img.imageUrl || img.url || img.src || img.controlImageUrl || img.imagePath || img.path || img.dataUrl;
+                        const p = this.cleanPathForExport(imgUrl);
+                        if (!p) continue;
+                        const sTime = Number(img.startTime) || 0;
+                        const dur = Number(img.duration) || 5;
+                        overlayClips.push({
+                            type: 'image',
+                            path: p,
+                            startTime: sTime,
+                            duration: dur,
+                            trackIndex: 99
+                        });
+                    }
+                }
 
-        let cleanVideoPath = rawVideoUrl;
-        if (cleanVideoPath.startsWith('media://')) cleanVideoPath = decodeURIComponent(cleanVideoPath.substring(8));
-        else if (cleanVideoPath.startsWith('file://')) cleanVideoPath = decodeURIComponent(cleanVideoPath.substring(7));
-        if (cleanVideoPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVideoPath = cleanVideoPath.substring(1);
-
-        const frameBgPath = this.selectedFrame.bgPath || `src/assets/video_frames/tiktok_frame_bg.jpg`;
-        const frameMaskPath = this.selectedFrame.maskPath || `src/assets/video_frames/tiktok_frame_mask.png`;
-
-        const outDir = `/home/yenai/Downloads/AI.TYPING/${this.data?.uuid || 'exports'}`;
-        const outputPath = `${outDir}/video_frame_${Date.now()}.mp4`;
-
-        // Thu thập phụ đề trong project để burn trực tiếp lên video xuất ra
-        const allSubs: any[] = [];
-        if (this.projectData?.scenes) {
-            for (const scene of this.projectData.scenes) {
+                // 3. Thu thập Subtitles & Texts
                 if (scene.subtitles) {
                     for (const sub of scene.subtitles) {
                         if (sub.disabled) continue;
@@ -551,7 +598,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             (Math.abs((Number(a.startTime) || 0) - (Number(sub.startTime) || 0)) < 0.25)
                         )) : null;
 
-                        let original = sub.originalText || (sub.translations && sub.translations['original']) || (sub.translations && sub.translations['en']) || matchingExt?.originalText || '';
+                        let original = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || matchingExt?.originalText || '';
                         let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || matchingExt?.vietnameseText || '';
 
                         if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) {
@@ -580,6 +627,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 fontSize: sub.fontSize || this.currentSubtitleFontSize
                             });
                         }
+
+                        // Nếu subtitle có gắn audioUrl riêng
+                        if (sub.audioUrl) {
+                            const ap = this.cleanPathForExport(sub.audioUrl);
+                            if (ap) {
+                                audioClips.push({
+                                    path: ap,
+                                    startTime: Number(sub.startTime) || 0,
+                                    duration: Number(sub.duration) || 3,
+                                    trimStart: 0,
+                                    volume: 1
+                                });
+                            }
+                        }
                     }
                 }
 
@@ -599,23 +660,88 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         }
                     }
                 }
+
+                // 4. Thu thập Track Extracted Audios (Âm thanh bóc tách / Audio files)
+                if (scene.extractedAudios) {
+                    for (const audio of scene.extractedAudios) {
+                        const isMuted = this.isAudioMuted(audio, scene);
+                        if (isMuted) continue;
+                        const ap = this.cleanPathForExport(audio.audioUrl || audio.path || audio.url);
+                        if (ap) {
+                            const vol = audio.volume !== undefined ? Math.max(0, audio.volume / 100) : 1;
+                            audioClips.push({
+                                path: ap,
+                                startTime: Number(audio.startTime) || 0,
+                                duration: Number(audio.duration) || 5,
+                                trimStart: Number(audio.trimStart) || 0,
+                                volume: vol
+                            });
+                        }
+                    }
+                }
             }
         }
 
+        // Sắp xếp các clip theo thời gian startTime
+        baseClips.sort((a, b) => a.startTime - b.startTime);
+        overlayClips.sort((a, b) => a.startTime - b.startTime);
+        allSubs.sort((a, b) => a.startTime - b.startTime);
+        audioClips.sort((a, b) => a.startTime - b.startTime);
+
+        return {
+            totalDuration,
+            baseClips,
+            overlayClips,
+            allSubs,
+            audioClips
+        };
+    }
+
+    async exportVideoWithFrame() {
+        if (!this.selectedFrame || this.selectedFrame.id === 'none') {
+            this.toastr.warning('Vui lòng chọn 1 khung Frame trước khi xuất!');
+            return;
+        }
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.renderVideoWithFrame) {
+            this.toastr.error('Môi trường Electron chưa hỗ trợ render video with frame!');
+            return;
+        }
+
+        const timelineData = this.collectTimelineExportData();
+        const { totalDuration, baseClips, overlayClips, allSubs, audioClips } = timelineData;
+
+        let cleanVideoPath = baseClips.length > 0 ? baseClips[0].path : (overlayClips.length > 0 ? overlayClips[0].path : '');
+        if (!cleanVideoPath && this.previewVideoUrl) {
+            cleanVideoPath = this.cleanPathForExport(this.previewVideoUrl);
+        }
+
+        if (!cleanVideoPath && baseClips.length === 0 && overlayClips.length === 0) {
+            this.toastr.error('Chưa tìm thấy video hoặc hình ảnh nguồn để ghép vào khung!');
+            return;
+        }
+
+        const frameBgPath = this.selectedFrame.bgPath || `src/assets/video_frames/tiktok_frame_bg.jpg`;
+        const frameMaskPath = this.selectedFrame.maskPath || `src/assets/video_frames/tiktok_frame_mask.png`;
+
+        const outDir = `/home/yenai/Downloads/AI.TYPING/${this.data?.uuid || 'exports'}`;
+        const outputPath = `${outDir}/video_frame_${Date.now()}.mp4`;
+
         this.isExportingFrameVideo = true;
         this.cd.detectChanges();
-        this.toastr.info(`Đang xuất video lồng khung 9:16${allSubs.length > 0 ? ` cùng ${allSubs.length} đoạn phụ đề` : ''}...`, 'Đang render');
+        this.toastr.info(`Đang xuất video lồng khung (Thời lượng: ${totalDuration.toFixed(1)}s, ${baseClips.length} clips nền, ${overlayClips.length} lớp overlay, ${audioClips.length} đoạn âm thanh, ${allSubs.length} phụ đề)...`, 'Đang render');
 
-        let cleanBgVideoPath = this.selectedFrame.bgVideoUrl || '';
-        if (cleanBgVideoPath) {
-            if (cleanBgVideoPath.startsWith('media://')) cleanBgVideoPath = decodeURIComponent(cleanBgVideoPath.substring(8));
-            else if (cleanBgVideoPath.startsWith('file://')) cleanBgVideoPath = decodeURIComponent(cleanBgVideoPath.substring(7));
-            if (cleanBgVideoPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanBgVideoPath = cleanBgVideoPath.substring(1);
-        }
+        let cleanBgVideoPath = this.selectedFrame.bgVideoUrl ? this.cleanPathForExport(this.selectedFrame.bgVideoUrl) : '';
 
         try {
             const res = await electron.renderVideoWithFrame({
                 videoPath: cleanVideoPath,
+                totalDuration: totalDuration,
+                baseClips: baseClips,
+                overlays: overlayClips,
+                audioClips: audioClips,
+                subtitles: allSubs,
                 frameBgPath: frameBgPath,
                 frameBgVideoPath: cleanBgVideoPath,
                 frameMaskPath: frameMaskPath,
@@ -623,7 +749,6 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 quad: this.selectedFrame.quad,
                 canvasWidth: this.selectedFrame.canvasWidth,
                 canvasHeight: this.selectedFrame.canvasHeight,
-                subtitles: allSubs,
                 subtitleBottom: this.currentSubtitleBottom,
                 subtitleFontSize: this.currentSubtitleFontSize,
                 subtitleFontFamily: this.currentSubtitleFont,
@@ -661,102 +786,36 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             return;
         }
 
-        // Tìm đường dẫn file video gốc
-        let cleanVideoPath = '';
-        if (this.projectData?.scenes) {
-            for (const scene of this.projectData.scenes) {
-                if (scene.videos && scene.videos.length > 0) {
-                    const firstVid = scene.videos.find((v: any) => v.videoUrl || v.sourceUrl);
-                    if (firstVid) {
-                        cleanVideoPath = firstVid.videoUrl || '';
-                        break;
-                    }
-                }
-            }
-        }
+        const timelineData = this.collectTimelineExportData();
+        const { totalDuration, baseClips, overlayClips, allSubs, audioClips } = timelineData;
+
+        let cleanVideoPath = baseClips.length > 0 ? baseClips[0].path : (overlayClips.length > 0 ? overlayClips[0].path : '');
         if (!cleanVideoPath && this.previewVideoUrl) {
-            cleanVideoPath = this.previewVideoUrl;
+            cleanVideoPath = this.cleanPathForExport(this.previewVideoUrl);
         }
 
-        if (!cleanVideoPath) {
-            this.toastr.error('Không tìm thấy file video nguồn để xuất!');
+        if (!cleanVideoPath && baseClips.length === 0 && overlayClips.length === 0) {
+            this.toastr.error('Không tìm thấy file video hoặc hình ảnh nguồn để xuất!');
             return;
-        }
-
-        if (cleanVideoPath.startsWith('http://localhost') || cleanVideoPath.startsWith('http://127.0.0.1')) {
-            const parsed = new URL(cleanVideoPath);
-            const rawFile = parsed.searchParams.get('file') || parsed.searchParams.get('path');
-            if (rawFile) cleanVideoPath = rawFile;
         }
 
         const outDir = `/home/yenai/Downloads/AI.TYPING/${this.data?.uuid || 'exports'}`;
         const safeTitle = (this.projectData?.title || 'video').replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF]/g, '_').substring(0, 50);
         const outputPath = `${outDir}/${safeTitle}_hardsub_${Date.now()}.mp4`;
 
-        // Thu thập toàn bộ phụ đề từ project
-        const allSubs: any[] = [];
-        if (this.projectData?.scenes) {
-            for (const scene of this.projectData.scenes) {
-                if (scene.subtitles) {
-                    for (const sub of scene.subtitles) {
-                        if (sub.disabled) continue;
-
-                        let original = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || '';
-                        let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || '';
-
-                        if (!original && sub.text && !this.isLikelyVietnamese(sub.text)) original = sub.text;
-                        if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) vietnamese = sub.text;
-
-                        let primary = '';
-                        let secondary = '';
-                        if (original && vietnamese && original.trim().toLowerCase() !== vietnamese.trim().toLowerCase()) {
-                            primary = original.trim();
-                            secondary = vietnamese.trim();
-                        } else {
-                            primary = (sub.text || original || vietnamese || '').trim();
-                        }
-
-                        if (primary || secondary) {
-                            allSubs.push({
-                                startTime: Number(sub.startTime) || 0,
-                                duration: Number(sub.duration) || 3,
-                                primaryText: primary,
-                                secondaryText: secondary,
-                                fontFamily: sub.fontFamily || this.currentSubtitleFont,
-                                fontSize: sub.fontSize || this.currentSubtitleFontSize
-                            });
-                        }
-                    }
-                }
-
-                if (scene.texts) {
-                    for (const txt of scene.texts) {
-                        if (txt.disabled) continue;
-                        const textStr = (txt.text || '').trim();
-                        if (textStr) {
-                            allSubs.push({
-                                startTime: Number(txt.startTime) || 0,
-                                duration: Number(txt.duration) || 3,
-                                primaryText: textStr,
-                                secondaryText: '',
-                                fontFamily: txt.fontFamily || this.currentSubtitleFont,
-                                fontSize: txt.fontSize || this.currentSubtitleFontSize
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
         this.isExportingFrameVideo = true;
         this.cd.detectChanges();
-        this.toastr.info(`Đang xuất video và bắn thẳng ${allSubs.length} đoạn phụ đề (Font: ${this.currentSubtitleFont}, Size: ${this.currentSubtitleFontSize}px, Bottom: ${this.currentSubtitleBottom}px)...`, 'Đang xử lý');
+        this.toastr.info(`Đang xuất video gộp đầy đủ (Thời lượng: ${totalDuration.toFixed(1)}s, ${baseClips.length} clip gốc, ${overlayClips.length} lớp overlay, ${audioClips.length} track âm thanh, ${allSubs.length} phụ đề)...`, 'Đang xử lý');
 
         try {
             const res = await electron.renderVideoWithSubtitles({
                 videoPath: cleanVideoPath,
-                outputPath: outputPath,
+                totalDuration: totalDuration,
+                baseClips: baseClips,
+                overlays: overlayClips,
+                audioClips: audioClips,
                 subtitles: allSubs,
+                outputPath: outputPath,
                 subtitleBottom: this.currentSubtitleBottom,
                 subtitleFontSize: this.currentSubtitleFontSize,
                 subtitleFontFamily: this.currentSubtitleFont,
@@ -915,6 +974,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     previewVideoUrl: string | null = null;
     previewImageUrl: string | null = null;
     previewOverlayImageUrl: string | null = null;
+    previewOverlayVideoUrl: string | null = null;
     previewAudioUrl: string | null = null;
 
     // --- Timeline Player ---
@@ -1058,11 +1118,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     currentTimelineTime: number = 0;
     timelineTimer: any = null;
     activeVideo: any = null;
+    activeOverlayVideo: any = null;
     activeAudio: any = null;
 
     // Khai báo ViewChild để truy cập video tag trong template
     @ViewChild('mockupFrameContainer') mockupFrameContainer?: ElementRef<HTMLDivElement>;
     @ViewChild('mainVideoPlayer') mainVideoPlayer?: ElementRef<HTMLVideoElement>;
+    @ViewChild('overlayVideoPlayer') overlayVideoPlayer?: ElementRef<HTMLVideoElement>;
     @ViewChild('mainAudioPlayer') mainAudioPlayer?: ElementRef<HTMLAudioElement>;
     @ViewChild('playheadNeedle') playheadNeedle?: ElementRef<HTMLDivElement>;
     @ViewChild('imageContextMenuTrigger', { read: MatMenuTrigger }) imageContextMenuTrigger?: MatMenuTrigger;
@@ -1374,17 +1436,32 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.selectedItems.clear();
         this.activeItem = null;
         this.activeVideo = null;
+        this.activeOverlayVideo = null;
         this.previewVideoUrl = null;
         this.previewImageUrl = null;
+        this.previewOverlayImageUrl = null;
+        this.previewOverlayVideoUrl = null;
+        this.previewAudioUrl = null;
+        this.currentSubtitleInfo = null;
         if (this.isPlayingTimeline) {
             this.pauseTimeline();
         }
         this.currentTimelineTime = 0;
 
+        // Nếu không còn bất kỳ video hay hình ảnh nào trong toàn bộ dự án -> tắt mockup frame
+        const hasRemainingMedia = this.projectData?.scenes?.some((s: any) => 
+            (s.videos && s.videos.length > 0) || (s.images && s.images.length > 0)
+        );
+        if (!hasRemainingMedia) {
+            this.selectedFrame = null;
+        }
+
         if (count > 0) {
             this.toastr.success(`Đã xoá ${count} mục khỏi Timeline!`);
             this.normalizeData();
             this.saveData(true);
+            this.updateActiveSubtitleInfo();
+            this.updateTimelineSync(true);
             this.cd.markForCheck();
             this.cd.detectChanges();
             setTimeout(() => {
@@ -1715,6 +1792,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 scene.texts.splice(textIdx, 1);
                 this.selectedItems.clear();
                 this.activeItem = null;
+                this.updateActiveSubtitleInfo();
+                this.updateTimelineSync(true);
                 this.saveData();
                 this.toastr.warning('Đã xóa đoạn text!');
                 this.cd.detectChanges();
@@ -1827,6 +1906,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 scene.images.splice(imgIdx, 1);
                 this.selectedItems.clear();
                 this.activeItem = null;
+                const hasRemainingMedia = this.projectData?.scenes?.some((s: any) => 
+                    (s.videos && s.videos.length > 0) || (s.images && s.images.length > 0)
+                );
+                if (!hasRemainingMedia) {
+                    this.selectedFrame = null;
+                }
+                this.updateTimelineSync(true);
                 this.saveData();
                 this.toastr.warning('Đã xóa hình ảnh!');
                 this.cd.detectChanges();
@@ -2405,19 +2491,31 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         for (const scene of this.projectData.scenes) {
             if (scene.videos) {
                 for (const v of scene.videos) {
-                    const end = (v.startTime || 0) + (v.duration || 5);
+                    const end = (Number(v.startTime) || 0) + (Number(v.duration) || 5);
+                    if (end > maxTime) maxTime = end;
+                }
+            }
+            if (scene.images) {
+                for (const img of scene.images) {
+                    const end = (Number(img.startTime) || 0) + (Number(img.duration) || 5);
                     if (end > maxTime) maxTime = end;
                 }
             }
             if (scene.subtitles) {
                 for (const s of scene.subtitles) {
-                    const end = (s.startTime || 0) + (s.duration || 5);
+                    const end = (Number(s.startTime) || 0) + (Number(s.duration) || 5);
+                    if (end > maxTime) maxTime = end;
+                }
+            }
+            if (scene.texts) {
+                for (const t of scene.texts) {
+                    const end = (Number(t.startTime) || 0) + (Number(t.duration) || 5);
                     if (end > maxTime) maxTime = end;
                 }
             }
             if (scene.extractedAudios) {
                 for (const a of scene.extractedAudios) {
-                    const end = (a.startTime || 0) + (a.duration || 5);
+                    const end = (Number(a.startTime) || 0) + (Number(a.duration) || 5);
                     if (end > maxTime) maxTime = end;
                 }
             }
@@ -2489,19 +2587,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             // Kiểm tra và phát hiện chuyển cảnh / chuyển đổi giữa Video hoặc Hình ảnh
             let sceneChanged = false;
             let currentPlayingVideo = null;
+            let currentPlayingOverlayVideo = null;
             let currentPlayingImage = null;
 
             if (this.projectData?.scenes) {
                 for (const sc of this.projectData.scenes) {
                     if (sc.videos) {
-                        const sortedVideos = [...sc.videos].sort((a, b) => (b.trackIndex || 0) - (a.trackIndex || 0));
-                        for (const v of sortedVideos) {
+                        for (const v of sc.videos) {
                             if (v.disabled) continue;
                             const s = v.startTime || 0;
                             const e = s + (v.duration || 5);
                             if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
-                                if (!currentPlayingVideo || (v.trackIndex || 0) > (currentPlayingVideo.trackIndex || 0)) {
-                                    currentPlayingVideo = v;
+                                const tIdx = v.trackIndex || 0;
+                                if (tIdx === 0) {
+                                    if (!currentPlayingVideo) currentPlayingVideo = v;
+                                } else {
+                                    if (!currentPlayingOverlayVideo || tIdx > (currentPlayingOverlayVideo.trackIndex || 0)) {
+                                        currentPlayingOverlayVideo = v;
+                                    }
                                 }
                             }
                         }
@@ -2517,15 +2620,37 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             }
                         }
                     }
-                    if (currentPlayingVideo && currentPlayingImage) break;
                 }
             }
 
-            const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.url || currentPlayingImage.src || currentPlayingImage.controlImageUrl || currentPlayingImage.imagePath || currentPlayingImage.path || currentPlayingImage.dataUrl || null) : null;
+            // Nếu không có video Track 0 nhưng có video Track 1+, đưa lên làm video chính nếu không có video chính
+            if (!currentPlayingVideo && currentPlayingOverlayVideo) {
+                currentPlayingVideo = currentPlayingOverlayVideo;
+                currentPlayingOverlayVideo = null;
+            }
 
-            if (currentPlayingVideo !== this.activeVideo || this.previewOverlayImageUrl !== activeOverlayUrl) {
+            const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.url || currentPlayingImage.src || currentPlayingImage.controlImageUrl || currentPlayingImage.imagePath || currentPlayingImage.path || currentPlayingImage.dataUrl || null) : null;
+            const activeOverlayVidUrl = currentPlayingOverlayVideo ? (currentPlayingOverlayVideo.videoUrl || null) : null;
+
+            if (currentPlayingVideo !== this.activeVideo || this.previewOverlayImageUrl !== activeOverlayUrl || this.previewOverlayVideoUrl !== activeOverlayVidUrl) {
                 this.updateTimelineSync();
                 sceneChanged = true;
+            } else {
+                // Đồng bộ playback của overlay video player
+                if (this.overlayVideoPlayer?.nativeElement && this.activeOverlayVideo?.videoUrl) {
+                    const oVidEl = this.overlayVideoPlayer.nativeElement;
+                    const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (this.activeOverlayVideo.startTime || 0) + (this.activeOverlayVideo.trimStart || 0));
+                    if ((oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.3) && oVidEl.readyState >= 1) {
+                        if (!oVidEl.seeking) {
+                            oVidEl.currentTime = expectedOverlayTime;
+                        }
+                    }
+                    if (this.isPlayingTimeline && (oVidEl.paused || oVidEl.ended)) {
+                        oVidEl.play().catch(() => {});
+                    } else if (!this.isPlayingTimeline && !oVidEl.paused) {
+                        oVidEl.pause();
+                    }
+                }
             }
 
             // Đồng bộ âm thanh (WaveSurfers) theo từng mili-giây của timeline
@@ -2556,6 +2681,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement) {
             this.mainVideoPlayer.nativeElement.pause();
+        }
+        if (this.overlayVideoPlayer && this.overlayVideoPlayer.nativeElement) {
+            this.overlayVideoPlayer.nativeElement.pause();
         }
         if (this.mainAudioPlayer && this.mainAudioPlayer.nativeElement) {
             this.mainAudioPlayer.nativeElement.pause();
@@ -2642,22 +2770,30 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (!this.projectData || !this.projectData.scenes) return;
 
         let foundVideo = null;
+        let foundOverlayVideo = null;
         let foundScene = null;
+        let foundOverlayScene = null;
         let foundImage = null;
 
         for (const scene of this.projectData.scenes) {
-            // Find active video (Ưu tiên video ở Track cao hơn: Track 2 đè lên Track 1)
+            // Find active videos (Tách biệt Track 0 làm background, Track 1+ làm Overlay Video)
             if (scene.videos) {
-                // Sắp xếp kiểm tra video ở Track 2 trước Track 1
-                const sortedVideos = [...scene.videos].sort((a, b) => (b.trackIndex || 0) - (a.trackIndex || 0));
-                for (const v of sortedVideos) {
+                for (const v of scene.videos) {
                     if (v.disabled) continue;
                     const start = v.startTime || 0;
                     const end = start + (v.duration || 5);
                     if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
-                        if (!foundVideo || (v.trackIndex || 0) > (foundVideo.trackIndex || 0)) {
-                            foundVideo = v;
-                            foundScene = scene;
+                        const tIdx = v.trackIndex || 0;
+                        if (tIdx === 0) {
+                            if (!foundVideo) {
+                                foundVideo = v;
+                                foundScene = scene;
+                            }
+                        } else {
+                            if (!foundOverlayVideo || tIdx > (foundOverlayVideo.trackIndex || 0)) {
+                                foundOverlayVideo = v;
+                                foundOverlayScene = scene;
+                            }
                         }
                     }
                 }
@@ -2674,18 +2810,30 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
             }
-            if (foundVideo && foundImage) break;
+        }
+
+        // Nếu chỉ có video ở Track 1+ mà Track 0 trống, lấy video đó làm video chính
+        if (!foundVideo && foundOverlayVideo) {
+            foundVideo = foundOverlayVideo;
+            foundScene = foundOverlayScene;
+            foundOverlayVideo = null;
+            foundOverlayScene = null;
         }
 
         // Cập nhật URL ảnh Overlay từ Track Images
         const targetOverlayImageUrl = foundImage ? (foundImage.imageUrl || foundImage.url || foundImage.src || foundImage.controlImageUrl || foundImage.imagePath || foundImage.path || foundImage.dataUrl || null) : null;
         this.previewOverlayImageUrl = targetOverlayImageUrl;
 
+        // Cập nhật Video Overlay từ Track Video 1+ (Hỗ trợ Transparent Video WebM/Alpha)
+        const targetOverlayVideoUrl = foundOverlayVideo?.videoUrl || null;
+        this.activeOverlayVideo = foundOverlayVideo;
+        this.previewOverlayVideoUrl = targetOverlayVideoUrl;
+
         // Kiểm tra xem clip video này đã có phân đoạn âm thanh rời (extracted audio) chưa
         const isVideoCoveredByExtractedAudio = foundVideo && foundScene && this.hasExtractedAudio(foundScene, foundVideo);
         const shouldMuteVideoEl = foundVideo ? (foundVideo.muted || isVideoCoveredByExtractedAudio) : true;
 
-        // Handle Video
+        // Handle Main Video
         const targetVideoUrl = foundVideo?.videoUrl || null;
         const targetImageUrl = foundVideo?.imageUrl || null;
 
@@ -2695,7 +2843,6 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.previewImageUrl = targetImageUrl || (targetVideoUrl ? null : targetOverlayImageUrl);
 
             if (foundVideo && targetVideoUrl) {
-                // Cần setTimeout để chờ view update tag video/img
                 setTimeout(() => {
                     if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement && this.previewVideoUrl) {
                         const vidEl = this.mainVideoPlayer.nativeElement;
@@ -2730,6 +2877,29 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     vidEl.pause();
                 }
             }
+        }
+
+        // Handle Overlay Video Player Sync
+        if (this.activeOverlayVideo && this.activeOverlayVideo.videoUrl) {
+            setTimeout(() => {
+                if (this.overlayVideoPlayer && this.overlayVideoPlayer.nativeElement && this.previewOverlayVideoUrl) {
+                    const oVidEl = this.overlayVideoPlayer.nativeElement;
+                    const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (this.activeOverlayVideo.startTime || 0) + (this.activeOverlayVideo.trimStart || 0));
+                    if ((forceSeek || oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.3) && oVidEl.readyState >= 1) {
+                        if (!oVidEl.seeking) {
+                            oVidEl.currentTime = expectedOverlayTime;
+                        }
+                    }
+                    oVidEl.muted = this.activeOverlayVideo.muted ?? true;
+                    if (this.isPlayingTimeline && (oVidEl.paused || oVidEl.ended)) {
+                        oVidEl.play().catch(e => console.error("Error playing overlay video:", e));
+                    } else if (!this.isPlayingTimeline && !oVidEl.paused) {
+                        oVidEl.pause();
+                    }
+                }
+            }, 0);
+        } else if (this.overlayVideoPlayer && this.overlayVideoPlayer.nativeElement) {
+            this.overlayVideoPlayer.nativeElement.pause();
         }
 
         // Handle Subtitles & Extracted Audios
@@ -2786,6 +2956,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.previewVideoUrl = null;
         this.previewImageUrl = null;
         this.previewAudioUrl = null;
+        this.previewOverlayImageUrl = null;
+        this.previewOverlayVideoUrl = null;
+        this.activeOverlayVideo = null;
+        this.currentSubtitleInfo = null;
     }
 
     // --- Scrubber Drag Logic ---
@@ -4360,7 +4534,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.selectAllItems();
         } else if ((event.ctrlKey || event.metaKey) && (event.key === 's' || event.key === 'S')) {
             event.preventDefault();
-            this.saveData(true);
+            this.userManualSave();
         } else if ((event.ctrlKey || event.metaKey) && (event.key === 'b' || event.key === 'B' || event.code === 'KeyB')) {
             if (isEditingInput) return;
             event.preventDefault();
@@ -5173,42 +5347,32 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
-    async saveData(force: boolean = false) {
-        const executeSave = async () => {
+    // Mọi thao tác chỉnh sửa chỉ đánh dấu markDirty(). Chỉ lưu khi user bấm nút hoặc gõ CTRL+S.
+    saveData(force: boolean = false) {
+        this.markDirty();
+    }
+
+    // Hàm lưu thực sự do người dùng chủ động kích hoạt (Bấm nút Lưu trên header hoặc nhấn CTRL+S)
+    async userManualSave() {
+        if (this.isSaving) return;
+        this.isSaving = true;
+        this.cd.detectChanges();
+
+        try {
             const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
             await this.multiAccountService.setItem(storageKey, this.projectData);
-            if (force) {
-                await this.multiAccountService.forceSave();
-            }
+            await this.multiAccountService.forceSave();
             this.hasUnsavedChanges = false;
             this.cd.detectChanges();
-        };
-
-        if (force) {
-            if (this.isSaving) return;
-            this.isSaving = true;
-            this.cd.detectChanges();
-
-            if (this.saveTimeout) {
-                clearTimeout(this.saveTimeout);
-                this.saveTimeout = null;
-            }
-
-            try {
-                await executeSave();
-                this.toastr.success('Đã lưu!');
-            } catch (err: any) {
-                console.error('[SaveData] Lỗi lưu:', err);
-                this.toastr.error('Lỗi khi lưu dữ liệu: ' + (err?.message || err));
-            } finally {
-                setTimeout(() => {
-                    this.isSaving = false;
-                    this.cd.detectChanges();
-                }, 300);
-            }
-        } else {
-            // Đánh dấu cần lưu trong RAM mà không ghi đĩa / DB liên tục gây lag
-            this.markDirty();
+            this.toastr.success('Đã lưu thành công!');
+        } catch (err: any) {
+            console.error('[SaveData] Lỗi lưu:', err);
+            this.toastr.error('Lỗi khi lưu dữ liệu: ' + (err?.message || err));
+        } finally {
+            setTimeout(() => {
+                this.isSaving = false;
+                this.cd.detectChanges();
+            }, 300);
         }
     }
 
@@ -9158,6 +9322,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             scene.subtitles.splice(idx, 1);
                             this.activeItem = null;
                             this.destroyInspectorWaveSurfer();
+                            this.updateActiveSubtitleInfo();
+                            this.updateTimelineSync(true);
                             this.saveData();
                             this.toastr.warning(`Đã xoá phụ đề!`);
                             setTimeout(() => this.initWaveSurfers(), 300);
@@ -9175,6 +9341,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             scene.extractedAudios.splice(idx, 1);
                             this.activeItem = null;
                             this.destroyInspectorWaveSurfer();
+                            this.updateActiveSubtitleInfo();
+                            this.updateTimelineSync(true);
                             this.saveData();
                             this.toastr.warning(`Đã xoá âm thanh!`);
                             setTimeout(() => this.initWaveSurfers(), 300);
@@ -9202,7 +9370,16 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             }
                             scene.videos.splice(idx, 1);
                             this.activeItem = null;
+                            this.activeVideo = null;
+                            const hasRemainingMedia = this.projectData?.scenes?.some((s: any) => 
+                                (s.videos && s.videos.length > 0) || (s.images && s.images.length > 0)
+                            );
+                            if (!hasRemainingMedia) {
+                                this.selectedFrame = null;
+                            }
                             this.destroyInspectorWaveSurfer();
+                            this.updateActiveSubtitleInfo();
+                            this.updateTimelineSync(true);
                             this.saveData();
                             this.toastr.warning(`Đã xoá video!`);
                             this.cd.detectChanges();
@@ -9224,6 +9401,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             confirm: 'Xóa',
             cb: () => {
                 scene.subtitles.splice(subIdx, 1);
+                this.activeItem = null;
+                this.updateActiveSubtitleInfo();
+                this.updateTimelineSync(true);
                 this.saveData();
                 this.toastr.warning(`Đã xóa audio!`);
                 setTimeout(() => this.initWaveSurfers(), 500);
@@ -9246,6 +9426,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     if (video) video.muted = false;
                 }
                 scene.extractedAudios.splice(aIdx, 1);
+                this.activeItem = null;
+                this.updateActiveSubtitleInfo();
+                this.updateTimelineSync(true);
                 this.saveData();
                 this.toastr.warning(`Đã xóa âm thanh!`);
                 setTimeout(() => this.initWaveSurfers(), 500);
@@ -9370,6 +9553,16 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     this.projectData.scenes.splice(sceneIdx, 1);
                 }
 
+                this.activeItem = null;
+                this.activeVideo = null;
+                const hasRemainingMedia = this.projectData?.scenes?.some((s: any) => 
+                    (s.videos && s.videos.length > 0) || (s.images && s.images.length > 0)
+                );
+                if (!hasRemainingMedia) {
+                    this.selectedFrame = null;
+                }
+                this.updateActiveSubtitleInfo();
+                this.updateTimelineSync(true);
                 this.saveData();
                 this.toastr.warning(`Đã xóa video và dồn timeline!`);
                 setTimeout(() => this.updateLines(), 100);

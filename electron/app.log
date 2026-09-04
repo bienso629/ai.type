@@ -3697,3 +3697,43 @@ asyncio.exceptions.CancelledError
 2026-09-04 11:16:24,109 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
 2026-09-04 11:16:24,109 INFO uvicorn.error: Application startup complete.
 2026-09-04 11:16:24,109 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-09-04 15:15:53,455 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-09-04 15:15:53,564 INFO unified_app: [router] Included profiles_router
+2026-09-04 15:15:53,580 INFO unified_app: [router] Included accounts_router
+2026-09-04 15:15:53,591 INFO unified_app: [router] Included optional search_click_router
+2026-09-04 15:15:53,593 INFO unified_app: [router] Included optional like_click_router
+2026-09-04 15:15:53,596 INFO unified_app: [router] Included optional captcha_auto_router
+2026-09-04 15:15:53,598 INFO unified_app: [router] Included optional comment_click_router
+2026-09-04 15:15:53,601 INFO unified_app: [router] Included optional opera_ai_router
+2026-09-04 15:15:53,672 INFO uvicorn.error: Started server process [93090]
+2026-09-04 15:15:53,672 INFO uvicorn.error: Waiting for application startup.
+2026-09-04 15:15:53,672 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-09-04 15:15:53,672 INFO uvicorn.error: Application startup complete.
+2026-09-04 15:15:53,672 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-09-04 15:37:05,088 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-09-04 15:37:05,176 INFO unified_app: [router] Included profiles_router
+2026-09-04 15:37:05,192 INFO unified_app: [router] Included accounts_router
+2026-09-04 15:37:05,202 INFO unified_app: [router] Included optional search_click_router
+2026-09-04 15:37:05,204 INFO unified_app: [router] Included optional like_click_router
+2026-09-04 15:37:05,206 INFO unified_app: [router] Included optional captcha_auto_router
+2026-09-04 15:37:05,208 INFO unified_app: [router] Included optional comment_click_router
+2026-09-04 15:37:05,211 INFO unified_app: [router] Included optional opera_ai_router
+2026-09-04 15:37:05,281 INFO uvicorn.error: Started server process [97841]
+2026-09-04 15:37:05,281 INFO uvicorn.error: Waiting for application startup.
+2026-09-04 15:37:05,281 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-09-04 15:37:05,281 INFO uvicorn.error: Application startup complete.
+2026-09-04 15:37:05,281 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-09-04 15:41:27,330 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-09-04 15:41:27,622 INFO unified_app: [router] Included profiles_router
+2026-09-04 15:41:27,671 INFO unified_app: [router] Included accounts_router
+2026-09-04 15:41:27,700 INFO unified_app: [router] Included optional search_click_router
+2026-09-04 15:41:27,707 INFO unified_app: [router] Included optional like_click_router
+2026-09-04 15:41:27,718 INFO unified_app: [router] Included optional captcha_auto_router
+2026-09-04 15:41:27,725 INFO unified_app: [router] Included optional comment_click_router
+2026-09-04 15:41:27,736 INFO unified_app: [router] Included optional opera_ai_router
+2026-09-04 15:41:27,937 INFO uvicorn.error: Started server process [98952]
+2026-09-04 15:41:27,938 INFO uvicorn.error: Waiting for application startup.
+2026-09-04 15:41:27,938 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-09-04 15:41:27,941 INFO uvicorn.error: Application startup complete.
+2026-09-04 15:41:27,941 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
