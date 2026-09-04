@@ -3055,13 +3055,30 @@ function getResolvedFontName(requestedFontName) {
 }
 
 ipcMain.handle("render-video-with-frame", async (event, payload) => {
-    let { videoPath, frameBgPath, frameBgVideoPath, frameMaskPath, outputPath, quad, canvasWidth, canvasHeight, subtitles, subtitleBottom, subtitleFontSize, subtitleFontFamily, previewHeight } = payload || {};
+    let { 
+        videoPath, 
+        totalDuration, 
+        baseClips, 
+        overlays, 
+        audioClips, 
+        frameBgPath, 
+        frameBgVideoPath, 
+        frameMaskPath, 
+        outputPath, 
+        quad, 
+        canvasWidth, 
+        canvasHeight, 
+        subtitles, 
+        subtitleBottom, 
+        subtitleFontSize, 
+        subtitleFontFamily, 
+        previewHeight 
+    } = payload || {};
+    
     try {
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
-        let cleanVidPath = videoPath;
-        if (cleanVidPath.startsWith('media://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(8));
-        else if (cleanVidPath.startsWith('file://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(7));
-        if (cleanVidPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVidPath = cleanVidPath.substring(1);
+        const W = canvasWidth || 2286;
+        const H = canvasHeight || 4096;
 
         let cleanBgVideoPath = frameBgVideoPath || '';
         if (cleanBgVideoPath) {
@@ -3100,9 +3117,6 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
             else if (fs.existsSync(cand2)) cleanMaskPath = cand2;
         }
 
-        if (!fs.existsSync(cleanVidPath)) {
-            return { success: false, error: "Video input not found: " + cleanVidPath };
-        }
         const hasBgVideo = !!cleanBgVideoPath && fs.existsSync(cleanBgVideoPath);
         if (!hasBgVideo && !fs.existsSync(cleanBgPath)) {
             return { success: false, error: "Frame background not found: " + cleanBgPath };
@@ -3124,8 +3138,76 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
         const Y2 = quad?.bottomLeft?.y || 2376.3;
         const X3 = quad?.bottomRight?.x || 1958.0;
         const Y3 = quad?.bottomRight?.y || 2275.0;
-        const W = canvasWidth || 2286;
-        const H = canvasHeight || 4096;
+
+        // Chuẩn hoá danh sách Base Clips (Track 0)
+        let validBaseClips = [];
+        if (Array.isArray(baseClips) && baseClips.length > 0) {
+            for (const item of baseClips) {
+                let p = item.path || '';
+                if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+                else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+                if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+                if (fs.existsSync(p)) {
+                    validBaseClips.push({ ...item, cleanPath: p });
+                }
+            }
+        }
+        if (validBaseClips.length === 0 && videoPath) {
+            let p = videoPath;
+            if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+            else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+            if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+            if (fs.existsSync(p)) {
+                validBaseClips.push({ type: 'video', cleanPath: p, startTime: 0, duration: Number(totalDuration) || 5, trimStart: 0, trackIndex: 0 });
+            }
+        }
+
+        // Chuẩn hoá danh sách Overlays (Track 1+ và Images)
+        let validOverlays = [];
+        if (Array.isArray(overlays) && overlays.length > 0) {
+            for (const item of overlays) {
+                let p = item.path || '';
+                if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+                else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+                if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+                if (fs.existsSync(p)) {
+                    validOverlays.push({ ...item, cleanPath: p });
+                }
+            }
+        }
+
+        // Chuẩn hoá danh sách Audio Clips - Kiểm tra xem file có stream audio hay không
+        let validAudioClips = [];
+        if (Array.isArray(audioClips) && audioClips.length > 0) {
+            for (const item of audioClips) {
+                let p = item.path || '';
+                if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+                else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+                if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+                if (fs.existsSync(p)) {
+                    try {
+                        const probeOut = execSync(`"${ffmpegPath}" -i "${p}" 2>&1`, { encoding: 'utf-8' });
+                        if (probeOut && (probeOut.includes('Audio:') || probeOut.includes('Stream #') && probeOut.includes(': Audio:'))) {
+                            validAudioClips.push({ ...item, cleanPath: p });
+                        }
+                    } catch (pe) {
+                        const out = (pe && (pe.stdout || pe.stderr || pe.message)) || '';
+                        if (out.includes('Audio:')) {
+                            validAudioClips.push({ ...item, cleanPath: p });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Tính tổng thời lượng cuối cùng
+        let maxDur = Number(totalDuration) || 0;
+        if (maxDur <= 0) {
+            for (const c of validBaseClips) maxDur = Math.max(maxDur, (Number(c.startTime) || 0) + (Number(c.duration) || 5));
+            for (const o of validOverlays) maxDur = Math.max(maxDur, (Number(o.startTime) || 0) + (Number(o.duration) || 5));
+            for (const a of validAudioClips) maxDur = Math.max(maxDur, (Number(a.startTime) || 0) + (Number(a.duration) || 5));
+        }
+        if (maxDur <= 0) maxDur = 5;
 
         // Xử lý tạo file phụ đề ASS nếu có danh sách subtitles
         let assFilePath = null;
@@ -3148,7 +3230,6 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
             const flatFontsDir = getFlatFontsDir();
             const escapedFontsDir = flatFontsDir.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
             
-            // Tỷ lệ chuẩn tương ứng với độ phân giải của khung hình Mockup (PlayResY = 4096)
             const previewH = Number(previewHeight) || 570;
             const marginV = Math.max(15, Math.round((Number(subtitleBottom !== undefined ? subtitleBottom : 20) / previewH) * H));
             const cleanFontName = getResolvedFontName(subtitleFontFamily);
@@ -3189,36 +3270,163 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             subtitleFilter = `subtitles=filename='${escapedAss}':fontsdir='${escapedFontsDir}'`;
         }
 
-        let filterComplex = '';
-        const args = [
-            '-y',
-            '-i', cleanVidPath
-        ];
+        const args = ['-y'];
 
+        // 1. Input 0: Background
         if (hasBgVideo) {
-            // Sử dụng video nền lặp lại
             args.push('-stream_loop', '-1', '-i', cleanBgVideoPath);
         } else {
-            // Sử dụng ảnh nền tĩnh lặp lại
             args.push('-loop', '1', '-i', cleanBgPath);
         }
+        let currentInputIdx = 1;
 
-        if (cleanMaskPath && fs.existsSync(cleanMaskPath)) {
-            args.push('-loop', '1', '-i', cleanMaskPath);
-            filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[2:v]scale=${W}:${H}:flags=lanczos,format=gray[mask];[0:v]scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[warped][mask]alphamerge[maskedvid];[bg][maskedvid]overlay=0:0${subtitleFilter ? `[merged];[merged]${subtitleFilter}[outv]` : `[outv]`}`;
-        } else {
-            filterComplex = `[1:v]scale=${W}:${H}:flags=lanczos[bg];[0:v]scale=${W}:${H},perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped];[bg][warped]overlay=0:0${subtitleFilter ? `[merged];[merged]${subtitleFilter}[outv]` : `[outv]`}`;
+        // 2. Input 1: Mask
+        args.push('-loop', '1', '-i', cleanMaskPath);
+        const maskInputIndex = currentInputIdx;
+        currentInputIdx++;
+
+        // 3. Inputs: Base Clips (Track 0)
+        const baseClipIndices = [];
+        for (const bc of validBaseClips) {
+            if (bc.type === 'image') {
+                args.push('-loop', '1', '-i', bc.cleanPath);
+            } else {
+                args.push('-i', bc.cleanPath);
+            }
+            baseClipIndices.push({ inputIndex: currentInputIdx, ...bc });
+            currentInputIdx++;
         }
+
+        // 4. Inputs: Overlays (Track 1+ và Images)
+        const overlayIndices = [];
+        for (const ov of validOverlays) {
+            if (ov.type === 'image') {
+                args.push('-loop', '1', '-i', ov.cleanPath);
+            } else {
+                args.push('-i', ov.cleanPath);
+            }
+            overlayIndices.push({ inputIndex: currentInputIdx, ...ov });
+            currentInputIdx++;
+        }
+
+        // 5. Inputs: Audio Clips
+        const audioIndices = [];
+        for (const ac of validAudioClips) {
+            args.push('-i', ac.cleanPath);
+            audioIndices.push({ inputIndex: currentInputIdx, ...ac });
+            currentInputIdx++;
+        }
+
+        let filterParts = [];
+
+        // Scale background
+        filterParts.push(`[0:v]scale=${W}:${H}:flags=lanczos[bg]`);
+
+        // Tạo Base Mockup Screen Canvas (Track 0)
+        filterParts.push(`color=c=black:s=${W}x${H}:d=${maxDur}[base_screen_canvas]`);
+        let currentScreenBase = '[base_screen_canvas]';
+
+        let baseCounter = 0;
+        for (const bc of baseClipIndices) {
+            const start = Number(bc.startTime) || 0;
+            const end = start + (Number(bc.duration) || 5);
+            const trimS = Number(bc.trimStart) || 0;
+            const dur = Number(bc.duration) || 5;
+            const scaledTag = `[bc_scaled_${baseCounter}]`;
+            const nextTag = `[bc_comp_${baseCounter}]`;
+
+            if (bc.type === 'image') {
+                filterParts.push(`[${bc.inputIndex}:v]scale=${W}:${H}:flags=lanczos,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+            } else {
+                filterParts.push(`[${bc.inputIndex}:v]trim=start=${trimS}:duration=${dur},setpts=PTS-STARTPTS+${start}/TB,scale=${W}:${H}:flags=lanczos${scaledTag}`);
+            }
+            filterParts.push(`${currentScreenBase}${scaledTag}overlay=0:0:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            currentScreenBase = nextTag;
+            baseCounter++;
+        }
+
+        // Perspective Quad Warp cho màn hình Mockup
+        filterParts.push(`${currentScreenBase}perspective=x0=${X0}:y0=${Y0}:x1=${X1}:y1=${Y1}:x2=${X2}:y2=${Y2}:x3=${X3}:y3=${Y3}:sense=destination:interpolation=cubic[warped]`);
+
+        // Masking màn hình Mockup lồng vào Background
+        filterParts.push(`[${maskInputIndex}:v]scale=${W}:${H}:flags=lanczos,format=gray[mask]`);
+        filterParts.push(`[warped][mask]alphamerge[maskedvid]`);
+        filterParts.push(`[bg][maskedvid]overlay=0:0[base_comp]`);
+        let currentFullBase = '[base_comp]';
+
+        // Đè các Track 1+ / Overlay Clips lên trên cùng
+        let ovCounter = 0;
+        for (const ov of overlayIndices) {
+            const start = Number(ov.startTime) || 0;
+            const end = start + (Number(ov.duration) || 5);
+            const trimS = Number(ov.trimStart) || 0;
+            const dur = Number(ov.duration) || 5;
+            const scaledTag = `[ov_scaled_${ovCounter}]`;
+            const nextTag = `[ov_layer_${ovCounter}]`;
+
+            if (ov.type === 'image') {
+                filterParts.push(`[${ov.inputIndex}:v]scale=${W}:${H}:flags=lanczos,format=rgba,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+            } else {
+                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},setpts=PTS-STARTPTS+${start}/TB,scale=${W}:${H}:flags=lanczos,format=rgba${scaledTag}`);
+            }
+            filterParts.push(`${currentFullBase}${scaledTag}overlay=0:0:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            currentFullBase = nextTag;
+            ovCounter++;
+        }
+
+        // Bắn Subtitles & Texts
+        if (subtitleFilter) {
+            filterParts.push(`${currentFullBase}${subtitleFilter}[outv]`);
+        } else {
+            filterParts.push(`${currentFullBase}null[outv]`);
+        }
+
+        // Xử lý Audio Filter Graph: Mix toàn bộ Audio Tracks
+        let hasAudioOutput = false;
+        if (audioIndices.length > 0) {
+            let audioPadParts = [];
+            let aCounter = 0;
+            for (const ac of audioIndices) {
+                const startMs = Math.round((Number(ac.startTime) || 0) * 1000);
+                const vol = Number(ac.volume) !== undefined ? Number(ac.volume) : 1;
+                const trimS = Number(ac.trimStart) || 0;
+                const dur = Number(ac.duration) || 5;
+                const outAudTag = `[a_processed_${aCounter}]`;
+
+                filterParts.push(`[${ac.inputIndex}:a]atrim=start=${trimS}:duration=${dur},asetpts=PTS-STARTPTS,adelay=${startMs}|${startMs},volume=${vol}${outAudTag}`);
+                audioPadParts.push(outAudTag);
+                aCounter++;
+            }
+
+            if (audioPadParts.length === 1) {
+                filterParts.push(`${audioPadParts[0]}apad=whole_dur=${maxDur}[outa]`);
+            } else {
+                filterParts.push(`${audioPadParts.join('')}amix=inputs=${audioPadParts.length}:duration=longest:dropout_transition=0,apad=whole_dur=${maxDur}[outa]`);
+            }
+            hasAudioOutput = true;
+        }
+
+        const filterComplex = filterParts.join(';');
 
         args.push(
             '-filter_complex', filterComplex,
-            '-map', '[outv]',
-            '-map', '0:a?',
+            '-map', '[outv]'
+        );
+
+        if (hasAudioOutput) {
+            args.push(
+                '-map', '[outa]',
+                '-c:a', 'aac',
+                '-b:a', '192k'
+            );
+        }
+
+        args.push(
+            '-t', String(maxDur),
             '-c:v', 'libx264',
             '-preset', 'fast',
             '-crf', '17',
             '-pix_fmt', 'yuv420p',
-            '-shortest',
             outputPath
         );
 
@@ -3242,8 +3450,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     console.log('[render-video-with-frame] Xuất video thành công:', outputPath);
                     resolve({ success: true, outputPath });
                 } else {
-                    console.error('[render-video-with-frame] Lỗi FFmpeg:', stderrData.slice(-500));
-                    resolve({ success: false, error: `FFmpeg exited with code ${code}` });
+                    console.error('[render-video-with-frame] Lỗi FFmpeg:', stderrData.slice(-1000));
+                    resolve({ success: false, error: `FFmpeg exited with code ${code}: ${stderrData.slice(-600)}` });
                 }
             });
             child.on('error', (err) => {
@@ -3258,16 +3466,86 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 });
 
 ipcMain.handle("render-video-with-subtitles", async (event, payload) => {
-    let { videoPath, outputPath, subtitles, subtitleBottom, subtitleFontSize, subtitleFontFamily, previewHeight } = payload || {};
+    let { 
+        videoPath, 
+        totalDuration, 
+        baseClips, 
+        overlays, 
+        audioClips, 
+        outputPath, 
+        subtitles, 
+        subtitleBottom, 
+        subtitleFontSize, 
+        subtitleFontFamily, 
+        previewHeight 
+    } = payload || {};
+
     try {
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
-        let cleanVidPath = videoPath;
-        if (cleanVidPath.startsWith('media://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(8));
-        else if (cleanVidPath.startsWith('file://')) cleanVidPath = decodeURIComponent(cleanVidPath.substring(7));
-        if (cleanVidPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanVidPath = cleanVidPath.substring(1);
 
-        if (!fs.existsSync(cleanVidPath)) {
-            return { success: false, error: "Video input not found: " + cleanVidPath };
+        // Chuẩn hoá danh sách Base Clips (Track 0)
+        let validBaseClips = [];
+        if (Array.isArray(baseClips) && baseClips.length > 0) {
+            for (const item of baseClips) {
+                let p = item.path || '';
+                if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+                else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+                if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+                if (fs.existsSync(p)) {
+                    validBaseClips.push({ ...item, cleanPath: p });
+                }
+            }
+        }
+        if (validBaseClips.length === 0 && videoPath) {
+            let p = videoPath;
+            if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+            else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+            if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+            if (fs.existsSync(p)) {
+                validBaseClips.push({ type: 'video', cleanPath: p, startTime: 0, duration: Number(totalDuration) || 5, trimStart: 0, trackIndex: 0 });
+            }
+        }
+
+        // Chuẩn hoá danh sách Overlays (Track 1+ và Images)
+        let validOverlays = [];
+        if (Array.isArray(overlays) && overlays.length > 0) {
+            for (const item of overlays) {
+                let p = item.path || '';
+                if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+                else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+                if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+                if (fs.existsSync(p)) {
+                    validOverlays.push({ ...item, cleanPath: p });
+                }
+            }
+        }
+
+        // Chuẩn hoá danh sách Audio Clips - Kiểm tra xem file có stream audio hay không
+        let validAudioClips = [];
+        if (Array.isArray(audioClips) && audioClips.length > 0) {
+            for (const item of audioClips) {
+                let p = item.path || '';
+                if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
+                else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+                if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
+                if (fs.existsSync(p)) {
+                    try {
+                        const probeOut = execSync(`"${ffmpegPath}" -i "${p}" 2>&1`, { encoding: 'utf-8' });
+                        if (probeOut && (probeOut.includes('Audio:') || probeOut.includes('Stream #') && probeOut.includes(': Audio:'))) {
+                            validAudioClips.push({ ...item, cleanPath: p });
+                        }
+                    } catch (pe) {
+                        const out = (pe && (pe.stdout || pe.stderr || pe.message)) || '';
+                        if (out.includes('Audio:')) {
+                            validAudioClips.push({ ...item, cleanPath: p });
+                        }
+                    }
+                }
+            }
+        }
+
+        if (validBaseClips.length === 0 && validOverlays.length === 0) {
+            return { success: false, error: "Không tìm thấy clip video/hình ảnh nguồn để xuất" };
         }
 
         const outDir = path.dirname(outputPath);
@@ -3275,27 +3553,40 @@ ipcMain.handle("render-video-with-subtitles", async (event, payload) => {
             fs.mkdirSync(outDir, { recursive: true });
         }
 
-        // Lấy kích thước video đầu vào để scale font và marginV chính xác
+        // Lấy kích thước video chuẩn từ clip đầu tiên
         let vidW = 1920;
         let vidH = 1080;
-        try {
-            const probeOutput = execSync(`"${ffmpegPath}" -i "${cleanVidPath}" 2>&1`, { encoding: 'utf-8' });
-            const dimMatch = probeOutput && probeOutput.match(/Video:.*,\s*(\d{3,5})x(\d{3,5})/);
-            if (dimMatch) {
-                vidW = parseInt(dimMatch[1], 10);
-                vidH = parseInt(dimMatch[2], 10);
-            }
-        } catch (pe) {
-            const out = (pe && (pe.stdout || pe.stderr || pe.message)) || '';
-            const dimMatch = out.match(/Video:.*,\s*(\d{3,5})x(\d{3,5})/);
-            if (dimMatch) {
-                vidW = parseInt(dimMatch[1], 10);
-                vidH = parseInt(dimMatch[2], 10);
+        const firstProbeTarget = validBaseClips[0]?.cleanPath || validOverlays[0]?.cleanPath;
+        if (firstProbeTarget) {
+            try {
+                const probeOutput = execSync(`"${ffmpegPath}" -i "${firstProbeTarget}" 2>&1`, { encoding: 'utf-8' });
+                const dimMatch = probeOutput && probeOutput.match(/Video:.*,\s*(\d{3,5})x(\d{3,5})/);
+                if (dimMatch) {
+                    vidW = parseInt(dimMatch[1], 10);
+                    vidH = parseInt(dimMatch[2], 10);
+                }
+            } catch (pe) {
+                const out = (pe && (pe.stdout || pe.stderr || pe.message)) || '';
+                const dimMatch = out.match(/Video:.*,\s*(\d{3,5})x(\d{3,5})/);
+                if (dimMatch) {
+                    vidW = parseInt(dimMatch[1], 10);
+                    vidH = parseInt(dimMatch[2], 10);
+                }
             }
         }
 
+        // Tính tổng thời lượng xuất video
+        let maxDur = Number(totalDuration) || 0;
+        if (maxDur <= 0) {
+            for (const c of validBaseClips) maxDur = Math.max(maxDur, (Number(c.startTime) || 0) + (Number(c.duration) || 5));
+            for (const o of validOverlays) maxDur = Math.max(maxDur, (Number(o.startTime) || 0) + (Number(o.duration) || 5));
+            for (const a of validAudioClips) maxDur = Math.max(maxDur, (Number(a.startTime) || 0) + (Number(a.duration) || 5));
+        }
+        if (maxDur <= 0) maxDur = 5;
+
+        // Xử lý tạo file phụ đề ASS
         let assFilePath = null;
-        let vfFilter = null;
+        let subtitleFilter = '';
         if (Array.isArray(subtitles) && subtitles.length > 0) {
             function formatAssTime(seconds) {
                 const s = Math.max(0, seconds);
@@ -3314,7 +3605,6 @@ ipcMain.handle("render-video-with-subtitles", async (event, payload) => {
             const flatFontsDir = getFlatFontsDir();
             const escapedFontsDir = flatFontsDir.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
 
-            // Tỷ lệ chuẩn tương ứng với độ phân giải video đầu vào (PlayResY = vidH)
             const previewH = Number(previewHeight) || 500;
             const marginV = Math.max(8, Math.round((Number(subtitleBottom !== undefined ? subtitleBottom : 20) / previewH) * vidH));
             const cleanFontName = getResolvedFontName(subtitleFontFamily);
@@ -3352,19 +3642,145 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             fs.writeFileSync(assFilePath, assContent, "utf8");
 
             const escapedAss = assFilePath.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
-            vfFilter = `subtitles=filename='${escapedAss}':fontsdir='${escapedFontsDir}'`;
+            subtitleFilter = `subtitles=filename='${escapedAss}':fontsdir='${escapedFontsDir}'`;
         }
 
-        const args = [
-            '-y',
-            '-i', cleanVidPath,
-            ...(vfFilter ? ['-vf', vfFilter] : []),
+        const args = ['-y'];
+        let currentInputIdx = 0;
+
+        // 1. Inputs: Base Clips (Track 0)
+        const baseClipIndices = [];
+        for (const bc of validBaseClips) {
+            if (bc.type === 'image') {
+                args.push('-loop', '1', '-i', bc.cleanPath);
+            } else {
+                args.push('-i', bc.cleanPath);
+            }
+            baseClipIndices.push({ inputIndex: currentInputIdx, ...bc });
+            currentInputIdx++;
+        }
+
+        // 2. Inputs: Overlays (Track 1+ và Images)
+        const overlayIndices = [];
+        for (const ov of validOverlays) {
+            if (ov.type === 'image') {
+                args.push('-loop', '1', '-i', ov.cleanPath);
+            } else {
+                args.push('-i', ov.cleanPath);
+            }
+            overlayIndices.push({ inputIndex: currentInputIdx, ...ov });
+            currentInputIdx++;
+        }
+
+        // 3. Inputs: Audio Clips
+        const audioIndices = [];
+        for (const ac of validAudioClips) {
+            args.push('-i', ac.cleanPath);
+            audioIndices.push({ inputIndex: currentInputIdx, ...ac });
+            currentInputIdx++;
+        }
+
+        let filterParts = [];
+
+        // Canvas nền tổng thể
+        filterParts.push(`color=c=black:s=${vidW}x${vidH}:d=${maxDur}[canvas_base]`);
+        let currentVideoBase = '[canvas_base]';
+
+        // Đè Base Clips (Track 0)
+        let baseCounter = 0;
+        for (const bc of baseClipIndices) {
+            const start = Number(bc.startTime) || 0;
+            const end = start + (Number(bc.duration) || 5);
+            const trimS = Number(bc.trimStart) || 0;
+            const dur = Number(bc.duration) || 5;
+            const scaledTag = `[bc_scaled_${baseCounter}]`;
+            const nextTag = `[bc_comp_${baseCounter}]`;
+
+            if (bc.type === 'image') {
+                filterParts.push(`[${bc.inputIndex}:v]scale=${vidW}:${vidH}:flags=lanczos,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+            } else {
+                filterParts.push(`[${bc.inputIndex}:v]trim=start=${trimS}:duration=${dur},setpts=PTS-STARTPTS+${start}/TB,scale=${vidW}:${vidH}:flags=lanczos${scaledTag}`);
+            }
+            filterParts.push(`${currentVideoBase}${scaledTag}overlay=0:0:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            currentVideoBase = nextTag;
+            baseCounter++;
+        }
+
+        // Đè Overlays (Track 1+ và Images)
+        let ovCounter = 0;
+        for (const ov of overlayIndices) {
+            const start = Number(ov.startTime) || 0;
+            const end = start + (Number(ov.duration) || 5);
+            const trimS = Number(ov.trimStart) || 0;
+            const dur = Number(ov.duration) || 5;
+            const scaledTag = `[ov_scaled_${ovCounter}]`;
+            const nextTag = `[ov_layer_${ovCounter}]`;
+
+            if (ov.type === 'image') {
+                filterParts.push(`[${ov.inputIndex}:v]scale=${vidW}:${vidH}:flags=lanczos,format=rgba,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+            } else {
+                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},setpts=PTS-STARTPTS+${start}/TB,scale=${vidW}:${vidH}:flags=lanczos,format=rgba${scaledTag}`);
+            }
+            filterParts.push(`${currentVideoBase}${scaledTag}overlay=0:0:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            currentVideoBase = nextTag;
+            ovCounter++;
+        }
+
+        // Phụ đề
+        if (subtitleFilter) {
+            filterParts.push(`${currentVideoBase}${subtitleFilter}[outv]`);
+        } else {
+            filterParts.push(`${currentVideoBase}null[outv]`);
+        }
+
+        // Audio Filter Graph: Mix toàn bộ Audio Tracks
+        let hasAudioOutput = false;
+        if (audioIndices.length > 0) {
+            let audioPadParts = [];
+            let aCounter = 0;
+            for (const ac of audioIndices) {
+                const startMs = Math.round((Number(ac.startTime) || 0) * 1000);
+                const vol = Number(ac.volume) !== undefined ? Number(ac.volume) : 1;
+                const trimS = Number(ac.trimStart) || 0;
+                const dur = Number(ac.duration) || 5;
+                const outAudTag = `[a_processed_${aCounter}]`;
+
+                filterParts.push(`[${ac.inputIndex}:a]atrim=start=${trimS}:duration=${dur},asetpts=PTS-STARTPTS,adelay=${startMs}|${startMs},volume=${vol}${outAudTag}`);
+                audioPadParts.push(outAudTag);
+                aCounter++;
+            }
+
+            if (audioPadParts.length === 1) {
+                filterParts.push(`${audioPadParts[0]}apad=whole_dur=${maxDur}[outa]`);
+            } else {
+                filterParts.push(`${audioPadParts.join('')}amix=inputs=${audioPadParts.length}:duration=longest:dropout_transition=0,apad=whole_dur=${maxDur}[outa]`);
+            }
+            hasAudioOutput = true;
+        }
+
+        const filterComplex = filterParts.join(';');
+
+        args.push(
+            '-filter_complex', filterComplex,
+            '-map', '[outv]'
+        );
+
+        if (hasAudioOutput) {
+            args.push(
+                '-map', '[outa]',
+                '-c:a', 'aac',
+                '-b:a', '192k'
+            );
+        }
+
+        args.push(
+            '-t', String(maxDur),
             '-c:v', 'libx264',
             '-preset', 'fast',
             '-crf', '18',
-            '-c:a', 'copy',
+            '-pix_fmt', 'yuv420p',
             outputPath
-        ];
+        );
 
         console.log('[render-video-with-subtitles] Executing FFmpeg:', ffmpegPath, args.join(' '));
 
@@ -3386,8 +3802,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     console.log('[render-video-with-subtitles] Xuất video thành công:', outputPath);
                     resolve({ success: true, outputPath });
                 } else {
-                    console.error('[render-video-with-subtitles] Lỗi FFmpeg:', stderrData.slice(-500));
-                    resolve({ success: false, error: `FFmpeg exited with code ${code}` });
+                    console.error('[render-video-with-subtitles] Lỗi FFmpeg:', stderrData.slice(-1000));
+                    resolve({ success: false, error: `FFmpeg exited with code ${code}: ${stderrData.slice(-600)}` });
                 }
             });
             child.on('error', (err) => {

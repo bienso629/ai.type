@@ -42,12 +42,17 @@ import type { ApexOptions } from 'apexcharts';
         `#pie { margin: 12px auto; }`,
         `#totals { width: min(720px, 95vw); margin: 12px auto; }`
     ],
-    template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-        <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:pie-chart'"></mat-icon>
-        <mat-label class="self-center">Báo cáo tổng quát</mat-label>
+    template: `<div class="text-lg font-semibold text-gray-700 tracking-tight flex items-center justify-between pb-3 border-b shrink-0">
+        <div class="flex items-center">
+            <mat-icon class="mr-2 text-indigo-600 icon-size-5" [svgIcon]="'feather:pie-chart'"></mat-icon>
+            <span>Báo cáo tổng quát</span>
+        </div>
+        <button mat-icon-button (click)="onNoClick()">
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
     </div>
 
-    <div mat-dialog-content class="overflow-hidden content">
+    <div mat-dialog-content class="overflow-hidden content my-2">
         <!--The content below is only a placeholder and can be replaced.-->
         <!-- template -->
         <div class="grid-wrapper">
@@ -91,6 +96,12 @@ import type { ApexOptions } from 'apexcharts';
                 </mat-grid-tile>
             </mat-grid-list>
         </div>
+    </div>
+
+    <div class="flex items-center justify-end pt-3 border-t shrink-0">
+        <button mat-flat-button class="bg-gray-100 text-gray-700 hover:bg-gray-200" (click)="onNoClick()">
+            Đóng
+        </button>
     </div>`,
 })
 export class ReportDialog implements OnInit {

@@ -96,6 +96,14 @@ import { MatDialogRef } from '@angular/material/dialog';
             </div>
         </div>
     </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between p-3 px-6 bg-gray-50 border-t shrink-0">
+        <span class="text-xs text-secondary">{{ imageUrls?.length || 0 }} mục</span>
+        <button mat-flat-button class="bg-gray-200 text-gray-700 hover:bg-gray-300" (click)="dialogRef.close()">
+            Đóng
+        </button>
+    </div>
 </div>`,
     styleUrls: ['./../../ai-image/ai-image.component.scss'],
     providers: [ChatGPTService, BlogService, DomainService],

@@ -36,19 +36,21 @@
         </div>
 
         <div class="flex items-center gap-2 flex-shrink-0 z-10">
-            <!-- Label CTRL + S / Save Button with Loading State -->
-            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono border transition-all cursor-pointer select-none"
+            <!-- Nút Lưu (CTRL + S) rõ ràng với trạng thái chưa lưu -->
+            <button type="button"
+                (click)="userManualSave()"
+                [disabled]="isSaving"
+                [title]="isSaving ? 'Đang lưu dữ liệu...' : (hasUnsavedChanges ? 'Có thay đổi chưa lưu! Bấm hoặc nhấn CTRL + S để lưu' : 'Đã lưu - Nhấn CTRL + S để lưu lại')"
+                class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium border transition-all cursor-pointer select-none active:scale-95 shadow-sm"
                 [ngClass]="{
-                    'bg-indigo-950/70 border-indigo-500/80 text-indigo-300 pointer-events-none': isSaving,
-                    'bg-amber-500/10 border-amber-500/40 text-amber-300': !isSaving && hasUnsavedChanges,
-                    'bg-neutral-800/80 border-neutral-700/60 text-neutral-400 hover:text-neutral-200': !isSaving && !hasUnsavedChanges
-                }"
-                (click)="saveData(true)"
-                [title]="isSaving ? 'Đang lưu dữ liệu...' : 'Nhấn CTRL + S để lưu'">
+                    'bg-indigo-950/80 border-indigo-500/80 text-indigo-300 pointer-events-none': isSaving,
+                    'bg-amber-500/20 border-amber-500/60 text-amber-200 hover:bg-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.25)]': !isSaving && hasUnsavedChanges,
+                    'bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:text-white hover:bg-neutral-700/70': !isSaving && !hasUnsavedChanges
+                }">
                 <mat-progress-spinner *ngIf="isSaving" diameter="12" strokeWidth="2" mode="indeterminate" class="text-indigo-400"></mat-progress-spinner>
-                <span *ngIf="!isSaving" class="w-1.5 h-1.5 rounded-full" [ngClass]="hasUnsavedChanges ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"></span>
-                <span>{{ isSaving ? 'Đang lưu...' : 'CTRL + S' }}</span>
-            </div>
+                <mat-icon *ngIf="!isSaving" class="!w-3.5 !h-3.5 !text-[14px] flex items-center justify-center" [ngClass]="hasUnsavedChanges ? 'text-amber-400' : 'text-emerald-400'">save</mat-icon>
+                <span>{{ isSaving ? 'Đang lưu...' : (hasUnsavedChanges ? 'Lưu * (CTRL+S)' : 'Lưu (CTRL+S)') }}</span>
+            </button>
 
             <button *ngIf="!projectData?.scenes?.length" mat-icon-button
                 class="text-gray-300 hover:text-white transition-colors" [matTooltip]="'app.add_track_scene' | transloco"
@@ -439,15 +441,21 @@
                             <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
                                 class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none relative z-20"
                                 (click)="toggleTimelinePlay()" />
-
-                            <!-- Lớp Hình Ảnh Nằm Đè Lên Video (Track Images Overlay) -->
-                            <img [src]="getSafeUrl(previewOverlayImageUrl)" *ngIf="previewOverlayImageUrl"
-                                class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block" />
                         </div>
+
+                        <!-- 3. Lớp Overlay Track 2+ (Hình ảnh / Video Alpha WebM trong suốt) NẰM ĐÈ LÊN TOÀN BỘ KHUNG MOCKUP -->
+                        <!-- Lớp Hình Ảnh Nằm Đè Lên Frame (Track Images Overlay) -->
+                        <img [src]="getSafeUrl(previewOverlayImageUrl)" *ngIf="previewOverlayImageUrl"
+                            class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block" />
+
+                        <!-- Lớp Video Trong Suốt Nằm Đè Lên Frame (Track Video 2+ Transparent Overlay) -->
+                        <video #overlayVideoPlayer [src]="getSafeUrl(previewOverlayVideoUrl)" *ngIf="previewOverlayVideoUrl"
+                            class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block"
+                            playsinline muted></video>
                     </div>
 
                     <!-- Khi KHÔNG có Frame Template (Normal Standard Player) -->
-                    <ng-container *ngIf="(!selectedFrame || selectedFrame.id === 'none') && (previewVideoUrl || previewImageUrl || previewOverlayImageUrl)">
+                    <ng-container *ngIf="(!selectedFrame || selectedFrame.id === 'none') && (previewVideoUrl || previewImageUrl || previewOverlayImageUrl || previewOverlayVideoUrl)">
                         <!-- Container chuẩn theo tỉ lệ xuất video (16:9 hoặc 9:16) -->
                         <div class="relative max-w-full max-h-full flex items-center justify-center m-auto overflow-hidden rounded-none shadow-2xl bg-black select-none">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
@@ -465,6 +473,11 @@
                             <!-- Lớp Hình Ảnh Nằm Đè Lên Video (Track Images Overlay) -->
                             <img [src]="getSafeUrl(previewOverlayImageUrl)" *ngIf="previewOverlayImageUrl"
                                 class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block" />
+
+                            <!-- Lớp Video Trong Suốt Đè Lên Video Nền (Track Video 2+ Transparent Overlay) -->
+                            <video #overlayVideoPlayer [src]="getSafeUrl(previewOverlayVideoUrl)" *ngIf="previewOverlayVideoUrl"
+                                class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block"
+                                playsinline muted></video>
 
                             <!-- Lưới Grid Hỗ Trợ Tỉ Lệ 16:9 & 9:16 cho Standard Player (Bao trọn khung video) -->
                             <div *ngIf="showGrid"
@@ -526,7 +539,7 @@
                         </div>
                     </ng-container>
 
-                    <div *ngIf="!previewVideoUrl && !previewImageUrl && !previewOverlayImageUrl"
+                    <div *ngIf="!previewVideoUrl && !previewImageUrl && !previewOverlayImageUrl && !previewOverlayVideoUrl"
                         class="text-neutral-500 flex flex-col items-center justify-center h-full cursor-pointer hover:text-neutral-300 transition-colors"
                         (click)="toggleTimelinePlay()">
                         <mat-icon class="icon-size-10 mb-2 opacity-60">

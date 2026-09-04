@@ -447,6 +447,13 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                     <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 145000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&des=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
                 </div>
             </div>
+
+            <!-- Footer Actions -->
+            <div class="flex items-center justify-end mt-4 pt-3 border-t">
+                <button mat-flat-button class="bg-gray-100 text-gray-700 hover:bg-gray-200" [matDialogClose]="undefined">
+                    {{ 'app.auto_cancel' | transloco }}
+                </button>
+            </div>
         </div>
     `
 })
