@@ -355,7 +355,7 @@
             <!-- ===== CỘT 2: PREVIEW CHO VIDEO (VIDEO PREVIEW PLAYER) ===== -->
             <div class="flex-1 min-w-0 flex flex-col items-center justify-between bg-[#08080a] relative group p-2 min-h-0 overflow-hidden">
                 <!-- Floating Badge Báo đang dùng Khung (Góc trên bên trái khung div Preview) -->
-                <div *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl || previewOverlayImageUrl)"
+                <div *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl || previewOverlayImageUrl || previewOverlayVideoUrl)"
                      class="absolute top-3 left-3 z-50 flex items-center gap-1.5 px-2.5 py-1 bg-black/85 backdrop-blur-md border border-indigo-500/60 rounded-lg text-white text-xs shadow-xl pointer-events-auto">
                     <mat-icon class="icon-size-3.5 text-indigo-400">{{ selectedFrame.aspectRatio === '16:9' ? 'smart_display' : 'smartphone' }}</mat-icon>
                     <span class="font-medium truncate max-w-[160px]">{{ selectedFrame.name }}</span>
@@ -370,7 +370,7 @@
 
                     <!-- Khi CÓ Frame Template được chọn (Mockup Frame 9:16 hoặc 16:9) -->
                     <div #mockupFrameContainer
-                         *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl || previewOverlayImageUrl)"
+                         *ngIf="selectedFrame && selectedFrame.id !== 'none' && (previewVideoUrl || previewImageUrl || previewOverlayImageUrl || previewOverlayVideoUrl)"
                          class="relative h-full max-h-full flex items-center justify-center overflow-hidden rounded-none shadow-2xl bg-black select-none"
                          [ngClass]="selectedFrame.aspectRatio === '16:9' ? 'aspect-[16/9]' : 'aspect-[9/16]'"
                          (contextmenu)="onPreviewContextMenu($event)">
@@ -451,15 +451,17 @@
                         <!-- Lớp Video Trong Suốt Nằm Đè Lên Frame (Track Video 2+ Transparent Overlay) -->
                         <video #overlayVideoPlayer [src]="getSafeUrl(previewOverlayVideoUrl)" *ngIf="previewOverlayVideoUrl"
                             class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block"
+                            (loadedmetadata)="onOverlayVideoLoadedMetadata($event)"
                             playsinline muted></video>
                     </div>
 
                     <!-- Khi KHÔNG có Frame Template (Normal Standard Player) -->
                     <ng-container *ngIf="(!selectedFrame || selectedFrame.id === 'none') && (previewVideoUrl || previewImageUrl || previewOverlayImageUrl || previewOverlayVideoUrl)">
                         <!-- Container chuẩn theo tỉ lệ xuất video (16:9 hoặc 9:16) -->
-                        <div class="relative max-w-full max-h-full flex items-center justify-center m-auto overflow-hidden rounded-none shadow-2xl bg-black select-none">
+                        <div class="relative w-full h-full max-w-full max-h-full flex items-center justify-center m-auto overflow-hidden rounded-none shadow-2xl bg-black select-none"
+                             [ngClass]="getEffectiveAspectRatio() === '9:16' ? 'aspect-[9/16]' : 'aspect-[16/9]'">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
-                                class="max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden relative z-20"
+                                class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden relative z-20"
                                 (loadedmetadata)="onVideoLoadedMetadata($event)"
                                 (click)="toggleTimelinePlay()"
                                 (ended)="onVideoEnded()"
@@ -467,7 +469,7 @@
                                 (play)="onVideoPlayEvent()"></video>
 
                             <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
-                                class="max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden relative z-20"
+                                class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden relative z-20"
                                 (click)="toggleTimelinePlay()" />
 
                             <!-- Lớp Hình Ảnh Nằm Đè Lên Video (Track Images Overlay) -->
@@ -477,6 +479,7 @@
                             <!-- Lớp Video Trong Suốt Đè Lên Video Nền (Track Video 2+ Transparent Overlay) -->
                             <video #overlayVideoPlayer [src]="getSafeUrl(previewOverlayVideoUrl)" *ngIf="previewOverlayVideoUrl"
                                 class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block"
+                                (loadedmetadata)="onOverlayVideoLoadedMetadata($event)"
                                 playsinline muted></video>
 
                             <!-- Lưới Grid Hỗ Trợ Tỉ Lệ 16:9 & 9:16 cho Standard Player (Bao trọn khung video) -->
