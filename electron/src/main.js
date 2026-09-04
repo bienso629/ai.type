@@ -5579,6 +5579,43 @@ app.whenReady().then(async () => {
         });
     });
 
+    // ===== SAVE BASE64 IPC =====
+    ipcMain.handle("save-base64", async (_event, payload) => {
+        return new Promise((resolve) => {
+            try {
+                let { base64, fileName, folder, username } = payload || {};
+                if (!base64) return resolve({ success: false, error: "Empty base64 data" });
+
+                // Strip data URI prefix if present
+                if (base64.startsWith('data:')) {
+                    base64 = base64.split(',')[1];
+                }
+
+                const docDir = documentsDir || path.join(os.homedir(), "Documents");
+                let targetDir = path.join(docDir, "ai.type", "data", "uploads");
+                if (folder && username) {
+                    targetDir = path.join(targetDir, folder, username);
+                } else if (username) {
+                    targetDir = path.join(targetDir, username);
+                } else if (folder) {
+                    targetDir = path.join(targetDir, folder);
+                }
+
+                fs.mkdirSync(targetDir, { recursive: true });
+
+                const fname = fileName || `image_${Date.now()}.png`;
+                const filePath = path.join(targetDir, fname);
+                const buffer = Buffer.from(base64, "base64");
+                fs.writeFileSync(filePath, buffer);
+
+                resolve({ success: true, path: filePath, fileName: fname });
+            } catch (err) {
+                console.error("save-base64 error:", err);
+                resolve({ success: false, error: err.message });
+            }
+        });
+    });
+
     // ===== OVERWRITE FILE BASE64 IPC =====
     ipcMain.handle("overwrite-file-base64", async (_event, payload) => {
         return new Promise((resolve, reject) => {
