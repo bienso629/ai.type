@@ -529,7 +529,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (scene.videos) {
                     for (const v of scene.videos) {
                         if (v.disabled) continue;
-                        const p = this.cleanPathForExport(v.videoUrl);
+                        const rawVUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl || v.imageUrl;
+                        const p = this.cleanPathForExport(rawVUrl);
                         if (!p) continue;
                         const tIdx = Number(v.trackIndex) || 0;
                         const sTime = Number(v.startTime) || 0;
@@ -712,7 +713,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const timelineData = this.collectTimelineExportData();
         const { totalDuration, baseClips, overlayClips, allSubs, audioClips } = timelineData;
 
-        let cleanVideoPath = baseClips.length > 0 ? baseClips[0].path : (overlayClips.length > 0 ? overlayClips[0].path : '');
+        let cleanVideoPath = baseClips.length > 0 ? baseClips[0].path : '';
         if (!cleanVideoPath && this.previewVideoUrl) {
             cleanVideoPath = this.cleanPathForExport(this.previewVideoUrl);
         }
@@ -2510,9 +2511,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     onVideoPauseEvent() {
-        if (this.isPlayingTimeline) {
-            this.pauseTimeline();
-        }
+        // Chỉ pause nếu không phải đang trong quá trình chuyển tiếp clip của timeline
     }
 
     onVideoEnded() {
@@ -2523,7 +2522,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.pauseTimeline();
                 this.cd.detectChanges();
             } else {
-                this.updateTimelineSync();
+                // Video đơn lẻ kết thúc nhưng timeline vẫn chưa hết -> đồng bộ tiếp tục cho các clip/track tiếp theo
+                this.updateTimelineSync(true);
             }
         }
     }
@@ -2594,25 +2594,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const tick = (timestamp: number) => {
             if (!this.isPlayingTimeline) return;
 
-            let deltaSeconds = (timestamp - lastTimestamp) / 1000;
+            const deltaSeconds = (timestamp - lastTimestamp) / 1000;
             lastTimestamp = timestamp;
 
-            const vidEl = this.mainVideoPlayer?.nativeElement;
-
-            if (this.activeVideo && this.activeVideo.videoUrl && vidEl) {
-                if (vidEl.seeking || vidEl.readyState < 2) {
-                    // Video is seeking or buffering, pause the timeline clock
-                    deltaSeconds = 0;
-                } else if (!vidEl.paused && !vidEl.ended) {
-                    // Video is playing smoothly, let video drive the timeline
-                    const videoCurrent = (this.activeVideo.startTime || 0) + vidEl.currentTime - (this.activeVideo.trimStart || 0);
-                    if (videoCurrent >= 0) {
-                        this.currentTimelineTime = videoCurrent;
-                        deltaSeconds = 0;
-                    }
-                }
-            }
-
+            // Đồng hồ timeline chạy liên tục theo thời gian thực (wall-clock time)
             this.currentTimelineTime += deltaSeconds;
 
             if (this.currentTimelineTime >= maxTime) {
@@ -2638,14 +2623,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (sc.videos) {
                         for (const v of sc.videos) {
                             if (v.disabled) continue;
-                            const s = v.startTime || 0;
-                            const e = s + (v.duration || 5);
+                            const s = Number(v.startTime) || 0;
+                            const e = s + (Number(v.duration) || 5);
                             if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
-                                const tIdx = v.trackIndex || 0;
+                                const tIdx = Number(v.trackIndex) || 0;
                                 if (tIdx === 0) {
                                     if (!currentPlayingVideo) currentPlayingVideo = v;
                                 } else {
-                                    if (!currentPlayingOverlayVideo || tIdx > (currentPlayingOverlayVideo.trackIndex || 0)) {
+                                    if (!currentPlayingOverlayVideo || tIdx >= (Number(currentPlayingOverlayVideo.trackIndex) || 0)) {
                                         currentPlayingOverlayVideo = v;
                                     }
                                 }
@@ -2655,8 +2640,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (sc.images && !currentPlayingImage) {
                         for (const img of sc.images) {
                             if (img.disabled) continue;
-                            const s = img.startTime || 0;
-                            const e = s + (img.duration || 5);
+                            const s = Number(img.startTime) || 0;
+                            const e = s + (Number(img.duration) || 5);
                             if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
                                 currentPlayingImage = img;
                                 break;
@@ -2666,24 +2651,36 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
 
-            // Nếu không có video Track 0 nhưng có video Track 1+, đưa lên làm video chính nếu không có video chính
-            if (!currentPlayingVideo && currentPlayingOverlayVideo) {
-                currentPlayingVideo = currentPlayingOverlayVideo;
-                currentPlayingOverlayVideo = null;
-            }
-
+            // Video Track 0 là video nền nằm trong màn hình Frame/Base player, Video Track 1+ là Overlay nằm đè lên trên frame
             const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.url || currentPlayingImage.src || currentPlayingImage.controlImageUrl || currentPlayingImage.imagePath || currentPlayingImage.path || currentPlayingImage.dataUrl || null) : null;
-            const activeOverlayVidUrl = currentPlayingOverlayVideo ? (currentPlayingOverlayVideo.videoUrl || null) : null;
+            const activeOverlayVidUrl = currentPlayingOverlayVideo ? (currentPlayingOverlayVideo.videoUrl || currentPlayingOverlayVideo.url || currentPlayingOverlayVideo.src || currentPlayingOverlayVideo.path || null) : null;
+            const activeMainVidUrl = currentPlayingVideo ? (currentPlayingVideo.videoUrl || currentPlayingVideo.url || currentPlayingVideo.src || currentPlayingVideo.path || null) : null;
 
-            if (currentPlayingVideo !== this.activeVideo || this.previewOverlayImageUrl !== activeOverlayUrl || this.previewOverlayVideoUrl !== activeOverlayVidUrl) {
-                this.updateTimelineSync();
+            if (currentPlayingVideo !== this.activeVideo || currentPlayingOverlayVideo !== this.activeOverlayVideo || this.previewVideoUrl !== activeMainVidUrl || this.previewOverlayImageUrl !== activeOverlayUrl || this.previewOverlayVideoUrl !== activeOverlayVidUrl) {
+                const overlayClipChanged = currentPlayingOverlayVideo !== this.activeOverlayVideo;
+                const mainClipChanged = currentPlayingVideo !== this.activeVideo;
+                this.updateTimelineSync(overlayClipChanged || mainClipChanged);
                 sceneChanged = true;
             } else {
+                // Giữ video chính luôn đồng bộ thời gian với timeline
+                if (this.mainVideoPlayer?.nativeElement && this.activeVideo) {
+                    const vidEl = this.mainVideoPlayer.nativeElement;
+                    const expectedTime = Math.max(0, this.currentTimelineTime - (Number(this.activeVideo.startTime) || 0) + (Number(this.activeVideo.trimStart) || 0));
+                    if ((vidEl.ended || Math.abs(vidEl.currentTime - expectedTime) > 0.35) && vidEl.readyState >= 1) {
+                        if (!vidEl.seeking) {
+                            vidEl.currentTime = expectedTime;
+                        }
+                    }
+                    if (this.isPlayingTimeline && (vidEl.paused || vidEl.ended)) {
+                        vidEl.play().catch(() => {});
+                    }
+                }
+
                 // Đồng bộ playback của overlay video player
-                if (this.overlayVideoPlayer?.nativeElement && this.activeOverlayVideo?.videoUrl) {
+                if (this.overlayVideoPlayer?.nativeElement && this.activeOverlayVideo) {
                     const oVidEl = this.overlayVideoPlayer.nativeElement;
-                    const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (this.activeOverlayVideo.startTime || 0) + (this.activeOverlayVideo.trimStart || 0));
-                    if ((oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.3) && oVidEl.readyState >= 1) {
+                    const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (Number(this.activeOverlayVideo.startTime) || 0) + (Number(this.activeOverlayVideo.trimStart) || 0));
+                    if ((oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.35) && oVidEl.readyState >= 1) {
                         if (!oVidEl.seeking) {
                             oVidEl.currentTime = expectedOverlayTime;
                         }
@@ -2823,17 +2820,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (scene.videos) {
                 for (const v of scene.videos) {
                     if (v.disabled) continue;
-                    const start = v.startTime || 0;
-                    const end = start + (v.duration || 5);
+                    const start = Number(v.startTime) || 0;
+                    const end = start + (Number(v.duration) || 5);
                     if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
-                        const tIdx = v.trackIndex || 0;
+                        const tIdx = Number(v.trackIndex) || 0;
                         if (tIdx === 0) {
                             if (!foundVideo) {
                                 foundVideo = v;
                                 foundScene = scene;
                             }
                         } else {
-                            if (!foundOverlayVideo || tIdx > (foundOverlayVideo.trackIndex || 0)) {
+                            if (!foundOverlayVideo || tIdx >= (Number(foundOverlayVideo.trackIndex) || 0)) {
                                 foundOverlayVideo = v;
                                 foundOverlayScene = scene;
                             }
@@ -2845,8 +2842,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (scene.images && !foundImage) {
                 for (const img of scene.images) {
                     if (img.disabled) continue;
-                    const start = img.startTime || 0;
-                    const end = start + (img.duration || 5);
+                    const start = Number(img.startTime) || 0;
+                    const end = start + (Number(img.duration) || 5);
                     if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
                         foundImage = img;
                         break;
@@ -2855,20 +2852,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
         }
 
-        // Nếu chỉ có video ở Track 1+ mà Track 0 trống, lấy video đó làm video chính
-        if (!foundVideo && foundOverlayVideo) {
-            foundVideo = foundOverlayVideo;
-            foundScene = foundOverlayScene;
-            foundOverlayVideo = null;
-            foundOverlayScene = null;
-        }
-
         // Cập nhật URL ảnh Overlay từ Track Images
         const targetOverlayImageUrl = foundImage ? (foundImage.imageUrl || foundImage.url || foundImage.src || foundImage.controlImageUrl || foundImage.imagePath || foundImage.path || foundImage.dataUrl || null) : null;
         this.previewOverlayImageUrl = targetOverlayImageUrl;
 
-        // Cập nhật Video Overlay từ Track Video 1+ (Hỗ trợ Transparent Video WebM/Alpha)
-        const targetOverlayVideoUrl = foundOverlayVideo?.videoUrl || null;
+        // Cập nhật Video Overlay từ Track Video 1+ (Hỗ trợ Transparent Video WebM/Alpha) - Luôn nằm đè lên trên frame
+        const targetOverlayVideoUrl = foundOverlayVideo ? (foundOverlayVideo.videoUrl || foundOverlayVideo.url || foundOverlayVideo.src || foundOverlayVideo.path || null) : null;
+        const prevOverlayVideo = this.activeOverlayVideo;
+        const isOverlayVideoChanged = (this.previewOverlayVideoUrl !== targetOverlayVideoUrl) || (this.activeOverlayVideo !== foundOverlayVideo);
         this.activeOverlayVideo = foundOverlayVideo;
         this.previewOverlayVideoUrl = targetOverlayVideoUrl;
 
@@ -2877,8 +2868,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const shouldMuteVideoEl = foundVideo ? (foundVideo.muted || isVideoCoveredByExtractedAudio) : true;
 
         // Handle Main Video
-        const targetVideoUrl = foundVideo?.videoUrl || null;
-        const targetImageUrl = foundVideo?.imageUrl || null;
+        const targetVideoUrl = foundVideo ? (foundVideo.videoUrl || foundVideo.url || foundVideo.src || foundVideo.path || null) : null;
+        const targetImageUrl = foundVideo ? (foundVideo.imageUrl || foundVideo.url || foundVideo.src || null) : null;
 
         if (this.previewVideoUrl !== targetVideoUrl || this.previewImageUrl !== (targetImageUrl || (targetVideoUrl ? null : targetOverlayImageUrl)) || foundVideo !== this.activeVideo) {
             this.activeVideo = foundVideo;
@@ -2890,7 +2881,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement && this.previewVideoUrl) {
                         const vidEl = this.mainVideoPlayer.nativeElement;
                         if (vidEl.readyState >= 1) {
-                            vidEl.currentTime = Math.max(0, this.currentTimelineTime - (foundVideo.startTime || 0) + (foundVideo.trimStart || 0));
+                            vidEl.currentTime = Math.max(0, this.currentTimelineTime - (Number(foundVideo.startTime) || 0) + (Number(foundVideo.trimStart) || 0));
                         }
                         vidEl.muted = shouldMuteVideoEl;
                         if (this.isPlayingTimeline) {
@@ -2901,12 +2892,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }, 0);
             }
-        } else if (this.activeVideo && this.activeVideo.videoUrl) {
+        } else if (this.activeVideo && targetVideoUrl) {
             if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement) {
                 const vidEl = this.mainVideoPlayer.nativeElement;
                 vidEl.muted = shouldMuteVideoEl;
 
-                const expectedTime = Math.max(0, this.currentTimelineTime - (this.activeVideo.startTime || 0) + (this.activeVideo.trimStart || 0));
+                const expectedTime = Math.max(0, this.currentTimelineTime - (Number(this.activeVideo.startTime) || 0) + (Number(this.activeVideo.trimStart) || 0));
 
                 if ((forceSeek || vidEl.ended || Math.abs(vidEl.currentTime - expectedTime) > 0.3) && vidEl.readyState >= 1) {
                     if (!vidEl.seeking) {
@@ -2927,8 +2918,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             setTimeout(() => {
                 if (this.overlayVideoPlayer && this.overlayVideoPlayer.nativeElement && this.previewOverlayVideoUrl) {
                     const oVidEl = this.overlayVideoPlayer.nativeElement;
-                    const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (this.activeOverlayVideo.startTime || 0) + (this.activeOverlayVideo.trimStart || 0));
-                    if ((forceSeek || oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.3) && oVidEl.readyState >= 1) {
+                    const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (Number(this.activeOverlayVideo.startTime) || 0) + (Number(this.activeOverlayVideo.trimStart) || 0));
+                    if ((forceSeek || isOverlayVideoChanged || oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.3) && oVidEl.readyState >= 1) {
                         if (!oVidEl.seeking) {
                             oVidEl.currentTime = expectedOverlayTime;
                         }
@@ -10158,6 +10149,54 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 }
             }
         }
+        if (changed) {
+            this.normalizeData();
+            this.updateTimelineTotalWidth();
+            this.cd.detectChanges();
+        }
+    }
+
+    onOverlayVideoLoadedMetadata(event: Event) {
+        const vidEl = event.target as HTMLVideoElement;
+        if (!vidEl || !vidEl.duration || !isFinite(vidEl.duration) || vidEl.duration <= 0) return;
+        const realDuration = Math.round(vidEl.duration * 10) / 10;
+
+        let changed = false;
+        if (this.activeOverlayVideo) {
+            if (this.activeOverlayVideo.duration !== realDuration && (this.activeOverlayVideo.duration === 5 || !this.activeOverlayVideo.maxDuration || this.activeOverlayVideo.duration <= 0)) {
+                this.activeOverlayVideo.duration = realDuration;
+                this.activeOverlayVideo.maxDuration = realDuration;
+                changed = true;
+            }
+        }
+        if (this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos) {
+                    for (const vid of scene.videos) {
+                        if (vid.videoUrl === this.previewOverlayVideoUrl) {
+                            if (vid.duration !== realDuration && (vid.duration === 5 || !vid.maxDuration || vid.duration <= 0)) {
+                                vid.duration = realDuration;
+                                vid.maxDuration = realDuration;
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Seek ngay về đúng vị trí thời gian của overlay video
+        if (this.activeOverlayVideo) {
+            const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (Number(this.activeOverlayVideo.startTime) || 0) + (Number(this.activeOverlayVideo.trimStart) || 0));
+            vidEl.currentTime = expectedOverlayTime;
+            vidEl.muted = this.activeOverlayVideo.muted ?? true;
+            if (this.isPlayingTimeline) {
+                vidEl.play().catch(e => console.error("Error playing overlay video on metadata loaded:", e));
+            } else {
+                vidEl.pause();
+            }
+        }
+
         if (changed) {
             this.normalizeData();
             this.updateTimelineTotalWidth();
