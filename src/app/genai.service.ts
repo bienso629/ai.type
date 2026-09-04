@@ -383,15 +383,16 @@ export class GenaiService {
                         }
 
                         let googleModel = params.model;
-                        if (!googleModel || !googleModel.startsWith('gemini-') || googleModel.startsWith('gemini-3.') || googleModel === 'agent') {
+                        if (!googleModel || googleModel === 'agent') {
                             googleModel = 'gemini-2.5-flash';
                         }
                         const candidateGoogleModels = [
                             googleModel,
-                            'gemini-2.0-flash',
+                            'gemini-2.5-flash',
+                            'gemini-2.5-pro',
                             'gemini-1.5-flash',
-                            'gemini-2.0-flash-lite'
-                        ].filter((v, idx, arr) => arr.indexOf(v) === idx && v.startsWith('gemini-'));
+                            'gemini-1.5-pro'
+                        ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && v.startsWith('gemini-'));
 
                         // Lọc sạch config chuẩn cho Google GenAI SDK
                         const cleanConfig: any = {};
