@@ -182,8 +182,8 @@
                                         </button>
                                     </div>
                                 </div>
-                                <span class="text-xs text-neutral-200 truncate" [title]="item.prompt || 'Video cảnh ' + (item.sceneIdx + 1)">
-                                    {{ item.prompt || ('Video cảnh ' + (item.sceneIdx + 1)) }}
+                                <span class="text-xs text-neutral-200 truncate" [title]="getMediaFileName(item)">
+                                    {{ getMediaFileName(item) }}
                                 </span>
                             </div>
                         </div>
@@ -222,8 +222,8 @@
                                         </button>
                                     </div>
                                 </div>
-                                <span class="text-xs text-neutral-200 truncate" [title]="item.title || 'Hình ảnh cảnh ' + (item.sceneIdx + 1)">
-                                    {{ item.title || ('Hình ảnh cảnh ' + (item.sceneIdx + 1)) }}
+                                <span class="text-xs text-neutral-200 truncate" [title]="getMediaFileName(item)">
+                                    {{ getMediaFileName(item) }}
                                 </span>
                             </div>
                         </div>
@@ -1825,13 +1825,13 @@
         </button>
 
         <button *ngIf="(selectedContextData?.video?.trackIndex || 0) === 0" mat-menu-item (click)="moveVideoToTrack(selectedContextData?.video, 1)">
-            <mat-icon class="text-emerald-400">vertical_align_bottom</mat-icon>
-            <span>Chuyển xuống Track 2</span>
+            <mat-icon class="text-emerald-400">vertical_align_top</mat-icon>
+            <span>Chuyển lên Track 2</span>
         </button>
 
         <button *ngIf="(selectedContextData?.video?.trackIndex || 0) > 0" mat-menu-item (click)="moveVideoToTrack(selectedContextData?.video, 0)">
-            <mat-icon class="text-emerald-400">vertical_align_top</mat-icon>
-            <span>Chuyển lên Track 1</span>
+            <mat-icon class="text-emerald-400">vertical_align_bottom</mat-icon>
+            <span>Chuyển xuống Track 1</span>
         </button>
 
         <button mat-menu-item (click)="extractAudio(selectedContextData?.video, selectedContextData?.sceneIdx)">

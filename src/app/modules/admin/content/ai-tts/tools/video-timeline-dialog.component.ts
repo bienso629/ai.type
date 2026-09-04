@@ -1663,6 +1663,49 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
+    getMediaFileName(item: any): string {
+        if (!item) return '';
+        if (typeof item === 'string') {
+            const clean = item.split('?')[0].split('#')[0];
+            const name = clean.substring(clean.lastIndexOf('/') + 1) || clean.substring(clean.lastIndexOf('\\') + 1);
+            try {
+                return decodeURIComponent(name) || item;
+            } catch (e) {
+                return name || item;
+            }
+        }
+        const raw = item._raw || item;
+        const candidateUrl = item.videoUrl || item.imageUrl || item.audioUrl || item.src || item.url || item.path || item.fileName || item.name ||
+            raw.videoUrl || raw.imageUrl || raw.audioUrl || raw.src || raw.url || raw.path || raw.fileName || raw.name || raw.controlImageUrl;
+
+        if (candidateUrl && typeof candidateUrl === 'string') {
+            const clean = candidateUrl.split('?')[0].split('#')[0];
+            const name = clean.substring(clean.lastIndexOf('/') + 1) || clean.substring(clean.lastIndexOf('\\') + 1);
+            if (name && name.trim()) {
+                try {
+                    return decodeURIComponent(name.trim());
+                } catch (e) {
+                    return name.trim();
+                }
+            }
+        }
+
+        if (item.prompt || raw.prompt) {
+            return (item.prompt || raw.prompt).trim();
+        }
+        if (item.title || raw.title) {
+            return (item.title || raw.title).trim();
+        }
+        if (item.text || raw.text) {
+            return (item.text || raw.text).trim();
+        }
+        if (item.sceneIdx !== undefined && item.sceneIdx !== null) {
+            const prefix = item.type === 'image' ? 'Hình ảnh ' : 'Video ';
+            return `${prefix}${item.sceneIdx + 1}`;
+        }
+        return 'Tập tin media';
+    }
+
     onCustomTextContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, textIdx: number) {
         event.preventDefault();
         event.stopPropagation();
@@ -3086,13 +3129,55 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     moveVideoToTrack(video: any, targetTrackIdx: number) {
         if (!video) return;
-        video.trackIndex = targetTrackIdx;
-        if (targetTrackIdx >= this.trackCount) {
-            this.setTrackCount(targetTrackIdx + 1);
+        const targetIdx = Number(targetTrackIdx) || 0;
+
+        // Thu thập tất cả các video hiện đang có trên track đích (không tính video đang thao tác)
+        const targetTrackVideos: any[] = [];
+        if (this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos && Array.isArray(scene.videos)) {
+                    for (const v of scene.videos) {
+                        if (v !== video && (Number(v.trackIndex) || 0) === targetIdx) {
+                            targetTrackVideos.push(v);
+                        }
+                    }
+                }
+            }
         }
+
+        // Tính thời điểm kết thúc lớn nhất của các video trên track đích
+        let maxTargetEnd = 0;
+        targetTrackVideos.forEach(v => {
+            const end = (Number(v.startTime) || 0) + (Number(v.duration) || 5);
+            if (end > maxTargetEnd) maxTargetEnd = end;
+        });
+
+        // Cập nhật trackIndex mới cho video
+        video.trackIndex = targetIdx;
+
+        // Nếu track đích đã có video, video chuyển sang sẽ nằm nối tiếp ngay sau
+        if (targetTrackVideos.length > 0) {
+            video.startTime = maxTargetEnd;
+        } else {
+            // Nếu track đích chưa có video nào, giữ nguyên startTime hoặc gán 0 nếu startTime không hợp lệ
+            if (video.startTime === undefined || video.startTime === null || isNaN(Number(video.startTime))) {
+                video.startTime = 0;
+            } else {
+                video.startTime = Number(video.startTime);
+            }
+        }
+
+        if (targetIdx >= this.trackCount) {
+            this.setTrackCount(targetIdx + 1);
+        }
+
+        this.setActiveItem(video);
+        this.updateTimelineTotalWidth();
+        this.updateRulerTicks();
+        this.updateFilteredMediaItems();
         this.saveData(true);
         this.cd.detectChanges();
-        this.toastr.success(`Đã chuyển video sang Track ${targetTrackIdx + 1}!`);
+        this.toastr.success(`Đã chuyển video sang Track ${targetIdx + 1} thành công!`);
     }
 
     selectedTargetTrackIdx: number = 0;
@@ -7993,55 +8078,33 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
 
-        // 1. Quét từ pool đã lưu
-        for (const v of this.projectData.mediaLibraryPool.videos) {
-            const key = (v.videoUrl || v.imageUrl || v.controlImageUrl || v.id || '').trim();
-            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id)))) continue;
-            seenKeys.add(key);
-            list.push({
-                ...v,
-                get duration() { return v.duration || v.maxDuration || 5; },
-                get startTime() { return v.startTime; },
-                get maxDuration() { return v.maxDuration || v.duration || 5; },
-                get prompt() { return v.prompt; },
-                get imageUrl() { return v.imageUrl || v.controlImageUrl; },
-                get controlImageUrl() { return v.controlImageUrl; },
-                get videoUrl() { return v.videoUrl; },
-                _raw: v,
-                type: 'video'
-            });
-        }
-
-        // 2. Quét từ các Scene trên timeline và bổ sung vào pool
-        if (this.projectData.scenes) {
+        // 1. Quét trực tiếp từ tất cả các Scene trên Timeline
+        if (this.projectData?.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
-                if (scene.videos) {
+                if (scene.videos && Array.isArray(scene.videos)) {
                     for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
                         const v = scene.videos[vIdx];
-                        const key = (v.videoUrl || v.imageUrl || v.controlImageUrl || v.id || `${sIdx}_${vIdx}`).trim();
-                        if (!key || deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id)))) continue;
+                        const vUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl;
+                        const vImg = v.imageUrl || v.controlImageUrl || v.thumbUrl || v.poster;
+                        const key = (v.id ? `id_${v.id}` : (vUrl || vImg || `scene_${sIdx}_video_${vIdx}`)).trim();
+                        if (deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id))) || (vUrl && deletedKeys.has(String(vUrl).trim()))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
-                            const poolItem = {
-                                id: v.id || `video_pool_${Date.now()}_${vIdx}`,
+                            list.push({
+                                id: v.id || `video_tl_${sIdx}_${vIdx}`,
                                 prompt: v.prompt || '',
-                                videoUrl: v.videoUrl || null,
-                                imageUrl: v.imageUrl || null,
+                                videoUrl: vUrl || null,
+                                imageUrl: vImg || null,
                                 controlImageUrl: v.controlImageUrl || null,
-                                duration: v.duration || v.maxDuration || 5,
-                                maxDuration: v.maxDuration || v.duration || 5,
+                                duration: Number(v.duration) || Number(v.maxDuration) || 5,
+                                maxDuration: Number(v.maxDuration) || Number(v.duration) || 5,
+                                startTime: v.startTime !== undefined ? Number(v.startTime) : 0,
+                                trackIndex: v.trackIndex || 0,
                                 sceneIdx: sIdx,
                                 vIdx: vIdx,
-                                type: 'video'
-                            };
-                            this.projectData.mediaLibraryPool.videos.push(poolItem);
-                            list.push({
-                                ...poolItem,
-                                get duration() { return v.duration || v.maxDuration || poolItem.duration || 5; },
-                                get maxDuration() { return v.maxDuration || v.duration || poolItem.maxDuration || 5; },
                                 _raw: v,
                                 type: 'video'
                             });
@@ -8050,6 +8113,28 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 }
             }
         }
+
+        // 2. Quét thêm từ mediaLibraryPool đã lưu
+        if (this.projectData?.mediaLibraryPool?.videos) {
+            for (const v of this.projectData.mediaLibraryPool.videos) {
+                const vUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl;
+                const vImg = v.imageUrl || v.controlImageUrl || v.thumbUrl || v.poster;
+                const key = (v.id ? `id_${v.id}` : (vUrl || vImg || '')).trim();
+                if (!key || seenKeys.has(key) || deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id))) || (vUrl && deletedKeys.has(String(vUrl).trim()))) continue;
+                seenKeys.add(key);
+                list.push({
+                    ...v,
+                    videoUrl: vUrl || null,
+                    imageUrl: vImg || null,
+                    duration: Number(v.duration) || Number(v.maxDuration) || 5,
+                    maxDuration: Number(v.maxDuration) || Number(v.duration) || 5,
+                    startTime: v.startTime !== undefined ? Number(v.startTime) : 0,
+                    _raw: v,
+                    type: 'video'
+                });
+            }
+        }
+
         return list;
     }
 
@@ -8057,53 +8142,31 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
 
-        // 1. Quét từ pool đã lưu
-        for (const img of this.projectData.mediaLibraryPool.images) {
-            const key = (img.imageUrl || img.controlImageUrl || img.url || img.src || img.id || '').trim();
-            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id)))) continue;
-            seenKeys.add(key);
-            list.push({
-                ...img,
-                get duration() { return img.duration || 5; },
-                get startTime() { return img.startTime; },
-                get maxDuration() { return img.maxDuration || 5; },
-                get prompt() { return img.prompt || img.title; },
-                get imageUrl() { return img.imageUrl || img.controlImageUrl; },
-                get controlImageUrl() { return img.controlImageUrl; },
-                _raw: img,
-                type: 'image',
-                title: img.title || img.prompt || 'Hình ảnh'
-            });
-        }
-
-        // 2. Quét từ timeline và bổ sung vào pool
-        if (this.projectData.scenes) {
+        // 1. Quét trực tiếp từ tất cả các Scene trên Timeline
+        if (this.projectData?.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
-                if (scene.images) {
+                if (scene.images && Array.isArray(scene.images)) {
                     for (let imgIdx = 0; imgIdx < scene.images.length; imgIdx++) {
                         const img = scene.images[imgIdx];
-                        const key = (img.imageUrl || img.controlImageUrl || img.url || img.src || img.id || `${sIdx}_${imgIdx}`).trim();
-                        if (!key || deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id)))) continue;
+                        const imgUrl = img.imageUrl || img.controlImageUrl || img.url || img.src || img.path || img.imagePath;
+                        const key = (img.id ? `id_${img.id}` : (imgUrl || `scene_${sIdx}_image_${imgIdx}`)).trim();
+                        if (deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id))) || (imgUrl && deletedKeys.has(String(imgUrl).trim()))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
-                            const poolItem = {
-                                id: img.id || Date.now(),
-                                imageUrl: img.imageUrl || img.controlImageUrl || null,
-                                controlImageUrl: img.controlImageUrl || null,
+                            list.push({
+                                id: img.id || `image_tl_${sIdx}_${imgIdx}`,
                                 title: img.title || img.prompt || ('Hình ảnh ' + (imgIdx + 1)),
-                                prompt: img.prompt || '',
-                                duration: img.duration || 5,
-                                maxDuration: img.maxDuration || 5,
+                                prompt: img.prompt || img.title || '',
+                                imageUrl: imgUrl || null,
+                                controlImageUrl: img.controlImageUrl || null,
+                                duration: Number(img.duration) || 5,
+                                maxDuration: Number(img.maxDuration) || 5,
+                                startTime: img.startTime !== undefined ? Number(img.startTime) : 0,
                                 sceneIdx: sIdx,
                                 imgIdx: imgIdx,
-                                type: 'image'
-                            };
-                            this.projectData.mediaLibraryPool.images.push(poolItem);
-                            list.push({
-                                ...poolItem,
                                 _raw: img,
                                 type: 'image'
                             });
@@ -8112,6 +8175,26 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 }
             }
         }
+
+        // 2. Quét thêm từ mediaLibraryPool đã lưu
+        if (this.projectData?.mediaLibraryPool?.images) {
+            for (const img of this.projectData.mediaLibraryPool.images) {
+                const imgUrl = img.imageUrl || img.controlImageUrl || img.url || img.src || img.path || img.imagePath;
+                const key = (img.id ? `id_${img.id}` : (imgUrl || '')).trim();
+                if (!key || seenKeys.has(key) || deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id))) || (imgUrl && deletedKeys.has(String(imgUrl).trim()))) continue;
+                seenKeys.add(key);
+                list.push({
+                    ...img,
+                    imageUrl: imgUrl || null,
+                    duration: Number(img.duration) || 5,
+                    maxDuration: Number(img.maxDuration) || 5,
+                    _raw: img,
+                    type: 'image',
+                    title: img.title || img.prompt || 'Hình ảnh'
+                });
+            }
+        }
+
         return list;
     }
 
@@ -8778,35 +8861,31 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     updateFilteredMediaItems() {
         let items: any[] = [];
         if (this.mediaFilterTab === 'video') {
-            items = items.concat(this.getAllProjectVideos().filter(v => v.videoUrl));
-        }
-        if (this.mediaFilterTab === 'image') {
-            items = items.concat(this.getAllProjectImages());
-        }
-        if (this.mediaFilterTab === 'audio') {
-            items = items.concat(this.getAllProjectAudios());
-        }
-        if (this.mediaFilterTab === 'text') {
-            items = items.concat(this.getAllProjectSubtitles()).concat(this.getAllProjectTexts());
+            items = this.getAllProjectVideos();
+        } else if (this.mediaFilterTab === 'image') {
+            items = this.getAllProjectImages();
+        } else if (this.mediaFilterTab === 'audio') {
+            items = this.getAllProjectAudios();
+        } else if (this.mediaFilterTab === 'text') {
+            items = this.getAllProjectSubtitles().concat(this.getAllProjectTexts());
         }
 
         if (this.mediaSearchText && this.mediaSearchText.trim()) {
             const q = this.mediaSearchText.trim().toLowerCase();
             items = items.filter(it => {
-                const textMatch = it.text && it.text.toLowerCase().includes(q);
-                const promptMatch = it.prompt && it.prompt.toLowerCase().includes(q);
-                const titleMatch = it.title && it.title.toLowerCase().includes(q);
-                return textMatch || promptMatch || titleMatch;
+                const textMatch = it.text && String(it.text).toLowerCase().includes(q);
+                const promptMatch = it.prompt && String(it.prompt).toLowerCase().includes(q);
+                const titleMatch = it.title && String(it.title).toLowerCase().includes(q);
+                const fileMatch = this.getMediaFileName(it).toLowerCase().includes(q);
+                return textMatch || promptMatch || titleMatch || fileMatch;
             });
         }
         this.filteredMediaItems = items;
     }
 
     getFilteredMediaItems(): any[] {
-        if (!this.filteredMediaItems) {
-            this.updateFilteredMediaItems();
-        }
-        return this.filteredMediaItems;
+        this.updateFilteredMediaItems();
+        return this.filteredMediaItems || [];
     }
 
     trackByMediaItem(index: number, item: any): string {
