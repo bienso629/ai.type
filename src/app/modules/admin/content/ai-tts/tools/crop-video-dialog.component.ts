@@ -55,6 +55,13 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
     targetRatioNumber: number | null = 16 / 9;
     videoSrc: SafeUrl | string = '';
 
+    // Chế độ Crop
+    cropMode: 'crop_pad' | 'crop_resize' = 'crop_pad'; // 'crop_pad': Giữ nguyên tỉ lệ & toạ độ video (Cắt biên); 'crop_resize': Thu nhỏ khung hình theo vùng chọn
+    marginTop: number = 0;
+    marginBottom: number = 0;
+    marginLeft: number = 0;
+    marginRight: number = 0;
+
     private ctx!: CanvasRenderingContext2D;
     private animFrameId: number | null = null;
 
@@ -568,12 +575,14 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
             this.cropRect.h = Math.round(newH);
         }
 
+        this.syncMarginsFromCropRect();
         this.draw();
         this.cd.detectChanges();
     }
 
     onMouseUp(): void {
         this.dragTarget = null;
+        this.syncMarginsFromCropRect();
     }
 
     // ===== THIẾT LẬP TỶ LỆ CROP =====
@@ -611,6 +620,7 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
     centerCropRect(): void {
         this.cropRect.x = Math.max(0, Math.round((this.naturalWidth - this.cropRect.w) / 2));
         this.cropRect.y = Math.max(0, Math.round((this.naturalHeight - this.cropRect.h) / 2));
+        this.syncMarginsFromCropRect();
         this.draw();
         this.cd.detectChanges();
     }
@@ -624,6 +634,7 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         if (this.cropRect.y + this.cropRect.h > this.naturalHeight) {
             this.cropRect.y = Math.max(0, this.naturalHeight - this.cropRect.h);
         }
+        this.syncMarginsFromCropRect();
         this.draw();
     }
 
@@ -643,6 +654,36 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         const mins = Math.floor(s / 60);
         const secs = Math.floor(s % 60);
         return `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    syncMarginsFromCropRect(): void {
+        this.marginLeft = Math.max(0, this.cropRect.x);
+        this.marginTop = Math.max(0, this.cropRect.y);
+        this.marginRight = Math.max(0, this.naturalWidth - (this.cropRect.x + this.cropRect.w));
+        this.marginBottom = Math.max(0, this.naturalHeight - (this.cropRect.y + this.cropRect.h));
+    }
+
+    onMarginChange(): void {
+        this.marginLeft = Math.max(0, Math.min(this.naturalWidth - 40, Number(this.marginLeft) || 0));
+        this.marginRight = Math.max(0, Math.min(this.naturalWidth - this.marginLeft - 40, Number(this.marginRight) || 0));
+        this.marginTop = Math.max(0, Math.min(this.naturalHeight - 40, Number(this.marginTop) || 0));
+        this.marginBottom = Math.max(0, Math.min(this.naturalHeight - this.marginTop - 40, Number(this.marginBottom) || 0));
+
+        this.cropRect.x = Math.round(this.marginLeft);
+        this.cropRect.y = Math.round(this.marginTop);
+        this.cropRect.w = Math.round(this.naturalWidth - this.marginLeft - this.marginRight);
+        this.cropRect.h = Math.round(this.naturalHeight - this.marginTop - this.marginBottom);
+
+        this.draw();
+        this.cd.detectChanges();
+    }
+
+    setCropMode(mode: 'crop_pad' | 'crop_resize'): void {
+        this.cropMode = mode;
+        if (mode === 'crop_pad') {
+            this.setFreeRatio();
+        }
+        this.cd.detectChanges();
     }
 
     // ===== ÁP DỤNG CROP BẰNG FFMPEG =====
@@ -669,17 +710,20 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
                 cropWidth: this.cropRect.w,
                 cropHeight: this.cropRect.h,
                 originalWidth: this.naturalWidth,
-                originalHeight: this.naturalHeight
+                originalHeight: this.naturalHeight,
+                mode: this.cropMode
             });
 
             if (res && res.success) {
-                this.toastr.success('Crop khung hình video thành công!');
+                this.toastr.success('Cắt video thành công!');
                 this.dialogRef.close({
                     videoUrl: res.videoUrl,
                     imageUrl: res.imageUrl,
                     width: res.width,
                     height: res.height,
-                    aspectRatio: this.activeRatio === 'free' ? `${res.width}:${res.height}` : this.activeRatio
+                    aspectRatio: this.cropMode === 'crop_pad' 
+                        ? (this.data?.video?.aspectRatio || `${this.naturalWidth}:${this.naturalHeight}`)
+                        : (this.activeRatio === 'free' ? `${res.width}:${res.height}` : this.activeRatio)
                 });
             } else {
                 throw new Error(res?.error || 'Không thể crop video');

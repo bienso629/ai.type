@@ -92,8 +92,70 @@
                 </div>
             </div>
 
-            <!-- Tỉ lệ khung hình định sẵn (Presets) -->
-            <div class="flex flex-col gap-2">
+            <!-- Lựa chọn Chế độ Cắt Video (Crop Mode) -->
+            <div class="flex flex-col gap-2 p-3 bg-[#18181f] border border-indigo-500/30 rounded-lg">
+                <label class="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <mat-icon class="icon-size-3.5 text-indigo-400">tune</mat-icon>
+                    <span>Chế độ Cắt (Crop Mode)</span>
+                </label>
+                <div class="grid grid-cols-2 gap-1.5 p-1 bg-[#101014] rounded border border-neutral-800">
+                    <button type="button" (click)="setCropMode('crop_pad')"
+                        class="px-2 py-2 text-center rounded transition-all flex flex-col items-center gap-0.5"
+                        [ngClass]="cropMode === 'crop_pad' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-neutral-400 hover:text-white'">
+                        <span class="text-xs">Giữ Tỉ Lệ & Tọa Độ</span>
+                        <span class="text-[9px] opacity-80">(Cắt 4 Biên / Giữ Canvas)</span>
+                    </button>
+                    <button type="button" (click)="setCropMode('crop_resize')"
+                        class="px-2 py-2 text-center rounded transition-all flex flex-col items-center gap-0.5"
+                        [ngClass]="cropMode === 'crop_resize' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-neutral-400 hover:text-white'">
+                        <span class="text-xs">Thu Nhỏ Khung</span>
+                        <span class="text-[9px] opacity-80">(Thay đổi độ phân giải)</span>
+                    </button>
+                </div>
+                <p class="text-[10px] text-neutral-400 leading-tight" *ngIf="cropMode === 'crop_pad'">
+                    Gọt bỏ các phần thừa ở Trên, Dưới, Trái, Phải nhưng video vẫn giữ nguyên kích thước và tọa độ gốc (nền trong suốt cho WebM hoặc nền đen cho MP4).
+                </p>
+                <p class="text-[10px] text-neutral-400 leading-tight" *ngIf="cropMode === 'crop_resize'">
+                    Khung video sẽ co lại vừa đúng kích thước vùng bạn chọn.
+                </p>
+            </div>
+
+            <!-- Cắt 4 Biên: Trên, Dưới, Trái, Phải (Margins) -->
+            <div class="p-3 bg-[#18181f] border border-neutral-800 rounded-lg flex flex-col gap-2.5">
+                <span class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>Cắt 4 Biên (Padding px)</span>
+                    <span class="text-[10px] text-indigo-400 lowercase font-mono">w: {{ cropRect.w }} × h: {{ cropRect.h }}</span>
+                </span>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-neutral-400">Cắt Trên (Top)</label>
+                        <input type="number" [(ngModel)]="marginTop" (ngModelChange)="onMarginChange()" min="0" [max]="naturalHeight"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-neutral-400">Cắt Dưới (Bottom)</label>
+                        <input type="number" [(ngModel)]="marginBottom" (ngModelChange)="onMarginChange()" min="0" [max]="naturalHeight"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-neutral-400">Cắt Trái (Left)</label>
+                        <input type="number" [(ngModel)]="marginLeft" (ngModelChange)="onMarginChange()" min="0" [max]="naturalWidth"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-neutral-400">Cắt Phải (Right)</label>
+                        <input type="number" [(ngModel)]="marginRight" (ngModelChange)="onMarginChange()" min="0" [max]="naturalWidth"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tỉ lệ khung hình định sẵn (Presets) - Chỉ hiện khi ở chế độ Thu nhỏ khung hoặc chỉnh tỷ lệ -->
+            <div class="flex flex-col gap-2" *ngIf="cropMode === 'crop_resize'">
                 <label class="text-[11px] font-semibold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
                     <mat-icon class="icon-size-3.5 text-indigo-400">aspect_ratio</mat-icon>
                     <span>Tỉ lệ khung hình (Aspect Ratio)</span>
@@ -145,7 +207,7 @@
 
             <!-- Kích thước vùng chọn Crop -->
             <div class="p-3 bg-[#18181f] border border-neutral-800 rounded-lg flex flex-col gap-2.5">
-                <span class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Vùng Cắt (px)</span>
+                <span class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Tọa Độ & Kích Thước Vùng Giữ Lại (px)</span>
                 
                 <div class="grid grid-cols-2 gap-2">
                     <div class="flex flex-col gap-1">

@@ -9357,7 +9357,7 @@ ipcMain.handle('split-video-clips-ffmpeg', async (event, payload) => {
 // =====================================================================
 ipcMain.handle('crop-video-ffmpeg', async (_event, payload) => {
     try {
-        let { videoPath, cropX, cropY, cropWidth, cropHeight, originalWidth, originalHeight } = payload || {};
+        let { videoPath, cropX, cropY, cropWidth, cropHeight, originalWidth, originalHeight, mode, padColor } = payload || {};
         if (!videoPath) {
             return { success: false, error: 'Thiếu đường dẫn file video' };
         }
@@ -9385,32 +9385,89 @@ ipcMain.handle('crop-video-ffmpeg', async (_event, payload) => {
         let h = Math.round(Number(cropHeight) || 0);
         let x = Math.round(Number(cropX) || 0);
         let y = Math.round(Number(cropY) || 0);
+        let origW = Math.round(Number(originalWidth) || 0);
+        let origH = Math.round(Number(originalHeight) || 0);
 
         if (w % 2 !== 0) w -= 1;
         if (h % 2 !== 0) h -= 1;
         if (x % 2 !== 0) x -= 1;
         if (y % 2 !== 0) y -= 1;
+        if (origW % 2 !== 0) origW += 1;
+        if (origH % 2 !== 0) origH += 1;
 
         if (w <= 0 || h <= 0) {
             return { success: false, error: 'Kích thước vùng crop không hợp lệ' };
         }
 
+        const isWebmInput = String(cleanPath).toLowerCase().endsWith('.webm');
+        const isCropPad = mode === 'crop_pad' || mode === 'keep_aspect' || mode === 'keep_canvas';
+        
+        // Khi ở chế độ crop_pad (cắt 4 biên giữ canvas): luôn xuất ra WebM VP8 Alpha trong suốt để lộ lớp video bên dưới
+        const outputWebm = isCropPad || isWebmInput;
+        const ext = outputWebm ? '.webm' : '.mp4';
         const baseName = path.basename(cleanPath, path.extname(cleanPath));
-        const outVideoPath = path.join(cropDir, `${baseName}_crop_${Date.now()}.mp4`);
+        const outVideoPath = path.join(cropDir, `${baseName}_crop_${Date.now()}${ext}`);
         const outThumbPath = path.join(cropDir, `${baseName}_crop_${Date.now()}_thumb.jpg`);
 
-        const cropFilter = `crop=${w}:${h}:${Math.max(0, x)}:${Math.max(0, y)}`;
+        const finalW = isCropPad && origW > 0 ? origW : w;
+        const finalH = isCropPad && origH > 0 ? origH : h;
 
-        const cropArgs = [
-            '-y',
-            '-i', cleanPath,
-            '-vf', cropFilter,
-            '-c:v', 'libx264',
-            '-preset', 'veryfast',
-            '-crf', '18',
-            '-c:a', 'copy',
-            outVideoPath
-        ];
+        let filterParts = [];
+        if (outputWebm) {
+            filterParts.push('format=yuva420p');
+        }
+        filterParts.push(`crop=${w}:${h}:${Math.max(0, x)}:${Math.max(0, y)}`);
+        if (isCropPad && origW > 0 && origH > 0) {
+            filterParts.push(`pad=${origW}:${origH}:${Math.max(0, x)}:${Math.max(0, y)}:color=black@0`);
+        }
+
+        const cropFilter = filterParts.join(',');
+
+        let hasAudio = false;
+        try {
+            const probeOut = execSync(`"${ffmpegPath}" -i "${cleanPath}" 2>&1`, { encoding: 'utf-8' });
+            if (probeOut && (probeOut.includes('Audio:') || (probeOut.includes('Stream #') && probeOut.includes(': Audio:')))) {
+                hasAudio = true;
+            }
+        } catch (pe) {
+            const out = (pe && (pe.stdout || pe.stderr || pe.message)) || '';
+            if (out.includes('Audio:')) hasAudio = true;
+        }
+
+        let cropArgs = ['-y'];
+        if (isWebmInput) {
+            cropArgs.push('-c:v', 'libvpx');
+        }
+        cropArgs.push('-i', cleanPath);
+        cropArgs.push('-vf', cropFilter);
+
+        if (outputWebm) {
+            cropArgs.push(
+                '-c:v', 'libvpx',
+                '-pix_fmt', 'yuva420p',
+                '-auto-alt-ref', '0',
+                '-b:v', '4M'
+            );
+            if (hasAudio) {
+                cropArgs.push('-c:a', 'libvorbis');
+            } else {
+                cropArgs.push('-an');
+            }
+        } else {
+            cropArgs.push(
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',
+                '-crf', '18',
+                '-pix_fmt', 'yuv420p'
+            );
+            if (hasAudio) {
+                cropArgs.push('-c:a', 'copy');
+            } else {
+                cropArgs.push('-an');
+            }
+        }
+
+        cropArgs.push(outVideoPath);
 
         sendToRenderer('tools-log', `[FFmpeg] Crop video: ${cropArgs.join(' ')}`);
 
@@ -9453,8 +9510,8 @@ ipcMain.handle('crop-video-ffmpeg', async (_event, payload) => {
             success: true,
             videoUrl: `file://${outVideoPath}`,
             imageUrl: fs.existsSync(outThumbPath) ? `file://${outThumbPath}` : null,
-            width: w,
-            height: h
+            width: finalW,
+            height: finalH
         };
     } catch (e) {
         console.error('Lỗi crop-video-ffmpeg:', e);
