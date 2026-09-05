@@ -1406,12 +1406,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
                 if (scene.images) {
                     const beforeLen = scene.images.length;
+                    scene.images.forEach((img: any) => {
+                        if (this.selectedItems.has(img)) {
+                            this.addMediaItemToPool('image', img);
+                        }
+                    });
                     scene.images = scene.images.filter((img: any) => !this.selectedItems.has(img));
                     count += (beforeLen - scene.images.length);
                 }
 
                 if (scene.videos) {
                     const beforeLen = scene.videos.length;
+                    scene.videos.forEach((v: any) => {
+                        if (this.selectedItems.has(v)) {
+                            this.addMediaItemToPool('video', v);
+                        }
+                    });
                     scene.videos = scene.videos.filter((v: any) => !this.selectedItems.has(v));
                     count += (beforeLen - scene.videos.length);
                 }
@@ -1430,6 +1440,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
                 if (scene.extractedAudios) {
                     const beforeLen = scene.extractedAudios.length;
+                    scene.extractedAudios.forEach((a: any) => {
+                        if (this.selectedItems.has(a)) {
+                            this.addMediaItemToPool('audio', a);
+                        }
+                    });
                     scene.extractedAudios = scene.extractedAudios.filter((a: any) => !this.selectedItems.has(a));
                     count += (beforeLen - scene.extractedAudios.length);
                 }
@@ -5546,6 +5561,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const customDir = uuid ? `tts/admin/${uuid}` : undefined;
             const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
             const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+            this.unmarkDeletedKey(finalPath);
+            this.unmarkDeletedKey(originalPath);
+            this.unmarkDeletedKey(localFilePath);
 
             if (!this.projectData) this.projectData = { scenes: [] };
             if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
@@ -5724,6 +5742,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 isCompleted: true
             };
 
+            this.unmarkDeletedKey(res.streamUrl);
+            this.unmarkDeletedKey(url.trim());
             if (!scene.videos) scene.videos = [];
             scene.videos.push(newVideo);
             this.activeItem = newVideo;
@@ -8057,7 +8077,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 images: [],
                 audios: [],
                 subtitles: [],
-                texts: []
+                texts: [],
+                deletedKeys: []
             };
         }
         if (!this.projectData.mediaLibraryPool.videos) this.projectData.mediaLibraryPool.videos = [];
@@ -8065,6 +8086,106 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         if (!this.projectData.mediaLibraryPool.audios) this.projectData.mediaLibraryPool.audios = [];
         if (!this.projectData.mediaLibraryPool.subtitles) this.projectData.mediaLibraryPool.subtitles = [];
         if (!this.projectData.mediaLibraryPool.texts) this.projectData.mediaLibraryPool.texts = [];
+        if (!this.projectData.mediaLibraryPool.deletedKeys) this.projectData.mediaLibraryPool.deletedKeys = [];
+    }
+
+    unmarkDeletedKey(keyOrIdOrUrl: string | any) {
+        if (!keyOrIdOrUrl) return;
+        this.ensureMediaLibraryPool();
+        const delList = this.projectData.mediaLibraryPool.deletedKeys || [];
+        if (!delList || delList.length === 0) return;
+
+        let searchKeys: string[] = [];
+        if (typeof keyOrIdOrUrl === 'string') {
+            searchKeys.push(keyOrIdOrUrl.trim());
+            searchKeys.push(keyOrIdOrUrl.replace(/^file:\/\//i, '').replace(/^media:\/\//i, '').trim());
+        } else if (typeof keyOrIdOrUrl === 'object') {
+            const id = keyOrIdOrUrl.id;
+            const url = keyOrIdOrUrl.videoUrl || keyOrIdOrUrl.imageUrl || keyOrIdOrUrl.controlImageUrl || keyOrIdOrUrl.audioUrl || keyOrIdOrUrl.url || keyOrIdOrUrl.src;
+            if (id) {
+                searchKeys.push(String(id).trim());
+                searchKeys.push(`id_${id}`.trim());
+            }
+            if (url) {
+                searchKeys.push(String(url).trim());
+                searchKeys.push(String(url).replace(/^file:\/\//i, '').replace(/^media:\/\//i, '').trim());
+            }
+        }
+
+        this.projectData.mediaLibraryPool.deletedKeys = delList.filter((k: string) => {
+            if (!k) return false;
+            const cleanK = String(k).trim();
+            return !searchKeys.some(sk => sk && (sk === cleanK || sk.endsWith(cleanK) || cleanK.endsWith(sk)));
+        });
+    }
+
+    addMediaItemToPool(type: 'video' | 'image' | 'audio', item: any) {
+        if (!item) return;
+        this.ensureMediaLibraryPool();
+        const pool = this.projectData.mediaLibraryPool;
+        if (type === 'video') {
+            if (!pool.videos) pool.videos = [];
+            const vUrl = item.videoUrl || item.url || item.src || item.path || item.videoPath || item.file || item.sourceUrl;
+            const vImg = item.imageUrl || item.controlImageUrl || item.thumbUrl || item.poster;
+            const key = (item.id ? `id_${item.id}` : (vUrl || vImg || '')).trim();
+            const exists = pool.videos.some((v: any) => {
+                const existingUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl;
+                const existingKey = (v.id ? `id_${v.id}` : (existingUrl || '')).trim();
+                return (v.id && item.id && v.id === item.id) || (vUrl && existingUrl && vUrl === existingUrl) || (key && existingKey && key === existingKey);
+            });
+            if (!exists && (vUrl || vImg || item.id)) {
+                pool.videos.push({
+                    id: item.id || `pool_v_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    prompt: item.prompt || '',
+                    videoUrl: vUrl || null,
+                    imageUrl: vImg || null,
+                    controlImageUrl: item.controlImageUrl || null,
+                    duration: Number(item.duration) || Number(item.maxDuration) || 5,
+                    maxDuration: Number(item.maxDuration) || Number(item.duration) || 5,
+                    type: 'video'
+                });
+            }
+        } else if (type === 'image') {
+            if (!pool.images) pool.images = [];
+            const imgUrl = item.imageUrl || item.controlImageUrl || item.url || item.src || item.path || item.imagePath;
+            const key = (item.id ? `id_${item.id}` : (imgUrl || '')).trim();
+            const exists = pool.images.some((img: any) => {
+                const existingUrl = img.imageUrl || img.controlImageUrl || img.url || img.src || img.path || img.imagePath;
+                const existingKey = (img.id ? `id_${img.id}` : (existingUrl || '')).trim();
+                return (img.id && item.id && img.id === item.id) || (imgUrl && existingUrl && imgUrl === existingUrl) || (key && existingKey && key === existingKey);
+            });
+            if (!exists && (imgUrl || item.id)) {
+                pool.images.push({
+                    id: item.id || `pool_img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    title: item.title || item.prompt || 'Hình ảnh',
+                    prompt: item.prompt || item.title || '',
+                    imageUrl: imgUrl || null,
+                    controlImageUrl: item.controlImageUrl || null,
+                    duration: Number(item.duration) || 5,
+                    maxDuration: Number(item.maxDuration) || 5,
+                    type: 'image'
+                });
+            }
+        } else if (type === 'audio') {
+            if (!pool.audios) pool.audios = [];
+            const audUrl = item.audioUrl || item.url || item.src;
+            const key = (item.id ? `id_${item.id}` : (audUrl || '')).trim();
+            const exists = pool.audios.some((a: any) => {
+                const existingUrl = a.audioUrl || a.url || a.src;
+                const existingKey = (a.id ? `id_${a.id}` : (existingUrl || '')).trim();
+                return (a.id && item.id && a.id === item.id) || (audUrl && existingUrl && audUrl === existingUrl) || (key && existingKey && key === existingKey);
+            });
+            if (!exists && (audUrl || item.id)) {
+                pool.audios.push({
+                    id: item.id || `pool_aud_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    text: item.text || item.title || 'Âm thanh',
+                    audioUrl: audUrl || null,
+                    duration: Number(item.duration) || 5,
+                    maxDuration: Number(item.maxDuration) || 5,
+                    type: item.type || 'extractedAudio'
+                });
+            }
+        }
     }
 
     getAllProjectVideos(): any[] {
@@ -8073,7 +8194,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const seenKeys = new Set<string>();
         const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
 
-        // 1. Quét trực tiếp từ tất cả các Scene trên Timeline
+        // 1. Quét trực tiếp từ tất cả các Scene trên Timeline (nếu đang ở trên timeline thì ưu tiên hiển thị)
         if (this.projectData?.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
@@ -8083,9 +8204,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         const vUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl;
                         const vImg = v.imageUrl || v.controlImageUrl || v.thumbUrl || v.poster;
                         const key = (v.id ? `id_${v.id}` : (vUrl || vImg || `scene_${sIdx}_video_${vIdx}`)).trim();
-                        if (deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id))) || (vUrl && deletedKeys.has(String(vUrl).trim()))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
+                            if (vUrl) seenKeys.add(String(vUrl).trim());
                             list.push({
                                 id: v.id || `video_tl_${sIdx}_${vIdx}`,
                                 prompt: v.prompt || '',
@@ -8107,13 +8228,13 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             }
         }
 
-        // 2. Quét thêm từ mediaLibraryPool đã lưu
+        // 2. Quét thêm từ mediaLibraryPool đã lưu (chỉ lọc deletedKeys cho các item lưu trong kho pool)
         if (this.projectData?.mediaLibraryPool?.videos) {
             for (const v of this.projectData.mediaLibraryPool.videos) {
                 const vUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl;
                 const vImg = v.imageUrl || v.controlImageUrl || v.thumbUrl || v.poster;
                 const key = (v.id ? `id_${v.id}` : (vUrl || vImg || '')).trim();
-                if (!key || seenKeys.has(key) || deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id))) || (vUrl && deletedKeys.has(String(vUrl).trim()))) continue;
+                if (!key || seenKeys.has(key) || (vUrl && seenKeys.has(String(vUrl).trim())) || deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id))) || (vUrl && deletedKeys.has(String(vUrl).trim()))) continue;
                 seenKeys.add(key);
                 list.push({
                     ...v,
@@ -8146,9 +8267,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         const img = scene.images[imgIdx];
                         const imgUrl = img.imageUrl || img.controlImageUrl || img.url || img.src || img.path || img.imagePath;
                         const key = (img.id ? `id_${img.id}` : (imgUrl || `scene_${sIdx}_image_${imgIdx}`)).trim();
-                        if (deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id))) || (imgUrl && deletedKeys.has(String(imgUrl).trim()))) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
+                            if (imgUrl) seenKeys.add(String(imgUrl).trim());
                             list.push({
                                 id: img.id || `image_tl_${sIdx}_${imgIdx}`,
                                 title: img.title || img.prompt || ('Hình ảnh ' + (imgIdx + 1)),
@@ -8174,7 +8295,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             for (const img of this.projectData.mediaLibraryPool.images) {
                 const imgUrl = img.imageUrl || img.controlImageUrl || img.url || img.src || img.path || img.imagePath;
                 const key = (img.id ? `id_${img.id}` : (imgUrl || '')).trim();
-                if (!key || seenKeys.has(key) || deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id))) || (imgUrl && deletedKeys.has(String(imgUrl).trim()))) continue;
+                if (!key || seenKeys.has(key) || (imgUrl && seenKeys.has(String(imgUrl).trim())) || deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id))) || (imgUrl && deletedKeys.has(String(imgUrl).trim()))) continue;
                 seenKeys.add(key);
                 list.push({
                     ...img,
@@ -8197,20 +8318,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const seenKeys = new Set<string>();
         const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
 
-        // 1. Quét từ pool đã lưu
-        for (const aud of this.projectData.mediaLibraryPool.audios) {
-            const key = (aud.audioUrl || aud.url || aud.id || '').trim();
-            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (aud.id && deletedKeys.has(String(aud.id)))) continue;
-            seenKeys.add(key);
-            list.push({
-                ...aud,
-                _raw: aud,
-                type: aud.type || 'extractedAudio',
-                title: aud.text || aud.title || 'Âm thanh'
-            });
-        }
-
-        // 2. Quét từ timeline và bổ sung vào pool
+        // 1. Quét từ timeline trước (các item đang hiện diện trên timeline luôn được hiển thị)
         if (this.projectData.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
@@ -8218,9 +8326,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
                         const aud = scene.extractedAudios[aIdx];
                         const key = (aud.audioUrl || aud.url || aud.id || `ext_${sIdx}_${aIdx}`).trim();
-                        if (!key || deletedKeys.has(key) || (aud.id && deletedKeys.has(String(aud.id)))) continue;
+                        if (!key) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
+                            if (aud.audioUrl) seenKeys.add(String(aud.audioUrl).trim());
                             const poolItem = {
                                 id: aud.id || `audio_pool_${Date.now()}_${aIdx}`,
                                 audioUrl: aud.audioUrl || aud.url || null,
@@ -8232,7 +8341,6 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                 type: 'extractedAudio',
                                 title: aud.text || ('Âm thanh #' + (aIdx + 1))
                             };
-                            this.projectData.mediaLibraryPool.audios.push(poolItem);
                             list.push({
                                 ...poolItem,
                                 _raw: aud,
@@ -8246,9 +8354,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         const sub = scene.subtitles[subIdx];
                         if (sub.audioUrl) {
                             const key = (sub.audioUrl || sub.id || `sub_${sIdx}_${subIdx}`).trim();
-                            if (!key || deletedKeys.has(key) || (sub.id && deletedKeys.has(String(sub.id)))) continue;
+                            if (!key) continue;
                             if (!seenKeys.has(key)) {
                                 seenKeys.add(key);
+                                if (sub.audioUrl) seenKeys.add(String(sub.audioUrl).trim());
                                 const poolItem = {
                                     id: sub.id || `audio_sub_${Date.now()}_${subIdx}`,
                                     audioUrl: sub.audioUrl,
@@ -8260,7 +8369,6 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                     type: 'audio',
                                     title: sub.text ? (sub.text.length > 25 ? sub.text.substring(0, 25) + '...' : sub.text) : ('Audio #' + (subIdx + 1))
                                 };
-                                this.projectData.mediaLibraryPool.audios.push(poolItem);
                                 list.push({
                                     ...poolItem,
                                     _raw: sub,
@@ -8272,6 +8380,20 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 }
             }
         }
+
+        // 2. Quét từ pool đã lưu (chỉ lọc deletedKeys cho các item lưu trong pool)
+        for (const aud of this.projectData.mediaLibraryPool.audios) {
+            const key = (aud.audioUrl || aud.url || aud.id || '').trim();
+            if (!key || seenKeys.has(key) || (aud.audioUrl && seenKeys.has(String(aud.audioUrl).trim())) || deletedKeys.has(key) || (aud.id && deletedKeys.has(String(aud.id)))) continue;
+            seenKeys.add(key);
+            list.push({
+                ...aud,
+                _raw: aud,
+                type: aud.type || 'extractedAudio',
+                title: aud.text || aud.title || 'Âm thanh'
+            });
+        }
+
         return list;
     }
 
@@ -9406,6 +9528,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                         const idx = scene.extractedAudios.indexOf(item);
                         if (idx !== -1) {
                             const audio = scene.extractedAudios[idx];
+                            this.addMediaItemToPool('audio', audio);
                             if (scene.videos) {
                                 const video = scene.videos.find((v: any) => v.startTime === audio.startTime);
                                 if (video) video.muted = false;
@@ -9425,6 +9548,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                         const idx = scene.videos.indexOf(item);
                         if (idx !== -1) {
                             const deletedVideo = scene.videos[idx];
+                            this.addMediaItemToPool('video', deletedVideo);
                             const shiftAmount = deletedVideo.duration || 0;
 
                             let passedDeleted = false;
@@ -9493,6 +9617,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             confirm: 'Xóa',
             cb: () => {
                 const audio = scene.extractedAudios[aIdx];
+                this.addMediaItemToPool('audio', audio);
                 if (scene.videos) {
                     const video = scene.videos.find((v: any) => v.startTime === audio.startTime);
                     if (video) video.muted = false;
@@ -9595,6 +9720,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             confirm: 'Xóa liền',
             cb: () => {
                 const deletedVideo = scene.videos[vIdx];
+                this.addMediaItemToPool('video', deletedVideo);
                 const shiftAmount = deletedVideo.duration || 0;
 
                 // 1. Dịch chuyển các video phía sau sang trái TRƯỚC KHI xoá phần tử trong mảng
