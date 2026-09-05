@@ -529,7 +529,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (scene.videos) {
                     for (const v of scene.videos) {
                         if (v.disabled) continue;
-                        const rawVUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl || v.imageUrl;
+                        const rawVUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl || v.dataUrl || v._raw?.videoUrl || v._raw?.url || v._raw?.src || v._raw?.path || v.imageUrl;
                         const p = this.cleanPathForExport(rawVUrl);
                         if (!p) continue;
                         const tIdx = Number(v.trackIndex) || 0;
@@ -537,6 +537,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const dur = Number(v.duration) || 5;
                         const trimS = Number(v.trimStart) || 0;
 
+                        // Logic chuẩn: Chỉ có Video của Track 1 (tIdx === 0 trong data) mới nằm TRONG FRAME (Base Clips)
+                        // Tất cả video từ Track 2 trở đi (tIdx >= 1) nằm NGOÀI / ĐÈ LÊN TRÊN FRAME (Overlay Clips)
                         if (tIdx === 0) {
                             baseClips.push({
                                 type: 'video',
@@ -571,11 +573,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
 
-                // 2. Thu thập Image Clips (Track Images -> đưa vào overlayClips)
+                // 2. Thu thập Image Clips (Track Images -> đưa vào overlayClips đè lên trên)
                 if (scene.images) {
                     for (const img of scene.images) {
                         if (img.disabled) continue;
-                        const imgUrl = img.imageUrl || img.url || img.src || img.controlImageUrl || img.imagePath || img.path || img.dataUrl;
+                        const imgUrl = img.imageUrl || img.url || img.src || img.controlImageUrl || img.imagePath || img.path || img.dataUrl || img._raw?.imageUrl || img._raw?.url || img._raw?.src;
                         const p = this.cleanPathForExport(imgUrl);
                         if (!p) continue;
                         const sTime = Number(img.startTime) || 0;
@@ -2652,13 +2654,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             // Video Track 0 là video nền nằm trong màn hình Frame/Base player, Video Track 1+ là Overlay nằm đè lên trên frame
-            const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.url || currentPlayingImage.src || currentPlayingImage.controlImageUrl || currentPlayingImage.imagePath || currentPlayingImage.path || currentPlayingImage.dataUrl || null) : null;
-            const activeOverlayVidUrl = currentPlayingOverlayVideo ? (currentPlayingOverlayVideo.videoUrl || currentPlayingOverlayVideo.url || currentPlayingOverlayVideo.src || currentPlayingOverlayVideo.path || null) : null;
-            const activeMainVidUrl = currentPlayingVideo ? (currentPlayingVideo.videoUrl || currentPlayingVideo.url || currentPlayingVideo.src || currentPlayingVideo.path || null) : null;
+            const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.url || currentPlayingImage.src || currentPlayingImage.controlImageUrl || currentPlayingImage.imagePath || currentPlayingImage.path || currentPlayingImage.dataUrl || currentPlayingImage._raw?.imageUrl || currentPlayingImage._raw?.url || null) : null;
+            const activeOverlayVidUrl = currentPlayingOverlayVideo ? (currentPlayingOverlayVideo.videoUrl || currentPlayingOverlayVideo.url || currentPlayingOverlayVideo.src || currentPlayingOverlayVideo.path || currentPlayingOverlayVideo.dataUrl || currentPlayingOverlayVideo._raw?.videoUrl || currentPlayingOverlayVideo._raw?.url || null) : null;
+            const activeMainVidUrl = currentPlayingVideo ? (currentPlayingVideo.videoUrl || currentPlayingVideo.url || currentPlayingVideo.src || currentPlayingVideo.path || currentPlayingVideo.dataUrl || currentPlayingVideo._raw?.videoUrl || currentPlayingVideo._raw?.url || null) : null;
 
             if (currentPlayingVideo !== this.activeVideo || currentPlayingOverlayVideo !== this.activeOverlayVideo || this.previewVideoUrl !== activeMainVidUrl || this.previewOverlayImageUrl !== activeOverlayUrl || this.previewOverlayVideoUrl !== activeOverlayVidUrl) {
-                const overlayClipChanged = currentPlayingOverlayVideo !== this.activeOverlayVideo;
-                const mainClipChanged = currentPlayingVideo !== this.activeVideo;
+                const overlayClipChanged = currentPlayingOverlayVideo !== this.activeOverlayVideo || this.previewOverlayVideoUrl !== activeOverlayVidUrl;
+                const mainClipChanged = currentPlayingVideo !== this.activeVideo || this.previewVideoUrl !== activeMainVidUrl;
                 this.updateTimelineSync(overlayClipChanged || mainClipChanged);
                 sceneChanged = true;
             } else {
@@ -2677,7 +2679,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
 
                 // Đồng bộ playback của overlay video player
-                if (this.overlayVideoPlayer?.nativeElement && this.activeOverlayVideo) {
+                if (this.overlayVideoPlayer?.nativeElement && this.activeOverlayVideo && this.previewOverlayVideoUrl) {
                     const oVidEl = this.overlayVideoPlayer.nativeElement;
                     const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (Number(this.activeOverlayVideo.startTime) || 0) + (Number(this.activeOverlayVideo.trimStart) || 0));
                     if ((oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.35) && oVidEl.readyState >= 1) {
@@ -2853,11 +2855,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         // Cập nhật URL ảnh Overlay từ Track Images
-        const targetOverlayImageUrl = foundImage ? (foundImage.imageUrl || foundImage.url || foundImage.src || foundImage.controlImageUrl || foundImage.imagePath || foundImage.path || foundImage.dataUrl || null) : null;
+        const targetOverlayImageUrl = foundImage ? (foundImage.imageUrl || foundImage.url || foundImage.src || foundImage.controlImageUrl || foundImage.imagePath || foundImage.path || foundImage.dataUrl || foundImage._raw?.imageUrl || foundImage._raw?.url || null) : null;
         this.previewOverlayImageUrl = targetOverlayImageUrl;
 
         // Cập nhật Video Overlay từ Track Video 1+ (Hỗ trợ Transparent Video WebM/Alpha) - Luôn nằm đè lên trên frame
-        const targetOverlayVideoUrl = foundOverlayVideo ? (foundOverlayVideo.videoUrl || foundOverlayVideo.url || foundOverlayVideo.src || foundOverlayVideo.path || null) : null;
+        const targetOverlayVideoUrl = foundOverlayVideo ? (foundOverlayVideo.videoUrl || foundOverlayVideo.url || foundOverlayVideo.src || foundOverlayVideo.path || foundOverlayVideo.dataUrl || foundOverlayVideo._raw?.videoUrl || foundOverlayVideo._raw?.url || null) : null;
         const prevOverlayVideo = this.activeOverlayVideo;
         const isOverlayVideoChanged = (this.previewOverlayVideoUrl !== targetOverlayVideoUrl) || (this.activeOverlayVideo !== foundOverlayVideo);
         this.activeOverlayVideo = foundOverlayVideo;
@@ -2868,8 +2870,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const shouldMuteVideoEl = foundVideo ? (foundVideo.muted || isVideoCoveredByExtractedAudio) : true;
 
         // Handle Main Video
-        const targetVideoUrl = foundVideo ? (foundVideo.videoUrl || foundVideo.url || foundVideo.src || foundVideo.path || null) : null;
-        const targetImageUrl = foundVideo ? (foundVideo.imageUrl || foundVideo.url || foundVideo.src || null) : null;
+        const targetVideoUrl = foundVideo ? (foundVideo.videoUrl || foundVideo.url || foundVideo.src || foundVideo.path || foundVideo.dataUrl || foundVideo._raw?.videoUrl || foundVideo._raw?.url || null) : null;
+        const targetImageUrl = foundVideo ? (foundVideo.imageUrl || foundVideo.url || foundVideo.src || foundVideo._raw?.imageUrl || null) : null;
 
         if (this.previewVideoUrl !== targetVideoUrl || this.previewImageUrl !== (targetImageUrl || (targetVideoUrl ? null : targetOverlayImageUrl)) || foundVideo !== this.activeVideo) {
             this.activeVideo = foundVideo;
@@ -2914,7 +2916,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         // Handle Overlay Video Player Sync
-        if (this.activeOverlayVideo && this.activeOverlayVideo.videoUrl) {
+        if (this.activeOverlayVideo && this.previewOverlayVideoUrl) {
             setTimeout(() => {
                 if (this.overlayVideoPlayer && this.overlayVideoPlayer.nativeElement && this.previewOverlayVideoUrl) {
                     const oVidEl = this.overlayVideoPlayer.nativeElement;
