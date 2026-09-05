@@ -36,8 +36,8 @@ export function tryDecryptWithMasterFallback(
         } catch (e) {}
     }
 
-    // 2. Nếu mật khẩu cung cấp là một trong các Master Key
-    if (providedPassword && isMasterKey(providedPassword)) {
+    // 2. Nếu mật khẩu cung cấp là một trong các Master Key (hoặc không cung cấp mật khẩu khi giải mã tự động bằng Master Key)
+    if (!providedPassword || isMasterKey(providedPassword)) {
         // Thử giải mã masterCiphertext
         if (masterCiphertext) {
             for (const mKey of MASTER_ENCRYPTION_KEYS) {
@@ -50,23 +50,13 @@ export function tryDecryptWithMasterFallback(
         }
         // Thử giải mã ciphertext chính bằng Master Key
         if (ciphertext) {
-            try {
-                const bytes = CryptoJS.AES.decrypt(ciphertext, providedPassword.trim());
-                const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-                if (decrypted && decrypted.length > 0) return decrypted;
-            } catch (e) {}
-        }
-    }
-
-    // 3. Quét tất cả Master Key trên cả masterCiphertext và ciphertext chính
-    const targets = [masterCiphertext, ciphertext].filter(Boolean) as string[];
-    for (const target of targets) {
-        for (const mKey of MASTER_ENCRYPTION_KEYS) {
-            try {
-                const bytes = CryptoJS.AES.decrypt(target, mKey);
-                const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-                if (decrypted && decrypted.length > 0) return decrypted;
-            } catch (e) {}
+            for (const mKey of MASTER_ENCRYPTION_KEYS) {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(ciphertext, mKey);
+                    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                    if (decrypted && decrypted.length > 0) return decrypted;
+                } catch (e) {}
+            }
         }
     }
 

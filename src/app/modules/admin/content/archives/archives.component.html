@@ -18,6 +18,9 @@
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
                         <span class="ml-1 text-base text-secondary">{{ 'app.your_current_work' | transloco }}</span>
+                        <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-300">
+                            {{ (realTotalCount) ? realTotalCount.toLocaleString() : 0 }}
+                        </span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
@@ -63,11 +66,11 @@
     <!-- Main -->
     <div class="flex-auto overflow-hidden relative w-full">
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #table class="material fullscreen transition-opacity duration-300 absolute inset-0"
+        <ngx-datatable [appScrollLock]="isLoading" [virtualization]="uuids.length === 0" #table class="material fullscreen transition-opacity duration-300 absolute inset-0"
             [columnMode]="ColumnMode.force" [class.opacity-50]="isLoading"
             [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
             [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
-            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
+            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" (scroll)="onTableScroll($event)" [headerHeight]="50"
             [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows" [rowClass]="getRowClass"
             [messages]="{emptyMessage: 'Không có dữ liệu', totalMessage: 'tác vụ'}">
 
