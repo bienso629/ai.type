@@ -3285,12 +3285,29 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         const maskInputIndex = currentInputIdx;
         currentInputIdx++;
 
+        const getWebmDecoder = (filePath) => {
+            if (!String(filePath).toLowerCase().endsWith('.webm')) return null;
+            try {
+                const probe = execSync(`"${ffmpegPath}" -i "${filePath}" 2>&1`, { encoding: 'utf-8' });
+                if (probe.includes('Video: vp9') || probe.includes('libvpx-vp9') || probe.includes('vp9 (')) return 'libvpx-vp9';
+                return 'libvpx';
+            } catch (e) {
+                const out = (e && (e.stdout || e.stderr || e.message)) || '';
+                if (out.includes('Video: vp9') || out.includes('libvpx-vp9') || out.includes('vp9 (')) return 'libvpx-vp9';
+                return 'libvpx';
+            }
+        };
+
         // 3. Inputs: Base Clips (Track 0)
         const baseClipIndices = [];
         for (const bc of validBaseClips) {
             if (bc.type === 'image') {
                 args.push('-loop', '1', '-i', bc.cleanPath);
             } else {
+                const dec = getWebmDecoder(bc.cleanPath);
+                if (dec) {
+                    args.push('-c:v', dec);
+                }
                 args.push('-i', bc.cleanPath);
             }
             baseClipIndices.push({ inputIndex: currentInputIdx, ...bc });
@@ -3303,6 +3320,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             if (ov.type === 'image') {
                 args.push('-loop', '1', '-i', ov.cleanPath);
             } else {
+                const dec = getWebmDecoder(ov.cleanPath);
+                if (dec) {
+                    args.push('-c:v', dec);
+                }
                 args.push('-i', ov.cleanPath);
             }
             overlayIndices.push({ inputIndex: currentInputIdx, ...ov });
@@ -3365,11 +3386,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             const nextTag = `[ov_layer_${ovCounter}]`;
 
             if (ov.type === 'image') {
-                filterParts.push(`[${ov.inputIndex}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${ov.inputIndex}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             } else {
-                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${W}:${H}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${W}:${H}:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             }
-            filterParts.push(`${currentFullBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            filterParts.push(`${currentFullBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:format=auto:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
             currentFullBase = nextTag;
             ovCounter++;
         }
@@ -3389,8 +3410,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             for (const ac of audioIndices) {
                 const startMs = Math.round((Number(ac.startTime) || 0) * 1000);
                 const vol = Number(ac.volume) !== undefined ? Number(ac.volume) : 1;
-                const trimS = Number(ac.trimStart) || 0;
-                const dur = Number(ac.duration) || 5;
+                const trimS = Math.max(0, Number(ac.trimStart) || 0);
+                const dur = Math.max(0.1, Number(ac.duration) || 5);
                 const outAudTag = `[a_processed_${aCounter}]`;
 
                 filterParts.push(`[${ac.inputIndex}:a]atrim=start=${trimS}:duration=${dur},asetpts=PTS-STARTPTS,adelay=${startMs}|${startMs},volume=${vol}${outAudTag}`);
@@ -3403,6 +3424,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             } else {
                 filterParts.push(`${audioPadParts.join('')}amix=inputs=${audioPadParts.length}:duration=longest:dropout_transition=0,apad=whole_dur=${maxDur}[outa]`);
             }
+            hasAudioOutput = true;
+        } else {
+            // Tạo silent audio track để tránh lỗi aac encoder thiếu stream
+            filterParts.push(`anullsrc=channel_layout=stereo:sample_rate=44100:d=${maxDur}[outa]`);
             hasAudioOutput = true;
         }
 
@@ -3450,8 +3475,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     console.log('[render-video-with-frame] Xuất video thành công:', outputPath);
                     resolve({ success: true, outputPath });
                 } else {
-                    console.error('[render-video-with-frame] Lỗi FFmpeg:', stderrData.slice(-1000));
-                    resolve({ success: false, error: `FFmpeg exited with code ${code}: ${stderrData.slice(-600)}` });
+                    console.error('[render-video-with-frame] FFmpeg args:', args.join(' '));
+                    console.error('[render-video-with-frame] Lỗi FFmpeg:', stderrData);
+                    resolve({ success: false, error: `FFmpeg exited with code ${code}: ${stderrData.slice(-1200)}` });
                 }
             });
             child.on('error', (err) => {
@@ -3648,12 +3674,29 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         const args = ['-y'];
         let currentInputIdx = 0;
 
+        const getWebmDecoder = (filePath) => {
+            if (!String(filePath).toLowerCase().endsWith('.webm')) return null;
+            try {
+                const probe = execSync(`"${ffmpegPath}" -i "${filePath}" 2>&1`, { encoding: 'utf-8' });
+                if (probe.includes('Video: vp9') || probe.includes('libvpx-vp9') || probe.includes('vp9 (')) return 'libvpx-vp9';
+                return 'libvpx';
+            } catch (e) {
+                const out = (e && (e.stdout || e.stderr || e.message)) || '';
+                if (out.includes('Video: vp9') || out.includes('libvpx-vp9') || out.includes('vp9 (')) return 'libvpx-vp9';
+                return 'libvpx';
+            }
+        };
+
         // 1. Inputs: Base Clips (Track 0)
         const baseClipIndices = [];
         for (const bc of validBaseClips) {
             if (bc.type === 'image') {
                 args.push('-loop', '1', '-i', bc.cleanPath);
             } else {
+                const dec = getWebmDecoder(bc.cleanPath);
+                if (dec) {
+                    args.push('-c:v', dec);
+                }
                 args.push('-i', bc.cleanPath);
             }
             baseClipIndices.push({ inputIndex: currentInputIdx, ...bc });
@@ -3666,6 +3709,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             if (ov.type === 'image') {
                 args.push('-loop', '1', '-i', ov.cleanPath);
             } else {
+                const dec = getWebmDecoder(ov.cleanPath);
+                if (dec) {
+                    args.push('-c:v', dec);
+                }
                 args.push('-i', ov.cleanPath);
             }
             overlayIndices.push({ inputIndex: currentInputIdx, ...ov });
@@ -3697,11 +3744,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             const nextTag = `[bc_comp_${baseCounter}]`;
 
             if (bc.type === 'image') {
-                filterParts.push(`[${bc.inputIndex}:v]scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${bc.inputIndex}:v]scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             } else {
-                filterParts.push(`[${bc.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${bc.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             }
-            filterParts.push(`${currentVideoBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            filterParts.push(`${currentVideoBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:format=auto:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
             currentVideoBase = nextTag;
             baseCounter++;
         }
@@ -3717,11 +3764,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             const nextTag = `[ov_layer_${ovCounter}]`;
 
             if (ov.type === 'image') {
-                filterParts.push(`[${ov.inputIndex}:v]scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${ov.inputIndex}:v]scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             } else {
-                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             }
-            filterParts.push(`${currentVideoBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            filterParts.push(`${currentVideoBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:format=auto:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
             currentVideoBase = nextTag;
             ovCounter++;
         }
@@ -3741,8 +3788,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             for (const ac of audioIndices) {
                 const startMs = Math.round((Number(ac.startTime) || 0) * 1000);
                 const vol = Number(ac.volume) !== undefined ? Number(ac.volume) : 1;
-                const trimS = Number(ac.trimStart) || 0;
-                const dur = Number(ac.duration) || 5;
+                const trimS = Math.max(0, Number(ac.trimStart) || 0);
+                const dur = Math.max(0.1, Number(ac.duration) || 5);
                 const outAudTag = `[a_processed_${aCounter}]`;
 
                 filterParts.push(`[${ac.inputIndex}:a]atrim=start=${trimS}:duration=${dur},asetpts=PTS-STARTPTS,adelay=${startMs}|${startMs},volume=${vol}${outAudTag}`);
@@ -3755,6 +3802,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             } else {
                 filterParts.push(`${audioPadParts.join('')}amix=inputs=${audioPadParts.length}:duration=longest:dropout_transition=0,apad=whole_dur=${maxDur}[outa]`);
             }
+            hasAudioOutput = true;
+        } else {
+            // Tạo silent audio track để tránh lỗi aac encoder thiếu stream
+            filterParts.push(`anullsrc=channel_layout=stereo:sample_rate=44100:d=${maxDur}[outa]`);
             hasAudioOutput = true;
         }
 
@@ -3802,8 +3853,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     console.log('[render-video-with-subtitles] Xuất video thành công:', outputPath);
                     resolve({ success: true, outputPath });
                 } else {
-                    console.error('[render-video-with-subtitles] Lỗi FFmpeg:', stderrData.slice(-1000));
-                    resolve({ success: false, error: `FFmpeg exited with code ${code}: ${stderrData.slice(-600)}` });
+                    console.error('[render-video-with-subtitles] FFmpeg args:', args.join(' '));
+                    console.error('[render-video-with-subtitles] Lỗi FFmpeg:', stderrData);
+                    resolve({ success: false, error: `FFmpeg exited with code ${code}: ${stderrData.slice(-1200)}` });
                 }
             });
             child.on('error', (err) => {
