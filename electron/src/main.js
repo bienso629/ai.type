@@ -3328,17 +3328,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         let baseCounter = 0;
         for (const bc of baseClipIndices) {
-            const start = Number(bc.startTime) || 0;
+            const start = Math.max(0, Number(bc.startTime) || 0);
             const end = start + (Number(bc.duration) || 5);
-            const trimS = Number(bc.trimStart) || 0;
-            const dur = Number(bc.duration) || 5;
+            const trimS = Math.max(0, Number(bc.trimStart) || 0);
+            const dur = Math.max(0.1, Number(bc.duration) || 5);
             const scaledTag = `[bc_scaled_${baseCounter}]`;
             const nextTag = `[bc_comp_${baseCounter}]`;
 
             if (bc.type === 'image') {
-                filterParts.push(`[${bc.inputIndex}:v]scale=${W}:${H}:flags=lanczos,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${bc.inputIndex}:v]scale=${W}:${H}:flags=lanczos,format=rgba,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             } else {
-                filterParts.push(`[${bc.inputIndex}:v]trim=start=${trimS}:duration=${dur},setpts=PTS-STARTPTS+${start}/TB,scale=${W}:${H}:flags=lanczos${scaledTag}`);
+                filterParts.push(`[${bc.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${W}:${H}:flags=lanczos,format=rgba,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             }
             filterParts.push(`${currentScreenBase}${scaledTag}overlay=0:0:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
             currentScreenBase = nextTag;
@@ -3357,19 +3357,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         // Đè các Track 1+ / Overlay Clips lên trên cùng
         let ovCounter = 0;
         for (const ov of overlayIndices) {
-            const start = Number(ov.startTime) || 0;
+            const start = Math.max(0, Number(ov.startTime) || 0);
             const end = start + (Number(ov.duration) || 5);
-            const trimS = Number(ov.trimStart) || 0;
-            const dur = Number(ov.duration) || 5;
+            const trimS = Math.max(0, Number(ov.trimStart) || 0);
+            const dur = Math.max(0.1, Number(ov.duration) || 5);
             const scaledTag = `[ov_scaled_${ovCounter}]`;
             const nextTag = `[ov_layer_${ovCounter}]`;
 
             if (ov.type === 'image') {
-                filterParts.push(`[${ov.inputIndex}:v]scale=${W}:${H}:flags=lanczos,format=rgba,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${ov.inputIndex}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             } else {
-                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},setpts=PTS-STARTPTS+${start}/TB,scale=${W}:${H}:flags=lanczos,format=rgba${scaledTag}`);
+                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${W}:${H}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             }
-            filterParts.push(`${currentFullBase}${scaledTag}overlay=0:0:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            filterParts.push(`${currentFullBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
             currentFullBase = nextTag;
             ovCounter++;
         }
@@ -3689,19 +3689,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         // Đè Base Clips (Track 0)
         let baseCounter = 0;
         for (const bc of baseClipIndices) {
-            const start = Number(bc.startTime) || 0;
+            const start = Math.max(0, Number(bc.startTime) || 0);
             const end = start + (Number(bc.duration) || 5);
-            const trimS = Number(bc.trimStart) || 0;
-            const dur = Number(bc.duration) || 5;
+            const trimS = Math.max(0, Number(bc.trimStart) || 0);
+            const dur = Math.max(0.1, Number(bc.duration) || 5);
             const scaledTag = `[bc_scaled_${baseCounter}]`;
             const nextTag = `[bc_comp_${baseCounter}]`;
 
             if (bc.type === 'image') {
-                filterParts.push(`[${bc.inputIndex}:v]scale=${vidW}:${vidH}:flags=lanczos,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${bc.inputIndex}:v]scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             } else {
-                filterParts.push(`[${bc.inputIndex}:v]trim=start=${trimS}:duration=${dur},setpts=PTS-STARTPTS+${start}/TB,scale=${vidW}:${vidH}:flags=lanczos${scaledTag}`);
+                filterParts.push(`[${bc.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             }
-            filterParts.push(`${currentVideoBase}${scaledTag}overlay=0:0:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            filterParts.push(`${currentVideoBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
             currentVideoBase = nextTag;
             baseCounter++;
         }
@@ -3709,19 +3709,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         // Đè Overlays (Track 1+ và Images)
         let ovCounter = 0;
         for (const ov of overlayIndices) {
-            const start = Number(ov.startTime) || 0;
+            const start = Math.max(0, Number(ov.startTime) || 0);
             const end = start + (Number(ov.duration) || 5);
-            const trimS = Number(ov.trimStart) || 0;
-            const dur = Number(ov.duration) || 5;
+            const trimS = Math.max(0, Number(ov.trimStart) || 0);
+            const dur = Math.max(0.1, Number(ov.duration) || 5);
             const scaledTag = `[ov_scaled_${ovCounter}]`;
             const nextTag = `[ov_layer_${ovCounter}]`;
 
             if (ov.type === 'image') {
-                filterParts.push(`[${ov.inputIndex}:v]scale=${vidW}:${vidH}:flags=lanczos,format=rgba,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
+                filterParts.push(`[${ov.inputIndex}:v]scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             } else {
-                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},setpts=PTS-STARTPTS+${start}/TB,scale=${vidW}:${vidH}:flags=lanczos,format=rgba${scaledTag}`);
+                filterParts.push(`[${ov.inputIndex}:v]trim=start=${trimS}:duration=${dur},scale=${vidW}:${vidH}:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS+${start}/TB${scaledTag}`);
             }
-            filterParts.push(`${currentVideoBase}${scaledTag}overlay=0:0:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
+            filterParts.push(`${currentVideoBase}${scaledTag}overlay=(W-w)/2:(H-h)/2:enable='between(t,${start},${end})':eof_action=pass${nextTag}`);
             currentVideoBase = nextTag;
             ovCounter++;
         }
