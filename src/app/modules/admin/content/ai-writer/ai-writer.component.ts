@@ -331,18 +331,22 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     if (targetUuid) {
                         localStorage.removeItem('article_encrypted_' + targetUuid);
                         sessionStorage.removeItem('nav_handshake_pwd_' + targetUuid);
+                        sessionStorage.removeItem('unlocked_pwd_' + targetUuid);
                     }
                     if (this.details) {
                         this.details.is_encrypted = false;
                         delete this.details.cipher;
+                        delete this.details.master_cipher;
                         if (this.details.source) {
                             this.details.source.encrypted = false;
                             delete this.details.source.cipher;
+                            delete this.details.source.master_cipher;
                         }
                     }
                     if (this.source) {
                         this.source.encrypted = false;
                         delete this.source.cipher;
+                        delete this.source.master_cipher;
                     }
                     this.toastr.success('Đã hủy mã hóa bài viết! Đang lưu nội dung dạng tiêu chuẩn lên Server...', 'Hủy Mã Hóa');
                     this.cd.markForCheck();
@@ -371,6 +375,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.articlePassword = res.password;
                 if (this.details) {
                     this.details.is_encrypted = true;
+                }
+                const targetUuid = this.uuid || this.details?.uuid;
+                if (targetUuid) {
+                    localStorage.setItem('article_encrypted_' + targetUuid, 'true');
+                    sessionStorage.setItem('unlocked_pwd_' + targetUuid, this.articlePassword);
                 }
                 this.toastr.success('Đã mã hóa AES-256 bài viết! Đang lưu nội dung mã hóa lên Server...', 'Mã Hóa & Lưu');
                 this.cd.markForCheck();
@@ -4440,12 +4449,26 @@ ${contentFromDone || '(Chưa có văn bản)'}
         let trashToSend = this.trash;
         let isEncrypted = false;
 
+        if (!this.articlePassword && this.uuid) {
+            const cachedPwd = sessionStorage.getItem('unlocked_pwd_' + this.uuid);
+            if (cachedPwd) {
+                this.articlePassword = cachedPwd;
+            }
+        }
+
         if (this.articlePassword) {
             isEncrypted = true;
             const encryptedObj = this.encryptPayload(this.source, this.done, this.trash, this.articlePassword);
             sourceToSend = encryptedObj.source;
             doneToSend = encryptedObj.done;
             trashToSend = encryptedObj.trash;
+            if (this.uuid) {
+                localStorage.setItem('article_encrypted_' + this.uuid, 'true');
+                sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
+            }
+            if (this.details) {
+                this.details.is_encrypted = true;
+            }
         } else {
             isEncrypted = false;
             if (sourceToSend) {
@@ -4466,6 +4489,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
             }
             if (this.uuid) {
                 localStorage.removeItem('article_encrypted_' + this.uuid);
+                sessionStorage.removeItem('unlocked_pwd_' + this.uuid);
             }
         }
 
@@ -4653,6 +4677,10 @@ ${contentFromDone || '(Chưa có văn bản)'}
                             }
 
                             if (autoUnlocked) {
+                                if (this.uuid) {
+                                    localStorage.setItem('article_encrypted_' + this.uuid, 'true');
+                                    sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
+                                }
                                 finishInit();
                                 return;
                             } else {
@@ -4662,12 +4690,26 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                     sessionStorage.removeItem('unlocked_pwd_' + this.uuid);
                                 }
 
-                                const openPasswordDialog = () => {
+                                 const openPasswordDialog = () => {
                                     const dialogRef = this.dialog.open(ArticlePasswordDialog, {
                                         data: {
                                             mode: 'unlock',
                                             type: 'article',
-                                            title: this.details.title || 'Bài viết'
+                                            title: this.details.title || 'Bài viết',
+                                            validator: (pwd: string) => {
+                                                if (!cipherText && !masterCipher) return true;
+                                                try {
+                                                    const decryptedText = tryDecryptWithMasterFallback(cipherText, pwd, masterCipher);
+                                                    if (decryptedText === 'VALID') return true;
+                                                    if (decryptedText && decryptedText.length > 0) {
+                                                        const decrypted = JSON.parse(decryptedText);
+                                                        return !!decrypted;
+                                                    }
+                                                    return false;
+                                                } catch (e) {
+                                                    return false;
+                                                }
+                                            }
                                         },
                                         width: '450px',
                                         disableClose: true
@@ -4682,6 +4724,10 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                                     if (decryptedText === 'VALID') {
                                                         isValid = true;
                                                         this.articlePassword = res.password;
+                                                        if (this.uuid) {
+                                                            localStorage.setItem('article_encrypted_' + this.uuid, 'true');
+                                                            sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
+                                                        }
                                                         this.toastr.success('Mở khóa thành công!');
                                                         this.cd.markForCheck();
                                                         finishInit();
@@ -4711,6 +4757,11 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                                             if (masterCipher) this.details.master_cipher = masterCipher;
                                                             if (this.details.source) this.details.source.encrypted = true;
 
+                                                            if (this.uuid) {
+                                                                localStorage.setItem('article_encrypted_' + this.uuid, 'true');
+                                                                sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
+                                                            }
+
                                                             this.setdata(this.details);
                                                             this.toastr.success('Giải mã thành công nội dung bài viết!', 'Mật khẩu đúng');
                                                             this.cd.markForCheck();
@@ -4722,26 +4773,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                                 }
                                             }
 
-                                            if (isValid) {
-                                                localStorage.removeItem('password_failed_attempts');
-                                                localStorage.removeItem('password_last_failed_time');
-                                                localStorage.removeItem('password_lockout_until');
-                                            } else {
-                                                const lastFailedAt = parseInt(localStorage.getItem('password_last_failed_time') || '0', 10);
-                                                let attempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10);
-                                                if (Date.now() - lastFailedAt > 5 * 60 * 1000) {
-                                                    attempts = 0;
-                                                }
-                                                attempts += 1;
-                                                localStorage.setItem('password_last_failed_time', String(Date.now()));
-                                                if (attempts >= 5) {
-                                                    localStorage.setItem('password_lockout_until', String(Date.now() + 5 * 60 * 1000));
-                                                    localStorage.removeItem('password_failed_attempts');
-                                                    this.toastr.error('Bạn đã nhập sai 5 lần! Hệ thống tạm dừng 5 phút.');
-                                                } else {
-                                                    localStorage.setItem('password_failed_attempts', String(attempts));
-                                                    this.toastr.error(`Mật khẩu giải mã không chính xác! (Đã nhập sai ${attempts}/5 lần)`);
-                                                }
+                                            if (!isValid) {
                                                 openPasswordDialog();
                                             }
                                         } else {

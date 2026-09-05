@@ -1,4 +1,4 @@
-import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { isMasterKey } from 'app/core/auth/crypto.helper';
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
@@ -16,8 +16,7 @@ export interface ArticlePasswordDialogData {
     <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100">
             <mat-icon [svgIcon]="data.mode === 'set' ? 'feather:lock' : 'feather:key'" class="text-primary-500"></mat-icon>
-            <span *ngIf="data.type === 'collection'">{{ data.mode === 'set' ? 'Mã hóa Collection' : 'Giải mã Collection' }}</span>
-            <span *ngIf="data.type !== 'collection'">{{ data.mode === 'set' ? 'Mã hóa bài viết' : 'Giải mã bài viết' }}</span>
+            <span>{{ data.mode === 'set' ? 'Mã hóa bài viết' : 'Giải mã bài viết' }}</span>
         </div>
         <button mat-icon-button mat-dialog-close type="button">
             <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
@@ -25,28 +24,22 @@ export interface ArticlePasswordDialogData {
     </div>
 
     <div mat-dialog-content class="mt-2 p-0 !overflow-hidden">
-        <p class="text-base text-gray-600 dark:text-gray-400 mb-4" *ngIf="data.mode === 'set' && data.type === 'collection'">
-            Đặt mật khẩu để mã hóa toàn bộ dữ liệu của Collection <strong>"{{ data.title || 'Collection' }}"</strong> bằng thuật toán <strong>AES-256</strong>. Tất cả bài viết thuộc Collection này sẽ được bảo vệ.
-        </p>
-        <p class="text-base text-gray-600 dark:text-gray-400 mb-4" *ngIf="data.mode === 'set' && data.type !== 'collection'">
+        <p class="text-base text-gray-600 dark:text-gray-400 mb-4" *ngIf="data.mode === 'set'">
             Đặt mật khẩu để mã hóa toàn bộ nội dung của bài viết <strong>"{{ data.title || 'bài viết' }}"</strong> bằng thuật toán <strong>AES-256</strong>. Nội dung trên đĩa/server sẽ được mã hóa hoàn toàn.
         </p>
-        <p class="text-base text-gray-600 dark:text-gray-400 mb-3" *ngIf="data.mode === 'unlock' && data.type === 'collection'">
-            Collection <strong>"{{ data.title || 'này' }}"</strong> đã được bảo vệ. Vui lòng nhập mật khẩu để giải mã và thao tác.
-        </p>
-        <p class="text-base text-gray-600 dark:text-gray-400 mb-3" *ngIf="data.mode === 'unlock' && data.type !== 'collection'">
+        <p class="text-base text-gray-600 dark:text-gray-400 mb-3" *ngIf="data.mode === 'unlock'">
             Bài viết <strong>"{{ data.title || 'này' }}"</strong> đã được bảo vệ. Vui lòng nhập mật khẩu để giải mã và xem/chỉnh sửa nội dung.
         </p>
 
         <!-- Dynamic Red Warning Banner ABOVE Input -->
-        <div *ngIf="isLockedOut" class="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm font-semibold mb-2 flex items-center gap-2">
+        <div *ngIf="isLockedOut" class="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm font-semibold mb-3 flex items-center gap-2">
             <mat-icon class="icon-size-4 text-red-500 shrink-0" [svgIcon]="'heroicons_outline:clock'"></mat-icon>
-            <span>Nhập sai 5 lần! Hệ thống tạm dừng 5 phút (còn {{ lockCountdownText }}).</span>
+            <span>Nhập sai 5/5 lần! Hệ thống tạm dừng 5 phút (còn {{ lockCountdownText }}).</span>
         </div>
 
-        <div *ngIf="!isLockedOut && errorMessage" class="text-red-600 dark:text-red-400 font-semibold text-xs mb-2 flex items-center gap-1.5">
+        <div *ngIf="!isLockedOut && (errorMessage || failedAttempts > 0)" class="p-2.5 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-xs font-semibold mb-3 flex items-center gap-2">
             <mat-icon class="icon-size-4 text-red-500 shrink-0" [svgIcon]="'heroicons_outline:exclamation-circle'"></mat-icon>
-            <span>{{ errorMessage }}</span>
+            <span>{{ errorMessage ? errorMessage : ('Đã thử sai ' + failedAttempts + '/5 lần.') }}</span>
         </div>
 
         <form [formGroup]="passForm" (ngSubmit)="submit()">
@@ -69,8 +62,7 @@ export interface ArticlePasswordDialogData {
         <button mat-button type="button" mat-dialog-close [disabled]="isSubmitting">Hủy</button>
         <button mat-flat-button color="primary" (click)="submit()" [disabled]="isLockedOut || passForm.invalid || isSubmitting">
             <mat-icon [svgIcon]="data.mode === 'set' ? 'feather:shield' : 'feather:unlock'" *ngIf="!isSubmitting"></mat-icon>
-            <span class="ml-2" *ngIf="data.type === 'collection'">{{ data.mode === 'set' ? 'Mã hóa & Lưu Collection' : (isSubmitting ? 'Đang giải mã...' : 'Giải mã Collection') }}</span>
-            <span class="ml-2" *ngIf="data.type !== 'collection'">{{ data.mode === 'set' ? 'Mã hóa & Lưu bài viết' : (isSubmitting ? 'Đang giải mã...' : 'Giải mã bài viết') }}</span>
+            <span class="ml-2">{{ data.mode === 'set' ? 'Mã hóa & Lưu bài viết' : (isSubmitting ? 'Đang giải mã...' : 'Giải mã bài viết') }}</span>
         </button>
     </div>
     `
@@ -87,6 +79,7 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
 
     constructor(
         private _formBuilder: UntypedFormBuilder,
+        private _cdr: ChangeDetectorRef,
         public dialogRef: MatDialogRef<ArticlePasswordDialog>,
         @Inject(MAT_DIALOG_DATA) public data: ArticlePasswordDialogData
     ) { }
@@ -118,12 +111,6 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
         const lastFailedAt = parseInt(localStorage.getItem('password_last_failed_time') || '0', 10);
         const now = Date.now();
 
-        // Tự động xóa lịch sử sai sau 5 phút không có thao tác nhập sai tiếp theo
-        if (lastFailedAt > 0 && (now - lastFailedAt > 5 * 60 * 1000)) {
-            localStorage.removeItem('password_failed_attempts');
-            localStorage.removeItem('password_last_failed_time');
-        }
-
         if (lockoutUntil > now) {
             this.isLockedOut = true;
             const diffSec = Math.ceil((lockoutUntil - now) / 1000);
@@ -131,14 +118,24 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
             const secs = diffSec % 60;
             this.lockCountdownText = `${mins} phút ${secs < 10 ? '0' + secs : secs} giây`;
         } else {
-            if (this.isLockedOut || lockoutUntil > 0) {
+            // Nếu vừa hết hạn khóa tạm dừng 5 phút
+            if (this.isLockedOut || (lockoutUntil > 0 && lockoutUntil <= now)) {
                 localStorage.removeItem('password_lockout_until');
                 localStorage.removeItem('password_failed_attempts');
                 localStorage.removeItem('password_last_failed_time');
+                this.errorMessage = '';
             }
             this.isLockedOut = false;
+            
+            // Nếu đã quá 5 phút kể từ lần nhập sai cuối mà không bị khóa, tự reset số lần thử
+            if (lastFailedAt > 0 && (now - lastFailedAt > 5 * 60 * 1000)) {
+                localStorage.removeItem('password_failed_attempts');
+                localStorage.removeItem('password_last_failed_time');
+                this.errorMessage = '';
+            }
             this.failedAttempts = parseInt(localStorage.getItem('password_failed_attempts') || '0', 10);
         }
+        this._cdr.detectChanges();
     }
 
     async submit(): Promise<void> {
@@ -157,11 +154,13 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
             const confirm = this.passForm.get('confirmPassword')?.value;
             if (password !== confirm) {
                 this.errorMessage = 'Mật khẩu xác nhận không trùng khớp!';
+                this._cdr.detectChanges();
                 return;
             }
         } else if (this.data.mode === 'unlock' && this.data.validator) {
             this.isSubmitting = true;
             this.errorMessage = '';
+            this._cdr.detectChanges();
             try {
                 const isValid = await this.data.validator(password);
                 this.isSubmitting = false;
@@ -180,14 +179,16 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
                         localStorage.removeItem('password_failed_attempts');
                         this.checkLockout();
                     } else {
-                        this.errorMessage = `Mật khẩu mã hóa không chính xác! (Đã thử sai ${this.failedAttempts}/5 lần. Nhập sai 5 lần sẽ tạm dừng 5 phút)`;
+                        this.errorMessage = `Đã thử sai ${this.failedAttempts}/5 lần.`;
                     }
                     this.passForm.get('password')?.setValue('');
+                    this._cdr.detectChanges();
                     return;
                 }
             } catch (e) {
                 this.isSubmitting = false;
                 this.errorMessage = 'Lỗi xác thực mật khẩu. Vui lòng thử lại!';
+                this._cdr.detectChanges();
                 return;
             }
         }

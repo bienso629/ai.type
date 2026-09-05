@@ -702,6 +702,38 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     /**
+     * onTableScroll: Bắt sự kiện cuộn bảng để chủ động nạp thêm dữ liệu (loadmore / infinite scroll)
+     */
+    onTableScroll(event: any) {
+        if (this.isLoading) return;
+        
+        // Nếu đang filter theo nhóm ngày cụ thể (không phải 'Tất cả thời gian') thì không tự nạp trang tiếp
+        if (this.selectedDateGroup && this.selectedDateGroup !== 'Tất cả thời gian') {
+            return;
+        }
+
+        // Kiểm tra xem đã tải hết dữ liệu chưa
+        const loadedCount = (this.masterLoadedRows || []).length;
+        if (this.actualTotalElements > 0 && loadedCount >= this.actualTotalElements && !this.currentBookmark) {
+            return;
+        }
+
+        const rowHeight = 50;
+        const totalHeight = (this.rows ? this.rows.length : 0) * rowHeight;
+        
+        // Khi cuộn gần tới đáy bảng (còn cách đáy 500px)
+        if (event && event.offsetY > 0 && event.offsetY >= totalHeight - 500) {
+            const nextPage = Math.floor(loadedCount / this.page.size);
+            this.setPage({
+                offset: nextPage,
+                pageSize: this.page.size,
+                limit: this.page.size,
+                count: this.actualTotalElements || this.totalElements || 0
+            });
+        }
+    }
+
+    /**
      * setPage: Xử lý dữ liệu bọc trong result.data.docs và result.data.bookmark
      */
     setPage(pageInfo: PageInfo) {
@@ -710,19 +742,15 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
         const targetPage = Math.floor(rowOffset / pageInfo.pageSize);
 
-        if (this.isLoading && this.page.pageNumber === targetPage) return;
+        if (this.isLoading) return;
 
         this.page = {
-            pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
+            pageNumber: targetPage,
             size: pageInfo.pageSize,
             totalElements: 0,
             totalPages: 0,
         };
 
-        // Ngăn chặn việc gọi API khi scroll lên (nếu dữ liệu tại vị trí này đã được nạp)
-        if (this.rows && this.rows[rowOffset]) {
-            return;
-        }
         if (this.cache[this.page.pageNumber]) return;
         this.cache[this.page.pageNumber] = true;
         this.isLoading = true;
@@ -742,7 +770,6 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
-                    const start = this.page.pageNumber * this.page.size;
                     const resData = result?.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
                         const docsWithGroup = resData.docs.map((doc: any) => ({
@@ -761,8 +788,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         if (this.selectedDateGroup && this.selectedDateGroup !== 'Tất cả thời gian') {
                             this.applyDateFilter();
                         } else {
-                            this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
-                            if (resData.docs.length < this.page.size) {
+                            this.rows = [...this.groupRowsWithHeaders(this.masterLoadedRows)];
+                            if (this.uuids && this.uuids.length > 0) {
+                                this.totalElements = this.rows.length;
+                            } else if (this.actualTotalElements > 0) {
+                                this.totalElements = Math.max(this.actualTotalElements, this.rows.length);
+                            } else if (resData.docs.length < this.page.size) {
                                 this.totalElements = this.rows.length;
                             } else {
                                 this.totalElements = this.rows.length + this.page.size;
@@ -944,7 +975,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
-                        this.collections = result.data;
+                        this.collections = (result.data || []).map((c: any) => {
+                            const rawU = Array.isArray(c.uuid) ? c.uuid : (c.uuid ? [c.uuid] : []);
+                            const uniqueU = Array.from(new Set(rawU)).filter((u: any) => !!u);
+                            return {
+                                ...c,
+                                count: uniqueU.length
+                            };
+                        });
                     }
                 },
                 error: () => { },
@@ -1073,7 +1111,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 try {
                     const res: any = await firstValueFrom(this._crawlService.detail({ uuid: item.uuid, username: this.user.name }));
                     if (res && res.success && res.data) {
-                        cipher = res.data.cipher || res.data.source?.cipher;
+                        cipher = res.data.cipher || res.data.source?.cipher || res.data.content || res.data.source?.content;
                         masterCipher = res.data.master_cipher || res.data.source?.master_cipher;
                     }
                 } catch (e) {}
@@ -1085,8 +1123,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     return false; // Mật khẩu không giải mã được
                 }
             } else {
-                // Nếu bài viết được đánh dấu mã hóa nhưng không có cipher, yêu cầu mật khẩu không rỗng
-                if (!password || password.trim().length === 0) return false;
+                // Nếu bài viết không có cipher để đối chiếu xác thực, kiểm tra với API detail
+                return false;
             }
         }
 
@@ -1104,6 +1142,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (uuid) {
             if (localStorage.getItem('article_encrypted_' + uuid) === 'true') return true;
             if (sessionStorage.getItem('nav_handshake_pwd_' + uuid)) return true;
+            if (sessionStorage.getItem('unlocked_pwd_' + uuid)) return true;
         }
         return false;
     }
@@ -1256,30 +1295,6 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         });
     }
 
-    openCollectionEncryptionDialog() {
-        if (!this.selectedCollections || this.selectedCollections.length === 0) {
-            this.toastr.warning('Vui lòng chọn 1 Tập hợp (Collection) trước khi cài đặt mật khẩu.');
-            return;
-        }
-
-        const colName = this.selectedCollections[0]?.title || 'Collection';
-        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'set',
-                type: 'collection',
-                title: colName
-            },
-            width: '450px'
-        });
-
-        dialogRef.afterClosed().subscribe((res: any) => {
-            if (res && res.password) {
-                this.toastr.success(`Đã cài đặt mật khẩu mã hóa AES-256 cho Collection: "${colName}"!`, 'Mã Hóa Collection');
-                this.cd.markForCheck();
-            }
-        });
-    }
-
     ngOnInit(): void {
                 // this.loadLocalArticles();
         let temp = localStorage.getItem('statistics');
@@ -1310,14 +1325,6 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         if (total !== undefined) {
                             this.totalElements = total;
                             this.actualTotalElements = total;
-                            
-                            // Bắt buộc resize lại mảng rows để virtual scroll nhận diện được tổng số bản ghi
-                            if (this.rows && this.rows.length !== this.totalElements) {
-                                const oldRows = this.rows;
-                                this.rows = Array.from({ length: this.totalElements }, (_, i) => oldRows[i]);
-                                this.rows = [...this.rows];
-                            }
-                            
                             this.cd.markForCheck();
                         }
                     }
@@ -1391,6 +1398,11 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
         const realDocs = docs.filter((doc: any) => doc && !doc.isGroupHeader && doc.uuid);
         if (realDocs.length === 0) return [];
+
+        // Nếu đang lọc theo Collection hoặc có tập UUID cụ thể, không chèn header gom nhóm ngày tháng
+        if ((this.selectedCollections && this.selectedCollections.length > 0) || (this.uuids && this.uuids.length > 0)) {
+            return realDocs;
+        }
 
         const groupOrder = ['Hôm nay', 'Hôm qua', '7 ngày qua', '30 ngày qua', 'Cũ hơn'];
         const grouped: { [key: string]: any[] } = {};

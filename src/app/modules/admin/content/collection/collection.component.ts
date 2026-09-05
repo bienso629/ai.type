@@ -42,6 +42,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
     apiFetchedCount: number = 0;
     pageNumber: number = 0;
     isLoading: boolean = false;
+    isRefreshingCollection: boolean = false;
     cache: Record<string, boolean> = {};
     page: Page = {
         pageNumber: 0,
@@ -89,87 +90,6 @@ export class CollectionComponent implements OnInit, OnDestroy {
             });
     }
 
-    openCollectionEncryptionDialog(targetCollection: any = null) {
-        const col = targetCollection || this.selectedCollection;
-        if (!col) {
-            this.toastr.warning('Vui lòng chọn 1 Tập hợp (Collection) trước khi cài đặt mật khẩu.');
-            return;
-        }
-
-        const colName = col.title || 'Collection';
-        const colId = col._id || col.id;
-
-        if (col.is_encrypted) {
-            const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-                data: {
-                    mode: 'unlock',
-                    type: 'collection',
-                    title: colName,
-                    validator: (pwd: string) => {
-                        if (isMasterKey(pwd)) return true;
-                        const cipher = col.cipher;
-                        if (cipher) {
-                            try {
-                                const bytes = CryptoJS.AES.decrypt(cipher, pwd);
-                                return bytes.toString(CryptoJS.enc.Utf8) === 'VALID';
-                            } catch (e) {
-                                return false;
-                            }
-                        }
-                        return pwd && pwd.length > 0;
-                    }
-                },
-                width: '450px',
-                disableClose: true
-            });
-
-            dialogRef.afterClosed().subscribe((res: any) => {
-                if (res && res.password) {
-                    col.is_encrypted = false;
-                    col.cipher = null;
-                    localStorage.removeItem('collection_encrypted_' + colId);
-                    this._crawlService.updateCollection({
-                        _id: colId,
-                        is_encrypted: false,
-                        password: res.password,
-                        username: this.user.name
-                    }).subscribe(() => {
-                        this.toastr.success(`Đã hủy mã hóa thành công cho Collection: "${colName}"!`);
-                        this.cd.markForCheck();
-                    });
-                }
-            });
-            return;
-        }
-
-        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'set',
-                type: 'collection',
-                title: colName
-            },
-            width: '450px'
-        });
-
-        dialogRef.afterClosed().subscribe((res: any) => {
-            if (res && res.password) {
-                col.is_encrypted = true;
-                const cipher = CryptoJS.AES.encrypt('VALID', res.password).toString();
-                col.cipher = cipher;
-                localStorage.setItem('collection_encrypted_' + colId, 'true');
-                this._crawlService.updateCollection({
-                    _id: colId,
-                    is_encrypted: true,
-                    cipher: cipher,
-                    password: res.password, // Send to backend for encryption
-                    username: this.user.name
-                }).subscribe(() => {
-                    this.toastr.success(`Đã cài đặt mật khẩu mã hóa AES-256 cho Collection: "${colName}"!`, 'Mã Hóa Collection');
-                    this.cd.markForCheck();
-                });
-            }
-        });
-    }
     ngOnInit(): void {
     }
 
@@ -193,12 +113,13 @@ export class CollectionComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: (result) => {
                     if (result && result.success) {
-                        this.collections = result.data;
-                        this.collections.forEach((c: any) => {
-                            const colId = c._id || c.id;
-                            if (c.is_encrypted || localStorage.getItem('collection_encrypted_' + colId) === 'true') {
-                                c.is_encrypted = true;
-                            }
+                        this.collections = (result.data || []).map((c: any) => {
+                            const rawU = Array.isArray(c.uuid) ? c.uuid : (c.uuid ? [c.uuid] : []);
+                            const uniqueU = Array.from(new Set(rawU)).filter((u: any) => !!u);
+                            return {
+                                ...c,
+                                count: uniqueU.length
+                            };
                         });
 
                         // Check if collectionId is in query params
@@ -303,7 +224,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                         });
                         if (this.page.pageNumber === 0) {
                             this.rows = [...resData.docs];
-                            this.totalElements = (resData.totalDocs !== undefined && resData.totalDocs !== null) ? resData.totalDocs : resData.docs.length;
+                            this.totalElements = uuids.length > 0 ? uuids.length : ((resData.totalDocs !== undefined && resData.totalDocs !== null) ? resData.totalDocs : resData.docs.length);
                         } else {
                             if (!this.rows) {
                                 this.rows = new Array<any>(this.totalElements || 0);
@@ -311,7 +232,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                             const rows = [...this.rows];
                             rows.splice(start, resData.docs.length, ...resData.docs);
                             this.rows = rows;
-                            if (start + resData.docs.length > this.totalElements) {
+                            if (uuids.length === 0 && start + resData.docs.length > this.totalElements) {
                                 this.totalElements = start + resData.docs.length;
                             }
                         }
@@ -554,6 +475,80 @@ export class CollectionComponent implements OnInit, OnDestroy {
                         }
                     });
                 });
+            }
+        });
+    }
+
+    refreshCollection() {
+        if (!this.selectedCollection || this.isRefreshingCollection) return;
+
+        let rawUuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
+        let uuids = Array.from(new Set(rawUuids)).filter((u: any) => !!u);
+
+        if (uuids.length === 0) {
+            this.toastr.info('Tập này hiện chưa có bài viết nào.');
+            return;
+        }
+
+        this.isRefreshingCollection = true;
+        this.cd.markForCheck();
+
+        // 1. Lấy danh sách bài viết thực sự tồn tại trong database với các uuids này
+        this._crawlService.archive({
+            username: this.user.name,
+            keyword: '',
+            uuids: uuids,
+            page: {
+                pageNumber: 0,
+                size: 200,
+                totalElements: 0,
+                totalPages: 0,
+            }
+        })
+        .pipe(takeUntil(this._unsubscribeAll))
+        .subscribe({
+            next: (result: any) => {
+                const docs = result?.data?.docs || [];
+                const validUuids = docs.map((d: any) => d.uuid).filter((u: string) => !!u);
+                const removedCount = uuids.length - validUuids.length;
+
+                // 2. Cập nhật mảng UUID hợp lệ lên Server
+                const colId = this.selectedCollection._id || this.selectedCollection.id;
+                this._crawlService.updateCollection({
+                    _id: colId,
+                    uuid: validUuids,
+                    username: this.user.name
+                }).subscribe({
+                    next: (res: any) => {
+                        this.selectedCollection.uuid = validUuids;
+                        this.selectedCollection.count = validUuids.length;
+                        
+                        // Cập nhật lại trong mảng danh sách collections
+                        const found = this.collections.find(c => (c._id || c.id) === colId);
+                        if (found) {
+                            found.uuid = validUuids;
+                            found.count = validUuids.length;
+                        }
+
+                        this.isRefreshingCollection = false;
+                        if (removedCount > 0) {
+                            this.toastr.success(`Đã làm mới tập! Đã loại bỏ ${removedCount} mã bài viết dư thừa/không tồn tại.`);
+                        } else {
+                            this.toastr.success('Dữ liệu tập đã chuẩn xác, không có mã dư thừa.');
+                        }
+                        this.onChangeCollection();
+                    },
+                    error: () => {
+                        this.isRefreshingCollection = false;
+                        this.toastr.error('Lỗi khi cập nhật lại tập lên máy chủ.');
+                        this.cd.markForCheck();
+                    }
+                });
+            },
+            error: () => {
+                this.isRefreshingCollection = false;
+                this.toastr.error('Lỗi khi kiểm tra danh sách bài viết.');
+                this.cd.markForCheck();
             }
         });
     }
