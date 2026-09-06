@@ -93,6 +93,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     totalElements: number;
     attachedFileMain: { name: string, type: string, path?: string, base64: string } | null = null;
     attachedFileFollow: { name: string, type: string, path?: string, base64: string } | null = null;
+
+    private getCurrentUsername(): string {
+        return this.user?.name || localStorage.getItem('user_name') || localStorage.getItem('username') || 'admin';
+    }
     apiFetchedCount: number = 0;
     pageNumber: number;
     cache: Record<string, boolean> = {};
@@ -322,7 +326,18 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     this.cdref.detectChanges();
                 };
 
-                if (row._id) {
+                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                if (isAutoSaveLocal && (window as any).electron?.deleteLocalChat) {
+                    (window as any).electron.deleteLocalChat({
+                        id: row._id || row.id,
+                        conversation_id: row.conversation_id
+                    }).then((res: any) => {
+                        removeLocal();
+                    }).catch((err: any) => {
+                        console.error('Lỗi khi xóa cuộc hội thoại cục bộ:', err);
+                        removeLocal();
+                    });
+                } else if (row._id) {
                     this._chatGPTService.destroy(row._id, this.user.name).subscribe({
                         next: (res) => {
                             if (res && res.success) {
@@ -442,11 +457,32 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
      * Lấy statistic
      */
     statistic() {
-        if (!this.user) return;
+        const username = this.getCurrentUsername();
+        if (!username) return;
+
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron?.getLocalChatTotal) {
+            (window as any).electron.getLocalChatTotal({ username }).then((res: any) => {
+                if (res && res.success && res.data) {
+                    this.totalElements = res.data.total || 0;
+                    this.cdref.detectChanges();
+
+                    let statistics = localStorage.getItem('statistics');
+                    if (statistics) {
+                        let statObj = JSON.parse(statistics);
+                        statObj['chatgpt'] = this.totalElements;
+                        localStorage.setItem('statistics', JSON.stringify(statObj));
+                    }
+                }
+            }).catch((err: any) => {
+                console.error('Lỗi khi lấy tổng chat cục bộ:', err);
+            });
+            return;
+        }
 
         this._chatGPTService
             .total({
-                username: this.user.name
+                username: username
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -483,7 +519,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
      */
     setPage(pageInfo: PageInfo) {
         if (this.isLoading) return;
-        if (!this.user || !this.user.name) return;
+        const username = this.getCurrentUsername();
+        if (!username) return;
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size || 10;
         this.pageNumber = pageInfo.offset;
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
@@ -508,6 +545,61 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             ...this.page,
             size: 25 // Fix cứng size
         };
+
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron?.listLocalChats) {
+            (window as any).electron.listLocalChats({
+                username: username,
+                page: payloadPage
+            }).then(async (result: any) => {
+                const resData = result?.data;
+                const docs = Array.isArray(resData?.docs) ? resData.docs : (Array.isArray(resData) ? resData : []);
+
+                if (docs && docs.length > 0) {
+                    if (!this.chatgpt2s) {
+                        this.chatgpt2s = new Array<any>(this.totalElements || 0);
+                    }
+
+                    const start = this.apiFetchedCount;
+                    let newTotal = this.totalElements || 0;
+                    const apiPageSize = 25;
+
+                    if (docs.length < apiPageSize) {
+                        newTotal = start + docs.length;
+                    } else if (start + docs.length > newTotal) {
+                        newTotal = start + docs.length;
+                    }
+
+                    if (this.totalElements !== newTotal) {
+                        this.totalElements = newTotal;
+                    }
+
+                    if (!this.chatgpt2s || this.chatgpt2s.length !== this.totalElements) {
+                        const oldRows = this.chatgpt2s || [];
+                        this.chatgpt2s = new Array<any>(this.totalElements);
+                        for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                            this.chatgpt2s[i] = oldRows[i];
+                        }
+                    }
+
+                    const rows = [...this.chatgpt2s];
+                    rows.splice(start, docs.length, ...docs);
+
+                    this.chatgpt2s = rows;
+                    this.apiFetchedCount += docs.length;
+                } else if (!resData || result.success === false) {
+                    delete this.cache[this.page.pageNumber];
+                }
+                this.isLoading = false;
+                this.cdref.detectChanges();
+            }).catch((err: any) => {
+                console.error('Lỗi khi tải chat cục bộ:', err);
+                delete this.cache[this.page.pageNumber];
+                this.isLoading = false;
+                this.cdref.markForCheck();
+            });
+            return;
+        }
 
         this._chatGPTService.fetch({
             username: this.user.name,
@@ -983,12 +1075,49 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     }
 
     chatgptStore(answer: string, question: string, row: any) {
-        this._chatGPTService.store({
+        const username = this.getCurrentUsername();
+        const payload: any = {
+            _id: row?._id,
             question: question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
             content: question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
             answer: answer,
+            messages: row?.messages,
             conversation_id: row?.conversation_id,
-            username: this.user.name
+            username: username
+        };
+
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron?.saveLocalChat) {
+            (window as any).electron.saveLocalChat(payload).then((result: any) => {
+                if (result && result.success) {
+                    if (row) {
+                        const newId = result.data?._id || result.data?.id || result._id || result.id;
+                        if (newId) {
+                            row._id = newId;
+                        }
+                    }
+                    let statistics = localStorage.getItem('statistics');
+                    if (statistics) {
+                        let statObj = JSON.parse(statistics);
+                        statObj['chatgpt'] = this.totalElements;
+                        localStorage.setItem('statistics', JSON.stringify(statObj));
+                        this._h.updateStatistics('chatgpt', 1);
+                    }
+                    this.cdref.detectChanges();
+                    this.toastr.success('ChatGPT đã trả lời bạn.');
+                }
+            }).catch((err: any) => {
+                console.error('Lỗi khi lưu cuộc hội thoại cục bộ:', err);
+            });
+            return;
+        }
+
+        this._chatGPTService.store({
+            question: payload.question,
+            content: payload.content,
+            answer: answer,
+            conversation_id: payload.conversation_id,
+            username: username
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -1455,22 +1584,37 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 }
                 finalDisplayText = row.answer || finalDisplayText;
                 
-                this._chatGPTService.store({
+                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                const username = this.getCurrentUsername();
+                const chatPayload: any = {
                     _id: row._id,
                     question: row.question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
                     content: row.question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
                     answer: finalDisplayText,
                     messages: row.messages,
                     conversation_id: row.conversation_id,
-                    username: this.user.name
-                }).subscribe({
-                    next: (res) => {
+                    username: username
+                };
+
+                if (isAutoSaveLocal && (window as any).electron?.saveLocalChat) {
+                    (window as any).electron.saveLocalChat(chatPayload).then((res: any) => {
+                        if (res && res.success && (res.data?._id || res._id)) {
+                            row._id = res.data?._id || res._id;
+                        }
                         this.toastr.success('Đã cập nhật cuộc hội thoại!');
-                    },
-                    error: () => {
-                        this.toastr.warning('Không thể đồng bộ cuộc hội thoại lên máy chủ.');
-                    }
-                });
+                    }).catch((err: any) => {
+                        console.error('Lỗi khi lưu cập nhật chat cục bộ:', err);
+                    });
+                } else {
+                    this._chatGPTService.store(chatPayload).subscribe({
+                        next: (res) => {
+                            this.toastr.success('Đã cập nhật cuộc hội thoại!');
+                        },
+                        error: () => {
+                            this.toastr.warning('Không thể đồng bộ cuộc hội thoại lên máy chủ.');
+                        }
+                    });
+                }
             } else {
                 this.toastr.error('AI không phản hồi.');
                 row.messages.pop();

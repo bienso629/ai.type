@@ -82,62 +82,112 @@ export class InitialDataResolver
                 );
 
 
-                const collections$ = this._crawlService.collections({
-                    username: user.name,
-                    page: { size: 100 },
-                    includeUuid: false
-                }).pipe(
-                    tap(result => {
-                        if (result && result.success && result.data) {
-                            const lightweightCache = result.data.map((col: any) => ({
-                                _id: col._id,
-                                title: col.title,
-                                count: col.count || (col.uuid && Array.isArray(col.uuid) ? col.uuid.length : 0),
-                                lastItemUpdatedAt: col.lastItemUpdatedAt,
-                                lastUpdatedAt: col.lastUpdatedAt,
-                                lastUpdated: col.lastUpdated,
-                                updatedAt: col.updatedAt
-                            }));
-                            localStorage.setItem(`dashboard_collections_${user.name}`, JSON.stringify(lightweightCache));
-                            (window as any)['dashboard_collections_preloaded'] = true;
-                        }
-                    }),
-                    catchError(() => of(null))
-                );
+                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
 
-                const statistics$ = this._crawlService.statistics({
-                    username: user.name,
-                    reportYear: selectedYear
-                }).pipe(
-                    tap(result => {
-                        if (result && result.success) {
-                            const nodes = result.data || [];
-                            const doneCount = nodes[0] ? nodes[0].length : 0;
-                            const moneyCount = nodes[0] ? nodes[0].reduce((total: number, obj: any) => (obj.amount || 0) + total, 0) : 0;
-                            const writingData = nodes[1] || { total: 0 };
-                            const archivesData = nodes[2] || { total: 0 };
-                            const domainStatsData = nodes[3] || {};
+                const collections$ = (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalCollections)
+                    ? new Observable(observer => {
+                        (window as any).electron.listLocalCollections({ username: user.name }).then((res: any) => {
+                            if (res && res.success && res.data) {
+                                const lightweightCache = res.data.map((col: any) => ({
+                                    _id: col._id,
+                                    title: col.title,
+                                    count: col.count || (col.uuid && Array.isArray(col.uuid) ? col.uuid.length : 0),
+                                    lastItemUpdatedAt: col.lastItemUpdatedAt,
+                                    lastUpdatedAt: col.lastUpdatedAt,
+                                    lastUpdated: col.lastUpdated,
+                                    updatedAt: col.updatedAt
+                                }));
+                                localStorage.setItem(`dashboard_collections_${user.name}`, JSON.stringify(lightweightCache));
+                                (window as any)['dashboard_collections_preloaded'] = true;
+                            }
+                            observer.next(res);
+                            observer.complete();
+                        }).catch((err: any) => {
+                            observer.next(null);
+                            observer.complete();
+                        });
+                    })
+                    : this._crawlService.collections({
+                        username: user.name,
+                        page: { size: 100 },
+                        includeUuid: false
+                    }).pipe(
+                        tap(result => {
+                            if (result && result.success && result.data) {
+                                const lightweightCache = result.data.map((col: any) => ({
+                                    _id: col._id,
+                                    title: col.title,
+                                    count: col.count || (col.uuid && Array.isArray(col.uuid) ? col.uuid.length : 0),
+                                    lastItemUpdatedAt: col.lastItemUpdatedAt,
+                                    lastUpdatedAt: col.lastUpdatedAt,
+                                    lastUpdated: col.lastUpdated,
+                                    updatedAt: col.updatedAt
+                                }));
+                                localStorage.setItem(`dashboard_collections_${user.name}`, JSON.stringify(lightweightCache));
+                                (window as any)['dashboard_collections_preloaded'] = true;
+                            }
+                        }),
+                        catchError(() => of(null))
+                    );
 
-                            let oldStats: any = {};
-                            try {
-                                const cached = localStorage.getItem('statistics');
-                                if (cached) oldStats = JSON.parse(cached);
-                            } catch (e) {}
+                const statistics$ = (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalStatistics)
+                    ? new Observable(observer => {
+                        (window as any).electron.getLocalStatistics().then((res: any) => {
+                            if (res && res.success && res.data) {
+                                let oldStats: any = {};
+                                try {
+                                    const cached = localStorage.getItem('statistics');
+                                    if (cached) oldStats = JSON.parse(cached);
+                                } catch (e) {}
 
-                            const newStats = {
-                                ...oldStats,
-                                done: doneCount,
-                                money: moneyCount,
-                                archives: archivesData.total || archivesData || 0,
-                                writing: writingData.total || writingData || 0,
-                                domainStats: domainStatsData
-                            };
-                            localStorage.setItem('statistics', JSON.stringify(newStats));
-                            (window as any)['dashboard_statistics_preloaded'] = true;
-                        }
-                    }),
-                    catchError(() => of(null))
-                );
+                                const newStats = {
+                                    ...oldStats,
+                                    ...res.data,
+                                    archives: res.data.archives !== undefined ? res.data.archives : (res.total || 0)
+                                };
+                                localStorage.setItem('statistics', JSON.stringify(newStats));
+                                (window as any)['dashboard_statistics_preloaded'] = true;
+                            }
+                            observer.next(res);
+                            observer.complete();
+                        }).catch(() => {
+                            observer.next(null);
+                            observer.complete();
+                        });
+                    })
+                    : this._crawlService.statistics({
+                        username: user.name,
+                        reportYear: selectedYear
+                    }).pipe(
+                        tap(result => {
+                            if (result && result.success) {
+                                const nodes = result.data || [];
+                                const doneCount = nodes[0] ? nodes[0].length : 0;
+                                const moneyCount = nodes[0] ? nodes[0].reduce((total: number, obj: any) => (obj.amount || 0) + total, 0) : 0;
+                                const writingData = nodes[1] || { total: 0 };
+                                const archivesData = nodes[2] || { total: 0 };
+                                const domainStatsData = nodes[3] || {};
+
+                                let oldStats: any = {};
+                                try {
+                                    const cached = localStorage.getItem('statistics');
+                                    if (cached) oldStats = JSON.parse(cached);
+                                } catch (e) {}
+
+                                const newStats = {
+                                    ...oldStats,
+                                    done: doneCount,
+                                    money: moneyCount,
+                                    archives: archivesData.total || archivesData || 0,
+                                    writing: writingData.total || writingData || 0,
+                                    domainStats: domainStatsData
+                                };
+                                localStorage.setItem('statistics', JSON.stringify(newStats));
+                                (window as any)['dashboard_statistics_preloaded'] = true;
+                            }
+                        }),
+                        catchError(() => of(null))
+                    );
 
                 return forkJoin([
                     baseResolvers,

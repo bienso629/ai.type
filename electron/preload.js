@@ -111,6 +111,13 @@ contextBridge.exposeInMainWorld('electron', {
     listLocalArticles: (payload) => ipcRenderer.invoke('list-local-articles', payload),
     readLocalArticle: (payload) => ipcRenderer.invoke('read-local-article', payload),
     deleteLocalArticle: (payload) => ipcRenderer.invoke('delete-local-article', payload),
+    listLocalCollections: (payload) => ipcRenderer.invoke('list-local-collections', payload),
+    listLocalDomains: (payload) => ipcRenderer.invoke('list-local-domains', payload),
+    getLocalStatistics: (payload) => ipcRenderer.invoke('get-local-statistics', payload),
+    saveLocalChat: (payload) => ipcRenderer.invoke('save-local-chat', payload),
+    listLocalChats: (payload) => ipcRenderer.invoke('list-local-chats', payload),
+    getLocalChatTotal: (payload) => ipcRenderer.invoke('get-local-chat-total', payload),
+    deleteLocalChat: (payload) => ipcRenderer.invoke('delete-local-chat', payload),
 
     // ===== PROFILE SCENE (đọc/ghi file trực tiếp, không qua HTTP) =====
 

@@ -103,6 +103,43 @@ export class CollectionComponent implements OnInit, OnDestroy {
     }
 
     loadCollections() {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalCollections) {
+            (window as any).electron.listLocalCollections({ username: this.user?.name || 'admin' }).then((res: any) => {
+                if (res && res.success && res.data) {
+                    this.collections = (res.data || []).map((c: any) => {
+                        const rawU = Array.isArray(c.uuid) ? c.uuid : (c.uuid ? [c.uuid] : []);
+                        const uniqueU = Array.from(new Set(rawU)).filter((u: any) => !!u);
+                        return {
+                            ...c,
+                            count: uniqueU.length
+                        };
+                    });
+
+                    this.route.queryParams.subscribe(params => {
+                        if (params['collectionId']) {
+                            const found = this.collections.find(c => c._id === params['collectionId']);
+                            if (found) {
+                                this.goToCollection(found);
+                            }
+                        } else if (this.collections.length > 0) {
+                            this.goToCollection(this.collections[0]);
+                        }
+                    });
+                    this.cd.markForCheck();
+                    return;
+                }
+                this.fetchServerCollections();
+            }).catch(() => {
+                this.fetchServerCollections();
+            });
+            return;
+        }
+
+        this.fetchServerCollections();
+    }
+
+    private fetchServerCollections() {
         this._crawlService
             .collections({
                 username: this.user.name,
@@ -197,12 +234,47 @@ export class CollectionComponent implements OnInit, OnDestroy {
         this.cd.markForCheck();
 
         let rawUuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
-        let uuids = Array.from(new Set(rawUuids)).filter((u: any) => !!u);
+        let uuids: string[] = Array.from(new Set(rawUuids)).filter((u: any) => !!u).map(String);
 
         const payloadPage = {
             ...this.page
         };
 
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalArticles) {
+            (window as any).electron.listLocalArticles({ username: this.user?.name || 'admin' }).then((localRes: any) => {
+                if (localRes && localRes.success && localRes.articles) {
+                    let matchingArticles = localRes.articles;
+                    if (uuids.length > 0) {
+                        matchingArticles = matchingArticles.filter((art: any) => uuids.includes(art.uuid));
+                    }
+                    matchingArticles.forEach((doc: any) => {
+                        if (doc && doc.uuid && this.multiAccountService.getItem(`ai_type_script_data_${doc.uuid}`)) {
+                            doc.has_script = true;
+                        }
+                    });
+
+                    this.rows = [...matchingArticles];
+                    this.totalElements = this.rows.length;
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                        this.table.recalculate();
+                    }
+                    this.cd.markForCheck();
+                    return;
+                }
+                this.fetchServerArticlesForCollection(uuids, payloadPage, pageInfo);
+            }).catch(() => {
+                this.fetchServerArticlesForCollection(uuids, payloadPage, pageInfo);
+            });
+            return;
+        }
+
+        this.fetchServerArticlesForCollection(uuids, payloadPage, pageInfo);
+    }
+
+    private fetchServerArticlesForCollection(uuids: string[], payloadPage: any, pageInfo: PageInfo) {
         this._crawlService.archive({
             username: this.user.name,
             keyword: '',
@@ -599,76 +671,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
     }
 
     ensureUnlocked(targetObj: any, callback: (unlocked: boolean, password?: string) => void) {
-        if (!targetObj) {
-            callback(true);
-            return;
-        }
-
-        const colIsEncrypted = (this.selectedCollection && this.selectedCollection.is_encrypted) ||
-                               targetObj.is_encrypted ||
-                               (targetObj.source && targetObj.source.encrypted);
-
-        if (!colIsEncrypted) {
-            callback(true);
-            return;
-        }
-
-        const targetUuid = targetObj.uuid || (Array.isArray(targetObj.uuid) ? targetObj.uuid[0] : null) || targetObj._id || targetObj.id || this.selectedCollection?.uuid;
-
-        // Check if unlocked in this session already
-        if (targetUuid) {
-            const token = sessionStorage.getItem('nav_handshake_pwd_' + targetUuid);
-            if (token) {
-                try {
-                    const parsed = JSON.parse(token);
-                    if (parsed && parsed.password) {
-                        callback(true, parsed.password);
-                        return;
-                    }
-                } catch (e) {}
-            }
-        }
-
-        // Prompt for password
-        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'unlock',
-                type: 'article',
-                title: targetObj.title || this.selectedCollection?.title || 'Bộ sưu tập / Bài viết'
-            },
-            width: '450px',
-            disableClose: true
-        });
-
-        dialogRef.afterClosed().subscribe((res: any) => {
-            if (res && res.password) {
-                const cipher = targetObj.cipher || this.selectedCollection?.cipher || targetObj.source?.cipher;
-                const masterCipher = targetObj.master_cipher || targetObj.source?.master_cipher;
-                let isValid = false;
-                if (isMasterKey(res.password)) {
-                    isValid = true;
-                } else if (cipher || masterCipher) {
-                    const decryptedText = tryDecryptWithMasterFallback(cipher, res.password, masterCipher);
-                    if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
-                        isValid = true;
-                    }
-                } else {
-                    isValid = true;
-                }
-
-                if (isValid) {
-                    if (targetUuid) {
-                        sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
-                    }
-                    callback(true, res.password);
-                } else {
-                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
-                    callback(false);
-                }
-            } else {
-                callback(false);
-            }
-        });
+        callback(true);
     }
 
     openRowScript(row: any) {

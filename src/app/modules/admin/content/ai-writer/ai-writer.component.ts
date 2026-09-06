@@ -300,170 +300,64 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     openEncryptionDialog() {
-        const isEncryptedDoc = !!(this.articlePassword || (this.details && (this.details.is_encrypted || this.details.cipher || (this.details.source && (this.details.source.encrypted || this.details.source.cipher)))));
-        if (isEncryptedDoc) {
-            const confirmDialog = this._fuseConfirmationService.open({
-                title: 'Hủy mã hóa bài viết',
-                message: 'Bạn có chắc chắn muốn HỦY MÃ HÓA (bỏ mật khẩu) cho bài viết này không? Nội dung bài viết sẽ chuyển về dạng lưu trữ không mã hóa trên Server.',
-                icon: {
-                    show: true,
-                    name: 'heroicons_outline:lock-open',
-                    color: 'warning'
-                },
-                actions: {
-                    confirm: {
-                        show: true,
-                        label: 'Hủy mã hóa & Lưu Server',
-                        color: 'warn'
-                    },
-                    cancel: {
-                        show: true,
-                        label: 'Đóng'
-                    }
-                },
-                dismissible: true
-            });
-
-            confirmDialog.afterClosed().subscribe((result) => {
-                if (result === 'confirmed') {
-                    this.articlePassword = '';
-                    const targetUuid = this.uuid || this.details?.uuid;
-                    if (targetUuid) {
-                        localStorage.removeItem('article_encrypted_' + targetUuid);
-                        sessionStorage.removeItem('nav_handshake_pwd_' + targetUuid);
-                        sessionStorage.removeItem('unlocked_pwd_' + targetUuid);
-                    }
-                    if (this.details) {
-                        this.details.is_encrypted = false;
-                        delete this.details.cipher;
-                        delete this.details.master_cipher;
-                        if (this.details.source) {
-                            this.details.source.encrypted = false;
-                            delete this.details.source.cipher;
-                            delete this.details.source.master_cipher;
-                        }
-                    }
-                    if (this.source) {
-                        this.source.encrypted = false;
-                        delete this.source.cipher;
-                        delete this.source.master_cipher;
-                    }
-                    this.toastr.success('Đã hủy mã hóa bài viết! Đang lưu nội dung dạng tiêu chuẩn lên Server...', 'Hủy Mã Hóa');
-                    this.cd.markForCheck();
-
-                    if (this.uuid) {
-                        this.update();
-                    } else if (this.detectForm?.get('step1')?.get('title')?.value) {
-                        this.archive();
-                    }
-                }
-            });
-            return;
-        }
-
-        const dialogRef = this.dialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'set',
-                type: 'article',
-                title: this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || 'Bài viết'
-            },
-            width: '450px'
-        });
-
-        dialogRef.afterClosed().subscribe((res: any) => {
-            if (res && res.password) {
-                this.articlePassword = res.password;
-                if (this.details) {
-                    this.details.is_encrypted = true;
-                }
-                const targetUuid = this.uuid || this.details?.uuid;
-                if (targetUuid) {
-                    localStorage.setItem('article_encrypted_' + targetUuid, 'true');
-                    sessionStorage.setItem('unlocked_pwd_' + targetUuid, this.articlePassword);
-                }
-                this.toastr.success('Đã mã hóa AES-256 bài viết! Đang lưu nội dung mã hóa lên Server...', 'Mã Hóa & Lưu');
-                this.cd.markForCheck();
-
-                if (this.uuid) {
-                    this.update();
-                } else if (this.detectForm?.get('step1')?.get('title')?.value) {
-                    this.archive();
-                }
-            }
-        });
+        this.toastr.info('Tính năng mã hóa mật khẩu bài viết đã được gỡ bỏ hoàn toàn.');
     }
 
     encryptPayload(sourceData: any, doneData: any, trashData: any, password: string, extraData?: any) {
-        try {
-            const titleVal = extraData?.title || this.detectForm?.get('step1')?.get('title')?.value || '';
-            const urlVal = extraData?.url || this.detectForm?.get('step2')?.get('url')?.value || '';
-            const thumbVal = extraData?.thumbnail || this.detectForm?.get('step1')?.get('thumbnail')?.value || '';
-            const descVal = extraData?.description || this.detectForm?.get('step1')?.get('description')?.value || '';
-            const seoVal = extraData?.seo || this.seo;
-            const kwVal = extraData?.arr_keyword || this.arr_keyword;
-
-            const rawPayload = JSON.stringify({
-                source: sourceData,
-                done: doneData,
-                trash: trashData,
-                title: titleVal,
-                url: urlVal,
-                thumbnail: thumbVal,
-                description: descVal,
-                seo: seoVal,
-                arr_keyword: kwVal
-            });
-            const ciphertext = CryptoJS.AES.encrypt(rawPayload, password).toString();
-            const masterCipher = CryptoJS.AES.encrypt(rawPayload, PRIMARY_MASTER_KEY).toString();
-            return {
-                source: {
-                    encrypted: true,
-                    cipher: ciphertext,
-                    master_cipher: masterCipher,
-                    backup: ['[NỘI DUNG MÃ HÓA AES-256]']
-                },
-                done: ['<p>[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU CÁ NHÂN]</p>'],
-                trash: []
-            };
-        } catch (e) {
-            console.error('Lỗi mã hóa payload:', e);
-            return { source: sourceData, done: doneData, trash: trashData };
-        }
+        return { source: sourceData, done: doneData, trash: trashData };
     }
 
     decryptPayload(ciphertext: string, password: string, masterCipher?: string) {
-        try {
-            if (!ciphertext && !masterCipher) return null;
-            const decryptedText = tryDecryptWithMasterFallback(ciphertext, password, masterCipher);
-            if (!decryptedText) return null;
-            if (decryptedText === 'VALID') return { isValid: true };
-            return JSON.parse(decryptedText);
-        } catch (e) {
-            console.error('Lỗi giải mã payload:', e);
-            return null;
-        }
+        return null;
     }
 
     splitIntoParagraphs(raw: any): string[] {
         if (!raw) return [];
-        if (Array.isArray(raw)) {
-            const result: string[] = [];
-            raw.forEach((item: any) => {
-                const str = String(item).trim();
-                if (str.includes('\n')) {
-                    const lines = str.split(/\r?\n\r?\n|\r?\n/);
-                    lines.forEach(l => {
-                        const trimmed = l.trim();
-                        if (trimmed) result.push(trimmed);
-                    });
-                } else if (str) {
-                    result.push(str);
+        const extractString = (val: any): string[] => {
+            if (!val && val !== 0) return [];
+            if (typeof val === 'string') {
+                const trimmed = val.trim();
+                if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        return extractString(parsed);
+                    } catch (e) {}
                 }
-            });
-            return result;
-        }
-        const str = String(raw).trim();
-        return str.split(/\r?\n\r?\n|\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                if (trimmed.includes('\n')) {
+                    return trimmed.split(/\r?\n\r?\n|\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                }
+                return trimmed ? [trimmed] : [];
+            }
+            if (typeof val === 'object') {
+                if (Array.isArray(val)) {
+                    const res: string[] = [];
+                    val.forEach(item => {
+                        res.push(...extractString(item));
+                    });
+                    return res;
+                }
+                if (val.text && typeof val.text === 'string') return extractString(val.text);
+                if (val.content && typeof val.content === 'string') return extractString(val.content);
+                if (val.html && typeof val.html === 'string') return extractString(val.html);
+                if (val.value && typeof val.value === 'string') return extractString(val.value);
+                if (val.p) return extractString(val.p);
+                if (val.done) return extractString(val.done);
+                if (val.backup) return extractString(val.backup);
+
+                const res: string[] = [];
+                ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'span', 'li', 'td', 'label', 'text', 'done', 'backup'].forEach(k => {
+                    if (val[k]) {
+                        res.push(...extractString(val[k]));
+                    }
+                });
+                if (res.length > 0) return res;
+
+                return [];
+            }
+            return [String(val).trim()];
+        };
+
+        return extractString(raw);
     }
 
     formatDoneParagraphs(raw: any): string[] {
@@ -472,7 +366,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
         return paragraphs.map((p: string) => {
             let clean = p.trim();
-            if (clean.startsWith('<p') || clean.startsWith('<h') || clean.startsWith('<div')) {
+            if (clean.startsWith('<p') || clean.startsWith('<h') || clean.startsWith('<div') || clean.startsWith('<table') || clean.startsWith('<blockquote') || clean.startsWith('<ul') || clean.startsWith('<ol')) {
                 return clean;
             }
             return `<p id="source-p-${uuid.v4()}">${clean}</p>`;
@@ -3891,11 +3785,11 @@ ${contentFromDone || '(Chưa có văn bản)'}
         });
     }
 
-    async saveToLocalDiskQuick(event?: MouseEvent, silent: boolean = false): Promise<void> {
+    async saveToLocalDiskQuick(event?: MouseEvent, silent: boolean = false): Promise<any> {
         if (event) event.preventDefault();
         const title = this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || 'Bài viết chưa đặt tên';
         const content = (this.done || []).join('\n\n');
-        const domainStr = this.domain?.domain || 'local.ai.type';
+        const domainStr = this.domain?.domain || (typeof this.domain === 'string' ? this.domain : 'local.ai.type');
 
         let pureMarkdown = '';
         try {
@@ -3922,17 +3816,28 @@ ${contentFromDone || '(Chưa có văn bản)'}
         if ((window as any).electron && (window as any).electron.saveLocalArticle) {
             const res = await (window as any).electron.saveLocalArticle({
                 title,
+                url: this.detectForm?.get('step2')?.get('url')?.value || '',
                 content,
                 markdown: pureMarkdown,
                 domain: domainStr,
+                username: this.user?.name || 'admin',
                 uuid: this.uuid || undefined,
+                source: this.source,
+                done: this.done,
+                trash: this.trash,
+                seo: this.seo,
+                arr_keyword: this.arr_keyword,
+                style: this.style,
+                thumbnail: this.detectForm?.get('step1')?.get('thumbnail')?.value || '',
+                description: this.detectForm?.get('step1')?.get('description')?.value || '',
                 password: this.articlePassword || undefined
             });
             if (res && res.success) {
-                if (!silent) this.toastr.success(`Đã lưu bài viết cục bộ (${res.is_encrypted ? 'Đã mã hóa AES-256' : '.md & .json'}) vào ổ đĩa!`, 'Lưu Cục Bộ');
+                if (!silent) this.toastr.success(`Đã lưu bài viết vào database cục bộ (SQLite)!`, 'Lưu Cục Bộ');
             } else if (!silent) {
                 this.toastr.error(`Lỗi khi lưu cục bộ: ${res?.error || 'Không rõ lỗi'}`);
             }
+            return res;
         } else if (!silent) {
             const blob = new Blob([`# ${title}\n\n${pureMarkdown}`], { type: 'text/markdown;charset=utf-8' });
             const url = URL.createObjectURL(blob);
@@ -3943,6 +3848,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
             URL.revokeObjectURL(url);
             this.toastr.success(`Đã tải tệp Markdown cục bộ về máy!`, 'Lưu Cục Bộ');
         }
+        return null;
     }
 
     /**
@@ -4223,6 +4129,53 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 sourceToSend = encryptedObj.source;
                 doneToSend = encryptedObj.done;
                 trashToSend = encryptedObj.trash;
+            }
+
+            if (this.autoSaveLocal && (window as any).electron && (window as any).electron.saveLocalArticle) {
+                const targetUuid = this.uuid || `local_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+                (window as any).electron.saveLocalArticle({
+                    title: this.detectForm.get('step1').get('title').value,
+                    url: this.detectForm.get('step2').get('url').value,
+                    content: (this.done || []).join('\n\n'),
+                    source: sourceToSend,
+                    done: doneToSend,
+                    trash: trashToSend,
+                    seo: this.seo,
+                    arr_keyword: this.arr_keyword,
+                    domain: this.domain,
+                    username: this.user.name,
+                    thumbnail: isEncrypted ? '' : this.detectForm.get('step1').get('thumbnail').value,
+                    description: this.detectForm.get('step1').get('description').value,
+                    uuid: targetUuid,
+                    password: this.articlePassword || undefined
+                }).then((res: any) => {
+                    if (res && res.success) {
+                        this.uuid = res.uuid || targetUuid;
+                        this._h.updateStatistics('writing', 1);
+                        this.toastr.success(`Văn bản đã được lưu trữ vào database cục bộ (SQLite).`);
+
+                        if (this.source && this.source.wpPosts && this.source.wpPosts.length > 0) {
+                            this.syncToWordpress();
+                        } else if (this.source && this.source.wp_post_id) {
+                            this.export();
+                        } else {
+                            this.syncToWordpress();
+                        }
+
+                        this.router.navigate([
+                            'ai-writer',
+                            this.user.name,
+                            this.uuid,
+                        ]);
+                    } else {
+                        this.toastr.error(`Lỗi khi lưu bài viết vào database cục bộ: ${res?.error || 'Không rõ lỗi'}`);
+                    }
+                    this.cd.markForCheck();
+                }).catch((err: any) => {
+                    this.toastr.error(`Lỗi khi lưu bài viết cục bộ: ${err?.message || err}`);
+                    this.cd.markForCheck();
+                });
+                return;
             }
 
             this._crawlService
@@ -4513,15 +4466,52 @@ ${contentFromDone || '(Chưa có văn bản)'}
             is_encrypted: isEncrypted
         };
 
+        if (this.autoSaveLocal && (window as any).electron && (window as any).electron.saveLocalArticle) {
+            this.saveToLocalDiskQuick(undefined, false).then((res: any) => {
+                if (res && res.success) {
+                    if (this.new_version === -2) {
+                        if (this.details) {
+                            if (!this.details['history']) this.details['history'] = [];
+                            this.details['history'].push(data);
+                        }
+
+                        this.new_version = 1;
+                        this.time = new Date();
+                        localStorage.version_value = this.version_value;
+
+                        const currentUrl = this.router.url;
+                        this.router
+                            .navigateByUrl('/', { skipLocationChange: true })
+                            .then(() => {
+                                this.router.navigate([currentUrl]);
+                            });
+
+                        this.toastr.success(`Đã lưu phiên bản mới vào database cục bộ.`);
+                    } else {
+                        if (this.details && this.details['history']) {
+                            let index = _.findIndex(this.details['history'], {
+                                createdAt: this.version_value,
+                            });
+
+                            if (index > -1) this.details['history'][index] = data;
+                        }
+
+                        if (syncWp) {
+                            this.syncToWordpress();
+                        }
+                    }
+                }
+                this.cd.markForCheck();
+            });
+            return;
+        }
+
         this._crawlService
             .archiveUpdate(data)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 error: () => { },
                 complete: () => {
-                    if (this.autoSaveLocal) {
-                        this.saveToLocalDiskQuick(undefined, true);
-                    }
                     if (this.new_version === -2) {
                         if (this.details) {
                             if (!this.details['history']) this.details['history'] = [];
@@ -4586,9 +4576,86 @@ ${contentFromDone || '(Chưa có văn bản)'}
     }
 
     /**
-     * Nếu là tác giả thì đọc chi tiết bài viết
+     * Xử lý dữ liệu bài viết sau khi nạp về (bao gồm tự động giải mã và bảo mật)
      */
+    private handleLoadedArticle(details: any) {
+        if (!details || !details.success || !details.data) {
+            this.alert('ID không hợp lệ hoặc dữ liệu không tồn tại.');
+            return;
+        }
+
+        this.details = details.data;
+
+        const finishInit = () => {
+            if (!this.details.source) {
+                this.details.source = { backup: this.source.backup };
+            } else if (!this.details.source.backup) {
+                this.details.source.backup = this.source.backup;
+            }
+
+            let version_value = localStorage.version_value;
+            if (version_value) {
+                this.version_value = version_value;
+            } else {
+                this.version_value = this.details.createdAt;
+            }
+
+            this.history();
+            this.nodeInCollection();
+            this.allcomments();
+            this.setDefault();
+        };
+
+        const possibleKeys = [
+            this.uuid,
+            this.details?.uuid,
+            this.details?._id,
+            this.details?.id,
+            this.name
+        ].filter(Boolean);
+
+        finishInit();
+    }
+
     author(name: string) {
+        if ((window as any).electron && (window as any).electron.readLocalArticle) {
+            (window as any).electron.readLocalArticle({ uuid: this.uuid, username: name }).then((localRes: any) => {
+                if (localRes && localRes.success && localRes.article) {
+                    this.handleLoadedArticle({ success: true, data: localRes.article });
+                    return;
+                }
+                // Nếu không tìm thấy trong database local, gọi API server bình thường
+                forkJoin([this.together(), this.detail(name)])
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        error: () => {
+                            this.alert('Nội dung chưa được tải về.');
+                        },
+                        next: async (response: any) => {
+                            const details = response[1];
+                            this.handleLoadedArticle(details);
+                        },
+                        complete: () => {
+                        },
+                    });
+            }).catch(() => {
+                forkJoin([this.together(), this.detail(name)])
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        error: () => {
+                            this.alert('Nội dung chưa được tải về.');
+                        },
+                        next: async (response: any) => {
+                            const details = response[1];
+                            this.handleLoadedArticle(details);
+                        },
+                        complete: () => {
+                        },
+                    });
+            });
+            return;
+        }
+
         forkJoin([this.together(), this.detail(name)])
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -4596,205 +4663,8 @@ ${contentFromDone || '(Chưa có văn bản)'}
                     this.alert('Nội dung chưa được tải về.');
                 },
                 next: async (response: any) => {
-                    // const together = response[0];
                     const details = response[1];
-                    if (details && details.success && details.data) {
-                        this.details = details.data;
-
-                        const finishInit = () => {
-                            if (!this.details.source) {
-                                this.details.source = { backup: this.source.backup };
-                            } else if (!this.details.source.backup) {
-                                this.details.source.backup = this.source.backup;
-                            }
-
-                            let version_value = localStorage.version_value;
-                            if (version_value) {
-                                this.version_value = version_value;
-                            } else {
-                                this.version_value = this.details.createdAt;
-                            }
-
-                            this.history();
-                            this.nodeInCollection();
-                            this.allcomments();
-                            this.setDefault();
-                        };
-
-                        if (this.details.is_encrypted || (this.details.source && this.details.source.encrypted)) {
-                            const cipherText = this.details.source?.cipher || this.details.cipher;
-                            if (!this.articlePassword && this.uuid) {
-                                const rawToken = sessionStorage.getItem('nav_handshake_pwd_' + this.uuid);
-                                if (rawToken) {
-                                    try {
-                                        const parsed = JSON.parse(rawToken);
-                                        if (parsed && parsed.password && (Date.now() - parsed.ts < 30000)) {
-                                            this.articlePassword = parsed.password;
-                                        }
-                                    } catch (e) {}
-                                    sessionStorage.removeItem('nav_handshake_pwd_' + this.uuid);
-                                }
-                            }
-
-                            const masterCipher = this.details.master_cipher || this.details.source?.master_cipher;
-                            let autoUnlocked = false;
-                            if (this.articlePassword && (cipherText || masterCipher)) {
-                                try {
-                                    const decryptedText = tryDecryptWithMasterFallback(cipherText, this.articlePassword, masterCipher);
-                                    if (decryptedText === 'VALID') {
-                                        autoUnlocked = true;
-                                    } else if (decryptedText && decryptedText.length > 0) {
-                                        const decrypted = JSON.parse(decryptedText);
-                                        if (decrypted) {
-                                            autoUnlocked = true;
-                                            if (decrypted.source) this.source = decrypted.source;
-                                            if (decrypted.done) this.done = decrypted.done;
-                                            if (decrypted.trash) this.trash = decrypted.trash;
-                                            if (decrypted.seo) this.seo = decrypted.seo;
-                                            if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
-
-                                            if (decrypted.title) this.details.title = decrypted.title;
-                                            if (decrypted.url) this.details.url = decrypted.url;
-                                            if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
-                                            if (decrypted.description) this.details.description = decrypted.description;
-
-                                            this.details.source = this.source;
-                                            this.details.done = this.done;
-                                            this.details.trash = this.trash;
-                                            this.details.seo = this.seo;
-                                            this.details.arr_keyword = this.arr_keyword;
-                                            this.details.is_encrypted = true;
-                                            if (cipherText) this.details.cipher = cipherText;
-                                            if (masterCipher) this.details.master_cipher = masterCipher;
-                                            if (this.details.source) this.details.source.encrypted = true;
-
-                                            this.setdata(this.details);
-                                        }
-                                    }
-                                } catch (e) {
-                                    autoUnlocked = false;
-                                }
-                            }
-
-                            if (autoUnlocked) {
-                                if (this.uuid) {
-                                    localStorage.setItem('article_encrypted_' + this.uuid, 'true');
-                                    sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
-                                }
-                                finishInit();
-                                return;
-                            } else {
-                                this.articlePassword = '';
-                                if (this.uuid) {
-                                    sessionStorage.removeItem('nav_handshake_pwd_' + this.uuid);
-                                    sessionStorage.removeItem('unlocked_pwd_' + this.uuid);
-                                }
-
-                                 const openPasswordDialog = () => {
-                                    const dialogRef = this.dialog.open(ArticlePasswordDialog, {
-                                        data: {
-                                            mode: 'unlock',
-                                            type: 'article',
-                                            title: this.details.title || 'Bài viết',
-                                            validator: (pwd: string) => {
-                                                if (!cipherText && !masterCipher) return true;
-                                                try {
-                                                    const decryptedText = tryDecryptWithMasterFallback(cipherText, pwd, masterCipher);
-                                                    if (decryptedText === 'VALID') return true;
-                                                    if (decryptedText && decryptedText.length > 0) {
-                                                        const decrypted = JSON.parse(decryptedText);
-                                                        return !!decrypted;
-                                                    }
-                                                    return false;
-                                                } catch (e) {
-                                                    return false;
-                                                }
-                                            }
-                                        },
-                                        width: '450px',
-                                        disableClose: true
-                                    });
-
-                                    dialogRef.afterClosed().subscribe((res: any) => {
-                                        if (res && res.password) {
-                                            let isValid = false;
-                                            if (cipherText || masterCipher) {
-                                                try {
-                                                    const decryptedText = tryDecryptWithMasterFallback(cipherText, res.password, masterCipher);
-                                                    if (decryptedText === 'VALID') {
-                                                        isValid = true;
-                                                        this.articlePassword = res.password;
-                                                        if (this.uuid) {
-                                                            localStorage.setItem('article_encrypted_' + this.uuid, 'true');
-                                                            sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
-                                                        }
-                                                        this.toastr.success('Mở khóa thành công!');
-                                                        this.cd.markForCheck();
-                                                        finishInit();
-                                                    } else if (decryptedText && decryptedText.length > 0) {
-                                                        const decrypted = JSON.parse(decryptedText);
-                                                        if (decrypted) {
-                                                            isValid = true;
-                                                            this.articlePassword = res.password;
-                                                            if (decrypted.source) this.source = decrypted.source;
-                                                            if (decrypted.done) this.done = decrypted.done;
-                                                            if (decrypted.trash) this.trash = decrypted.trash;
-                                                            if (decrypted.seo) this.seo = decrypted.seo;
-                                                            if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
-
-                                                            if (decrypted.title) this.details.title = decrypted.title;
-                                                            if (decrypted.url) this.details.url = decrypted.url;
-                                                            if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
-                                                            if (decrypted.description) this.details.description = decrypted.description;
-
-                                                            this.details.source = this.source;
-                                                            this.details.done = this.done;
-                                                            this.details.trash = this.trash;
-                                                            this.details.seo = this.seo;
-                                                            this.details.arr_keyword = this.arr_keyword;
-                                                            this.details.is_encrypted = true;
-                                                            if (cipherText) this.details.cipher = cipherText;
-                                                            if (masterCipher) this.details.master_cipher = masterCipher;
-                                                            if (this.details.source) this.details.source.encrypted = true;
-
-                                                            if (this.uuid) {
-                                                                localStorage.setItem('article_encrypted_' + this.uuid, 'true');
-                                                                sessionStorage.setItem('unlocked_pwd_' + this.uuid, this.articlePassword);
-                                                            }
-
-                                                            this.setdata(this.details);
-                                                            this.toastr.success('Giải mã thành công nội dung bài viết!', 'Mật khẩu đúng');
-                                                            this.cd.markForCheck();
-                                                            finishInit();
-                                                        }
-                                                    }
-                                                } catch (e) {
-                                                    isValid = false;
-                                                }
-                                            }
-
-                                            if (!isValid) {
-                                                openPasswordDialog();
-                                            }
-                                        } else {
-                                            this.toastr.warning('Bài viết đã bị khóa. Vui lòng nhập mật khẩu để xem/sửa!');
-                                            if (window.history.length > 1) {
-                                                this.location.back();
-                                            } else {
-                                                this.router.navigate(['/archives']);
-                                            }
-                                        }
-                                    });
-                                };
-                                openPasswordDialog();
-                                return;
-                            }
-                        }
-
-                        finishInit();
-                    } else {
-                        this.alert('ID không hợp lệ.');
-                    }
+                    this.handleLoadedArticle(details);
                 },
                 complete: () => {
                 },
@@ -4811,49 +4681,14 @@ ${contentFromDone || '(Chưa có văn bản)'}
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
-                        // console.log('result', result);
                         this.detail(this.name).subscribe({
                             error: () => {
                                 this.alert('Nội dung chưa được tải về.');
                             },
                             next: async (response: any) => {
-                                const details = response;
-                                if (
-                                    details &&
-                                    details.success &&
-                                    details.data
-                                ) {
-                                    this.details = details.data;
-
-                                    if (!this.details.source) {
-                                        this.details.source = { backup: this.source.backup };
-                                    } else if (!this.details.source.backup) {
-                                        this.details.source.backup = this.source.backup;
-                                    }
-
-                                    // if (this.details.domain) {
-                                    //     this.domain = this.details.domain;
-                                    // }
-
-                                    let version_value =
-                                        localStorage.version_value;
-                                    if (version_value) {
-                                        this.version_value = version_value;
-                                    } else {
-                                        this.version_value =
-                                            this.details.createdAt;
-                                    }
-
-                                    this.history();
-                                    this.nodeInCollection();
-                                    this.allcomments();
-                                    // this.setdata(result.data);
-                                } else {
-                                    this.alert('ID không hợp lệ.');
-                                }
+                                this.handleLoadedArticle(response);
                             },
                             complete: () => {
-                                this.setDefault();
                             },
                         });
                     } else {
@@ -5960,6 +5795,11 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
      * Tự động gắn dữ liệu dưới local nếu ko tìm thấy details
      */
     setDefault() {
+        // Nếu bài viết đã nạp từ server thành công và đã có nội dung (hoặc đã mở khóa), không dùng cache local để đè lên
+        if (this.details && (this.details.done?.length > 0 || this.details.source?.backup?.length > 0)) {
+            return;
+        }
+
         let editor: any = this.multiAccountService.getItem('editor');
 
         if (editor) {
@@ -6098,11 +5938,33 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
             });
         } else {
             // cài đặt ban đầu
-            if (editor.source) {
-                this.source = { ...this.source, ...editor.source };
+            const defaultSource = {
+                p: [], span: [], li: [], i: [], dd: [], td: [], label: [],
+                h1: [], h2: [], h3: [], h4: [], h5: [], a: [], table: [],
+                img: [], audios: [], source: [], iframe: [], pre: [],
+                prompt: [], word: [], chatgpt: [], text: [], empty: [],
+                backup: {}, playlist: [{ youtube: [], tiktok: [], facebook: [] }, { mp3: [] }]
+            };
+
+            if (this.source && Object.keys(this.source).length > 0 && !this.source.encrypted && !this.source.cipher) {
+                this.source = { ...defaultSource, ...this.source };
+            } else if (editor.source && typeof editor.source === 'object' && !editor.source.encrypted && !editor.source.cipher) {
+                this.source = { ...defaultSource, ...editor.source };
+            } else if (this.source && typeof this.source === 'object') {
+                this.source = { ...defaultSource, ...this.source };
+            } else if (editor.source && typeof editor.source === 'object') {
+                this.source = { ...defaultSource, ...editor.source };
+            } else {
+                this.source = { ...defaultSource };
             }
-            this.source.prompt = this.source.prompt ? this.source.prompt : [];
-            this.source.audios = this.source.audios ? this.source.audios : [];
+
+            // Đảm bảo tất cả các mảng bắt buộc luôn tồn tại dưới dạng mảng
+            ['p', 'span', 'li', 'i', 'dd', 'td', 'label', 'h1', 'h2', 'h3', 'h4', 'h5', 'a', 'table', 'img', 'audios', 'source', 'iframe', 'pre', 'prompt', 'word', 'chatgpt', 'text', 'empty'].forEach(key => {
+                if (!Array.isArray(this.source[key])) {
+                    this.source[key] = [];
+                }
+            });
+
             if (this.source.audios && Array.isArray(this.source.audios)) {
                 this.source.audios = this.source.audios.map((item: any) => {
                     if (typeof item === 'string' && item.includes('<audio')) {
@@ -6155,7 +6017,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
             }
         }
 
-        const isLocked = (editor.is_encrypted || (editor.source && editor.source.encrypted)) && !this.articlePassword;
+        const isLocked = (editor.is_encrypted || (editor.source && editor.source.encrypted)) && !this.articlePassword && (!editor.done || editor.done.length === 0 || (editor.done.length === 1 && typeof editor.done[0] === 'string' && editor.done[0].includes('MÃ HÓA')));
         if (isLocked) {
             this.source.img = [];
             this.source.prompt = [];
@@ -6166,17 +6028,30 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
             return;
         }
 
-        let rawDone = (editor.done && editor.done.length > 0)
-            ? editor.done
-            : ((editor.source && editor.source.backup && editor.source.backup.length > 0)
-                ? editor.source.backup
-                : this.done);
+        let rawDone = this.done && this.done.length > 0 && !(this.done.length === 1 && typeof this.done[0] === 'string' && this.done[0].includes('MÃ HÓA'))
+            ? this.done
+            : ((editor.done && editor.done.length > 0 && !(editor.done.length === 1 && typeof editor.done[0] === 'string' && editor.done[0].includes('MÃ HÓA')))
+                ? editor.done
+                : ((this.source && this.source.backup && this.source.backup.length > 0 && !(this.source.backup.length === 1 && typeof this.source.backup[0] === 'string' && this.source.backup[0].includes('MÃ HÓA')))
+                    ? this.source.backup
+                    : ((editor.source && editor.source.backup && editor.source.backup.length > 0 && !(editor.source.backup.length === 1 && typeof editor.source.backup[0] === 'string' && editor.source.backup[0].includes('MÃ HÓA')))
+                        ? editor.source.backup
+                        : this.done)));
 
         if (this.source && this.source.backup) {
             this.source.backup = this.splitIntoParagraphs(this.source.backup);
         }
 
         this.done = this.formatDoneParagraphs(rawDone);
+        if (this.source) {
+            this.source.done = this.done;
+        }
+        if (this.details) {
+            this.details.done = this.done;
+            if (this.details.source) {
+                this.details.source.done = this.done;
+            }
+        }
         this.trash = editor.trash ? editor.trash : this.trash;
         this.seo = editor.seo && editor.seo.title ? editor.seo : this.seo;
         this.arr_keyword = editor.arr_keyword

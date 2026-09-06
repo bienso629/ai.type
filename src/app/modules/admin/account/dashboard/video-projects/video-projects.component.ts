@@ -159,57 +159,6 @@ export class VideoProjectsComponent implements OnInit, OnDestroy {
         if (!project) return;
         const targetUuid = project.uuid;
         const username = this.user?.name || 'admin';
-
-        const isEncrypted = project.is_encrypted || (project.source && project.source.encrypted) || project.cipher;
-        if (!isEncrypted) {
-            this.router.navigate(['/voice2video', username, targetUuid]);
-            return;
-        }
-
-        const token = sessionStorage.getItem('nav_handshake_pwd_' + targetUuid);
-        if (token) {
-            try {
-                const parsed = JSON.parse(token);
-                if (parsed && parsed.password) {
-                    this.router.navigate(['/voice2video', username, targetUuid]);
-                    return;
-                }
-            } catch (e) {}
-        }
-
-        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'unlock',
-                type: 'article',
-                title: project.title || 'Kịch bản video'
-            },
-            width: '450px',
-            disableClose: true
-        });
-
-        dialogRef.afterClosed().subscribe((res: any) => {
-            if (res && res.password) {
-                const cipher = project.cipher || project.source?.cipher;
-                const masterCipher = project.master_cipher || project.source?.master_cipher;
-                let isValid = false;
-                if (isMasterKey(res.password)) {
-                    isValid = true;
-                } else if (cipher || masterCipher) {
-                    const decryptedText = tryDecryptWithMasterFallback(cipher, res.password, masterCipher);
-                    if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
-                        isValid = true;
-                    }
-                } else {
-                    isValid = true;
-                }
-
-                if (isValid) {
-                    sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
-                    this.router.navigate(['/voice2video', username, targetUuid]);
-                } else {
-                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
-                }
-            }
-        });
+        this.router.navigate(['/voice2video', username, targetUuid]);
     }
 }
