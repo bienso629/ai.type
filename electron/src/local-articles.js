@@ -88,6 +88,111 @@ function getArticlesDatabase() {
         `);
         articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_chats_username ON local_chats(username)`);
         articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_chats_updated_at ON local_chats(updated_at)`);
+
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_domains (
+                domain TEXT PRIMARY KEY,
+                name TEXT,
+                username TEXT,
+                password TEXT,
+                note TEXT,
+                monthly_target INTEGER DEFAULT 0,
+                writing_style TEXT,
+                ga4_property_id TEXT,
+                server_ip TEXT,
+                server_username TEXT,
+                server_password TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_tasks (
+                id TEXT PRIMARY KEY,
+                username TEXT,
+                domain_id TEXT,
+                year INTEGER,
+                month INTEGER,
+                day INTEGER,
+                title TEXT,
+                status TEXT,
+                done INTEGER DEFAULT 0,
+                task_json TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_username ON local_tasks(username)`);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_domain_id ON local_tasks(domain_id)`);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_year ON local_tasks(year)`);
+
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_nodes (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                url TEXT,
+                username TEXT,
+                uuids_json TEXT,
+                raw_json TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_nodes_username ON local_nodes(username)`);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_nodes_url ON local_nodes(url)`);
+
+        // Tự động nạp dữ liệu từ thư mục backup nếu bảng local_nodes đang trống
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_nodes', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_nodes_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_nodes_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const rawContent = fs.readFileSync(backupFile, 'utf8');
+                        const nodes = JSON.parse(rawContent);
+                        if (Array.isArray(nodes) && nodes.length > 0) {
+                            const stmt = articlesDbInstance.prepare(`
+                                INSERT OR REPLACE INTO local_nodes (id, title, url, username, uuids_json, raw_json, created_at, updated_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            `);
+                            for (const n of nodes) {
+                                const nodeId = n._id || n.id;
+                                const url = n.url || '';
+                                let title = n.title;
+                                if (!title && Array.isArray(n.meta)) {
+                                    for (const m of n.meta) {
+                                        if (m && typeof m === 'object' && ((m.name && m.name.toLowerCase().includes('title')) || (m.property && m.property.toLowerCase().includes('title')))) {
+                                            title = m.content;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!title && n.heading && Array.isArray(n.heading.h1)) {
+                                    const h1s = n.heading.h1.filter(x => x && x.trim());
+                                    if (h1s.length > 0) title = h1s[0];
+                                }
+                                if (!title) title = url || 'Node';
+
+                                const username = 'admin';
+                                const uuids = JSON.stringify(n.uuids || []);
+                                const rawJson = JSON.stringify(n);
+                                const createdAt = n.createdAt || n.updatedAt || new Date().toISOString();
+                                const updatedAt = n.updatedAt || createdAt;
+                                stmt.run(nodeId, title, url, username, uuids, rawJson, createdAt, updatedAt);
+                            }
+                            stmt.finalize();
+                            console.log(`[local-nodes] Đã tự động nạp ${nodes.length} bản ghi node từ backup.`);
+                        }
+                    }
+                } catch (backupErr) {
+                    console.error('[local-nodes] Lỗi khi nạp từ backup:', backupErr);
+                }
+            }
+        });
     });
     return articlesDbInstance;
 }
@@ -690,23 +795,509 @@ function registerLocalArticlesHandlers() {
     });
 
     /**
+     * Helper bóc tách Title, Meta Description, Meta Keywords từ HTML website
+     */
+    function extractHtmlMetadata(html) {
+        if (!html || typeof html !== 'string') {
+            return { title: '', description: '', keywords: '', sampleText: '' };
+        }
+        let title = '';
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        if (titleMatch) title = titleMatch[1].trim();
+
+        let description = '';
+        const descRegexes = [
+            /<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i,
+            /<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i,
+            /<meta\s+[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i,
+            /<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["']og:description["']/i,
+            /<meta\s+[^>]*name=["']twitter:description["'][^>]*content=["']([^"']*)["']/i
+        ];
+        for (const reg of descRegexes) {
+            const m = html.match(reg);
+            if (m && m[1]) {
+                description = m[1].trim();
+                break;
+            }
+        }
+
+        let keywords = '';
+        const kwRegexes = [
+            /<meta\s+[^>]*name=["']keywords["'][^>]*content=["']([^"']*)["']/i,
+            /<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']keywords["']/i
+        ];
+        for (const reg of kwRegexes) {
+            const m = html.match(reg);
+            if (m && m[1]) {
+                keywords = m[1].trim();
+                break;
+            }
+        }
+
+        // Lấy headings
+        const headings = [];
+        const headingRegex = /<h[1-3][^>]*>(.*?)<\/h[1-3]>/gi;
+        let match;
+        while ((match = headingRegex.exec(html)) !== null && headings.length < 8) {
+            const cleanText = match[1].replace(/<[^>]+>/g, '').trim();
+            if (cleanText) headings.push(cleanText);
+        }
+
+        // Clean body sample text
+        let cleanBody = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+                            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+                            .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, ' ')
+                            .replace(/<[^>]+>/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+        const sampleText = (headings.length > 0 ? `Tiêu đề mục: ${headings.join(' | ')}. ` : '') + cleanBody.substring(0, 1000);
+
+        return { title, description, keywords, sampleText };
+    }
+
+    /**
+     * Bóc tách thông tin trang web trực tiếp từ Electron main process (bypass CORS & timeout)
+     */
+    ipcMain.handle('fetch-domain-metadata', async (event, rawDomain) => {
+        if (!rawDomain) return { title: '', description: '', keywords: '', sampleText: '', isLive: false };
+        let targetUrl = rawDomain.trim();
+        if (!/^https?:\/\//i.test(targetUrl)) {
+            targetUrl = 'https://' + targetUrl;
+        }
+
+        const http = require('http');
+        const https = require('https');
+        const { URL } = require('url');
+
+        function fetchUrl(urlStr, redirectCount = 0) {
+            return new Promise((resolve) => {
+                if (redirectCount > 4) {
+                    return resolve({ success: false, error: 'Quá nhiều chuyển hướng' });
+                }
+                try {
+                    const parsedUrl = new URL(urlStr);
+                    const client = parsedUrl.protocol === 'https:' ? https : http;
+                    const req = client.get(urlStr, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                        },
+                        timeout: 10000
+                    }, (res) => {
+                        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                            let nextUrl = res.headers.location;
+                            if (!nextUrl.startsWith('http')) {
+                                nextUrl = new URL(nextUrl, urlStr).toString();
+                            }
+                            return resolve(fetchUrl(nextUrl, redirectCount + 1));
+                        }
+                        if (res.statusCode !== 200) {
+                            return resolve({ success: false, statusCode: res.statusCode });
+                        }
+                        let data = '';
+                        res.on('data', chunk => {
+                            data += chunk;
+                            if (data.length > 2000000) { // Giới hạn 2MB
+                                req.destroy();
+                                resolve({ success: true, html: data });
+                            }
+                        });
+                        res.on('end', () => resolve({ success: true, html: data }));
+                    });
+                    req.on('error', err => resolve({ success: false, error: err.message }));
+                    req.on('timeout', () => { req.destroy(); resolve({ success: false, error: 'Timeout' }); });
+                } catch (err) {
+                    resolve({ success: false, error: err.message });
+                }
+            });
+        }
+
+        try {
+            let res = await fetchUrl(targetUrl);
+            // Thử fallback sang http nếu https thất bại
+            if (!res.success && targetUrl.startsWith('https://')) {
+                const fallbackHttp = targetUrl.replace(/^https:\/\//i, 'http://');
+                res = await fetchUrl(fallbackHttp);
+            }
+
+            if (res.success && res.html) {
+                const meta = extractHtmlMetadata(res.html);
+                return {
+                    ...meta,
+                    isLive: true
+                };
+            }
+            return { title: '', description: '', keywords: '', sampleText: '', isLive: false };
+        } catch (e) {
+            return { title: '', description: '', keywords: '', sampleText: '', isLive: false };
+        }
+    });
+
+    /**
+     * Lưu hoặc cập nhật thông tin tên miền vào bảng local_domains
+     */
+    ipcMain.handle('save-local-domain', async (event, domainData) => {
+        try {
+            if (!domainData || !domainData.domain) {
+                return { success: false, error: 'Thiếu domain' };
+            }
+            const db = getArticlesDatabase();
+            const now = new Date().toISOString();
+
+            await new Promise((resolve, reject) => {
+                db.run(`
+                    INSERT INTO local_domains (
+                        domain, name, username, password, note, monthly_target, writing_style,
+                        ga4_property_id, server_ip, server_username, server_password, updated_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(domain) DO UPDATE SET
+                        name = excluded.name,
+                        username = excluded.username,
+                        password = excluded.password,
+                        note = excluded.note,
+                        monthly_target = excluded.monthly_target,
+                        writing_style = excluded.writing_style,
+                        ga4_property_id = excluded.ga4_property_id,
+                        server_ip = excluded.server_ip,
+                        server_username = excluded.server_username,
+                        server_password = excluded.server_password,
+                        updated_at = excluded.updated_at
+                `, [
+                    domainData.domain,
+                    domainData.name || domainData.domain,
+                    domainData.username || '',
+                    domainData.password || '',
+                    domainData.note || '',
+                    domainData.monthlyTarget || 0,
+                    domainData.writingStyle || '',
+                    domainData.ga4PropertyId || '',
+                    domainData.serverIp || '',
+                    domainData.serverUsername || '',
+                    domainData.serverPassword || '',
+                    now,
+                    now
+                ], function(err) {
+                    if (err) reject(err);
+                    else resolve(this);
+                });
+            });
+
+            return { success: true, message: 'Đã lưu tên miền cục bộ thành công' };
+        } catch (error) {
+            console.error('[save-local-domain] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
      * Lấy danh sách domains duy nhất từ database SQLite local
      */
     ipcMain.handle('list-local-domains', async (event, payload) => {
         try {
             const db = getArticlesDatabase();
+
+            // 1. Lấy tất cả tên miền đã lưu trong bảng local_domains
+            const savedDomains = await new Promise((resolve, reject) => {
+                db.all('SELECT * FROM local_domains ORDER BY domain ASC', [], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+
+            // 2. Lấy tất cả tên miền từ bảng local_articles kèm mô tả mẫu từ bài viết nếu có
+            const articleDomains = await new Promise((resolve, reject) => {
+                db.all(`
+                    SELECT domain, description, title
+                    FROM local_articles 
+                    WHERE domain IS NOT NULL AND domain != ""
+                    GROUP BY domain
+                `, [], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+
+            const domainMap = new Map();
+
+            // Đưa các domain từ local_articles vào map
+            for (const r of articleDomains) {
+                const dom = (r.domain || '').trim();
+                if (!dom) continue;
+                domainMap.set(dom, {
+                    domain: dom,
+                    name: dom,
+                    username: '',
+                    password: '',
+                    note: r.description || '', // fallback lấy từ mô tả bài viết nếu local_domains chưa có
+                    monthlyTarget: 0,
+                    writingStyle: '',
+                    ga4PropertyId: '',
+                    serverIp: '',
+                    serverUsername: '',
+                    serverPassword: ''
+                });
+            }
+
+            // Ghi đè bằng thông tin chuẩn từ bảng local_domains
+            for (const sd of savedDomains) {
+                const dom = (sd.domain || '').trim();
+                if (!dom) continue;
+                const existing = domainMap.get(dom) || {};
+                domainMap.set(dom, {
+                    ...existing,
+                    domain: dom,
+                    name: sd.name || dom,
+                    username: sd.username || '',
+                    password: sd.password || '',
+                    note: sd.note || existing.note || '',
+                    monthlyTarget: sd.monthly_target || 0,
+                    writingStyle: sd.writing_style || '',
+                    ga4PropertyId: sd.ga4_property_id || '',
+                    serverIp: sd.server_ip || '',
+                    serverUsername: sd.server_username || '',
+                    serverPassword: sd.server_password || ''
+                });
+            }
+
+            const domains = Array.from(domainMap.values());
+            return { success: true, data: domains, total: domains.length };
+        } catch (error) {
+            console.error('[list-local-domains] Lỗi:', error);
+            return { success: false, error: error.message, data: [] };
+        }
+    });
+
+    /**
+     * Lấy danh sách tasks từ database SQLite local
+     */
+    ipcMain.handle('list-local-tasks', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const year = payload?.year ? parseInt(payload.year, 10) : new Date().getFullYear();
+
+            // 1. Lấy tasks từ bảng local_tasks
+            let query = 'SELECT * FROM local_tasks WHERE 1=1';
+            const params = [];
+
+            if (payload?.year) {
+                query += ' AND year = ?';
+                params.push(year);
+            }
+            if (payload?.domain) {
+                query += ' AND domain_id = ?';
+                params.push(payload.domain);
+            }
+
+            query += ' ORDER BY created_at DESC';
+
             const rows = await new Promise((resolve, reject) => {
-                db.all('SELECT DISTINCT domain FROM local_articles WHERE domain IS NOT NULL AND domain != ""', [], (err, resultRows) => {
+                db.all(query, params, (err, resultRows) => {
                     if (err) reject(err);
                     else resolve(resultRows || []);
                 });
             });
 
-            const domains = rows.map(r => ({ domain: r.domain }));
-            return { success: true, data: domains, total: domains.length };
+            const tasksMap = new Map();
+
+            rows.forEach(r => {
+                let taskObj = {};
+                try {
+                    taskObj = r.task_json ? JSON.parse(r.task_json) : {};
+                } catch (e) {
+                    taskObj = {};
+                }
+                const t = {
+                    ...taskObj,
+                    _id: r.id,
+                    id: r.id,
+                    username: r.username,
+                    domain_id: r.domain_id,
+                    domain: r.domain_id,
+                    year: r.year,
+                    month: r.month,
+                    day: r.day,
+                    title: r.title,
+                    name: r.title,
+                    status: r.status,
+                    done: !!r.done
+                };
+                tasksMap.set(r.id, t);
+            });
+
+            // 2. Tự động đồng bộ các bài viết từ bảng local_articles sang thành task hiển thị trên lịch
+            let articleQuery = 'SELECT uuid, domain, username, title, created_at, seo_json FROM local_articles WHERE domain IS NOT NULL AND domain != ""';
+            const articleParams = [];
+            if (payload?.domain) {
+                articleQuery += ' AND (domain = ? OR domain LIKE ?)';
+                articleParams.push(payload.domain, `%${payload.domain}%`);
+            }
+
+            const articleRows = await new Promise((resolve, reject) => {
+                db.all(articleQuery, articleParams, (err, resultRows) => {
+                    if (err) reject(err);
+                    else resolve(resultRows || []);
+                });
+            });
+
+            for (const art of articleRows) {
+                const artId = 'article_task_' + art.uuid;
+                if (tasksMap.has(artId)) continue;
+
+                let dObj = new Date(art.created_at || Date.now());
+                if (isNaN(dObj.getTime())) dObj = new Date();
+                const artYear = dObj.getFullYear();
+                const artMonth = dObj.getMonth() + 1;
+                const artDay = dObj.getDate();
+
+                if (payload?.year && artYear !== year) continue;
+
+                const startStr = `${artYear}-${String(artMonth).padStart(2, '0')}-${String(artDay).padStart(2, '0')}T08:00:00`;
+                const endStr = `${artYear}-${String(artMonth).padStart(2, '0')}-${String(artDay).padStart(2, '0')}T17:00:00`;
+
+                let metaText = '';
+                if (art.seo_json) {
+                    try {
+                        const parsedSeo = JSON.parse(art.seo_json);
+                        metaText = parsedSeo.description?.text || parsedSeo.mainkey || '';
+                    } catch (e) {}
+                }
+
+                tasksMap.set(artId, {
+                    _id: artId,
+                    id: artId,
+                    article_uuid: art.uuid,
+                    username: art.username || 'admin',
+                    domain_id: art.domain,
+                    domain: art.domain,
+                    domainName: art.domain,
+                    year: artYear,
+                    month: artMonth,
+                    day: artDay,
+                    title: art.title,
+                    name: art.title,
+                    status: 'done',
+                    done: true,
+                    startDate: startStr,
+                    endDate: endStr,
+                    meta: metaText,
+                    created_at: art.created_at || new Date().toISOString()
+                });
+            }
+
+            const tasks = Array.from(tasksMap.values());
+            return { success: true, data: tasks, result: tasks, total: tasks.length };
         } catch (error) {
-            console.error('[list-local-domains] Lỗi:', error);
-            return { success: false, error: error.message, data: [] };
+            console.error('[list-local-tasks] Lỗi:', error);
+            return { success: false, error: error.message, data: [], result: [] };
+        }
+    });
+
+    /**
+     * Thêm hoặc cập nhật task vào database SQLite local
+     */
+    ipcMain.handle('save-local-task', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const task = payload?.task || payload || {};
+            const username = payload?.username || task.username || 'admin';
+            const id = task._id || task.id || ('local_task_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+            const domainId = task.domain_id || task.domain || task.domainName || '';
+            const year = task.year ? parseInt(task.year, 10) : new Date().getFullYear();
+            const month = task.month ? parseInt(task.month, 10) : (new Date().getMonth() + 1);
+            const day = task.day ? parseInt(task.day, 10) : new Date().getDate();
+            const title = task.title || task.name || '';
+            const status = task.status || (task.done ? 'done' : 'pending');
+            const done = task.done ? 1 : 0;
+            const now = new Date().toISOString();
+
+            const taskJson = JSON.stringify({
+                ...task,
+                _id: id,
+                id: id,
+                username: username,
+                domain_id: domainId,
+                year: year,
+                month: month,
+                day: day,
+                title: title,
+                status: status,
+                done: !!done,
+                updated_at: now
+            });
+
+            await new Promise((resolve, reject) => {
+                db.run(`
+                    INSERT INTO local_tasks (
+                        id, username, domain_id, year, month, day, title, status, done, task_json, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        username = excluded.username,
+                        domain_id = excluded.domain_id,
+                        year = excluded.year,
+                        month = excluded.month,
+                        day = excluded.day,
+                        title = excluded.title,
+                        status = excluded.status,
+                        done = excluded.done,
+                        task_json = excluded.task_json,
+                        updated_at = excluded.updated_at
+                `, [
+                    id,
+                    username,
+                    domainId,
+                    year,
+                    month,
+                    day,
+                    title,
+                    status,
+                    done,
+                    taskJson,
+                    task.created_at || now,
+                    now
+                ], function(err) {
+                    if (err) reject(err);
+                    else resolve(this);
+                });
+            });
+
+            return {
+                success: true,
+                id: id,
+                _id: id,
+                rev: '1-' + Date.now(),
+                _rev: '1-' + Date.now(),
+                message: 'Đã lưu task cục bộ thành công'
+            };
+        } catch (error) {
+            console.error('[save-local-task] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Xóa task khỏi database SQLite local
+     */
+    ipcMain.handle('delete-local-task', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const task = payload?.task || payload || {};
+            const id = task._id || task.id || (typeof payload === 'string' ? payload : null);
+
+            if (!id) {
+                return { success: false, error: 'Thiếu id của task để xóa' };
+            }
+
+            await new Promise((resolve, reject) => {
+                db.run('DELETE FROM local_tasks WHERE id = ?', [id], function(err) {
+                    if (err) reject(err);
+                    else resolve(this);
+                });
+            });
+
+            return { success: true, message: 'Đã xóa task cục bộ thành công' };
+        } catch (error) {
+            console.error('[delete-local-task] Lỗi:', error);
+            return { success: false, error: error.message };
         }
     });
 
@@ -921,6 +1512,378 @@ function registerLocalArticlesHandlers() {
             return { success: true };
         } catch (error) {
             console.error('[delete-local-chat] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Lấy danh sách WP2MD từ SQLite local
+     */
+    ipcMain.handle('list-local-wp2md', async (event, payload) => {
+        try {
+            const { keyword = '', page } = payload || {};
+            const db = getArticlesDatabase();
+            const pageSize = page?.size || 25;
+            const pageOffset = (page?.pageNumber || 0) * pageSize;
+
+            let sql = 'SELECT id, title, hostname, created_at, updated_at, raw_json FROM local_wp_posts';
+            const params = [];
+
+            if (keyword && keyword.trim()) {
+                sql += ' WHERE title LIKE ? OR hostname LIKE ?';
+                const kw = `%${keyword.trim()}%`;
+                params.push(kw, kw);
+            }
+
+            sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+            params.push(pageSize, pageOffset);
+
+            const rows = await new Promise((resolve, reject) => {
+                db.all(sql, params, (err, resultRows) => {
+                    if (err) reject(err);
+                    else resolve(resultRows || []);
+                });
+            });
+
+            const docs = rows.map(r => {
+                let parsed = {};
+                try {
+                    if (r.raw_json) parsed = JSON.parse(r.raw_json);
+                } catch (e) {}
+
+                return {
+                    _id: r.id,
+                    id: r.id,
+                    title: r.title || parsed.title || parsed.object?.title || '',
+                    hostname: r.hostname || parsed.hostname || 'localhost',
+                    createdAt: r.created_at || parsed.createdAt,
+                    updatedAt: r.updated_at || parsed.updatedAt,
+                    object: parsed.object || {}
+                };
+            });
+
+            return {
+                success: true,
+                data: {
+                    docs: docs,
+                    bookmark: null
+                }
+            };
+        } catch (error) {
+            console.error('[list-local-wp2md] Lỗi:', error);
+            return { success: false, error: error.message, data: { docs: [] } };
+        }
+    });
+
+    /**
+     * Lấy tổng số lượng bản ghi WP2MD từ SQLite local
+     */
+    ipcMain.handle('get-local-wp2md-total', async (event, payload) => {
+        try {
+            const { keyword = '' } = payload || {};
+            const db = getArticlesDatabase();
+
+            let sql = 'SELECT COUNT(*) as cnt FROM local_wp_posts';
+            const params = [];
+
+            if (keyword && keyword.trim()) {
+                sql += ' WHERE title LIKE ? OR hostname LIKE ?';
+                const kw = `%${keyword.trim()}%`;
+                params.push(kw, kw);
+            }
+
+            const total = await new Promise((resolve, reject) => {
+                db.get(sql, params, (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row ? row.cnt : 0);
+                });
+            });
+
+            return {
+                success: true,
+                data: {
+                    total: total,
+                    wp2md: total
+                }
+            };
+        } catch (error) {
+            console.error('[get-local-wp2md-total] Lỗi:', error);
+            return { success: false, error: error.message, data: { total: 0 } };
+        }
+    });
+
+    /**
+     * Lấy chi tiết bản ghi WP2MD từ SQLite local
+     */
+    ipcMain.handle('get-local-wp2md-details', async (event, payload) => {
+        try {
+            const { id } = payload || {};
+            if (!id) return { success: false, error: 'Thiếu ID' };
+
+            const db = getArticlesDatabase();
+            const row = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM local_wp_posts WHERE id = ?', [id], (err, resultRow) => {
+                    if (err) reject(err);
+                    else resolve(resultRow);
+                });
+            });
+
+            if (!row) {
+                return { success: false, error: 'Không tìm thấy bản ghi' };
+            }
+
+            let parsed = {};
+            try {
+                if (row.raw_json) parsed = JSON.parse(row.raw_json);
+            } catch (e) {}
+
+            return {
+                success: true,
+                data: {
+                    _id: row.id,
+                    id: row.id,
+                    title: row.title || parsed.title || parsed.object?.title || '',
+                    hostname: row.hostname || parsed.hostname || 'localhost',
+                    object: parsed.object || {
+                        title: row.title || '',
+                        'content:encoded': row.content || '',
+                        link: parsed.object?.link || ''
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('[get-local-wp2md-details] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Chuyển đổi bài viết WordPress sang Markdown cục bộ
+     */
+    ipcMain.handle('convert-local-wp2md', async (event, payload) => {
+        try {
+            const { id } = payload || {};
+            if (!id) return { success: false, error: 'Thiếu ID' };
+
+            const db = getArticlesDatabase();
+            const row = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM local_wp_posts WHERE id = ?', [id], (err, resultRow) => {
+                    if (err) reject(err);
+                    else resolve(resultRow);
+                });
+            });
+
+            if (!row) return { success: false, error: 'Không tìm thấy bản ghi' };
+
+            let parsed = {};
+            try {
+                if (row.raw_json) parsed = JSON.parse(row.raw_json);
+            } catch (e) {}
+
+            const htmlContent = parsed.object?.['content:encoded'] || row.content || '';
+            const mdResult = htmlToMarkdownFallback(htmlContent);
+
+            return {
+                success: true,
+                data: {
+                    result: mdResult,
+                    title: row.title || parsed.title || ''
+                }
+            };
+        } catch (error) {
+            console.error('[convert-local-wp2md] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Lấy danh sách Nodes từ SQLite local
+     */
+    ipcMain.handle('list-local-nodes', async (event, payload) => {
+        try {
+            const { username = 'admin', keyword = '', page, bookmark } = payload || {};
+            const db = getArticlesDatabase();
+            const pageSize = page?.size || 100;
+            const pageOffset = (page?.pageNumber || 0) * pageSize;
+
+            let sql = 'SELECT * FROM local_nodes WHERE (username = ? OR username IS NULL)';
+            const params = [username];
+
+            if (keyword && keyword.trim()) {
+                sql += ' AND (title LIKE ? OR url LIKE ?)';
+                const kw = `%${keyword.trim()}%`;
+                params.push(kw, kw);
+            }
+
+            sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+            params.push(pageSize, pageOffset);
+
+            const rows = await new Promise((resolve, reject) => {
+                db.all(sql, params, (err, resultRows) => {
+                    if (err) reject(err);
+                    else resolve(resultRows || []);
+                });
+            });
+
+            const docs = rows.map(r => {
+                let parsed = {};
+                try {
+                    if (r.raw_json) parsed = JSON.parse(r.raw_json);
+                } catch (e) {}
+
+                let uuids = [];
+                try {
+                    if (r.uuids_json) uuids = JSON.parse(r.uuids_json);
+                    else if (parsed.uuids && Array.isArray(parsed.uuids)) uuids = parsed.uuids;
+                } catch (e) {}
+
+                return {
+                    _id: r.id,
+                    id: r.id,
+                    title: r.title || parsed.title || 'Node',
+                    url: r.url || parsed.url || '',
+                    uuids: uuids,
+                    createdAt: r.created_at || parsed.createdAt,
+                    updatedAt: r.updated_at || parsed.updatedAt,
+                    ...parsed
+                };
+            });
+
+            return {
+                success: true,
+                data: {
+                    docs: docs,
+                    bookmark: null
+                }
+            };
+        } catch (error) {
+            console.error('[list-local-nodes] Lỗi:', error);
+            return { success: false, error: error.message, data: { docs: [] } };
+        }
+    });
+
+    /**
+     * Lấy tổng số lượng Node từ SQLite local
+     */
+    ipcMain.handle('get-local-nodes-total', async (event, payload) => {
+        try {
+            const { username = 'admin', keyword = '' } = payload || {};
+            const db = getArticlesDatabase();
+
+            let sql = 'SELECT COUNT(*) as cnt FROM local_nodes WHERE (username = ? OR username IS NULL)';
+            const params = [username];
+
+            if (keyword && keyword.trim()) {
+                sql += ' AND (title LIKE ? OR url LIKE ?)';
+                const kw = `%${keyword.trim()}%`;
+                params.push(kw, kw);
+            }
+
+            const total = await new Promise((resolve, reject) => {
+                db.get(sql, params, (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row ? row.cnt : 0);
+                });
+            });
+
+            return {
+                success: true,
+                data: {
+                    total: total,
+                    node: total
+                }
+            };
+        } catch (error) {
+            console.error('[get-local-nodes-total] Lỗi:', error);
+            return { success: false, error: error.message, data: { total: 0 } };
+        }
+    });
+
+    /**
+     * Lưu Node cục bộ vào SQLite
+     */
+    ipcMain.handle('save-local-node', async (event, payload) => {
+        try {
+            const { url, type, node, username = 'admin' } = payload || {};
+            if (!node && !url) return { success: false, error: 'Dữ liệu node không hợp lệ' };
+
+            const db = getArticlesDatabase();
+            const nodeData = node || {};
+            const nodeId = nodeData._id || nodeData.id || `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            const title = nodeData.title || url || 'Node';
+            const nodeUrl = url || nodeData.url || '';
+            const uuids = Array.isArray(nodeData.uuids) ? nodeData.uuids : [];
+            const now = new Date().toISOString();
+
+            await new Promise((resolve, reject) => {
+                const sql = `
+                    INSERT INTO local_nodes (id, title, url, username, uuids_json, raw_json, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        title = excluded.title,
+                        url = excluded.url,
+                        uuids_json = excluded.uuids_json,
+                        raw_json = excluded.raw_json,
+                        updated_at = excluded.updated_at
+                `;
+                db.run(sql, [nodeId, title, nodeUrl, username, JSON.stringify(uuids), JSON.stringify(nodeData), now, now], function(err) {
+                    if (err) reject(err);
+                    else resolve(this);
+                });
+            });
+
+            return { success: true, id: nodeId, message: 'Đã lưu node cục bộ' };
+        } catch (error) {
+            console.error('[save-local-node] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Lấy chi tiết Node từ SQLite local
+     */
+    ipcMain.handle('get-local-node-details', async (event, payload) => {
+        try {
+            const { id } = payload || {};
+            if (!id) return { success: false, error: 'Thiếu ID' };
+
+            const db = getArticlesDatabase();
+            const row = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM local_nodes WHERE id = ?', [id], (err, resultRow) => {
+                    if (err) reject(err);
+                    else resolve(resultRow);
+                });
+            });
+
+            if (!row) {
+                return { success: false, error: 'Không tìm thấy node' };
+            }
+
+            let parsed = {};
+            try {
+                if (row.raw_json) parsed = JSON.parse(row.raw_json);
+            } catch (e) {}
+
+            let uuids = [];
+            try {
+                if (row.uuids_json) uuids = JSON.parse(row.uuids_json);
+            } catch (e) {}
+
+            return {
+                success: true,
+                data: {
+                    _id: row.id,
+                    id: row.id,
+                    title: row.title,
+                    url: row.url,
+                    uuids: uuids,
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at,
+                    ...parsed
+                }
+            };
+        } catch (error) {
+            console.error('[get-local-node-details] Lỗi:', error);
             return { success: false, error: error.message };
         }
     });

@@ -7,7 +7,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
-import { Observable, Subject, of } from 'rxjs';
+import { Observable, Subject, of, from } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
@@ -48,6 +48,18 @@ export class ChatGPTService {
     }
 
     public fetch(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalChats) {
+            return from(electron.listLocalChats({
+                username: dataForm?.username || this.user?.name || 'admin',
+                page: dataForm?.page
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('listLocalChats', { success: false, data: { docs: [] } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -73,6 +85,17 @@ export class ChatGPTService {
     }
 
     public total(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalChatTotal) {
+            return from(electron.getLocalChatTotal({
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('getLocalChatTotal', { success: false, data: { total: 0 } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -157,6 +180,24 @@ export class ChatGPTService {
     }
 
     public store(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalChat) {
+            return from(electron.saveLocalChat({
+                id: dataForm?._id || dataForm?.id,
+                _id: dataForm?._id || dataForm?.id,
+                conversation_id: dataForm?.conversation_id,
+                username: dataForm?.username || this.user?.name || 'admin',
+                question: dataForm?.question || '',
+                content: dataForm?.content || '',
+                answer: dataForm?.answer || '',
+                messages: dataForm?.messages || []
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('saveLocalChat', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -182,6 +223,15 @@ export class ChatGPTService {
     }
 
     public destroy(id: string, username: string): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.deleteLocalChat) {
+            return from(electron.deleteLocalChat({ id })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('deleteLocalChat', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 

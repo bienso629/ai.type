@@ -86,6 +86,23 @@ export class UserClientService {
     }
 
     public updateProfile(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal) {
+            // Cập nhật thẳng vào cache MultiAccountService
+            if (dataForm && dataForm.profile) {
+                if (dataForm.profile.settings) {
+                    this.multiAccountService.setItem('settings', dataForm.profile.settings);
+                }
+                if (dataForm.profile.editor) {
+                    this.multiAccountService.setItem('editor', dataForm.profile.editor);
+                }
+                if (dataForm.profile.following_users) {
+                    this.multiAccountService.setItem('following_users', dataForm.profile.following_users);
+                }
+            }
+            return of({ success: true, message: 'Đã lưu cấu hình người dùng cục bộ.' });
+        }
+
         let activeInfoStr = this.multiAccountService.getItem('active_info');
         if (!activeInfoStr) {
             try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }
@@ -128,6 +145,23 @@ export class UserClientService {
     }
 
     public profile(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal) {
+            const settings = this.multiAccountService.getItem('settings') || {};
+            const editor = this.multiAccountService.getItem('editor') || {};
+            const following_users = this.multiAccountService.getItem('following_users') || [];
+            const user = this.multiAccountService.getItem('user') || this.user || { name: 'admin' };
+            return of({
+                success: true,
+                data: {
+                    user: user,
+                    settings: settings,
+                    editor: editor,
+                    following_users: following_users
+                }
+            });
+        }
+
         let activeInfoStr = this.multiAccountService.getItem('active_info');
         if (!activeInfoStr) {
             try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }

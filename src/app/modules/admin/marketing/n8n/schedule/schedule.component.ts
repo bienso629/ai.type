@@ -1470,7 +1470,7 @@ ${domainRows.join('\n')}
                 dayDummyIds[j].push(dId);
                 dummyStreamItems.push({
                     id: dId,
-                    name: `Đang phân tích ngày ${vDate.getDate()}/${vDate.getMonth()+1}...`,
+                    name: 'Đang tạo',
                     startDate: new Date(sDate),
                     endDate: new Date(eDate),
                     canResizeLeft: false,
@@ -2182,7 +2182,8 @@ Không dùng markdown \`\`\`json.`;
     }
 
     loadScheduleFromDB() {
-        this._domainService.fetch({ username: this.user.name }).subscribe({
+        const username = this.user?.name || 'admin';
+        this._domainService.fetch({ username: username }).subscribe({
             next: (res: any) => {
                 let domains: any[] = [];
                 if (res && res.success && Array.isArray(res.data)) {
@@ -2215,7 +2216,7 @@ Không dùng markdown \`\`\`json.`;
                     });
 
                     // Fetch tasks from tasks db
-                    this._tasksService.fetch({ username: this.user.name, year: currentYear }).subscribe({
+                    this._tasksService.fetch({ username: username, year: currentYear }).subscribe({
                         next: (tasksRes: any) => {
                             let tasks: any[] = [];
                             if (Array.isArray(tasksRes)) {
@@ -3075,10 +3076,13 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                     t.isGroup = false;
                 });
                 
+                const allLoading = dayTasks.every(t => t.isLoading);
+                const someLoading = dayTasks.some(t => t.isLoading);
                 parentStreamItems.push({
                     id: `${parentId}-${dayKey}-group`,
-                    name: `${count} công việc`,
-                    isGroup: true,
+                    name: allLoading ? 'Đang tạo' : `${count} công việc`,
+                    isGroup: !allLoading,
+                    isLoading: someLoading,
                     startDate: sDate,
                     endDate: eDate,
                     tasks: dayTasks,

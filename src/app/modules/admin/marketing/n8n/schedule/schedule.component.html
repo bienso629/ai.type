@@ -47,21 +47,29 @@
 
                         <!-- Standard Items -->
                         <ng-container *ngIf="!item.isMonthlyTotalBar">
-                            <div class="flex-1 text-base font-medium flex items-center min-w-0" 
-                                 [class.line-through]="!item.isGroup && item.done"
-                                 [ngClass]="{'text-white': item.isGroup || item.done || item.priority === 'high', 'text-slate-900': !item.isGroup && !item.done && item.priority !== 'high'}">
-                                <mat-icon *ngIf="item.isGroup" class="icon-size-4 mr-1.5 shrink-0 text-white" [svgIcon]="'heroicons_outline:collection'"></mat-icon>
-                                <mat-icon *ngIf="!item.isGroup && item.isLoading" class="icon-size-4 mr-1 animate-spin shrink-0" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
-                                <mat-icon *ngIf="!item.isGroup && item.done" class="icon-size-4 mr-1 shrink-0 text-white" [svgIcon]="'heroicons_outline:check'"></mat-icon>
-                                <span class="truncate block font-semibold">
-                                    {{ item.name }}
-                                </span>
+                            <!-- Trường hợp đang tạo: chỉ hiển thị icon xoay và chữ Đang tạo -->
+                            <div *ngIf="item.isLoading" class="flex-1 text-base font-medium flex items-center justify-center min-w-0 text-slate-800">
+                                <mat-icon class="icon-size-4 mr-1.5 animate-spin shrink-0 text-indigo-600" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
+                                <span class="font-medium text-sm">Đang tạo</span>
                             </div>
-                            <div class="flex-0 ml-1 text-base whitespace-nowrap shrink-0" 
-                                 [ngClass]="{'text-blue-100': item.done || item.priority === 'high', 'text-slate-700': !item.done && item.priority !== 'high'}"
-                                 *ngIf="!item.isGroup && item.meta && item.meta.length && !item.meta.substring">
-                                <span>({{ item.meta.length }})</span>
-                            </div>
+
+                            <!-- Trường hợp bình thường -->
+                            <ng-container *ngIf="!item.isLoading">
+                                <div class="flex-1 text-base font-medium flex items-center min-w-0" 
+                                     [class.line-through]="!item.isGroup && item.done"
+                                     [ngClass]="{'text-white': item.isGroup || item.done || item.priority === 'high', 'text-slate-900': !item.isGroup && !item.done && item.priority !== 'high'}">
+                                    <mat-icon *ngIf="item.isGroup" class="icon-size-4 mr-1.5 shrink-0 text-white" [svgIcon]="'heroicons_outline:collection'"></mat-icon>
+                                    <mat-icon *ngIf="!item.isGroup && item.done" class="icon-size-4 mr-1 shrink-0 text-white" [svgIcon]="'heroicons_outline:check'"></mat-icon>
+                                    <span class="truncate block font-semibold">
+                                        {{ item.name }}
+                                    </span>
+                                </div>
+                                <div class="flex-0 ml-1 text-base whitespace-nowrap shrink-0" 
+                                     [ngClass]="{'text-blue-100': item.done || item.priority === 'high', 'text-slate-700': !item.done && item.priority !== 'high'}"
+                                     *ngIf="!item.isGroup && item.meta && item.meta.length && !item.meta.substring">
+                                    <span>({{ item.meta.length }})</span>
+                                </div>
+                            </ng-container>
                         </ng-container>
                     </div>
                 </ng-template>
