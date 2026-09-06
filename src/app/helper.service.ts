@@ -18,6 +18,23 @@ export class HelperService {
             .reduce((a, b) => a + b, 0);
     }
 
+    public generateNanoId(size: number = 10): string {
+        const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-';
+        let id = '';
+        if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+            const bytes = new Uint8Array(size);
+            window.crypto.getRandomValues(bytes);
+            for (let i = 0; i < size; i++) {
+                id += alphabet[bytes[i] & 63];
+            }
+        } else {
+            for (let i = 0; i < size; i++) {
+                id += alphabet[Math.floor(Math.random() * alphabet.length)];
+            }
+        }
+        return id;
+    }
+
     public updateStatistics(field: string, increment: number): void {
         let statistics = localStorage.getItem('statistics');
         let statistics_ai_writer = statistics

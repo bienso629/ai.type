@@ -4132,7 +4132,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
             }
 
             if (this.autoSaveLocal && (window as any).electron && (window as any).electron.saveLocalArticle) {
-                const targetUuid = this.uuid || `local_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+                const targetUuid = this.uuid || this._h.generateNanoId(10);
                 (window as any).electron.saveLocalArticle({
                     title: this.detectForm.get('step1').get('title').value,
                     url: this.detectForm.get('step2').get('url').value,
