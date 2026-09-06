@@ -686,7 +686,7 @@ export class CrawlService {
                 switchMap((nodeRes: any) => {
                     const node = nodeRes?.data;
                     if (!node) return of({ success: false, error: 'Không tìm thấy node' });
-                    const newUuid = `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+                    const newUuid = this._h.generateNanoId(10);
                     const articlePayload = {
                         title: node.title || 'Bài viết từ Node',
                         url: node.url || '',

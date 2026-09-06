@@ -14,6 +14,7 @@ import { WP2MDService } from 'app/_services/wp2md';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { CrawlService } from 'app/_services/crawl';
+import { HelperService } from 'app/helper.service';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 
 @Component({
@@ -416,7 +417,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
         if (isAutoSaveLocal && (window as any).electron?.saveLocalArticle) {
             const htmlContent = Array.isArray(doc.p) ? doc.p.join('\n\n') : (doc.p || '');
-            const targetUuid = `local_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            const targetUuid = this._h.generateNanoId(10);
 
             (window as any).electron.saveLocalArticle({
                 title: doc.title || 'Bài viết nhập từ WordPress',
@@ -635,7 +636,8 @@ export class WP2MDComponent implements OnInit, OnDestroy {
         private toastr: ToastrService,
         private clipboard: Clipboard,
         public dialog: MatDialog,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
+        private _h: HelperService
     ) {
         this.titleService.setTitle(`node từ wordpress | ai.type - công cụ tạo content`);
 

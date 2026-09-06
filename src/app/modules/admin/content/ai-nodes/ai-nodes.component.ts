@@ -324,7 +324,14 @@ export class AINodesComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
+                        if (!node.uuids) node.uuids = [];
                         node.uuids.push(result.data.uuid);
+                        this._crawlService.storeNode({
+                            url: node.url,
+                            type: 'norequest',
+                            node: node,
+                            username: this.getCurrentUsername()
+                        }).subscribe();
                         this.toastr.success(`Chuyển sang lưu trữ thành công!`);
                     }
                 },

@@ -222,6 +222,16 @@ function sanitizeFilename(name) {
         .substring(0, 100);
 }
 
+const NANOID_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-';
+function generateNanoId(size = 10) {
+    let id = '';
+    const bytes = crypto.randomBytes(size);
+    for (let i = 0; i < size; i++) {
+        id += NANOID_ALPHABET[bytes[i] & 63];
+    }
+    return id;
+}
+
 function encryptContent(text, password) {
     const salt = crypto.randomBytes(16);
     const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
@@ -357,7 +367,7 @@ function registerLocalArticlesHandlers() {
                 return { success: false, error: 'Tiêu đề hoặc nội dung bài viết không được để trống' };
             }
 
-            const targetUuid = uuid || `local_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            const targetUuid = uuid || generateNanoId(10);
             const isEncrypted = !!password;
             let storedContent = content || '';
             let pureMarkdown = markdown || htmlToMarkdownFallback(content || (Array.isArray(done) ? done.join('\n\n') : ''));

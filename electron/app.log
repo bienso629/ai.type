@@ -4799,3 +4799,29 @@ asyncio.exceptions.CancelledError
 2026-09-06 20:06:15,632 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
 2026-09-06 20:06:15,632 INFO uvicorn.error: Application startup complete.
 2026-09-06 20:06:15,632 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-09-06 21:06:37,947 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-09-06 21:06:38,041 INFO unified_app: [router] Included profiles_router
+2026-09-06 21:06:38,057 INFO unified_app: [router] Included accounts_router
+2026-09-06 21:06:38,067 INFO unified_app: [router] Included optional search_click_router
+2026-09-06 21:06:38,068 INFO unified_app: [router] Included optional like_click_router
+2026-09-06 21:06:38,071 INFO unified_app: [router] Included optional captcha_auto_router
+2026-09-06 21:06:38,073 INFO unified_app: [router] Included optional comment_click_router
+2026-09-06 21:06:38,076 INFO unified_app: [router] Included optional opera_ai_router
+2026-09-06 21:06:38,137 INFO uvicorn.error: Started server process [436473]
+2026-09-06 21:06:38,137 INFO uvicorn.error: Waiting for application startup.
+2026-09-06 21:06:38,138 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-09-06 21:06:38,138 INFO uvicorn.error: Application startup complete.
+2026-09-06 21:06:38,138 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-09-06 21:06:48,227 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-09-06 21:06:48,317 INFO unified_app: [router] Included profiles_router
+2026-09-06 21:06:48,333 INFO unified_app: [router] Included accounts_router
+2026-09-06 21:06:48,342 INFO unified_app: [router] Included optional search_click_router
+2026-09-06 21:06:48,344 INFO unified_app: [router] Included optional like_click_router
+2026-09-06 21:06:48,346 INFO unified_app: [router] Included optional captcha_auto_router
+2026-09-06 21:06:48,348 INFO unified_app: [router] Included optional comment_click_router
+2026-09-06 21:06:48,351 INFO unified_app: [router] Included optional opera_ai_router
+2026-09-06 21:06:48,413 INFO uvicorn.error: Started server process [436741]
+2026-09-06 21:06:48,413 INFO uvicorn.error: Waiting for application startup.
+2026-09-06 21:06:48,413 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-09-06 21:06:48,413 INFO uvicorn.error: Application startup complete.
+2026-09-06 21:06:48,413 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
