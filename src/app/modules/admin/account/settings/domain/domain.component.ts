@@ -107,6 +107,35 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     fetch() {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalDomains) {
+            (window as any).electron.listLocalDomains().then((res: any) => {
+                if (res && res.success && res.data) {
+                    this.rows = res.data;
+                    let settings = this.multiAccountService.getItem('settings') || {};
+                    this.domainTargets = settings.domainTargets || {};
+                    this.domainStyles = settings.domainStyles || {};
+                    
+                    this.rows.forEach(r => {
+                        r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum);
+                        r.writingStyle = this.domainStyles[r.domain] || '';
+                    });
+                    
+                    this.rows = [...this.rows];
+                    this.cd.markForCheck();
+                    return;
+                }
+                this.fetchServerDomains();
+            }).catch(() => {
+                this.fetchServerDomains();
+            });
+            return;
+        }
+
+        this.fetchServerDomains();
+    }
+
+    private fetchServerDomains() {
         this._domainService.fetch({
             username: this.user.name
         })

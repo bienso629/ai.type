@@ -2413,62 +2413,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .subscribe({
                 next: async (result) => {
                     if (result && result.data) {
-                        const isEncrypted = result.data.is_encrypted || (result.data.source && result.data.source.encrypted) || result.data.cipher;
-                        if (isEncrypted) {
-                            const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
-                            let isUnlocked = false;
-                            if (token) {
-                                try {
-                                    const parsed = JSON.parse(token);
-                                    if (parsed && parsed.password) {
-                                        isUnlocked = true;
-                                    }
-                                } catch (e) {}
-                            }
-
-                            if (!isUnlocked) {
-                                const dialogRef = this.dialog.open(ArticlePasswordDialog, {
-                                    data: {
-                                        mode: 'unlock',
-                                        type: 'article',
-                                        title: result.data.title || 'Kịch bản Video'
-                                    },
-                                    width: '450px',
-                                    disableClose: true
-                                });
-
-                                dialogRef.afterClosed().subscribe((resPass: any) => {
-                                    if (resPass && resPass.password) {
-                                        const cipher = result.data.cipher || result.data.source?.cipher;
-                                        const masterCipher = result.data.master_cipher || result.data.source?.master_cipher;
-                                        let isValid = false;
-                                        if (isMasterKey(resPass.password)) {
-                                            isValid = true;
-                                        } else if (cipher || masterCipher) {
-                                            const decryptedText = tryDecryptWithMasterFallback(cipher, resPass.password, masterCipher);
-                                            if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
-                                                isValid = true;
-                                            }
-                                        } else {
-                                            isValid = true;
-                                        }
-
-                                        if (isValid) {
-                                            sessionStorage.setItem('nav_handshake_pwd_' + uuid, JSON.stringify({ password: resPass.password, ts: Date.now() }));
-                                            this.processDetailResult(result, uuid, isReload);
-                                        } else {
-                                            this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
-                                            this.router.navigate(['/dashboard']);
-                                        }
-                                    } else {
-                                        this.router.navigate(['/dashboard']);
-                                    }
-                                });
-                                return;
-                            }
-                        }
                         this.processDetailResult(result, uuid, isReload);
+                    } else {
+                        this.toastr.warning('Không tìm thấy dữ liệu bài viết.');
                     }
+                },
+                error: (e: any) => {
+                    this.toastr.warning('Tải dữ liệu bài viết thất bại.');
                 }
             });
     }
@@ -2946,90 +2897,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this._crawlService.detail({ uuid: uuid, username: name }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
             next: (res: any) => {
                 const artData = res?.data || localData;
-                const isEncrypted = artData?.is_encrypted || artData?.cipher || artData?.source?.encrypted || localData?.is_encrypted || localData?.cipher;
-
-                if (isEncrypted) {
-                    const cipher = artData?.cipher || artData?.source?.cipher || localData?.cipher;
-                    const dialogRef = this.dialog.open(ArticlePasswordDialog, {
-                        data: {
-                            mode: 'unlock',
-                            type: 'article',
-                            title: artData?.title || localData?.title || 'Kịch bản Video'
-                        },
-                        width: '450px',
-                        disableClose: true
-                    });
-
-                    dialogRef.afterClosed().subscribe((resPass: any) => {
-                        if (resPass && resPass.password) {
-                            let isValid = false;
-                            if (isMasterKey(resPass.password)) {
-                                isValid = true;
-                            } else if (cipher) {
-                                const decryptedText = tryDecryptWithMasterFallback(cipher, resPass.password);
-                                if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
-                                    isValid = true;
-                                }
-                            } else {
-                                isValid = true;
-                            }
-
-                            if (isValid) {
-                                sessionStorage.setItem('nav_handshake_pwd_' + uuid, JSON.stringify({ password: resPass.password, ts: Date.now() }));
-                                this.executeLoadProject(uuid, name, res);
-                            } else {
-                                this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
-                                this.router.navigate(['/dashboard']);
-                            }
-                        } else {
-                            this.router.navigate(['/dashboard']);
-                        }
-                    });
-                } else {
-                    this.executeLoadProject(uuid, name, res);
-                }
+                this.executeLoadProject(uuid, name, res);
             },
             error: (err) => {
-                if (localData && (localData.is_encrypted || localData.cipher)) {
-                    const cipher = localData.cipher;
-                    const dialogRef = this.dialog.open(ArticlePasswordDialog, {
-                        data: {
-                            mode: 'unlock',
-                            type: 'article',
-                            title: localData.title || 'Kịch bản Video'
-                        },
-                        width: '450px',
-                        disableClose: true
-                    });
-
-                    dialogRef.afterClosed().subscribe((resPass: any) => {
-                        if (resPass && resPass.password) {
-                            let isValid = false;
-                            if (isMasterKey(resPass.password)) {
-                                isValid = true;
-                            } else if (cipher) {
-                                const decryptedText = tryDecryptWithMasterFallback(cipher, resPass.password);
-                                if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
-                                    isValid = true;
-                                }
-                            } else {
-                                isValid = true;
-                            }
-
-                            if (isValid) {
-                                sessionStorage.setItem('nav_handshake_pwd_' + uuid, JSON.stringify({ password: resPass.password, ts: Date.now() }));
-                                this.executeLoadProject(uuid, name);
-                            } else {
-                                this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
-                                this.router.navigate(['/dashboard']);
-                            }
-                        } else {
-                            this.router.navigate(['/dashboard']);
-                        }
-                    });
-                } else {
-                    this.executeLoadProject(uuid, name);
-                }
+                this.executeLoadProject(uuid, name);
             }
         });
     }

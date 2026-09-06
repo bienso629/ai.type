@@ -32,12 +32,12 @@ export interface ArticlePasswordDialogData {
         </p>
 
         <!-- Dynamic Red Warning Banner ABOVE Input -->
-        <div *ngIf="isLockedOut" class="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm font-semibold mb-3 flex items-center gap-2">
+        <div *ngIf="isLockedOut" class="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400 text-sm font-semibold mb-3 flex items-center gap-2" style="border-radius: 6px;">
             <mat-icon class="icon-size-4 text-red-500 shrink-0" [svgIcon]="'heroicons_outline:clock'"></mat-icon>
-            <span>Nhập sai 5/5 lần! Hệ thống tạm dừng 5 phút (còn {{ lockCountdownText }}).</span>
+            <span>Hệ thống tạm dừng {{ lockCountdownText }}.</span>
         </div>
 
-        <div *ngIf="!isLockedOut && (errorMessage || failedAttempts > 0)" class="p-2.5 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-xs font-semibold mb-3 flex items-center gap-2">
+        <div *ngIf="!isLockedOut && (errorMessage || failedAttempts > 0)" class="p-2.5 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400 text-xs font-semibold mb-3 flex items-center gap-2" style="border-radius: 6px;">
             <mat-icon class="icon-size-4 text-red-500 shrink-0" [svgIcon]="'heroicons_outline:exclamation-circle'"></mat-icon>
             <span>{{ errorMessage ? errorMessage : ('Đã thử sai ' + failedAttempts + '/5 lần.') }}</span>
         </div>
@@ -116,7 +116,7 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
             const diffSec = Math.ceil((lockoutUntil - now) / 1000);
             const mins = Math.floor(diffSec / 60);
             const secs = diffSec % 60;
-            this.lockCountdownText = `${mins} phút ${secs < 10 ? '0' + secs : secs} giây`;
+            this.lockCountdownText = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
         } else {
             // Nếu vừa hết hạn khóa tạm dừng 5 phút
             if (this.isLockedOut || (lockoutUntil > 0 && lockoutUntil <= now)) {

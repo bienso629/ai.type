@@ -625,16 +625,16 @@
                             [selectedIndex]="selectedIndex" (selectedTabChange)="changetab($event)">
                             <!-- chứa media, chatgpt,... -->
                             <mat-tab
-                                label="{{ 'app.paragraph' | transloco }} ({{source.chatgpt.length + source.word.length + source.text.length + source.img.length + (source.audios ? source.audios.length : 0) + source.source.length + source.a.length}})">
+                                label="{{ 'app.paragraph' | transloco }} ({{(source?.chatgpt?.length || 0) + (source?.word?.length || 0) + (source?.text?.length || 0) + (source?.img?.length || 0) + (source?.audios?.length || 0) + (source?.source?.length || 0) + (source?.a?.length || 0)}})">
                                 <mat-accordion MatAccordionDisplayMode="flat" multi>
-                                    <div class="border border-primary ring-[4px] ring-primary/20 rounded-xl overflow-hidden mb-4 bg-white" *ngIf="source.prompt && source.prompt.length >= 0">
+                                    <div class="border border-primary ring-[4px] ring-primary/20 rounded-xl overflow-hidden mb-4 bg-white" *ngIf="source?.prompt && source.prompt.length >= 0">
                                         <mat-expansion-panel [expanded]="expanded" class="shadow-none !border-none m-0">
                                         <mat-expansion-panel-header #panelPrompt>
                                             <mat-panel-title (click)="panelPrompt._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-primary"
                                                     [svgIcon]="'feather:terminal'"></mat-icon>
                                                 <mat-label class="font-semibold text-primary">{{ 'app.compose_prompt' | transloco }}
-                                                    ({{source.prompt.length}})</mat-label>
+                                                    ({{source?.prompt?.length || 0}})</mat-label>
 
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
@@ -2726,10 +2726,6 @@
                                 </button>
 
                                 <div class="ml-auto flex items-center gap-3">
-                                    <button mat-icon-button (click)="openEncryptionDialog()" [color]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'warn' : 'accent'" [matTooltip]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'Bài viết đã được mã hóa AES-256 (Đã bật bảo vệ)' : 'Đặt mật khẩu mã hóa AES-256 cho bài viết'">
-                                        <mat-icon class="icon-size-5" [svgIcon]="(articlePassword || (details && (details.is_encrypted || details.cipher || (details.source && (details.source.encrypted || details.source.cipher))))) ? 'feather:lock' : 'feather:unlock'"></mat-icon>
-                                    </button>
-
                                     <button mat-icon-button (click)="confirmClear()" color="warn" matTooltipPosition="above" [matTooltip]="'app.delete_outline' | transloco">
                                         <mat-icon class="icon-size-5" [svgIcon]="'feather:trash-2'"></mat-icon>
                                     </button>

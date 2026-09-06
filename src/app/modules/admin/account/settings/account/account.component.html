@@ -28,7 +28,8 @@
                     <!-- Hoạt động -->
                     <div class="full-width-toggle mb-4">
                         <mat-slide-toggle [formControlName]="'autosave'"
-                            class="fuse-mat-dense fuse-mat-emphasized-affix" [color]="'primary'">
+                            [labelPosition]="'before'"
+                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
                             <mat-label class="toggle-label text-md">
                                 {{ 'account.personal.autosave' | transloco }}
                                 <span class="text-gray-400">{{ 'account.personal.autosave_hint' | transloco }}</span>
@@ -38,7 +39,8 @@
 
                     <div class="full-width-toggle mb-4">
                         <mat-slide-toggle [formControlName]="'autoSaveLocal'"
-                            class="fuse-mat-dense fuse-mat-emphasized-affix" [color]="'primary'">
+                            [labelPosition]="'before'"
+                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
                             <mat-label class="toggle-label text-md">
                                 {{ 'account.personal.auto_save_local' | transloco }}
                                 <span class="text-gray-400">{{ 'account.personal.auto_save_local_hint' | transloco }}</span>
@@ -297,7 +299,8 @@
                     <div class="w-full mt-4">
                         <div class="full-width-toggle mb-4">
                             <mat-slide-toggle [formControlName]="'enableUmodelverse'"
-                                class="fuse-mat-dense fuse-mat-emphasized-affix" [color]="'primary'">
+                                [labelPosition]="'before'"
+                                class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
                                 <mat-label class="toggle-label text-md">
                                     {{ 'account.ai.toggle_mitom' | transloco }}
                                     <span class="text-gray-400">{{ 'account.ai.toggle_mitom_hint' | transloco }}</span>

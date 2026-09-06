@@ -110,6 +110,10 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
+    private getCurrentUsername(): string {
+        return this.user?.name || localStorage.getItem('user_name') || localStorage.getItem('username') || 'admin';
+    }
+
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
         const validSelected = selected ? selected.filter((item: any) => item && !item.isGroupHeader) : [];
@@ -147,27 +151,39 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
                 const uuids = this.selected.map((r: any) => r.uuid);
+                const username = this.getCurrentUsername();
                 
-                // Lấy chi tiết từng bài viết để lấy _rev, sau đó gán _deleted = true để xóa triệt để khỏi CouchDB
+                // Nếu có bài cục bộ thì gọi Electron xóa khỏi SQLite database local
+                if ((window as any).electron && (window as any).electron.deleteLocalArticle) {
+                    this.selected.forEach((r: any) => {
+                        if (r.is_local || (r.uuid && r.uuid.startsWith('local_'))) {
+                            (window as any).electron.deleteLocalArticle({ uuid: r.uuid, username: username });
+                        }
+                    });
+                }
+
+                // Lấy chi tiết từng bài viết trên server để xóa khỏi CouchDB nếu không phải bài chỉ ở local
                 this.selected.forEach((r: any) => {
-                    this._crawlService.detail({ uuid: r.uuid, username: this.user.name })
-                        .pipe(takeUntil(this._unsubscribeAll))
-                        .subscribe({
-                            next: (res: any) => {
-                                if (res && res.success && res.data) {
-                                    const fullDoc = res.data;
-                                    const payload = {
-                                        ...fullDoc,
-                                        uuid: fullDoc.uuid || r.uuid,
-                                        username: this.user.name,
-                                        _deleted: true,
-                                        trash: true,
-                                        new_version: -1
-                                    };
-                                    this._crawlService.archiveUpdate(payload).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                    if (!r.is_local) {
+                        this._crawlService.detail({ uuid: r.uuid, username: username })
+                            .pipe(takeUntil(this._unsubscribeAll))
+                            .subscribe({
+                                next: (res: any) => {
+                                    if (res && res.success && res.data) {
+                                        const fullDoc = res.data;
+                                        const payload = {
+                                            ...fullDoc,
+                                            uuid: fullDoc.uuid || r.uuid,
+                                            username: username,
+                                            _deleted: true,
+                                            trash: true,
+                                            new_version: -1
+                                        };
+                                        this._crawlService.archiveUpdate(payload).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                                    }
                                 }
-                            }
-                        });
+                            });
+                    }
                 });
 
                 this.toastr.success(`Đã xóa ${uuids.length} bài viết.`);
@@ -198,7 +214,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 if (this.selectedCollections && this.selectedCollections.length > 0) {
                     this.selectedCollections.forEach((col: any) => {
                         uuids.forEach((id: string) => {
-                            this._crawlService.removeCollection({ _id: col._id || col.id, uuid: id, username: this.user.name })
+                            this._crawlService.removeCollection({ _id: col._id || col.id, uuid: id, username: username })
                                 .pipe(takeUntil(this._unsubscribeAll))
                                 .subscribe();
                         });
@@ -206,12 +222,12 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 } else {
                     // Nếu người dùng không chọn cụ thể nhóm nào ở filter, tự tìm nhóm để gỡ
                     uuids.forEach((id: string) => {
-                        this._crawlService.nodeInCollection({ uuid: id, username: this.user.name })
+                        this._crawlService.nodeInCollection({ uuid: id, username: username })
                             .pipe(takeUntil(this._unsubscribeAll))
                             .subscribe(res => {
                                 if (res && res.success && res.data) {
                                     res.data.forEach((col: any) => {
-                                        this._crawlService.removeCollection({ _id: col._id || col.id, uuid: id, username: this.user.name })
+                                        this._crawlService.removeCollection({ _id: col._id || col.id, uuid: id, username: username })
                                             .pipe(takeUntil(this._unsubscribeAll))
                                             .subscribe();
                                     });
@@ -642,15 +658,18 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
         this.cd.markForCheck();
 
+        const username = this.getCurrentUsername();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
         if (this.uuids.length > 0) {
             // Nếu có keyword khi đang trong Collection thì filter local
             if (this.keyword) {
                 this.rows = [...this.rows.filter((item) =>
-                    item.title.toLowerCase().includes(this.keyword.toLowerCase()),
+                    item.title && item.title.toLowerCase().includes(this.keyword.toLowerCase()),
                 )];
 
                 this.totalElements = this.rows.length;
-                this.table.recalculatePages();
+                if (this.table) this.table.recalculatePages();
                 this.cd.markForCheck();
             } else {
                 this.onChangeCollection();
@@ -659,8 +678,37 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             this.rows = [];
             this.rows = [...this.rows]; // force update empty state
 
+            if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalArticles) {
+                (window as any).electron.listLocalArticles({ username: username }).then((localRes: any) => {
+                    let count = 0;
+                    if (localRes && localRes.success && localRes.articles) {
+                        let filteredArticles = localRes.articles;
+                        if (this.keyword && this.keyword.toString().trim().length > 0) {
+                            const kw = this.keyword.toString().toLowerCase().trim();
+                            filteredArticles = filteredArticles.filter((a: any) =>
+                                (a.title && a.title.toLowerCase().includes(kw)) ||
+                                (a.description && a.description.toLowerCase().includes(kw))
+                            );
+                        }
+                        count = filteredArticles.length;
+                    }
+                    this.actualTotalElements = count;
+                    this.totalElements = count;
+                    this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.actualTotalElements });
+                    if (this.table) this.table.recalculatePages();
+                    this.cd.markForCheck();
+                }).catch(() => {
+                    this.actualTotalElements = 0;
+                    this.totalElements = 0;
+                    this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: 0 });
+                    if (this.table) this.table.recalculatePages();
+                    this.cd.markForCheck();
+                });
+                return;
+            }
+
             const query = {
-                username: this.user.name,
+                username: username,
                 keyword: this.keyword,
                 uuids: this.uuids,
                 page: this.page,
@@ -760,6 +808,74 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             ...this.page
         };
 
+        const username = this.getCurrentUsername();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalArticles) {
+            (window as any).electron.listLocalArticles({ username: username }).then((localRes: any) => {
+                if (localRes && localRes.success && localRes.articles && localRes.articles.length > 0) {
+                    let filteredArticles = localRes.articles;
+
+                    // Nếu có lọc theo collection UUIDs
+                    if (this.uuids && this.uuids.length > 0) {
+                        filteredArticles = filteredArticles.filter((a: any) => this.uuids.includes(a.uuid));
+                    }
+
+                    if (this.keyword && this.keyword.toString().trim().length > 0) {
+                        const kw = this.keyword.toString().toLowerCase().trim();
+                        filteredArticles = filteredArticles.filter((a: any) =>
+                            (a.title && a.title.toLowerCase().includes(kw)) ||
+                            (a.description && a.description.toLowerCase().includes(kw))
+                        );
+                    }
+
+                    const localDocs = filteredArticles.map((art: any) => ({
+                        uuid: art.uuid,
+                        title: art.title || 'Bài viết cục bộ',
+                        domain: art.domain || 'local.ai.type',
+                        used: 0,
+                        is_local: true,
+                        is_encrypted: !!art.is_encrypted,
+                        created_at: art.created_at || art.updated_at || new Date().toISOString(),
+                        updated_at: art.updated_at || art.created_at || new Date().toISOString(),
+                        dateGroup: this.getDateGroup(art)
+                    }));
+
+                    if (!this.masterLoadedRows) this.masterLoadedRows = [];
+                    localDocs.forEach((doc: any) => {
+                        if (!this.masterLoadedRows.some((m: any) => m.uuid === doc.uuid)) {
+                            this.masterLoadedRows.push(doc);
+                        }
+                    });
+
+                    if (this.selectedDateGroup && this.selectedDateGroup !== 'Tất cả thời gian') {
+                        this.applyDateFilter();
+                    } else {
+                        this.rows = [...this.groupRowsWithHeaders(this.masterLoadedRows)];
+                        this.totalElements = this.rows.length;
+                        this.actualTotalElements = localDocs.length;
+                    }
+
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                        this.table.recalculate();
+                    }
+                    this.cd.markForCheck();
+                    return;
+                }
+
+                // Nếu local chưa có bài hoặc muốn gộp tiếp từ server
+                this.fetchServerArchives(payloadPage, pageInfo);
+            }).catch(() => {
+                this.fetchServerArchives(payloadPage, pageInfo);
+            });
+            return;
+        }
+
+        this.fetchServerArchives(payloadPage, pageInfo);
+    }
+
+    private fetchServerArchives(payloadPage: any, pageInfo: PageInfo) {
         this._crawlService.archive({
             username: this.user.name,
             keyword: this.keyword,
@@ -900,25 +1016,35 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 }
             }
 
-            // Luôn luôn gọi API để đảm bảo tổng số là chính xác
-            this._crawlService.searchTotalArchive({
-                username: this.user.name,
-                keyword: this.keyword,
-                uuids: this.uuids,
-                page: this.page,
-            })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: (res: any) => {
-                        let total = res?.data?.total;
-                        if (total === undefined) total = res?.data?.data?.total;
-                        if (total !== undefined) {
-                            this.actualTotalElements = total;
-                            this.totalElements = total;
-                            this.cd.markForCheck();
+            const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+            if (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalStatistics) {
+                (window as any).electron.getLocalStatistics().then((res: any) => {
+                    const total = res?.total !== undefined ? res.total : (res?.data?.total || 0);
+                    this.actualTotalElements = total;
+                    this.totalElements = total;
+                    this.cd.markForCheck();
+                }).catch(() => {});
+            } else {
+                // Luôn luôn gọi API để đảm bảo tổng số là chính xác
+                this._crawlService.searchTotalArchive({
+                    username: this.user.name,
+                    keyword: this.keyword,
+                    uuids: this.uuids,
+                    page: this.page,
+                })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: (res: any) => {
+                            let total = res?.data?.total;
+                            if (total === undefined) total = res?.data?.data?.total;
+                            if (total !== undefined) {
+                                this.actualTotalElements = total;
+                                this.totalElements = total;
+                                this.cd.markForCheck();
+                            }
                         }
-                    }
-                });
+                    });
+            }
         } else {
             // Nếu chọn collection, tổng số chính là số lượng UUIDs đã trích xuất
             this.actualTotalElements = this.uuids.length;
@@ -965,6 +1091,25 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
      * Lấy toàn bộ collection
      */
     collection() {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalCollections) {
+            (window as any).electron.listLocalCollections({ username: this.user?.name || 'admin' }).then((res: any) => {
+                if (res && res.success && res.data) {
+                    this.collections = res.data;
+                    this.cd.markForCheck();
+                    return;
+                }
+                this.fetchServerCollections();
+            }).catch(() => {
+                this.fetchServerCollections();
+            });
+            return;
+        }
+
+        this.fetchServerCollections();
+    }
+
+    private fetchServerCollections() {
         this._crawlService
             .collections({
                 username: this.user.name,
@@ -1063,7 +1208,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     async loadLocalArticles() {
         if ((window as any).electron && (window as any).electron.listLocalArticles) {
             try {
-                const res = await (window as any).electron.listLocalArticles({ username: this.user.name });
+                const username = this.getCurrentUsername();
+                const res = await (window as any).electron.listLocalArticles({ username: username });
                 if (res && res.success && res.articles && res.articles.length > 0) {
                     const localDocs = res.articles.map((art: any) => ({
                         uuid: art.uuid,
@@ -1077,15 +1223,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         dateGroup: this.getDateGroup(art)
                     }));
 
-                    if (!this.masterLoadedRows) this.masterLoadedRows = [];
-                    localDocs.forEach((doc: any) => {
-                        if (!this.masterLoadedRows.some((m: any) => m.uuid === doc.uuid)) {
-                            this.masterLoadedRows.unshift(doc);
-                        }
-                    });
-
+                    this.masterLoadedRows = [...localDocs];
                     this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
                     this.totalElements = this.rows.length;
+                    this.actualTotalElements = localDocs.length;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                        this.table.recalculate();
+                    }
                     this.cd.markForCheck();
                 }
             } catch (e) {
@@ -1109,7 +1254,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             // Nếu cipher chưa có sẵn trên row object trong datatable list, nạp chi tiết bài viết
             if (!cipher && item && item.uuid) {
                 try {
-                    const res: any = await firstValueFrom(this._crawlService.detail({ uuid: item.uuid, username: this.user.name }));
+                    const res: any = await firstValueFrom(this._crawlService.detail({ uuid: item.uuid, username: this.getCurrentUsername() }));
                     if (res && res.success && res.data) {
                         cipher = res.data.cipher || res.data.source?.cipher || res.data.content || res.data.source?.content;
                         masterCipher = res.data.master_cipher || res.data.source?.master_cipher;
@@ -1132,144 +1277,26 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     isRowEncrypted(row: any): boolean {
-        if (!row || row.isGroupHeader) return false;
-        if (row.is_encrypted || row.encrypted) return true;
-        if (row.cipher) return true;
-        if (row.source) {
-            if (row.source.encrypted || row.source.is_encrypted || row.source.cipher) return true;
-        }
-        const uuid = row.uuid || row._id || row.id;
-        if (uuid) {
-            if (localStorage.getItem('article_encrypted_' + uuid) === 'true') return true;
-            if (sessionStorage.getItem('nav_handshake_pwd_' + uuid)) return true;
-            if (sessionStorage.getItem('unlocked_pwd_' + uuid)) return true;
-        }
         return false;
     }
 
     verifyLoadedRowsEncryption() {
-        if (!this.masterLoadedRows || this.masterLoadedRows.length === 0) return;
-        this.masterLoadedRows.forEach((row: any) => {
-            if (row && row.uuid && !row.isGroupHeader) {
-                if (this.isRowEncrypted(row)) {
-                    row.is_encrypted = true;
-                    localStorage.setItem('article_encrypted_' + row.uuid, 'true');
-                }
-            }
-        });
+        return;
     }
 
     ensureMultipleUnlocked(items: any[], callback: (unlocked: boolean, password?: string) => void) {
-        if (!items || items.length === 0) {
-            callback(true);
-            return;
-        }
-
-        const encryptedItems = items.filter(r => this.isRowEncrypted(r));
-        if (encryptedItems.length === 0) {
-            callback(true);
-            return;
-        }
-
-        // Kiểm tra xem tất cả bài viết mã hóa đã có token giải mã trong sessionStorage hay chưa
-        const unhandledEncrypted = encryptedItems.filter(r => {
-            const uuid = r.uuid || r._id || r.id;
-            if (!uuid) return false;
-            const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
-            return !token;
-        });
-
-        if (unhandledEncrypted.length === 0) {
-            // Tất cả đã được mở khóa hợp lệ trong phiên làm việc
-            callback(true);
-            return;
-        }
-
-        const targetRow = unhandledEncrypted[0];
-        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'unlock',
-                type: 'article',
-                title: targetRow.title || `Danh sách bài viết đã chọn (${encryptedItems.length} bài mã hóa)`,
-                validator: async (pwd: string) => {
-                    return await this.verifyPasswordForArticles(encryptedItems, pwd);
-                }
-            },
-            width: '450px',
-            disableClose: true
-        });
-
-        dialogRef.afterClosed().subscribe((res: any) => {
-            if (res && res.password) {
-                encryptedItems.forEach(r => {
-                    const targetUuid = r.uuid || r._id || r.id;
-                    if (targetUuid) {
-                        sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
-                    }
-                });
-                callback(true, res.password);
-            } else {
-                callback(false);
-            }
-        });
+        callback(true);
     }
 
     ensureUnlocked(row: any, callback: (unlocked: boolean, password?: string) => void) {
-        if (!row) {
-            callback(true);
-            return;
-        }
-
-        const isEncrypted = this.isRowEncrypted(row);
-        if (!isEncrypted) {
-            callback(true);
-            return;
-        }
-
-        const targetUuid = row.uuid || row._id || row.id;
-        if (targetUuid) {
-            const token = sessionStorage.getItem('nav_handshake_pwd_' + targetUuid);
-            if (token) {
-                try {
-                    const parsed = JSON.parse(token);
-                    if (parsed && parsed.password) {
-                        callback(true, parsed.password);
-                        return;
-                    }
-                } catch (e) {}
-            }
-        }
-
-        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'unlock',
-                type: 'article',
-                title: row.title || 'Bài viết',
-                validator: async (pwd: string) => {
-                    return await this.verifyPasswordForArticles([row], pwd);
-                }
-            },
-            width: '450px',
-            disableClose: true
-        });
-
-        dialogRef.afterClosed().subscribe((res: any) => {
-            if (res && res.password) {
-                if (targetUuid) {
-                    sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
-                }
-                callback(true, res.password);
-            } else {
-                callback(false);
-            }
-        });
+        callback(true);
     }
 
     openRowArticle(row: any) {
         if (!row) return;
         this.ensureUnlocked(row, (unlocked) => {
             if (unlocked) {
-                const username = this.user?.name || 'admin';
+                const username = this.getCurrentUsername();
                 this.router.navigate(['/ai-writer', username, row.uuid]);
             }
         });
@@ -1279,7 +1306,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (!row) return;
         this.ensureUnlocked(row, (unlocked) => {
             if (unlocked) {
-                const username = this.user?.name || 'admin';
+                const username = this.getCurrentUsername();
                 this.router.navigate(['/ai-writer', username, row.uuid, 'script']);
             }
         });
@@ -1289,14 +1316,18 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (!row) return;
         this.ensureUnlocked(row, (unlocked) => {
             if (unlocked) {
-                const username = this.user?.name || 'admin';
+                const username = this.getCurrentUsername();
                 this.router.navigate(['/voice2video', username, row.uuid]);
             }
         });
     }
 
     ngOnInit(): void {
-                // this.loadLocalArticles();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal) {
+            this.loadLocalArticles();
+            this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: 0 });
+        }
         let temp = localStorage.getItem('statistics');
         if (temp && temp !== 'undefined') {
             try {
@@ -1309,27 +1340,36 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             this.totalElements = 0;
         }
 
-        // Luôn luôn gọi API để cập nhật tổng số bản ghi chính xác nhất, bỏ qua check !this.totalElements
-        this._crawlService.searchTotalArchive({
-            username: this.user.name,
-            keyword: '',
-            uuids: this.uuids,
-            page: this.page,
-        })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: (res: any) => {
-                    if (!this.keyword && this.uuids.length === 0) {
-                        let total = res?.data?.total;
-                        if (total === undefined) total = res?.data?.data?.total;
-                        if (total !== undefined) {
-                            this.totalElements = total;
-                            this.actualTotalElements = total;
-                            this.cd.markForCheck();
+        // Cập nhật tổng số bản ghi
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalStatistics) {
+            (window as any).electron.getLocalStatistics().then((res: any) => {
+                const total = res?.total !== undefined ? res.total : (res?.data?.total || 0);
+                this.totalElements = total;
+                this.actualTotalElements = total;
+                this.cd.markForCheck();
+            }).catch(() => {});
+        } else {
+            this._crawlService.searchTotalArchive({
+                username: this.getCurrentUsername(),
+                keyword: '',
+                uuids: this.uuids,
+                page: this.page,
+            })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (res: any) => {
+                        if (!this.keyword && this.uuids.length === 0) {
+                            let total = res?.data?.total;
+                            if (total === undefined) total = res?.data?.data?.total;
+                            if (total !== undefined) {
+                                this.totalElements = total;
+                                this.actualTotalElements = total;
+                                this.cd.markForCheck();
+                            }
                         }
                     }
-                }
-            });
+                });
+        }
     }
 
     error(message?: string) {
@@ -1550,6 +1590,31 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (!uuids || uuids.length === 0) return [];
         let docsMap: Record<string, any> = {};
 
+        // Nạp từ local SQLite nếu có
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalArticles) {
+            try {
+                const localRes = await (window as any).electron.listLocalArticles({ username: username });
+                if (localRes && localRes.success && localRes.articles) {
+                    localRes.articles.forEach((doc: any) => {
+                        if (doc && uuids.includes(doc.uuid)) {
+                            const cleanContent = this.extractCleanDoneContent(doc);
+                            const docItem = {
+                                uuid: doc.uuid,
+                                title: doc.title || '',
+                                done: cleanContent,
+                                style: (doc.source && doc.source.style) ? doc.source.style : (doc.style || null),
+                                createdAt: doc.createdAt || doc.created_at || doc.date || doc.updatedAt || 0
+                            };
+                            docsMap[doc.uuid] = docItem;
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn('Lỗi đọc local articles trong bulk:', err);
+            }
+        }
+
         try {
             const bulkRes: any = await firstValueFrom(this._crawlService.archive({
                 username: username,
@@ -1580,9 +1645,9 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         style: (doc.source && doc.source.style) ? doc.source.style : (doc.style || null),
                         createdAt: doc.createdAt || doc.created_at || doc.date || doc.updatedAt || 0
                     };
-                    if (doc.uuid) docsMap[doc.uuid] = docItem;
-                    if (doc._id) docsMap[doc._id] = docItem;
-                    if (doc.id) docsMap[doc.id] = docItem;
+                    if (doc.uuid && !docsMap[doc.uuid]) docsMap[doc.uuid] = docItem;
+                    if (doc._id && !docsMap[doc._id]) docsMap[doc._id] = docItem;
+                    if (doc.id && !docsMap[doc.id]) docsMap[doc.id] = docItem;
                 }
             });
         } catch (err) {

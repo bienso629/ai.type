@@ -637,66 +637,10 @@ export class AIScriptComponent implements OnInit, OnDestroy {
             uuid: this.uuid
         }).subscribe({
             next: (res: any) => {
-                const targetDoc = (res && res.success && res.data) ? res.data : res;
-                if (targetDoc && (targetDoc.is_encrypted || targetDoc.cipher || targetDoc.source?.encrypted)) {
-                    const token = sessionStorage.getItem('nav_handshake_pwd_' + this.uuid);
-                    let isUnlocked = false;
-                    if (token) {
-                        try {
-                            const parsed = JSON.parse(token);
-                            if (parsed && parsed.password) {
-                                isUnlocked = true;
-                            }
-                        } catch (e) {}
-                    }
-
-                    if (!isUnlocked) {
-                        const dialogRef = this.dialog.open(ArticlePasswordDialog, {
-                            data: {
-                                mode: 'unlock',
-                                type: 'article',
-                                title: targetDoc.title || 'Kịch bản'
-                            },
-                            width: '450px',
-                            disableClose: true
-                        });
-
-                        dialogRef.afterClosed().subscribe((resPass: any) => {
-                            if (resPass && resPass.password) {
-                                const cipher = targetDoc.cipher || targetDoc.source?.cipher;
-                                const masterCipher = targetDoc.master_cipher || targetDoc.source?.master_cipher;
-                                let isValid = false;
-                                if (isMasterKey(resPass.password)) {
-                                    isValid = true;
-                                } else if (cipher || masterCipher) {
-                                    const decryptedText = tryDecryptWithMasterFallback(cipher, resPass.password, masterCipher);
-                                    if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
-                                        isValid = true;
-                                    }
-                                } else {
-                                    isValid = true;
-                                }
-
-                                if (isValid) {
-                                    sessionStorage.setItem('nav_handshake_pwd_' + this.uuid, JSON.stringify({ password: resPass.password, ts: Date.now() }));
-                                    this.processScriptResponse(res);
-                                } else {
-                                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
-                                    this.router.navigate(['/dashboard']);
-                                }
-                            } else {
-                                this.router.navigate(['/dashboard']);
-                            }
-                        });
-                        return;
-                    }
-                }
                 this.processScriptResponse(res);
             },
-            error: (err) => {
-                console.error('Error loading script:', err);
+            error: (err: any) => {
                 this.isLoading = false;
-                this.loadScriptList();
                 this.cd.markForCheck();
             }
         });

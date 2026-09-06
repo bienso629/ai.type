@@ -140,6 +140,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return;
         }
 
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalCollections) {
+            (window as any).electron.listLocalCollections({ username: this.user.name }).then((res: any) => {
+                if (res && res.success && res.data) {
+                    this.collections = res.data;
+                    const lightweightCache = this.collections.map(col => ({
+                        _id: col._id,
+                        title: col.title,
+                        count: col.count,
+                        lastItemUpdatedAt: col.lastItemUpdatedAt,
+                        lastUpdatedAt: col.lastUpdatedAt,
+                        lastUpdated: col.lastUpdated,
+                        updatedAt: col.updatedAt
+                    }));
+                    localStorage.setItem(cacheKey, JSON.stringify(lightweightCache));
+                    this.checkInitialLoad();
+                    this._changeDetectorRef.markForCheck();
+                    return;
+                }
+                this.fetchServerCollections(cacheKey);
+            }).catch(() => {
+                this.fetchServerCollections(cacheKey);
+            });
+            return;
+        }
+
+        this.fetchServerCollections(cacheKey);
+    }
+
+    private fetchServerCollections(cacheKey: string) {
         this._crawlService
             .collections({
                 username: this.user.name,
@@ -235,6 +265,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return;
         }
 
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalDomains) {
+            (window as any).electron.listLocalDomains().then((res: any) => {
+                if (res && res.success && res.data) {
+                    const rawDomains = res.data;
+                    const uniqueDomains = new Map<string, any>();
+                    rawDomains.forEach((d: any) => {
+                        if (d && d.domain) {
+                            const norm = this.normalizeDomain(d.domain);
+                            if (norm && !uniqueDomains.has(norm)) {
+                                uniqueDomains.set(norm, { domain: norm });
+                            }
+                        }
+                    });
+                    this.allDomains = Array.from(uniqueDomains.values());
+                    this._changeDetectorRef.markForCheck();
+                    return;
+                }
+                this.fetchServerDomains();
+            }).catch(() => {
+                this.fetchServerDomains();
+            });
+            return;
+        }
+
+        this.fetchServerDomains();
+    }
+
+    private fetchServerDomains() {
         this._domainService.fetch({
             username: this.user.name
         })
@@ -301,6 +360,52 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return;
         }
 
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalStatistics) {
+            (window as any).electron.getLocalStatistics().then((res: any) => {
+                if (res && res.success && res.data) {
+                    const statsData = res.data;
+                    const rawStats = statsData.domainStats || {};
+                    const normalizedStats: any = {};
+                    for (const rawDomain of Object.keys(rawStats)) {
+                        const normalized = this.normalizeDomain(rawDomain);
+                        if (!normalizedStats[normalized]) {
+                            normalizedStats[normalized] = {};
+                        }
+                        for (const month of Object.keys(rawStats[rawDomain])) {
+                            if (!normalizedStats[normalized][month]) {
+                                normalizedStats[normalized][month] = 0;
+                            }
+                            normalizedStats[normalized][month] += rawStats[rawDomain][month];
+                        }
+                    }
+
+                    this.statistics = {
+                        archives: statsData.archives || statsData.total || 0,
+                        total: statsData.total || statsData.archives || 0,
+                        done: statsData.done || 0,
+                        money: statsData.money || 0,
+                        writing: statsData.writing || 0,
+                        domainStats: normalizedStats
+                    };
+                    this.availableDomains = Object.keys(normalizedStats);
+                    this.updateChart();
+                    localStorage.setItem('statistics', JSON.stringify(this.statistics));
+                    if (this.initialLoadCount > 0) this.checkInitialLoad();
+                    this._changeDetectorRef.markForCheck();
+                    return;
+                }
+                this.fetchServerStatistics(forceRefresh);
+            }).catch(() => {
+                this.fetchServerStatistics(forceRefresh);
+            });
+            return;
+        }
+
+        this.fetchServerStatistics(forceRefresh);
+    }
+
+    private fetchServerStatistics(forceRefresh: boolean = false) {
         let payload: any = {
             username: this.user.name,
             reportYear: this.selectedYear
@@ -360,11 +465,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     }
                 },
                 error: () => {
-            if (this.initialLoadCount > 0) this.checkInitialLoad();
-        },
-        complete: () => { 
-            if (this.initialLoadCount > 0) this.checkInitialLoad();
-        },
+                    if (this.initialLoadCount > 0) this.checkInitialLoad();
+                },
+                complete: () => { 
+                    if (this.initialLoadCount > 0) this.checkInitialLoad();
+                },
             });
     }
 
@@ -942,57 +1047,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (!project) return;
         const targetUuid = project.uuid;
         const username = this.user?.name || 'admin';
-
-        const isEncrypted = project.is_encrypted || (project.source && project.source.encrypted) || project.cipher;
-        if (!isEncrypted) {
-            this.router.navigate(['/voice2video', username, targetUuid]);
-            return;
-        }
-
-        const token = sessionStorage.getItem('nav_handshake_pwd_' + targetUuid);
-        if (token) {
-            try {
-                const parsed = JSON.parse(token);
-                if (parsed && parsed.password) {
-                    this.router.navigate(['/voice2video', username, targetUuid]);
-                    return;
-                }
-            } catch (e) {}
-        }
-
-        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'unlock',
-                type: 'article',
-                title: project.title || 'Kịch bản video'
-            },
-            width: '450px',
-            disableClose: true
-        });
-
-        dialogRef.afterClosed().subscribe((res: any) => {
-            if (res && res.password) {
-                const cipher = project.cipher || project.source?.cipher;
-                const masterCipher = project.master_cipher || project.source?.master_cipher;
-                let isValid = false;
-                if (isMasterKey(res.password)) {
-                    isValid = true;
-                } else if (cipher || masterCipher) {
-                    const decryptedText = tryDecryptWithMasterFallback(cipher, res.password, masterCipher);
-                    if (decryptedText === 'VALID' || (decryptedText && decryptedText.length > 0)) {
-                        isValid = true;
-                    }
-                } else {
-                    isValid = true;
-                }
-
-                if (isValid) {
-                    sessionStorage.setItem('nav_handshake_pwd_' + targetUuid, JSON.stringify({ password: res.password, ts: Date.now() }));
-                    this.router.navigate(['/voice2video', username, targetUuid]);
-                } else {
-                    this.toastr.error('Mật khẩu giải mã không chính xác!', 'Truy cập bị từ chối');
-                }
-            }
-        });
+        this.router.navigate(['/voice2video', username, targetUuid]);
     }
 }
