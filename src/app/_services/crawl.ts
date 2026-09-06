@@ -6,8 +6,8 @@ import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
-import { Observable, Subject, of } from 'rxjs';
-import { catchError, tap, map, takeUntil } from 'rxjs/operators';
+import { Observable, Subject, of, from } from 'rxjs';
+import { catchError, tap, map, takeUntil, switchMap } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
 let options = {
@@ -276,6 +276,25 @@ export class CrawlService {
     }
 
     public facePost2Node(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalArticle) {
+            const htmlContent = Array.isArray(dataForm?.content?.p) ? dataForm.content.p.join('\n\n') : (dataForm?.content?.p || dataForm?.content || '');
+            const targetUuid = dataForm?.uuid || `local_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            return from(electron.saveLocalArticle({
+                title: dataForm?.title || 'Bài viết cục bộ',
+                url: dataForm?.url || 'localhost',
+                content: htmlContent,
+                done: Array.isArray(dataForm?.content?.p) ? dataForm.content.p : [htmlContent],
+                domain: dataForm?.domain || 'local.ai.type',
+                username: dataForm?.username || this.user?.name || 'admin',
+                uuid: targetUuid
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('facePost2Node', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -326,6 +345,27 @@ export class CrawlService {
     }
 
     public statistics(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalStatistics) {
+            return from(electron.getLocalStatistics()).pipe(
+                map((result: any) => {
+                    const stats = result?.data || {};
+                    return {
+                        success: true,
+                        data: [
+                            stats.total || stats.archives || 0,
+                            stats.done || 0,
+                            stats.money || 0,
+                            stats.domainStats || {},
+                            stats.writing || 0
+                        ]
+                    };
+                }),
+                catchError(this.handleError('getLocalStatistics', { success: false, data: [0, 0, 0, {}, 0] }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -527,6 +567,20 @@ export class CrawlService {
     }
 
     public nodes(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalNodes) {
+            return from(electron.listLocalNodes({
+                username: dataForm?.username || this.user?.name || 'admin',
+                page: dataForm?.page,
+                keyword: dataForm?.keyword || '',
+                bookmark: dataForm?.bookmark
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('listLocalNodes', { success: false, data: { docs: [] } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -552,6 +606,18 @@ export class CrawlService {
     }
 
     public totalSearchNode(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalNodesTotal) {
+            return from(electron.getLocalNodesTotal({
+                username: dataForm?.username || this.user?.name || 'admin',
+                keyword: dataForm?.keyword || ''
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('getLocalNodesTotal', { success: false, data: { total: 0 } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -577,6 +643,17 @@ export class CrawlService {
     }
 
     public nodeDetails(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalNodeDetails) {
+            return from(electron.getLocalNodeDetails({
+                id: dataForm?.id || dataForm?._id
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('getLocalNodeDetails', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -602,6 +679,37 @@ export class CrawlService {
     }
 
     public convert(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalNodeDetails) {
+            return from(electron.getLocalNodeDetails({ id: dataForm?.id || dataForm?._id })).pipe(
+                switchMap((nodeRes: any) => {
+                    const node = nodeRes?.data;
+                    if (!node) return of({ success: false, error: 'Không tìm thấy node' });
+                    const newUuid = `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+                    const articlePayload = {
+                        title: node.title || 'Bài viết từ Node',
+                        url: node.url || '',
+                        content: node.raw_json ? JSON.stringify(node.raw_json) : (node.content || node.title || ''),
+                        markdown: node.content || node.title || '',
+                        domain: 'local.node',
+                        username: dataForm?.username || this.user?.name || 'admin',
+                        uuid: newUuid
+                    };
+                    if (electron.saveLocalArticle) {
+                        return from(electron.saveLocalArticle(articlePayload)).pipe(
+                            map(() => ({
+                                success: true,
+                                data: { uuid: newUuid, ...articlePayload }
+                            }))
+                        );
+                    }
+                    return of({ success: true, data: { uuid: newUuid, ...articlePayload } });
+                }),
+                catchError(this.handleError('convertLocalNode', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -627,6 +735,20 @@ export class CrawlService {
     }
 
     public storeNode(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalNode) {
+            return from(electron.saveLocalNode({
+                url: dataForm?.url,
+                type: dataForm?.type,
+                node: dataForm?.node,
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('saveLocalNode', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -652,6 +774,21 @@ export class CrawlService {
     }
 
     public archive(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalArticles) {
+            return from(electron.listLocalArticles({
+                username: dataForm?.username || this.user?.name || 'admin',
+                page: dataForm?.page,
+                keyword: dataForm?.keyword || '',
+                domain: dataForm?.domain,
+                uuids: dataForm?.uuids
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('listLocalArticles', { success: false, data: { docs: [] } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -752,6 +889,21 @@ export class CrawlService {
     }
 
     public searchTotalArchive(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalStatistics) {
+            return from(electron.getLocalStatistics()).pipe(
+                map((result: any) => ({
+                    success: true,
+                    data: {
+                        archive: result?.data?.total || result?.total || 0,
+                        total: result?.data?.total || result?.total || 0
+                    }
+                })),
+                catchError(this.handleError('getLocalStatistics', { success: false, data: { total: 0 } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -777,6 +929,15 @@ export class CrawlService {
     }
 
     public storeArchive(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalArticle) {
+            return from(electron.saveLocalArticle(dataForm)).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('saveLocalArticle', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -802,6 +963,15 @@ export class CrawlService {
     }
 
     public archiveUpdate(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalArticle) {
+            return from(electron.saveLocalArticle(dataForm)).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('saveLocalArticle', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -827,6 +997,18 @@ export class CrawlService {
     }
 
     public removeArchive(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.deleteLocalArticle) {
+            return from(electron.deleteLocalArticle({
+                uuid: dataForm?.uuid,
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('deleteLocalArticle', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -849,6 +1031,32 @@ export class CrawlService {
     }
 
     public detail(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.readLocalArticle) {
+            return from(electron.readLocalArticle({
+                uuid: dataForm?.uuid,
+                username: dataForm?.username || this.user?.name || 'admin',
+                password: dataForm?.password
+            })).pipe(
+                map((result: any) => {
+                    const art = result?.article || result?.data;
+                    return {
+                        success: result?.success !== false,
+                        is_encrypted: !!result?.is_encrypted,
+                        unlocked: !!result?.unlocked,
+                        data: art ? {
+                            ...art,
+                            _id: art.uuid,
+                            id: art.uuid
+                        } : null,
+                        error: result?.error
+                    };
+                }),
+                catchError(this.handleError('readLocalArticle', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1074,6 +1282,17 @@ export class CrawlService {
     }
 
     public collections(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalCollections) {
+            return from(electron.listLocalCollections({
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('listLocalCollections', { success: false, data: [] }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1099,6 +1318,25 @@ export class CrawlService {
     }
 
     public nodeInCollection(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalCollections) {
+            return from(electron.listLocalCollections({
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => {
+                    const allCols = result?.data || [];
+                    const matched = allCols.filter((c: any) => {
+                        if (!c.uuid) return false;
+                        if (Array.isArray(c.uuid)) return c.uuid.includes(dataForm?.uuid);
+                        return c.uuid === dataForm?.uuid;
+                    });
+                    return { success: true, data: matched };
+                }),
+                catchError(this.handleError('nodeInCollection', { success: false, data: [] }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1123,6 +1361,11 @@ export class CrawlService {
     }
 
     public createCollection(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal) {
+            return of({ success: true, message: 'Tạo bộ sưu tập cục bộ thành công.' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1148,6 +1391,11 @@ export class CrawlService {
     }
 
     public storeCollection(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal) {
+            return of({ success: true, message: 'Lưu bộ sưu tập cục bộ thành công.' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1173,6 +1421,11 @@ export class CrawlService {
     }
 
     public removeCollection(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal) {
+            return of({ success: true, message: 'Xóa bộ sưu tập cục bộ thành công.' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1198,6 +1451,11 @@ export class CrawlService {
     }
 
     public updateCollection(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal) {
+            return of({ success: true, message: 'Cập nhật bộ sưu tập cục bộ thành công.' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 

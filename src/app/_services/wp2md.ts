@@ -6,7 +6,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
-import { Observable, Subject, of } from 'rxjs';
+import { Observable, Subject, of, from } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 
 import * as Markdown from 'marked';
@@ -50,6 +50,19 @@ export class WP2MDService {
     }
 
     public all(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalWp2md) {
+            return from(electron.listLocalWp2md({
+                username: dataForm?.username || this.user?.name || 'admin',
+                keyword: dataForm?.keyword || '',
+                page: dataForm?.page
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('listLocalWp2md', { success: false, data: { docs: [] } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -75,6 +88,18 @@ export class WP2MDService {
     }
 
     public totalWp2mdArchive(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalWp2mdTotal) {
+            return from(electron.getLocalWp2mdTotal({
+                username: dataForm?.username || this.user?.name || 'admin',
+                keyword: dataForm?.keyword || ''
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('getLocalWp2mdTotal', { success: false, data: { total: 0 } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -100,6 +125,18 @@ export class WP2MDService {
     }
 
     public searchWp2mdArchive(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalWp2mdTotal) {
+            return from(electron.getLocalWp2mdTotal({
+                username: dataForm?.username || this.user?.name || 'admin',
+                keyword: dataForm?.keyword || ''
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('searchWp2mdArchive', { success: false, data: { total: 0 } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -125,6 +162,17 @@ export class WP2MDService {
     }
 
     public details(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalWp2mdDetails) {
+            return from(electron.getLocalWp2mdDetails({
+                id: dataForm?.id || dataForm?._id
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('getLocalWp2mdDetails', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -150,6 +198,17 @@ export class WP2MDService {
     }
 
     public convert(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.convertLocalWp2md) {
+            return from(electron.convertLocalWp2md({
+                id: dataForm?.id || dataForm?._id
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('convertLocalWp2md', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -175,6 +234,24 @@ export class WP2MDService {
     }
 
     public store(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalArticle) {
+            const htmlContent = Array.isArray(dataForm.p) ? dataForm.p.join('\n\n') : (dataForm.content || dataForm.p || '');
+            return from(electron.saveLocalArticle({
+                title: dataForm.title || 'Bài viết cục bộ',
+                url: dataForm.url || 'localhost',
+                content: htmlContent,
+                done: Array.isArray(dataForm.p) ? dataForm.p : [htmlContent],
+                domain: dataForm.domain || 'local.ai.type',
+                username: dataForm.username || this.user?.name || 'admin',
+                uuid: dataForm.uuid || `local_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('saveLocalArticle', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 

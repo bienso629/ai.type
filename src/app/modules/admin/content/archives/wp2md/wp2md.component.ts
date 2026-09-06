@@ -50,6 +50,10 @@ export class WP2MDComponent implements OnInit, OnDestroy {
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
+    private getCurrentUsername(): string {
+        return this.user?.name || localStorage.getItem('user_name') || localStorage.getItem('username') || 'admin';
+    }
+
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
         this.selected.push(...selected);
@@ -89,9 +93,34 @@ export class WP2MDComponent implements OnInit, OnDestroy {
         this.cachePageSize = 0;
         this.cache = {};
 
+        const username = this.getCurrentUsername();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
+        if (isAutoSaveLocal && (window as any).electron?.getLocalWp2mdTotal) {
+            (window as any).electron.getLocalWp2mdTotal({
+                username: username,
+                keyword: this.keyword
+            }).then((result: any) => {
+                if (result && result.success && result.data) {
+                    this.totalElements = result.data.total;
+                    if (this.totalElements > 0) {
+                        this.setPage({
+                            offset: 0,
+                            pageSize: undefined,
+                            limit: undefined,
+                            count: this.totalElements
+                        });
+                    }
+                }
+            }).catch((err: any) => {
+                console.error('Lỗi khi lấy tổng wp2md cục bộ:', err);
+            });
+            return;
+        }
+
         if (this.keyword) {
             this._wp2mdService.searchWp2mdArchive({
-                username: this.user.name,
+                username: username,
                 keyword: this.keyword,
                 page: this.page
             })
@@ -115,7 +144,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
                     complete: () => { }
                 });
         } else {
-            this._wp2mdService.totalWp2mdArchive({ username: this.user.name })
+            this._wp2mdService.totalWp2mdArchive({ username: username })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: (res) => {
@@ -194,8 +223,67 @@ export class WP2MDComponent implements OnInit, OnDestroy {
             size: 25 // Fix size for CouchDB bookmark
         };
 
+        const username = this.getCurrentUsername();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
+        if (isAutoSaveLocal && (window as any).electron?.listLocalWp2md) {
+            (window as any).electron.listLocalWp2md({
+                username: username,
+                keyword: this.keyword,
+                page: payloadPage
+            }).then(async (result: any) => {
+                const resData = result?.data;
+                if (resData && resData.docs && resData.docs.length > 0) {
+                    if (!this.rows) {
+                        this.rows = new Array<any>(this.totalElements || 0);
+                    }
+
+                    const start = this.apiFetchedCount;
+                    const apiPageSize = 25;
+
+                    let newTotal = this.totalElements || 0;
+                    if (resData.docs.length < apiPageSize) {
+                        newTotal = start + resData.docs.length;
+                    } else if (start + resData.docs.length > newTotal) {
+                        newTotal = start + resData.docs.length;
+                    }
+
+                    if (this.totalElements !== newTotal) {
+                        this.totalElements = newTotal;
+                    }
+
+                    if (!this.rows || this.rows.length !== this.totalElements) {
+                        const oldRows = this.rows || [];
+                        this.rows = new Array<any>(this.totalElements);
+                        for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                            this.rows[i] = oldRows[i];
+                        }
+                    }
+
+                    const rows = [...this.rows];
+                    rows.splice(start, resData.docs.length, ...resData.docs);
+                    this.rows = rows;
+                    this.apiFetchedCount += resData.docs.length;
+                    this.cd.detectChanges();
+                } else if (!resData || resData.success === false || (resData.docs && resData.docs.length === 0)) {
+                    delete this.cache[this.page.pageNumber];
+                }
+                this.isLoading = false;
+                if (this.table) {
+                    this.table.recalculatePages();
+                }
+                this.cd.markForCheck();
+            }).catch((err: any) => {
+                console.error('Lỗi khi tải wp2md cục bộ:', err);
+                delete this.cache[this.page.pageNumber];
+                this.isLoading = false;
+                this.cd.markForCheck();
+            });
+            return;
+        }
+
         this._wp2mdService.all({
-            username: this.user.name,
+            username: username,
             keyword: this.keyword,
             page: payloadPage,
             bookmark: this.currentBookmark
@@ -271,26 +359,46 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
 
     details(node: any) {
+        const username = this.getCurrentUsername();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
+        const handleDetailsData = (data: any) => {
+            const rawHtml = data?.object?.['content:encoded'] || data?.content || '';
+            const el = document.createElement('div');
+            el.innerHTML = rawHtml;
+
+            const p = Array.from(el.children).map((child: any) => {
+                return child.outerHTML;
+            });
+
+            this.facePost2Node({
+                p: p.length > 0 ? p : [rawHtml],
+                title: data?.object?.title || data?.title || node.title,
+                url: data?.object?.link || data?.link || node.hostname
+            });
+            this.cd.markForCheck();
+        };
+
+        if (isAutoSaveLocal && (window as any).electron?.getLocalWp2mdDetails) {
+            (window as any).electron.getLocalWp2mdDetails({ id: node._id || node.id }).then((result: any) => {
+                if (result && result.success && result.data) {
+                    handleDetailsData(result.data);
+                }
+            }).catch((err: any) => {
+                console.error('Lỗi khi lấy chi tiết wp2md cục bộ:', err);
+            });
+            return;
+        }
+
         this._wp2mdService.details({
             id: node._id,
-            username: this.user.name
+            username: username
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
-                        const el = document.createElement('div');
-                        el.innerHTML = result.data.object['content:encoded'];
-
-                        const p = Array.from(el.children).map((node: any) => {
-                            return node.outerHTML;
-                        });
-
-                        this.facePost2Node({
-                            p: p,
-                            title: result.data.object.title,
-                            url: result.data.object.link
-                        });
+                        handleDetailsData(result.data);
                     }
                 },
                 error: () => {
@@ -303,8 +411,38 @@ export class WP2MDComponent implements OnInit, OnDestroy {
     }
 
     facePost2Node(doc: any) {
+        const username = this.getCurrentUsername();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
+        if (isAutoSaveLocal && (window as any).electron?.saveLocalArticle) {
+            const htmlContent = Array.isArray(doc.p) ? doc.p.join('\n\n') : (doc.p || '');
+            const targetUuid = `local_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+            (window as any).electron.saveLocalArticle({
+                title: doc.title || 'Bài viết nhập từ WordPress',
+                url: doc.url || 'localhost',
+                content: htmlContent,
+                done: Array.isArray(doc.p) ? doc.p : [htmlContent],
+                domain: 'local.ai.type',
+                username: username,
+                uuid: targetUuid
+            }).then((res: any) => {
+                if (res && res.success) {
+                    this.toastr.success('Chuyển sang lưu trữ cục bộ thành công.');
+                } else {
+                    this.toastr.error('Lỗi trong quá trình chuyển cục bộ.');
+                }
+                this.cd.markForCheck();
+            }).catch((err: any) => {
+                console.error('Lỗi khi chuyển sang lưu trữ cục bộ:', err);
+                this.toastr.error('Lỗi khi lưu trữ cục bộ.');
+                this.cd.markForCheck();
+            });
+            return;
+        }
+
         this._crawlService.facePost2Node({
-            username: this.user.name,
+            username: username,
             content: {
                 p: doc.p
             },
@@ -330,25 +468,41 @@ export class WP2MDComponent implements OnInit, OnDestroy {
     }
 
     convert(node: any) {
+        const username = this.getCurrentUsername();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
+        const openResultDialog = (mdResult: string) => {
+            const dialogRef = this.dialog.open(NodeDetailsDialog, {
+                width: 'calc(100vw - 40px)',
+                data: mdResult
+            });
+
+            dialogRef.afterClosed().subscribe(result => {
+                console.log(`Dialog result: ${result}`);
+            });
+            this.cd.markForCheck();
+        };
+
+        if (isAutoSaveLocal && (window as any).electron?.convertLocalWp2md) {
+            (window as any).electron.convertLocalWp2md({ id: node._id || node.id }).then((result: any) => {
+                if (result && result.success && result.data) {
+                    openResultDialog(result.data.result);
+                }
+            }).catch((err: any) => {
+                console.error('Lỗi khi chuyển đổi Markdown cục bộ:', err);
+            });
+            return;
+        }
+
         this._wp2mdService.convert({
             id: node._id,
-            username: this.user.name
+            username: username
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
-                        const dialogRef = this.dialog.open(NodeDetailsDialog, {
-                            width: 'calc(100vw - 40px)',
-                            data: result.data.result
-                        });
-
-                        dialogRef.afterClosed().subscribe(result => {
-                            console.log(`Dialog result: ${result}`);
-                        });
-
-                        // node.uuids.push(result.data.uuid);
-                        // this.toastr.success(`Chuyển sang lưu trữ thành công!`);
+                        openResultDialog(result.data.result);
                     }
                 },
                 error: () => {
@@ -524,8 +678,23 @@ export class WP2MDComponent implements OnInit, OnDestroy {
             this.totalElements = 0;
         }
 
+        const username = this.getCurrentUsername();
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
+        if (isAutoSaveLocal && (window as any).electron?.getLocalWp2mdTotal) {
+            (window as any).electron.getLocalWp2mdTotal({ username, keyword: this.keyword }).then((res: any) => {
+                if (res && res.success && res.data) {
+                    this.totalElements = res.data.total;
+                    this.cd.markForCheck();
+                }
+            }).catch((err: any) => {
+                console.error('Lỗi khi lấy tổng wp2md ban đầu:', err);
+            });
+            return;
+        }
+
         if (!this.totalElements) {
-            this._wp2mdService.totalWp2mdArchive({ username: this.user.name })
+            this._wp2mdService.totalWp2mdArchive({ username: username })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: (res) => {

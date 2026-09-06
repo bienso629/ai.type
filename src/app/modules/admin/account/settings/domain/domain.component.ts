@@ -108,8 +108,10 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
 
     fetch() {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalDomains) {
-            (window as any).electron.listLocalDomains().then((res: any) => {
+        const electron = (window as any).electron;
+
+        if (isAutoSaveLocal && electron && electron.listLocalDomains) {
+            electron.listLocalDomains().then((res: any) => {
                 if (res && res.success && res.data) {
                     this.rows = res.data;
                     let settings = this.multiAccountService.getItem('settings') || {};
@@ -123,12 +125,20 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                     
                     this.rows = [...this.rows];
                     this.cd.markForCheck();
-                    return;
+                } else {
+                    this.rows = [];
+                    this.cd.markForCheck();
                 }
-                this.fetchServerDomains();
             }).catch(() => {
-                this.fetchServerDomains();
+                this.rows = [];
+                this.cd.markForCheck();
             });
+            return;
+        }
+
+        if (isAutoSaveLocal) {
+            this.rows = [];
+            this.cd.markForCheck();
             return;
         }
 
@@ -136,6 +146,9 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     private fetchServerDomains() {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal) return;
+
         this._domainService.fetch({
             username: this.user.name
         })
@@ -240,8 +253,12 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
     
     fetchStats() {
-        if (!this.user) return;
-        this._crawlService.statistics({ username: this.user.name, reportYear: this.selectedYear })
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const username = this.user?.name || 'admin';
+
+        if (!isAutoSaveLocal && !this.user) return;
+
+        this._crawlService.statistics({ username: username, reportYear: this.selectedYear })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((res: any) => {
                 if (res && res.success) {
@@ -406,12 +423,26 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     private async fetchWebsiteMetadata(rawDomain: string): Promise<{ title: string; description: string; keywords: string; sampleText: string; isLive: boolean }> {
+        const fallback = { title: '', description: '', keywords: '', sampleText: '', isLive: false };
+        if (!rawDomain) return fallback;
+
+        // Ưu tiên chạy qua Electron main process để tránh hoàn toàn lỗi CORS / SSL
+        const electron = (window as any).electron;
+        if (electron && electron.fetchDomainMetadata) {
+            try {
+                const meta = await electron.fetchDomainMetadata(rawDomain);
+                if (meta && (meta.title || meta.description || meta.isLive)) {
+                    return meta;
+                }
+            } catch (err) {
+                console.warn(`Lỗi khi fetch qua electron.fetchDomainMetadata:`, err);
+            }
+        }
+
         let targetUrl = rawDomain.trim();
         if (!/^https?:\/\//i.test(targetUrl)) {
             targetUrl = 'https://' + targetUrl;
         }
-
-        const fallback = { title: '', description: '', keywords: '', sampleText: '', isLive: false };
 
         try {
             const controller = new AbortController();
@@ -595,19 +626,22 @@ Trả về ĐÚNG định dạng JSON mảng các object:
      * On init
      */
     ngOnInit(): void {
+        // Lấy danh sách styles từ cache cục bộ
+        this.styles = this.multiAccountService.getItem('styles') || [];
+
+        // Lấy dữ liệu ngay lập tức không phụ thuộc vào luồng user$ từ server
+        this.fetch();
+        this.fetchStats();
+
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
-                this.user = user;
-
-                // lấy danh sách styles
-                this.styles = this.multiAccountService.getItem('styles') || [];
-
-                // lấy danh sách domains
-                this.fetch();
-                
-                // lấy số lượng bài viết để hiển thị thực tế
-                this.fetchStats();
+                if (user) {
+                    this.user = user;
+                    this.styles = this.multiAccountService.getItem('styles') || [];
+                    this.fetch();
+                    this.fetchStats();
+                }
             });
     }
 

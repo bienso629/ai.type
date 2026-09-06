@@ -7,7 +7,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
-import { Observable, Subject, of } from 'rxjs';
+import { Observable, Subject, of, from } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
@@ -48,6 +48,18 @@ export class DomainService {
     }
 
     public fetch(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.listLocalDomains) {
+                return from(electron.listLocalDomains()).pipe(
+                    map((result: any) => result),
+                    catchError(this.handleError('listLocalDomains', { success: false, data: [] }))
+                );
+            }
+            return of({ success: true, data: [] });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -73,6 +85,16 @@ export class DomainService {
     }
 
     public add(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalDomain) {
+            const domainPayload = dataForm && dataForm.domain ? dataForm.domain : dataForm;
+            return from(electron.saveLocalDomain(domainPayload)).pipe(
+                map((res: any) => ({ success: true, data: domainPayload, message: 'Lưu cấu hình tên miền cục bộ thành công.' })),
+                catchError(this.handleError('saveLocalDomain', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -98,6 +120,16 @@ export class DomainService {
     }
 
     public edit(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalDomain) {
+            const domainPayload = dataForm && dataForm.domain ? dataForm.domain : dataForm;
+            return from(electron.saveLocalDomain(domainPayload)).pipe(
+                map((res: any) => ({ success: true, data: domainPayload, message: 'Cập nhật cấu hình tên miền cục bộ thành công.' })),
+                catchError(this.handleError('editLocalDomain', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 

@@ -81,6 +81,19 @@ export class AINodesComponent implements OnInit, OnDestroy {
         this.toastr.success(`Copy link xong.`);
     }
 
+    getCurrentUsername(): string {
+        if (this.user && this.user.name) {
+            return this.user.name;
+        }
+        try {
+            const activeInfo = JSON.parse(localStorage.getItem('active') || '{}');
+            if (activeInfo && activeInfo.user && activeInfo.user.name) {
+                return activeInfo.user.name;
+            }
+        } catch (e) { }
+        return 'admin';
+    }
+
     searchNode(event: any) {
         this.table.offset = 0;
         this.keyword = event.target.value.toLowerCase();
@@ -91,9 +104,10 @@ export class AINodesComponent implements OnInit, OnDestroy {
         this.cachePageSize = 0;
         this.cache = {};
 
+        const username = this.getCurrentUsername();
         if (this.keyword) {
             this._crawlService.totalSearchNode({
-                username: this.user.name,
+                username: username,
                 keyword: this.keyword,
                 page: this.page
             })
@@ -118,7 +132,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
                 });
         } else {
             this._crawlService.totalSearchNode({
-                username: this.user.name,
+                username: username,
                 keyword: '',
                 page: this.page
             })
@@ -194,7 +208,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
         };
 
         this._crawlService.nodes({
-            username: this.user.name,
+            username: this.getCurrentUsername(),
             keyword: this.keyword,
             page: payloadPage,
             bookmark: this.currentBookmark
@@ -276,7 +290,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
     details(node: any) {
         this._crawlService.nodeDetails({
             id: node._id,
-            username: this.user.name
+            username: this.getCurrentUsername()
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -304,7 +318,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
     convert(node: any) {
         this._crawlService.convert({
             id: node._id,
-            username: this.user.name
+            username: this.getCurrentUsername()
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -333,7 +347,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
         this._crawlService.crawlCompany({
             url: url,
             request: this.request,
-            username: this.user.name
+            username: this.getCurrentUsername()
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -354,7 +368,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
             url: url,
             type: 'norequest',
             node: node,
-            username: this.user.name
+            username: this.getCurrentUsername()
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -376,7 +390,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
 
     createJsonLink() {
         const blob = new Blob([JSON.stringify(this.selected)], { type: "application/json" });
-        FileSaver.saveAs(blob, `${this.user.name}_nodes`);
+        FileSaver.saveAs(blob, `${this.getCurrentUsername()}_nodes`);
     }
 
     /**
@@ -430,23 +444,35 @@ export class AINodesComponent implements OnInit, OnDestroy {
             this.totalElements = 0;
         }
 
-        // Nếu localStorage không có hoặc bằng 0, mới gọi API để đếm
-        if (!this.totalElements) {
-            this._crawlService.totalSearchNode({
-                username: this.user.name,
-                keyword: '',
-                page: this.page
-            })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: (res) => {
-                        if (res && res.success && !this.keyword) {
-                            this.totalElements = res.data.total;
-                            this.cd.markForCheck();
-                        }
+        this._crawlService.totalSearchNode({
+            username: this.getCurrentUsername(),
+            keyword: '',
+            page: this.page
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (res) => {
+                    if (res && res.success && !this.keyword) {
+                        this.totalElements = res.data.total ?? this.totalElements;
                     }
-                });
-        }
+                    this.setPage({
+                        offset: 0,
+                        pageSize: this.page.size,
+                        limit: this.page.size,
+                        count: this.totalElements
+                    });
+                    this.cd.markForCheck();
+                },
+                error: () => {
+                    this.setPage({
+                        offset: 0,
+                        pageSize: this.page.size,
+                        limit: this.page.size,
+                        count: this.totalElements
+                    });
+                    this.cd.markForCheck();
+                }
+            });
     }
 
     ngOnDestroy(): void {

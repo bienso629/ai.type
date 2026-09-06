@@ -7,7 +7,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
-import { Observable, Subject, of } from 'rxjs';
+import { Observable, Subject, of, from } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
@@ -48,6 +48,19 @@ export class TasksService {
     }
 
     public fetch(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+
+        if (isAutoSaveLocal) {
+            if (electron && electron.listLocalTasks) {
+                return from(electron.listLocalTasks(dataForm)).pipe(
+                    map((result: any) => result),
+                    catchError(this.handleError('listLocalTasks', { success: true, data: [], result: [] }))
+                );
+            }
+            return of({ success: true, data: [], result: [] });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -70,6 +83,21 @@ export class TasksService {
     }
 
     public add(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+
+        if (isAutoSaveLocal) {
+            if (electron && electron.saveLocalTask) {
+                return from(electron.saveLocalTask(dataForm)).pipe(
+                    map((result: any) => result),
+                    catchError(this.handleError('saveLocalTask', { success: false }))
+                );
+            }
+            const task = dataForm?.task || dataForm;
+            const id = task._id || task.id || ('local_task_' + Date.now());
+            return of({ success: true, id: id, _id: id, message: 'Đã lưu task cục bộ' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -92,6 +120,21 @@ export class TasksService {
     }
 
     public edit(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+
+        if (isAutoSaveLocal) {
+            if (electron && electron.saveLocalTask) {
+                return from(electron.saveLocalTask(dataForm)).pipe(
+                    map((result: any) => result),
+                    catchError(this.handleError('saveLocalTask', { success: false }))
+                );
+            }
+            const task = dataForm?.task || dataForm;
+            const id = task._id || task.id || ('local_task_' + Date.now());
+            return of({ success: true, id: id, _id: id, message: 'Đã cập nhật task cục bộ' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -114,6 +157,19 @@ export class TasksService {
     }
 
     public delete(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+
+        if (isAutoSaveLocal) {
+            if (electron && electron.deleteLocalTask) {
+                return from(electron.deleteLocalTask(dataForm)).pipe(
+                    map((result: any) => result),
+                    catchError(this.handleError('deleteLocalTask', { success: false }))
+                );
+            }
+            return of({ success: true, message: 'Đã xóa task cục bộ' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
