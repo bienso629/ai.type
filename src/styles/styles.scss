@@ -109,8 +109,16 @@ hr {
     --mat-menu-container-elevation-shadow: none !important;
     --mat-select-panel-elevation-shadow: none !important;
     --mat-autocomplete-elevation-shadow: none !important;
-    max-height: 280px !important;
-    overflow-y: auto !important;
+
+    &:is(.mat-mdc-select-panel, .mat-select-panel, .mat-mdc-autocomplete-panel, .mat-autocomplete-panel) {
+        max-height: 280px !important;
+        overflow-y: auto !important;
+    }
+
+    &:is(.mat-mdc-menu-panel, .mat-menu-panel) {
+        max-height: none !important;
+        overflow: visible !important;
+    }
 
     .mat-mdc-menu-content {
         background-color: #ffffff !important;
@@ -284,8 +292,16 @@ hr {
     --mat-autocomplete-elevation-shadow: none !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5) !important;
     filter: none !important;
-    max-height: 280px !important;
-    overflow-y: auto !important;
+
+    &:is(.mat-mdc-select-panel, .mat-select-panel, .mat-mdc-autocomplete-panel, .mat-autocomplete-panel) {
+        max-height: 280px !important;
+        overflow-y: auto !important;
+    }
+
+    &:is(.mat-mdc-menu-panel, .mat-menu-panel) {
+        max-height: none !important;
+        overflow: visible !important;
+    }
 
     .mat-mdc-menu-content {
         background-color: #0f172a !important;
@@ -447,6 +463,34 @@ hr {
 .custom-dialog-bulk .mat-mdc-dialog-surface,
 .custom-dialog-bulk .mat-dialog-container {
     padding: 0 !important;
+}
+
+/* Ensure menu popups (especially form menus like custom-gologin-menu) do not get constrained with scrolls and have crisp borders/rounded corners */
+.mat-mdc-menu-panel.custom-gologin-menu,
+.mat-menu-panel.custom-gologin-menu,
+.cdk-overlay-pane:has(.custom-gologin-menu) .mat-mdc-menu-panel {
+    max-height: none !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--fuse-border, #e2e8f0) !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    overflow: hidden !important;
+    isolation: isolate;
+
+    .mat-mdc-menu-content {
+        overflow: hidden !important;
+        height: auto !important;
+        max-height: none !important;
+        padding: 0 !important;
+        border-radius: inherit !important;
+        background-color: transparent !important;
+    }
+}
+
+.dark .mat-mdc-menu-panel.custom-gologin-menu,
+.dark .mat-menu-panel.custom-gologin-menu,
+.dark .cdk-overlay-pane:has(.custom-gologin-menu) .mat-mdc-menu-panel {
+    border: 1px solid #334155 !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
 }
 
 .mat-mdc-unelevated-button>.mat-icon,

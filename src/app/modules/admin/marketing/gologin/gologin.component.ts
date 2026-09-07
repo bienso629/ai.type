@@ -331,7 +331,7 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
     allTokens() {
         this._goLoginService
             .allTokens({
-                username: this.user.name,
+                username: (this.user && this.user.name) || 'admin',
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -627,8 +627,9 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
+                if (this.user) {
+                    this.alldomains();
+                }
             });
 
         // Subscribe to config changes
@@ -641,8 +642,6 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.page.pageNumber = 0;
         this.page.size = 300;
-
-        this.alldomains();
 
         // Nhận phản hồi, theo dõi hoạt động từ main process
         this.unsubscribeRes = (window as any).electron.onToolsResponse(

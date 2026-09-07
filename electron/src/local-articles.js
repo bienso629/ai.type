@@ -168,6 +168,198 @@ function getArticlesDatabase() {
             )
         `);
 
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_link_collections (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                ids_json TEXT,
+                username TEXT DEFAULT 'admin',
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_links (
+                id TEXT PRIMARY KEY,
+                link TEXT,
+                title TEXT,
+                options_json TEXT,
+                username TEXT DEFAULT 'admin',
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_facebook_posts (
+                id TEXT PRIMARY KEY,
+                uuid INTEGER,
+                used INTEGER DEFAULT 0,
+                facegroup TEXT,
+                text TEXT,
+                images_json TEXT,
+                href_json TEXT,
+                username TEXT DEFAULT 'admin',
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_fb_posts_facegroup ON local_facebook_posts(facegroup)`);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_fb_posts_created_at ON local_facebook_posts(created_at)`);
+
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_gologin_tokens (
+                id TEXT PRIMARY KEY,
+                token TEXT,
+                profiles_json TEXT,
+                username TEXT DEFAULT 'admin',
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+
+        // Tự động nạp dữ liệu gologin tokens từ backup nếu bảng đang trống
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_gologin_tokens', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_gologin_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_gologin_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const raw = fs.readFileSync(backupFile, 'utf8');
+                        const list = JSON.parse(raw);
+                        if (Array.isArray(list) && list.length > 0) {
+                            const stmt = articlesDbInstance.prepare(
+                                'INSERT OR REPLACE INTO local_gologin_tokens (id, token, profiles_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+                            );
+                            for (const item of list) {
+                                const id = item._id || item.id || crypto.randomUUID();
+                                const token = item.token || '';
+                                const profilesJson = JSON.stringify(item.profiles || []);
+                                const createdAt = item.createdAt || new Date().toISOString();
+                                const updatedAt = item.updatedAt || createdAt;
+                                stmt.run(id, token, profilesJson, 'admin', createdAt, updatedAt);
+                            }
+                            stmt.finalize();
+                            console.log(`[local-gologin-tokens] Đã tự động nạp ${list.length} token GoLogin từ backup.`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[local-gologin-tokens] Lỗi khi nạp từ backup:', e);
+                }
+            }
+        });
+
+        // Tự động nạp dữ liệu link collections từ backup nếu bảng đang trống
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_link_collections', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_link_collections_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_link_collections_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const raw = fs.readFileSync(backupFile, 'utf8');
+                        const list = JSON.parse(raw);
+                        if (Array.isArray(list) && list.length > 0) {
+                            const stmt = articlesDbInstance.prepare(
+                                'INSERT OR REPLACE INTO local_link_collections (id, title, ids_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+                            );
+                            for (const item of list) {
+                                const id = item._id || item.id;
+                                const title = item.title || 'Bộ sưu tập link';
+                                const idsJson = JSON.stringify(item.ids || []);
+                                const createdAt = item.createdAt || new Date().toISOString();
+                                const updatedAt = item.updatedAt || createdAt;
+                                stmt.run(id, title, idsJson, 'admin', createdAt, updatedAt);
+                            }
+                            stmt.finalize();
+                            console.log(`[local-link-collections] Đã tự động nạp ${list.length} bộ sưu tập link từ backup.`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[local-link-collections] Lỗi khi nạp từ backup:', e);
+                }
+            }
+        });
+
+        // Tự động nạp dữ liệu links từ backup nếu bảng đang trống
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_links', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_links_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_links_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const raw = fs.readFileSync(backupFile, 'utf8');
+                        const list = JSON.parse(raw);
+                        if (Array.isArray(list) && list.length > 0) {
+                            const stmt = articlesDbInstance.prepare(
+                                'INSERT OR REPLACE INTO local_links (id, link, title, options_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                            );
+                            for (const item of list) {
+                                const id = item._id || item.id;
+                                const link = item.link || '';
+                                const title = item.title || link;
+                                const optionsJson = JSON.stringify(item.options || {});
+                                const createdAt = item.createdAt || new Date().toISOString();
+                                const updatedAt = item.updatedAt || createdAt;
+                                stmt.run(id, link, title, optionsJson, 'admin', createdAt, updatedAt);
+                            }
+                            stmt.finalize();
+                            console.log(`[local-links] Đã tự động nạp ${list.length} link từ backup.`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[local-links] Lỗi khi nạp từ backup:', e);
+                }
+            }
+        });
+
+        // Tự động nạp dữ liệu facebook posts từ backup nếu bảng đang trống
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_facebook_posts', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_facebook_posts_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_facebook_posts_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const raw = fs.readFileSync(backupFile, 'utf8');
+                        const list = JSON.parse(raw);
+                        if (Array.isArray(list) && list.length > 0) {
+                            const stmt = articlesDbInstance.prepare(
+                                'INSERT OR REPLACE INTO local_facebook_posts (id, uuid, used, facegroup, text, images_json, href_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                            );
+                            for (const item of list) {
+                                const id = item._id || item.id;
+                                const uuidVal = item.uuid || 0;
+                                const used = item.used ? 1 : 0;
+                                const facegroup = item.facegroup || '';
+                                const text = item.text || '';
+                                const imagesJson = JSON.stringify(item.images || []);
+                                const hrefJson = JSON.stringify(item.href || []);
+                                const createdAt = item.createdAt || new Date().toISOString();
+                                const updatedAt = item.updatedAt || createdAt;
+                                stmt.run(id, uuidVal, used, facegroup, text, imagesJson, hrefJson, 'admin', createdAt, updatedAt);
+                            }
+                            stmt.finalize();
+                            console.log(`[local-facebook-posts] Đã tự động nạp ${list.length} bài viết facebook từ backup.`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[local-facebook-posts] Lỗi khi nạp từ backup:', e);
+                }
+            }
+        });
+
         // Khởi tạo danh mục diễn đàn mặc định nếu chưa có
         articlesDbInstance.get('SELECT COUNT(*) as count FROM local_forum_categories', (err, row) => {
             if (!err && (!row || row.count === 0)) {
@@ -2545,6 +2737,603 @@ function registerLocalArticlesHandlers() {
                 ...payload
             }
         };
+    });
+
+    /**
+     * Lấy danh sách bộ sưu tập liên kết (Link Collections) từ SQLite
+     */
+    ipcMain.handle('list-local-link-collections', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const rows = await new Promise((resolve, reject) => {
+                db.all('SELECT * FROM local_link_collections ORDER BY updated_at DESC', [], (err, r) => {
+                    if (err) reject(err);
+                    else resolve(r || []);
+                });
+            });
+
+            const collections = rows.map(r => {
+                let parsedIds = [];
+                try {
+                    if (r.ids_json) parsedIds = JSON.parse(r.ids_json);
+                } catch (e) {}
+
+                return {
+                    _id: r.id,
+                    id: r.id,
+                    title: r.title,
+                    ids: parsedIds,
+                    createdAt: r.created_at,
+                    updatedAt: r.updated_at
+                };
+            });
+
+            return { success: true, data: collections, total: collections.length };
+        } catch (error) {
+            console.error('[list-local-link-collections] Lỗi:', error);
+            return { success: false, data: [], error: error.message };
+        }
+    });
+
+    /**
+     * Lấy danh sách links trong một bộ sưu tập liên kết từ SQLite
+     */
+    ipcMain.handle('get-local-links-in-collection', async (event, payload) => {
+        try {
+            const { id } = payload || {};
+            const db = getArticlesDatabase();
+
+            let targetIds = [];
+            if (id) {
+                const colRow = await new Promise((resolve) => {
+                    db.get('SELECT ids_json FROM local_link_collections WHERE id = ?', [id], (err, r) => resolve(r));
+                });
+                if (colRow && colRow.ids_json) {
+                    try {
+                        targetIds = JSON.parse(colRow.ids_json);
+                    } catch (e) {}
+                }
+            }
+
+            let linksQuery = 'SELECT * FROM local_links';
+            let params = [];
+            if (targetIds.length > 0) {
+                const placeholders = targetIds.map(() => '?').join(',');
+                linksQuery += ` WHERE id IN (${placeholders})`;
+                params = targetIds;
+            }
+
+            const rows = await new Promise((resolve, reject) => {
+                db.all(linksQuery, params, (err, r) => {
+                    if (err) reject(err);
+                    else resolve(r || []);
+                });
+            });
+
+            const links = rows.map(r => {
+                let parsedOptions = {};
+                try {
+                    if (r.options_json) parsedOptions = JSON.parse(r.options_json);
+                } catch (e) {}
+
+                return {
+                    _id: r.id,
+                    id: r.id,
+                    link: r.link,
+                    title: r.title,
+                    options: parsedOptions,
+                    createdAt: r.created_at,
+                    updatedAt: r.updated_at
+                };
+            });
+
+            return { success: true, data: links, total: links.length };
+        } catch (error) {
+            console.error('[get-local-links-in-collection] Lỗi:', error);
+            return { success: false, data: [], error: error.message };
+        }
+    });
+
+    /**
+     * Lấy toàn bộ links cục bộ từ local_links
+     */
+    ipcMain.handle('list-local-links', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const username = (payload && payload.username) || 'admin';
+            const keyword = (payload && payload.keyword) ? String(payload.keyword).trim().toLowerCase() : '';
+            const page = payload && payload.page ? payload.page : null;
+
+            let query = 'SELECT * FROM local_links WHERE (username = ? OR username = "admin")';
+            let params = [username];
+
+            if (keyword) {
+                query += ' AND (LOWER(link) LIKE ? OR LOWER(title) LIKE ?)';
+                params.push(`%${keyword}%`, `%${keyword}%`);
+            }
+
+            // Đếm tổng số link
+            let countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
+            const totalCount = await new Promise((resolve) => {
+                db.get(countQuery, params, (err, row) => {
+                    resolve((row && row.count) || 0);
+                });
+            });
+
+            query += ' ORDER BY created_at DESC';
+
+            if (page && page.size) {
+                const pageSize = Number(page.size);
+                const pageNumber = page.pageNumber ? Number(page.pageNumber) : 0;
+                query += ` LIMIT ${pageSize} OFFSET ${pageNumber * pageSize}`;
+            }
+
+            const rows = await new Promise((resolve, reject) => {
+                db.all(query, params, (err, r) => {
+                    if (err) reject(err);
+                    else resolve(r || []);
+                });
+            });
+
+            const links = rows.map(r => {
+                let parsedOptions = {};
+                try {
+                    if (r.options_json) parsedOptions = JSON.parse(r.options_json);
+                } catch (e) {}
+
+                return {
+                    _id: r.id,
+                    id: r.id,
+                    link: r.link,
+                    title: r.title,
+                    options: parsedOptions,
+                    createdAt: r.created_at,
+                    updatedAt: r.updated_at
+                };
+            });
+
+            return {
+                success: true,
+                data: {
+                    docs: links,
+                    total: totalCount,
+                    bookmark: 'local-done'
+                },
+                total: totalCount
+            };
+        } catch (error) {
+            console.error('[list-local-links] Lỗi:', error);
+            return {
+                success: false,
+                data: { docs: [], total: 0, bookmark: '' },
+                total: 0,
+                error: error.message
+            };
+        }
+    });
+
+    /**
+     * Thêm mới link cục bộ vào local_links
+     */
+    ipcMain.handle('add-local-link', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const link = (payload && payload.link) ? payload.link.trim() : '';
+            const title = (payload && payload.title) || link;
+            const optionsJson = JSON.stringify((payload && payload.options) || {});
+            const username = (payload && payload.username) || 'admin';
+            const now = new Date().toISOString();
+            const id = crypto.randomUUID();
+
+            if (!link) {
+                return { success: false, message: 'Link không hợp lệ' };
+            }
+
+            // Kiểm tra link trùng
+            const existing = await new Promise((resolve, reject) => {
+                db.get('SELECT id FROM local_links WHERE link = ?', [link], (err, r) => {
+                    if (err) reject(err);
+                    else resolve(r);
+                });
+            });
+
+            if (existing) {
+                return { success: false, message: 'Link này đã tồn tại.' };
+            }
+
+            await new Promise((resolve, reject) => {
+                db.run(
+                    'INSERT INTO local_links (id, link, title, options_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [id, link, title, optionsJson, username, now, now],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this);
+                    }
+                );
+            });
+
+            return {
+                success: true,
+                data: {
+                    _id: id,
+                    id: id,
+                    link: link,
+                    title: title,
+                    options: (payload && payload.options) || {},
+                    createdAt: now,
+                    updatedAt: now
+                }
+            };
+        } catch (error) {
+            console.error('[add-local-link] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Cập nhật link cục bộ trong local_links
+     */
+    ipcMain.handle('update-local-link', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const id = (payload && (payload._id || payload.id)) ? String(payload._id || payload.id).trim() : '';
+            const link = (payload && payload.link) ? payload.link.trim() : '';
+            const title = (payload && payload.title) || link;
+            const optionsJson = JSON.stringify((payload && payload.options) || {});
+            const now = new Date().toISOString();
+
+            if (!id) {
+                return { success: false, message: 'ID link không hợp lệ' };
+            }
+
+            const res = await new Promise((resolve, reject) => {
+                db.run(
+                    'UPDATE local_links SET link = ?, title = ?, options_json = ?, updated_at = ? WHERE id = ?',
+                    [link, title, optionsJson, now, id],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this);
+                    }
+                );
+            });
+
+            return {
+                success: true,
+                data: {
+                    modifiedCount: res.changes || 1
+                }
+            };
+        } catch (error) {
+            console.error('[update-local-link] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+
+    /**
+     * Lấy danh sách bài viết Facebook (FacePosts/Trend) từ SQLite local
+     */
+    ipcMain.handle('list-local-facebook-posts', async (event, payload) => {
+        try {
+            const { keyword = '', page, facegroup } = payload || {};
+            const pageSize = (page && page.size) ? Number(page.size) : 25;
+            const pageOffset = (page && page.pageNumber) ? Number(page.pageNumber) * pageSize : 0;
+
+            const db = getArticlesDatabase();
+            let whereClauses = [];
+            let params = [];
+
+            if (keyword && String(keyword).trim()) {
+                whereClauses.push('text LIKE ?');
+                params.push(`%${String(keyword).trim()}%`);
+            }
+
+            if (facegroup) {
+                whereClauses.push('facegroup = ?');
+                params.push(facegroup);
+            }
+
+            const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+            // Đếm tổng số
+            const countRow = await new Promise((resolve) => {
+                db.get(`SELECT COUNT(*) as count FROM local_facebook_posts ${whereSql}`, params, (err, r) => resolve(r));
+            });
+            const totalElements = countRow ? countRow.count : 0;
+
+            // Lấy trang dữ liệu
+            const rows = await new Promise((resolve, reject) => {
+                db.all(
+                    `SELECT * FROM local_facebook_posts ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+                    [...params, pageSize, pageOffset],
+                    (err, r) => {
+                        if (err) reject(err);
+                        else resolve(r || []);
+                    }
+                );
+            });
+
+            const docs = rows.map(r => {
+                let parsedImages = [];
+                let parsedHref = [];
+                try {
+                    if (r.images_json) parsedImages = JSON.parse(r.images_json);
+                } catch (e) {}
+                try {
+                    if (r.href_json) parsedHref = JSON.parse(r.href_json);
+                } catch (e) {}
+
+                return {
+                    _id: r.id,
+                    id: r.id,
+                    uuid: r.uuid,
+                    used: r.used,
+                    facegroup: r.facegroup,
+                    text: r.text,
+                    images: parsedImages,
+                    href: parsedHref,
+                    createdAt: r.created_at,
+                    updatedAt: r.updated_at
+                };
+            });
+
+            return {
+                success: true,
+                data: {
+                    docs: docs,
+                    total_rows: totalElements,
+                    bookmark: `bkm_${pageOffset + docs.length}`
+                }
+            };
+        } catch (error) {
+            console.error('[list-local-facebook-posts] Lỗi:', error);
+            return {
+                success: false,
+                data: {
+                    docs: [],
+                    total_rows: 0
+                },
+                error: error.message
+            };
+        }
+    });
+
+    // ── Lấy danh sách GoLogin tokens cục bộ ──
+    ipcMain.handle('list-local-gologin-tokens', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const username = (payload && payload.username) || 'admin';
+
+            const rows = await new Promise((resolve, reject) => {
+                db.all(
+                    'SELECT * FROM local_gologin_tokens WHERE username = ? OR username = "admin" ORDER BY created_at DESC',
+                    [username],
+                    (err, r) => {
+                        if (err) reject(err);
+                        else resolve(r || []);
+                    }
+                );
+            });
+
+            const tokens = rows.map(r => {
+                let profiles = [];
+                try {
+                    if (r.profiles_json) profiles = JSON.parse(r.profiles_json);
+                } catch (e) {}
+
+                return {
+                    _id: r.id,
+                    id: r.id,
+                    token: r.token,
+                    profiles: profiles,
+                    createdAt: r.created_at,
+                    updatedAt: r.updated_at
+                };
+            });
+
+            return {
+                success: true,
+                data: tokens
+            };
+        } catch (error) {
+            console.error('[list-local-gologin-tokens] Lỗi:', error);
+            return {
+                success: false,
+                data: [],
+                error: error.message
+            };
+        }
+    });
+
+    // ── Thêm mới GoLogin token cục bộ ──
+    ipcMain.handle('add-local-gologin-token', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const token = (payload && payload.token) ? payload.token.trim() : '';
+            const username = (payload && payload.username) || 'admin';
+
+            if (!token) {
+                return { success: false, message: 'Token không hợp lệ' };
+            }
+
+            // Kiểm tra token đã tồn tại chưa
+            const existing = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM local_gologin_tokens WHERE token = ?', [token], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+
+            if (existing) {
+                return {
+                    success: false,
+                    message: 'Mã token này đã tồn tại.'
+                };
+            }
+
+            const id = crypto.randomUUID();
+            const now = new Date().toISOString();
+            const profilesJson = JSON.stringify([]);
+
+            await new Promise((resolve, reject) => {
+                db.run(
+                    'INSERT INTO local_gologin_tokens (id, token, profiles_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+                    [id, token, profilesJson, username, now, now],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this);
+                    }
+                );
+            });
+
+            return {
+                success: true,
+                data: {
+                    _id: id,
+                    id: id,
+                    token: token,
+                    profiles: [],
+                    createdAt: now,
+                    updatedAt: now
+                }
+            };
+        } catch (error) {
+            console.error('[add-local-gologin-token] Lỗi:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    });
+
+    // ── Cập nhật profiles cho GoLogin token cục bộ ──
+    ipcMain.handle('update-local-gologin-token', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const token = (payload && payload.token) ? payload.token.trim() : '';
+            const profiles = (payload && payload.profiles) ? payload.profiles : [];
+            const username = (payload && payload.username) || 'admin';
+            const now = new Date().toISOString();
+
+            if (!token) {
+                return { success: false, message: 'Token không hợp lệ' };
+            }
+
+            const profilesJson = JSON.stringify(profiles);
+
+            // Kiểm tra token có tồn tại không
+            const existing = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM local_gologin_tokens WHERE token = ?', [token], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+
+            if (existing) {
+                await new Promise((resolve, reject) => {
+                    db.run(
+                        'UPDATE local_gologin_tokens SET profiles_json = ?, updated_at = ? WHERE token = ?',
+                        [profilesJson, now, token],
+                        function(err) {
+                            if (err) reject(err);
+                            else resolve(this);
+                        }
+                    );
+                });
+            } else {
+                const id = crypto.randomUUID();
+                await new Promise((resolve, reject) => {
+                    db.run(
+                        'INSERT INTO local_gologin_tokens (id, token, profiles_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+                        [id, token, profilesJson, username, now, now],
+                        function(err) {
+                            if (err) reject(err);
+                            else resolve(this);
+                        }
+                    );
+                });
+            }
+
+            return {
+                success: true,
+                data: {
+                    token: token,
+                    profiles: profiles
+                }
+            };
+        } catch (error) {
+            console.error('[update-local-gologin-token] Lỗi:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    });
+
+    // ── Xóa profile thuộc GoLogin token cục bộ ──
+    ipcMain.handle('delete-local-gologin-profile', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const token = (payload && payload.token) ? payload.token.trim() : '';
+            const profileId = (payload && (payload.profileId || payload.id)) ? String(payload.profileId || payload.id).trim() : '';
+            const now = new Date().toISOString();
+
+            if (!profileId) {
+                return { success: false, message: 'profileId không hợp lệ' };
+            }
+
+            let rows = [];
+            if (token) {
+                rows = await new Promise((resolve, reject) => {
+                    db.all('SELECT * FROM local_gologin_tokens WHERE token = ?', [token], (err, r) => {
+                        if (err) reject(err);
+                        else resolve(r || []);
+                    });
+                });
+            } else {
+                rows = await new Promise((resolve, reject) => {
+                    db.all('SELECT * FROM local_gologin_tokens', (err, r) => {
+                        if (err) reject(err);
+                        else resolve(r || []);
+                    });
+                });
+            }
+
+            let deleted = false;
+            for (const row of rows) {
+                let profiles = [];
+                try {
+                    if (row.profiles_json) profiles = JSON.parse(row.profiles_json);
+                } catch (e) {}
+
+                const initialLen = profiles.length;
+                profiles = profiles.filter(p => p.id !== profileId && p._id !== profileId);
+                if (profiles.length !== initialLen) {
+                    deleted = true;
+                    await new Promise((resolve, reject) => {
+                        db.run(
+                            'UPDATE local_gologin_tokens SET profiles_json = ?, updated_at = ? WHERE id = ?',
+                            [JSON.stringify(profiles), now, row.id],
+                            function(err) {
+                                if (err) reject(err);
+                                else resolve(this);
+                            }
+                        );
+                    });
+                }
+            }
+
+            return {
+                success: true,
+                deleted: deleted
+            };
+        } catch (error) {
+            console.error('[delete-local-gologin-profile] Lỗi:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
     });
 }
 

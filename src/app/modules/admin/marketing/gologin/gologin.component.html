@@ -39,14 +39,14 @@
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:plus'"></mat-icon>
             </a>
 
-            <mat-menu #token="matMenu" class="min-w-100 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
+            <mat-menu #token="matMenu" class="min-w-100 custom-gologin-menu">
                 <!-- Header -->
                 <div class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
                     {{ 'app.your_new_token' | transloco }}
                 </div>
 
                 <!-- Content -->
-                <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
+                <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y bg-card">
                     <mat-form-field class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                         <input matInput (keyup.enter)="addToken($event)" [placeholder]="'app.enter_token_and_enter' | transloco" (click)="$event.stopPropagation()">
                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:corner-down-left'"></mat-icon>
@@ -78,14 +78,14 @@
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:play'"></mat-icon>
             </a>
 
-            <mat-menu #searchMenu="matMenu" class="min-w-80 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
+            <mat-menu #searchMenu="matMenu" class="min-w-80 custom-gologin-menu">
                 <!-- Header -->
                 <div class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
                     {{ 'app.select_1_domain_to' | transloco }}
                 </div>
 
                 <!-- Content -->
-                <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
+                <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y bg-card">
                     <mat-form-field class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                         <input [placeholder]="'app.select_1_domain' | transloco" (keyup.enter)="updateLink($event)" aria-label="Number" matInput [(ngModel)]="link" [matAutocomplete]="auto">
                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>

@@ -725,6 +725,15 @@ export class LinksComponent implements OnInit, OnDestroy {
 
                 // lấy bộ sưu tập link
                 this.linkCollections();
+
+                if (this.totalElements > 0 && (!this.rows || this.rows.length === 0)) {
+                    this.setPage({
+                        offset: 0,
+                        pageSize: undefined,
+                        limit: undefined,
+                        count: this.totalElements
+                    });
+                }
             });
     }
 

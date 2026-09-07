@@ -50,14 +50,17 @@ export class DomainService {
     public fetch(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
         const electron = (window as any).electron;
-        if (isAutoSaveLocal && electron && electron.listLocalDomains) {
-            return from(electron.listLocalDomains()).pipe(
-                map((result: any) => {
-                    const localDomains = (result && result.success && Array.isArray(result.data)) ? result.data : [];
-                    return { success: true, data: localDomains };
-                }),
-                catchError(this.handleError('fetchLocalDomains', { success: false, data: [] }))
-            );
+        if (isAutoSaveLocal) {
+            if (electron && electron.listLocalDomains) {
+                return from(electron.listLocalDomains()).pipe(
+                    map((result: any) => {
+                        const localDomains = (result && result.success && Array.isArray(result.data)) ? result.data : [];
+                        return { success: true, data: localDomains };
+                    }),
+                    catchError(this.handleError('fetchLocalDomains', { success: false, data: [] }))
+                );
+            }
+            return of({ success: true, data: [] });
         }
 
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
