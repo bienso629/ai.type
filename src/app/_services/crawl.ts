@@ -1132,6 +1132,15 @@ export class CrawlService {
     }
 
     public archiveTogetherCheck(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.checkLocalTogether) {
+            return from(electron.checkLocalTogether(dataForm)).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('checkLocalTogether', { success: true, data: { allow: true } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1182,6 +1191,15 @@ export class CrawlService {
     }
 
     public archiveBlockComment(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalComment) {
+            return from(electron.saveLocalComment(dataForm)).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('saveLocalComment', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1207,6 +1225,15 @@ export class CrawlService {
     }
 
     public archiveComments(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalComments) {
+            return from(electron.listLocalComments(dataForm)).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('listLocalComments', { success: false, data: [] }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 

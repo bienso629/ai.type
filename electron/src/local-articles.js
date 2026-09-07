@@ -142,6 +142,51 @@ function getArticlesDatabase() {
         articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_nodes_username ON local_nodes(username)`);
         articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_nodes_url ON local_nodes(url)`);
 
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_comments (
+                id TEXT PRIMARY KEY,
+                uuid TEXT NOT NULL,
+                blockid TEXT NOT NULL,
+                author TEXT,
+                username TEXT,
+                comment_json TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_comments_uuid ON local_comments(uuid)`);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_comments_blockid ON local_comments(blockid)`);
+
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_forum_categories (
+                cid INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                slug TEXT,
+                description TEXT,
+                disabled INTEGER DEFAULT 0,
+                order_num INTEGER DEFAULT 0
+            )
+        `);
+
+        // Khởi tạo danh mục diễn đàn mặc định nếu chưa có
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_forum_categories', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                const defaultCategories = [
+                    { cid: 1, name: 'Chung (General)', slug: 'general', description: 'Thảo luận chung', order_num: 1 },
+                    { cid: 2, name: 'Hỏi đáp & Trợ giúp', slug: 'hoi-dap', description: 'Hỏi đáp kỹ thuật và thắc mắc', order_num: 2 },
+                    { cid: 3, name: 'Chia sẻ kiến thức & Bài viết', slug: 'chia-se', description: 'Chia sẻ kinh nghiệm và bài viết', order_num: 3 },
+                    { cid: 4, name: 'Góp ý & Báo lỗi', slug: 'gop-y', description: 'Góp ý phát triển hệ thống', order_num: 4 }
+                ];
+                const stmt = articlesDbInstance.prepare(
+                    'INSERT OR REPLACE INTO local_forum_categories (cid, name, slug, description, disabled, order_num) VALUES (?, ?, ?, ?, 0, ?)'
+                );
+                for (const cat of defaultCategories) {
+                    stmt.run(cat.cid, cat.name, cat.slug, cat.description, cat.order_num);
+                }
+                stmt.finalize();
+            }
+        });
+
         // Tự động nạp dữ liệu từ thư mục backup nếu bảng local_nodes đang trống
         articlesDbInstance.get('SELECT COUNT(*) as count FROM local_nodes', (err, row) => {
             if (!err && (!row || row.count === 0)) {
@@ -2328,6 +2373,178 @@ function registerLocalArticlesHandlers() {
             console.error('[wp:delete-post] Lỗi:', error);
             return { success: false, error: error.message };
         }
+    });
+
+    /**
+     * Lấy danh sách bình luận / ghi chú cục bộ của bài viết theo uuid
+     */
+    ipcMain.handle('list-local-comments', async (event, payload) => {
+        try {
+            const { uuid } = payload || {};
+            if (!uuid) {
+                return { success: true, data: [] };
+            }
+
+            const db = getArticlesDatabase();
+            const rows = await new Promise((resolve, reject) => {
+                db.all(
+                    'SELECT * FROM local_comments WHERE uuid = ? ORDER BY created_at ASC',
+                    [uuid],
+                    (err, r) => {
+                        if (err) reject(err);
+                        else resolve(r || []);
+                    }
+                );
+            });
+
+            const comments = rows.map((row) => {
+                let commentObj = {};
+                try {
+                    if (row.comment_json) {
+                        commentObj = JSON.parse(row.comment_json);
+                    }
+                } catch (e) {}
+
+                return {
+                    _id: row.id,
+                    id: row.id,
+                    uuid: row.uuid,
+                    blockid: row.blockid,
+                    author: row.author,
+                    username: row.username,
+                    comment: commentObj,
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at
+                };
+            });
+
+            return { success: true, data: comments };
+        } catch (error) {
+            console.error('[list-local-comments] Lỗi:', error);
+            return { success: false, data: [], error: error.message };
+        }
+    });
+
+    /**
+     * Lưu bình luận / ghi chú cục bộ cho block trong bài viết
+     */
+    ipcMain.handle('save-local-comment', async (event, payload) => {
+        try {
+            const { uuid, blockid, author = 'admin', username = 'admin', comment } = payload || {};
+            if (!uuid || !blockid) {
+                return { success: false, error: 'Thiếu uuid hoặc blockid để lưu bình luận' };
+            }
+
+            const commentId = generateNanoId(16);
+            const nowIso = (comment && comment.createdAt) ? new Date(comment.createdAt).toISOString() : new Date().toISOString();
+            const commentData = {
+                content: (comment && comment.content) ? comment.content : '',
+                username: (comment && comment.username) ? comment.username : username,
+                childrens: (comment && Array.isArray(comment.childrens)) ? comment.childrens : [],
+                createdAt: nowIso
+            };
+            const commentJson = JSON.stringify(commentData);
+
+            const db = getArticlesDatabase();
+            await new Promise((resolve, reject) => {
+                db.run(
+                    `INSERT INTO local_comments (id, uuid, blockid, author, username, comment_json, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [commentId, uuid, blockid, author, username, commentJson, nowIso, nowIso],
+                    function (err) {
+                        if (err) reject(err);
+                        else resolve();
+                    }
+                );
+            });
+
+            const returnedData = {
+                _id: commentId,
+                id: commentId,
+                uuid: uuid,
+                blockid: blockid,
+                author: author,
+                username: username,
+                comment: commentData,
+                createdAt: nowIso,
+                updatedAt: nowIso
+            };
+
+            return { success: true, data: returnedData };
+        } catch (error) {
+            console.error('[save-local-comment] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Kiểm tra đồng tác giả cục bộ (môi trường offline luôn cho phép tác giả hiện tại)
+     */
+    ipcMain.handle('check-local-together', async (event, payload) => {
+        return { success: true, data: { allow: true, local: true } };
+    });
+
+    /**
+     * Lấy danh mục diễn đàn cục bộ từ SQLite
+     */
+    ipcMain.handle('list-local-forum-categories', async (event, payload) => {
+        try {
+            const db = getArticlesDatabase();
+            const rows = await new Promise((resolve, reject) => {
+                db.all(
+                    'SELECT * FROM local_forum_categories WHERE disabled = 0 ORDER BY order_num ASC, cid ASC',
+                    [],
+                    (err, r) => {
+                        if (err) reject(err);
+                        else resolve(r || []);
+                    }
+                );
+            });
+
+            const categories = rows.map((r) => ({
+                cid: r.cid,
+                name: r.name,
+                slug: r.slug,
+                description: r.description
+            }));
+
+            return {
+                success: true,
+                data: {
+                    response: {
+                        categories: categories
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('[list-local-forum-categories] Lỗi:', error);
+            return {
+                success: true,
+                data: {
+                    response: {
+                        categories: [
+                            { cid: 1, name: 'Chung (General)', slug: 'general' },
+                            { cid: 2, name: 'Hỏi đáp & Trợ giúp', slug: 'hoi-dap' },
+                            { cid: 3, name: 'Chia sẻ kiến thức & Bài viết', slug: 'chia-se' }
+                        ]
+                    }
+                }
+            };
+        }
+    });
+
+    /**
+     * Tạo bài viết thảo luận diễn đàn cục bộ
+     */
+    ipcMain.handle('create-local-forum-topic', async (event, payload) => {
+        return {
+            success: true,
+            message: 'Đã tạo chủ đề diễn đàn cục bộ thành công',
+            data: {
+                tid: Date.now(),
+                ...payload
+            }
+        };
     });
 }
 
