@@ -176,6 +176,15 @@ export class CrawlService {
     }
 
     public facePosts(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalFacebookPosts) {
+            return from(electron.listLocalFacebookPosts(dataForm)).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('listLocalFacebookPosts', { success: false, data: { docs: [], total_rows: 0 } }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -417,6 +426,16 @@ export class CrawlService {
     }
 
     public links(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalLinks) {
+            return from(electron.listLocalLinks({
+                username: (this.user && this.user.name) || (dataForm && dataForm.username) || 'admin'
+            })).pipe(
+                catchError(this.handleError('listLocalLinks', { success: false, data: [] }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -442,6 +461,19 @@ export class CrawlService {
     }
 
     public addLink(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.addLocalLink) {
+            return from(electron.addLocalLink({
+                link: dataForm.link,
+                title: dataForm.title || dataForm.link,
+                options: dataForm.options || {},
+                username: (this.user && this.user.name) || dataForm.username || 'admin'
+            })).pipe(
+                catchError(this.handleError('addLocalLink', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -467,6 +499,20 @@ export class CrawlService {
     }
 
     public updateLink(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.updateLocalLink) {
+            return from(electron.updateLocalLink({
+                _id: dataForm._id || dataForm.id,
+                link: dataForm.link,
+                title: dataForm.title || dataForm.link,
+                options: dataForm.options || {},
+                username: (this.user && this.user.name) || dataForm.username || 'admin'
+            })).pipe(
+                catchError(this.handleError('updateLocalLink', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1508,6 +1554,15 @@ export class CrawlService {
     }
 
     public linkCollections(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalLinkCollections) {
+            return from(electron.listLocalLinkCollections(dataForm)).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('listLocalLinkCollections', { success: false, data: [] }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -1533,6 +1588,15 @@ export class CrawlService {
     }
 
     public linksInCollection(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.getLocalLinksInCollection) {
+            return from(electron.getLocalLinksInCollection(dataForm)).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('getLocalLinksInCollection', { success: false, data: [] }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 

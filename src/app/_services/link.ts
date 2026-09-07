@@ -7,7 +7,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
-import { BehaviorSubject, Observable, Subject, of } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, of, from } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
@@ -78,6 +78,21 @@ export class LogService {
     }
 
     public fetch(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.listLocalLinks) {
+                return from(electron.listLocalLinks({
+                    username: (this.user && this.user.name) || (dataForm && dataForm.username) || 'admin',
+                    keyword: dataForm && dataForm.keyword,
+                    page: dataForm && dataForm.page
+                })).pipe(
+                    catchError(this.handleError('listLocalLinks', { success: false, data: { docs: [], total: 0 } }))
+                );
+            }
+            return of({ success: true, data: { docs: [], total: 0 } });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -103,6 +118,24 @@ export class LogService {
     }
 
     public total(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.listLocalLinks) {
+                return from(electron.listLocalLinks({
+                    username: (this.user && this.user.name) || (dataForm && dataForm.username) || 'admin',
+                    keyword: dataForm && dataForm.keyword
+                })).pipe(
+                    map((res: any) => ({
+                        success: true,
+                        data: { total: (res && res.total) || (res && res.data && res.data.total) || 0 }
+                    })),
+                    catchError(this.handleError('listLocalLinksTotal', { success: true, data: { total: 0 } }))
+                );
+            }
+            return of({ success: true, data: { total: 0 } });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -128,6 +161,24 @@ export class LogService {
     }
 
     public searchTotal(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.listLocalLinks) {
+                return from(electron.listLocalLinks({
+                    username: (this.user && this.user.name) || (dataForm && dataForm.username) || 'admin',
+                    keyword: dataForm && dataForm.keyword
+                })).pipe(
+                    map((res: any) => ({
+                        success: true,
+                        data: { total: (res && res.total) || (res && res.data && res.data.total) || 0 }
+                    })),
+                    catchError(this.handleError('searchLocalLinksTotal', { success: true, data: { total: 0 } }))
+                );
+            }
+            return of({ success: true, data: { total: 0 } });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -244,6 +295,22 @@ export class LogService {
     }
 
     public add(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.addLocalLink) {
+                return from(electron.addLocalLink({
+                    link: dataForm.link,
+                    title: dataForm.title || dataForm.link,
+                    options: dataForm.options || {},
+                    username: (this.user && this.user.name) || dataForm.username || 'admin'
+                })).pipe(
+                    catchError(this.handleError('addLocalLink', { success: false }))
+                );
+            }
+            return of({ success: false, message: 'Chế độ lưu cục bộ chưa sẵn sàng' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -294,6 +361,23 @@ export class LogService {
     }
 
     public update(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.updateLocalLink) {
+                return from(electron.updateLocalLink({
+                    _id: dataForm._id || dataForm.id,
+                    link: dataForm.link,
+                    title: dataForm.title || dataForm.link,
+                    options: dataForm.options || {},
+                    username: (this.user && this.user.name) || dataForm.username || 'admin'
+                })).pipe(
+                    catchError(this.handleError('updateLocalLink', { success: false }))
+                );
+            }
+            return of({ success: true });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 

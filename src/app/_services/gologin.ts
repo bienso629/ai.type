@@ -8,7 +8,7 @@ import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 import { saveAs } from "file-saver";
 
-import { Observable, Subject, of } from 'rxjs';
+import { Observable, Subject, of, from } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
@@ -49,6 +49,27 @@ export class GoLoginService {
     }
 
     public listProfiles(token: string): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalGoLoginTokens) {
+            return from(electron.listLocalGoLoginTokens({
+                username: (this.user && this.user.name) || 'admin'
+            })).pipe(
+                map((res: any) => {
+                    if (res && res.success && Array.isArray(res.data)) {
+                        const matched = res.data.find((item: any) => item.token === token);
+                        if (matched && Array.isArray(matched.profiles) && matched.profiles.length > 0) {
+                            return {
+                                profiles: matched.profiles
+                            };
+                        }
+                    }
+                    return { profiles: [] };
+                }),
+                catchError(this.handleError('listProfilesLocal', { profiles: [] }))
+            );
+        }
+
         const url = `${this.config.settings.gologin_api}/browser/v2`;
 
         return this.http.get<any>(url, {
@@ -122,6 +143,19 @@ export class GoLoginService {
     }
 
     public allTokens(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.listLocalGoLoginTokens) {
+                return from(electron.listLocalGoLoginTokens({
+                    username: (this.user && this.user.name) || (dataForm && dataForm.username) || 'admin'
+                })).pipe(
+                    catchError(this.handleError('listLocalGoLoginTokens', { success: false, data: [] }))
+                );
+            }
+            return of({ success: true, data: [] });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -147,6 +181,20 @@ export class GoLoginService {
     }
 
     public addToken(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.addLocalGoLoginToken) {
+                return from(electron.addLocalGoLoginToken({
+                    token: dataForm.token,
+                    username: (this.user && this.user.name) || dataForm.username || 'admin'
+                })).pipe(
+                    catchError(this.handleError('addLocalGoLoginToken', { success: false }))
+                );
+            }
+            return of({ success: false, message: 'Chế độ lưu cục bộ chưa sẵn sàng' });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -172,6 +220,21 @@ export class GoLoginService {
     }
 
     public updateToken(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal) {
+            if (electron && electron.updateLocalGoLoginToken) {
+                return from(electron.updateLocalGoLoginToken({
+                    token: dataForm.token,
+                    profiles: dataForm.profiles || [],
+                    username: (this.user && this.user.name) || dataForm.username || 'admin'
+                })).pipe(
+                    catchError(this.handleError('updateLocalGoLoginToken', { success: false }))
+                );
+            }
+            return of({ success: true });
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -349,6 +412,17 @@ export class GoLoginService {
     }
 
     public deleteProfile(token: string, profileId: string): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.deleteLocalGoLoginProfile) {
+            return from(electron.deleteLocalGoLoginProfile({
+                token: token,
+                profileId: profileId
+            })).pipe(
+                catchError(this.handleError('deleteLocalGoLoginProfile', { success: false }))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 

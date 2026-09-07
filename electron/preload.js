@@ -136,6 +136,16 @@ contextBridge.exposeInMainWorld('electron', {
     checkLocalTogether: (payload) => ipcRenderer.invoke('check-local-together', payload),
     listLocalForumCategories: (payload) => ipcRenderer.invoke('list-local-forum-categories', payload),
     createLocalForumTopic: (payload) => ipcRenderer.invoke('create-local-forum-topic', payload),
+    listLocalLinkCollections: (payload) => ipcRenderer.invoke('list-local-link-collections', payload),
+    getLocalLinksInCollection: (payload) => ipcRenderer.invoke('get-local-links-in-collection', payload),
+    listLocalLinks: (payload) => ipcRenderer.invoke('list-local-links', payload),
+    addLocalLink: (payload) => ipcRenderer.invoke('add-local-link', payload),
+    updateLocalLink: (payload) => ipcRenderer.invoke('update-local-link', payload),
+    listLocalFacebookPosts: (payload) => ipcRenderer.invoke('list-local-facebook-posts', payload),
+    listLocalGoLoginTokens: (payload) => ipcRenderer.invoke('list-local-gologin-tokens', payload),
+    addLocalGoLoginToken: (payload) => ipcRenderer.invoke('add-local-gologin-token', payload),
+    updateLocalGoLoginToken: (payload) => ipcRenderer.invoke('update-local-gologin-token', payload),
+    deleteLocalGoLoginProfile: (payload) => ipcRenderer.invoke('delete-local-gologin-profile', payload),
 
     // ===== WORDPRESS DIRECT LOCAL PROXY =====
     wpCategories: (payload) => ipcRenderer.invoke('wp:categories', payload),
