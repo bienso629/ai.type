@@ -50,17 +50,24 @@
                 </mat-select>
             </mat-form-field>
 
-            <!-- Domain Select -->
-            <mat-form-field *ngIf="domains && domains.length > 0"
-                class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
-                <mat-select [compareWith]="compareDomainFn" (selectionChange)="onDomainChange($event)"
-                    [(ngModel)]="selectedDomain">
-                    <ng-container *ngFor="let item of domains; let i = index">
-                        <mat-option [value]="item">{{cleanDomain(item.domain)}}</mat-option>
-                    </ng-container>
-                </mat-select>
-            </mat-form-field>
+
+            <!-- Domain Select & Config -->
+            <div class="flex items-center gap-1.5" *ngIf="domains && domains.length > 0">
+                <mat-form-field class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                    <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
+                    <mat-select [compareWith]="compareDomainFn" (selectionChange)="onDomainChange($event)"
+                        [(ngModel)]="selectedDomain">
+                        <ng-container *ngFor="let item of domains; let i = index">
+                            <mat-option [value]="item">{{cleanDomain(item.domain)}}</mat-option>
+                        </ng-container>
+                    </mat-select>
+                </mat-form-field>
+                <button mat-icon-button (click)="openDomainConfigDialog()" [matTooltip]="(selectedDomain?.password ? 'Cập nhật tài khoản kết nối WordPress' : 'Chưa cấu hình tài khoản WordPress!')"
+                    [ngClass]="{'text-amber-500 bg-amber-50 dark:bg-amber-900/30': !selectedDomain?.password, 'text-gray-500 hover:text-gray-700': !!selectedDomain?.password}"
+                    class="rounded-full flex items-center justify-center">
+                    <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:cog'"></mat-icon>
+                </button>
+            </div>
 
         </div>
     </div>
@@ -138,10 +145,15 @@
                     let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
                     let-isVisible="isVisible">
                     <div class="flex w-full sm:items-center sm:justify-between px-4">
-                        <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-4 min-w-0">
                             <div class="page-count text-sm font-medium">
                                 {{ 'app.selected_posts_count' | transloco:{selected: (selectedCount ? selectedCount.toLocaleString() : 0), total: (rowCount ? rowCount.toLocaleString() : 0)} }}
                             </div>
+                            <button mat-stroked-button *ngIf="hasMorePosts" [disabled]="loadingPosts" (click)="loadMorePosts()" class="h-8 px-3 text-xs">
+                                <mat-icon *ngIf="!loadingPosts" class="icon-size-3.5 mr-1" [svgIcon]="'heroicons_outline:arrow-down'"></mat-icon>
+                                <span *ngIf="!loadingPosts">Tải thêm bài (Load more)</span>
+                                <span *ngIf="loadingPosts">Đang tải...</span>
+                            </button>
                         </div>
                         <div class="flex items-center ml-4 space-x-2">
                             <button mat-flat-button class="bg-yellow-500 text-white" *ngIf="canUnpublish" (click)="unpublishSelectedPosts()">
@@ -163,3 +175,48 @@
         </ngx-datatable>
     </div>
 </div>
+
+<!-- Dialog Cấu hình Tài khoản / Mật khẩu kết nối WordPress -->
+<ng-template #domainConfigDialogTemplate let-data>
+    <div class="flex flex-col p-6 min-w-[340px] sm:min-w-[460px] max-w-full">
+        <div class="flex items-center justify-between pb-4 border-b">
+            <div class="flex items-center gap-2">
+                <mat-icon class="text-primary-500 icon-size-5" [svgIcon]="'feather:key'"></mat-icon>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Cấu hình kết nối WordPress</h3>
+            </div>
+            <button mat-icon-button mat-dialog-close class="text-gray-400 hover:text-gray-600">
+                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+            </button>
+        </div>
+
+        <div class="pt-4 flex flex-col gap-4 text-sm">
+            <div class="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded text-xs leading-relaxed">
+                Tài khoản và Mật khẩu ứng dụng (Application Password) được mã hóa AES-256 an toàn ngay dưới máy tính của bạn và chỉ dùng để gửi lệnh trực tiếp lên website.
+            </div>
+
+            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                <mat-label>Tên miền (Domain)</mat-label>
+                <input matInput [(ngModel)]="configDomainData.domain" readonly class="font-medium text-gray-600">
+            </mat-form-field>
+
+            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                <mat-label>Tên đăng nhập WordPress (Username)</mat-label>
+                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
+                <input matInput [(ngModel)]="configDomainData.username" placeholder="admin">
+            </mat-form-field>
+
+            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                <mat-label>Mật khẩu ứng dụng (Application Password)</mat-label>
+                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:lock'"></mat-icon>
+                <input matInput [type]="configDomainData._showPassword ? 'text' : 'password'" [(ngModel)]="configDomainData.password" placeholder="xxxx xxxx xxxx xxxx">
+                <mat-icon matSuffix class="icon-size-4 cursor-pointer" (click)="configDomainData._showPassword = !configDomainData._showPassword"
+                    [svgIcon]="configDomainData._showPassword ? 'heroicons_outline:eye' : 'heroicons_outline:eye-off'"></mat-icon>
+            </mat-form-field>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-6 mt-2 border-t">
+            <button mat-button mat-dialog-close>Hủy</button>
+            <button mat-flat-button color="primary" (click)="saveDomainConfig()">Lưu cấu hình</button>
+        </div>
+    </div>
+</ng-template>

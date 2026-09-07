@@ -193,6 +193,68 @@ function getArticlesDatabase() {
                 }
             }
         });
+
+        // Tự động nạp dữ liệu tên miền và mật khẩu từ thư mục backup vào local_domains
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_domains WHERE password IS NOT NULL AND password != ""', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_domain_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_domain_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const rawContent = fs.readFileSync(backupFile, 'utf8');
+                        const domains = JSON.parse(rawContent);
+                        if (Array.isArray(domains) && domains.length > 0) {
+                            const stmt = articlesDbInstance.prepare(`
+                                INSERT INTO local_domains (
+                                    domain, name, username, password, note, monthly_target, writing_style,
+                                    ga4_property_id, server_ip, server_username, server_password, created_at, updated_at
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ON CONFLICT(domain) DO UPDATE SET
+                                    name = excluded.name,
+                                    username = excluded.username,
+                                    password = excluded.password,
+                                    note = excluded.note,
+                                    monthly_target = excluded.monthly_target,
+                                    writing_style = excluded.writing_style,
+                                    ga4_property_id = excluded.ga4_property_id,
+                                    server_ip = excluded.server_ip,
+                                    server_username = excluded.server_username,
+                                    server_password = excluded.server_password,
+                                    updated_at = excluded.updated_at
+                            `);
+                            for (const d of domains) {
+                                if (!d.domain) continue;
+                                const encPass = encryptDomainPassword(d.password);
+                                const encServerPass = encryptDomainPassword(d.serverPassword);
+                                const now = new Date().toISOString();
+                                stmt.run(
+                                    d.domain,
+                                    d.name || d.domain,
+                                    d.username || '',
+                                    encPass,
+                                    d.note || '',
+                                    d.monthlyTarget || 0,
+                                    d.writingStyle || '',
+                                    d.ga4PropertyId || '',
+                                    d.serverIp || '',
+                                    d.serverUsername || '',
+                                    encServerPass,
+                                    d.createdAt || now,
+                                    d.updatedAt || now
+                                );
+                            }
+                            stmt.finalize();
+                            console.log(`[local-domains] Đã tự động nạp ${domains.length} tên miền và mật khẩu từ backup.`);
+                        }
+                    }
+                } catch (backupErr) {
+                    console.error('[local-domains] Lỗi khi nạp từ backup:', backupErr);
+                }
+            }
+        });
     });
     return articlesDbInstance;
 }
@@ -268,6 +330,60 @@ function decryptContent(encryptedObj, password) {
         } catch (e) {}
     }
     return { success: false, error: 'Mật khẩu giải mã không chính xác!' };
+}
+
+function getMachineKey() {
+    let machineId = '';
+    try {
+        if (fs.existsSync('/etc/machine-id')) {
+            machineId = fs.readFileSync('/etc/machine-id', 'utf8').trim();
+        } else if (fs.existsSync('/var/lib/dbus/machine-id')) {
+            machineId = fs.readFileSync('/var/lib/dbus/machine-id', 'utf8').trim();
+        }
+    } catch (e) {}
+    if (!machineId) {
+        machineId = require('os').hostname() + '_' + require('os').userInfo().username;
+    }
+    return crypto.createHash('sha256').update(machineId + '_ai_type_domain_vault_salt_2026').digest('hex').substring(0, 32);
+}
+
+function encryptDomainPassword(plainText) {
+    if (!plainText) return '';
+    const str = String(plainText).trim();
+    if (!str) return '';
+    if (str.startsWith('ENC_AES256:')) return str; // Đã được mã hoá trước đó
+    try {
+        const key = Buffer.from(getMachineKey(), 'utf8');
+        const iv = crypto.randomBytes(16);
+        const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+        let encrypted = cipher.update(str, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        return `ENC_AES256:${iv.toString('hex')}:${encrypted}`;
+    } catch (err) {
+        console.error('[encryptDomainPassword] Lỗi mã hoá:', err);
+        return plainText;
+    }
+}
+
+function decryptDomainPassword(cipherText) {
+    if (!cipherText) return '';
+    const str = String(cipherText).trim();
+    if (!str) return '';
+    if (!str.startsWith('ENC_AES256:')) return str; // Dạng plain text hoặc chưa mã hoá
+    try {
+        const parts = str.split(':');
+        if (parts.length !== 3) return str;
+        const iv = Buffer.from(parts[1], 'hex');
+        const encryptedData = parts[2];
+        const key = Buffer.from(getMachineKey(), 'utf8');
+        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+        let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    } catch (err) {
+        console.error('[decryptDomainPassword] Lỗi giải mã:', err);
+        return '';
+    }
 }
 
 function htmlToMarkdownFallback(html) {
@@ -954,6 +1070,9 @@ function registerLocalArticlesHandlers() {
             const db = getArticlesDatabase();
             const now = new Date().toISOString();
 
+            const encryptedPassword = encryptDomainPassword(domainData.password || '');
+            const encryptedServerPassword = encryptDomainPassword(domainData.serverPassword || '');
+
             await new Promise((resolve, reject) => {
                 db.run(`
                     INSERT INTO local_domains (
@@ -976,14 +1095,14 @@ function registerLocalArticlesHandlers() {
                     domainData.domain,
                     domainData.name || domainData.domain,
                     domainData.username || '',
-                    domainData.password || '',
+                    encryptedPassword,
                     domainData.note || '',
                     domainData.monthlyTarget || 0,
                     domainData.writingStyle || '',
                     domainData.ga4PropertyId || '',
                     domainData.serverIp || '',
                     domainData.serverUsername || '',
-                    domainData.serverPassword || '',
+                    encryptedServerPassword,
                     now,
                     now
                 ], function(err) {
@@ -1048,7 +1167,7 @@ function registerLocalArticlesHandlers() {
                 });
             }
 
-            // Ghi đè bằng thông tin chuẩn từ bảng local_domains
+            // Ghi đè bằng thông tin chuẩn từ bảng local_domains (tự giải mã mật khẩu cấp RAM)
             for (const sd of savedDomains) {
                 const dom = (sd.domain || '').trim();
                 if (!dom) continue;
@@ -1058,14 +1177,14 @@ function registerLocalArticlesHandlers() {
                     domain: dom,
                     name: sd.name || dom,
                     username: sd.username || '',
-                    password: sd.password || '',
+                    password: decryptDomainPassword(sd.password || ''),
                     note: sd.note || existing.note || '',
                     monthlyTarget: sd.monthly_target || 0,
                     writingStyle: sd.writing_style || '',
                     ga4PropertyId: sd.ga4_property_id || '',
                     serverIp: sd.server_ip || '',
                     serverUsername: sd.server_username || '',
-                    serverPassword: sd.server_password || ''
+                    serverPassword: decryptDomainPassword(sd.server_password || '')
                 });
             }
 
@@ -1894,6 +2013,319 @@ function registerLocalArticlesHandlers() {
             };
         } catch (error) {
             console.error('[get-local-node-details] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * ==========================================
+     * WORDPRESS LOCAL PROXY IPC HANDLERS
+     * Tự động request trực tiếp từ máy local lên Website WordPress (bỏ qua API Server trung gian)
+     * ==========================================
+     */
+
+    function buildWpAuthHeader(username, password) {
+        if (!username || !password || password.startsWith('****') || username.startsWith('****')) return {};
+        const cleanPass = decryptDomainPassword(password);
+        if (!cleanPass || cleanPass.startsWith('****')) return {};
+        const token = Buffer.from(`${username}:${cleanPass}`).toString('base64');
+        return { 'Authorization': `Basic ${token}` };
+    }
+
+    // 1. Lấy danh sách chuyên mục WordPress trực tiếp từ Local
+    ipcMain.handle('wp:categories', async (event, payload) => {
+        try {
+            let { domain, username, password } = payload || {};
+            if (!domain) return { success: false, error: 'Thiếu domain' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            // Tìm password trong SQLite nếu payload chưa có
+            if (!password) {
+                const db = getArticlesDatabase();
+                const saved = await new Promise((resolve) => {
+                    db.get('SELECT username, password FROM local_domains WHERE domain = ? OR domain = ?', [domain, domain.replace('https://', '').replace('http://', '')], (err, row) => resolve(row));
+                });
+                if (saved) {
+                    username = username || saved.username;
+                    password = saved.password;
+                }
+            }
+
+            const apiUrl = `${domain}/wp-json/wp/v2/categories?per_page=100`;
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                ...buildWpAuthHeader(username, password)
+            };
+
+            const resp = await fetch(apiUrl, { method: 'GET', headers });
+            if (!resp.ok) {
+                return { success: false, error: `WordPress phản hồi lỗi HTTP ${resp.status}`, data: [] };
+            }
+            const data = await resp.json();
+            return { success: true, data: Array.isArray(data) ? data : [] };
+        } catch (error) {
+            console.error('[wp:categories] Lỗi:', error);
+            return { success: false, error: error.message, data: [] };
+        }
+    });
+
+    // 2. Lấy danh sách bài viết WordPress trực tiếp từ Local
+    ipcMain.handle('wp:posts', async (event, payload) => {
+        try {
+            let { domain, username, password, apppass, page = 1, per_page = 100, keyword, category, status } = payload || {};
+            if (!domain) return { success: false, error: 'Thiếu domain' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            const effectivePass = apppass || password;
+            let authHeader = {};
+            if (username && effectivePass) {
+                authHeader = buildWpAuthHeader(username, effectivePass);
+            } else {
+                // Tự động kiểm tra trong SQLite local_domains
+                const db = getArticlesDatabase();
+                const saved = await new Promise((resolve) => {
+                    db.get('SELECT username, password FROM local_domains WHERE domain = ? OR domain = ?', [domain, domain.replace('https://', '').replace('http://', '')], (err, row) => resolve(row));
+                });
+                if (saved && saved.username && saved.password) {
+                    authHeader = buildWpAuthHeader(saved.username, saved.password);
+                }
+            }
+
+            const queryParams = new URLSearchParams();
+            queryParams.append('page', String(page));
+            queryParams.append('per_page', String(per_page));
+            queryParams.append('_embed', 'true');
+
+            if (Object.keys(authHeader).length > 0) {
+                queryParams.append('context', 'edit');
+                if (status) {
+                    if (Array.isArray(status)) {
+                        status.forEach(s => queryParams.append('status[]', s));
+                    } else {
+                        queryParams.append('status', status);
+                    }
+                } else {
+                    ['publish', 'draft', 'pending'].forEach(s => queryParams.append('status[]', s));
+                }
+            }
+
+            if (keyword && keyword.trim()) {
+                queryParams.append('search', keyword.trim());
+            }
+            if (category) {
+                queryParams.append('categories', String(category));
+            }
+
+            const apiUrl = `${domain}/wp-json/wp/v2/posts?${queryParams.toString()}`;
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                ...authHeader
+            };
+
+            let resp = await fetch(apiUrl, { method: 'GET', headers });
+            if (!resp.ok && Object.keys(authHeader).length > 0) {
+                // Nếu xác thực thất bại hoặc quyền status bị cấm (HTTP 400/401/403), tự động fallback sang lấy danh sách public
+                const fallbackParams = new URLSearchParams();
+                fallbackParams.append('page', String(page));
+                fallbackParams.append('per_page', String(per_page));
+                fallbackParams.append('_embed', 'true');
+                if (keyword && keyword.trim()) fallbackParams.append('search', keyword.trim());
+                if (category) fallbackParams.append('categories', String(category));
+                const fallbackUrl = `${domain}/wp-json/wp/v2/posts?${fallbackParams.toString()}`;
+                resp = await fetch(fallbackUrl, {
+                    method: 'GET',
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0' }
+                });
+            }
+            if (!resp.ok) {
+                return { success: false, error: `WordPress phản hồi HTTP ${resp.status}`, data: [] };
+            }
+            const data = await resp.json();
+            return { success: true, data: Array.isArray(data) ? data : [] };
+        } catch (error) {
+            console.error('[wp:posts] Lỗi:', error);
+            return { success: false, error: error.message, data: [] };
+        }
+    });
+
+    // 3. Cập nhật bài viết WordPress trực tiếp từ Local
+    ipcMain.handle('wp:update-post', async (event, payload) => {
+        try {
+            let { domain, id, wp_post_id, post_id, username, password, apppass, status, title, content, excerpt, featured_media } = payload || {};
+            const targetId = id || wp_post_id || post_id;
+            if (!domain || !targetId) return { success: false, error: 'Thiếu domain hoặc post id' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            let effectivePass = apppass || password;
+            let effectiveUser = username;
+            if (!effectiveUser || !effectivePass) {
+                const cleanHost = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                const db = getArticlesDatabase();
+                const saved = await new Promise((resolve) => {
+                    db.get(
+                        `SELECT username, password FROM local_domains 
+                         WHERE domain = ? OR domain = ? OR domain LIKE ? OR domain LIKE ? 
+                         LIMIT 1`,
+                        [domain, cleanHost, `%${cleanHost}%`, `%${cleanHost.replace(/^www\./, '')}%`],
+                        (err, row) => resolve(row)
+                    );
+                });
+                if (saved) {
+                    effectiveUser = effectiveUser || saved.username;
+                    effectivePass = effectivePass || saved.password;
+                }
+            }
+
+            const authHeader = buildWpAuthHeader(effectiveUser, effectivePass);
+            if (!authHeader.Authorization) {
+                return { success: false, error: 'Không tìm thấy tài khoản/mật khẩu ứng dụng WordPress hợp lệ để cập nhật bài viết.' };
+            }
+
+            const bodyData = {};
+            if (status) bodyData.status = status;
+            if (title) bodyData.title = title;
+            if (content) bodyData.content = content;
+            if (excerpt) bodyData.excerpt = excerpt;
+            if (featured_media) bodyData.featured_media = featured_media;
+
+            const apiUrl = `${domain}/wp-json/wp/v2/posts/${targetId}`;
+            const resp = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                    ...authHeader
+                },
+                body: JSON.stringify(bodyData)
+            });
+
+            if (!resp.ok) {
+                const errText = await resp.text();
+                return { success: false, error: `WordPress từ chối cập nhật bài (HTTP ${resp.status}): ${errText}` };
+            }
+
+            const resData = await resp.json();
+            return { success: true, data: resData, id: targetId };
+        } catch (error) {
+            console.error('[wp:update-post] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 4. Tạo bài viết WordPress trực tiếp từ Local
+    ipcMain.handle('wp:create-post', async (event, payload) => {
+        try {
+            let { domain, username, password, apppass, status = 'publish', title, content, excerpt, featured_media, categories, tags } = payload || {};
+            if (!domain || !title) return { success: false, error: 'Thiếu domain hoặc tiêu đề bài viết' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            let effectivePass = apppass || password;
+            let effectiveUser = username;
+            if (!effectiveUser || !effectivePass) {
+                const db = getArticlesDatabase();
+                const saved = await new Promise((resolve) => {
+                    db.get('SELECT username, password FROM local_domains WHERE domain = ? OR domain = ?', [domain, domain.replace('https://', '').replace('http://', '')], (err, row) => resolve(row));
+                });
+                if (saved) {
+                    effectiveUser = effectiveUser || saved.username;
+                    effectivePass = effectivePass || saved.password;
+                }
+            }
+
+            const authHeader = buildWpAuthHeader(effectiveUser, effectivePass);
+            if (!authHeader.Authorization) {
+                return { success: false, error: 'Không tìm thấy tài khoản/mật khẩu ứng dụng WordPress để đăng bài.' };
+            }
+
+            const bodyData = {
+                title: title,
+                content: content || '',
+                status: status
+            };
+            if (excerpt) bodyData.excerpt = excerpt;
+            if (featured_media) bodyData.featured_media = featured_media;
+            if (categories) bodyData.categories = categories;
+            if (tags) bodyData.tags = tags;
+
+            const apiUrl = `${domain}/wp-json/wp/v2/posts`;
+            const resp = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                    ...authHeader
+                },
+                body: JSON.stringify(bodyData)
+            });
+
+            if (!resp.ok) {
+                const errText = await resp.text();
+                return { success: false, error: `WordPress từ chối đăng bài (HTTP ${resp.status}): ${errText}` };
+            }
+
+            const resData = await resp.json();
+            return { success: true, data: resData, id: resData.id };
+        } catch (error) {
+            console.error('[wp:create-post] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 5. Xóa bài viết WordPress trực tiếp từ Local
+    ipcMain.handle('wp:delete-post', async (event, payload) => {
+        try {
+            let { domain, id, wp_post_id, post_id, username, password, apppass, force = false } = payload || {};
+            const targetId = id || wp_post_id || post_id;
+            if (!domain || !targetId) return { success: false, error: 'Thiếu domain hoặc post id' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            let effectivePass = apppass || password;
+            let effectiveUser = username;
+            if (!effectiveUser || !effectivePass) {
+                const db = getArticlesDatabase();
+                const saved = await new Promise((resolve) => {
+                    db.get('SELECT username, password FROM local_domains WHERE domain = ? OR domain = ?', [domain, domain.replace('https://', '').replace('http://', '')], (err, row) => resolve(row));
+                });
+                if (saved) {
+                    effectiveUser = effectiveUser || saved.username;
+                    effectivePass = effectivePass || saved.password;
+                }
+            }
+
+            const authHeader = buildWpAuthHeader(effectiveUser, effectivePass);
+            const apiUrl = `${domain}/wp-json/wp/v2/posts/${targetId}?force=${force ? 'true' : 'false'}`;
+            const resp = await fetch(apiUrl, {
+                method: 'DELETE',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                    ...authHeader
+                }
+            });
+
+            if (!resp.ok) {
+                const errText = await resp.text();
+                return { success: false, error: `WordPress từ chối xóa bài (HTTP ${resp.status}): ${errText}` };
+            }
+
+            const resData = await resp.json();
+            return { success: true, data: resData, id: targetId };
+        } catch (error) {
+            console.error('[wp:delete-post] Lỗi:', error);
             return { success: false, error: error.message };
         }
     });

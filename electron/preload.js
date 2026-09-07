@@ -132,6 +132,13 @@ contextBridge.exposeInMainWorld('electron', {
     saveLocalNode: (payload) => ipcRenderer.invoke('save-local-node', payload),
     getLocalNodeDetails: (payload) => ipcRenderer.invoke('get-local-node-details', payload),
 
+    // ===== WORDPRESS DIRECT LOCAL PROXY =====
+    wpCategories: (payload) => ipcRenderer.invoke('wp:categories', payload),
+    wpPosts: (payload) => ipcRenderer.invoke('wp:posts', payload),
+    wpUpdatePost: (payload) => ipcRenderer.invoke('wp:update-post', payload),
+    wpCreatePost: (payload) => ipcRenderer.invoke('wp:create-post', payload),
+    wpDeletePost: (payload) => ipcRenderer.invoke('wp:delete-post', payload),
+
     // ===== PROFILE SCENE (đọc/ghi file trực tiếp, không qua HTTP) =====
 
     // ── Profile tổng hợp ──

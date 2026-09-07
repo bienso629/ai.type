@@ -1,10 +1,11 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation, TemplateRef } from '@angular/core';
 import { DomSanitizer, Title } from '@angular/platform-browser';
 import { FuseConfigService } from '@fuse/services/config/config.service';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { Clipboard } from '@angular/cdk/clipboard';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 
 import { ColumnMode } from '@swimlane/ngx-datatable';
 import { WP2MDService } from 'app/_services/wp2md';
@@ -32,6 +33,9 @@ export class SitemapComponent implements OnInit, OnDestroy {
     isLinear = false;
 
     @ViewChild('stepper') stepper: any;
+    @ViewChild('domainConfigDialogTemplate') domainConfigDialogTemplate: TemplateRef<any>;
+    domainConfigDialogRef: MatDialogRef<any>;
+    configDomainData: any = { domain: '', username: '', password: '', _showPassword: false };
 
     editing = {};
     rows = [];
@@ -48,6 +52,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
     keyword: string = '';
     categories: any[] = [];
     selectedCategory: any = '';
+    selectedStatus: string = 'all'; // 'all' (cả publish và draft), 'publish', 'draft'
 
     compareDomainFn(d1: any, d2: any): boolean {
         if (!d1 || !d2) return d1 === d2;
@@ -109,14 +114,14 @@ export class SitemapComponent implements OnInit, OnDestroy {
             sys_username: this.selectedDomain.sys_username,
             year: this.selectedDomain.year,
             page: this.page,
+            per_page: 20,
             username: username,
             apppass: apppass
         };
         
-        if (username && apppass) {
-            queryPayload.status = ['publish', 'draft', 'pending'];
-            queryPayload.context = 'edit';
-        }
+        // Luôn luôn lấy tất cả các trạng thái bài viết (publish, draft, pending)
+        queryPayload.status = ['publish', 'draft', 'pending'];
+        queryPayload.context = 'edit';
         
         if (this.keyword && this.keyword.trim() !== '') {
             queryPayload.keyword = this.keyword.trim();
@@ -132,7 +137,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
             next: (result: any) => {
                 this.loadingPosts = false;
                 if (result && Array.isArray(result)) {
-                    if (result.length < 100) {
+                    if (result.length < 20) {
                         this.hasMorePosts = false;
                     }
                     const newPosts = result.map((doc: any) => ({
@@ -151,7 +156,10 @@ export class SitemapComponent implements OnInit, OnDestroy {
                     if (reset) {
                         this.posts = newPosts;
                     } else {
-                        this.posts = [...this.posts, ...newPosts];
+                        // Loại bỏ trùng lặp id khi phân trang
+                        const existingIds = new Set(this.posts.map(p => p.id));
+                        const uniqueNew = newPosts.filter((p: any) => !existingIds.has(p.id));
+                        this.posts = [...this.posts, ...uniqueNew];
                     }
                 } else {
                     this.hasMorePosts = false;
@@ -171,15 +179,23 @@ export class SitemapComponent implements OnInit, OnDestroy {
         });
     }
 
+    loadMorePosts() {
+        if (!this.loadingPosts && this.hasMorePosts) {
+            this.page++;
+            this.fetchPosts(false);
+        }
+    }
+
     onScroll(event: any) {
+        if (!event) return;
         const rowHeight = 50;
         const totalHeight = this.posts.length * rowHeight;
+        // ngx-datatable emit event có cấu trúc { offsetY, scrollX }
+        const offsetY = event.offsetY !== undefined ? event.offsetY : (event.target ? event.target.scrollTop : 0);
         
-        if (event.offsetY > 0 && event.offsetY >= totalHeight - 1000) {
-            if (!this.loadingPosts && this.hasMorePosts) {
-                this.page++;
-                this.fetchPosts(false);
-            }
+        // Khi cuộn tới gần đáy (còn cách đáy dưới 600px) thì tự động load tiếp trang sau
+        if (offsetY > 0 && (offsetY + 700 >= totalHeight || offsetY >= totalHeight - 600)) {
+            this.loadMorePosts();
         }
     }
 
@@ -263,24 +279,41 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
         try {
             const results = await Promise.all(publishTasks);
-            const successCount = results.filter(r => r).length;
-            this.toastr.success(`Đã publish thành công ${successCount} bài viết!`);
-            
-            const updatedIds = postsToPublish.map(p => p.id);
-            this.posts = this.posts.map(p => {
-                if (updatedIds.includes(p.id)) {
-                    return { ...p, status: 'publish' };
+            const successfulPosts: any[] = [];
+            const failedErrors: string[] = [];
+
+            results.forEach((r, idx) => {
+                if (r && r.success === false) {
+                    failedErrors.push(r.error || 'Thất bại');
+                } else if (r && (r.id || r.status === 'publish' || r.data)) {
+                    successfulPosts.push(postsToPublish[idx]);
+                } else if (!r) {
+                    failedErrors.push('Không nhận được phản hồi từ WordPress');
                 }
-                return p;
             });
-            this.posts = [...this.posts]; // trigger change detection
+
+            if (successfulPosts.length > 0) {
+                this.toastr.success(`Đã publish thành công ${successfulPosts.length} bài viết!`);
+                const updatedIds = successfulPosts.map(p => p.id);
+                this.posts = this.posts.map(p => {
+                    if (updatedIds.includes(p.id)) {
+                        return { ...p, status: 'publish' };
+                    }
+                    return p;
+                });
+                this.posts = [...this.posts];
+            }
+
+            if (failedErrors.length > 0) {
+                this.toastr.error(`Lỗi publish (${failedErrors.length} bài): ${failedErrors[0]}`);
+            }
 
             this.selected = [];
             this.loadingPosts = false;
             this.cd.detectChanges();
         } catch (err) {
             console.error(err);
-            this.toastr.error('Có lỗi xảy ra khi publish bài viết');
+            this.toastr.error('Có lỗi xảy ra khi publish bài viết: ' + (err?.message || err));
             this.loadingPosts = false;
             this.cd.detectChanges();
         }
@@ -334,24 +367,41 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
         try {
             const results = await Promise.all(unpublishTasks);
-            const successCount = results.filter(r => r).length;
-            this.toastr.success(`Đã unpublish thành công ${successCount} bài viết!`);
-            
-            const updatedIds = postsToUnpublish.map(p => p.id);
-            this.posts = this.posts.map(p => {
-                if (updatedIds.includes(p.id)) {
-                    return { ...p, status: 'draft' };
+            const successfulPosts: any[] = [];
+            const failedErrors: string[] = [];
+
+            results.forEach((r, idx) => {
+                if (r && r.success === false) {
+                    failedErrors.push(r.error || 'Thất bại');
+                } else if (r && (r.id || r.status === 'draft' || r.data)) {
+                    successfulPosts.push(postsToUnpublish[idx]);
+                } else if (!r) {
+                    failedErrors.push('Không nhận được phản hồi từ WordPress');
                 }
-                return p;
             });
-            this.posts = [...this.posts]; // trigger change detection
+
+            if (successfulPosts.length > 0) {
+                this.toastr.success(`Đã unpublish thành công ${successfulPosts.length} bài viết!`);
+                const updatedIds = successfulPosts.map(p => p.id);
+                this.posts = this.posts.map(p => {
+                    if (updatedIds.includes(p.id)) {
+                        return { ...p, status: 'draft' };
+                    }
+                    return p;
+                });
+                this.posts = [...this.posts];
+            }
+
+            if (failedErrors.length > 0) {
+                this.toastr.error(`Lỗi unpublish (${failedErrors.length} bài): ${failedErrors[0]}`);
+            }
 
             this.selected = [];
             this.loadingPosts = false;
             this.cd.detectChanges();
         } catch (err) {
             console.error(err);
-            this.toastr.error('Có lỗi xảy ra khi unpublish bài viết');
+            this.toastr.error('Có lỗi xảy ra khi unpublish bài viết: ' + (err?.message || err));
             this.loadingPosts = false;
             this.cd.detectChanges();
         }
@@ -584,7 +634,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private _fuseConfigService: FuseConfigService,
-        private _crawlService: CrawlService
+        private _crawlService: CrawlService,
+        private _dialog: MatDialog
     ) {
         this.titleService.setTitle(`wordpress importer | ai.type - công cụ tạo content`);
 
@@ -669,5 +720,81 @@ export class SitemapComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe((_) => {
             this.router.navigate(['/tools']);
         });
+    }
+
+    openDomainConfigDialog() {
+        if (!this.selectedDomain) return;
+        this.configDomainData = {
+            domain: this.selectedDomain.domain,
+            username: this.selectedDomain.username || this.selectedDomain.wp_username || '',
+            password: this.selectedDomain.password || this.selectedDomain.wp_password || '',
+            _showPassword: false
+        };
+        this.domainConfigDialogRef = this._dialog.open(this.domainConfigDialogTemplate, {
+            width: '480px',
+            disableClose: false
+        });
+    }
+
+    async saveDomainConfig() {
+        if (!this.configDomainData || !this.configDomainData.domain) return;
+        
+        const username = (this.configDomainData.username || '').trim();
+        const password = (this.configDomainData.password || '').trim();
+        
+        const payload = {
+            ...this.selectedDomain,
+            domain: this.configDomainData.domain,
+            username: username,
+            password: password
+        };
+
+        const electron = (window as any).electron;
+        if (electron && electron.saveLocalDomain) {
+            try {
+                const res = await electron.saveLocalDomain(payload);
+                if (res && res.success) {
+                    this.toastr.success('Đã lưu cấu hình tài khoản WordPress thành công!');
+                    this.selectedDomain.username = username;
+                    this.selectedDomain.password = password;
+                    this.selectedDomain.wp_username = username;
+                    this.selectedDomain.wp_password = password;
+
+                    // Cập nhật lại trong danh sách domains
+                    const targetDomain = this.domains.find(d => this.compareDomainFn(d, this.selectedDomain));
+                    if (targetDomain) {
+                        targetDomain.username = username;
+                        targetDomain.password = password;
+                        targetDomain.wp_username = username;
+                        targetDomain.wp_password = password;
+                    }
+
+                    if (this.domainConfigDialogRef) {
+                        this.domainConfigDialogRef.close();
+                    }
+                    this.cd.markForCheck();
+                    return;
+                } else {
+                    this.toastr.error('Lỗi khi lưu: ' + (res?.error || 'Không xác định'));
+                }
+            } catch (err) {
+                this.toastr.error('Lỗi khi lưu: ' + (err?.message || err));
+            }
+        } else {
+            this._domainService.edit(payload).subscribe({
+                next: (res: any) => {
+                    this.toastr.success('Đã lưu cấu hình tài khoản WordPress thành công!');
+                    this.selectedDomain.username = username;
+                    this.selectedDomain.password = password;
+                    if (this.domainConfigDialogRef) {
+                        this.domainConfigDialogRef.close();
+                    }
+                    this.cd.markForCheck();
+                },
+                error: (err) => {
+                    this.toastr.error('Lỗi khi lưu cấu hình: ' + (err?.message || err));
+                }
+            });
+        }
     }
 }
