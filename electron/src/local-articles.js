@@ -2111,7 +2111,7 @@ function registerLocalArticlesHandlers() {
                         queryParams.append('status', status);
                     }
                 } else {
-                    ['publish', 'draft', 'pending'].forEach(s => queryParams.append('status[]', s));
+                    ['publish', 'draft', 'pending', 'trash'].forEach(s => queryParams.append('status[]', s));
                 }
             }
 

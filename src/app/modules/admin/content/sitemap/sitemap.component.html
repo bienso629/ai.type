@@ -51,7 +51,7 @@
             </mat-form-field>
 
 
-            <!-- Domain Select & Config -->
+            <!-- Domain Select -->
             <div class="flex items-center gap-1.5" *ngIf="domains && domains.length > 0">
                 <mat-form-field class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                     <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
@@ -62,20 +62,15 @@
                         </ng-container>
                     </mat-select>
                 </mat-form-field>
-                <button mat-icon-button (click)="openDomainConfigDialog()" [matTooltip]="(selectedDomain?.password ? 'Cập nhật tài khoản kết nối WordPress' : 'Chưa cấu hình tài khoản WordPress!')"
-                    [ngClass]="{'text-amber-500 bg-amber-50 dark:bg-amber-900/30': !selectedDomain?.password, 'text-gray-500 hover:text-gray-700': !!selectedDomain?.password}"
-                    class="rounded-full flex items-center justify-center">
-                    <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:cog'"></mat-icon>
-                </button>
             </div>
 
         </div>
     </div>
 
     <!-- Main -->
-    <div class="flex-auto overflow-y-auto relative" cdkScrollable>
+    <div class="flex-auto overflow-hidden relative">
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [appScrollLock]="loadingPosts" [virtualization]="true" class="material fullscreen transition-opacity duration-300"
+        <ngx-datatable #table [virtualization]="true" class="material fullscreen transition-opacity duration-300"
             [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
             [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)"
             (scroll)="onScroll($event)">
@@ -87,10 +82,10 @@
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-center w-full h-full">
                         <img *ngIf="row.thumbnail" [src]="row.thumbnail" class="object-cover w-8 h-8 shadow-sm"
-                             [ngClass]="{'grayscale': row.status === 'pending', 'ring-2 ring-yellow-400': row.status === 'draft'}">
+                             [ngClass]="{'grayscale opacity-50': row.status === 'trash', 'grayscale': row.status === 'pending', 'ring-2 ring-yellow-400': row.status === 'draft'}">
                         <div *ngIf="!row.thumbnail" class="flex items-center justify-center w-8 h-8 shadow-sm"
-                             [ngClass]="{'bg-gray-300': row.status === 'pending', 'bg-yellow-100': row.status === 'draft', 'bg-gray-100': row.status !== 'pending' && row.status !== 'draft'}">
-                            <mat-icon class="icon-size-4 text-gray-400" [svgIcon]="'feather:image'"></mat-icon>
+                             [ngClass]="{'bg-red-100': row.status === 'trash', 'bg-gray-300': row.status === 'pending', 'bg-yellow-100': row.status === 'draft', 'bg-gray-100': row.status !== 'pending' && row.status !== 'draft' && row.status !== 'trash'}">
+                            <mat-icon class="icon-size-4" [ngClass]="row.status === 'trash' ? 'text-red-400' : 'text-gray-400'" [svgIcon]="row.status === 'trash' ? 'feather:trash' : 'feather:image'"></mat-icon>
                         </div>
                     </div>
                 </ng-template>
@@ -99,8 +94,9 @@
             <ngx-datatable-column [name]="'app.title' | transloco" prop="title" [width]="500" [sortable]="true" [canAutoResize]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center w-full">
+                        <span *ngIf="row.status === 'trash'" class="mr-2 px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 rounded">TRASH</span>
                         <p class="font-normal truncate hover:text-clip" 
-                           [ngClass]="{'text-gray-400': row.status === 'pending', 'text-yellow-600': row.status === 'draft'}"
+                           [ngClass]="{'text-red-500 line-through': row.status === 'trash', 'text-gray-400': row.status === 'pending', 'text-yellow-600': row.status === 'draft'}"
                            [innerHTML]="row?.title"></p>
                         <button mat-icon-button (click)="editPost(row)" [matTooltip]="'app.edit_post' | transloco"
                             class="flex items-center justify-center ml-2 transition-colors shrink-0">
@@ -117,9 +113,10 @@
                         <a [href]="row.link" target="_blank"
                             class="h-7 leading-7 px-3 text-white rounded-full text-sm font-semibold truncate hover:text-clip"
                             [ngClass]="{
+                                'bg-red-500 hover:bg-red-600 line-through opacity-80': row.status === 'trash',
                                 'bg-gray-400 hover:bg-gray-500': row.status === 'pending',
                                 'bg-yellow-500 hover:bg-yellow-600': row.status === 'draft',
-                                'bg-blue-500 hover:bg-blue-600': row.status !== 'pending' && row.status !== 'draft'
+                                'bg-blue-500 hover:bg-blue-600': row.status !== 'pending' && row.status !== 'draft' && row.status !== 'trash'
                             }">
                             {{row.link}}
                         </a>
@@ -132,9 +129,10 @@
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-end w-full">
                         <span [ngClass]="{
+                            'text-red-500': row.status === 'trash',
                             'text-gray-400': row.status === 'pending',
                             'text-yellow-600': row.status === 'draft',
-                            'text-gray-500': row.status !== 'pending' && row.status !== 'draft'
+                            'text-gray-500': row.status !== 'pending' && row.status !== 'draft' && row.status !== 'trash'
                         }">{{ row?.date | date:'short' }}</span>
                     </div>
                 </ng-template>
@@ -149,11 +147,6 @@
                             <div class="page-count text-sm font-medium">
                                 {{ 'app.selected_posts_count' | transloco:{selected: (selectedCount ? selectedCount.toLocaleString() : 0), total: (rowCount ? rowCount.toLocaleString() : 0)} }}
                             </div>
-                            <button mat-stroked-button *ngIf="hasMorePosts" [disabled]="loadingPosts" (click)="loadMorePosts()" class="h-8 px-3 text-xs">
-                                <mat-icon *ngIf="!loadingPosts" class="icon-size-3.5 mr-1" [svgIcon]="'heroicons_outline:arrow-down'"></mat-icon>
-                                <span *ngIf="!loadingPosts">Tải thêm bài (Load more)</span>
-                                <span *ngIf="loadingPosts">Đang tải...</span>
-                            </button>
                         </div>
                         <div class="flex items-center ml-4 space-x-2">
                             <button mat-flat-button class="bg-yellow-500 text-white" *ngIf="canUnpublish" (click)="unpublishSelectedPosts()">

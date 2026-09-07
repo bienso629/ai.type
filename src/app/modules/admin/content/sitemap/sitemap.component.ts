@@ -7,13 +7,14 @@ import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 
-import { ColumnMode } from '@swimlane/ngx-datatable';
+import { ColumnMode, DatatableComponent } from '@swimlane/ngx-datatable';
 import { WP2MDService } from 'app/_services/wp2md';
 import { DomainService } from 'app/_services/domain';
 import { WordpressService } from 'app/_services/wordpress';
 import { CrawlService } from 'app/_services/crawl';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { FuseLoadingService } from '@fuse/services/loading';
 import { Router } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 
@@ -33,6 +34,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
     isLinear = false;
 
     @ViewChild('stepper') stepper: any;
+    @ViewChild('table') table: DatatableComponent;
     @ViewChild('domainConfigDialogTemplate') domainConfigDialogTemplate: TemplateRef<any>;
     domainConfigDialogRef: MatDialogRef<any>;
     configDomainData: any = { domain: '', username: '', password: '', _showPassword: false };
@@ -77,7 +79,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
     }
 
     onSelect({ selected }: any) {
-        this.selected = [...selected];
+        this.selected = Array.isArray(selected) ? selected.filter(p => !!p && typeof p === 'object') : [];
     }
 
     page: number = 1;
@@ -96,6 +98,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
         if (!this.hasMorePosts || this.loadingPosts) return;
 
         this.loadingPosts = true;
+        this._fuseLoadingService.show();
         this.cd.markForCheck();
         
         let hostname = '';
@@ -119,8 +122,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
             apppass: apppass
         };
         
-        // Luôn luôn lấy tất cả các trạng thái bài viết (publish, draft, pending)
-        queryPayload.status = ['publish', 'draft', 'pending'];
+        // Luôn luôn lấy tất cả các trạng thái bài viết (publish, draft, pending, trash)
+        queryPayload.status = ['publish', 'draft', 'pending', 'trash'];
         queryPayload.context = 'edit';
         
         if (this.keyword && this.keyword.trim() !== '') {
@@ -136,6 +139,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
         .subscribe({
             next: (result: any) => {
                 this.loadingPosts = false;
+                this._fuseLoadingService.hide();
                 if (result && Array.isArray(result)) {
                     if (result.length < 20) {
                         this.hasMorePosts = false;
@@ -168,9 +172,15 @@ export class SitemapComponent implements OnInit, OnDestroy {
                     }
                 }
                 this.cd.markForCheck();
+                setTimeout(() => {
+                    if (this.table && typeof this.table.recalculate === 'function') {
+                        this.table.recalculate();
+                    }
+                }, 100);
             },
             error: () => {
                 this.loadingPosts = false;
+                this._fuseLoadingService.hide();
                 if (reset) {
                     this.posts = [];
                 }
@@ -188,13 +198,14 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
     onScroll(event: any) {
         if (!event) return;
-        const rowHeight = 50;
-        const totalHeight = this.posts.length * rowHeight;
-        // ngx-datatable emit event có cấu trúc { offsetY, scrollX }
-        const offsetY = event.offsetY !== undefined ? event.offsetY : (event.target ? event.target.scrollTop : 0);
+        const dtBody = document.querySelector('.datatable-body');
+        const scrollHeight = dtBody ? dtBody.scrollHeight : (this.posts.length * 50);
+        const clientHeight = dtBody ? dtBody.clientHeight : 700;
+        const offsetY = event.offsetY !== undefined ? event.offsetY : (event.target ? event.target.scrollTop : (dtBody ? dtBody.scrollTop : 0));
         
-        // Khi cuộn tới gần đáy (còn cách đáy dưới 600px) thì tự động load tiếp trang sau
-        if (offsetY > 0 && (offsetY + 700 >= totalHeight || offsetY >= totalHeight - 600)) {
+        // Kích hoạt loadmore khi cuộn xuống gần cuối danh sách (cách đáy dưới 350px hoặc vượt qua 50% nội dung có thể cuộn)
+        const maxScroll = scrollHeight - clientHeight;
+        if (offsetY > 30 && (offsetY + 350 >= maxScroll || (maxScroll > 0 && offsetY >= maxScroll * 0.5))) {
             this.loadMorePosts();
         }
     }
@@ -250,7 +261,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
     async publishSelectedPosts() {
         if (!this.selected || this.selected.length === 0) return;
         
-        const postsToPublish = this.selected.filter(post => post.status !== 'publish');
+        const validSelected = this.selected.filter(p => !!p && p.id);
+        const postsToPublish = validSelected.filter(post => post.status !== 'publish');
         
         if (postsToPublish.length === 0) {
             this.toastr.info('Tất cả bài viết đã được publish!');
@@ -305,7 +317,12 @@ export class SitemapComponent implements OnInit, OnDestroy {
             }
 
             if (failedErrors.length > 0) {
-                this.toastr.error(`Lỗi publish (${failedErrors.length} bài): ${failedErrors[0]}`);
+                const firstErr = failedErrors[0];
+                if (firstErr.includes('401') || firstErr.includes('not allowed to edit') || firstErr.includes('rest_cannot_edit')) {
+                    this.toastr.error(`WordPress từ chối (401): Mật khẩu ứng dụng chưa đúng hoặc tài khoản không có quyền sửa bài viết trên domain này!`, 'Lỗi xác thực', { timeOut: 7000 });
+                } else {
+                    this.toastr.error(`Lỗi publish (${failedErrors.length} bài): ${firstErr}`);
+                }
             }
 
             this.selected = [];
@@ -322,23 +339,24 @@ export class SitemapComponent implements OnInit, OnDestroy {
     get canPublish(): boolean {
         if (!this.selected || this.selected.length === 0) return false;
         // Show publish if ANY selected item is draft or pending
-        return this.selected.some(post => post.status === 'draft' || post.status === 'pending');
+        return this.selected.some(post => post && (post.status === 'draft' || post.status === 'pending'));
     }
 
     get canUnpublish(): boolean {
         if (!this.selected || this.selected.length === 0) return false;
         // Show unpublish if ANY selected item is publish
-        return this.selected.some(post => post.status === 'publish');
+        return this.selected.some(post => post && post.status === 'publish');
     }
 
     get canDelete(): boolean {
-        return this.selected && this.selected.length > 0;
+        return this.selected && this.selected.length > 0 && this.selected.some(post => !!post);
     }
 
     async unpublishSelectedPosts() {
         if (!this.selected || this.selected.length === 0) return;
         
-        const postsToUnpublish = this.selected.filter(post => post.status !== 'draft');
+        const validSelected = this.selected.filter(p => !!p && p.id);
+        const postsToUnpublish = validSelected.filter(post => post.status !== 'draft');
         
         if (postsToUnpublish.length === 0) {
             this.toastr.info('Tất cả bài viết đã ở trạng thái draft!');
@@ -393,7 +411,12 @@ export class SitemapComponent implements OnInit, OnDestroy {
             }
 
             if (failedErrors.length > 0) {
-                this.toastr.error(`Lỗi unpublish (${failedErrors.length} bài): ${failedErrors[0]}`);
+                const firstErr = failedErrors[0];
+                if (firstErr.includes('401') || firstErr.includes('not allowed to edit') || firstErr.includes('rest_cannot_edit')) {
+                    this.toastr.error(`WordPress từ chối (401): Mật khẩu ứng dụng chưa đúng hoặc tài khoản không có quyền sửa bài viết trên domain này!`, 'Lỗi xác thực', { timeOut: 7000 });
+                } else {
+                    this.toastr.error(`Lỗi unpublish (${failedErrors.length} bài): ${firstErr}`);
+                }
             }
 
             this.selected = [];
@@ -635,7 +658,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
         private router: Router,
         private _fuseConfigService: FuseConfigService,
         private _crawlService: CrawlService,
-        private _dialog: MatDialog
+        private _dialog: MatDialog,
+        private _fuseLoadingService: FuseLoadingService
     ) {
         this.titleService.setTitle(`wordpress importer | ai.type - công cụ tạo content`);
 
