@@ -8,7 +8,7 @@ import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
 import { Observable, Subject, of, from } from 'rxjs';
-import { catchError, tap, map, takeUntil } from 'rxjs/operators';
+import { catchError, tap, map, takeUntil, switchMap } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
 let options = {
@@ -51,13 +51,75 @@ export class DomainService {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
-            if (electron && electron.listLocalDomains) {
-                return from(electron.listLocalDomains()).pipe(
-                    map((result: any) => result),
-                    catchError(this.handleError('listLocalDomains', { success: false, data: [] }))
-                );
+            const localObs = (electron && electron.listLocalDomains)
+                ? from(electron.listLocalDomains()).pipe(
+                    map((result: any) => (result && result.success && Array.isArray(result.data)) ? result.data : []),
+                    catchError(() => of([]))
+                )
+                : of([]);
+
+            // Thử lấy danh sách domain chuẩn từ Server API (có _id và cấu hình server)
+            let serverObs: Observable<any[]> = of([]);
+            try {
+                let activeInfo = this.multiAccountService.getItem('active_info');
+                if (activeInfo) {
+                    activeInfo = AuthUtils._getActiveInfo(activeInfo);
+                    if (activeInfo && activeInfo['user'] && activeInfo['user']['appToken'] && this.config && this.user) {
+                        const serverPayload = {
+                            year: 2023,
+                            appId: 'ai.typing',
+                            appToken: activeInfo['user']['appToken'],
+                            username: this.user.name
+                        };
+                        const url = `${this.config.settings.api[this.user.server]}/domain/all`;
+                        const data = {
+                            params: this._h.encrypt(serverPayload, this.config.settings.gen)
+                        };
+                        serverObs = this.http.post<any>(url, data, options).pipe(
+                            map(res => (res && res.success && Array.isArray(res.data)) ? res.data : []),
+                            catchError(() => of([]))
+                        );
+                    }
+                }
+            } catch (e) {
+                serverObs = of([]);
             }
-            return of({ success: true, data: [] });
+
+            return serverObs.pipe(
+                switchMap(serverDomains => localObs.pipe(
+                    map(localDomains => {
+                        const domainMap = new Map();
+                        
+                        // 1. Nạp domains từ Server trước (có đầy đủ _id chuẩn)
+                        for (const sd of serverDomains) {
+                            const clean = (sd.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].toLowerCase();
+                            if (clean) {
+                                domainMap.set(clean, { ...sd });
+                            }
+                        }
+
+                        // 2. Ghi đè/bổ sung từ Local SQLite (nếu local có password thật được cấu hình)
+                        for (const ld of localDomains) {
+                            const clean = (ld.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].toLowerCase();
+                            if (clean) {
+                                const existing = domainMap.get(clean) || {};
+                                domainMap.set(clean, {
+                                    ...existing,
+                                    ...ld,
+                                    _id: existing._id || existing.id || ld._id || ld.id,
+                                    // Ưu tiên password local nếu đã nhập, ngược lại giữ của server
+                                    password: ld.password || existing.password || '',
+                                    username: ld.username || existing.username || ''
+                                });
+                            }
+                        }
+
+                        const merged = Array.from(domainMap.values());
+                        return { success: true, data: merged.length > 0 ? merged : localDomains };
+                    })
+                )),
+                catchError(this.handleError('fetchMergedDomains', { success: false, data: [] }))
+            );
         }
 
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
