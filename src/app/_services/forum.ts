@@ -7,7 +7,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
-import { Observable, Subject, of } from 'rxjs';
+import { Observable, Subject, of, from } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 
 let options = {
@@ -159,6 +159,15 @@ export class ForumService {
     }
 
     public createTopic(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.createLocalForumTopic) {
+            return from(electron.createLocalForumTopic(dataForm)).pipe(
+                map(data => data),
+                catchError(this.handleError('createLocalForumTopic', { success: true }))
+            );
+        }
+
         const url = `${this.config.settings.api[this.user.server]}/forum/topic/create/${dataForm._uid}`;
 
         let data = {
@@ -177,6 +186,26 @@ export class ForumService {
     }
 
     public category(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.listLocalForumCategories) {
+            return from(electron.listLocalForumCategories(dataForm)).pipe(
+                map(data => data),
+                catchError(this.handleError('listLocalForumCategories', {
+                    success: true,
+                    data: {
+                        response: {
+                            categories: [
+                                { cid: 1, name: 'Chung (General)', slug: 'general' },
+                                { cid: 2, name: 'Hỏi đáp & Trợ giúp', slug: 'hoi-dap' },
+                                { cid: 3, name: 'Chia sẻ kiến thức & Bài viết', slug: 'chia-se' }
+                            ]
+                        }
+                    }
+                }))
+            );
+        }
+
         const url = `${this.config.settings.api[this.user.server]}/forum/category/${dataForm._uid}`;
 
         let data = {

@@ -131,6 +131,11 @@ contextBridge.exposeInMainWorld('electron', {
     getLocalNodesTotal: (payload) => ipcRenderer.invoke('get-local-nodes-total', payload),
     saveLocalNode: (payload) => ipcRenderer.invoke('save-local-node', payload),
     getLocalNodeDetails: (payload) => ipcRenderer.invoke('get-local-node-details', payload),
+    listLocalComments: (payload) => ipcRenderer.invoke('list-local-comments', payload),
+    saveLocalComment: (payload) => ipcRenderer.invoke('save-local-comment', payload),
+    checkLocalTogether: (payload) => ipcRenderer.invoke('check-local-together', payload),
+    listLocalForumCategories: (payload) => ipcRenderer.invoke('list-local-forum-categories', payload),
+    createLocalForumTopic: (payload) => ipcRenderer.invoke('create-local-forum-topic', payload),
 
     // ===== WORDPRESS DIRECT LOCAL PROXY =====
     wpCategories: (payload) => ipcRenderer.invoke('wp:categories', payload),
