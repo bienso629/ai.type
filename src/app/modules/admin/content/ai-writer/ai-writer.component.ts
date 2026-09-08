@@ -5183,86 +5183,93 @@ ${contentFromDone || '(Chưa có văn bản)'}
     /**
      * Lấy toàn bộ collection
      */
-    collection() {
-        this._crawlService
-            .collections({
-                username: this.name,
-                page: { size: 100 },
-                includeUuid: true
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success) {
-                        this.collections = result.data;
-                        this.loadArticlesInCollection();
-                    }
-                },
-                error: () => { },
-                complete: () => { },
-            });
-    }
+     collection() {
+         const targetUsername = this.user?.name || this.name || 'admin';
+         this._crawlService
+             .collections({
+                 username: targetUsername,
+                 page: { size: 100 },
+                 includeUuid: true
+             })
+             .pipe(takeUntil(this._unsubscribeAll))
+             .subscribe({
+                 next: async (result) => {
+                     if (result && result.success) {
+                         this.collections = result.data || [];
+                         this.loadArticlesInCollection();
+                     }
+                 },
+                 error: () => { },
+                 complete: () => { },
+             });
+     }
 
-    /**
-     * Lấy toàn bộ collection
-     */
-    nodeInCollection() {
-        this._crawlService
-            .nodeInCollection({
-                uuid: this.uuid,
-                username: this.name,
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success) {
-                        this.selectedCollections = result.data;
-                        this.loadArticlesInCollection();
-                    } else {
-                        this.alert('Tập của nội dung không chính xác.');
-                    }
-                },
-                error: () => {
-                    this.alert('Tập của nội dung chưa được tải về.');
-                },
-                complete: () => { },
-            });
-    }
+     /**
+      * Lấy toàn bộ collection
+      */
+     nodeInCollection() {
+         const targetUsername = this.user?.name || this.name || 'admin';
+         this._crawlService
+             .nodeInCollection({
+                 uuid: this.uuid,
+                 username: targetUsername,
+             })
+             .pipe(takeUntil(this._unsubscribeAll))
+             .subscribe({
+                 next: async (result) => {
+                     if (result && result.success) {
+                         this.selectedCollections = result.data || [];
+                         this.loadArticlesInCollection();
+                     } else {
+                         this.alert('Tập của nội dung không chính xác.');
+                     }
+                 },
+                 error: () => {
+                     this.alert('Tập của nội dung chưa được tải về.');
+                 },
+                 complete: () => { },
+             });
+     }
 
-    loadArticlesInCollection() {
-        if (!this.selectedCollections || this.selectedCollections.length === 0) return;
-        if (!this.collections || this.collections.length === 0) return;
-        
-        let uuids: string[] = [];
-        this.selectedCollections.forEach((col: any) => {
-            const fullCol = this.collections.find((c: any) => c._id === col._id || c.id === col.id);
-            const targetCol = fullCol || col;
-            
-            if (Array.isArray(targetCol.uuid)) {
-                uuids = uuids.concat(targetCol.uuid);
-            } else if (targetCol.uuid) {
-                uuids.push(targetCol.uuid);
-            }
-        });
-        
-        // Loại bỏ trùng lặp nếu có
-        uuids = Array.from(new Set(uuids));
+     loadArticlesInCollection() {
+         if (!this.selectedCollections || this.selectedCollections.length === 0) return;
 
-        if (uuids.length === 0) return;
-        
-        this._crawlService.archive({
-            username: this.user?.name || this.name,
-            keyword: '',
-            uuids: uuids,
-            page: { pageNumber: 0, size: 200 }
-        }).pipe(takeUntil(this._unsubscribeAll)).subscribe((res: any) => {
-            if (res && res.data && res.data.docs) {
-                this.articlesInCollection = res.data.docs;
-                this.selectedArticleInCollection = this.uuid;
-                this.cd.detectChanges();
-            }
-        });
-    }
+         let uuids: string[] = [];
+         this.selectedCollections.forEach((col: any) => {
+             const fullCol = (this.collections && this.collections.length > 0)
+                 ? this.collections.find((c: any) => c._id === col._id || c.id === col.id)
+                 : null;
+             const targetCol = fullCol || col;
+
+             if (Array.isArray(targetCol.uuid)) {
+                 uuids = uuids.concat(targetCol.uuid);
+             } else if (targetCol.uuid) {
+                 uuids.push(targetCol.uuid);
+             }
+         });
+
+         // Loại bỏ trùng lặp nếu có
+         uuids = Array.from(new Set(uuids.filter(Boolean)));
+
+         if (uuids.length === 0) return;
+
+         const targetUsername = this.user?.name || this.name || 'admin';
+         this._crawlService.archive({
+             username: targetUsername,
+             keyword: '',
+             uuids: uuids,
+             page: { pageNumber: 0, size: 200 }
+         }).pipe(takeUntil(this._unsubscribeAll)).subscribe((res: any) => {
+             const docsList = res?.data?.docs || res?.articles || (Array.isArray(res?.data) ? res.data : null);
+             if (docsList && docsList.length > 0) {
+                 const uuidSet = new Set(uuids);
+                 const matchedDocs = docsList.filter((doc: any) => doc && doc.uuid && uuidSet.has(doc.uuid));
+                 this.articlesInCollection = matchedDocs.length > 0 ? matchedDocs : docsList;
+                 this.selectedArticleInCollection = this.uuid;
+                 this.cd.detectChanges();
+             }
+         });
+     }
 
     goToArticle(event: any) {
         let articleUuid = event?.uuid || event;

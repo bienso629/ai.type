@@ -398,6 +398,65 @@
                 </div>
 
             </mat-tab>
+
+            <!-- Tab Backup & Restore -->
+            <mat-tab label="{{ 'account.tabs.backup_restore' | transloco }}">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mt-4">
+                    <!-- Backup Card -->
+                    <div class="flex flex-col">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:cloud-download'"></mat-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold">{{ 'account.backup_restore.backup_title' | transloco }}</h3>
+                            </div>
+                        </div>
+
+                        <p class="mt-3 text-secondary text-sm leading-relaxed">
+                            {{ 'account.backup_restore.backup_desc' | transloco }}
+                        </p>
+
+                        <div class="mt-auto pt-6 flex items-center justify-between">
+                            <span class="text-xs text-hint">Documents/ai.type/data/backup</span>
+                            <button mat-flat-button color="primary" type="button" (click)="backupDatabase()" [disabled]="isBackingUp">
+                                <span class="inline-flex items-center">
+                                    <mat-progress-spinner *ngIf="isBackingUp" [diameter]="18" [mode]="'indeterminate'" class="mr-2"></mat-progress-spinner>
+                                    <mat-icon *ngIf="!isBackingUp" class="icon-size-4 mr-2" [svgIcon]="'heroicons_outline:cloud-download'"></mat-icon>
+                                    <span>{{ 'account.backup_restore.backup_btn' | transloco }}</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Restore Card -->
+                    <div class="flex flex-col">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold">{{ 'account.backup_restore.restore_title' | transloco }}</h3>
+                            </div>
+                        </div>
+
+                        <p class="mt-3 text-secondary text-sm leading-relaxed">
+                            {{ 'account.backup_restore.restore_desc' | transloco }}
+                        </p>
+
+                        <div class="mt-auto pt-6 flex items-center justify-between">
+                            <span class="text-xs text-hint">Sync from {{ user?.server || 'vn.s1' }}</span>
+                            <button mat-flat-button color="warn" type="button" (click)="restoreDatabase()" [disabled]="isRestoring">
+                                <span class="inline-flex items-center">
+                                    <mat-progress-spinner *ngIf="isRestoring" [diameter]="18" [mode]="'indeterminate'" class="mr-2"></mat-progress-spinner>
+                                    <mat-icon *ngIf="!isRestoring" class="icon-size-4 mr-2" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
+                                    <span>{{ 'account.backup_restore.restore_btn' | transloco }}</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </mat-tab>
         </mat-tab-group>
 
         <!-- Actions -->

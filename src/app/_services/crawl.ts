@@ -830,7 +830,12 @@ export class CrawlService {
                 domain: dataForm?.domain,
                 uuids: dataForm?.uuids
             })).pipe(
-                map((result: any) => result),
+                map((result: any) => {
+                    if (result && result.articles && !result.data) {
+                        result.data = { docs: result.articles, totalDocs: result.total || result.articles.length };
+                    }
+                    return result;
+                }),
                 catchError(this.handleError('listLocalArticles', { success: false, data: { docs: [] } }))
             );
         }

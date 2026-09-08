@@ -12,6 +12,7 @@ import { ToastrService } from 'ngx-toastr';
 import { Observable, Subject, map, startWith, takeUntil } from 'rxjs';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { TranslocoService } from '@ngneat/transloco';
+import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 
 interface ModelGroup {
     name: string;
@@ -238,6 +239,9 @@ export class SettingsAccountComponent implements OnInit {
 
 
 
+    isBackingUp: boolean = false;
+    isRestoring: boolean = false;
+
     /**
      * Constructor
      */
@@ -248,6 +252,7 @@ export class SettingsAccountComponent implements OnInit {
         private _userService: UserService,
         private _userClientService: UserClientService,
         private _fuseConfigService: FuseConfigService,
+        private _fuseConfirmationService: FuseConfirmationService,
         private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef,
         private _translocoService: TranslocoService
@@ -459,6 +464,106 @@ export class SettingsAccountComponent implements OnInit {
     updateSecretKey(): void {
         const validKeys = this.geminiKeys.filter(k => k.trim() !== '');
         this.accountForm.get('secretKey').setValue(validKeys.join(';'));
+    }
+
+    backupDatabase(): void {
+        const currentServer = this.user?.server || 'vn.s1';
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Sao lưu Dữ Liệu 2023 về Máy Tính',
+            message: `Bạn có muốn tải toàn bộ cơ sở dữ liệu năm <b>2023</b> từ máy chủ <b>${currentServer}</b> về thư mục <b>Documents/ai.type/data/backup</b> không?`,
+            icon: {
+                show: true,
+                name: 'heroicons_outline:cloud-download',
+                color: 'info'
+            },
+            actions: {
+                confirm: { show: true, label: 'Bắt đầu Sao lưu', color: 'primary' },
+                cancel: { show: true, label: 'Hủy' }
+            },
+            dismissible: true
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this.isBackingUp = true;
+                this.cd.markForCheck();
+
+                this._userClientService.backupDatabaseToLocal({
+                    username: this.user?.name || 'admin',
+                    year: 2023
+                }).subscribe({
+                    next: (res) => {
+                        this.isBackingUp = false;
+                        this.cd.markForCheck();
+                        if (res && res.success) {
+                            this._fuseConfirmationService.open({
+                                title: 'Sao lưu thành công',
+                                message: res.message || 'Dữ liệu năm 2023 đã được lưu vào Documents/ai.type/data/backup thành công!',
+                                icon: { show: true, name: 'heroicons_outline:check-circle', color: 'success' },
+                                actions: { confirm: { show: true, label: 'Đóng', color: 'primary' }, cancel: { show: false } }
+                            });
+                        } else {
+                            this.toastr.error(res?.message || 'Có lỗi xảy ra khi thực hiện sao lưu.');
+                        }
+                    },
+                    error: (err) => {
+                        this.isBackingUp = false;
+                        this.cd.markForCheck();
+                        this.toastr.error('Lỗi khi gửi yêu cầu sao lưu tới máy chủ.');
+                    }
+                });
+            }
+        });
+    }
+
+    restoreDatabase(): void {
+        const currentServer = this.user?.server || 'vn.s1';
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Khôi phục Cơ Sở Dữ Liệu',
+            message: `Bạn có chắc chắn muốn khôi phục và đồng bộ toàn bộ cơ sở dữ liệu từ máy chủ <b>${currentServer}</b> về không?<br><b>Cảnh báo:</b> Dữ liệu hiện tại sẽ được cập nhật đồng bộ với máy chủ.`,
+            icon: {
+                show: true,
+                name: 'heroicons_outline:refresh',
+                color: 'warn'
+            },
+            actions: {
+                confirm: { show: true, label: 'Bắt đầu Khôi phục', color: 'warn' },
+                cancel: { show: true, label: 'Hủy' }
+            },
+            dismissible: true
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this.isRestoring = true;
+                this.cd.markForCheck();
+
+                this._userClientService.restoreDatabase({
+                    username: this.user?.name || 'admin',
+                    year: 2023
+                }).subscribe({
+                    next: (res) => {
+                        this.isRestoring = false;
+                        this.cd.markForCheck();
+                        if (res && res.success) {
+                            this._fuseConfirmationService.open({
+                                title: 'Khôi phục thành công',
+                                message: res.message || 'Lệnh khôi phục cơ sở dữ liệu đã hoàn tất!',
+                                icon: { show: true, name: 'heroicons_outline:check-circle', color: 'success' },
+                                actions: { confirm: { show: true, label: 'Đóng', color: 'primary' }, cancel: { show: false } }
+                            });
+                        } else {
+                            this.toastr.error(res?.message || 'Có lỗi xảy ra khi thực hiện khôi phục cơ sở dữ liệu.');
+                        }
+                    },
+                    error: (err) => {
+                        this.isRestoring = false;
+                        this.cd.markForCheck();
+                        this.toastr.error('Lỗi khi gửi yêu cầu khôi phục tới máy chủ.');
+                    }
+                });
+            }
+        });
     }
 
     /**
