@@ -92,7 +92,7 @@ export class SettingsAccountComponent implements OnInit {
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: async (result) => {
-                        if (result && result.success && result.data) {
+                        if (result && result.success) {
                             // lưu cấu hình mới nhất về máy
                             this.multiAccountService.setItem('settings', settings);
                             if (settings.autoSaveLocal !== undefined) {

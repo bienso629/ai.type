@@ -85,32 +85,40 @@ export class UserClientService {
         return data;
     }
 
+    private getServerKey(sessionUser?: any): string {
+        const candidate = (sessionUser && sessionUser.server) || this.user?.server || 'vn.s1';
+        if (this.config?.settings?.api && this.config.settings.api[candidate]) {
+            return candidate;
+        }
+        return 'vn.s1';
+    }
+
     public updateProfile(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal) {
-            // Cập nhật thẳng vào cache MultiAccountService
-            if (dataForm && dataForm.profile) {
-                if (dataForm.profile.settings) {
-                    this.multiAccountService.setItem('settings', dataForm.profile.settings);
-                }
-                if (dataForm.profile.editor) {
-                    this.multiAccountService.setItem('editor', dataForm.profile.editor);
-                }
-                if (dataForm.profile.following_users) {
-                    this.multiAccountService.setItem('following_users', dataForm.profile.following_users);
-                }
+        // Cập nhật ngay vào cache local để giao diện tức thời
+        if (dataForm && dataForm.profile) {
+            if (dataForm.profile.settings) {
+                this.multiAccountService.setItem('settings', dataForm.profile.settings);
             }
-            return of({ success: true, message: 'Đã lưu cấu hình người dùng cục bộ.' });
+            if (dataForm.profile.editor) {
+                this.multiAccountService.setItem('editor', dataForm.profile.editor);
+            }
+            if (dataForm.profile.following_users) {
+                this.multiAccountService.setItem('following_users', dataForm.profile.following_users);
+            }
         }
 
         let activeInfoStr = this.multiAccountService.getItem('active_info');
         if (!activeInfoStr) {
             try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }
         }
-        if (!activeInfoStr) return of(null);
+        if (!activeInfoStr) {
+            return of({ success: true, message: 'Đã lưu cấu hình người dùng cục bộ.', data: dataForm?.profile });
+        }
 
         const activeInfoObj = AuthUtils._getActiveInfo(activeInfoStr);
-        if (!activeInfoObj || !activeInfoObj['user']) return of(null);
+        if (!activeInfoObj || !activeInfoObj['user']) {
+            return of({ success: true, message: 'Đã lưu cấu hình người dùng cục bộ.', data: dataForm?.profile });
+        }
 
         const activeUser = activeInfoObj['user'];
         const appToken = activeUser['appToken'];
@@ -126,8 +134,9 @@ export class UserClientService {
         dataForm.username = targetUsername;
         dataForm.name = targetUsername;
 
-        const server = (sessionUser && sessionUser.server) ? sessionUser.server : 'server1';
-        const url = `${this.config.settings.api[server]}/user/profile/update`;
+        const server = this.getServerKey(sessionUser);
+        const baseUrl = (this.config?.settings?.api && this.config.settings.api[server]) ? this.config.settings.api[server] : 'https://apiv1.type.vn/v1';
+        const url = `${baseUrl}/user/profile/update`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -135,41 +144,61 @@ export class UserClientService {
 
         return this.http.put<any>(url, data, options).pipe(
             map(data => {
-                return this.decodeIfEncrypted(data);
+                const decoded = this.decodeIfEncrypted(data);
+                if (decoded && decoded.success && !decoded.data && dataForm.profile) {
+                    decoded.data = dataForm.profile;
+                }
+                return decoded;
             }),
-            tap(_ => {
-                // this.log('login');
+            tap(res => {
+                if (res && res.success && res.data) {
+                    if (res.data.settings) this.multiAccountService.setItem('settings', res.data.settings);
+                }
             }),
-            catchError(this.handleError('server', []))
+            catchError((err) => {
+                console.warn('Lưu lên server không thành công, lưu dữ liệu cục bộ:', err);
+                return of({ success: true, message: 'Đã lưu cấu hình người dùng cục bộ.', data: dataForm?.profile });
+            })
         );
     }
 
     public profile(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal) {
-            const settings = this.multiAccountService.getItem('settings') || {};
-            const editor = this.multiAccountService.getItem('editor') || {};
-            const following_users = this.multiAccountService.getItem('following_users') || [];
-            const user = this.multiAccountService.getItem('user') || this.user || { name: 'admin' };
-            return of({
-                success: true,
-                data: {
-                    user: user,
-                    settings: settings,
-                    editor: editor,
-                    following_users: following_users
-                }
-            });
-        }
-
         let activeInfoStr = this.multiAccountService.getItem('active_info');
         if (!activeInfoStr) {
             try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }
         }
-        if (!activeInfoStr) return of(null);
+        if (!activeInfoStr) {
+            const localSettings = this.multiAccountService.getItem('settings') || {};
+            const localEditor = this.multiAccountService.getItem('editor') || {};
+            const localFollowing = this.multiAccountService.getItem('following_users') || [];
+            const localUser = this.multiAccountService.getItem('user') || this.user || { name: 'admin' };
+            return of({
+                success: true,
+                data: {
+                    user: localUser,
+                    settings: localSettings,
+                    editor: localEditor,
+                    following_users: localFollowing
+                }
+            });
+        }
 
         const activeInfoObj = AuthUtils._getActiveInfo(activeInfoStr);
-        if (!activeInfoObj || !activeInfoObj['user']) return of(null);
+        if (!activeInfoObj || !activeInfoObj['user']) {
+            const localSettings = this.multiAccountService.getItem('settings') || {};
+            const localEditor = this.multiAccountService.getItem('editor') || {};
+            const localFollowing = this.multiAccountService.getItem('following_users') || [];
+            const localUser = this.multiAccountService.getItem('user') || this.user || { name: 'admin' };
+            return of({
+                success: true,
+                data: {
+                    user: localUser,
+                    settings: localSettings,
+                    editor: localEditor,
+                    following_users: localFollowing
+                }
+            });
+        }
 
         const activeUser = activeInfoObj['user'];
         const appToken = activeUser['appToken'];
@@ -185,8 +214,9 @@ export class UserClientService {
         dataForm.name = targetUsername;
         dataForm.username = targetUsername;
 
-        const server = (sessionUser && sessionUser.server) ? sessionUser.server : 'server1';
-        const url = `${this.config.settings.api[server]}/user/profile/${encodeURIComponent(targetUsername)}`;
+        const server = this.getServerKey(sessionUser);
+        const baseUrl = (this.config?.settings?.api && this.config.settings.api[server]) ? this.config.settings.api[server] : 'https://apiv1.type.vn/v1';
+        const url = `${baseUrl}/user/profile/${encodeURIComponent(targetUsername)}`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -196,10 +226,22 @@ export class UserClientService {
             map(data => {
                 return this.decodeIfEncrypted(data);
             }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+            catchError((err) => {
+                console.warn('Không thể tải profile từ server, dùng dữ liệu cục bộ:', err);
+                const localSettings = this.multiAccountService.getItem('settings') || {};
+                const localEditor = this.multiAccountService.getItem('editor') || {};
+                const localFollowing = this.multiAccountService.getItem('following_users') || [];
+                const localUser = this.multiAccountService.getItem('user') || this.user || { name: 'admin' };
+                return of({
+                    success: true,
+                    data: {
+                        user: localUser,
+                        settings: localSettings,
+                        editor: localEditor,
+                        following_users: localFollowing
+                    }
+                });
+            })
         );
     }
 
