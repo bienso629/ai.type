@@ -146,6 +146,7 @@ contextBridge.exposeInMainWorld('electron', {
     addLocalGoLoginToken: (payload) => ipcRenderer.invoke('add-local-gologin-token', payload),
     updateLocalGoLoginToken: (payload) => ipcRenderer.invoke('update-local-gologin-token', payload),
     deleteLocalGoLoginProfile: (payload) => ipcRenderer.invoke('delete-local-gologin-profile', payload),
+    syncBackupToLocalSqlite: (payload) => ipcRenderer.invoke('sync-backup-to-local-sqlite', payload),
 
     // ===== WORDPRESS DIRECT LOCAL PROXY =====
     wpCategories: (payload) => ipcRenderer.invoke('wp:categories', payload),

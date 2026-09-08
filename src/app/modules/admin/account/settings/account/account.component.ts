@@ -9,7 +9,7 @@ import { User } from 'app/core/user/user.types';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 import { UserClientService } from 'app/_services/user';
 import { ToastrService } from 'ngx-toastr';
-import { Observable, Subject, map, startWith, takeUntil } from 'rxjs';
+import { Observable, Subject, map, startWith, takeUntil, finalize, timeout, catchError, of } from 'rxjs';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { TranslocoService } from '@ngneat/transloco';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
@@ -488,22 +488,70 @@ export class SettingsAccountComponent implements OnInit {
                 this.isBackingUp = true;
                 this.cd.markForCheck();
 
+                const username = this.user?.name || 'admin';
+                const year = 2023;
+
                 this._userClientService.backupDatabaseToLocal({
-                    username: this.user?.name || 'admin',
-                    year: 2023
-                }).subscribe({
-                    next: (res) => {
-                        this.isBackingUp = false;
-                        this.cd.markForCheck();
-                        if (res && res.success) {
-                            this._fuseConfirmationService.open({
-                                title: 'Sao lưu thành công',
-                                message: res.message || 'Dữ liệu năm 2023 đã được lưu vào Documents/ai.type/data/backup thành công!',
-                                icon: { show: true, name: 'heroicons_outline:check-circle', color: 'success' },
-                                actions: { confirm: { show: true, label: 'Đóng', color: 'primary' }, cancel: { show: false } }
-                            });
-                        } else {
-                            this.toastr.error(res?.message || 'Có lỗi xảy ra khi thực hiện sao lưu.');
+                    username: username,
+                    year: year
+                }).pipe(
+                    timeout(90000),
+                    catchError((err) => {
+                        console.error('[backupDatabase] Lỗi kết nối hoặc timeout:', err);
+                        return of({ success: false, message: 'Yêu cầu sao lưu đã hết thời gian chờ hoặc không thể kết nối tới máy chủ.' });
+                    })
+                ).subscribe({
+                    next: async (res) => {
+                        try {
+                            if (res && res.success) {
+                                // Nếu đang chạy trong Electron, tiến hành đồng bộ dữ liệu vào articles.sqlite
+                                if (window && (window as any).electron && (window as any).electron.syncBackupToLocalSqlite) {
+                                    try {
+                                        await (window as any).electron.syncBackupToLocalSqlite({
+                                            username: username,
+                                            year: year
+                                        });
+                                    } catch (syncErr) {
+                                        console.error('[backupDatabase] Lỗi khi đồng bộ vào articles.sqlite:', syncErr);
+                                    }
+                                }
+
+                                this.isBackingUp = false;
+                                this.cd.markForCheck();
+
+                                const confirmDialog = this._fuseConfirmationService.open({
+                                    title: 'Sao lưu & Đồng bộ thành công',
+                                    message: 'Toàn bộ dữ liệu của bạn trên server đã được đồng bộ vào database cục bộ <b>articles.sqlite</b> thành công.<br>Ứng dụng sẽ tự động khởi động lại ngay bây giờ để áp dụng dữ liệu mới.',
+                                    icon: { show: true, name: 'heroicons_outline:check-circle', color: 'success' },
+                                    actions: { confirm: { show: true, label: 'Khởi động lại ngay', color: 'primary' }, cancel: { show: false } }
+                                });
+
+                                confirmDialog.afterClosed().subscribe(() => {
+                                    if (window && (window as any).electron && (window as any).electron.relaunchApp) {
+                                        (window as any).electron.relaunchApp();
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                });
+
+                                // Tự động khởi động lại sau 2.5 giây nếu người dùng chưa bấm nút
+                                setTimeout(() => {
+                                    if (window && (window as any).electron && (window as any).electron.relaunchApp) {
+                                        (window as any).electron.relaunchApp();
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                }, 2500);
+                            } else {
+                                this.isBackingUp = false;
+                                this.cd.markForCheck();
+                                this.toastr.error(res?.message || 'Có lỗi xảy ra khi thực hiện sao lưu.');
+                            }
+                        } catch (innerErr) {
+                            console.error('[backupDatabase] Lỗi trong khối xử lý phản hồi sao lưu:', innerErr);
+                            this.isBackingUp = false;
+                            this.cd.markForCheck();
+                            this.toastr.error('Đã xảy ra lỗi trong quá trình xử lý kết quả sao lưu.');
                         }
                     },
                     error: (err) => {
@@ -541,7 +589,13 @@ export class SettingsAccountComponent implements OnInit {
                 this._userClientService.restoreDatabase({
                     username: this.user?.name || 'admin',
                     year: 2023
-                }).subscribe({
+                }).pipe(
+                    timeout(90000),
+                    catchError((err) => {
+                        console.error('[restoreDatabase] Lỗi kết nối hoặc timeout:', err);
+                        return of({ success: false, message: 'Yêu cầu khôi phục đã hết thời gian chờ hoặc không thể kết nối tới máy chủ.' });
+                    })
+                ).subscribe({
                     next: (res) => {
                         this.isRestoring = false;
                         this.cd.markForCheck();

@@ -3833,7 +3833,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 password: this.articlePassword || undefined
             });
             if (res && res.success) {
-                if (!silent) this.toastr.success(`Đã lưu bài viết vào database cục bộ (SQLite)!`, 'Lưu Cục Bộ');
+                if (!silent) this.toastr.success(`Đã lưu bài viết`);
             } else if (!silent) {
                 this.toastr.error(`Lỗi khi lưu cục bộ: ${res?.error || 'Không rõ lỗi'}`);
             }
@@ -4152,7 +4152,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                     if (res && res.success) {
                         this.uuid = res.uuid || targetUuid;
                         this._h.updateStatistics('writing', 1);
-                        this.toastr.success(`Văn bản đã được lưu trữ vào database cục bộ (SQLite).`);
+                        this.toastr.success(`Đã lưu bài viết`);
 
                         if (this.source && this.source.wpPosts && this.source.wpPosts.length > 0) {
                             this.syncToWordpress();
@@ -4198,7 +4198,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                         if (result && result.success && result.data) {
                             this._h.updateStatistics('writing', 1);
 
-                            this.toastr.success(`Văn bản đã được lưu trữ.`);
+                            this.toastr.success(`Đã lưu bài viết`);
                             
                             if (this.source && this.source.wpPosts && this.source.wpPosts.length > 0) {
                                 this.syncToWordpress();
@@ -4539,7 +4539,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                             if (index > -1) this.details['history'][index] = data;
                         }
 
-                        this.toastr.success(`Văn bản đã được lưu trữ.`);
+                        this.toastr.success(`Đã lưu bài viết`);
                         if (syncWp) {
                             this.syncToWordpress();
                         }

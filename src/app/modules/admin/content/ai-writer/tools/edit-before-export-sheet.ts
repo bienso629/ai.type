@@ -1055,7 +1055,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 uuid: this.data.uuid || undefined
             });
             if (res && res.success) {
-                this.toastr.success(`Đã lưu bài viết cục bộ (.md & .json) vào ổ đĩa máy tính thành công!`, 'Lưu Cục Bộ');
+                this.toastr.success(`Đã lưu bài viết`);
             } else {
                 this.toastr.error(`Lỗi khi lưu cục bộ: ${res?.error || 'Không rõ lỗi'}`);
             }

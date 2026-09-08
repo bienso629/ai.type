@@ -147,7 +147,7 @@
             "personal": "Cá nhân",
             "jobs": "Tác vụ",
             "ai": "AI",
-            "backup_restore": "Sao lưu & Khôi phục"
+            "backup": "Sao lưu"
         },
         "personal": {
             "title": "Cấu hình Cá nhân",
@@ -210,8 +210,8 @@
         },
         "backup_restore": {
             "title": "Sao lưu & Khôi phục Cơ sở dữ liệu",
-            "backup_title": "Sao lưu Dữ liệu 2023 về Máy tính",
-            "backup_desc": "Tải toàn bộ cơ sở dữ liệu năm 2023 của tài khoản từ máy chủ về thư mục Documents/ai.type/data/backup dưới định dạng file JSON.",
+            "backup_title": "Sao lưu Dữ liệu về Máy tính",
+            "backup_desc": "Tải toàn bộ cơ sở dữ liệu của bạn trên máy chủ về, tự động đồng bộ vào database cục bộ articles.sqlite và khởi động lại ứng dụng để nhận dữ liệu mới.",
             "backup_btn": "Sao lưu về máy",
             "restore_title": "Khôi phục Dữ liệu từ Máy chủ",
             "restore_desc": "Khôi phục và đồng bộ toàn bộ cơ sở dữ liệu từ máy chủ về hệ thống hiện tại.",
