@@ -146,7 +146,8 @@
         "tabs": {
             "personal": "Cá nhân",
             "jobs": "Tác vụ",
-            "ai": "AI"
+            "ai": "AI",
+            "backup_restore": "Sao lưu & Khôi phục"
         },
         "personal": {
             "title": "Cấu hình Cá nhân",
@@ -206,6 +207,18 @@
             "search_engine": "Search Engine",
             "n8n": "N8N",
             "search_api_hint_here": "Bạn chưa có Google Search Api Key? Tạo <a href=\"https://programmablesearchengine.google.com/controlpanel/all\" target=\"_blank\" class=\"font-semibold\">Search Api Key</a> tại đây."
+        },
+        "backup_restore": {
+            "title": "Sao lưu & Khôi phục Cơ sở dữ liệu",
+            "backup_title": "Sao lưu Dữ liệu 2023 về Máy tính",
+            "backup_desc": "Tải toàn bộ cơ sở dữ liệu năm 2023 của tài khoản từ máy chủ về thư mục Documents/ai.type/data/backup dưới định dạng file JSON.",
+            "backup_btn": "Sao lưu về máy",
+            "restore_title": "Khôi phục Dữ liệu từ Máy chủ",
+            "restore_desc": "Khôi phục và đồng bộ toàn bộ cơ sở dữ liệu từ máy chủ về hệ thống hiện tại.",
+            "restore_btn": "Khôi phục từ Server",
+            "server_target": "Máy chủ hiện tại",
+            "sync_status": "Trạng thái tác vụ",
+            "ready": "Sẵn sàng"
         },
         "save_btn": "Lưu cấu hình",
         "save_hint": "Bạn có chỉnh sửa hãy nhớ lưu kết quả"

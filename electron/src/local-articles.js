@@ -891,16 +891,43 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-articles', async (event, payload) => {
         try {
-            const { username = 'admin' } = payload || {};
+            const { username = 'admin', uuids, keyword, domain } = payload || {};
             const db = getArticlesDatabase();
 
             const rows = await new Promise((resolve, reject) => {
                 let query = 'SELECT * FROM local_articles';
+                const conditions = [];
                 const params = [];
+
                 if (username && username !== 'all') {
-                    query += ' WHERE username = ?';
+                    conditions.push('username = ?');
                     params.push(username);
                 }
+
+                if (Array.isArray(uuids) && uuids.length > 0) {
+                    const placeholders = uuids.map(() => '?').join(',');
+                    conditions.push(`uuid IN (${placeholders})`);
+                    params.push(...uuids);
+                } else if (typeof uuids === 'string' && uuids.trim()) {
+                    conditions.push('uuid = ?');
+                    params.push(uuids.trim());
+                }
+
+                if (keyword && keyword.trim()) {
+                    conditions.push('(title LIKE ? OR description LIKE ?)');
+                    const kw = `%${keyword.trim()}%`;
+                    params.push(kw, kw);
+                }
+
+                if (domain && domain.trim()) {
+                    conditions.push('domain = ?');
+                    params.push(domain.trim());
+                }
+
+                if (conditions.length > 0) {
+                    query += ' WHERE ' + conditions.join(' AND ');
+                }
+
                 query += ' ORDER BY updated_at DESC, created_at DESC';
 
                 db.all(query, params, (err, resultRows) => {

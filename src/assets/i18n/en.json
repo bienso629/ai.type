@@ -146,7 +146,8 @@
         "tabs": {
             "personal": "Personal",
             "jobs": "Jobs",
-            "ai": "AI"
+            "ai": "AI",
+            "backup_restore": "Backup & Restore"
         },
         "personal": {
             "title": "Personal Configuration",
@@ -206,6 +207,18 @@
             "search_engine": "Search Engine",
             "n8n": "N8N",
             "search_api_hint_here": "Don't have a Google Search Api Key? Create <a href=\"https://programmablesearchengine.google.com/controlpanel/all\" target=\"_blank\" class=\"font-semibold\">Search Api Key</a> here."
+        },
+        "backup_restore": {
+            "title": "Database Backup & Restore",
+            "backup_title": "Backup 2023 Data to Local",
+            "backup_desc": "Download all 2023 user databases from server to Documents/ai.type/data/backup as JSON files.",
+            "backup_btn": "Backup to Local",
+            "restore_title": "Restore Data from Server",
+            "restore_desc": "Restore and synchronize all databases from server back to the system.",
+            "restore_btn": "Restore from Server",
+            "server_target": "Current Server",
+            "sync_status": "Operation Status",
+            "ready": "Ready"
         },
         "save_btn": "Save Configuration",
         "save_hint": "If you make changes, remember to save"

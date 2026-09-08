@@ -180,6 +180,8 @@
 .mat-mdc-mini-fab {
 
     .mat-mdc-progress-spinner {
+        display: inline-block !important;
+        vertical-align: middle !important;
 
         .mdc-circular-progress__indeterminate-container {
 
@@ -1064,8 +1066,10 @@ mat-drawer,
 /* -------------------------------------------------------------------------- */
 .mat-mdc-menu-panel {
     min-width: 144px !important;
+    overflow: hidden !important;
 
     .mat-mdc-menu-content {
+        overflow: hidden !important;
 
         .mat-mdc-menu-item {
             display: flex;
