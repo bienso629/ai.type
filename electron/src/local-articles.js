@@ -492,6 +492,72 @@ function getArticlesDatabase() {
                 }
             }
         });
+
+        // Tự động nạp dữ liệu bài viết từ backup nếu bảng local_articles đang trống
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_articles', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(getArticlesDbDir(), 'backup', 'admin_archives_2023.json'),
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_archives_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_archives_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const rawContent = fs.readFileSync(backupFile, 'utf8');
+                        const archives = JSON.parse(rawContent);
+                        if (Array.isArray(archives) && archives.length > 0) {
+                            const stmt = articlesDbInstance.prepare(`
+                                INSERT OR REPLACE INTO local_articles (
+                                    uuid, title, url, content, markdown, domain, username,
+                                    thumbnail, description, source_json, done_json, trash_json,
+                                    seo_json, arr_keyword_json, tags_json, style_json,
+                                    format, is_local, is_encrypted, encrypted_payload,
+                                    created_at, updated_at
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            `);
+                            for (const doc of archives) {
+                                const uuid = doc.uuid || doc._id;
+                                if (!uuid) continue;
+                                const title = doc.title || (doc.name ? doc.name : '');
+                                const url = doc.url || '';
+                                const content = doc.content || '';
+                                const markdown = doc.markdown || '';
+                                const domain = doc.domain || '';
+                                const username = doc.username || 'admin';
+                                const thumbnail = doc.thumbnail || '';
+                                const description = doc.description || '';
+                                const sourceJson = JSON.stringify(doc.source || {});
+                                const doneJson = JSON.stringify(doc.done || {});
+                                const trashJson = JSON.stringify(doc.trash || {});
+                                const seoJson = JSON.stringify(doc.seo || {});
+                                const arrKeywordJson = JSON.stringify(doc.arr_keyword || []);
+                                const tagsJson = JSON.stringify(doc.tags || []);
+                                const styleJson = JSON.stringify(doc.style || {});
+                                const format = doc.format || 'md';
+                                const isLocal = 1;
+                                const isEncrypted = 0;
+                                const encryptedPayload = '';
+                                const createdAt = doc.createdAt || doc.created_at || new Date().toISOString();
+                                const updatedAt = doc.updatedAt || doc.updated_at || createdAt;
+
+                                stmt.run(
+                                    uuid, title, url, content, markdown, domain, username,
+                                    thumbnail, description, sourceJson, doneJson, trashJson,
+                                    seoJson, arrKeywordJson, tagsJson, styleJson,
+                                    format, isLocal, isEncrypted, encryptedPayload,
+                                    createdAt, updatedAt
+                                );
+                            }
+                            stmt.finalize();
+                            console.log(`[local-articles] Đã tự động nạp ${archives.length} bài viết từ backup archives.`);
+                        }
+                    }
+                } catch (backupErr) {
+                    console.error('[local-articles] Lỗi khi nạp archives từ backup:', backupErr);
+                }
+            }
+        });
     });
     return articlesDbInstance;
 }
@@ -3356,6 +3422,477 @@ function registerLocalArticlesHandlers() {
             };
         } catch (error) {
             console.error('[delete-local-gologin-profile] Lỗi:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    });
+
+    // Handler đồng bộ toàn bộ file backup JSON vào database articles.sqlite cục bộ
+    ipcMain.handle('sync-backup-to-local-sqlite', async (event, args) => {
+        try {
+            const { username = 'admin', year = 2023 } = args || {};
+            const db = getArticlesDatabase();
+            const backupDir = path.join(getArticlesDbDir(), 'backup');
+            if (!fs.existsSync(backupDir)) {
+                return { success: false, message: `Thư mục backup không tồn tại: ${backupDir}` };
+            }
+
+            const results = {};
+
+            // 1. Đồng bộ local_articles từ admin_archives_2023.json
+            const archivesFile = path.join(backupDir, `${username}_archives_${year}.json`);
+            if (fs.existsSync(archivesFile)) {
+                try {
+                    const archives = JSON.parse(fs.readFileSync(archivesFile, 'utf8'));
+                    if (Array.isArray(archives) && archives.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_articles (
+                                        uuid, title, url, content, markdown, domain, username,
+                                        thumbnail, description, source_json, done_json, trash_json,
+                                        seo_json, arr_keyword_json, tags_json, style_json,
+                                        format, is_local, is_encrypted, encrypted_payload,
+                                        created_at, updated_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const doc of archives) {
+                                    const uuid = doc.uuid || doc._id;
+                                    if (!uuid) continue;
+                                    stmt.run(
+                                        uuid,
+                                        doc.title || doc.name || '',
+                                        doc.url || '',
+                                        doc.content || '',
+                                        doc.markdown || '',
+                                        doc.domain || '',
+                                        doc.username || username,
+                                        doc.thumbnail || '',
+                                        doc.description || '',
+                                        JSON.stringify(doc.source || {}),
+                                        JSON.stringify(doc.done || {}),
+                                        JSON.stringify(doc.trash || {}),
+                                        JSON.stringify(doc.seo || {}),
+                                        JSON.stringify(doc.arr_keyword || []),
+                                        JSON.stringify(doc.tags || []),
+                                        JSON.stringify(doc.style || {}),
+                                        doc.format || 'md',
+                                        1,
+                                        0,
+                                        '',
+                                        doc.createdAt || doc.created_at || new Date().toISOString(),
+                                        doc.updatedAt || doc.updated_at || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.articles = archives.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp archives:', e);
+                }
+            }
+
+            // 2. Đồng bộ local_wp_posts từ admin_wp2md_2023.json
+            const wpFile = path.join(backupDir, `${username}_wp2md_${year}.json`);
+            if (fs.existsSync(wpFile)) {
+                try {
+                    const wpPosts = JSON.parse(fs.readFileSync(wpFile, 'utf8'));
+                    if (Array.isArray(wpPosts) && wpPosts.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_wp_posts (
+                                        id, title, hostname, content, excerpt, pub_date, raw_json, created_at, updated_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const p of wpPosts) {
+                                    const id = p.id || p._id;
+                                    if (!id) continue;
+                                    stmt.run(
+                                        String(id),
+                                        p.title || '',
+                                        p.hostname || p.domain || '',
+                                        p.content || '',
+                                        p.excerpt || '',
+                                        p.pub_date || p.date || '',
+                                        JSON.stringify(p),
+                                        p.created_at || p.createdAt || new Date().toISOString(),
+                                        p.updated_at || p.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.wp_posts = wpPosts.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp wp2md:', e);
+                }
+            }
+
+            // 3. Đồng bộ local_domains từ admin_domain_2023.json
+            const domainFile = path.join(backupDir, `${username}_domain_${year}.json`);
+            if (fs.existsSync(domainFile)) {
+                try {
+                    const domains = JSON.parse(fs.readFileSync(domainFile, 'utf8'));
+                    if (Array.isArray(domains) && domains.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_domains (
+                                        domain, name, username, password, note, monthly_target, writing_style,
+                                        ga4_property_id, server_ip, server_username, server_password, created_at, updated_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const d of domains) {
+                                    if (!d.domain) continue;
+                                    stmt.run(
+                                        d.domain,
+                                        d.name || d.domain,
+                                        d.username || username,
+                                        encryptDomainPassword(d.password),
+                                        d.note || '',
+                                        d.monthlyTarget || 0,
+                                        d.writingStyle || '',
+                                        d.ga4PropertyId || '',
+                                        d.serverIp || '',
+                                        d.serverUsername || '',
+                                        encryptDomainPassword(d.serverPassword),
+                                        d.createdAt || new Date().toISOString(),
+                                        d.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.domains = domains.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp domains:', e);
+                }
+            }
+
+            // 4. Đồng bộ local_tasks từ admin_tasks_2023.json
+            const tasksFile = path.join(backupDir, `${username}_tasks_${year}.json`);
+            if (fs.existsSync(tasksFile)) {
+                try {
+                    const tasks = JSON.parse(fs.readFileSync(tasksFile, 'utf8'));
+                    if (Array.isArray(tasks) && tasks.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_tasks (
+                                        id, username, domain_id, year, month, day, title, status, done, task_json, created_at, updated_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const t of tasks) {
+                                    const id = t.id || t._id;
+                                    if (!id) continue;
+                                    stmt.run(
+                                        id,
+                                        t.username || username,
+                                        t.domain_id || t.domain || '',
+                                        parseInt(t.year) || year,
+                                        parseInt(t.month) || 1,
+                                        parseInt(t.day) || 1,
+                                        t.title || '',
+                                        t.status || 'pending',
+                                        t.done ? 1 : 0,
+                                        JSON.stringify(t),
+                                        t.createdAt || t.created_at || new Date().toISOString(),
+                                        t.updatedAt || t.updated_at || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.tasks = tasks.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp tasks:', e);
+                }
+            }
+
+            // 5. Đồng bộ local_nodes từ admin_nodes_2023.json
+            const nodesFile = path.join(backupDir, `${username}_nodes_${year}.json`);
+            if (fs.existsSync(nodesFile)) {
+                try {
+                    const nodes = JSON.parse(fs.readFileSync(nodesFile, 'utf8'));
+                    if (Array.isArray(nodes) && nodes.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_nodes (
+                                        id, title, url, username, uuids_json, raw_json, created_at, updated_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const n of nodes) {
+                                    const id = n._id || n.id;
+                                    if (!id) continue;
+                                    let title = n.title;
+                                    if (!title && Array.isArray(n.meta)) {
+                                        for (const m of n.meta) {
+                                            if (m && typeof m === 'object' && ((m.name && m.name.toLowerCase().includes('title')) || (m.property && m.property.toLowerCase().includes('title')))) {
+                                                title = m.content;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (!title && n.heading && Array.isArray(n.heading.h1)) {
+                                        const h1s = n.heading.h1.filter(x => x && x.trim());
+                                        if (h1s.length > 0) title = h1s[0];
+                                    }
+                                    if (!title) title = n.url || 'Node';
+
+                                    stmt.run(
+                                        id,
+                                        title,
+                                        n.url || '',
+                                        username,
+                                        JSON.stringify(n.uuids || []),
+                                        JSON.stringify(n),
+                                        n.createdAt || n.updatedAt || new Date().toISOString(),
+                                        n.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.nodes = nodes.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp nodes:', e);
+                }
+            }
+
+            // 6. Đồng bộ local_facebook_posts từ admin_facebook_posts_2023.json
+            const fbFile = path.join(backupDir, `${username}_facebook_posts_${year}.json`);
+            if (fs.existsSync(fbFile)) {
+                try {
+                    const fbPosts = JSON.parse(fs.readFileSync(fbFile, 'utf8'));
+                    if (Array.isArray(fbPosts) && fbPosts.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_facebook_posts (
+                                        id, uuid, used, facegroup, text, images_json, href_json, username, created_at, updated_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const f of fbPosts) {
+                                    const id = f._id || f.id;
+                                    if (!id) continue;
+                                    stmt.run(
+                                        id,
+                                        f.uuid || 0,
+                                        f.used ? 1 : 0,
+                                        f.facegroup || '',
+                                        f.text || '',
+                                        JSON.stringify(f.images || []),
+                                        JSON.stringify(f.href || []),
+                                        username,
+                                        f.createdAt || new Date().toISOString(),
+                                        f.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.facebook_posts = fbPosts.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp facebook posts:', e);
+                }
+            }
+
+            // 7. Đồng bộ local_link_collections & local_links
+            const linkCollectionsFile = path.join(backupDir, `${username}_link_collections_${year}.json`);
+            if (fs.existsSync(linkCollectionsFile)) {
+                try {
+                    const collections = JSON.parse(fs.readFileSync(linkCollectionsFile, 'utf8'));
+                    if (Array.isArray(collections) && collections.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_link_collections (id, title, ids_json, username, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const c of collections) {
+                                    const id = c._id || c.id;
+                                    if (!id) continue;
+                                    stmt.run(
+                                        id,
+                                        c.title || 'Bộ sưu tập',
+                                        JSON.stringify(c.ids || []),
+                                        username,
+                                        c.createdAt || new Date().toISOString(),
+                                        c.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.link_collections = collections.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp link collections:', e);
+                }
+            }
+
+            const linksFile = path.join(backupDir, `${username}_links_${year}.json`);
+            if (fs.existsSync(linksFile)) {
+                try {
+                    const links = JSON.parse(fs.readFileSync(linksFile, 'utf8'));
+                    if (Array.isArray(links) && links.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_links (id, link, title, options_json, username, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const l of links) {
+                                    const id = l._id || l.id;
+                                    if (!id) continue;
+                                    stmt.run(
+                                        id,
+                                        l.link || '',
+                                        l.title || l.link || '',
+                                        JSON.stringify(l.options || {}),
+                                        username,
+                                        l.createdAt || new Date().toISOString(),
+                                        l.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.links = links.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp links:', e);
+                }
+            }
+
+            // 8. Đồng bộ local_gologin_tokens
+            const gologinFile = path.join(backupDir, `${username}_gologin_${year}.json`);
+            if (fs.existsSync(gologinFile)) {
+                try {
+                    const tokens = JSON.parse(fs.readFileSync(gologinFile, 'utf8'));
+                    if (Array.isArray(tokens) && tokens.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_gologin_tokens (id, token, profiles_json, username, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const tk of tokens) {
+                                    const id = tk._id || tk.id;
+                                    if (!id) continue;
+                                    stmt.run(
+                                        id,
+                                        tk.token || '',
+                                        JSON.stringify(tk.profiles || []),
+                                        username,
+                                        tk.createdAt || new Date().toISOString(),
+                                        tk.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.gologin = tokens.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp gologin:', e);
+                }
+            }
+
+            // 9. Đồng bộ local_collections từ admin_collections_2023.json
+            const colFile = path.join(backupDir, `${username}_collections_${year}.json`);
+            if (fs.existsSync(colFile)) {
+                try {
+                    const cols = JSON.parse(fs.readFileSync(colFile, 'utf8'));
+                    if (Array.isArray(cols) && cols.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_collections (id, title, url, picture, excerpt, username, uuids_json, count, has_script, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const c of cols) {
+                                    const id = c._id || c.id;
+                                    if (!id) continue;
+                                    stmt.run(
+                                        id,
+                                        c.title || '',
+                                        c.url || '',
+                                        c.picture || '',
+                                        c.excerpt || '',
+                                        username,
+                                        JSON.stringify(c.uuids || []),
+                                        parseInt(c.count) || 0,
+                                        c.has_script ? 1 : 0,
+                                        c.createdAt || new Date().toISOString(),
+                                        c.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.collections = cols.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp collections:', e);
+                }
+            }
+
+            // 10. Đồng bộ local_chats từ admin_chatgpt_2023.json
+            const chatsFile = path.join(backupDir, `${username}_chatgpt_${year}.json`);
+            if (fs.existsSync(chatsFile)) {
+                try {
+                    const chats = JSON.parse(fs.readFileSync(chatsFile, 'utf8'));
+                    if (Array.isArray(chats) && chats.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_chats (id, conversation_id, username, question, content, answer, messages_json, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const c of chats) {
+                                    const id = c._id || c.id;
+                                    if (!id) continue;
+                                    stmt.run(
+                                        id,
+                                        c.conversation_id || c.cid || '',
+                                        username,
+                                        c.question || '',
+                                        c.content || '',
+                                        c.answer || '',
+                                        JSON.stringify(c.messages || []),
+                                        c.createdAt || new Date().toISOString(),
+                                        c.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.chats = chats.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp chats:', e);
+                }
+            }
+
+            console.log('[sync-backup-to-local-sqlite] Hoàn tất nạp vào SQLite:', results);
+            return {
+                success: true,
+                results: results
+            };
+        } catch (error) {
+            console.error('[sync-backup-to-local-sqlite] Lỗi:', error);
             return {
                 success: false,
                 error: error.message

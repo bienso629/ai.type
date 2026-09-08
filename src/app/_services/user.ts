@@ -440,53 +440,90 @@ export class UserClientService {
     }
 
     public backupDatabaseToLocal(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+        let activeInfoStr = this.multiAccountService.getItem('active_info');
+        if (!activeInfoStr) {
+            try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }
+        }
+        if (!activeInfoStr) {
+            return of({ success: false, message: 'Chưa đăng nhập hoặc không tìm thấy thông tin phiên làm việc.' });
+        }
 
+        const activeInfo = AuthUtils._getActiveInfo(activeInfoStr);
+        if (!activeInfo || !activeInfo['user']) {
+            return of({ success: false, message: 'Thông tin xác thực không hợp lệ. Vui lòng đăng nhập lại.' });
+        }
+
+        const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
+        const activeUser = activeInfo['user'];
+        const appToken = activeUser['appToken'];
+        const activeOwner = activeUser['username'] || activeUser['name'] || activeUser['email'];
+
+        dataForm = dataForm || {};
         dataForm.year = dataForm.year || 2023;
-        dataForm.username = dataForm.username || this.user?.name || 'admin';
+        dataForm.username = dataForm.username || sessionUser?.name || activeOwner || 'admin';
         dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.appToken = appToken;
 
-        const url = `${this.config.settings.api[this.user.server]}/user/database/backup/local`;
+        const server = this.getServerKey(sessionUser);
+        const baseUrl = (this.config?.settings?.api && this.config.settings.api[server]) ? this.config.settings.api[server] : 'https://apiv1.type.vn/v1';
+        const url = `${baseUrl}/user/database/backup/local`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
         };
 
         return this.http.post<any>(url, data, options).pipe(
-            map(data => {
-                return this.decodeIfEncrypted(data);
+            map(res => {
+                return this.decodeIfEncrypted(res);
             }),
             tap(_ => {
                 // this.log('backup/local');
             }),
-            catchError(this.handleError('server', []))
+            catchError(this.handleError('backup/local', { success: false, message: 'Không thể kết nối tới máy chủ sao lưu.' }))
         );
     }
 
     public restoreDatabase(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+        let activeInfoStr = this.multiAccountService.getItem('active_info');
+        if (!activeInfoStr) {
+            try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }
+        }
+        if (!activeInfoStr) {
+            return of({ success: false, message: 'Chưa đăng nhập hoặc không tìm thấy thông tin phiên làm việc.' });
+        }
 
+        const activeInfo = AuthUtils._getActiveInfo(activeInfoStr);
+        if (!activeInfo || !activeInfo['user']) {
+            return of({ success: false, message: 'Thông tin xác thực không hợp lệ. Vui lòng đăng nhập lại.' });
+        }
+
+        const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
+        const activeUser = activeInfo['user'];
+        const appToken = activeUser['appToken'];
+        const activeOwner = activeUser['username'] || activeUser['name'] || activeUser['email'];
+
+        dataForm = dataForm || {};
         dataForm.year = dataForm.year || this.year;
+        dataForm.username = dataForm.username || sessionUser?.name || activeOwner || 'admin';
         dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.appToken = appToken;
 
-        const url = `${this.config.settings.api[this.user.server]}/user/database/restore`;
+        const server = this.getServerKey(sessionUser);
+        const baseUrl = (this.config?.settings?.api && this.config.settings.api[server]) ? this.config.settings.api[server] : 'https://apiv1.type.vn/v1';
+        const url = `${baseUrl}/user/database/restore`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
         };
 
         return this.http.post<any>(url, data, options).pipe(
-            map(data => {
-                return this.decodeIfEncrypted(data);
+            map(res => {
+                return this.decodeIfEncrypted(res);
             }),
             tap(_ => {
                 // this.log('restore');
             }),
-            catchError(this.handleError('server', []))
+            catchError(this.handleError('restore', { success: false, message: 'Không thể kết nối tới máy chủ khôi phục.' }))
         );
     }
 

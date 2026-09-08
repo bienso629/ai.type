@@ -147,7 +147,7 @@
             "personal": "Personal",
             "jobs": "Jobs",
             "ai": "AI",
-            "backup_restore": "Backup & Restore"
+            "backup": "Backup"
         },
         "personal": {
             "title": "Personal Configuration",
