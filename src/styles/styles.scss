@@ -91,8 +91,8 @@ hr {
 
 .mat-mdc-select-panel,
 .mat-select-panel,
-.mat-mdc-menu-panel,
-.mat-menu-panel,
+.mat-mdc-menu-panel:not(.custom-gologin-menu),
+.mat-menu-panel:not(.custom-gologin-menu),
 .mat-mdc-autocomplete-panel,
 .mat-autocomplete-panel,
 .faint-shadow-menu {
@@ -115,14 +115,14 @@ hr {
         overflow-y: auto !important;
     }
 
-    &:is(.mat-mdc-menu-panel, .mat-menu-panel) {
+    &:is(.mat-mdc-menu-panel:not(.custom-gologin-menu), .mat-menu-panel:not(.custom-gologin-menu)) {
         max-height: none !important;
         overflow: visible !important;
-    }
 
-    .mat-mdc-menu-content {
-        background-color: #ffffff !important;
-        padding: 4px 0 !important;
+        .mat-mdc-menu-content {
+            background-color: #ffffff !important;
+            padding: 4px 0 !important;
+        }
     }
 
     .mat-mdc-menu-item,
@@ -275,8 +275,8 @@ hr {
 
 .dark .mat-mdc-select-panel,
 .dark .mat-select-panel,
-.dark .mat-mdc-menu-panel,
-.dark .mat-menu-panel,
+.dark .mat-mdc-menu-panel:not(.custom-gologin-menu),
+.dark .mat-menu-panel:not(.custom-gologin-menu),
 .dark .mat-mdc-autocomplete-panel,
 .dark .mat-autocomplete-panel,
 .dark .faint-shadow-menu {
@@ -298,14 +298,14 @@ hr {
         overflow-y: auto !important;
     }
 
-    &:is(.mat-mdc-menu-panel, .mat-menu-panel) {
+    &:is(.mat-mdc-menu-panel:not(.custom-gologin-menu), .mat-menu-panel:not(.custom-gologin-menu)) {
         max-height: none !important;
         overflow: visible !important;
-    }
 
-    .mat-mdc-menu-content {
-        background-color: #0f172a !important;
-        padding: 4px 0 !important;
+        .mat-mdc-menu-content {
+            background-color: #0f172a !important;
+            padding: 4px 0 !important;
+        }
     }
 
     .mat-mdc-menu-item,
@@ -468,29 +468,35 @@ hr {
 /* Ensure menu popups (especially form menus like custom-gologin-menu) do not get constrained with scrolls and have crisp borders/rounded corners */
 .mat-mdc-menu-panel.custom-gologin-menu,
 .mat-menu-panel.custom-gologin-menu,
-.cdk-overlay-pane:has(.custom-gologin-menu) .mat-mdc-menu-panel {
+.cdk-overlay-pane:has(.custom-gologin-menu) .mat-mdc-menu-panel,
+.cdk-overlay-pane:has(.custom-gologin-menu) .mat-menu-panel {
     max-height: none !important;
     border-radius: 16px !important;
-    border: 1px solid var(--fuse-border, #e2e8f0) !important;
+    border: none !important;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
     overflow: hidden !important;
-    isolation: isolate;
+    background-color: var(--fuse-bg-card, #ffffff) !important;
+    --mat-menu-container-color: var(--fuse-bg-card, #ffffff) !important;
+    --mat-menu-container-elevation-shadow: none !important;
 
     .mat-mdc-menu-content {
         overflow: hidden !important;
         height: auto !important;
         max-height: none !important;
         padding: 0 !important;
-        border-radius: inherit !important;
+        border-radius: 16px !important;
         background-color: transparent !important;
     }
 }
 
 .dark .mat-mdc-menu-panel.custom-gologin-menu,
 .dark .mat-menu-panel.custom-gologin-menu,
-.dark .cdk-overlay-pane:has(.custom-gologin-menu) .mat-mdc-menu-panel {
-    border: 1px solid #334155 !important;
+.dark .cdk-overlay-pane:has(.custom-gologin-menu) .mat-mdc-menu-panel,
+.dark .cdk-overlay-pane:has(.custom-gologin-menu) .mat-menu-panel {
+    border: none !important;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+    background-color: #1e293b !important;
+    --mat-menu-container-color: #1e293b !important;
 }
 
 .mat-mdc-unelevated-button>.mat-icon,
