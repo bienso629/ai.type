@@ -154,12 +154,17 @@ hr {
             height: auto !important;
             line-height: normal !important;
             padding: 10px 16px !important;
+            justify-content: flex-start !important;
+            text-align: left !important;
 
             .mdc-list-item__primary-text,
             .mat-mdc-menu-item-text {
                 line-height: normal !important;
                 width: 100% !important;
-                display: block !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                text-align: left !important;
                 white-space: normal !important;
             }
 
@@ -168,6 +173,9 @@ hr {
                 line-height: inherit !important;
                 color: inherit !important;
                 white-space: normal !important;
+                text-align: left !important;
+                justify-content: flex-start !important;
+                align-items: flex-start !important;
             }
         }
 
