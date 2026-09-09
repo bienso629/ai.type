@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
@@ -26,7 +26,7 @@ import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.
     providers: [CrawlService, BlogService],
     encapsulation: ViewEncapsulation.None
 })
-export class CollectionComponent implements OnInit, OnDestroy {
+export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     user: User;
 
     collections: any[] = [];
@@ -91,6 +91,16 @@ export class CollectionComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
+    }
+
+    ngAfterViewInit(): void {
+        setTimeout(() => {
+            if (this.table) {
+                this.table.recalculatePages();
+                this.table.recalculate();
+            }
+            window.dispatchEvent(new Event('resize'));
+        }, 100);
     }
 
     ngOnDestroy(): void {
@@ -254,13 +264,24 @@ export class CollectionComponent implements OnInit, OnDestroy {
                         }
                     });
 
+                    // Sắp xếp bài viết theo thứ tự từ cũ đến mới nhất (cũ nhất ở đầu, mới nhất ở cuối)
+                    matchingArticles.sort((a: any, b: any) => {
+                        const timeA = new Date(a.created_at || a.createdAt || a.updated_at || a.updatedAt || 0).getTime();
+                        const timeB = new Date(b.created_at || b.createdAt || b.updated_at || b.updatedAt || 0).getTime();
+                        return timeA - timeB;
+                    });
+
                     this.rows = [...matchingArticles];
                     this.totalElements = this.rows.length;
                     this.isLoading = false;
-                    if (this.table) {
-                        this.table.recalculatePages();
-                        this.table.recalculate();
-                    }
+                    this.cd.detectChanges();
+                    setTimeout(() => {
+                        if (this.table) {
+                            this.table.recalculatePages();
+                            this.table.recalculate();
+                        }
+                        window.dispatchEvent(new Event('resize'));
+                    }, 50);
                     this.cd.markForCheck();
                     return;
                 }
@@ -293,6 +314,13 @@ export class CollectionComponent implements OnInit, OnDestroy {
                             if (doc && doc.uuid && this.multiAccountService.getItem(`ai_type_script_data_${doc.uuid}`)) {
                                 doc.has_script = true;
                             }
+                        });
+
+                        // Sắp xếp bài viết từ server theo thứ tự từ cũ đến mới nhất
+                        resData.docs.sort((a: any, b: any) => {
+                            const timeA = new Date(a.created_at || a.createdAt || a.updated_at || a.updatedAt || 0).getTime();
+                            const timeB = new Date(b.created_at || b.createdAt || b.updated_at || b.updatedAt || 0).getTime();
+                            return timeA - timeB;
                         });
                         if (this.page.pageNumber === 0) {
                             this.rows = [...resData.docs];
@@ -340,6 +368,12 @@ export class CollectionComponent implements OnInit, OnDestroy {
                     this.isLoading = false;
                     if (this.table) {
                         this.table.recalculatePages();
+                        setTimeout(() => {
+                            if (this.table) {
+                                this.table.recalculate();
+                            }
+                            window.dispatchEvent(new Event('resize'));
+                        }, 50);
                     }
                     this.cd.markForCheck();
                 }
@@ -623,6 +657,35 @@ export class CollectionComponent implements OnInit, OnDestroy {
                 this.cd.markForCheck();
             }
         });
+    }
+
+    getDateGroup(doc: any): string {
+        if (!doc) return '';
+        let dateVal = doc.updatedAt || doc.updated_at || doc.createdAt || doc.created_at || doc.date || doc.updated || doc.created;
+        if (!dateVal) return '';
+
+        if (typeof dateVal === 'string' && /^\d+$/.test(dateVal)) {
+            dateVal = Number(dateVal);
+        }
+        if (typeof dateVal === 'number' && dateVal < 10000000000) {
+            dateVal = dateVal * 1000;
+        }
+
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return '';
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const itemDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+        const diffTime = today.getTime() - itemDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+
+        if (diffDays <= 0) return 'Hôm nay';
+        if (diffDays === 1) return 'Hôm qua';
+        if (diffDays > 1 && diffDays <= 7) return `${diffDays} ngày trước`;
+        if (diffDays > 7 && diffDays <= 30) return `${Math.floor(diffDays / 7)} tuần trước`;
+        return d.toLocaleDateString('vi-VN');
     }
 
     hasVideoProject(row: any): boolean {

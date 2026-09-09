@@ -5283,8 +5283,17 @@ ${contentFromDone || '(Chưa có văn bản)'}
              const docsList = res?.data?.docs || res?.articles || (Array.isArray(res?.data) ? res.data : null);
              if (docsList && docsList.length > 0) {
                  const uuidSet = new Set(uuids);
-                 const matchedDocs = docsList.filter((doc: any) => doc && doc.uuid && uuidSet.has(doc.uuid));
-                 this.articlesInCollection = matchedDocs.length > 0 ? matchedDocs : docsList;
+                 let matchedDocs = docsList.filter((doc: any) => doc && doc.uuid && uuidSet.has(doc.uuid));
+                 if (matchedDocs.length === 0) {
+                     matchedDocs = [...docsList];
+                 }
+                 // Sắp xếp bài viết theo thứ tự từ cũ đến mới nhất
+                 matchedDocs.sort((a: any, b: any) => {
+                     const timeA = new Date(a.created_at || a.createdAt || a.updated_at || a.updatedAt || 0).getTime();
+                     const timeB = new Date(b.created_at || b.createdAt || b.updated_at || b.updatedAt || 0).getTime();
+                     return timeA - timeB;
+                 });
+                 this.articlesInCollection = matchedDocs;
                  this.selectedArticleInCollection = this.uuid;
                  this.cd.detectChanges();
              }
@@ -5707,7 +5716,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                     description: newDescription,
                 };
 
-                const newUuid = uuid.v4();
+                const newUuid = this._h.generateNanoId(10);
                 const newSlug = this.slugifyPipe.transform(newTitle);
 
                 let isEncryptedChapter = false;
