@@ -1440,8 +1440,17 @@ export class CrawlService {
 
     public createCollection(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal) {
-            return of({ success: true, message: 'Tạo bộ sưu tập cục bộ thành công.' });
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.saveLocalCollection) {
+            return from(electron.saveLocalCollection({
+                title: dataForm?.title,
+                url: dataForm?.url,
+                uuid: dataForm?.uuid,
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('createCollection', { success: false }))
+            );
         }
 
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
@@ -1470,8 +1479,16 @@ export class CrawlService {
 
     public storeCollection(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal) {
-            return of({ success: true, message: 'Lưu bộ sưu tập cục bộ thành công.' });
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.storeLocalCollection) {
+            return from(electron.storeLocalCollection({
+                _id: dataForm?._id || dataForm?.id,
+                uuid: dataForm?.uuid,
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('storeCollection', { success: false }))
+            );
         }
 
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
@@ -1500,8 +1517,16 @@ export class CrawlService {
 
     public removeCollection(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal) {
-            return of({ success: true, message: 'Xóa bộ sưu tập cục bộ thành công.' });
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.removeLocalCollection) {
+            return from(electron.removeLocalCollection({
+                _id: dataForm?._id || dataForm?.id,
+                uuid: dataForm?.uuid,
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('removeCollection', { success: false }))
+            );
         }
 
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
