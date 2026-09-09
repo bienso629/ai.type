@@ -238,6 +238,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     referenceOutlineImageBase64: string | null = null;
     isRefreshingOutline: boolean = false;
 
+    @ViewChild('nextChapterDialog') nextChapterDialog: TemplateRef<any>;
+    nextChapterDialogRef: MatDialogRef<any>;
+    customNextChapterPrompt: string = '';
+    referenceNextChapterImageBase64: string | null = null;
+
     source: any = {
         p: [],
         span: [],
@@ -5468,6 +5473,58 @@ ${contentFromDone || '(Chưa có văn bản)'}
         }
     }
 
+    openNextChapterDialog() {
+        if (!this.selectedCollections || this.selectedCollections.length === 0) {
+            this.toastr.warning('Vui lòng chọn bộ bài viết (Collection) trước.');
+            return;
+        }
+
+        let uuids: string[] = [];
+        this.selectedCollections.forEach((col: any) => {
+            const fullCol = this.collections.find((c: any) => c._id === col._id || c.id === col.id);
+            const targetCol = fullCol || col;
+            if (Array.isArray(targetCol.uuid)) {
+                uuids = uuids.concat(targetCol.uuid);
+            } else if (targetCol.uuid) {
+                uuids.push(targetCol.uuid);
+            }
+        });
+
+        uuids = Array.from(new Set(uuids));
+        if (uuids.length === 0) {
+            this.toastr.warning('Không tìm thấy bài viết nào trong Collection này.');
+            return;
+        }
+
+        this.customNextChapterPrompt = '';
+        this.referenceNextChapterImageBase64 = null;
+
+        this.nextChapterDialogRef = this.dialog.open(this.nextChapterDialog, {
+            width: '600px',
+            panelClass: 'custom-dialog-bulk',
+            disableClose: false
+        });
+    }
+
+    onReferenceNextChapterImageSelected(event: any) {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e: any) => {
+                this.referenceNextChapterImageBase64 = e.target.result;
+                this.cd.markForCheck();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    async confirmNextChapter() {
+        if (this.nextChapterDialogRef) {
+            this.nextChapterDialogRef.close();
+        }
+        await this.generateNextChapterInCollection();
+    }
+
     async generateNextChapterInCollection() {
         if (!this.selectedCollections || this.selectedCollections.length === 0) {
             this.toastr.warning('Vui lòng chọn bộ bài viết (Collection) trước.');
@@ -5566,7 +5623,13 @@ Dưới đây là TOÀN BỘ CÁC CHƯƠNG/PHẦN ĐÃ VIẾT TRƯỚC ĐÓ tron
 
 ${previousSummary}
 Dựa vào TOÀN BỘ NỘI DUNG & TÌNH TIẾT CỦA CÁC CHƯƠNG TRƯỚC Ở TRÊN, hãy sáng tạo và lập kịch bản nối tiếp cho PHẦN TIẾP THEO (Chương tiếp theo/Phần nối tiếp) chuẩn theo phong cách "${styleName}".
+`;
 
+            if (this.customNextChapterPrompt && this.customNextChapterPrompt.trim()) {
+                prompt += `\nYÊU CẦU ĐẶC BIỆT & GỢI Ý ĐỊNH HƯỚNG TỪ TÁC GIẢ (BẮT BUỘC TUÂN THỦ):\n${this.customNextChapterPrompt.trim()}\n`;
+            }
+
+            prompt += `
 YÊU CẦU QUAN TRỌNG:
 1. TIÊU ĐỀ: Tên tiêu đề bài viết/chương tiếp theo.
 2. MÔ TẢ: Mô tả tổng quan chi tiết mạch truyện của chương mới này.
@@ -5587,9 +5650,26 @@ Trả về kết quả bằng định dạng JSON duy nhất như sau:
 }
 Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng '}', không bọc trong markdown block.`;
 
+            let parts: any[] = [];
+            if (this.referenceNextChapterImageBase64) {
+                const base64Data = this.referenceNextChapterImageBase64.split(',')[1];
+                let mimeType = 'image/png';
+                if (this.referenceNextChapterImageBase64.startsWith('data:image/jpeg')) mimeType = 'image/jpeg';
+                else if (this.referenceNextChapterImageBase64.startsWith('data:image/webp')) mimeType = 'image/webp';
+
+                parts.push({
+                    inlineData: {
+                        mimeType: mimeType,
+                        data: base64Data
+                    }
+                });
+            }
+
+            parts.unshift({ text: prompt });
+
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                contents: [{ role: 'user', parts: parts }],
             });
 
             const rawText = response.text || '';
@@ -5610,11 +5690,15 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                     return item.replace(/^\d+[\.\/]\s*/, '').trim();
                 }).filter((item: string) => item.length > 0);
 
-                // Build source object for new article (bỏ dany trùng lặp, lưu style vào source.style)
+                // Chuyển kết quả gợi ý phân cảnh/dàn ý từ AI thành các đoạn thẻ HTML <p id="outline-p-..."> cho Dàn ý (done)
+                const doneList = promptList.map((item: string) => `<p id="outline-p-${uuid.v4()}">${this.sanitizeAIText(item)}</p>`);
+
+                // Build source object for new article (lưu vào source.done, source.prompt và source.style)
                 let newSource: any = {
                     description: newDescription,
                     pre: [],
                     prompt: promptList.map((item: string) => `<p id="source-prompt-${uuid.v4()}">${item}</p>`),
+                    done: doneList,
                     style: this.style || this.source?.style || ''
                 };
 
@@ -5627,10 +5711,12 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 const newSlug = this.slugifyPipe.transform(newTitle);
 
                 let isEncryptedChapter = false;
+                let finalDone = doneList;
+
                 if (this.articlePassword || (this.details && this.details.is_encrypted)) {
                     if (this.articlePassword) {
                         isEncryptedChapter = true;
-                        const encryptedObj = this.encryptPayload(newSource, [], [], this.articlePassword, {
+                        const encryptedObj = this.encryptPayload(newSource, doneList, [], this.articlePassword, {
                             title: newTitle,
                             url: newSlug,
                             description: newDescription,
@@ -5638,6 +5724,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                             arr_keyword: []
                         });
                         newSource = encryptedObj.source;
+                        finalDone = ['<p>[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU CÁ NHÂN]</p>'];
                     }
                 }
 
@@ -5646,7 +5733,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                     title: newTitle,
                     url: newSlug,
                     source: newSource,
-                    done: isEncryptedChapter ? ['<p>[NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA AES-256 BẰNG MẬT KHẨU CÁ NHÂN]</p>'] : [],
+                    done: finalDone,
                     trash: [],
                     seo: newSeo,
                     arr_keyword: [],

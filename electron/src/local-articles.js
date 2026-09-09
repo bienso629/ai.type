@@ -1293,7 +1293,7 @@ function registerLocalArticlesHandlers() {
             const db = getArticlesDatabase();
 
             const rows = await new Promise((resolve, reject) => {
-                db.all('SELECT * FROM local_collections ORDER BY updated_at DESC', [], (err, resultRows) => {
+                db.all('SELECT * FROM local_collections WHERE id NOT LIKE "rel:%" ORDER BY updated_at DESC', [], (err, resultRows) => {
                     if (err) reject(err);
                     else resolve(resultRows || []);
                 });
@@ -1660,13 +1660,13 @@ function registerLocalArticlesHandlers() {
     });
 
     /**
-     * Lấy danh sách domains duy nhất từ database SQLite local
+     * Lấy danh sách domains duy nhất từ database SQLite local (chuẩn từ bảng local_domains đã được backup/sync)
      */
     ipcMain.handle('list-local-domains', async (event, payload) => {
         try {
             const db = getArticlesDatabase();
 
-            // 1. Lấy tất cả tên miền đã lưu trong bảng local_domains
+            // 1. Lấy tất cả tên miền đã lưu trong bảng local_domains (đã đồng bộ từ JSON backup)
             const savedDomains = await new Promise((resolve, reject) => {
                 db.all('SELECT * FROM local_domains ORDER BY domain ASC', [], (err, rows) => {
                     if (err) reject(err);
@@ -1674,62 +1674,24 @@ function registerLocalArticlesHandlers() {
                 });
             });
 
-            // 2. Lấy tất cả tên miền từ bảng local_articles kèm mô tả mẫu từ bài viết nếu có
-            const articleDomains = await new Promise((resolve, reject) => {
-                db.all(`
-                    SELECT domain, description, title
-                    FROM local_articles 
-                    WHERE domain IS NOT NULL AND domain != ""
-                    GROUP BY domain
-                `, [], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                });
-            });
-
-            const domainMap = new Map();
-
-            // Đưa các domain từ local_articles vào map
-            for (const r of articleDomains) {
-                const dom = (r.domain || '').trim();
-                if (!dom) continue;
-                domainMap.set(dom, {
-                    domain: dom,
-                    name: dom,
-                    username: '',
-                    password: '',
-                    note: r.description || '', // fallback lấy từ mô tả bài viết nếu local_domains chưa có
-                    monthlyTarget: 0,
-                    writingStyle: '',
-                    ga4PropertyId: '',
-                    serverIp: '',
-                    serverUsername: '',
-                    serverPassword: ''
-                });
-            }
-
-            // Ghi đè bằng thông tin chuẩn từ bảng local_domains (tự giải mã mật khẩu cấp RAM)
-            for (const sd of savedDomains) {
+            // Map trực tiếp từ bảng local_domains chuẩn, tự giải mã mật khẩu cấp RAM
+            const domains = savedDomains.map(sd => {
                 const dom = (sd.domain || '').trim();
-                if (!dom) continue;
-                const existing = domainMap.get(dom) || {};
-                domainMap.set(dom, {
-                    ...existing,
+                return {
                     domain: dom,
                     name: sd.name || dom,
                     username: sd.username || '',
                     password: decryptDomainPassword(sd.password || ''),
-                    note: sd.note || existing.note || '',
+                    note: sd.note || '',
                     monthlyTarget: sd.monthly_target || 0,
                     writingStyle: sd.writing_style || '',
                     ga4PropertyId: sd.ga4_property_id || '',
                     serverIp: sd.server_ip || '',
                     serverUsername: sd.server_username || '',
                     serverPassword: decryptDomainPassword(sd.server_password || '')
-                });
-            }
+                };
+            }).filter(d => !!d.domain);
 
-            const domains = Array.from(domainMap.values());
             return { success: true, data: domains, total: domains.length };
         } catch (error) {
             console.error('[list-local-domains] Lỗi:', error);

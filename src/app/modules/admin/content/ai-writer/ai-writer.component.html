@@ -131,7 +131,7 @@
                                             </div>
                                         </mat-option>
                                     </mat-select>
-                                    <button mat-icon-button matSuffix [color]="'primary'" matTooltipPosition="above" [disabled]="isGeneratingNextChapter" [matTooltip]="'AI tạo phần tiếp theo dựa vào các phần trước'" (click)="generateNextChapterInCollection(); $event.stopPropagation()">
+                                    <button mat-icon-button matSuffix [color]="'primary'" matTooltipPosition="above" [disabled]="isGeneratingNextChapter" [matTooltip]="'AI tạo phần tiếp theo dựa vào các phần trước'" (click)="openNextChapterDialog(); $event.stopPropagation()">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:corner-down-right'" *ngIf="!isGeneratingNextChapter"></mat-icon>
                                         <mat-icon class="icon-size-4 animate-spin" [svgIcon]="'feather:refresh-cw'" *ngIf="isGeneratingNextChapter"></mat-icon>
                                     </button>
@@ -2893,6 +2893,47 @@
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:check'" *ngIf="!isRefreshingOutline"></mat-icon>
                 <mat-icon class="icon-size-5 animate-spin" [svgIcon]="'feather:refresh-cw'" *ngIf="isRefreshingOutline"></mat-icon>
                 <mat-label class="ml-2">{{ isRefreshingOutline ? 'Đang làm mới...' : 'Xác nhận' }}</mat-label>
+            </button>
+        </div>
+    </div>
+</ng-template>
+
+<ng-template #nextChapterDialog>
+    <div class="flex flex-col h-full bg-card rounded-lg overflow-hidden" style="max-width: 600px; min-width: 400px">
+        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
+            <div>
+                <h2 class="text-xl font-semibold m-0 text-gray-800">Gợi ý phát triển chương tiếp theo</h2>
+                <p class="text-xs text-gray-500 mt-1 mb-0">AI sẽ đọc lại toàn bộ các chương trước trong Collection và định hướng theo ý tưởng của bạn.</p>
+            </div>
+            <button mat-icon-button mat-dialog-close [disabled]="isGeneratingNextChapter">
+                <mat-icon [svgIcon]="'feather:x'"></mat-icon>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto">
+            <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Gợi ý prompt / định hướng cốt truyện cho chương mới (tùy chọn)</mat-label>
+                <textarea matInput [(ngModel)]="customNextChapterPrompt" rows="5" placeholder="Ví dụ: Nhân vật chính gặp phải biến cố bất ngờ tại hang động, xuất hiện nhân vật phản diện mới, phong cách viết gay cấn và hồi hộp hơn..." [disabled]="isGeneratingNextChapter"></textarea>
+            </mat-form-field>
+        </div>
+        <div class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0">
+            <div class="flex items-center gap-2">
+                <button mat-icon-button color="primary" type="button" (click)="nextChapterImageFileInput.click()" [disabled]="isGeneratingNextChapter" matTooltip="Chọn ảnh tham khảo">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:paperclip'"></mat-icon>
+                </button>
+                <input type="file" #nextChapterImageFileInput accept="image/*" (change)="onReferenceNextChapterImageSelected($event)" class="hidden">
+                <span *ngIf="!referenceNextChapterImageBase64" class="text-sm text-gray-400">Đính kèm ảnh tham khảo</span>
+                <div *ngIf="referenceNextChapterImageBase64" class="relative inline-block ml-1">
+                    <img [src]="referenceNextChapterImageBase64" class="w-10 h-10 rounded object-cover shadow border">
+                    <button *ngIf="!isGeneratingNextChapter" type="button" class="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center p-0 shadow cursor-pointer border-0" (click)="referenceNextChapterImageBase64 = null" matTooltip="Xóa ảnh">
+                        <mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:x'"></mat-icon>
+                    </button>
+                </div>
+            </div>
+
+            <button mat-flat-button color="primary" [disabled]="isGeneratingNextChapter" (click)="confirmNextChapter()">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:arrow-right'" *ngIf="!isGeneratingNextChapter"></mat-icon>
+                <mat-icon class="icon-size-5 animate-spin" [svgIcon]="'feather:refresh-cw'" *ngIf="isGeneratingNextChapter"></mat-icon>
+                <mat-label class="ml-2">{{ isGeneratingNextChapter ? 'Đang sáng tạo...' : 'Tạo chương mới' }}</mat-label>
             </button>
         </div>
     </div>
