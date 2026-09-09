@@ -4382,6 +4382,21 @@ ${contentFromDone || '(Chưa có văn bản)'}
         localStorage.version_value = this.version_value;
     }
 
+    compareVersionDates = (o1: any, o2: any): boolean => {
+        if (o1 === o2) return true;
+        if (!o1 || !o2) return false;
+        return new Date(o1).getTime() === new Date(o2).getTime();
+    };
+
+    compareCollections = (item1: any, item2: any): boolean => {
+        if (item1 === item2) return true;
+        if (!item1 || !item2) return false;
+        const id1 = item1._id || item1.id || (typeof item1 === 'string' ? item1 : null);
+        const id2 = item2._id || item2.id || (typeof item2 === 'string' ? item2 : null);
+        if (id1 && id2) return id1 === id2;
+        return item1.title && item2.title ? item1.title === item2.title : false;
+    };
+
     /**
      * Sửa archive
      */
@@ -5953,17 +5968,8 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 backup: {}, playlist: [{ youtube: [], tiktok: [], facebook: [] }, { mp3: [] }]
             };
 
-            if (this.source && Object.keys(this.source).length > 0 && !this.source.encrypted && !this.source.cipher) {
-                this.source = { ...defaultSource, ...this.source };
-            } else if (editor.source && typeof editor.source === 'object' && !editor.source.encrypted && !editor.source.cipher) {
-                this.source = { ...defaultSource, ...editor.source };
-            } else if (this.source && typeof this.source === 'object') {
-                this.source = { ...defaultSource, ...this.source };
-            } else if (editor.source && typeof editor.source === 'object') {
-                this.source = { ...defaultSource, ...editor.source };
-            } else {
-                this.source = { ...defaultSource };
-            }
+            const targetSource = (editor.source && typeof editor.source === 'object') ? editor.source : (this.source || {});
+            this.source = { ...defaultSource, ...targetSource };
 
             // Đảm bảo tất cả các mảng bắt buộc luôn tồn tại dưới dạng mảng
             ['p', 'span', 'li', 'i', 'dd', 'td', 'label', 'h1', 'h2', 'h3', 'h4', 'h5', 'a', 'table', 'img', 'audios', 'source', 'iframe', 'pre', 'prompt', 'word', 'chatgpt', 'text', 'empty'].forEach(key => {
@@ -5984,8 +5990,8 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 });
             }
 
-            if (this.done && Array.isArray(this.done)) {
-                this.done = this.done.map((item: any) => {
+            if (this.source.done && Array.isArray(this.source.done)) {
+                this.source.done = this.source.done.map((item: any) => {
                     if (typeof item === 'string' && item.includes('<audio')) {
                         const srcMatch = item.match(/src=["']([^"']+)["']/);
                         if (srcMatch && srcMatch[1]) {
@@ -6035,15 +6041,17 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
             return;
         }
 
-        let rawDone = this.done && this.done.length > 0 && !(this.done.length === 1 && typeof this.done[0] === 'string' && this.done[0].includes('MÃ HÓA'))
-            ? this.done
-            : ((editor.done && editor.done.length > 0 && !(editor.done.length === 1 && typeof editor.done[0] === 'string' && editor.done[0].includes('MÃ HÓA')))
-                ? editor.done
-                : ((this.source && this.source.backup && this.source.backup.length > 0 && !(this.source.backup.length === 1 && typeof this.source.backup[0] === 'string' && this.source.backup[0].includes('MÃ HÓA')))
-                    ? this.source.backup
-                    : ((editor.source && editor.source.backup && editor.source.backup.length > 0 && !(editor.source.backup.length === 1 && typeof editor.source.backup[0] === 'string' && editor.source.backup[0].includes('MÃ HÓA')))
-                        ? editor.source.backup
-                        : this.done)));
+        let rawDone = (editor.done && editor.done.length > 0 && !(editor.done.length === 1 && typeof editor.done[0] === 'string' && editor.done[0].includes('MÃ HÓA')))
+            ? editor.done
+            : ((editor.source && editor.source.backup && editor.source.backup.length > 0 && !(editor.source.backup.length === 1 && typeof editor.source.backup[0] === 'string' && editor.source.backup[0].includes('MÃ HÓA')))
+                ? editor.source.backup
+                : ((editor.source && editor.source.done && editor.source.done.length > 0 && !(editor.source.done.length === 1 && typeof editor.source.done[0] === 'string' && editor.source.done[0].includes('MÃ HÓA')))
+                    ? editor.source.done
+                    : ((this.done && this.done.length > 0 && !(this.done.length === 1 && typeof this.done[0] === 'string' && this.done[0].includes('MÃ HÓA')))
+                        ? this.done
+                        : ((this.source && this.source.backup && this.source.backup.length > 0 && !(this.source.backup.length === 1 && typeof this.source.backup[0] === 'string' && this.source.backup[0].includes('MÃ HÓA')))
+                            ? this.source.backup
+                            : this.done))));
 
         if (this.source && this.source.backup) {
             this.source.backup = this.splitIntoParagraphs(this.source.backup);
@@ -6059,11 +6067,11 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                 this.details.source.done = this.done;
             }
         }
-        this.trash = editor.trash ? editor.trash : this.trash;
-        this.seo = editor.seo && editor.seo.title ? editor.seo : this.seo;
-        this.arr_keyword = editor.arr_keyword
-            ? editor.arr_keyword
-            : this.arr_keyword;
+        this.trash = Array.isArray(editor.trash) ? [...editor.trash] : [];
+        this.seo = (editor.seo && typeof editor.seo === 'object' && editor.seo.title) ? editor.seo : (editor.source?.seo || this.seo || {});
+        this.arr_keyword = Array.isArray(editor.arr_keyword)
+            ? [...editor.arr_keyword]
+            : (Array.isArray(editor.source?.arr_keyword) ? [...editor.source.arr_keyword] : []);
 
         const titleVal = editor.title || editor.source?.title || '';
         if (titleVal) {

@@ -169,6 +169,23 @@ function getArticlesDatabase() {
         `);
 
         articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_collections (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                url TEXT,
+                picture TEXT,
+                excerpt TEXT,
+                username TEXT DEFAULT 'admin',
+                uuids_json TEXT,
+                count INTEGER DEFAULT 0,
+                has_script INTEGER DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_collections_username ON local_collections(username)`);
+
+        articlesDbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_link_collections (
                 id TEXT PRIMARY KEY,
                 title TEXT,
@@ -249,6 +266,67 @@ function getArticlesDatabase() {
                     }
                 } catch (e) {
                     console.error('[local-gologin-tokens] Lỗi khi nạp từ backup:', e);
+                }
+            }
+        });
+
+        // Tự động nạp dữ liệu collections từ backup nếu bảng đang trống hoặc chứa rel:
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_collections WHERE id NOT LIKE "rel:%"', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(getArticlesDbDir(), 'backup', 'admin_collections_2023.json'),
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_collections_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_collections_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const raw = fs.readFileSync(backupFile, 'utf8');
+                        const rawCols = JSON.parse(raw);
+                        if (Array.isArray(rawCols) && rawCols.length > 0) {
+                            const collections = rawCols.filter(x => x && x.type === 'collection');
+                            const rels = rawCols.filter(x => x && x.type === 'collection_uuid');
+                            const uuidsByCol = {};
+                            for (const r of rels) {
+                                if (r.collection_id && r.uuid) {
+                                    if (!uuidsByCol[r.collection_id]) uuidsByCol[r.collection_id] = [];
+                                    if (!uuidsByCol[r.collection_id].includes(r.uuid)) {
+                                        uuidsByCol[r.collection_id].push(r.uuid);
+                                    }
+                                }
+                            }
+
+                            articlesDbInstance.serialize(() => {
+                                articlesDbInstance.run('DELETE FROM local_collections WHERE id LIKE "rel:%"');
+                                const stmt = articlesDbInstance.prepare(`
+                                    INSERT OR REPLACE INTO local_collections (id, title, url, picture, excerpt, username, uuids_json, count, has_script, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const c of collections) {
+                                    const id = c._id || c.id;
+                                    if (!id) continue;
+                                    const colUuids = uuidsByCol[id] || (Array.isArray(c.uuids) ? c.uuids : (Array.isArray(c.uuid) ? c.uuid : []));
+                                    stmt.run(
+                                        id,
+                                        c.title || '',
+                                        c.url || '',
+                                        c.picture || '',
+                                        c.excerpt || '',
+                                        'admin',
+                                        JSON.stringify(colUuids),
+                                        colUuids.length,
+                                        c.has_script ? 1 : 0,
+                                        c.createdAt || new Date().toISOString(),
+                                        c.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize();
+                                console.log(`[local-collections] Đã tự động nạp ${collections.length} bộ sưu tập từ backup.`);
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error('[local-collections] Lỗi khi nạp từ backup:', e);
                 }
             }
         });
@@ -1247,6 +1325,139 @@ function registerLocalArticlesHandlers() {
         } catch (error) {
             console.error('[list-local-collections] Lỗi:', error);
             return { success: false, error: error.message, data: [] };
+        }
+    });
+
+    /**
+     * Tạo hoặc lưu bộ sưu tập cục bộ
+     */
+    ipcMain.handle('save-local-collection', async (event, payload) => {
+        try {
+            const { id = crypto.randomUUID(), title, url, picture = '', excerpt = '', username = 'admin', uuid = [] } = payload || {};
+            if (!title) {
+                return { success: false, message: 'Tiêu đề bộ sưu tập không được để trống.' };
+            }
+            const db = getArticlesDatabase();
+            const uuidsList = Array.isArray(uuid) ? uuid : (uuid ? [uuid] : []);
+            const now = new Date().toISOString();
+
+            await new Promise((resolve, reject) => {
+                const stmt = db.prepare(`
+                    INSERT INTO local_collections (id, title, url, picture, excerpt, username, uuids_json, count, has_script, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        title = excluded.title,
+                        url = excluded.url,
+                        picture = excluded.picture,
+                        excerpt = excluded.excerpt,
+                        uuids_json = excluded.uuids_json,
+                        count = excluded.count,
+                        updated_at = excluded.updated_at
+                `);
+                stmt.run(
+                    id,
+                    title,
+                    url || title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                    picture,
+                    excerpt,
+                    username,
+                    JSON.stringify(uuidsList),
+                    uuidsList.length,
+                    now,
+                    now,
+                    (err) => (err ? reject(err) : resolve())
+                );
+                stmt.finalize();
+            });
+
+            return { success: true, id, message: 'Lưu bộ sưu tập cục bộ thành công.' };
+        } catch (error) {
+            console.error('[save-local-collection] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Thêm bài viết vào bộ sưu tập cục bộ
+     */
+    ipcMain.handle('store-local-collection', async (event, payload) => {
+        try {
+            const { _id, id, uuid, username = 'admin' } = payload || {};
+            const colId = _id || id;
+            if (!colId || !uuid) {
+                return { success: false, message: 'Thiếu thông tin bộ sưu tập hoặc bài viết.' };
+            }
+            const db = getArticlesDatabase();
+            const row = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM local_collections WHERE id = ?', [colId], (err, r) => err ? reject(err) : resolve(r));
+            });
+            if (!row) {
+                return { success: false, message: 'Không tìm thấy bộ sưu tập.' };
+            }
+
+            let uuids = [];
+            try {
+                if (row.uuids_json) uuids = JSON.parse(row.uuids_json);
+            } catch (e) {}
+
+            if (!uuids.includes(uuid)) {
+                uuids.push(uuid);
+            }
+            const now = new Date().toISOString();
+
+            await new Promise((resolve, reject) => {
+                db.run(
+                    'UPDATE local_collections SET uuids_json = ?, count = ?, updated_at = ? WHERE id = ?',
+                    [JSON.stringify(uuids), uuids.length, now, colId],
+                    (err) => err ? reject(err) : resolve()
+                );
+            });
+
+            return { success: true, message: 'Thêm vào bộ sưu tập thành công.' };
+        } catch (error) {
+            console.error('[store-local-collection] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Xóa bài viết khỏi bộ sưu tập cục bộ
+     */
+    ipcMain.handle('remove-from-local-collection', async (event, payload) => {
+        try {
+            const { _id, id, uuid } = payload || {};
+            const colId = _id || id;
+            if (!colId || !uuid) {
+                return { success: false, message: 'Thiếu thông tin bộ sưu tập hoặc bài viết.' };
+            }
+            const db = getArticlesDatabase();
+            const row = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM local_collections WHERE id = ?', [colId], (err, r) => err ? reject(err) : resolve(r));
+            });
+            if (!row) {
+                return { success: false, message: 'Không tìm thấy bộ sưu tập.' };
+            }
+
+            let uuids = [];
+            try {
+                if (row.uuids_json) uuids = JSON.parse(row.uuids_json);
+            } catch (e) {}
+
+            uuids = uuids.filter(u => u !== uuid);
+            const now = new Date().toISOString();
+
+            await new Promise((resolve, reject) => {
+                db.run(
+                    'UPDATE local_collections SET uuids_json = ?, count = ?, updated_at = ? WHERE id = ?',
+                    [JSON.stringify(uuids), uuids.length, now, colId],
+                    (err) => err ? reject(err) : resolve()
+                );
+            });
+
+            return { success: true, message: 'Đã gỡ bài viết khỏi bộ sưu tập.' };
+        } catch (error) {
+            console.error('[remove-from-local-collection] Lỗi:', error);
+            return { success: false, error: error.message };
         }
     });
 
@@ -3814,17 +4025,31 @@ function registerLocalArticlesHandlers() {
             const colFile = path.join(backupDir, `${username}_collections_${year}.json`);
             if (fs.existsSync(colFile)) {
                 try {
-                    const cols = JSON.parse(fs.readFileSync(colFile, 'utf8'));
-                    if (Array.isArray(cols) && cols.length > 0) {
+                    const rawCols = JSON.parse(fs.readFileSync(colFile, 'utf8'));
+                    if (Array.isArray(rawCols) && rawCols.length > 0) {
+                        const collections = rawCols.filter(x => x && x.type === 'collection');
+                        const rels = rawCols.filter(x => x && x.type === 'collection_uuid');
+                        const uuidsByCol = {};
+                        for (const r of rels) {
+                            if (r.collection_id && r.uuid) {
+                                if (!uuidsByCol[r.collection_id]) uuidsByCol[r.collection_id] = [];
+                                if (!uuidsByCol[r.collection_id].includes(r.uuid)) {
+                                    uuidsByCol[r.collection_id].push(r.uuid);
+                                }
+                            }
+                        }
+
                         await new Promise((resolve, reject) => {
                             db.serialize(() => {
+                                db.run('DELETE FROM local_collections WHERE id LIKE "rel:%"');
                                 const stmt = db.prepare(`
                                     INSERT OR REPLACE INTO local_collections (id, title, url, picture, excerpt, username, uuids_json, count, has_script, created_at, updated_at)
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 `);
-                                for (const c of cols) {
+                                for (const c of collections) {
                                     const id = c._id || c.id;
                                     if (!id) continue;
+                                    const colUuids = uuidsByCol[id] || (Array.isArray(c.uuids) ? c.uuids : (Array.isArray(c.uuid) ? c.uuid : []));
                                     stmt.run(
                                         id,
                                         c.title || '',
@@ -3832,8 +4057,8 @@ function registerLocalArticlesHandlers() {
                                         c.picture || '',
                                         c.excerpt || '',
                                         username,
-                                        JSON.stringify(c.uuids || []),
-                                        parseInt(c.count) || 0,
+                                        JSON.stringify(colUuids),
+                                        colUuids.length,
                                         c.has_script ? 1 : 0,
                                         c.createdAt || new Date().toISOString(),
                                         c.updatedAt || new Date().toISOString()
@@ -3842,7 +4067,7 @@ function registerLocalArticlesHandlers() {
                                 stmt.finalize((err) => (err ? reject(err) : resolve()));
                             });
                         });
-                        results.collections = cols.length;
+                        results.collections = collections.length;
                     }
                 } catch (e) {
                     console.error('[sync-backup-to-local-sqlite] Lỗi nạp collections:', e);

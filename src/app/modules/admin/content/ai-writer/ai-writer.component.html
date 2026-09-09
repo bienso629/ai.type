@@ -2630,6 +2630,7 @@
                                             <mat-label class="font-semibold text-sm block mb-1">{{ 'app.your_episode' | transloco }}</mat-label>
                                             <ng-select class="custom-select-ai-writer w-full" [placeholder]="'app.select_episode' | transloco"
                                                 [items]="collections" [addTag]="addCollection"
+                                                [compareWith]="compareCollections"
                                                 [readonly]="(name !== user.name)" (clear)="onClearCollection()"
                                                 (add)="onAddCollection($event)" (remove)="onRemoveCollection($event)"
                                                 (change)="onChangeCollection($event)" multiple="true" bindLabel="title"
@@ -2653,7 +2654,7 @@
                                             class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix mr-2"
                                             appearance="fill">
                                             <mat-label>{{ 'app.select_version' | transloco }}</mat-label>
-                                            <mat-select [value]="version_value" (selectionChange)="history($event)">
+                                            <mat-select [value]="version_value" [compareWith]="compareVersionDates" (selectionChange)="history($event)">
                                                 <mat-option [value]="details.createdAt">{{details.createdAt |
                                                     timeago}}</mat-option>
                                                 <ng-container *ngIf="details.history && details.history.length > 0">
