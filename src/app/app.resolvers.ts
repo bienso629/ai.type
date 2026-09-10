@@ -166,7 +166,13 @@ export class InitialDataResolver
                                 const moneyCount = nodes[0] ? nodes[0].reduce((total: number, obj: any) => (obj.amount || 0) + total, 0) : 0;
                                 const writingData = nodes[1] || { total: 0 };
                                 const archivesData = nodes[2] || { total: 0 };
-                                const domainStatsData = nodes[3] || {};
+                                const domainStatsDataRaw = nodes[3] || {};
+                                const domainStatsData: any = {};
+                                for (const rawDomain of Object.keys(domainStatsDataRaw)) {
+                                    const dom = (rawDomain || '').trim().toLowerCase();
+                                    if (!dom || dom.includes('[object') || dom.includes('object object')) continue;
+                                    domainStatsData[rawDomain] = domainStatsDataRaw[rawDomain];
+                                }
 
                                 let oldStats: any = {};
                                 try {

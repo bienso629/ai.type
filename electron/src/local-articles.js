@@ -799,23 +799,49 @@ function encryptDomainPassword(plainText) {
 
 function decryptDomainPassword(cipherText) {
     if (!cipherText) return '';
-    const str = String(cipherText).trim();
+    let str = String(cipherText).trim();
     if (!str) return '';
-    if (!str.startsWith('ENC_AES256:')) return str; // Dạng plain text hoặc chưa mã hoá
-    try {
-        const parts = str.split(':');
-        if (parts.length !== 3) return str;
-        const iv = Buffer.from(parts[1], 'hex');
-        const encryptedData = parts[2];
-        const key = Buffer.from(getMachineKey(), 'utf8');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return decrypted;
-    } catch (err) {
-        console.error('[decryptDomainPassword] Lỗi giải mã:', err);
-        return '';
+
+    // 1. Giải mã định dạng mã hóa cục bộ ENC_AES256:IV:CIPHER
+    if (str.startsWith('ENC_AES256:')) {
+        try {
+            const parts = str.split(':');
+            if (parts.length === 3) {
+                const iv = Buffer.from(parts[1], 'hex');
+                const encryptedData = parts[2];
+                const key = Buffer.from(getMachineKey(), 'utf8');
+                const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+                let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+                decrypted += decipher.final('utf8');
+                str = decrypted;
+            }
+        } catch (err) {
+            console.error('[decryptDomainPassword] Lỗi giải mã ENC_AES256:', err);
+            return '';
+        }
     }
+
+    // 2. Giải mã định dạng mã hóa từ backend type.vn (IV_HEX:CIPHER_HEX, IV dài 32 ký tự hex)
+    if (str && str.includes(':')) {
+        const defaultKey = 'yEnAi_vX2n#8pM!xZ9yQ@1kW5rT$4sY&';
+        let key = (process.env.CRYPTO_SECRET_KEY || defaultKey).padEnd(32, '0').substring(0, 32);
+        try {
+            const textParts = str.split(':');
+            if (textParts.length === 2 && textParts[0].length === 32) {
+                const iv = Buffer.from(textParts[0], 'hex');
+                const encryptedText = Buffer.from(textParts[1], 'hex');
+                const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv);
+                let decrypted = decipher.update(encryptedText);
+                decrypted = Buffer.concat([decrypted, decipher.final()]);
+                const res = decrypted.toString();
+                if (res) return res;
+            }
+        } catch (e) {
+            // Giữ nguyên chuỗi nếu không phải khóa này
+        }
+    }
+
+    return str;
 }
 
 function htmlToMarkdownFallback(html) {
@@ -1090,32 +1116,32 @@ function registerLocalArticlesHandlers() {
             const db = getArticlesDatabase();
 
             const rows = await new Promise((resolve, reject) => {
-                let query = 'SELECT * FROM local_articles';
+                let query = 'SELECT a.*, (s.uuid IS NOT NULL) AS has_script FROM local_articles a LEFT JOIN local_scripts s ON a.uuid = s.uuid';
                 const conditions = [];
                 const params = [];
 
                 if (username && username !== 'all') {
-                    conditions.push('username = ?');
+                    conditions.push('a.username = ?');
                     params.push(username);
                 }
 
                 if (Array.isArray(uuids) && uuids.length > 0) {
                     const placeholders = uuids.map(() => '?').join(',');
-                    conditions.push(`uuid IN (${placeholders})`);
+                    conditions.push(`a.uuid IN (${placeholders})`);
                     params.push(...uuids);
                 } else if (typeof uuids === 'string' && uuids.trim()) {
-                    conditions.push('uuid = ?');
+                    conditions.push('a.uuid = ?');
                     params.push(uuids.trim());
                 }
 
                 if (keyword && keyword.trim()) {
-                    conditions.push('(title LIKE ? OR description LIKE ?)');
+                    conditions.push('(a.title LIKE ? OR a.description LIKE ?)');
                     const kw = `%${keyword.trim()}%`;
                     params.push(kw, kw);
                 }
 
                 if (domain && domain.trim()) {
-                    conditions.push('domain = ?');
+                    conditions.push('a.domain = ?');
                     params.push(domain.trim());
                 }
 
@@ -1123,7 +1149,7 @@ function registerLocalArticlesHandlers() {
                     query += ' WHERE ' + conditions.join(' AND ');
                 }
 
-                query += ' ORDER BY updated_at DESC, created_at DESC';
+                query += ' ORDER BY a.updated_at DESC, a.created_at DESC';
 
                 db.all(query, params, (err, resultRows) => {
                     if (err) reject(err);
@@ -1160,6 +1186,7 @@ function registerLocalArticlesHandlers() {
                     done: parsedDone,
                     is_local: true,
                     is_encrypted: !!r.is_encrypted,
+                    has_script: !!r.has_script,
                     created_at: r.created_at,
                     updated_at: r.updated_at
                 };
@@ -2012,7 +2039,7 @@ function registerLocalArticlesHandlers() {
                 if (dom.startsWith('https://')) dom = dom.substring(8);
                 if (dom.startsWith('www.')) dom = dom.substring(4);
                 if (dom.endsWith('/')) dom = dom.substring(0, dom.length - 1);
-                if (!dom) return;
+                if (!dom || dom.includes('[object') || dom.includes('object object')) return;
 
                 const m = parseInt(r.month, 10);
                 if (!calculatedDomainStats[dom]) {
@@ -2586,32 +2613,51 @@ function registerLocalArticlesHandlers() {
         return { 'Authorization': `Basic ${token}` };
     }
 
+    async function getEffectiveWpAuth(rawDomain, username, password) {
+        let cleanUser = (username || '').trim();
+        let cleanPass = (password || '').trim();
+        if (cleanUser && cleanPass && !cleanUser.startsWith('****') && !cleanPass.startsWith('****')) {
+            return { username: cleanUser, password: cleanPass };
+        }
+        const cleanDomain = (rawDomain || '').trim();
+        const cleanHost = cleanDomain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+        const cleanHttp = 'http://' + cleanHost;
+        const cleanHttps = 'https://' + cleanHost;
+
+        return new Promise((resolve) => {
+            const db = getArticlesDatabase();
+            db.get(
+                'SELECT username, password FROM local_domains WHERE LOWER(domain) = ? OR LOWER(domain) = ? OR LOWER(domain) = ? OR LOWER(domain) LIKE ? OR LOWER(domain) LIKE ? LIMIT 1',
+                [cleanHttps, cleanHttp, cleanHost, '%' + cleanHost + '%', '%' + cleanHost.replace(/^www\./, '') + '%'],
+                (err, row) => {
+                    if (row) {
+                        resolve({
+                            username: (cleanUser && !cleanUser.startsWith('****')) ? cleanUser : row.username,
+                            password: (cleanPass && !cleanPass.startsWith('****')) ? cleanPass : row.password
+                        });
+                    } else {
+                        resolve({ username: cleanUser, password: cleanPass });
+                    }
+                }
+            );
+        });
+    }
+
     // 1. Lấy danh sách chuyên mục WordPress trực tiếp từ Local
     ipcMain.handle('wp:categories', async (event, payload) => {
         try {
-            let { domain, username, password } = payload || {};
+            let { domain, username, password, apppass } = payload || {};
             if (!domain) return { success: false, error: 'Thiếu domain' };
             if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
                 domain = 'https://' + domain;
             }
             if (domain.endsWith('/')) domain = domain.slice(0, -1);
 
-            // Tìm password trong SQLite nếu payload chưa có
-            if (!password) {
-                const db = getArticlesDatabase();
-                const saved = await new Promise((resolve) => {
-                    db.get('SELECT username, password FROM local_domains WHERE domain = ? OR domain = ?', [domain, domain.replace('https://', '').replace('http://', '')], (err, row) => resolve(row));
-                });
-                if (saved) {
-                    username = username || saved.username;
-                    password = saved.password;
-                }
-            }
-
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
             const apiUrl = `${domain}/wp-json/wp/v2/categories?per_page=100`;
             const headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
-                ...buildWpAuthHeader(username, password)
+                ...buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password)
             };
 
             const resp = await fetch(apiUrl, { method: 'GET', headers });
@@ -2626,7 +2672,209 @@ function registerLocalArticlesHandlers() {
         }
     });
 
-    // 2. Lấy danh sách bài viết WordPress trực tiếp từ Local
+    // 2. Tạo chuyên mục WordPress mới trực tiếp từ Local
+    ipcMain.handle('wp:create-category', async (event, payload) => {
+        try {
+            let { domain, name, username, password, apppass, parent, description } = payload || {};
+            if (!domain || !name) return { success: false, error: 'Thiếu tên chuyên mục hoặc domain' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
+            const authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
+            if (!authHeader.Authorization) {
+                return { success: false, error: 'Không tìm thấy tài khoản/mật khẩu ứng dụng WordPress để tạo chuyên mục.' };
+            }
+
+            const bodyData = { name };
+            if (parent) bodyData.parent = parent;
+            if (description) bodyData.description = description;
+
+            const apiUrl = `${domain}/wp-json/wp/v2/categories`;
+            const resp = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                    ...authHeader
+                },
+                body: JSON.stringify(bodyData)
+            });
+
+            if (!resp.ok) {
+                const errText = await resp.text();
+                return { success: false, error: `WordPress từ chối tạo chuyên mục (HTTP ${resp.status}): ${errText}` };
+            }
+
+            const resData = await resp.json();
+            return { success: true, data: resData, id: resData.id };
+        } catch (error) {
+            console.error('[wp:create-category] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 3. Lấy danh sách thẻ (Tags) WordPress trực tiếp từ Local
+    ipcMain.handle('wp:tags', async (event, payload) => {
+        try {
+            let { domain, username, password, apppass } = payload || {};
+            if (!domain) return { success: false, error: 'Thiếu domain' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
+            const apiUrl = `${domain}/wp-json/wp/v2/tags?per_page=100`;
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                ...buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password)
+            };
+
+            const resp = await fetch(apiUrl, { method: 'GET', headers });
+            if (!resp.ok) {
+                return { success: false, error: `WordPress phản hồi lỗi HTTP ${resp.status}`, data: [] };
+            }
+            const data = await resp.json();
+            return { success: true, data: Array.isArray(data) ? data : [] };
+        } catch (error) {
+            console.error('[wp:tags] Lỗi:', error);
+            return { success: false, error: error.message, data: [] };
+        }
+    });
+
+    // 4. Tạo thẻ (Tag) WordPress mới trực tiếp từ Local
+    ipcMain.handle('wp:create-tag', async (event, payload) => {
+        try {
+            let { domain, name, username, password, apppass, description } = payload || {};
+            if (!domain || !name) return { success: false, error: 'Thiếu tên thẻ hoặc domain' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
+            const authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
+            if (!authHeader.Authorization) {
+                return { success: false, error: 'Không tìm thấy tài khoản/mật khẩu ứng dụng WordPress để tạo thẻ.' };
+            }
+
+            const bodyData = { name };
+            if (description) bodyData.description = description;
+
+            const apiUrl = `${domain}/wp-json/wp/v2/tags`;
+            const resp = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                    ...authHeader
+                },
+                body: JSON.stringify(bodyData)
+            });
+
+            if (!resp.ok) {
+                const errText = await resp.text();
+                return { success: false, error: `WordPress từ chối tạo thẻ (HTTP ${resp.status}): ${errText}` };
+            }
+
+            const resData = await resp.json();
+            return { success: true, data: resData, id: resData.id };
+        } catch (error) {
+            console.error('[wp:create-tag] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 5. Upload Media / Ảnh lên WordPress trực tiếp từ Local
+    ipcMain.handle('wp:upload-media', async (event, payload) => {
+        try {
+            let { domain, b64, base64, imagePath, username, password, apppass } = payload || {};
+            if (!domain) return { success: false, error: 'Thiếu domain' };
+            if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+                domain = 'https://' + domain;
+            }
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
+            const authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
+            if (!authHeader.Authorization) {
+                return { success: false, error: 'Không tìm thấy tài khoản/mật khẩu ứng dụng WordPress để tải ảnh lên.' };
+            }
+
+            let fileBuffer = null;
+            let fileName = 'image_' + Date.now() + '.png';
+            let mimeType = 'image/png';
+
+            const rawB64 = b64 || base64;
+            if (rawB64) {
+                let pureB64 = rawB64;
+                if (typeof rawB64 === 'string' && rawB64.startsWith('data:')) {
+                    const parts = rawB64.split(',');
+                    pureB64 = parts[1] || '';
+                    const header = parts[0];
+                    const mimeMatch = header.match(/^data:([^;]+)/);
+                    if (mimeMatch) mimeType = mimeMatch[1];
+                    const nameMatch = header.match(/;name=([^;]+)/);
+                    if (nameMatch) {
+                        try { fileName = decodeURIComponent(nameMatch[1]); } catch (e) { fileName = nameMatch[1]; }
+                    } else {
+                        const ext = mimeType.split('/')[1] || 'png';
+                        fileName = 'image_' + Date.now() + '.' + (ext === 'jpeg' ? 'jpg' : ext);
+                    }
+                }
+                fileBuffer = Buffer.from(pureB64, 'base64');
+            } else if (imagePath) {
+                let cleanPath = imagePath;
+                if (cleanPath.startsWith('file://')) cleanPath = cleanPath.slice(7);
+                cleanPath = decodeURIComponent(cleanPath);
+                if (fs.existsSync(cleanPath)) {
+                    fileBuffer = fs.readFileSync(cleanPath);
+                    fileName = path.basename(cleanPath);
+                    const ext = fileName.split('.').pop()?.toLowerCase();
+                    if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+                    else if (ext === 'webp') mimeType = 'image/webp';
+                    else if (ext === 'gif') mimeType = 'image/gif';
+                }
+            }
+
+            if (!fileBuffer || fileBuffer.length === 0) {
+                return { success: false, error: 'Dữ liệu hình ảnh trống hoặc không hợp lệ.' };
+            }
+
+            const apiUrl = `${domain}/wp-json/wp/v2/media`;
+            const resp = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': mimeType,
+                    'Content-Disposition': `attachment; filename="${fileName}"`,
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
+                    ...authHeader
+                },
+                body: fileBuffer
+            });
+
+            if (!resp.ok) {
+                const errText = await resp.text();
+                return { success: false, error: `WordPress từ chối tải ảnh lên (HTTP ${resp.status}): ${errText}` };
+            }
+
+            const resData = await resp.json();
+            return {
+                success: true,
+                data: resData,
+                id: resData.id,
+                source_url: resData.source_url
+            };
+        } catch (error) {
+            console.error('[wp:upload-media] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 6. Lấy danh sách bài viết WordPress trực tiếp từ Local
     ipcMain.handle('wp:posts', async (event, payload) => {
         try {
             let { domain, username, password, apppass, page = 1, per_page = 100, keyword, category, status } = payload || {};
@@ -2636,20 +2884,8 @@ function registerLocalArticlesHandlers() {
             }
             if (domain.endsWith('/')) domain = domain.slice(0, -1);
 
-            const effectivePass = apppass || password;
-            let authHeader = {};
-            if (username && effectivePass) {
-                authHeader = buildWpAuthHeader(username, effectivePass);
-            } else {
-                // Tự động kiểm tra trong SQLite local_domains
-                const db = getArticlesDatabase();
-                const saved = await new Promise((resolve) => {
-                    db.get('SELECT username, password FROM local_domains WHERE domain = ? OR domain = ?', [domain, domain.replace('https://', '').replace('http://', '')], (err, row) => resolve(row));
-                });
-                if (saved && saved.username && saved.password) {
-                    authHeader = buildWpAuthHeader(saved.username, saved.password);
-                }
-            }
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
+            let authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
 
             const queryParams = new URLSearchParams();
             queryParams.append('page', String(page));
@@ -2708,7 +2944,7 @@ function registerLocalArticlesHandlers() {
         }
     });
 
-    // 3. Cập nhật bài viết WordPress trực tiếp từ Local
+    // 7. Cập nhật bài viết WordPress trực tiếp từ Local
     ipcMain.handle('wp:update-post', async (event, payload) => {
         try {
             let { domain, id, wp_post_id, post_id, username, password, apppass, status, title, content, excerpt, featured_media } = payload || {};
@@ -2719,27 +2955,8 @@ function registerLocalArticlesHandlers() {
             }
             if (domain.endsWith('/')) domain = domain.slice(0, -1);
 
-            let effectivePass = apppass || password;
-            let effectiveUser = username;
-            if (!effectiveUser || !effectivePass) {
-                const cleanHost = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-                const db = getArticlesDatabase();
-                const saved = await new Promise((resolve) => {
-                    db.get(
-                        `SELECT username, password FROM local_domains 
-                         WHERE domain = ? OR domain = ? OR domain LIKE ? OR domain LIKE ? 
-                         LIMIT 1`,
-                        [domain, cleanHost, `%${cleanHost}%`, `%${cleanHost.replace(/^www\./, '')}%`],
-                        (err, row) => resolve(row)
-                    );
-                });
-                if (saved) {
-                    effectiveUser = effectiveUser || saved.username;
-                    effectivePass = effectivePass || saved.password;
-                }
-            }
-
-            const authHeader = buildWpAuthHeader(effectiveUser, effectivePass);
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
+            const authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
             if (!authHeader.Authorization) {
                 return { success: false, error: 'Không tìm thấy tài khoản/mật khẩu ứng dụng WordPress hợp lệ để cập nhật bài viết.' };
             }
@@ -2775,7 +2992,7 @@ function registerLocalArticlesHandlers() {
         }
     });
 
-    // 4. Tạo bài viết WordPress trực tiếp từ Local
+    // 8. Tạo bài viết WordPress trực tiếp từ Local
     ipcMain.handle('wp:create-post', async (event, payload) => {
         try {
             let { domain, username, password, apppass, status = 'publish', title, content, excerpt, featured_media, categories, tags } = payload || {};
@@ -2785,20 +3002,8 @@ function registerLocalArticlesHandlers() {
             }
             if (domain.endsWith('/')) domain = domain.slice(0, -1);
 
-            let effectivePass = apppass || password;
-            let effectiveUser = username;
-            if (!effectiveUser || !effectivePass) {
-                const db = getArticlesDatabase();
-                const saved = await new Promise((resolve) => {
-                    db.get('SELECT username, password FROM local_domains WHERE domain = ? OR domain = ?', [domain, domain.replace('https://', '').replace('http://', '')], (err, row) => resolve(row));
-                });
-                if (saved) {
-                    effectiveUser = effectiveUser || saved.username;
-                    effectivePass = effectivePass || saved.password;
-                }
-            }
-
-            const authHeader = buildWpAuthHeader(effectiveUser, effectivePass);
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
+            const authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
             if (!authHeader.Authorization) {
                 return { success: false, error: 'Không tìm thấy tài khoản/mật khẩu ứng dụng WordPress để đăng bài.' };
             }
@@ -2837,7 +3042,7 @@ function registerLocalArticlesHandlers() {
         }
     });
 
-    // 5. Xóa bài viết WordPress trực tiếp từ Local
+    // 9. Xóa bài viết WordPress trực tiếp từ Local
     ipcMain.handle('wp:delete-post', async (event, payload) => {
         try {
             let { domain, id, wp_post_id, post_id, username, password, apppass, force = false } = payload || {};
@@ -2848,20 +3053,8 @@ function registerLocalArticlesHandlers() {
             }
             if (domain.endsWith('/')) domain = domain.slice(0, -1);
 
-            let effectivePass = apppass || password;
-            let effectiveUser = username;
-            if (!effectiveUser || !effectivePass) {
-                const db = getArticlesDatabase();
-                const saved = await new Promise((resolve) => {
-                    db.get('SELECT username, password FROM local_domains WHERE domain = ? OR domain = ?', [domain, domain.replace('https://', '').replace('http://', '')], (err, row) => resolve(row));
-                });
-                if (saved) {
-                    effectiveUser = effectiveUser || saved.username;
-                    effectivePass = effectivePass || saved.password;
-                }
-            }
-
-            const authHeader = buildWpAuthHeader(effectiveUser, effectivePass);
+            const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
+            const authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
             const apiUrl = `${domain}/wp-json/wp/v2/posts/${targetId}?force=${force ? 'true' : 'false'}`;
             const resp = await fetch(apiUrl, {
                 method: 'DELETE',

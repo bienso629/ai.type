@@ -359,6 +359,29 @@ export class WordpressService {
     }
 
     public upload_media(domain: string, b64: string, uname: string, pass: string, domainObj?: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.wpUploadMedia) {
+            return from(electron.wpUploadMedia({
+                domain: domain,
+                b64: b64,
+                username: uname,
+                password: pass,
+                apppass: pass
+            })).pipe(
+                switchMap((res: any) => {
+                    if (res && res.success && res.data) {
+                        return of(res.data);
+                    }
+                    if (res && res.id) {
+                        return of(res);
+                    }
+                    return throwError(() => new Error(res?.error || 'Tải ảnh lên WordPress thất bại'));
+                }),
+                catchError(err => throwError(() => err))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
         
@@ -397,6 +420,21 @@ export class WordpressService {
     }
 
     public create_category(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.wpCreateCategory) {
+            return from(electron.wpCreateCategory({
+                domain: dataForm?.domain,
+                name: dataForm?.name,
+                username: dataForm?.username,
+                password: dataForm?.password || dataForm?.apppass,
+                apppass: dataForm?.apppass || dataForm?.password
+            })).pipe(
+                map((res: any) => (res && res.success) ? (res.data || res) : res),
+                catchError(this.handleError('wpCreateCategoryLocal', null))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -427,6 +465,20 @@ export class WordpressService {
     }
 
     public tags(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.wpTags) {
+            return from(electron.wpTags({
+                domain: dataForm?.domain,
+                username: dataForm?.username,
+                password: dataForm?.password || dataForm?.apppass,
+                apppass: dataForm?.apppass || dataForm?.password
+            })).pipe(
+                map((res: any) => (res && res.success) ? res.data : (res?.data || [])),
+                catchError(this.handleError('wpTagsLocal', []))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -455,6 +507,21 @@ export class WordpressService {
     }
 
     public create_tag(dataForm: any): Observable<any> {
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.wpCreateTag) {
+            return from(electron.wpCreateTag({
+                domain: dataForm?.domain,
+                name: dataForm?.name,
+                username: dataForm?.username,
+                password: dataForm?.password || dataForm?.apppass,
+                apppass: dataForm?.apppass || dataForm?.password
+            })).pipe(
+                map((res: any) => (res && res.success) ? (res.data || res) : res),
+                catchError(this.handleError('wpCreateTagLocal', null))
+            );
+        }
+
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -517,7 +584,15 @@ export class WordpressService {
                 categories: dataForm?.categories,
                 tags: dataForm?.tags
             })).pipe(
-                map((res: any) => (res && res.success) ? (res.data || res) : res),
+                map((res: any) => {
+                    if (res && res.success && res.data) {
+                        return res;
+                    }
+                    if (res && res.id) {
+                        return { success: true, data: res, id: res.id };
+                    }
+                    return res;
+                }),
                 catchError(this.handleError('wpCreatePostLocal', null))
             );
         }

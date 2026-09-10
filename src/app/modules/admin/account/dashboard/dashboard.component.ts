@@ -245,6 +245,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private normalizeDomain(domain: string): string {
         if (!domain) return '';
         let normalized = domain.trim().toLowerCase();
+        if (normalized.includes('[object') || normalized.includes('object object')) return '';
         if (normalized.startsWith('http://')) normalized = normalized.substring(7);
         if (normalized.startsWith('https://')) normalized = normalized.substring(8);
         if (normalized.startsWith('www.')) normalized = normalized.substring(4);
@@ -341,6 +342,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     const normalizedStats: any = {};
                     for (const rawDomain of Object.keys(rawStats)) {
                         const normalized = this.normalizeDomain(rawDomain);
+                        if (!normalized) continue;
                         if (!normalizedStats[normalized]) {
                             normalizedStats[normalized] = {};
                         }
@@ -369,6 +371,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     const normalizedStats: any = {};
                     for (const rawDomain of Object.keys(rawStats)) {
                         const normalized = this.normalizeDomain(rawDomain);
+                        if (!normalized) continue;
                         if (!normalizedStats[normalized]) {
                             normalizedStats[normalized] = {};
                         }
@@ -428,6 +431,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         const domainStatsData: any = {};
                         for (const rawDomain of Object.keys(domainStatsDataRaw)) {
                             const normalized = this.normalizeDomain(rawDomain);
+                            if (!normalized) continue;
                             if (!domainStatsData[normalized]) {
                                 domainStatsData[normalized] = {};
                             }
