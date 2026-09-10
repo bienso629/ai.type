@@ -259,9 +259,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                         matchingArticles = matchingArticles.filter((art: any) => uuids.includes(art.uuid));
                     }
                     matchingArticles.forEach((doc: any) => {
-                        if (doc && doc.uuid && this.multiAccountService.getItem(`ai_type_script_data_${doc.uuid}`)) {
-                            doc.has_script = true;
-                        }
+                        doc.has_script = !!doc.has_script || (doc.uuid && !!this.multiAccountService.getItem(`ai_type_script_data_${doc.uuid}`));
                     });
 
                     // Sắp xếp bài viết theo thứ tự từ cũ đến mới nhất (cũ nhất ở đầu, mới nhất ở cuối)
@@ -1027,6 +1025,31 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
                             }
 
                             fullScriptParts.push(`========================================\n[PHẦN KỊCH BẢN CHƯƠNG ${idx + 1}: ${chapterTitle}]\n========================================\n\n` + chapterScript);
+
+                            // Lưu kịch bản riêng lẻ cho từng bài viết / chương
+                            if (art && art.uuid) {
+                                this.multiAccountService.setItem(`ai_type_script_data_${art.uuid}`, true);
+                                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                                if (isAutoSaveLocal && (window as any).electron && (window as any).electron.saveLocalScript) {
+                                    (window as any).electron.saveLocalScript({
+                                        uuid: art.uuid,
+                                        username: username,
+                                        title: chapterTitle,
+                                        outline: chapterTitle,
+                                        script: chapterScript
+                                    }).catch((errLocal: any) => console.warn('Lỗi lưu kịch bản từng chương vào SQLite:', errLocal));
+                                }
+                                this._blogService.storeScript({
+                                    username: username,
+                                    uuid: art.uuid,
+                                    title: chapterTitle,
+                                    outline: chapterTitle,
+                                    script: chapterScript
+                                }).subscribe({
+                                    next: () => {},
+                                    error: (errStore: any) => console.warn('Lỗi lưu kịch bản chương lên server:', errStore)
+                                });
+                            }
                         }
                     } catch (e) {
                         console.warn(`Lỗi khi dựng kịch bản cho Chương ${idx + 1}:`, e);

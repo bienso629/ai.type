@@ -498,6 +498,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
     showSingleChapterModal: boolean = false;
     isLoadingChapterList: boolean = false;
     availableChapters: any[] = [];
+    chapterScriptStatusMap: Record<string, boolean> = {};
     isSidebarOpen: boolean = true;
     regeneratingChapterIdx: number | null = null;
     currentYear: number = new Date().getFullYear();
@@ -1470,8 +1471,37 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
         this.cd.markForCheck();
         const username = this._blogService.user?.name || 'admin';
 
-        this.getCollectionDocsFromDb(username).then((docs) => {
+        this.getCollectionDocsFromDb(username).then(async (docs) => {
             this.availableChapters = docs || [];
+            
+            // Check script status for each chapter
+            for (let ch of this.availableChapters) {
+                const chUuid = ch?.uuid;
+                if (!chUuid) continue;
+                
+                // 1. Check current scriptText
+                if (chUuid === this.uuid && this.scriptText) {
+                    this.chapterScriptStatusMap[chUuid] = true;
+                    continue;
+                }
+
+                // 2. Check local SQLite database
+                if ((window as any).electron && (window as any).electron.getLocalScript) {
+                    try {
+                        const localRes = await (window as any).electron.getLocalScript({ uuid: chUuid });
+                        if (localRes && localRes.success && localRes.data && localRes.data.script) {
+                            this.chapterScriptStatusMap[chUuid] = true;
+                            continue;
+                        }
+                    } catch (e) {}
+                }
+
+                // 3. Check localStorage cache
+                if (this._multiAccountService.getItem(`ai_type_script_data_${chUuid}`)) {
+                    this.chapterScriptStatusMap[chUuid] = true;
+                }
+            }
+
             this.isLoadingChapterList = false;
             this.cd.markForCheck();
         }).catch((err) => {
@@ -1483,6 +1513,11 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
     }
 
     isChapterInScript(chapter: any, index: number): boolean {
+        if (!chapter) return false;
+        const chUuid = chapter.uuid;
+        if (chUuid && this.chapterScriptStatusMap[chUuid]) return true;
+        if (chUuid && chUuid === this.uuid && !!this.scriptText) return true;
+        if (chUuid && !!this._multiAccountService.getItem(`ai_type_script_data_${chUuid}`)) return true;
         if (!this.scriptText) return false;
         const title = chapter.title || '';
         if (this.scriptText.includes(`PHẦN KỊCH BẢN CHƯƠNG ${index + 1}:`)) return true;
@@ -1491,9 +1526,18 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
     }
 
     scrollToChapter(index: number): void {
-        const chapterTitle = this.availableChapters[index]?.title || `Chương ${index + 1}`;
+        const chapter = this.availableChapters[index];
+        const chapterTitle = chapter?.title || `Chương ${index + 1}`;
+        const chapterUuid = chapter?.uuid;
+
+        // If this chapter has its own uuid and is different from current uuid, navigate to it!
+        if (chapterUuid && chapterUuid !== this.uuid) {
+            const username = this._blogService.user?.name || 'admin';
+            this.router.navigate(['/ai-writer', username, chapterUuid, 'script']);
+            return;
+        }
+
         const chapterHeaderPattern = new RegExp(`CHƯƠNG ${index + 1}`, 'i');
-        
         const elements = Array.from(document.querySelectorAll('.screenplay-outer, .screenplay-character-list-header, .screenplay-slugline, .screenplay-action'));
         const targetEl = elements.find(el => el.textContent && (el.textContent.toLowerCase().includes(chapterTitle.toLowerCase().trim()) || chapterHeaderPattern.test(el.textContent)));
 

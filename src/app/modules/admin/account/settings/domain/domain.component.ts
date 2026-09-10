@@ -272,6 +272,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     normalizeDomain(domain: string): string {
         if (!domain) return '';
         let normalized = domain.trim().toLowerCase();
+        if (normalized.includes('[object') || normalized.includes('object object')) return '';
         if (normalized.startsWith('http://')) normalized = normalized.substring(7);
         if (normalized.startsWith('https://')) normalized = normalized.substring(8);
         if (normalized.startsWith('www.')) normalized = normalized.substring(4);

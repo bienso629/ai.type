@@ -156,6 +156,10 @@ contextBridge.exposeInMainWorld('electron', {
 
     // ===== WORDPRESS DIRECT LOCAL PROXY =====
     wpCategories: (payload) => ipcRenderer.invoke('wp:categories', payload),
+    wpCreateCategory: (payload) => ipcRenderer.invoke('wp:create-category', payload),
+    wpTags: (payload) => ipcRenderer.invoke('wp:tags', payload),
+    wpCreateTag: (payload) => ipcRenderer.invoke('wp:create-tag', payload),
+    wpUploadMedia: (payload) => ipcRenderer.invoke('wp:upload-media', payload),
     wpPosts: (payload) => ipcRenderer.invoke('wp:posts', payload),
     wpUpdatePost: (payload) => ipcRenderer.invoke('wp:update-post', payload),
     wpCreatePost: (payload) => ipcRenderer.invoke('wp:create-post', payload),

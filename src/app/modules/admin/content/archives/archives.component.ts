@@ -1218,6 +1218,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         used: 0,
                         is_local: true,
                         is_encrypted: !!art.is_encrypted,
+                        has_script: !!art.has_script,
                         created_at: art.created_at || art.updated_at || new Date().toISOString(),
                         updated_at: art.updated_at || art.created_at || new Date().toISOString(),
                         dateGroup: this.getDateGroup(art)
@@ -1811,6 +1812,31 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
                             }
 
                             fullScriptParts.push(`========================================\n[PHẦN KỊCH BẢN CHƯƠNG ${idx + 1}: ${chapterTitle}]\n========================================\n\n` + chapterScript);
+
+                            // Lưu kịch bản riêng lẻ cho từng bài viết / chương
+                            if (art && art.uuid) {
+                                this.multiAccountService.setItem(`ai_type_script_data_${art.uuid}`, true);
+                                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                                if (isAutoSaveLocal && (window as any).electron && (window as any).electron.saveLocalScript) {
+                                    (window as any).electron.saveLocalScript({
+                                        uuid: art.uuid,
+                                        username: username,
+                                        title: chapterTitle,
+                                        outline: chapterTitle,
+                                        script: chapterScript
+                                    }).catch((errLocal: any) => console.warn('Lỗi lưu kịch bản từng chương vào SQLite:', errLocal));
+                                }
+                                this._blogService.storeScript({
+                                    username: username,
+                                    uuid: art.uuid,
+                                    title: chapterTitle,
+                                    outline: chapterTitle,
+                                    script: chapterScript
+                                }).subscribe({
+                                    next: () => {},
+                                    error: (errStore: any) => console.warn('Lỗi lưu kịch bản chương lên server:', errStore)
+                                });
+                            }
                         }
                     } catch (e) {
                         console.warn(`Lỗi khi dựng kịch bản cho Chương ${idx + 1}:`, e);
