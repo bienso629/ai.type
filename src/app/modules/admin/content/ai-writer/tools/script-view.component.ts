@@ -632,6 +632,24 @@ export class AIScriptComponent implements OnInit, OnDestroy {
             }
         });
 
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalScript) {
+            (window as any).electron.getLocalScript({ uuid: this.uuid }).then((localRes: any) => {
+                if (localRes && localRes.success && localRes.data && localRes.data.script) {
+                    this.processScriptResponse(localRes);
+                    return;
+                }
+                this.fetchServerScript(username);
+            }).catch(() => {
+                this.fetchServerScript(username);
+            });
+            return;
+        }
+
+        this.fetchServerScript(username);
+    }
+
+    private fetchServerScript(username: string) {
         this._blogService.getScript({
             username: username,
             uuid: this.uuid
@@ -1024,12 +1042,29 @@ export class AIScriptComponent implements OnInit, OnDestroy {
     async saveScriptTextToDb(username: string): Promise<boolean> {
         if (!this.uuid || !this.scriptText) return false;
         const collectionTitle = this.scriptDoc?.title || this.draftTitleFallback || 'Kịch bản tiểu thuyết';
+        const outlineText = this.scriptDoc?.outline || 'Toàn bộ Collection';
+        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+
+        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.saveLocalScript) {
+            try {
+                await (window as any).electron.saveLocalScript({
+                    uuid: this.uuid,
+                    username: username,
+                    title: collectionTitle,
+                    outline: outlineText,
+                    script: this.scriptText
+                });
+            } catch (eLocal) {
+                console.warn('Lỗi lưu kịch bản local SQLite:', eLocal);
+            }
+        }
+
         try {
             await firstValueFrom(this._blogService.storeScript({
                 username: username,
                 uuid: this.uuid,
                 title: collectionTitle,
-                outline: this.scriptDoc?.outline || 'Toàn bộ Collection',
+                outline: outlineText,
                 script: this.scriptText
             }));
             this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
@@ -1038,7 +1073,14 @@ export class AIScriptComponent implements OnInit, OnDestroy {
             }
             return true;
         } catch (e) {
-            console.warn('Lỗi khi lưu kịch bản vào DB:', e);
+            console.warn('Lỗi khi lưu kịch bản lên Server:', e);
+            if (isAutoSaveLocal) {
+                this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
+                if (this.scriptDoc) {
+                    this.scriptDoc.script = this.scriptText;
+                }
+                return true;
+            }
             return false;
         }
     }

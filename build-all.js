@@ -78,25 +78,28 @@ async function main() {
     const rootPkg = require('./package.json');
 
     const args = process.argv.slice(2);
-    const isWinOnly = args.includes('--win') || args.includes('--windows');
-    const isLinuxOnly = args.includes('--linux') || args.includes('--ubuntu');
-    const isMacOnly = args.includes('--mac') || args.includes('--macos');
+    const isWin = args.includes('--win') || args.includes('--windows');
+    const isLinux = args.includes('--linux') || args.includes('--ubuntu');
+    const isMac = args.includes('--mac') || args.includes('--macos');
     const skipFrontend = args.includes('--skip-frontend') || args.includes('--skip-ng');
     const shouldPublish = args.includes('--publish');
 
     let targetFlags = [];
     let targetNames = [];
 
-    if (isWinOnly) {
+    if (isWin) {
         targetFlags.push('--win');
         targetNames.push('Windows (.exe)');
-    } else if (isLinuxOnly) {
+    }
+    if (isLinux) {
         targetFlags.push('--linux');
         targetNames.push('Ubuntu/Linux (.deb, .AppImage)');
-    } else if (isMacOnly) {
+    }
+    if (isMac) {
         targetFlags.push('--mac');
         targetNames.push('macOS (.zip)');
-    } else {
+    }
+    if (!isWin && !isLinux && !isMac) {
         targetFlags = ['--win', '--linux', '--mac'];
         targetNames = ['Windows (.exe)', 'Ubuntu/Linux (.deb, .AppImage)', 'macOS (.zip)'];
     }

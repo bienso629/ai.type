@@ -236,6 +236,57 @@ function getArticlesDatabase() {
             )
         `);
 
+        articlesDbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_scripts (
+                uuid TEXT PRIMARY KEY,
+                username TEXT DEFAULT 'admin',
+                title TEXT,
+                outline TEXT,
+                script TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_scripts_username ON local_scripts(username)`);
+        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_scripts_updated_at ON local_scripts(updated_at)`);
+
+        // Tự động nạp dữ liệu kịch bản scripts từ backup nếu bảng đang trống
+        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_scripts', (err, row) => {
+            if (!err && (!row || row.count === 0)) {
+                try {
+                    const backupCandidates = [
+                        path.join(getArticlesDbDir(), 'backup', 'admin_scripts_2023.json'),
+                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_scripts_2023.json'),
+                        path.join(__dirname, '..', '..', 'backup', 'admin_scripts_2023.json')
+                    ];
+                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                    if (backupFile) {
+                        const raw = fs.readFileSync(backupFile, 'utf8');
+                        const list = JSON.parse(raw);
+                        if (Array.isArray(list) && list.length > 0) {
+                            const stmt = articlesDbInstance.prepare(
+                                'INSERT OR REPLACE INTO local_scripts (uuid, username, title, outline, script, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                            );
+                            for (const item of list) {
+                                const uuid = item.uuid || item._id || item.id;
+                                if (!uuid) continue;
+                                const title = item.title || item.name || '';
+                                const outline = item.outline || '';
+                                const script = item.script || '';
+                                const createdAt = item.createdAt || new Date().toISOString();
+                                const updatedAt = item.updatedAt || createdAt;
+                                stmt.run(uuid, 'admin', title, outline, script, createdAt, updatedAt);
+                            }
+                            stmt.finalize();
+                            console.log(`[local-scripts] Đã tự động nạp ${list.length} kịch bản từ backup.`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[local-scripts] Lỗi khi nạp từ backup:', e);
+                }
+            }
+        });
+
         // Tự động nạp dữ liệu gologin tokens từ backup nếu bảng đang trống
         articlesDbInstance.get('SELECT COUNT(*) as count FROM local_gologin_tokens', (err, row) => {
             if (!err && (!row || row.count === 0)) {
@@ -4073,6 +4124,41 @@ function registerLocalArticlesHandlers() {
                 }
             }
 
+            // 11. Đồng bộ local_scripts từ admin_scripts_2023.json
+            const scriptsFile = path.join(backupDir, `${username}_scripts_${year}.json`);
+            if (fs.existsSync(scriptsFile)) {
+                try {
+                    const scripts = JSON.parse(fs.readFileSync(scriptsFile, 'utf8'));
+                    if (Array.isArray(scripts) && scripts.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            db.serialize(() => {
+                                const stmt = db.prepare(`
+                                    INSERT OR REPLACE INTO local_scripts (uuid, username, title, outline, script, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const s of scripts) {
+                                    const uuid = s.uuid || s._id || s.id;
+                                    if (!uuid) continue;
+                                    stmt.run(
+                                        uuid,
+                                        username,
+                                        s.title || s.name || '',
+                                        s.outline || '',
+                                        s.script || '',
+                                        s.createdAt || new Date().toISOString(),
+                                        s.updatedAt || new Date().toISOString()
+                                    );
+                                }
+                                stmt.finalize((err) => (err ? reject(err) : resolve()));
+                            });
+                        });
+                        results.scripts = scripts.length;
+                    }
+                } catch (e) {
+                    console.error('[sync-backup-to-local-sqlite] Lỗi nạp scripts:', e);
+                }
+            }
+
             console.log('[sync-backup-to-local-sqlite] Hoàn tất nạp vào SQLite:', results);
             return {
                 success: true,
@@ -4084,6 +4170,102 @@ function registerLocalArticlesHandlers() {
                 success: false,
                 error: error.message
             };
+        }
+    });
+
+    // ===== QUẢN LÝ KỊCH BẢN LOCAL (LOCAL SCRIPTS) =====
+    ipcMain.handle('save-local-script', async (event, payload) => {
+        try {
+            const { uuid, username = 'admin', title, outline, script } = payload || {};
+            if (!uuid) return { success: false, error: 'Thiếu uuid của kịch bản' };
+
+            const db = getArticlesDatabase();
+            const now = new Date().toISOString();
+
+            return await new Promise((resolve) => {
+                db.get('SELECT created_at FROM local_scripts WHERE uuid = ?', [uuid], (err, row) => {
+                    const createdAt = (row && row.created_at) ? row.created_at : now;
+                    db.run(
+                        `INSERT OR REPLACE INTO local_scripts (uuid, username, title, outline, script, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [uuid, username, title || '', outline || '', script || '', createdAt, now],
+                        function (err2) {
+                            if (err2) {
+                                console.error('[save-local-script] Lỗi lưu kịch bản vào SQLite:', err2);
+                                return resolve({ success: false, error: err2.message });
+                            }
+                            resolve({ success: true, uuid });
+                        }
+                    );
+                });
+            });
+        } catch (e) {
+            console.error('[save-local-script] Exception:', e);
+            return { success: false, error: e.message };
+        }
+    });
+
+    ipcMain.handle('get-local-script', async (event, payload) => {
+        try {
+            const { uuid } = payload || {};
+            if (!uuid) return { success: false, error: 'Thiếu uuid' };
+
+            const db = getArticlesDatabase();
+            return await new Promise((resolve) => {
+                db.get('SELECT * FROM local_scripts WHERE uuid = ?', [uuid], (err, row) => {
+                    if (err) {
+                        console.error('[get-local-script] Lỗi đọc SQLite:', err);
+                        return resolve({ success: false, error: err.message });
+                    }
+                    if (!row) {
+                        return resolve({ success: false, notFound: true, message: 'Chưa có kịch bản cho bài viết này trong SQLite' });
+                    }
+                    resolve({
+                        success: true,
+                        data: {
+                            uuid: row.uuid,
+                            username: row.username,
+                            title: row.title,
+                            outline: row.outline,
+                            script: row.script,
+                            createdAt: row.created_at,
+                            updatedAt: row.updated_at
+                        }
+                    });
+                });
+            });
+        } catch (e) {
+            console.error('[get-local-script] Exception:', e);
+            return { success: false, error: e.message };
+        }
+    });
+
+    ipcMain.handle('list-local-scripts', async (event, payload) => {
+        try {
+            const { username = 'admin' } = payload || {};
+            const db = getArticlesDatabase();
+            return await new Promise((resolve) => {
+                db.all(
+                    'SELECT uuid, username, title, outline, created_at, updated_at FROM local_scripts WHERE username = ? ORDER BY updated_at DESC',
+                    [username],
+                    (err, rows) => {
+                        if (err) {
+                            return resolve({ success: false, error: err.message, data: [] });
+                        }
+                        const formatted = (rows || []).map((r) => ({
+                            uuid: r.uuid,
+                            username: r.username,
+                            title: r.title,
+                            outline: r.outline,
+                            createdAt: r.created_at,
+                            updatedAt: r.updated_at
+                        }));
+                        resolve({ success: true, data: formatted });
+                    }
+                );
+            });
+        } catch (e) {
+            return { success: false, error: e.message, data: [] };
         }
     });
 }
