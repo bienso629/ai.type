@@ -1044,11 +1044,28 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 
                 if (scriptText) {
                     const scriptTitle = `${collectionTitle}`;
+                    const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                    const outlineText = `Toàn bộ Collection (${uuids.length} chương)`;
+
+                    if (isAutoSaveLocal && (window as any).electron && (window as any).electron.saveLocalScript) {
+                        try {
+                            await (window as any).electron.saveLocalScript({
+                                uuid: firstUuid,
+                                username: username,
+                                title: scriptTitle,
+                                outline: outlineText,
+                                script: scriptText
+                            });
+                        } catch (eLocal) {
+                            console.warn('Lưu kịch bản local SQLite cảnh báo:', eLocal);
+                        }
+                    }
+
                     this._blogService.storeScript({
                         username: username,
                         uuid: firstUuid,
                         title: scriptTitle,
-                        outline: `Toàn bộ Collection (${uuids.length} chương)`,
+                        outline: outlineText,
                         script: scriptText
                     }).subscribe({
                         next: (res) => {
@@ -1060,10 +1077,18 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
                             this.router.navigate(['/ai-writer', username, firstUuid, 'script']);
                         },
                         error: (err) => {
-                            console.error('Lỗi khi lưu kịch bản Collection:', err);
-                            this.toastr.error('Dựng kịch bản thành công nhưng không thể lưu vào database.', 'Lỗi lưu trữ');
-                            this.isGeneratingCollectionScript = false;
-                            this.cd.markForCheck();
+                            console.warn('Lỗi lưu kịch bản lên Server:', err);
+                            if (isAutoSaveLocal) {
+                                this.multiAccountService.setItem(`ai_type_script_data_${firstUuid}`, true);
+                                this.toastr.success(`Đã lưu kịch bản vào SQLite máy tính thành công!`);
+                                this.isGeneratingCollectionScript = false;
+                                this.cd.markForCheck();
+                                this.router.navigate(['/ai-writer', username, firstUuid, 'script']);
+                            } else {
+                                this.toastr.error('Dựng kịch bản thành công nhưng không thể lưu vào database.', 'Lỗi lưu trữ');
+                                this.isGeneratingCollectionScript = false;
+                                this.cd.markForCheck();
+                            }
                         }
                     });
                 } else {
