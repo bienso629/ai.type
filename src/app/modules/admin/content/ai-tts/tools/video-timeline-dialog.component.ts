@@ -1173,6 +1173,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     @ViewChild('mockupFrameContainer') mockupFrameContainer?: ElementRef<HTMLDivElement>;
     @ViewChild('mainVideoPlayer') mainVideoPlayer?: ElementRef<HTMLVideoElement>;
     @ViewChild('mainImagePlayer') mainImagePlayer?: ElementRef<HTMLImageElement>;
+    @ViewChild('overlayImagePlayer') overlayImagePlayer?: ElementRef<HTMLImageElement>;
     @ViewChild('overlayVideoPlayer') overlayVideoPlayer?: ElementRef<HTMLVideoElement>;
     @ViewChild('mainAudioPlayer') mainAudioPlayer?: ElementRef<HTMLAudioElement>;
     @ViewChild('playheadNeedle') playheadNeedle?: ElementRef<HTMLDivElement>;
@@ -1811,10 +1812,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     openEditCustomTextDialog(txt: any) {
         if (!txt) return;
-        const newText = prompt('Chỉnh sửa nội dung văn bản (Track Text):', txt.text || '');
+        const currentContent = txt.text || '';
+        const newText = prompt('Chỉnh sửa nội dung văn bản (Track Text):', currentContent);
         if (newText !== null) {
             txt.text = newText.trim();
+            this.updateActiveSubtitleInfo();
+            this.updateTimelineSync(true);
             this.saveData();
+            this.cd.detectChanges();
             this.toastr.success('Đã cập nhật nội dung văn bản!');
         }
     }
@@ -1834,32 +1839,45 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 prompt: ''
             });
         }
-        const text = prompt('Nhập nội dung phụ đề mới:');
-        if (!text || !text.trim()) return;
+        const input = prompt('Nhập nội dung phụ đề mới:', 'Đoạn phụ đề mới');
+        if (input === null) return;
+        const text = input.trim() || 'Đoạn phụ đề mới';
 
-        const firstScene = this.projectData.scenes[0];
-        if (!firstScene.subtitles) firstScene.subtitles = [];
+        let targetScene = this.projectData.scenes[0];
+        for (const sc of this.projectData.scenes) {
+            const scStart = Number(sc.startTime) || 0;
+            const scEnd = scStart + (Number(sc.duration) || 5);
+            if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+                targetScene = sc;
+                break;
+            }
+        }
+        if (!targetScene.subtitles) targetScene.subtitles = [];
 
         const startTime = this.currentTimelineTime || 0;
         const newItem = {
             id: Date.now(),
-            text: text.trim(),
+            text: text,
             startTime: startTime,
             duration: 3,
-            type: 'subtitle'
+            type: 'subtitle',
+            fontSize: this.currentSubtitleFontSize || 24,
+            fontFamily: this.currentSubtitleFont || 'Inter',
+            bottom: this.currentSubtitleBottom || 40
         };
-        firstScene.subtitles.push(newItem);
+        targetScene.subtitles.push(newItem);
 
         this.setActiveItem(newItem);
         this.updateTimelineTotalWidth();
         this.updateRulerTicks();
         this.updateActiveSubtitleInfo();
+        this.updateTimelineSync(true);
         this.saveData();
         this.cd.detectChanges();
         this.toastr.success('Đã thêm đoạn phụ đề mới!');
     }
 
-    addNewCustomTextItem() {
+    addNewCustomTextItem(customText?: string) {
         if (!this.projectData) this.projectData = { scenes: [] };
         if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
             this.projectData.scenes.push({
@@ -1870,25 +1888,37 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 prompt: ''
             });
         }
-        const text = prompt('Nhập nội dung đoạn Text mới:');
-        if (!text || !text.trim()) return;
+        const text = (typeof customText === 'string' && customText.trim()) ? customText.trim() : 'Văn bản mới';
 
-        const firstScene = this.projectData.scenes[0];
-        if (!firstScene.texts) firstScene.texts = [];
+        let targetScene = this.projectData.scenes[0];
+        for (const sc of this.projectData.scenes) {
+            const scStart = Number(sc.startTime) || 0;
+            const scEnd = scStart + (Number(sc.duration) || 5);
+            if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+                targetScene = sc;
+                break;
+            }
+        }
+        if (!targetScene.texts) targetScene.texts = [];
 
         const startTime = this.currentTimelineTime || 0;
         const newItem = {
             id: Date.now(),
-            text: text.trim(),
+            text: text,
             startTime: startTime,
             duration: 3,
-            type: 'customText'
+            type: 'customText',
+            fontSize: this.currentSubtitleFontSize || 24,
+            fontFamily: this.currentSubtitleFont || 'Inter',
+            bottom: this.currentSubtitleBottom || 40
         };
-        firstScene.texts.push(newItem);
+        targetScene.texts.push(newItem);
 
         this.setActiveItem(newItem);
         this.updateTimelineTotalWidth();
         this.updateRulerTicks();
+        this.updateActiveSubtitleInfo();
+        this.updateTimelineSync(true);
         this.saveData();
         this.cd.detectChanges();
         this.toastr.success('Đã thêm đoạn Text mới vào Track Văn bản!');
@@ -10622,12 +10652,26 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
         let aspect = 16 / 9;
         const vEl = this.mainVideoPlayer?.nativeElement;
+        const oVEl = this.overlayVideoPlayer?.nativeElement;
         const iEl = this.mainImagePlayer?.nativeElement;
+        const oIEl = this.overlayImagePlayer?.nativeElement;
 
-        if (vEl && vEl.videoWidth > 0 && vEl.videoHeight > 0) {
-            aspect = vEl.videoWidth / vEl.videoHeight;
-        } else if (iEl && iEl.naturalWidth > 0 && iEl.naturalHeight > 0) {
-            aspect = iEl.naturalWidth / iEl.naturalHeight;
+        if (this.getItemType(item) === 'video') {
+            if (oVEl && oVEl.videoWidth > 0 && oVEl.videoHeight > 0 && this.activeOverlayVideo === item) {
+                aspect = oVEl.videoWidth / oVEl.videoHeight;
+            } else if (vEl && vEl.videoWidth > 0 && vEl.videoHeight > 0) {
+                aspect = vEl.videoWidth / vEl.videoHeight;
+            } else if (item.width && item.height && item.height > 0) {
+                aspect = Number(item.width) / Number(item.height);
+            }
+        } else if (this.getItemType(item) === 'image') {
+            if (oIEl && oIEl.naturalWidth > 0 && oIEl.naturalHeight > 0) {
+                aspect = oIEl.naturalWidth / oIEl.naturalHeight;
+            } else if (iEl && iEl.naturalWidth > 0 && iEl.naturalHeight > 0) {
+                aspect = iEl.naturalWidth / iEl.naturalHeight;
+            } else if (item.width && item.height && item.height > 0) {
+                aspect = Number(item.width) / Number(item.height);
+            }
         } else if (item.width && item.height && item.height > 0) {
             aspect = Number(item.width) / Number(item.height);
         } else {
