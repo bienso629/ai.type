@@ -1828,7 +1828,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.addNewSubtitleItem();
     }
 
-    addNewSubtitleItem() {
+    addNewSubtitleItem(customText?: string) {
         if (!this.projectData) this.projectData = { scenes: [] };
         if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
             this.projectData.scenes.push({
@@ -1839,9 +1839,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 prompt: ''
             });
         }
-        const input = prompt('Nhập nội dung phụ đề mới:', 'Đoạn phụ đề mới');
-        if (input === null) return;
-        const text = input.trim() || 'Đoạn phụ đề mới';
+        const text = (typeof customText === 'string' && customText.trim()) ? customText.trim() : 'Đoạn phụ đề mới';
 
         let targetScene = this.projectData.scenes[0];
         for (const sc of this.projectData.scenes) {
@@ -1863,7 +1861,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             type: 'subtitle',
             fontSize: this.currentSubtitleFontSize || 24,
             fontFamily: this.currentSubtitleFont || 'Inter',
-            bottom: this.currentSubtitleBottom || 40
+            bottom: this.currentSubtitleBottom || 40,
+            x: 0,
+            y: 0
         };
         targetScene.subtitles.push(newItem);
 
@@ -1910,7 +1910,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             type: 'customText',
             fontSize: this.currentSubtitleFontSize || 24,
             fontFamily: this.currentSubtitleFont || 'Inter',
-            bottom: this.currentSubtitleBottom || 40
+            bottom: this.currentSubtitleBottom || 40,
+            x: 0,
+            y: 0
         };
         targetScene.texts.push(newItem);
 
@@ -8500,48 +8502,48 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
 
-        // 1. Quét từ pool đã lưu
-        for (const sub of this.projectData.mediaLibraryPool.subtitles) {
-            const key = (sub.text || sub.id || '').trim();
-            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (sub.id && deletedKeys.has(String(sub.id)))) continue;
-            seenKeys.add(key);
-            list.push({
-                ...sub,
-                _raw: sub,
-                type: 'subtitle'
-            });
-        }
-
-        // 2. Quét từ timeline và bổ sung vào pool
-        if (this.projectData.scenes) {
+        // 1. Quét từ timeline trước (hiển thị trực tiếp các phụ đề đang có trên timeline)
+        if (this.projectData?.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
                 if (scene.subtitles) {
                     for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
                         const sub = scene.subtitles[subIdx];
-                        const key = (sub.text || sub.id || `${sIdx}_${subIdx}`).trim();
-                        if (!key || deletedKeys.has(key) || (sub.id && deletedKeys.has(String(sub.id)))) continue;
+                        const key = (sub.id ? `id_${sub.id}` : `sub_tl_${sIdx}_${subIdx}`).trim();
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
-                            const poolItem = {
-                                id: sub.id || Date.now(),
+                            list.push({
+                                id: sub.id || `sub_tl_${sIdx}_${subIdx}`,
                                 text: sub.text || '',
-                                duration: sub.duration || 3,
+                                vietnameseText: sub.vietnameseText || '',
+                                originalText: sub.originalText || '',
+                                duration: Number(sub.duration) || 3,
+                                maxDuration: Number(sub.maxDuration) || Number(sub.duration) || 3,
+                                startTime: sub.startTime !== undefined ? Number(sub.startTime) : 0,
                                 sceneIdx: sIdx,
                                 subIdx: subIdx,
-                                type: 'subtitle'
-                            };
-                            this.projectData.mediaLibraryPool.subtitles.push(poolItem);
-                            list.push({
-                                ...poolItem,
                                 _raw: sub,
                                 type: 'subtitle'
                             });
                         }
                     }
                 }
+            }
+        }
+
+        // 2. Quét từ pool đã lưu (chỉ lấy những item chưa có trên timeline và không bị xóa)
+        if (this.projectData?.mediaLibraryPool?.subtitles) {
+            for (const sub of this.projectData.mediaLibraryPool.subtitles) {
+                const key = (sub.id ? `id_${sub.id}` : (sub.text || '')).trim();
+                if (!key || seenKeys.has(key) || deletedKeys.has(key) || (sub.id && deletedKeys.has(String(sub.id)))) continue;
+                seenKeys.add(key);
+                list.push({
+                    ...sub,
+                    _raw: sub,
+                    type: 'subtitle'
+                });
             }
         }
         return list;
@@ -8551,48 +8553,46 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
+        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
 
-        // 1. Quét từ pool đã lưu
-        for (const txt of this.projectData.mediaLibraryPool.texts) {
-            const key = (txt.text || txt.id || '').trim();
-            if (!key || seenKeys.has(key) || deletedKeys.has(key) || (txt.id && deletedKeys.has(String(txt.id)))) continue;
-            seenKeys.add(key);
-            list.push({
-                ...txt,
-                _raw: txt,
-                type: 'customText'
-            });
-        }
-
-        // 2. Quét từ timeline và bổ sung vào pool
-        if (this.projectData.scenes) {
+        // 1. Quét từ timeline trước (hiển thị trực tiếp các text đang có trên timeline)
+        if (this.projectData?.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
                 if (scene.texts) {
                     for (let textIdx = 0; textIdx < scene.texts.length; textIdx++) {
                         const txt = scene.texts[textIdx];
-                        const key = (txt.text || txt.id || `${sIdx}_${textIdx}`).trim();
-                        if (!key || deletedKeys.has(key) || (txt.id && deletedKeys.has(String(txt.id)))) continue;
+                        const key = (txt.id ? `id_${txt.id}` : `text_tl_${sIdx}_${textIdx}`).trim();
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
-                            const poolItem = {
-                                id: txt.id || Date.now(),
+                            list.push({
+                                id: txt.id || `text_tl_${sIdx}_${textIdx}`,
                                 text: txt.text || '',
-                                duration: txt.duration || 3,
+                                duration: Number(txt.duration) || 3,
+                                maxDuration: Number(txt.maxDuration) || Number(txt.duration) || 3,
+                                startTime: txt.startTime !== undefined ? Number(txt.startTime) : 0,
                                 sceneIdx: sIdx,
                                 textIdx: textIdx,
-                                type: 'customText'
-                            };
-                            this.projectData.mediaLibraryPool.texts.push(poolItem);
-                            list.push({
-                                ...poolItem,
                                 _raw: txt,
                                 type: 'customText'
                             });
                         }
                     }
                 }
+            }
+        }
+
+        // 2. Quét từ pool đã lưu (chỉ lấy những item chưa có trên timeline và không bị xóa)
+        if (this.projectData?.mediaLibraryPool?.texts) {
+            for (const txt of this.projectData.mediaLibraryPool.texts) {
+                const key = (txt.id ? `id_${txt.id}` : (txt.text || '')).trim();
+                if (!key || seenKeys.has(key) || deletedKeys.has(key) || (txt.id && deletedKeys.has(String(txt.id)))) continue;
+                seenKeys.add(key);
+                list.push({
+                    ...txt,
+                    _raw: txt,
+                    type: 'customText'
+                });
             }
         }
         return list;
@@ -9105,8 +9105,18 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     trackByMediaItem(index: number, item: any): string {
         if (!item) return String(index);
         const raw = item._raw || item;
-        const id = raw.id || `${item.type}_${item.sceneIdx}_${item.vIdx ?? item.subIdx ?? item.aIdx ?? index}`;
-        return `${item.type}_${id}_${raw.text || ''}_${this.currentSubtitleLang}`;
+        const id = raw.id || `${item.type}_${item.sceneIdx ?? 0}_${item.vIdx ?? item.subIdx ?? item.textIdx ?? item.aIdx ?? index}`;
+        return `${item.type}_${id}`;
+    }
+
+    onAddMediaHeaderClick() {
+        if (this.mediaFilterTab === 'text') {
+            this.addNewCustomTextItem();
+        } else if (this.mediaFilterTab === 'image') {
+            this.addNewMediaBlock('image');
+        } else if (this.mediaFilterTab === 'audio') {
+            this.addNewMediaBlock('audio');
+        }
     }
 
     playSnippetAudio(url: string, event?: MouseEvent) {
@@ -9395,9 +9405,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
         let numBottom = num;
         if (isFinal) {
-            numBottom = Math.max(0, Math.min(300, num));
+            numBottom = Math.max(0, Math.min(1000, num));
         } else {
-            if (num < 0 || num > 500) return;
+            if (num < 0 || num > 1200) return;
         }
 
         if (this.projectData) {
@@ -9422,7 +9432,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     onSubtitleBottomBlur(event: any) {
         const val = event.target.value;
         const num = Number(val);
-        const clamped = isNaN(num) || !val ? (this.currentSubtitleBottom || 20) : Math.max(0, Math.min(300, num));
+        const clamped = isNaN(num) || !val ? (this.currentSubtitleBottom || 20) : Math.max(0, Math.min(1000, num));
         event.target.value = clamped;
         this.setSubtitleBottom(clamped, true);
     }
@@ -10770,10 +10780,13 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         if (this.transformDragTarget === 'box') {
             // Nắm giữa hộp để di chuyển vị trí (Pan / Move)
             if (itemType === 'text') {
-                // Di chuyển phụ đề / text: thay đổi khoảng cách đáy (bottom) và vị trí x
-                const newBottom = Math.max(0, Math.min(300, Math.round(this.transformStartBounds.textBottom - dy)));
+                // Di chuyển phụ đề / text: hỗ trợ tự do 2D (x, y) và tương thích bottom
                 const newX = Math.round(this.transformStartBounds.x + dx);
+                const newY = Math.round(this.transformStartBounds.y + dy);
                 item.x = newX;
+                item.y = newY;
+                const maxAllowedBottom = this.transformContainerRect ? Math.max(800, Math.round(this.transformContainerRect.height)) : 1000;
+                const newBottom = Math.max(0, Math.min(maxAllowedBottom, Math.round(this.transformStartBounds.textBottom - dy)));
                 item.bottom = newBottom;
                 this.setSubtitleBottom(newBottom, false);
             } else {
