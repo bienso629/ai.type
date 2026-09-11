@@ -388,7 +388,8 @@
                              class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10" />
 
                         <!-- 2. Vùng màn hình Mockup 3D (+ scale 4px): Video luôn nằm trọn trong mockup với max-width, max-height và đúng tỷ lệ gốc -->
-                        <div class="absolute z-20 overflow-hidden flex items-center justify-center bg-black pointer-events-auto"
+                        <div #mockupScreenInner
+                             class="absolute z-20 overflow-hidden flex items-center justify-center bg-black pointer-events-auto"
                              [ngStyle]="getMockupScreenStyle(mockupFrameContainer)">
                             <!-- Lưới Grid Hỗ Trợ Tỉ Lệ 16:9 & 9:16 cho Mockup Screen -->
                             <div *ngIf="showGrid"
@@ -432,25 +433,45 @@
 
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
                                 class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none relative z-20"
+                                [ngStyle]="getTransformStyle(getCurrentVisibleVideo())"
                                 (loadedmetadata)="onVideoLoadedMetadata($event)"
                                 (click)="toggleTimelinePlay()"
                                 (ended)="onVideoEnded()"
                                 (pause)="onVideoPauseEvent()"
                                 (play)="onVideoPlayEvent()"></video>
 
-                            <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
+                            <img #mainImagePlayer [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
                                 class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block select-none relative z-20"
+                                [ngStyle]="getTransformStyle(getCurrentVisibleImage())"
                                 (click)="toggleTimelinePlay()" />
+
+                            <!-- Khung kéo thả thay đổi kích thước và vị trí trong Mockup Screen (ôm khít vật thể video/ảnh) -->
+                            <div *ngIf="getTransformableItem() && (getItemType(getTransformableItem()) === 'video' || getItemType(getTransformableItem()) === 'image') && selectedFrame && selectedFrame.id !== 'none'"
+                                 class="layer-transform-box cursor-move"
+                                 [ngStyle]="getActiveItemRenderBounds(mockupScreenInner)"
+                                 (mousedown)="onTransformHandleStart($event, 'box', mockupFrameContainer)"
+                                 title="Cầm kéo để di chuyển vị trí hoặc kéo 8 góc/cạnh để thay đổi kích thước">
+                                <div class="transform-handle handle-tl" (mousedown)="onTransformHandleStart($event, 'tl', mockupFrameContainer)"></div>
+                                <div class="transform-handle handle-tr" (mousedown)="onTransformHandleStart($event, 'tr', mockupFrameContainer)"></div>
+                                <div class="transform-handle handle-bl" (mousedown)="onTransformHandleStart($event, 'bl', mockupFrameContainer)"></div>
+                                <div class="transform-handle handle-br" (mousedown)="onTransformHandleStart($event, 'br', mockupFrameContainer)"></div>
+                                <div class="transform-handle handle-t" (mousedown)="onTransformHandleStart($event, 't', mockupFrameContainer)"></div>
+                                <div class="transform-handle handle-b" (mousedown)="onTransformHandleStart($event, 'b', mockupFrameContainer)"></div>
+                                <div class="transform-handle handle-l" (mousedown)="onTransformHandleStart($event, 'l', mockupFrameContainer)"></div>
+                                <div class="transform-handle handle-r" (mousedown)="onTransformHandleStart($event, 'r', mockupFrameContainer)"></div>
+                            </div>
                         </div>
 
                         <!-- 3. Lớp Overlay Track 2+ (Hình ảnh / Video Alpha WebM trong suốt) NẰM ĐÈ LÊN TOÀN BỘ KHUNG MOCKUP -->
                         <!-- Lớp Hình Ảnh Nằm Đè Lên Frame (Track Images Overlay) -->
                         <img [src]="getSafeUrl(previewOverlayImageUrl)" *ngIf="previewOverlayImageUrl"
-                            class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block" />
+                            class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block"
+                            [ngStyle]="getTransformStyle(activeItem && activeItem.imageUrl ? activeItem : null)" />
 
                         <!-- Lớp Video Trong Suốt Nằm Đè Lên Frame (Track Video 2+ Transparent Overlay) -->
                         <video #overlayVideoPlayer [src]="getSafeUrl(previewOverlayVideoUrl)" *ngIf="previewOverlayVideoUrl"
                             class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block"
+                            [ngStyle]="getTransformStyle(activeOverlayVideo)"
                             (loadedmetadata)="onOverlayVideoLoadedMetadata($event)"
                             playsinline muted></video>
                     </div>
@@ -458,29 +479,53 @@
                     <!-- Khi KHÔNG có Frame Template (Normal Standard Player) -->
                     <ng-container *ngIf="(!selectedFrame || selectedFrame.id === 'none') && (previewVideoUrl || previewImageUrl || previewOverlayImageUrl || previewOverlayVideoUrl)">
                         <!-- Container chuẩn theo tỉ lệ xuất video (16:9 hoặc 9:16) -->
-                        <div class="relative w-full h-full max-w-full max-h-full flex items-center justify-center m-auto overflow-hidden rounded-none shadow-2xl bg-black select-none"
-                             [ngClass]="getEffectiveAspectRatio() === '9:16' ? 'aspect-[9/16]' : 'aspect-[16/9]'">
+                        <div #standardPlayerContainer
+                             class="relative w-full h-full max-w-full max-h-full flex items-center justify-center m-auto overflow-hidden rounded-none shadow-2xl bg-black select-none"
+                             [ngClass]="getEffectiveAspectRatio() === '9:16' ? 'aspect-[9/16]' : 'aspect-[16/9]'"
+                             (contextmenu)="onPreviewContextMenu($event)">
                             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
                                 class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden relative z-20"
+                                [ngStyle]="getTransformStyle(getCurrentVisibleVideo())"
                                 (loadedmetadata)="onVideoLoadedMetadata($event)"
                                 (click)="toggleTimelinePlay()"
                                 (ended)="onVideoEnded()"
                                 (pause)="onVideoPauseEvent()"
                                 (play)="onVideoPlayEvent()"></video>
 
-                            <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
+                            <img #mainImagePlayer [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
                                 class="w-full h-full max-w-full max-h-full object-contain cursor-pointer block rounded-none overflow-hidden relative z-20"
+                                [ngStyle]="getTransformStyle(getCurrentVisibleImage())"
                                 (click)="toggleTimelinePlay()" />
 
                             <!-- Lớp Hình Ảnh Nằm Đè Lên Video (Track Images Overlay) -->
                             <img [src]="getSafeUrl(previewOverlayImageUrl)" *ngIf="previewOverlayImageUrl"
-                                class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block" />
+                                class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block"
+                                [ngStyle]="getTransformStyle(activeItem && activeItem.imageUrl ? activeItem : null)" />
 
                             <!-- Lớp Video Trong Suốt Đè Lên Video Nền (Track Video 2+ Transparent Overlay) -->
                             <video #overlayVideoPlayer [src]="getSafeUrl(previewOverlayVideoUrl)" *ngIf="previewOverlayVideoUrl"
                                 class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none z-30 transition-opacity duration-75 block"
+                                [ngStyle]="getTransformStyle(activeOverlayVideo)"
                                 (loadedmetadata)="onOverlayVideoLoadedMetadata($event)"
                                 playsinline muted></video>
+
+                            <!-- Khung kéo thả thay đổi kích thước và vị trí (Transform Bounding Box & Handles - ôm sát vật thể) -->
+                            <div *ngIf="getTransformableItem() && (getItemType(getTransformableItem()) === 'video' || getItemType(getTransformableItem()) === 'image')"
+                                 class="layer-transform-box cursor-move"
+                                 [ngStyle]="getActiveItemRenderBounds(standardPlayerContainer)"
+                                 (mousedown)="onTransformHandleStart($event, 'box', standardPlayerContainer)"
+                                 title="Cầm kéo để di chuyển vị trí hoặc kéo 8 góc/cạnh để thay đổi kích thước">
+                                <!-- 4 Điểm neo góc -->
+                                <div class="transform-handle handle-tl" (mousedown)="onTransformHandleStart($event, 'tl', standardPlayerContainer)"></div>
+                                <div class="transform-handle handle-tr" (mousedown)="onTransformHandleStart($event, 'tr', standardPlayerContainer)"></div>
+                                <div class="transform-handle handle-bl" (mousedown)="onTransformHandleStart($event, 'bl', standardPlayerContainer)"></div>
+                                <div class="transform-handle handle-br" (mousedown)="onTransformHandleStart($event, 'br', standardPlayerContainer)"></div>
+                                <!-- 4 Điểm neo cạnh -->
+                                <div class="transform-handle handle-t" (mousedown)="onTransformHandleStart($event, 't', standardPlayerContainer)"></div>
+                                <div class="transform-handle handle-b" (mousedown)="onTransformHandleStart($event, 'b', standardPlayerContainer)"></div>
+                                <div class="transform-handle handle-l" (mousedown)="onTransformHandleStart($event, 'l', standardPlayerContainer)"></div>
+                                <div class="transform-handle handle-r" (mousedown)="onTransformHandleStart($event, 'r', standardPlayerContainer)"></div>
+                            </div>
 
                             <!-- Lưới Grid Hỗ Trợ Tỉ Lệ 16:9 & 9:16 cho Standard Player (Bao trọn khung video) -->
                             <div *ngIf="showGrid"
@@ -524,20 +569,36 @@
 
                             <!-- Subtitle Caption Overlay on Video Preview (Song ngữ Dual Subtitles - Clean Cinematic Style) -->
                             <div *ngIf="currentSubtitleInfo" 
-                                 class="absolute left-1/2 -translate-x-1/2 w-full max-w-[92%] pointer-events-none z-40 select-none transition-all duration-100 flex flex-col items-center justify-center gap-1 text-center"
+                                 class="absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none transition-all duration-75 flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
+                                 [ngClass]="activeItem && getItemType(activeItem) === 'text' ? 'layer-transform-box subtitle-transform-box' : 'hover:outline hover:outline-1 hover:outline-amber-400/60'"
                                  [style.bottom.px]="currentSubtitleBottom"
                                  [style.fontFamily]="currentSubtitleInfo.fontFamily || currentSubtitleFont"
+                                 [style.transform]="activeItem && getItemType(activeItem) === 'text' && activeItem.x ? 'translateX(calc(-50% + ' + activeItem.x + 'px))' : 'translateX(-50%)'"
+                                 (mousedown)="onTransformHandleStart($event, 'box', standardPlayerContainer)"
+                                 title="Cầm kéo để chỉnh vị trí phụ đề hoặc kéo các điểm neo để đổi cỡ chữ"
                                  style="text-shadow: 0 2px 4px #000, 0 0 10px #000, 0 0 20px #000, 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;">
                                 <!-- Dòng 1: Ngôn ngữ chính / Gốc (Chữ to, trắng đậm, viền đen điện ảnh) -->
-                                <span class="text-white font-bold leading-snug tracking-wide"
+                                <span class="text-white font-bold leading-snug tracking-wide pointer-events-none"
                                       [style.fontSize.px]="currentSubtitleInfo.fontSize || currentSubtitleFontSize">
                                     {{ currentSubtitleInfo.primaryText }}
                                 </span>
                                  <!-- Dòng 2: Tiếng Việt (Chữ vàng tươi, to rõ bên dưới) -->
-                                <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold leading-snug tracking-wide"
+                                <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold leading-snug tracking-wide pointer-events-none"
                                       [style.fontSize.px]="(currentSubtitleInfo.fontSize || currentSubtitleFontSize) * 0.85">
                                     {{ currentSubtitleInfo.secondaryText }}
                                 </span>
+
+                                <!-- 8 Điểm neo bám sát dòng chữ khi chọn Text / Phụ đề -->
+                                <ng-container *ngIf="activeItem && getItemType(activeItem) === 'text'">
+                                    <div class="transform-handle handle-tl" (mousedown)="onTransformHandleStart($event, 'tl', standardPlayerContainer)"></div>
+                                    <div class="transform-handle handle-tr" (mousedown)="onTransformHandleStart($event, 'tr', standardPlayerContainer)"></div>
+                                    <div class="transform-handle handle-bl" (mousedown)="onTransformHandleStart($event, 'bl', standardPlayerContainer)"></div>
+                                    <div class="transform-handle handle-br" (mousedown)="onTransformHandleStart($event, 'br', standardPlayerContainer)"></div>
+                                    <div class="transform-handle handle-t" (mousedown)="onTransformHandleStart($event, 't', standardPlayerContainer)"></div>
+                                    <div class="transform-handle handle-b" (mousedown)="onTransformHandleStart($event, 'b', standardPlayerContainer)"></div>
+                                    <div class="transform-handle handle-l" (mousedown)="onTransformHandleStart($event, 'l', standardPlayerContainer)"></div>
+                                    <div class="transform-handle handle-r" (mousedown)="onTransformHandleStart($event, 'r', standardPlayerContainer)"></div>
+                                </ng-container>
                             </div>
                         </div>
                     </ng-container>
@@ -560,20 +621,36 @@
 
                     <!-- Subtitle Caption Overlay Khi có Mockup Frame 9:16 -->
                     <div *ngIf="selectedFrame && selectedFrame.id !== 'none' && currentSubtitleInfo" 
-                         class="absolute left-1/2 -translate-x-1/2 w-full max-w-[92%] pointer-events-none z-40 select-none transition-all duration-100 flex flex-col items-center justify-center gap-1 text-center"
+                         class="absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none transition-all duration-75 flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
+                         [ngClass]="activeItem && getItemType(activeItem) === 'text' ? 'layer-transform-box subtitle-transform-box' : 'hover:outline hover:outline-1 hover:outline-amber-400/60'"
                          [style.bottom.px]="currentSubtitleBottom"
                          [style.fontFamily]="currentSubtitleInfo.fontFamily || currentSubtitleFont"
+                         [style.transform]="activeItem && getItemType(activeItem) === 'text' && activeItem.x ? 'translateX(calc(-50% + ' + activeItem.x + 'px))' : 'translateX(-50%)'"
+                         (mousedown)="onTransformHandleStart($event, 'box', mockupFrameContainer)"
+                         title="Cầm kéo để chỉnh vị trí phụ đề hoặc kéo các điểm neo để đổi cỡ chữ"
                          style="text-shadow: 0 2px 4px #000, 0 0 10px #000, 0 0 20px #000, 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;">
                         <!-- Dòng 1: Ngôn ngữ chính / Gốc (Chữ to, trắng đậm, viền đen điện ảnh) -->
-                        <span class="text-white font-bold leading-snug tracking-wide"
+                        <span class="text-white font-bold leading-snug tracking-wide pointer-events-none"
                               [style.fontSize.px]="currentSubtitleInfo.fontSize || currentSubtitleFontSize">
                             {{ currentSubtitleInfo.primaryText }}
                         </span>
                         <!-- Dòng 2: Tiếng Việt (Chữ vàng tươi, to rõ bên dưới) -->
-                        <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold leading-snug tracking-wide"
+                        <span *ngIf="currentSubtitleInfo.secondaryText" class="text-yellow-300 font-semibold leading-snug tracking-wide pointer-events-none"
                               [style.fontSize.px]="(currentSubtitleInfo.fontSize || currentSubtitleFontSize) * 0.85">
                             {{ currentSubtitleInfo.secondaryText }}
                         </span>
+
+                        <!-- 8 Điểm neo bám sát dòng chữ khi chọn Text / Phụ đề -->
+                        <ng-container *ngIf="activeItem && getItemType(activeItem) === 'text'">
+                            <div class="transform-handle handle-tl" (mousedown)="onTransformHandleStart($event, 'tl', mockupFrameContainer)"></div>
+                            <div class="transform-handle handle-tr" (mousedown)="onTransformHandleStart($event, 'tr', mockupFrameContainer)"></div>
+                            <div class="transform-handle handle-bl" (mousedown)="onTransformHandleStart($event, 'bl', mockupFrameContainer)"></div>
+                            <div class="transform-handle handle-br" (mousedown)="onTransformHandleStart($event, 'br', mockupFrameContainer)"></div>
+                            <div class="transform-handle handle-t" (mousedown)="onTransformHandleStart($event, 't', mockupFrameContainer)"></div>
+                            <div class="transform-handle handle-b" (mousedown)="onTransformHandleStart($event, 'b', mockupFrameContainer)"></div>
+                            <div class="transform-handle handle-l" (mousedown)="onTransformHandleStart($event, 'l', mockupFrameContainer)"></div>
+                            <div class="transform-handle handle-r" (mousedown)="onTransformHandleStart($event, 'r', mockupFrameContainer)"></div>
+                        </ng-container>
                     </div>
 
                     <!-- Global Timeline Play/Pause Overlay Button -->
@@ -998,6 +1075,27 @@
                                 </div>
                             </div>
 
+                            <!-- Vị trí phụ đề & Đặt lại (Position & Reset) -->
+                            <div class="p-2.5 bg-[#0d0e12] border border-neutral-800 rounded flex flex-col gap-2">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-neutral-400 text-[11px]">Vị trí ngang (Dịch X):</span>
+                                    <span class="font-mono text-amber-400 font-bold">{{ activeItem.x || 0 }} px</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-neutral-500 font-mono">-150</span>
+                                    <input type="range" min="-150" max="150" step="1"
+                                        [value]="activeItem.x || 0"
+                                        (input)="activeItem.x = +$any($event.target).value; markDirty()"
+                                        class="volume-slider w-full !border-0 !outline-none !shadow-none ring-0">
+                                    <span class="text-[10px] text-neutral-500 font-mono">+150</span>
+                                </div>
+                                <button type="button" (click)="resetItemTransform(activeItem, $event)"
+                                    class="w-full mt-1 py-1 text-[11px] rounded bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 border border-neutral-700/60 flex items-center justify-center gap-1 transition-colors">
+                                    <mat-icon class="icon-size-3 text-neutral-400">restart_alt</mat-icon>
+                                    <span>Đặt lại vị trí & cỡ chữ phụ đề gốc</span>
+                                </button>
+                            </div>
+
                             <!-- Audio WaveSurfer Visualizer & Player nếu có audioUrl -->
                             <div *ngIf="activeItem.audioUrl" class="p-2.5 bg-[#171821] border border-neutral-800 rounded-sm flex flex-col gap-2">
                                 <div class="flex items-center justify-between">
@@ -1218,9 +1316,42 @@
                         </div>
 
                         <!-- Công cụ Video Actions -->
-                        <div *ngIf="!isMultiVideoSelected && activeItem && activeItem.videoUrl" class="pt-2 border-t border-neutral-800 flex flex-col gap-2">
-                            <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Công cụ Video</label>
+                        <div *ngIf="!isMultiVideoSelected && activeItem" class="pt-2 border-t border-neutral-800 flex flex-col gap-2.5">
+                            <label class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Kích Thước & Vị Trí (Transform)</label>
                             
+                            <!-- Slider và input Scale -->
+                            <div class="p-2.5 bg-[#0d0e12] border border-neutral-800 rounded flex flex-col gap-2">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-neutral-400 text-[11px]">Tỉ lệ thu phóng (Scale):</span>
+                                    <span class="font-mono text-blue-400 font-bold">{{ ((activeItem.scale || 1) * 100) | number:'1.0-0' }}%</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-neutral-500 font-mono">20%</span>
+                                    <input type="range" min="0.2" max="3.0" step="0.05"
+                                        [value]="activeItem.scale || 1"
+                                        (input)="activeItem.scale = +$any($event.target).value; markDirty()"
+                                        class="volume-slider w-full !border-0 !outline-none !shadow-none ring-0">
+                                    <span class="text-[10px] text-neutral-500 font-mono">300%</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-neutral-800/80 text-[11px]">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span class="text-neutral-400 font-mono">X:</span>
+                                        <input type="number" step="1" [(ngModel)]="activeItem.x" (ngModelChange)="markDirty()"
+                                            class="w-16 px-1.5 py-0.5 text-xs text-center font-mono bg-[#161720] border border-neutral-700 rounded text-neutral-200">
+                                    </div>
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span class="text-neutral-400 font-mono">Y:</span>
+                                        <input type="number" step="1" [(ngModel)]="activeItem.y" (ngModelChange)="markDirty()"
+                                            class="w-16 px-1.5 py-0.5 text-xs text-center font-mono bg-[#161720] border border-neutral-700 rounded text-neutral-200">
+                                    </div>
+                                </div>
+                                <button type="button" (click)="resetItemTransform(activeItem, $event)"
+                                    class="w-full mt-1 py-1 text-[11px] rounded bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 border border-neutral-700/60 flex items-center justify-center gap-1 transition-colors">
+                                    <mat-icon class="icon-size-3 text-neutral-400">restart_alt</mat-icon>
+                                    <span>Đặt lại kích thước & vị trí gốc</span>
+                                </button>
+                            </div>
+
                             <!-- Crop Video -->
                             <button *ngIf="activeItem.videoUrl" type="button" 
                                 (click)="openCropVideoDialog(activeItem, selectedContextData?.scene, selectedContextData?.sceneIdx, selectedContextData?.vIdx)"
@@ -1429,7 +1560,7 @@
                                         </div>
 
                                         <!-- Action Buttons Nổi: Tạm tắt hình ảnh -->
-                                        <div class="absolute top-1 right-1 z-50 flex items-center gap-1 pointer-events-auto select-none"
+                                        <div class="absolute top-1 right-3.5 z-30 flex items-center gap-1 pointer-events-auto select-none"
                                             (mousedown)="$event.stopPropagation()"
                                             (click)="$event.stopPropagation()">
                                             <!-- Nút Tạm Tắt/Bật Lại Hình Ảnh -->
@@ -1444,20 +1575,20 @@
                                         </div>
 
                                         <!-- Left Drag Handle -->
-                                        <div class="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-white/40 z-40 rounded-l-sm flex items-center justify-center"
+                                        <div class="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-50 rounded-l-sm flex items-center justify-center group/left"
                                             (mousedown)="onResizeStart($event, img, 'left')">
-                                            <div class="w-0.5 h-3 bg-white/60 rounded-none pointer-events-none"></div>
+                                            <div class="w-0.5 h-3 bg-white/60 group-hover/left:bg-white rounded-none pointer-events-none"></div>
                                         </div>
 
                                         <!-- Right Drag Handle -->
-                                        <div class="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-white/40 z-40 rounded-r-sm flex items-center justify-center"
+                                        <div class="absolute right-0 top-0 bottom-0 w-3 hover:w-3.5 cursor-col-resize hover:bg-white/40 z-50 rounded-r-sm flex items-center justify-center group/right"
                                             (mousedown)="onResizeStart($event, img, 'right')"
                                             (dblclick)="resetVideoDuration($event, img)">
-                                            <div class="w-0.5 h-3 bg-white/60 rounded-none pointer-events-none"></div>
+                                            <div class="w-0.5 h-3 bg-white/60 group-hover/right:bg-white rounded-none pointer-events-none"></div>
                                         </div>
 
                                         <!-- Center Drag Area -->
-                                        <div class="absolute left-2.5 right-2.5 top-0 bottom-0 cursor-move z-20"
+                                        <div class="absolute left-3 right-3.5 top-0 bottom-0 cursor-move z-20"
                                             (mousedown)="onDragBlockStart($event, img, sceneIdx)"
                                             (contextmenu)="onImageContextMenu($event, img, scene, sceneIdx, imgIdx)"></div>
                                     </div>
@@ -1533,8 +1664,8 @@
                                                     <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 rounded-sm"></div>
                                                 </div>
 
-                                                <!-- Action Buttons Nổi (z-50): Tắt âm thanh & Tạm tắt video -->
-                                                <div class="absolute top-1 right-1 z-50 flex items-center gap-1 pointer-events-auto select-none"
+                                                <!-- Action Buttons Nổi: Tắt âm thanh & Tạm tắt video -->
+                                                <div class="absolute top-1 right-4.5 z-30 flex items-center gap-1 pointer-events-auto select-none"
                                                     (mousedown)="$event.stopPropagation()"
                                                     (click)="$event.stopPropagation()">
                                                     <!-- Nút Tắt/Bật Âm Thanh Video -->
@@ -1559,20 +1690,20 @@
                                                 </div>
 
                                                 <!-- Left Drag Handle -->
-                                                <div class="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-l-sm flex items-center justify-center"
+                                                <div class="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-50 rounded-l-sm flex items-center justify-center group/left"
                                                     (mousedown)="onResizeStart($event, video, 'left')">
-                                                    <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
+                                                    <div class="w-1 h-4 bg-white/60 group-hover/left:bg-white rounded-none pointer-events-none"></div>
                                                 </div>
 
                                                 <!-- Right Drag Handle -->
-                                                <div class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-r-sm flex items-center justify-center"
+                                                <div class="absolute right-0 top-0 bottom-0 w-3.5 hover:w-4 cursor-col-resize hover:bg-white/40 z-50 rounded-r-sm flex items-center justify-center group/right"
                                                     (mousedown)="onResizeStart($event, video, 'right')"
                                                     (dblclick)="resetVideoDuration($event, video)">
-                                                    <div class="w-1 h-4 bg-white/60 rounded-none pointer-events-none"></div>
+                                                    <div class="w-1 h-4 bg-white/60 group-hover/right:bg-white rounded-none pointer-events-none"></div>
                                                 </div>
 
                                                 <!-- Center Drag Area -->
-                                                <div class="absolute left-3 right-3 top-0 bottom-0 cursor-move z-20"
+                                                <div class="absolute left-3 right-4.5 top-0 bottom-0 cursor-move z-20"
                                                     (mousedown)="onDragBlockStart($event, video, sceneIdx)"
                                                     (contextmenu)="onVideoContextMenu($event, video, scene, sceneIdx, vIdx)"></div>
                                             </div>
@@ -1731,6 +1862,15 @@
                                     </div>
                                 </ng-container>
                             </ng-container>
+                        </div>
+                    </div>
+
+                    <!-- Visual Auto-Snap Guide Line (Hiển thị vạch vàng phát sáng khi hút dính chuẩn mốc) -->
+                    <div *ngIf="activeSnapTime !== null && activeSnapTime !== undefined"
+                        class="absolute top-0 bottom-0 w-[1.5px] bg-yellow-400 z-[240] shadow-[0_0_10px_rgba(250,204,21,1)] pointer-events-none transition-transform duration-75"
+                        [style.transform]="'translateX(' + (activeSnapTime * pixelsPerSecond) + 'px)'">
+                        <div class="absolute -top-1 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded bg-yellow-400 text-black text-[9px] font-bold font-mono shadow-md">
+                            SNAP
                         </div>
                     </div>
 
