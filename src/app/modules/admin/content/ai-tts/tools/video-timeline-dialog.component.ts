@@ -9333,8 +9333,22 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             sub.fontFamily = font;
                         }
                     }
+                    if (scene.texts) {
+                        for (const txt of scene.texts) {
+                            txt.fontFamily = font;
+                        }
+                    }
                 }
             }
+        }
+        const selected = this.getSelectedSubtitles();
+        if (selected && selected.length > 0) {
+            for (const item of selected) {
+                item.fontFamily = font;
+            }
+        }
+        if (this.activeItem && this.getItemType(this.activeItem) === 'text') {
+            this.activeItem.fontFamily = font;
         }
         if (this.currentSubtitleInfo) {
             this.currentSubtitleInfo.fontFamily = font;
@@ -9371,8 +9385,22 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             sub.fontSize = numSize;
                         }
                     }
+                    if (scene.texts) {
+                        for (const txt of scene.texts) {
+                            txt.fontSize = numSize;
+                        }
+                    }
                 }
             }
+        }
+        const selected = this.getSelectedSubtitles();
+        if (selected && selected.length > 0) {
+            for (const item of selected) {
+                item.fontSize = numSize;
+            }
+        }
+        if (this.activeItem && this.getItemType(this.activeItem) === 'text') {
+            this.activeItem.fontSize = numSize;
         }
         if (this.currentSubtitleInfo) {
             this.currentSubtitleInfo.fontSize = numSize;
@@ -9419,8 +9447,22 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             sub.bottom = numBottom;
                         }
                     }
+                    if (scene.texts) {
+                        for (const txt of scene.texts) {
+                            txt.bottom = numBottom;
+                        }
+                    }
                 }
             }
+        }
+        const selected = this.getSelectedSubtitles();
+        if (selected && selected.length > 0) {
+            for (const item of selected) {
+                item.bottom = numBottom;
+            }
+        }
+        if (this.activeItem && this.getItemType(this.activeItem) === 'text') {
+            this.activeItem.bottom = numBottom;
         }
         if (this.currentSubtitleInfo) {
             this.currentSubtitleInfo.bottom = numBottom;
