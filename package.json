@@ -93,7 +93,7 @@
         "pdfmake": "^0.3.7",
         "perfect-scrollbar": "1.5.5",
         "plain-draggable": "^2.5.14",
-        "playcanvas": "file:../yenai.vn/playcanvas-engine",
+        "playcanvas": "file:../../yenai.vn/playcanvas-engine",
         "prismjs": "^1.30.0",
         "protractor": "^7.0.0",
         "quill": "^2.0.3",

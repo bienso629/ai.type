@@ -8079,9 +8079,10 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
             '--newline',
             '--no-warnings',
             '--rm-cache-dir',
+            '--force-overwrites',
             '--js-runtimes', 'node',
-            '--extractor-args', 'youtube:player_client=ios,android,web',
-            '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best',
+            '-S', 'res,fps',
+            '-f', 'bestvideo*+bestaudio/best',
             '--merge-output-format', 'mp4'
         ];
         if (binaries.ffmpeg) {
@@ -8242,16 +8243,18 @@ ipcMain.handle('download-video', async (event, payload) => {
 
         sendToRenderer("tools-log", `[Download] �?ang tiến hành tải dữ liệu chất lượng tốt nhất...`);
 
-        for (let url of urls) {
+        for (let i = 0; i < urls.length; i++) {
+            const url = urls[i];
             // Tải best video & audio
             const args = [
                 '-o', outputTemplate,
                 '--newline',
                 '--no-warnings',
                 '--rm-cache-dir',
+                '--force-overwrites',
                 '--js-runtimes', 'node',
-                '--extractor-args', 'youtube:player_client=ios,android,web',
-                '-f', 'bestvideo+bestaudio/best',
+                '-S', 'res,fps',
+                '-f', 'bestvideo*+bestaudio/best',
                 '--merge-output-format', 'mp4'
             ];
             if (binaries.ffmpeg) {
@@ -8321,12 +8324,43 @@ ipcMain.handle('download-video', async (event, payload) => {
 
             args.push(url);
 
+            let lastPercent = 0;
+            sendToRenderer('download-video-progress', {
+                index: i,
+                total: urls.length,
+                percent: 0,
+                speed: '',
+                eta: '',
+                status: `Đang tải video ${i + 1}/${urls.length}...`
+            });
+
             await new Promise((resolve, reject) => {
                 const child = spawn(ytdlpPath, args);
 
                 child.stdout.on('data', (data) => {
                     const line = data.toString().trim();
-                    if (line) sendToRenderer("tools-log", `[Download] ${line}`);
+                    if (line) {
+                        sendToRenderer("tools-log", `[Download] ${line}`);
+                        // Bắt % tiến trình từ yt-dlp
+                        const match = line.match(/\[download\]\s+([\d\.]+)%\s+of\s+([^\s]+)\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)/) ||
+                                      line.match(/\[download\]\s+([\d\.]+)%/);
+                        if (match && match[1]) {
+                            const percent = Math.round(parseFloat(match[1]));
+                            const speed = match[3] || '';
+                            const eta = match[4] || '';
+                            if (percent !== lastPercent) {
+                                lastPercent = percent;
+                                sendToRenderer('download-video-progress', {
+                                    index: i,
+                                    total: urls.length,
+                                    percent,
+                                    speed,
+                                    eta,
+                                    status: `Đang tải video ${i + 1}/${urls.length}: ${percent}%`
+                                });
+                            }
+                        }
+                    }
                 });
 
                 child.stderr.on('data', (data) => {
@@ -8335,12 +8369,31 @@ ipcMain.handle('download-video', async (event, payload) => {
                 });
 
                 child.on('close', (code) => {
-                    if (code === 0) resolve();
-                    else reject(new Error(`Thất bại với mã thoát: ${code}`));
+                    if (code === 0) {
+                        sendToRenderer('download-video-progress', {
+                            index: i,
+                            total: urls.length,
+                            percent: 100,
+                            speed: '',
+                            eta: '',
+                            status: `Tải xong video ${i + 1}/${urls.length}`
+                        });
+                        resolve();
+                    } else {
+                        reject(new Error(`Thất bại với mã thoát: ${code}`));
+                    }
                 });
             });
         }
 
+        sendToRenderer('download-video-progress', {
+            index: urls.length,
+            total: urls.length,
+            percent: 100,
+            speed: '',
+            eta: '',
+            status: 'Hoàn tất tải toàn bộ video!'
+        });
         sendNotification("Tải Video", "Tải video hoàn tất vào thư mục AI.TYPING!");
         return { success: true };
 
@@ -8683,17 +8736,18 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             // Tải video độ phân giải vừa đủ để tăng tốc, KÈM THEO PHỤ ĐỀ
             const outputTemplate = path.join(tempDir, 'video.%(ext)s');
 
-            sendToRenderer("tools-log", `[AI Analyze] Đang tải video từ YouTube để phân tích...`);
+            sendToRenderer("tools-log", `[AI Analyze] Đang tải video chất lượng tốt nhất bằng yt-dlp...`);
 
             const ytdlpArgs = [
                 '-o', outputTemplate,
                 '--newline',
                 '--no-warnings',
                 '--rm-cache-dir',
+                '--force-overwrites',
                 '--ignore-errors',
                 '--js-runtimes', 'node',
-                '--extractor-args', 'youtube:player_client=ios,android,web',
-                '-f', 'bestvideo+bestaudio/best',
+                '-S', 'res,fps',
+                '-f', 'bestvideo*+bestaudio/best',
                 '--merge-output-format', 'mp4',
                 '--write-auto-subs',
                 '--write-subs',
@@ -8724,6 +8778,14 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                         cookieContent = netscapeStr;
                     } else if (!cookieContent.includes('# Netscape')) {
                         let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
+                        let cookieDomain = '.youtube.com';
+                        try {
+                            const parsedUrl = new URL(url);
+                            cookieDomain = '.' + parsedUrl.hostname.replace(/^www\./, '');
+                        } catch (e) {
+                            if (url.includes('tiktok.com')) cookieDomain = '.tiktok.com';
+                            else if (url.includes('facebook.com')) cookieDomain = '.facebook.com';
+                        }
                         const pairs = cookieContent.split(';');
                         for (const pair of pairs) {
                             const trimmed = pair.trim();
@@ -8732,7 +8794,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                             if (idx > 0) {
                                 const key = trimmed.substring(0, idx).trim();
                                 const val = trimmed.substring(idx + 1).trim();
-                                netscapeStr += `.youtube.com\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
+                                netscapeStr += `${cookieDomain}\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
                             }
                         }
                         cookieContent = netscapeStr;
@@ -8912,6 +8974,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
 
         return {
             success: true,
+            videoPath: finalVideoPath,
             frames: base64Frames,
             audio: audioBase64,
             subtitles: subtitlesText

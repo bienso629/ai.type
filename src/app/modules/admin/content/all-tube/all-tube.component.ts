@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfigService } from '@fuse/services/config';
@@ -27,6 +27,11 @@ export class AllTubeComponent implements OnInit, OnDestroy {
     quality = 'medium';
 
     strLinks: string = '';
+    isDownloading: boolean = false;
+    downloadPercent: number = 0;
+    downloadStatus: string = '';
+    downloadSpeed: string = '';
+    downloadEta: string = '';
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -41,7 +46,14 @@ export class AllTubeComponent implements OnInit, OnDestroy {
         }
 
         if ((window as any).electron) {
+            this.isDownloading = true;
+            this.downloadPercent = 0;
+            this.downloadStatus = 'Đang bắt đầu tải...';
+            this.downloadSpeed = '';
+            this.downloadEta = '';
             this.toastr.info('Đang bắt đầu tải video...');
+            this._changeDetectorRef.detectChanges();
+
             const settingsStr = localStorage.getItem('settings');
             let customCookies = '';
             if (settingsStr) {
@@ -53,13 +65,21 @@ export class AllTubeComponent implements OnInit, OnDestroy {
                 urls: urls,
                 customCookies: customCookies
             }).then((result: any) => {
+                this.isDownloading = false;
                 if (result && result.success) {
+                    this.downloadPercent = 100;
+                    this.downloadStatus = 'Tải video thành công!';
                     this.toastr.success('Tải video về thành công!');
                 } else {
+                    this.downloadStatus = 'Tải thất bại!';
                     this.toastr.warning('Tải video thất bại: ' + (result?.error || 'Unknown error'));
                 }
+                this._changeDetectorRef.detectChanges();
             }).catch((e: any) => {
+                this.isDownloading = false;
+                this.downloadStatus = 'Lỗi tải video!';
                 this.toastr.error('Có lỗi xảy ra: ' + e);
+                this._changeDetectorRef.detectChanges();
             });
         } else {
             this.toastr.warning('Vui lòng chạy trên app Desktop để tải video!');
@@ -77,6 +97,8 @@ export class AllTubeComponent implements OnInit, OnDestroy {
         console.log('transcript', transcript);
     }
 
+    private _unsubscribeDownloadProgress: any = null;
+
     /**
      * Constructor
      */
@@ -88,6 +110,7 @@ export class AllTubeComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private _youtubeService: YoutubeService,
+        private _changeDetectorRef: ChangeDetectorRef,
     ) {
         this.titleService.setTitle(`tải toàn bộ kênh youtube | ai.type - công cụ tạo content`);
     }
@@ -106,12 +129,33 @@ export class AllTubeComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
             });
+
+        // Lắng nghe tiến trình tải video từ Electron
+        if (typeof window !== 'undefined' && (window as any).electron) {
+            const electronApi = (window as any).electron;
+            if (electronApi.onDownloadVideoProgress) {
+                this._unsubscribeDownloadProgress = electronApi.onDownloadVideoProgress((data: any) => {
+                    if (data) {
+                        this.downloadPercent = data.percent !== undefined ? data.percent : this.downloadPercent;
+                        this.downloadStatus = data.status || this.downloadStatus;
+                        this.downloadSpeed = data.speed || '';
+                        this.downloadEta = data.eta || '';
+                        if (data.percent < 100) {
+                            this.isDownloading = true;
+                        }
+                        this._changeDetectorRef.detectChanges();
+                    }
+                });
+            }
+        }
     }
 
     ngOnDestroy(): void {
+        if (this._unsubscribeDownloadProgress) {
+            this._unsubscribeDownloadProgress();
+            this._unsubscribeDownloadProgress = null;
+        }
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();

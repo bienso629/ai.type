@@ -163,7 +163,7 @@
                             <!-- Thumbnail -->
                             <div class="w-16 h-12 rounded bg-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0 relative pointer-events-none">
                                 <img *ngIf="item.imageUrl || item.controlImageUrl" [src]="getSafeUrl(item.imageUrl || item.controlImageUrl)" class="w-full h-full object-cover pointer-events-none">
-                                <video *ngIf="!item.imageUrl && !item.controlImageUrl && item.videoUrl" [src]="getSafeUrl(item.videoUrl)" class="w-full h-full object-cover pointer-events-none" preload="metadata" muted></video>
+                                <video *ngIf="!item.imageUrl && !item.controlImageUrl && item.videoUrl" [src]="getVideoThumbnailUrl(item)" class="w-full h-full object-cover pointer-events-none" preload="metadata" muted></video>
                                 <mat-icon *ngIf="!item.imageUrl && !item.controlImageUrl && !item.videoUrl" class="icon-size-4 text-neutral-500">movie</mat-icon>
                                 <span class="absolute bottom-0.5 right-0.5 px-1 text-[9px] font-mono bg-black/80 text-neutral-300 rounded">
                                     {{ item.duration >= 60 ? formatTimelineTime(item.duration) : (item.duration | number:'1.0-1') + 's' }}
@@ -577,7 +577,7 @@
 
                             <!-- Subtitle Caption Overlay on Video Preview (Song ngữ Dual Subtitles - Clean Cinematic Style) -->
                             <div *ngIf="currentSubtitleInfo" 
-                                 class="absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none transition-all duration-75 flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
+                                 class="absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
                                  [ngClass]="activeItem && getItemType(activeItem) === 'text' ? 'layer-transform-box subtitle-transform-box' : 'hover:outline hover:outline-1 hover:outline-amber-400/60'"
                                  [style.bottom.px]="currentSubtitleBottom"
                                  [style.fontFamily]="currentSubtitleInfo.fontFamily || currentSubtitleFont"
@@ -629,7 +629,7 @@
 
                     <!-- Subtitle Caption Overlay Khi có Mockup Frame 9:16 -->
                     <div *ngIf="selectedFrame && selectedFrame.id !== 'none' && currentSubtitleInfo" 
-                         class="absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none transition-all duration-75 flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
+                         class="absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
                          [ngClass]="activeItem && getItemType(activeItem) === 'text' ? 'layer-transform-box subtitle-transform-box' : 'hover:outline hover:outline-1 hover:outline-amber-400/60'"
                          [style.bottom.px]="currentSubtitleBottom"
                          [style.fontFamily]="currentSubtitleInfo.fontFamily || currentSubtitleFont"
@@ -693,18 +693,18 @@
                             <mat-icon class="icon-size-4.5">grid_on</mat-icon>
                         </button>
 
-                        <!-- Nút Xuất Video Khung MP4 (Icon only, đồng bộ kích thước icon-size-4.5) -->
+                        <!-- Nút Xuất Video Khung MP4 (Chỉ xuất cho video đang chọn) -->
                         <button *ngIf="selectedFrame && selectedFrame.id !== 'none'" mat-icon-button
                             class="text-neutral-400 hover:text-indigo-400"
                             (click)="exportVideoWithFrame()" [disabled]="isExportingFrameVideo"
-                            title="Xuất MP4 với Khung">
+                            title="Xuất MP4 kèm Khung cho video đang chọn">
                             <mat-icon class="icon-size-4.5" [ngClass]="{'animate-spin text-indigo-400': isExportingFrameVideo}">
                                 {{ isExportingFrameVideo ? 'sync' : 'movie_creation' }}
                             </mat-icon>
                         </button>
 
                         <button mat-icon-button class="text-neutral-400 hover:text-indigo-400"
-                            [title]="selectedFrame ? 'Đổi khung: ' + selectedFrame.name : 'Chọn khung Video'"
+                            [title]="selectedFrame ? ('Đổi khung cho video đang chọn: ' + selectedFrame.name) : 'Chọn khung Frame cho video đang chọn'"
                             (click)="openFrameModal()">
                             <mat-icon class="icon-size-4.5" [ngClass]="{'text-indigo-400': selectedFrame}">layers</mat-icon>
                         </button>
@@ -1646,7 +1646,7 @@
                                                         [src]="getSafeUrl(video.imageUrl || video.controlImageUrl)"
                                                         class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-70 rounded-sm" />
                                                     <video *ngIf="!video.imageUrl && !video.controlImageUrl && video.videoUrl"
-                                                        [src]="getSafeUrl(video.videoUrl)"
+                                                        [src]="getVideoThumbnailUrl(video)"
                                                         class="absolute inset-0 w-full h-full object-cover pointer-events-none block opacity-70 rounded-sm"
                                                         preload="metadata" muted></video>
                                                     <div *ngIf="!video.imageUrl && !video.controlImageUrl && !video.videoUrl"
@@ -1654,10 +1654,16 @@
                                                         <mat-icon class="text-neutral-600 text-3xl pointer-events-none">movie</mat-icon>
                                                     </div>
 
-                                                    <!-- Nhãn thời gian video -->
-                                                    <div class="relative z-10 flex items-center p-1 pointer-events-none">
+                                                    <!-- Nhãn thời gian video & Badge Frame nếu có -->
+                                                    <div class="relative z-10 flex items-center gap-1 p-1 pointer-events-none">
                                                         <div class="bg-black/80 text-neutral-200 border border-neutral-700/50 font-mono text-[10px] px-1 py-0.5 rounded-sm select-none">
                                                             {{ video.duration >= 60 ? formatTimelineTime(video.duration) : (video.duration | number:'1.0-1') + 's' }}
+                                                        </div>
+                                                        <div *ngIf="video.frame && video.frame.id !== 'none'"
+                                                             class="flex items-center gap-0.5 px-1 py-0.5 bg-indigo-950/90 border border-indigo-500/70 text-indigo-300 rounded text-[9px] font-mono shadow-sm"
+                                                             [title]="'Khung: ' + video.frame.name">
+                                                            <mat-icon class="!w-2.5 !h-2.5 !text-[10px]">layers</mat-icon>
+                                                            <span>{{ video.frame.aspectRatio || 'Khung' }}</span>
                                                         </div>
                                                     </div>
 
@@ -1672,8 +1678,8 @@
                                                     <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 rounded-sm"></div>
                                                 </div>
 
-                                                <!-- Action Buttons Nổi: Tắt âm thanh & Tạm tắt video -->
-                                                <div class="absolute top-1 right-4.5 z-30 flex items-center gap-1 pointer-events-auto select-none"
+                                                <!-- Action Buttons Nổi: Tắt âm thanh & Tạm tắt video (lệch khỏi thanh cầm kéo thả bên phải) -->
+                                                <div class="absolute top-1 right-6 z-30 flex items-center gap-1 pointer-events-auto select-none"
                                                     (mousedown)="$event.stopPropagation()"
                                                     (click)="$event.stopPropagation()">
                                                     <!-- Nút Tắt/Bật Âm Thanh Video -->
@@ -1681,9 +1687,9 @@
                                                         (mousedown)="$event.stopPropagation()"
                                                         (click)="$event.stopPropagation(); toggleMute(video)"
                                                         [title]="video.muted ? 'Bật âm thanh video' : 'Tắt âm thanh video'"
-                                                        class="w-5 h-5 flex items-center justify-center rounded-sm bg-black/90 hover:bg-black border border-neutral-700/80 transition-all cursor-pointer shadow-md active:scale-95"
+                                                        class="w-5 h-5 flex items-center justify-center rounded-full bg-black/90 hover:bg-black border border-neutral-700/80 transition-all cursor-pointer shadow-md active:scale-95"
                                                         [ngClass]="video.muted ? '!text-orange-400 !border-orange-500/90 !bg-orange-950/90' : 'text-neutral-300 hover:text-white'">
-                                                        <mat-icon class="!text-[13px] !w-[13px] !h-[13px] flex items-center justify-center">{{ video.muted ? 'volume_off' : 'volume_up' }}</mat-icon>
+                                                        <mat-icon class="!text-[12px] !w-[12px] !h-[12px] flex items-center justify-center">{{ video.muted ? 'volume_off' : 'volume_up' }}</mat-icon>
                                                     </button>
 
                                                     <!-- Nút Tạm Tắt/Bật Lại Video -->
@@ -1691,9 +1697,9 @@
                                                         (mousedown)="$event.stopPropagation()"
                                                         (click)="$event.stopPropagation(); toggleVideoDisabled(video)"
                                                         [title]="video.disabled ? 'Bật lại video' : 'Tạm tắt video'"
-                                                        class="w-5 h-5 flex items-center justify-center rounded-sm bg-black/90 hover:bg-black border border-neutral-700/80 transition-all cursor-pointer shadow-md active:scale-95"
+                                                        class="w-5 h-5 flex items-center justify-center rounded-full bg-black/90 hover:bg-black border border-neutral-700/80 transition-all cursor-pointer shadow-md active:scale-95"
                                                         [ngClass]="video.disabled ? '!text-red-400 !border-red-500/90 !bg-red-950/90' : 'text-neutral-300 hover:text-white'">
-                                                        <mat-icon class="!text-[13px] !w-[13px] !h-[13px] flex items-center justify-center">{{ video.disabled ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                                        <mat-icon class="!text-[12px] !w-[12px] !h-[12px] flex items-center justify-center">{{ video.disabled ? 'visibility_off' : 'visibility' }}</mat-icon>
                                                     </button>
                                                 </div>
 
@@ -1711,7 +1717,7 @@
                                                 </div>
 
                                                 <!-- Center Drag Area -->
-                                                <div class="absolute left-3 right-4.5 top-0 bottom-0 cursor-move z-20"
+                                                <div class="absolute left-3 right-4 top-0 bottom-0 cursor-move z-20"
                                                     (mousedown)="onDragBlockStart($event, video, sceneIdx)"
                                                     (contextmenu)="onVideoContextMenu($event, video, scene, sceneIdx, vIdx)"></div>
                                             </div>
@@ -1975,6 +1981,16 @@
             <span>Cắt Khung Hình Video (Crop Video)</span>
         </button>
 
+        <button mat-menu-item (click)="openFrameModal()">
+            <mat-icon class="text-indigo-400">layers</mat-icon>
+            <span>{{ selectedContextData?.video?.frame ? ('Đổi khung: ' + selectedContextData.video.frame.name) : 'Chọn khung (Mockup Frame)' }}</span>
+        </button>
+
+        <button *ngIf="selectedContextData?.video?.frame" mat-menu-item (click)="exportVideoWithFrame()">
+            <mat-icon class="text-indigo-400">movie_creation</mat-icon>
+            <span>Xuất video này kèm khung (MP4)</span>
+        </button>
+
         <button *ngIf="(selectedContextData?.video?.trackIndex || 0) === 0" mat-menu-item (click)="moveVideoToTrack(selectedContextData?.video, 1)">
             <mat-icon class="text-emerald-400">vertical_align_top</mat-icon>
             <span>Chuyển lên Track 2</span>
@@ -2206,7 +2222,12 @@
                     </div>
                     <div>
                         <h3 class="text-sm font-semibold text-white">Chọn khung Mockup Video (TikTok 9:16 & YouTube 16:9)</h3>
-                        <p class="text-xs text-neutral-400">Lồng video của bạn vào màn hình mockup phối cảnh 3D TikTok/Shorts (9:16) hoặc YouTube TV (16:9)</p>
+                        <p class="text-xs text-neutral-400">
+                            Áp dụng cho video đang chọn: 
+                            <span class="text-indigo-300 font-medium font-mono">
+                                {{ currentSelectedVideo ? ((currentSelectedVideo.duration | number:'1.0-1') + 's - ' + (currentSelectedVideo.prompt || currentSelectedVideo.id || 'Video đã chọn')) : 'Chưa chọn video nào' }}
+                            </span>
+                        </p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
