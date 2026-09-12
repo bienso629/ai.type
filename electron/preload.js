@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.on('download-single-video-progress', listener);
         return () => ipcRenderer.removeListener('download-single-video-progress', listener);
     },
+    onDownloadVideoProgress: (callback) => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('download-video-progress', listener);
+        return () => ipcRenderer.removeListener('download-video-progress', listener);
+    },
     onToolsResponse: (callback) => {
         const listener = (_event, data) => callback(data);
         ipcRenderer.on('tools-response', listener);
