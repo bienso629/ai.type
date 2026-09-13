@@ -351,9 +351,9 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             // ✅ Parse + sanitize rồi gán innerHTML (không dùng textContent)
             const md = (m[3] ?? '').toString();
             if (m[2] === 'bot' && (!md || md === 'Đang phân tích...')) {
-                bubble.innerHTML = `<div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-0.5">
-                    <span class="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                    <span class="text-sm italic">Đang suy nghĩ & trả lời...</span>
+                bubble.innerHTML = `<div class="flex items-center gap-2.5 text-gray-500 dark:text-gray-400">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
+                    <span class="text-base font-medium">Đang suy nghĩ & trả lời...</span>
                 </div>`;
             } else {
                 const html = marked.parse(md) as string;
@@ -560,50 +560,104 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             });
     }
 
-    async deleteThread(threadId: any, event?: MouseEvent): Promise<void> {
+    deleteThread(threadId: any, event?: MouseEvent): void {
         if (event) event.stopPropagation();
-        const electron = (window as any).electron;
-        if (electron && electron.invoke) {
-            try {
-                await electron.invoke('delete-local-chatbot-thread', {
-                    username: this.user?.name || 'admin',
-                    threadId: threadId
-                });
-            } catch (e) {}
-        }
 
-        this.threadList = (this.threadList || []).filter(t => String(t?.[0]) !== String(threadId));
-        this.rebuildThreadRows();
-        if (String(this.currentThread) === String(threadId)) {
-            this.currentThread = null;
-            this.currentMessages = [];
-            this.messages = [];
-            const chat = document.getElementById('chat');
-            if (chat) chat.innerHTML = '';
-            if (this.threadList.length > 0) {
-                this.selectThread(this.threadList[0][0]);
+        const threadItem = (this.threadRows || []).find(t => String(t.id) === String(threadId));
+        const threadName = threadItem?.name || threadItem?.title || ('Hộp thoại #' + threadId);
+
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xóa cuộc trò chuyện',
+            message: `Bạn có chắc chắn muốn xóa cuộc trò chuyện <strong>${threadName}</strong> không?`,
+            icon: {
+                show: true,
+                name: 'heroicons_outline:exclamation-triangle',
+                color: 'warn'
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Xóa',
+                    color: 'warn'
+                },
+                cancel: {
+                    show: true,
+                    label: 'Hủy'
+                }
             }
-        }
-        this.toastr.success('Đã xóa hộp thoại');
-        this.cd.markForCheck();
+        });
+
+        dialogRef.afterClosed().subscribe(async (result) => {
+            if (result === 'confirmed') {
+                const electron = (window as any).electron;
+                if (electron && electron.invoke) {
+                    try {
+                        await electron.invoke('delete-local-chatbot-thread', {
+                            username: this.user?.name || 'admin',
+                            threadId: threadId
+                        });
+                    } catch (e) {}
+                }
+
+                this.threadList = (this.threadList || []).filter(t => String(t?.[0]) !== String(threadId));
+                this.rebuildThreadRows();
+                if (String(this.currentThread) === String(threadId)) {
+                    this.currentThread = null;
+                    this.currentMessages = [];
+                    this.messages = [];
+                    const chat = document.getElementById('chat');
+                    if (chat) chat.innerHTML = '';
+                    if (this.threadList.length > 0) {
+                        this.selectThread(this.threadList[0][0]);
+                    }
+                }
+                this.toastr.success('Đã xóa hộp thoại');
+                this.cd.markForCheck();
+            }
+        });
     }
 
-    async clearAllThreads(): Promise<void> {
-        const electron = (window as any).electron;
-        if (electron && electron.invoke) {
-            try {
-                await electron.invoke('clear-all-local-chatbot-threads', this.user?.name || 'admin');
-            } catch (e) {}
-        }
-        this.threadList = [];
-        this.rebuildThreadRows();
-        this.currentThread = null;
-        this.currentMessages = [];
-        this.messages = [];
-        const chat = document.getElementById('chat');
-        if (chat) chat.innerHTML = '';
-        this.toastr.success('Đã xóa sạch toàn bộ hộp thoại');
-        this.cd.markForCheck();
+    clearAllThreads(): void {
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xóa tất cả cuộc trò chuyện',
+            message: 'Bạn có chắc chắn muốn xóa toàn bộ lịch sử các cuộc trò chuyện không? Thao tác này không thể hoàn tác.',
+            icon: {
+                show: true,
+                name: 'heroicons_outline:exclamation-triangle',
+                color: 'warn'
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Xóa tất cả',
+                    color: 'warn'
+                },
+                cancel: {
+                    show: true,
+                    label: 'Hủy'
+                }
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(async (result) => {
+            if (result === 'confirmed') {
+                const electron = (window as any).electron;
+                if (electron && electron.invoke) {
+                    try {
+                        await electron.invoke('clear-all-local-chatbot-threads', this.user?.name || 'admin');
+                    } catch (e) {}
+                }
+                this.threadList = [];
+                this.rebuildThreadRows();
+                this.currentThread = null;
+                this.currentMessages = [];
+                this.messages = [];
+                const chat = document.getElementById('chat');
+                if (chat) chat.innerHTML = '';
+                this.toastr.success('Đã xóa sạch toàn bộ hộp thoại');
+                this.cd.markForCheck();
+            }
+        });
     }
 
     async selectThread(threadId: number): Promise<void> {
