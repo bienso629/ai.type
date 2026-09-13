@@ -38,18 +38,13 @@
                     </button>
                     <div class="min-w-0">
                         <h3 class="font-bold text-base text-slate-800 dark:text-slate-100 truncate m-0 leading-tight">Tài liệu của bạn</h3>
-                        <p class="text-xs text-slate-500 m-0 truncate" [title]="selectedFolderPath || ''">
-                            <span *ngIf="selectedFolderPath" class="text-primary-600 font-semibold mr-1">[{{ getFolderBaseName(selectedFolderPath) }}]</span>
-                            {{ selected.length > 0 ? (selected.length + ' đã chọn / ') : '' }}{{ filteredFileRows.length }} file
+                        <p class="text-sm text-slate-500 m-0 truncate" [title]="selectedFolderPath || ''">
+                            {{ selected.length > 0 ? (selected.length + ' đã chọn / ') : '' }}Tìm thấy {{ filteredFileRows.length }} files<span *ngIf="selectedFolderPath"> trong <span class="text-primary-600 font-semibold">{{ getFolderBaseName(selectedFolderPath) }}</span></span>
                         </p>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-0 shrink-0">
-                    <input type="file" id="pdfInput" (change)="onPdfSelected($event)" hidden>
-                    <button mat-icon-button (click)="triggerPdfUpload()" [matTooltip]="'Tải lên file PDF, DOCx, TXT'">
-                        <mat-icon class="icon-size-4 text-primary-600" svgIcon="feather:upload-cloud"></mat-icon>
-                    </button>
                     <button mat-icon-button (click)="refreshFiles()" [matTooltip]="'Làm mới danh sách'">
                         <mat-icon class="icon-size-4 text-gray-500" [class.animate-spin]="isLoadingFiles" svgIcon="feather:rotate-cw"></mat-icon>
                     </button>
