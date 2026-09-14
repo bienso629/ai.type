@@ -2634,7 +2634,7 @@
                                                 [readonly]="(name !== user.name)" (clear)="onClearCollection()"
                                                 (add)="onAddCollection($event)" (remove)="onRemoveCollection($event)"
                                                 (change)="onChangeCollection($event)" multiple="true" bindLabel="title"
-                                                [clearable]="false" [loading]="loading"
+                                                [clearable]="true" [loading]="loading"
                                                 [(ngModel)]="selectedCollections" [dropdownPosition]="'top'"
                                                 appendTo="body">
                                                 <ng-template ng-option-tmp let-item="item">

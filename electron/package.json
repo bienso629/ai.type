@@ -43,6 +43,10 @@
             "100tiktok-*",
             "crm/**/*",
             {
+                "from": "fallback/assets/video_frames",
+                "to": "assets/video_frames"
+            },
+            {
                 "from": "bin",
                 "to": "bin"
             },
