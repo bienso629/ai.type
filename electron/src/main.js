@@ -3054,6 +3054,39 @@ function getResolvedFontName(requestedFontName) {
     return clean;
 }
 
+function resolveVideoAssetPath(targetPath) {
+    if (!targetPath) return '';
+    let clean = String(targetPath).trim();
+    if (clean.startsWith('media://')) clean = decodeURIComponent(clean.substring(8));
+    else if (clean.startsWith('file://')) clean = decodeURIComponent(clean.substring(7));
+    if (clean.match(/^\/[a-zA-Z]:[\\/]/)) clean = clean.substring(1);
+
+    if (fs.existsSync(clean)) return clean;
+
+    const baseName = path.basename(clean);
+    const relFromSrc = clean.replace(/^[\\/]/, '').replace(/^src[\\/]/, '').replace(/^electron[\\/]/, '').replace(/^fallback[\\/]/, '');
+
+    const candidates = [
+        path.join(process.cwd(), clean),
+        path.join(__dirname, '..', '..', clean),
+        path.join(__dirname, '..', clean),
+        path.join(__dirname, clean),
+        process.resourcesPath ? path.join(process.resourcesPath, 'assets', 'video_frames', baseName) : null,
+        process.resourcesPath ? path.join(process.resourcesPath, 'video_frames', baseName) : null,
+        process.resourcesPath ? path.join(process.resourcesPath, relFromSrc) : null,
+        process.resourcesPath ? path.join(process.resourcesPath, 'assets', relFromSrc.replace(/^assets[\\/]/, '')) : null,
+        path.join(process.cwd(), 'src', 'assets', 'video_frames', baseName),
+        path.join(process.cwd(), 'electron', 'fallback', 'assets', 'video_frames', baseName),
+        path.join(__dirname, '..', '..', 'src', 'assets', 'video_frames', baseName),
+        path.join(__dirname, '..', 'fallback', 'assets', 'video_frames', baseName)
+    ].filter(Boolean);
+
+    for (const cand of candidates) {
+        if (fs.existsSync(cand)) return cand;
+    }
+    return clean;
+}
+
 ipcMain.handle("render-video-with-frame", async (event, payload) => {
     let { 
         videoPath, 
@@ -3080,42 +3113,9 @@ ipcMain.handle("render-video-with-frame", async (event, payload) => {
         const W = canvasWidth || 2286;
         const H = canvasHeight || 4096;
 
-        let cleanBgVideoPath = frameBgVideoPath || '';
-        if (cleanBgVideoPath) {
-            if (cleanBgVideoPath.startsWith('media://')) cleanBgVideoPath = decodeURIComponent(cleanBgVideoPath.substring(8));
-            else if (cleanBgVideoPath.startsWith('file://')) cleanBgVideoPath = decodeURIComponent(cleanBgVideoPath.substring(7));
-            if (cleanBgVideoPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanBgVideoPath = cleanBgVideoPath.substring(1);
-            if (!fs.existsSync(cleanBgVideoPath)) {
-                const cand1 = path.join(process.cwd(), cleanBgVideoPath);
-                const cand2 = path.join(__dirname, '..', '..', cleanBgVideoPath);
-                if (fs.existsSync(cand1)) cleanBgVideoPath = cand1;
-                else if (fs.existsSync(cand2)) cleanBgVideoPath = cand2;
-            }
-        }
-
-        let cleanBgPath = frameBgPath || 'src/assets/video_frames/tiktok_frame_bg.jpg';
-        if (cleanBgPath.startsWith('media://')) cleanBgPath = decodeURIComponent(cleanBgPath.substring(8));
-        else if (cleanBgPath.startsWith('file://')) cleanBgPath = decodeURIComponent(cleanBgPath.substring(7));
-        if (cleanBgPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanBgPath = cleanBgPath.substring(1);
-
-        if (!fs.existsSync(cleanBgPath)) {
-            const cand1 = path.join(process.cwd(), cleanBgPath);
-            const cand2 = path.join(__dirname, '..', '..', cleanBgPath);
-            if (fs.existsSync(cand1)) cleanBgPath = cand1;
-            else if (fs.existsSync(cand2)) cleanBgPath = cand2;
-        }
-
-        let cleanMaskPath = frameMaskPath || 'src/assets/video_frames/tiktok_frame_mask.png';
-        if (cleanMaskPath.startsWith('media://')) cleanMaskPath = decodeURIComponent(cleanMaskPath.substring(8));
-        else if (cleanMaskPath.startsWith('file://')) cleanMaskPath = decodeURIComponent(cleanMaskPath.substring(7));
-        if (cleanMaskPath.match(/^\/[a-zA-Z]:[\\/]/)) cleanMaskPath = cleanMaskPath.substring(1);
-
-        if (!fs.existsSync(cleanMaskPath)) {
-            const cand1 = path.join(process.cwd(), cleanMaskPath);
-            const cand2 = path.join(__dirname, '..', '..', cleanMaskPath);
-            if (fs.existsSync(cand1)) cleanMaskPath = cand1;
-            else if (fs.existsSync(cand2)) cleanMaskPath = cand2;
-        }
+        let cleanBgVideoPath = frameBgVideoPath ? resolveVideoAssetPath(frameBgVideoPath) : '';
+        let cleanBgPath = resolveVideoAssetPath(frameBgPath || 'src/assets/video_frames/tiktok_frame_bg.jpg');
+        let cleanMaskPath = resolveVideoAssetPath(frameMaskPath || 'src/assets/video_frames/tiktok_frame_mask.png');
 
         const hasBgVideo = !!cleanBgVideoPath && fs.existsSync(cleanBgVideoPath);
         if (!hasBgVideo && !fs.existsSync(cleanBgPath)) {

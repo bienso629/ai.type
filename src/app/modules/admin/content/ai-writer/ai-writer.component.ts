@@ -5241,11 +5241,13 @@ ${contentFromDone || '(Chưa có văn bản)'}
                          this.selectedCollections = result.data || [];
                          this.loadArticlesInCollection();
                      } else {
-                         this.alert('Tập của nội dung không chính xác.');
+                         this.selectedCollections = [];
+                         this.articlesInCollection = [];
                      }
                  },
                  error: () => {
-                     this.alert('Tập của nội dung chưa được tải về.');
+                     this.selectedCollections = [];
+                     this.articlesInCollection = [];
                  },
                  complete: () => { },
              });
@@ -5892,7 +5894,32 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
     }
 
     onClearCollection() {
-        console.log('onClear');
+        if (this.uuid && this.selectedCollections && this.selectedCollections.length > 0) {
+            const colsToRemove = [...this.selectedCollections];
+            colsToRemove.forEach((col: any) => {
+                const colId = col._id || col.id;
+                if (colId) {
+                    this._crawlService
+                        .removeCollection({
+                            _id: colId,
+                            uuid: this.uuid,
+                            username: this.user.name,
+                        })
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe({
+                            next: (result) => {
+                                if (result && result.success) {
+                                    this.toastr.success(`Đã gỡ bài viết khỏi tuyển tập.`);
+                                }
+                            }
+                        });
+                }
+            });
+        }
+        this.selectedCollections = [];
+        this.articlesInCollection = [];
+        this.selectedArticleInCollection = null;
+        this.cd.markForCheck();
     }
 
     openCreateAudioProgram() {
