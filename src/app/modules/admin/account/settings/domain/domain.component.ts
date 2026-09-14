@@ -148,6 +148,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     private fetchServerDomains() {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
         if (isAutoSaveLocal) return;
+        if (!this.user || !this.user.name) return;
 
         this._domainService.fetch({
             username: this.user.name

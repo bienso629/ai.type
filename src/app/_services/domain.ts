@@ -63,27 +63,37 @@ export class DomainService {
             return of({ success: true, data: [] });
         }
 
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of({ success: true, data: [] }); }
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of({ success: true, data: [] });
 
         dataForm.year = 2023;
         dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.appToken = activeInfo['user']?.['appToken'] || '';
 
-        const url = `${this.config.settings.api[this.user.server]}/domain/all`;
+        const serverKey = this.user?.server || 'vn.s1';
+        const serverApi = this.config?.settings?.api?.[serverKey] || 'https://apiv1.type.vn/v1';
+        const genKey = this.config?.settings?.gen || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
+
+        const url = `${serverApi}/domain/all`;
 
         let data = {
-            params: this._h.encrypt(dataForm, this.config.settings.gen)
+            params: this._h.encrypt(dataForm, genKey)
         };
 
         return this.http.post<any>(url, data, options).pipe(
-            map(data => {
-                return data;
+            map(res => {
+                if (Array.isArray(res)) {
+                    return { success: true, data: res };
+                }
+                if (res && res.data && Array.isArray(res.data)) {
+                    return { success: true, data: res.data };
+                }
+                if (res && res.success && Array.isArray(res.data)) {
+                    return res;
+                }
+                return { success: true, data: [] };
             }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+            catchError(this.handleError('server', { success: false, data: [] }))
         );
     }
 
@@ -103,12 +113,16 @@ export class DomainService {
 
         dataForm.year = 2023;
         dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.appToken = activeInfo['user']?.['appToken'] || '';
 
-        const url = `${this.config.settings.api[this.user.server]}/domain/add`;
+        const serverKey = this.user?.server || 'vn.s1';
+        const serverApi = this.config?.settings?.api?.[serverKey] || 'https://apiv1.type.vn/v1';
+        const genKey = this.config?.settings?.gen || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
+
+        const url = `${serverApi}/domain/add`;
 
         let data = {
-            params: this._h.encrypt(dataForm, this.config.settings.gen)
+            params: this._h.encrypt(dataForm, genKey)
         };
 
         return this.http.post<any>(url, data, options).pipe(
@@ -138,12 +152,16 @@ export class DomainService {
 
         dataForm.year = 2023;
         dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.appToken = activeInfo['user']?.['appToken'] || '';
         
-        const url = `${this.config.settings.api[this.user.server]}/domain/edit`;
+        const serverKey = this.user?.server || 'vn.s1';
+        const serverApi = this.config?.settings?.api?.[serverKey] || 'https://apiv1.type.vn/v1';
+        const genKey = this.config?.settings?.gen || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
+
+        const url = `${serverApi}/domain/edit`;
 
         let data = {
-            params: this._h.encrypt(dataForm, this.config.settings.gen)
+            params: this._h.encrypt(dataForm, genKey)
         };
 
         return this.http.post<any>(url, data, options).pipe(
