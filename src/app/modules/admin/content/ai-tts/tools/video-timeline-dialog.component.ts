@@ -52,6 +52,7 @@ import { GenaiService } from 'app/genai.service';
 import { VideoProjectConfigDialogComponent } from './video-project-config-dialog.component';
 import { BroadcastPreviewDialogComponent } from './broadcast-preview-dialog.component';
 import { CropVideoDialogComponent } from './crop-video-dialog.component';
+import { AudioGenerationComponent } from './audio-generation.component';
 
 interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
@@ -2765,6 +2766,303 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.saveData();
             this.cd.detectChanges();
             this.toastr.success('Đã thêm Text xuống timeline tiếp tục kế bên!');
+        }
+    }
+
+    async importAudioFile() {
+        if (!this.projectData) this.projectData = { scenes: [] };
+        if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+            this.projectData.scenes.push({
+                id: `scene_${Date.now()}`,
+                subtitles: [],
+                texts: [],
+                videos: [],
+                images: [],
+                extractedAudios: [],
+                prompt: ''
+            });
+        }
+
+        const electronApi = (window as any).electron;
+        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'audio/*';
+            input.onchange = async (e: any) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const originalPath = electronApi.getPathForFile(file);
+                if (!originalPath) {
+                    this.toastr.error('Không thể xác nhận đường dẫn file.');
+                    return;
+                }
+
+                this.toastr.info('Đang xử lý file âm thanh, vui lòng đợi...');
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
+                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+
+                let realDur = 5;
+                if (electronApi.getMediaDuration) {
+                    try {
+                        const durRes = await electronApi.getMediaDuration(finalPath);
+                        if (durRes && durRes.success && durRes.duration > 0) {
+                            realDur = Math.round(durRes.duration * 10) / 10;
+                        }
+                    } catch (err) {}
+                }
+
+                // Tìm scene phù hợp theo playhead hiện tại
+                let targetScene = this.projectData.scenes[0];
+                for (const sc of this.projectData.scenes) {
+                    const scStart = Number(sc.startTime) || 0;
+                    const scEnd = scStart + (Number(sc.duration) || 5);
+                    if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+                        targetScene = sc;
+                        break;
+                    }
+                }
+                if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
+
+                const startTime = this.currentTimelineTime || 0;
+                const newAudio: any = {
+                    id: `audio_${Date.now()}`,
+                    audioUrl: finalPath,
+                    text: file.name || 'Âm thanh tải lên',
+                    startTime: startTime,
+                    duration: realDur,
+                    maxDuration: realDur
+                };
+
+                targetScene.extractedAudios.push(newAudio);
+                this.setActiveItem(newAudio);
+                this.updateTimelineTotalWidth();
+                this.updateRulerTicks();
+                this.saveData(true);
+                this.cd.detectChanges();
+                this.toastr.success('Đã thêm file âm thanh vào track âm thanh!');
+            };
+            input.click();
+            return;
+        }
+
+        const audioUrl = prompt('Nhập đường dẫn File âm thanh (URL hoặc file):');
+        if (!audioUrl || !audioUrl.trim()) return;
+
+        let targetScene = this.projectData.scenes[0];
+        for (const sc of this.projectData.scenes) {
+            const scStart = Number(sc.startTime) || 0;
+            const scEnd = scStart + (Number(sc.duration) || 5);
+            if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+                targetScene = sc;
+                break;
+            }
+        }
+        if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
+
+        const startTime = this.currentTimelineTime || 0;
+        const newAudio: any = {
+            id: `audio_${Date.now()}`,
+            audioUrl: audioUrl.trim(),
+            text: 'Âm thanh tải lên',
+            startTime: startTime,
+            duration: 5,
+            maxDuration: 5
+        };
+
+        targetScene.extractedAudios.push(newAudio);
+        this.setActiveItem(newAudio);
+        this.updateTimelineTotalWidth();
+        this.updateRulerTicks();
+        this.saveData(true);
+        this.cd.detectChanges();
+        this.toastr.success('Đã thêm file âm thanh vào track âm thanh!');
+    }
+
+    openTtsVoiceDialog() {
+        const dialogRef = this.dialog.open(AudioGenerationComponent, {
+            width: '420px',
+            maxWidth: '100vw',
+            data: {
+                ...this.projectData,
+                uuid: this.projectData?.uuid || this.data?.uuid,
+                username: this.projectData?.username || this.data?.username,
+                standaloneTTSNode: {
+                    data: {
+                        text: '',
+                        audioUrl: null
+                    }
+                }
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(async (res) => {
+            if (!res || res.action !== 'start') return;
+            const textToSpeak = dialogRef.componentInstance?.data?.standaloneTTSNode?.data?.text;
+            if (!textToSpeak || !textToSpeak.trim()) {
+                this.toastr.warning('Vui lòng nhập nội dung văn bản để tạo giọng đọc.');
+                return;
+            }
+
+            await this.generateVoiceAndInsertToTimeline(textToSpeak.trim(), res);
+        });
+    }
+
+    async generateVoiceAndInsertToTimeline(text: string, config: any) {
+        const electronApi = (window as any).electron;
+        if (!electronApi || !electronApi.invoke) {
+            this.toastr.error('Cần chạy trên App Desktop (Electron) để tạo giọng nói.');
+            return;
+        }
+
+        this.toastr.info('Đang tạo giọng đọc AI TTS...', 'Hệ thống');
+
+        const username = this.projectData?.username || this.data?.username || 'anonymous';
+        const uuid = this.projectData?.uuid || this.data?.uuid || 'default';
+        const subPath = `${username}/${uuid}`;
+        const prefix = Date.now().toString().slice(-4);
+        const slug = (text.substring(0, 40) || 'voice').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+
+        const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+        const isEdgeVoice = edgeVoices.includes(config.selectedVoice);
+        let res: any;
+
+        try {
+            if (isEdgeVoice) {
+                const niceFilename = `${prefix}_${slug}`;
+                const payload = {
+                    text: text,
+                    voice: config.selectedVoice,
+                    rate: config.selectedRate || 1.0,
+                    pitch: config.selectedPitch || 0,
+                    filename: niceFilename,
+                    username: subPath,
+                };
+                res = await electronApi.invoke('tts-generate', payload);
+            } else {
+                const isTTSTypeVoice = config.selectedVoice?.endsWith('tts.type.vn');
+                const isAusyncVoice = config.selectedVoice?.endsWith('ausynclab.io');
+
+                if (isTTSTypeVoice) {
+                    const voice_id = config.selectedVoice.replace('-tts.type.vn', '');
+                    const niceFilename = `${prefix}_${slug}`;
+                    const voice = (config.myvoices || []).find((v: any) => String(v.id) === String(voice_id));
+                    let safeText = text;
+                    if (safeText.length < 150) {
+                        safeText = safeText.replace(/[.!?\n]+/g, ', ').replace(/,\s*$/, '').trim();
+                    }
+                    const payload = {
+                        text: safeText,
+                        voice_id: voice ? voice.id : voice_id,
+                        key: voice ? voice.api_key : '',
+                        ref_audio_name: voice ? voice.ref_audio_name : '',
+                        ref_text: voice ? voice.ref_text : '',
+                        speed: voice?.speed || config.selectedRate || 1.0,
+                        num_step: voice?.num_step || 16,
+                        filename: niceFilename,
+                        username: subPath,
+                    };
+                    res = await electronApi.invoke('tts-type-generate', payload);
+                } else if (isAusyncVoice) {
+                    const voice_id = config.selectedVoice.replace('-ausynclab.io', '');
+                    const niceFilename = `${prefix}_${slug}_ausync`;
+                    const voice = (config.myvoices || []).find((v: any) => String(v.id) === String(voice_id));
+                    const payload = {
+                        text: text,
+                        voice_id: voice_id,
+                        key: voice ? voice.api_key : '',
+                        speed: voice?.speed || config.selectedRate || 1.0,
+                        filename: niceFilename,
+                        username: subPath,
+                    };
+                    res = await electronApi.invoke('tts-ausync-generate', payload);
+                } else {
+                    // Mặc định fallback Edge TTS nếu không khớp
+                    const niceFilename = `${prefix}_${slug}`;
+                    res = await electronApi.invoke('tts-generate', {
+                        text: text,
+                        voice: 'vi-VN-HoaiMyNeural',
+                        rate: 1.0,
+                        pitch: 0,
+                        filename: niceFilename,
+                        username: subPath
+                    });
+                }
+            }
+
+            if (res && res.success !== false && !res.error) {
+                const rawPath = res.filePath || res.url || res.result;
+                if (!rawPath) {
+                    this.toastr.error('Tạo audio thành công nhưng không tìm thấy file kết quả.');
+                    return;
+                }
+
+                let finalAudioUrl = rawPath;
+                if (!rawPath.startsWith('http://') && !rawPath.startsWith('https://') && !rawPath.startsWith('file://') && !rawPath.startsWith('media://')) {
+                    finalAudioUrl = `file://${rawPath}`;
+                }
+
+                // Lấy độ dài audio thật
+                let realDur = 5;
+                if (electronApi.getMediaDuration) {
+                    try {
+                        const durRes = await electronApi.getMediaDuration(finalAudioUrl);
+                        if (durRes && durRes.success && durRes.duration > 0) {
+                            realDur = Math.round(durRes.duration * 10) / 10;
+                        }
+                    } catch (e) {}
+                }
+
+                if (!this.projectData) this.projectData = { scenes: [] };
+                if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+                    this.projectData.scenes.push({
+                        id: `scene_${Date.now()}`,
+                        subtitles: [],
+                        texts: [],
+                        videos: [],
+                        images: [],
+                        extractedAudios: [],
+                        prompt: ''
+                    });
+                }
+
+                // Tìm scene tương ứng với playhead hiện tại
+                let targetScene = this.projectData.scenes[0];
+                for (const sc of this.projectData.scenes) {
+                    const scStart = Number(sc.startTime) || 0;
+                    const scEnd = scStart + (Number(sc.duration) || 5);
+                    if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+                        targetScene = sc;
+                        break;
+                    }
+                }
+                if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
+
+                const startTime = this.currentTimelineTime || 0;
+                const newAudio: any = {
+                    id: `audio_${Date.now()}`,
+                    audioUrl: finalAudioUrl,
+                    text: text.length > 30 ? (text.substring(0, 30) + '...') : text,
+                    startTime: startTime,
+                    duration: realDur,
+                    maxDuration: realDur
+                };
+
+                targetScene.extractedAudios.push(newAudio);
+                this.setActiveItem(newAudio);
+                this.updateTimelineTotalWidth();
+                this.updateRulerTicks();
+                this.saveData(true);
+                this.cd.detectChanges();
+                this.toastr.success('Đã tạo giọng đọc và chèn vào Track Âm thanh thành công!');
+            } else {
+                this.toastr.error('Lỗi khi tạo giọng nói: ' + (res?.error || 'Không thành công'));
+            }
+        } catch (err: any) {
+            console.error('Lỗi tạo giọng nói TTS:', err);
+            this.toastr.error('Lỗi tạo giọng nói: ' + (err?.message || err));
         }
     }
 

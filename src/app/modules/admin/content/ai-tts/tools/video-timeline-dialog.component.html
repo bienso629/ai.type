@@ -1484,9 +1484,13 @@
                 </div>
 
                 <!-- Track Audio Header (h-10) -->
-                <div class="h-10 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden">
+                <div class="h-10 border-b border-neutral-800/80 bg-[#18181b] flex items-center justify-center gap-1.5 px-2 relative overflow-hidden group">
                     <mat-icon class="icon-size-3.5 text-indigo-400 flex-shrink-0">graphic_eq</mat-icon>
                     <span class="text-[11px] font-semibold text-neutral-300 truncate">{{ 'app.auto_original_sound' | transloco }}</span>
+                    <button mat-icon-button [matMenuTriggerFor]="addAudioMenu" class="absolute right-0 opacity-70 hover:opacity-100 group-hover:opacity-100 transition-opacity scale-75 z-20 cursor-pointer" 
+                        title="Thêm âm thanh / Tạo giọng đọc AI">
+                        <mat-icon class="text-neutral-300 hover:text-indigo-400">add</mat-icon>
+                    </button>
                 </div>
             </div>
 
@@ -2174,6 +2178,18 @@
         <button mat-menu-item (click)="addNewCustomTextItem()">
             <mat-icon class="text-emerald-400">add</mat-icon>
             <span>Thêm một đoạn Text mới</span>
+        </button>
+    </mat-menu>
+
+    <!-- Add Audio Options Menu -->
+    <mat-menu #addAudioMenu="matMenu" class="dark-context-menu" panelClass="dark-context-menu">
+        <button mat-menu-item (click)="importAudioFile()">
+            <mat-icon class="text-blue-400">upload_file</mat-icon>
+            <span>Chọn file âm thanh từ máy tính</span>
+        </button>
+        <button mat-menu-item (click)="openTtsVoiceDialog()">
+            <mat-icon class="text-indigo-400">record_voice_over</mat-icon>
+            <span>Tạo giọng đọc AI (AI Voice TTS)</span>
         </button>
     </mat-menu>
 
