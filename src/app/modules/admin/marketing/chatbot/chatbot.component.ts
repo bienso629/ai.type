@@ -1443,6 +1443,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 if (saveRes && saveRes.success) {
                     if (targetRow) {
                         targetRow.is_indexed = true;
+                        this.applyFileFilter();
                     }
                     this.isIndexing = false;
                     this.indexingFilename = '';
@@ -1606,7 +1607,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             this.applyFileFilter();
         }
 
-        this.loadFileRows();
+        this.refreshFiles();
         setTimeout(() => this.stopProgressPolling(), 2000);
     }
 
