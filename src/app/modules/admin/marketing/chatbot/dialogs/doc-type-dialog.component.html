@@ -1,27 +1,48 @@
-<h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100 flex items-center justify-self-stretch mb-4">
-    <mat-icon class="icon-size-5 text-primary-600 mr-2" svgIcon="feather:file-text"></mat-icon>
-    <span>{{ 'app.bot_learns_document_content' | transloco }}</span>
+<h2
+    class="text-xl font-semibold text-slate-800 dark:text-slate-100 flex items-center justify-self-stretch mb-4"
+>
+    <mat-icon
+        class="icon-size-5 text-primary-600 mr-2"
+        svgIcon="feather:file-text"
+    ></mat-icon>
+    <span>{{ "app.bot_learns_document_content" | transloco }}</span>
 </h2>
 
 <div class="grid grid-cols-2 gap-2.5 max-h-[320px] overflow-y-auto p-1">
-    <label *ngFor="let type of docTypes"
-        (click)="selectedDocType = type.value"
-        class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all duration-150"
-        [ngClass]="selectedDocType === type.value ? 'bg-primary-50 dark:bg-primary-950/50 border-primary-500 text-primary-700 dark:text-primary-300 font-semibold ring-1 ring-primary-500' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60 text-slate-700 dark:text-slate-300'">
-        <input type="radio" name="docType" [value]="type.value" [checked]="selectedDocType === type.value"
-            (change)="selectedDocType = type.value"
-            class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 cursor-pointer" />
-        <span class="text-sm select-none">{{ type.label }}</span>
-    </label>
+    @for (type of docTypes; track type) {
+        <label
+            (click)="selectedDocType = type.value"
+            class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all duration-150"
+            [ngClass]="
+                selectedDocType === type.value
+                    ? 'bg-primary-50 dark:bg-primary-950/50 border-primary-500 text-primary-700 dark:text-primary-300 font-semibold ring-1 ring-primary-500'
+                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60 text-slate-700 dark:text-slate-300'
+            "
+        >
+            <input
+                type="radio"
+                name="docType"
+                [value]="type.value"
+                [checked]="selectedDocType === type.value"
+                (change)="selectedDocType = type.value"
+                class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 cursor-pointer"
+            />
+            <span class="text-sm select-none">{{ type.label }}</span>
+        </label>
+    }
 </div>
 
 <div class="flex justify-end gap-3 mt-6">
-    <button mat-button (click)="onClose()" class="text-gray-600 dark:text-gray-300 font-medium">
+    <button
+        mat-button
+        (click)="onClose()"
+        class="text-gray-600 dark:text-gray-300 font-medium"
+    >
         Đóng
     </button>
 
     <button mat-flat-button color="primary" (click)="onConfirm()" class="px-5">
         <mat-icon class="icon-size-4" svgIcon="feather:arrow-right"></mat-icon>
-        <mat-label class="ml-2">{{ 'app.continue' | transloco }}</mat-label>
+        <mat-label class="ml-2">{{ "app.continue" | transloco }}</mat-label>
     </button>
 </div>

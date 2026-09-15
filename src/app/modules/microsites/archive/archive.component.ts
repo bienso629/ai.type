@@ -13,7 +13,7 @@ import { ToastrService } from 'ngx-toastr';
 
 import { FuseAlertService } from '@fuse/components/alert';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { UserClientService } from 'app/_services/user';
 
 @Component({
@@ -22,7 +22,8 @@ import { UserClientService } from 'app/_services/user';
     styleUrls: ['./archive.component.scss'],
     providers: [CrawlService, UserClientService],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    standalone: false
 })
 export class ArchiveComponent implements OnInit, OnDestroy, AfterViewInit {
     user: User;

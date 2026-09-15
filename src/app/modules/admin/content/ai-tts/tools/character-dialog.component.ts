@@ -1,9 +1,18 @@
-import { TranslocoModule } from '@ngneat/transloco';
-import { Component, Inject, ChangeDetectorRef } from '@angular/core';
+import { TranslocoModule } from '@jsverse/transloco';
+import {
+    Component,
+    Inject,
+    ChangeDetectorRef,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import {
+    MatDialogModule,
+    MatDialogRef,
+    MAT_DIALOG_DATA,
+} from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { TextFieldModule } from '@angular/cdk/text-field';
@@ -18,10 +27,21 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
     selector: 'app-character-dialog',
-    standalone: true,
     imports: [
-        TranslocoModule,CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatSelectModule, MatProgressSpinnerModule, MatMenuModule, MatTooltipModule],
-    templateUrl: './character-dialog.component.html'
+        TranslocoModule,
+        FormsModule,
+        MatDialogModule,
+        MatButtonModule,
+        MatInputModule,
+        TextFieldModule,
+        MatIconModule,
+        MatSelectModule,
+        MatProgressSpinnerModule,
+        MatMenuModule,
+        MatTooltipModule,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    templateUrl: './character-dialog.component.html',
 })
 export class CharacterDialogComponent {
     editingChar: any;
@@ -43,18 +63,35 @@ export class CharacterDialogComponent {
         private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
-        private sanitizer: DomSanitizer
+        private sanitizer: DomSanitizer,
     ) {
         this.isEditMode = data.index >= 0;
         this.showFullForm = this.isEditMode;
-        this.editingChar = data.char ? {
-            ...data.char,
-            avatarUrls: data.char.avatarUrls ? [...data.char.avatarUrls] : []
-        } : { name: '', variant: '', role: '', appearance: '', personality: '', prompt: '', avatarUrl: null, avatarUrls: [] };
+        this.editingChar = data.char
+            ? {
+                  ...data.char,
+                  avatarUrls: data.char.avatarUrls
+                      ? [...data.char.avatarUrls]
+                      : [],
+              }
+            : {
+                  name: '',
+                  variant: '',
+                  role: '',
+                  appearance: '',
+                  personality: '',
+                  prompt: '',
+                  avatarUrl: null,
+                  avatarUrls: [],
+              };
         this.masterPrompt = data.masterPrompt || '';
 
         // Backward compatibility: if avatarUrl exists but avatarUrls is empty
-        if (this.editingChar.avatarUrl && (!this.editingChar.avatarUrls || this.editingChar.avatarUrls.length === 0)) {
+        if (
+            this.editingChar.avatarUrl &&
+            (!this.editingChar.avatarUrls ||
+                this.editingChar.avatarUrls.length === 0)
+        ) {
             this.editingChar.avatarUrls = [this.editingChar.avatarUrl];
         } else if (!this.editingChar.avatarUrls) {
             this.editingChar.avatarUrls = [];
@@ -68,7 +105,12 @@ export class CharacterDialogComponent {
         if (typeof url !== 'string') return url;
         let cleanUrl = url;
 
-        if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:') || cleanUrl.startsWith('media://')) {
+        if (
+            cleanUrl.startsWith('http') ||
+            cleanUrl.startsWith('data:') ||
+            cleanUrl.startsWith('blob:') ||
+            cleanUrl.startsWith('media://')
+        ) {
             // do nothing
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
@@ -103,7 +145,12 @@ export class CharacterDialogComponent {
             }
 
             let finalUrl = url;
-            if (!finalUrl.startsWith('http') && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:') && !finalUrl.startsWith('media://')) {
+            if (
+                !finalUrl.startsWith('http') &&
+                !finalUrl.startsWith('data:') &&
+                !finalUrl.startsWith('blob:') &&
+                !finalUrl.startsWith('media://')
+            ) {
                 finalUrl = finalUrl.replace(/^unsafe:/, '');
                 let originalPath = finalUrl.split('?')[0];
                 originalPath = originalPath.replace(/^file:\/\//i, '');
@@ -120,41 +167,57 @@ export class CharacterDialogComponent {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0);
                 const dataURL = canvas.toDataURL('image/png');
-                resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
+                resolve(
+                    dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ''),
+                );
             };
-            img.onerror = error => reject(error);
+            img.onerror = (error) => reject(error);
             img.src = finalUrl;
         });
     }
 
     cleanName(name: string) {
         if (!name) return '';
-        return name.trim().toLowerCase()
+        return name
+            .trim()
+            .toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[đĐ]/g, 'd')
             .replace(/[^a-z0-9]/g, '');
     }
 
-    availableReferenceImages: { url: string, name: string, variant: string }[] = [];
+    availableReferenceImages: { url: string; name: string; variant: string }[] =
+        [];
 
     updateAvailableReferenceImages() {
         const existingChars = this.data.existingCharacters || [];
-        const result: { url: string, name: string, variant: string }[] = [];
+        const result: { url: string; name: string; variant: string }[] = [];
         const seenUrls = new Set<string>();
 
         existingChars.forEach((c: any, idx: number) => {
             // Include all characters except the current one being edited
-            if (idx !== this.data.index || c.variant !== this.editingChar.variant) {
+            if (
+                idx !== this.data.index ||
+                c.variant !== this.editingChar.variant
+            ) {
                 if (c.avatarUrls && c.avatarUrls.length > 0) {
                     c.avatarUrls.forEach((url: string) => {
                         if (!seenUrls.has(url)) {
-                            result.push({ url, name: c.name || 'Vô danh', variant: c.variant || 'Gốc' });
+                            result.push({
+                                url,
+                                name: c.name || 'Vô danh',
+                                variant: c.variant || 'Gốc',
+                            });
                             seenUrls.add(url);
                         }
                     });
                 } else if (c.avatarUrl && !seenUrls.has(c.avatarUrl)) {
-                    result.push({ url: c.avatarUrl, name: c.name || 'Vô danh', variant: c.variant || 'Gốc' });
+                    result.push({
+                        url: c.avatarUrl,
+                        name: c.name || 'Vô danh',
+                        variant: c.variant || 'Gốc',
+                    });
                     seenUrls.add(c.avatarUrl);
                 }
             }
@@ -173,7 +236,10 @@ export class CharacterDialogComponent {
         this.availableReferenceImages = result;
 
         // If the current reference image is not in the list anymore, clear it
-        if (this.referenceImageUrl && !result.find(img => img.url === this.referenceImageUrl)) {
+        if (
+            this.referenceImageUrl &&
+            !result.find((img) => img.url === this.referenceImageUrl)
+        ) {
             this.referenceImageUrl = null;
         }
     }
@@ -189,23 +255,31 @@ export class CharacterDialogComponent {
 
     async generateAvatar() {
         if (!this.editingChar.prompt && !this.editingChar.appearance) {
-            this.toastr.warning('Vui lòng điền Prompt Tạo hình hoặc Ngoại hình trước khi tạo ảnh!');
+            this.toastr.warning(
+                'Vui lòng điền Prompt Tạo hình hoặc Ngoại hình trước khi tạo ảnh!',
+            );
             return;
         }
 
         const electron = (window as any).electron;
         if (!electron || !electron.saveBase64) {
-            this.toastr.error('Lỗi cấu hình. Tính năng này yêu cầu App Desktop (Electron).');
+            this.toastr.error(
+                'Lỗi cấu hình. Tính năng này yêu cầu App Desktop (Electron).',
+            );
             return;
         }
 
         const settings = this.multiAccountService.getItem('settings');
         let secretKey;
         try {
-            secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
-        } catch { }
+            secretKey = settings.secretKey
+                ? settings.secretKey.split(';')
+                : undefined;
+        } catch {}
 
-        const keys = secretKey.map((k: string) => k.trim()).filter((k: string) => k);
+        const keys = secretKey
+            .map((k: string) => k.trim())
+            .filter((k: string) => k);
         if (keys.length === 0) {
             this.toastr.warning('Bạn chưa cung cấp API Key hợp lệ.');
             return;
@@ -219,10 +293,22 @@ export class CharacterDialogComponent {
         try {
             // Build the prompt
             let promptPartsText = [];
-            if (this.editingChar.name || this.editingChar.role) promptPartsText.push(`Subject: ${this.editingChar.name || this.editingChar.role}`);
-            if (this.editingChar.appearance) promptPartsText.push(`Appearance: ${this.editingChar.appearance}`);
-            if (this.editingChar.personality) promptPartsText.push(`Personality/Expression: ${this.editingChar.personality}`);
-            if (this.editingChar.prompt) promptPartsText.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
+            if (this.editingChar.name || this.editingChar.role)
+                promptPartsText.push(
+                    `Subject: ${this.editingChar.name || this.editingChar.role}`,
+                );
+            if (this.editingChar.appearance)
+                promptPartsText.push(
+                    `Appearance: ${this.editingChar.appearance}`,
+                );
+            if (this.editingChar.personality)
+                promptPartsText.push(
+                    `Personality/Expression: ${this.editingChar.personality}`,
+                );
+            if (this.editingChar.prompt)
+                promptPartsText.push(
+                    `Style/Additional Prompt: ${this.editingChar.prompt}`,
+                );
 
             let finalPrompt = promptPartsText.join('\n');
 
@@ -231,7 +317,8 @@ export class CharacterDialogComponent {
                 finalPrompt += `\n\n[VISUAL STYLE FROM PROJECT: ${this.masterPrompt.trim()}]\n[IMPORTANT: The character avatar MUST strictly follow the visual style described above. Match the same art style, rendering technique, and aesthetic.]`;
             }
 
-            finalPrompt += '\n\n[MANDATORY: Generate a professional "Character Reference Sheet" showing the character from multiple angles (front, side, back) on a single cohesive canvas. Neutral background.]';
+            finalPrompt +=
+                '\n\n[MANDATORY: Generate a professional "Character Reference Sheet" showing the character from multiple angles (front, side, back) on a single cohesive canvas. Neutral background.]';
 
             let requestParts: any[] = [{ text: finalPrompt }];
 
@@ -247,39 +334,57 @@ export class CharacterDialogComponent {
             // 1. Ưu tiên 1: Lấy ảnh hiện tại đang hoạt động của chính nhân vật này (nếu đã có ảnh trước đó và muốn tạo tư thế mới)
             else if (this.editingChar.avatarUrl) {
                 refImgUrl = this.editingChar.avatarUrl;
-            } else if (this.editingChar.avatarUrls && this.editingChar.avatarUrls.length > 0) {
+            } else if (
+                this.editingChar.avatarUrls &&
+                this.editingChar.avatarUrls.length > 0
+            ) {
                 refImgUrl = this.editingChar.avatarUrls[0];
             }
             // 2. Ưu tiên 2: Nếu chưa có ảnh, tìm nhân vật gốc cùng tên để đồng bộ gương mặt chéo giữa các phiên bản
             else {
                 const existingChars = this.data.existingCharacters || [];
-                const originalChar = existingChars.find((c: any, idx: number) =>
-                    c.name && this.editingChar.name &&
-                    this.cleanName(c.name) === targetCleanName &&
-                    (c.avatarUrl || (c.avatarUrls && c.avatarUrls.length > 0)) &&
-                    idx !== this.data.index &&
-                    c.variant !== this.editingChar.variant
+                const originalChar = existingChars.find(
+                    (c: any, idx: number) =>
+                        c.name &&
+                        this.editingChar.name &&
+                        this.cleanName(c.name) === targetCleanName &&
+                        (c.avatarUrl ||
+                            (c.avatarUrls && c.avatarUrls.length > 0)) &&
+                        idx !== this.data.index &&
+                        c.variant !== this.editingChar.variant,
                 );
 
                 if (originalChar) {
-                    refImgUrl = originalChar.avatarUrl || (originalChar.avatarUrls && originalChar.avatarUrls.length > 0 ? originalChar.avatarUrls[0] : null);
+                    refImgUrl =
+                        originalChar.avatarUrl ||
+                        (originalChar.avatarUrls &&
+                        originalChar.avatarUrls.length > 0
+                            ? originalChar.avatarUrls[0]
+                            : null);
                     if (refImgUrl) {
-                        this.toastr.info(`Đã tìm thấy phiên bản "${originalChar.variant || 'gốc'}" của ${this.editingChar.name}, đang tự động đồng bộ gương mặt nhân vật...`, 'Đồng bộ khuôn mặt');
+                        this.toastr.info(
+                            `Đã tìm thấy phiên bản "${originalChar.variant || 'gốc'}" của ${this.editingChar.name}, đang tự động đồng bộ gương mặt nhân vật...`,
+                            'Đồng bộ khuôn mặt',
+                        );
                     }
                 }
             }
 
             if (refImgUrl) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(refImgUrl);
+                    const base64Data =
+                        await this.getBase64FromImageUrl(refImgUrl);
                     requestParts.push({
                         inlineData: {
                             data: base64Data,
-                            mimeType: 'image/png'
-                        }
+                            mimeType: 'image/png',
+                        },
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh gốc làm reference để đồng bộ:', e);
+                    console.error(
+                        'Không thể đọc ảnh gốc làm reference để đồng bộ:',
+                        e,
+                    );
                 }
             }
 
@@ -287,8 +392,8 @@ export class CharacterDialogComponent {
                 model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
-                    responseModalities: ['IMAGE']
-                } as any
+                    responseModalities: ['IMAGE'],
+                } as any,
             });
 
             let base64Data = null;
@@ -305,12 +410,16 @@ export class CharacterDialogComponent {
                 throw new Error('Không nhận được dữ liệu ảnh từ AI.');
             }
 
-            const fileName = `avatar_${this.editingChar.name || 'char'}_${Date.now()}.png`.replace(/[^a-zA-Z0-9_.]/g, '');
+            const fileName =
+                `avatar_${this.editingChar.name || 'char'}_${Date.now()}.png`.replace(
+                    /[^a-zA-Z0-9_.]/g,
+                    '',
+                );
             const uuid = this.data?.uuid || this.data?.projectUuid;
             const username = this.data?.username || 'anonymous';
             const saveParams: any = {
                 base64: base64Data,
-                fileName: fileName
+                fileName: fileName,
             };
             if (uuid) {
                 saveParams.customDir = `tts/${username}/${uuid}`;
@@ -359,9 +468,13 @@ export class CharacterDialogComponent {
                     msg = parsed.error.message;
                 }
             }
-        } catch { }
+        } catch {}
 
-        if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+        if (
+            msg.includes('429') ||
+            msg.toLowerCase().includes('quota') ||
+            msg.includes('RESOURCE_EXHAUSTED')
+        ) {
             return 'Tài khoản API Key đã hết hạn mức (Quota Exceeded) hoặc bị giới hạn tốc độ. Vui lòng thiết lập thẻ thanh toán trên Google AI Studio hoặc thử lại sau.';
         }
         if (msg.includes('400') || msg.includes('INVALID_ARGUMENT')) {
@@ -378,8 +491,14 @@ export class CharacterDialogComponent {
     }
 
     async generateProfileByAI() {
-        if (!this.aiProfilePrompt && (!this.editingChar.avatarUrls || this.editingChar.avatarUrls.length === 0)) {
-            this.toastr.warning('Vui lòng nhập ý tưởng hoặc tải lên một ảnh để AI có dữ liệu tạo hồ sơ!');
+        if (
+            !this.aiProfilePrompt &&
+            (!this.editingChar.avatarUrls ||
+                this.editingChar.avatarUrls.length === 0)
+        ) {
+            this.toastr.warning(
+                'Vui lòng nhập ý tưởng hoặc tải lên một ảnh để AI có dữ liệu tạo hồ sơ!',
+            );
             return;
         }
 
@@ -409,14 +528,19 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
             let requestParts: any[] = [{ text: prompt }];
 
             // Gửi ảnh đầu tiên (nếu có) cho AI phân tích
-            if (this.editingChar.avatarUrls && this.editingChar.avatarUrls.length > 0) {
+            if (
+                this.editingChar.avatarUrls &&
+                this.editingChar.avatarUrls.length > 0
+            ) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(this.editingChar.avatarUrls[0]);
+                    const base64Data = await this.getBase64FromImageUrl(
+                        this.editingChar.avatarUrls[0],
+                    );
                     requestParts.push({
                         inlineData: {
                             data: base64Data,
-                            mimeType: 'image/png'
-                        }
+                            mimeType: 'image/png',
+                        },
                     });
                 } catch (e) {
                     console.error('Không thể đọc ảnh đính kèm:', e);
@@ -426,20 +550,27 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash', // Use a model capable of reading images
                 contents: [{ role: 'user', parts: requestParts }],
-                config: { temperature: 0.7 }
+                config: { temperature: 0.7 },
             });
 
             const text = response.text;
             if (text) {
-                const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/{[\s\S]*}/);
+                const jsonMatch =
+                    text.match(/```json\n([\s\S]*?)\n```/) ||
+                    text.match(/{[\s\S]*}/);
                 if (jsonMatch) {
                     const charData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
 
-                    this.editingChar.name = charData.name || this.editingChar.name;
-                    this.editingChar.role = charData.role || this.editingChar.role;
-                    this.editingChar.appearance = charData.appearance || this.editingChar.appearance;
-                    this.editingChar.personality = charData.personality || this.editingChar.personality;
-                    this.editingChar.prompt = charData.prompt || this.editingChar.prompt;
+                    this.editingChar.name =
+                        charData.name || this.editingChar.name;
+                    this.editingChar.role =
+                        charData.role || this.editingChar.role;
+                    this.editingChar.appearance =
+                        charData.appearance || this.editingChar.appearance;
+                    this.editingChar.personality =
+                        charData.personality || this.editingChar.personality;
+                    this.editingChar.prompt =
+                        charData.prompt || this.editingChar.prompt;
 
                     this.showFullForm = true;
                     this.toastr.success('AI đã tạo xong hồ sơ nhân vật!');
@@ -447,7 +578,9 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
                     return;
                 }
             }
-            this.toastr.error('AI không trả về đúng định dạng, vui lòng thử lại.');
+            this.toastr.error(
+                'AI không trả về đúng định dạng, vui lòng thử lại.',
+            );
         } catch (error: any) {
             console.error('Error generating profile:', error);
             const errorMsg = this.formatGeminiError(error);
@@ -465,7 +598,9 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
                 const electron = (window as any).electron;
 
                 if (!electron || !electron.getPathForFile) {
-                    this.toastr.error('Lỗi cấu hình. Tính năng này yêu cầu App Desktop.');
+                    this.toastr.error(
+                        'Lỗi cấu hình. Tính năng này yêu cầu App Desktop.',
+                    );
                     return;
                 }
 
@@ -480,10 +615,17 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
                     if (originalPath) {
                         const uuid = this.data?.uuid || this.data?.projectUuid;
                         const username = this.data?.username || 'anonymous';
-                        const customDir = uuid ? `tts/${username}/${uuid}` : undefined;
+                        const customDir = uuid
+                            ? `tts/${username}/${uuid}`
+                            : undefined;
 
-                        const localFilePath = await electron.selectLocalFile(originalPath, customDir);
-                        const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath}`;
+                        const localFilePath = await electron.selectLocalFile(
+                            originalPath,
+                            customDir,
+                        );
+                        const finalPath = localFilePath.startsWith('file://')
+                            ? localFilePath
+                            : `file://${localFilePath}`;
                         if (!this.editingChar.avatarUrls.includes(finalPath)) {
                             this.editingChar.avatarUrls.push(finalPath);
                         }
@@ -504,9 +646,15 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
     }
 
     removeAvatar(index: number) {
-        if (this.editingChar.avatarUrls && this.editingChar.avatarUrls.length > index) {
+        if (
+            this.editingChar.avatarUrls &&
+            this.editingChar.avatarUrls.length > index
+        ) {
             this.editingChar.avatarUrls.splice(index, 1);
-            this.editingChar.avatarUrl = this.editingChar.avatarUrls.length > 0 ? this.editingChar.avatarUrls[0] : null;
+            this.editingChar.avatarUrl =
+                this.editingChar.avatarUrls.length > 0
+                    ? this.editingChar.avatarUrls[0]
+                    : null;
         }
     }
 
@@ -525,5 +673,4 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
             this.toastr.success('Đã copy Prompt!');
         });
     }
-
 }

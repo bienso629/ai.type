@@ -1,6 +1,6 @@
 <div class="flex items-center justify-between mb-2">
     <h2 class="text-lg font-semibold m-0">
-        {{ isEditMode ? 'Sửa' : 'Thêm' }} Nhân Vật
+        {{ isEditMode ? "Sửa" : "Thêm" }} Nhân Vật
     </h2>
     <div class="flex items-center gap-2">
         <button mat-icon-button mat-dialog-close>
@@ -11,206 +11,418 @@
 
 <mat-dialog-content class="flex flex-col gap-2 p-0 scrollbar-hide !max-h-none">
     @if (!showFullForm) {
-    <div class="w-full mb-1 flex flex-col gap-2">
-        <mat-form-field class="w-full flex-auto my-1 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
-            [subscriptSizing]="'dynamic'">
-            <textarea matInput [(ngModel)]="aiProfilePrompt"
-                [placeholder]="'app.auto_enter_ideas_e_g_create_a_main' | transloco"
-                cdkTextareaAutosize cdkAutosizeMinRows="4" class="px-2"></textarea>
-        </mat-form-field>
+        <div class="w-full mb-1 flex flex-col gap-2">
+            <mat-form-field
+                class="w-full flex-auto my-1 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'"
+            >
+                <textarea
+                    matInput
+                    [(ngModel)]="aiProfilePrompt"
+                    [placeholder]="
+                        'app.auto_enter_ideas_e_g_create_a_main' | transloco
+                    "
+                    cdkTextareaAutosize
+                    cdkAutosizeMinRows="4"
+                    class="px-2"
+                ></textarea>
+            </mat-form-field>
 
-        <!-- Hiển thị ảnh đã tải lên -->
-        <div class="flex items-center gap-3 flex-wrap" *ngIf="editingChar.avatarUrls?.length > 0">
-            <div *ngFor="let url of editingChar.avatarUrls; let i = index"
-                class="relative w-12 h-12 rounded shadow-sm bg-gray-100">
-                <img [src]="getSafeUrl(url)" class="w-full h-full object-cover rounded">
-                <button mat-icon-button
-                    class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-5 h-5 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
-                    (click)="removeAvatar(i)">
-                    <mat-icon class="icon-size-3 text-white">close</mat-icon>
-                </button>
+            <!-- Hiển thị ảnh đã tải lên -->
+            @if (editingChar.avatarUrls?.length > 0) {
+                <div class="flex items-center gap-3 flex-wrap">
+                    @for (
+                        url of editingChar.avatarUrls;
+                        track url;
+                        let i = $index
+                    ) {
+                        <div
+                            class="relative w-12 h-12 rounded shadow-sm bg-gray-100"
+                        >
+                            <img
+                                [src]="getSafeUrl(url)"
+                                class="w-full h-full object-cover rounded"
+                            />
+                            <button
+                                mat-icon-button
+                                class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-5 h-5 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                                (click)="removeAvatar(i)"
+                            >
+                                <mat-icon class="icon-size-3 text-white"
+                                    >close</mat-icon
+                                >
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="flex justify-between items-center mt-2">
+                <div class="flex items-center gap-4">
+                    <button
+                        type="button"
+                        class="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center text-sm"
+                        (click)="aiAvatarInput.click()"
+                    >
+                        <mat-icon class="icon-size-4 mr-1"
+                            >upload_file</mat-icon
+                        >
+                        <span class="underline">{{
+                            "app.auto_upload_sample_image_optional" | transloco
+                        }}</span>
+                    </button>
+                    <input
+                        #aiAvatarInput
+                        type="file"
+                        multiple
+                        (change)="onAvatarSelected($event)"
+                        accept="image/*"
+                        class="hidden"
+                    />
+
+                    <button
+                        type="button"
+                        class="text-blue-600 hover:text-blue-800 font-medium text-sm underline"
+                        (click)="showFullForm = true"
+                    >
+                        {{ "app.auto_manual_entry" | transloco }}
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        class="px-6"
+                        (click)="generateProfileByAI()"
+                        [disabled]="isGeneratingProfile"
+                    >
+                        @if (!isGeneratingProfile) {
+                            <mat-icon class="icon-size-5"
+                                >auto_awesome</mat-icon
+                            >
+                        }
+                        @if (isGeneratingProfile) {
+                            <mat-icon class="icon-size-5 animate-spin"
+                                >autorenew</mat-icon
+                            >
+                        }
+                        <span class="ml-2 font-medium">{{
+                            "app.create_character" | transloco
+                        }}</span>
+                    </button>
+                </div>
             </div>
         </div>
-
-        <div class="flex justify-between items-center mt-2">
-            <div class="flex items-center gap-4">
-                <button type="button" class="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center text-sm"
-                    (click)="aiAvatarInput.click()">
-                    <mat-icon class="icon-size-4 mr-1">upload_file</mat-icon>
-                    <span class="underline">{{ 'app.auto_upload_sample_image_optional' | transloco }}</span>
-                </button>
-                <input #aiAvatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*"
-                    class="hidden">
-                    
-                <button type="button" class="text-blue-600 hover:text-blue-800 font-medium text-sm underline"
-                    (click)="showFullForm = true">{{ 'app.auto_manual_entry' | transloco }}</button>
-            </div>
-
-            <div class="flex items-center gap-2">
-                <button mat-flat-button color="primary" class="px-6" (click)="generateProfileByAI()"
-                    [disabled]="isGeneratingProfile">
-                    <mat-icon class="icon-size-5" *ngIf="!isGeneratingProfile">auto_awesome</mat-icon>
-                    <mat-icon class="icon-size-5 animate-spin" *ngIf="isGeneratingProfile">autorenew</mat-icon>
-                    <span class="ml-2 font-medium">{{ 'app.create_character' | transloco }}</span>
-                </button>
-            </div>
-        </div>
-    </div>
     }
 
     @if (showFullForm) {
-    <div class="flex flex-col gap-4 items-start">
-        <!-- Avatar Section -->
-        <div class="flex flex-wrap gap-3 w-full items-start">
-            <div *ngFor="let url of editingChar.avatarUrls; let i = index"
-                class="relative w-30 h-30 mt-3 shrink-0 rounded-md flex items-center justify-center bg-gray-50 overflow-visible group">
-                <img [src]="getSafeUrl(url)" class="w-full h-full object-cover rounded-md">
-
-                <button mat-icon-button
-                    class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
-                    (click)="removeAvatar(i)">
-                    <mat-icon class="icon-size-4 text-white">close</mat-icon>
-                </button>
-            </div>
-
-            <div
-                class="relative w-36 h-36 shrink-0 rounded-md border border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 transition-all duration-300">
-
-                @if (isGeneratingAvatar) {
-                <mat-spinner diameter="24"></mat-spinner>
-                } @else {
-                <button mat-icon-button [matMenuTriggerFor]="imageMenu"
-                    class="bg-white shadow-sm border border-slate-200 hover:bg-slate-50 w-10 h-10 flex items-center justify-center rounded-full"
-                    [matTooltip]="'app.image_options' | transloco">
-                    <mat-icon class="text-slate-600">more_horiz</mat-icon>
-                </button>
+        <div class="flex flex-col gap-4 items-start">
+            <!-- Avatar Section -->
+            <div class="flex flex-wrap gap-3 w-full items-start">
+                @for (
+                    url of editingChar.avatarUrls;
+                    track url;
+                    let i = $index
+                ) {
+                    <div
+                        class="relative w-30 h-30 mt-3 shrink-0 rounded-md flex items-center justify-center bg-gray-50 overflow-visible group"
+                    >
+                        <img
+                            [src]="getSafeUrl(url)"
+                            class="w-full h-full object-cover rounded-md"
+                        />
+                        <button
+                            mat-icon-button
+                            class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                            (click)="removeAvatar(i)"
+                        >
+                            <mat-icon class="icon-size-4 text-white"
+                                >close</mat-icon
+                            >
+                        </button>
+                    </div>
                 }
 
-                <mat-menu #imageMenu="matMenu" class="custom-image-menu">
-                    <button mat-menu-item (click)="generateAvatar()">
-                        <mat-icon class="text-blue-500 icon-size-5">auto_awesome</mat-icon>
-                        <span>{{ 'app.ai_draws_new_image' | transloco }}</span>
-                    </button>
-                    <button mat-menu-item (click)="avatarInput.click()">
-                        <mat-icon class="text-green-600 icon-size-5">upload_file</mat-icon>
-                        <span>{{ 'app.auto_upload_image_from_computer' | transloco }}</span>
-                    </button>
-                    <button mat-menu-item (click)="refImageInput.click()">
-                        <mat-icon class="text-purple-500 icon-size-5">add_photo_alternate</mat-icon>
-                        <span>{{ 'app.auto_upload_sample_image_for_ai' | transloco }}</span>
-                    </button>
-                </mat-menu>
-            </div>
-
-            <input #avatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*"
-                class="hidden">
-            <input #refImageInput type="file" (change)="onReferenceImageSelected($event)" accept="image/*"
-                class="hidden">
-        </div>
-
-        <!-- Form Inputs -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 flex-grow w-full">
-            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>{{ 'app.character_name' | transloco }}</mat-label>
-                <input matInput [(ngModel)]="editingChar.name" (ngModelChange)="updateAvailableReferenceImages()"
-                    placeholder="VD: Naruto" />
-            </mat-form-field>
-
-            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>{{ 'app.auto_version_optional' | transloco }}</mat-label>
-                <input matInput [(ngModel)]="editingChar.variant" [placeholder]="'app.auto_example_office_supplies_when_a' | transloco" />
-            </mat-form-field>
-
-            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>{{ 'app.auto_role_1' | transloco }}</mat-label>
-                <input matInput [(ngModel)]="editingChar.role" [placeholder]="'app.auto_example_main_character' | transloco" />
-            </mat-form-field>
-        </div>
-    </div>
-
-    <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-        <mat-label>{{ 'app.auto_appearance_1' | transloco }}</mat-label>
-        <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.appearance"
-            [placeholder]="'app.auto_example_blonde_hair_orange_shi' | transloco" cdkTextareaAutosize cdkAutosizeMinRows="2"></textarea>
-    </mat-form-field>
-
-
-    <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-        <mat-label>{{ 'app.personality_1' | transloco }}</mat-label>
-        <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.personality"
-            [placeholder]="'app.auto_example_energetic_silly' | transloco" cdkTextareaAutosize cdkAutosizeMinRows="2"></textarea>
-    </mat-form-field>
-
-    <div class="flex flex-col mt-2">
-        <div class="flex items-center gap-1.5 mb-1">
-            <mat-label class="font-semibold text-slate-800">{{ 'app.auto_shape_prompt' | transloco }}</mat-label>
-            <button mat-icon-button
-                class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full"
-                (click)="copyPrompt(editingChar.prompt); $event.preventDefault(); $event.stopPropagation()"
-                matTooltip="Copy Prompt">
-                <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700"
-                    [svgIcon]="'feather:copy'"></mat-icon>
-            </button>
-        </div>
-
-        @if (availableReferenceImages.length > 0) {
-        <mat-form-field class="w-full fuse-mat-dense mb-2 fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <mat-select [(value)]="referenceImageUrl" [placeholder]="'app.auto_do_not_use_images' | transloco">
-                <mat-select-trigger>
-                    @if (referenceImageUrl) {
-                    <div class="flex items-center gap-2">
-                        <mat-icon class="icon-size-4 text-indigo-500">image</mat-icon>
-                        <span class="text-sm font-medium">{{ 'app.auto_1_original_image_selected' | transloco }}</span>
-                    </div>
+                <div
+                    class="relative w-36 h-36 shrink-0 rounded-md border border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 transition-all duration-300"
+                >
+                    @if (isGeneratingAvatar) {
+                        <mat-spinner diameter="24"></mat-spinner>
                     } @else {
-                    <span class="text-sm text-slate-500">{{ 'app.auto_do_not_use_reference_images' | transloco }}</span>
+                        <button
+                            mat-icon-button
+                            [matMenuTriggerFor]="imageMenu"
+                            class="bg-white shadow-sm border border-slate-200 hover:bg-slate-50 w-10 h-10 flex items-center justify-center rounded-full"
+                            [matTooltip]="'app.image_options' | transloco"
+                        >
+                            <mat-icon class="text-slate-600"
+                                >more_horiz</mat-icon
+                            >
+                        </button>
                     }
-                </mat-select-trigger>
-                <mat-option [value]="null">{{ 'app.auto_do_not_use_images' | transloco }}</mat-option>
-                @for (img of availableReferenceImages; track img.url) {
-                <mat-option [value]="img.url" class="h-auto py-2">
-                    <div class="flex items-center gap-3">
-                        <img [src]="getSafeUrl(img.url)" class="w-10 h-10 object-cover rounded shadow-sm">
-                        <div class="flex flex-col">
-                            <span class="text-sm font-semibold truncate max-w-[200px]">{{ img.name }}</span>
-                            <span class="text-xs text-slate-500 truncate max-w-[200px]">Bản: {{ img.variant
-                                }}</span>
-                        </div>
-                    </div>
-                </mat-option>
-                }
-            </mat-select>
-        </mat-form-field>
-        }
 
-        @if (referenceImageUrl) {
-        <div
-            class="relative w-16 h-16 mb-2 shrink-0 rounded-md flex items-center justify-center bg-gray-50 overflow-visible group border border-slate-200">
-            <img [src]="getSafeUrl(referenceImageUrl)" class="w-full h-full object-cover rounded-md">
-            <button mat-icon-button
-                class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-5 h-5 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
-                (click)="removeRefImage()">
-                <mat-icon class="icon-size-3 text-white">close</mat-icon>
-            </button>
+                    <mat-menu #imageMenu="matMenu" class="custom-image-menu">
+                        <button mat-menu-item (click)="generateAvatar()">
+                            <mat-icon class="text-blue-500 icon-size-5"
+                                >auto_awesome</mat-icon
+                            >
+                            <span>{{
+                                "app.ai_draws_new_image" | transloco
+                            }}</span>
+                        </button>
+                        <button mat-menu-item (click)="avatarInput.click()">
+                            <mat-icon class="text-green-600 icon-size-5"
+                                >upload_file</mat-icon
+                            >
+                            <span>{{
+                                "app.auto_upload_image_from_computer"
+                                    | transloco
+                            }}</span>
+                        </button>
+                        <button mat-menu-item (click)="refImageInput.click()">
+                            <mat-icon class="text-purple-500 icon-size-5"
+                                >add_photo_alternate</mat-icon
+                            >
+                            <span>{{
+                                "app.auto_upload_sample_image_for_ai"
+                                    | transloco
+                            }}</span>
+                        </button>
+                    </mat-menu>
+                </div>
+
+                <input
+                    #avatarInput
+                    type="file"
+                    multiple
+                    (change)="onAvatarSelected($event)"
+                    accept="image/*"
+                    class="hidden"
+                />
+                <input
+                    #refImageInput
+                    type="file"
+                    (change)="onReferenceImageSelected($event)"
+                    accept="image/*"
+                    class="hidden"
+                />
+            </div>
+
+            <!-- Form Inputs -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 flex-grow w-full">
+                <mat-form-field
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>{{
+                        "app.character_name" | transloco
+                    }}</mat-label>
+                    <input
+                        matInput
+                        [(ngModel)]="editingChar.name"
+                        (ngModelChange)="updateAvailableReferenceImages()"
+                        placeholder="VD: Naruto"
+                    />
+                </mat-form-field>
+
+                <mat-form-field
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>{{
+                        "app.auto_version_optional" | transloco
+                    }}</mat-label>
+                    <input
+                        matInput
+                        [(ngModel)]="editingChar.variant"
+                        [placeholder]="
+                            'app.auto_example_office_supplies_when_a'
+                                | transloco
+                        "
+                    />
+                </mat-form-field>
+
+                <mat-form-field
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>{{ "app.auto_role_1" | transloco }}</mat-label>
+                    <input
+                        matInput
+                        [(ngModel)]="editingChar.role"
+                        [placeholder]="
+                            'app.auto_example_main_character' | transloco
+                        "
+                    />
+                </mat-form-field>
+            </div>
         </div>
-        }
 
-        <mat-form-field class="custom-textarea fuse-mat-dense w-full fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" [(ngModel)]="editingChar.prompt"
-                [placeholder]="'app.auto_example_a_blonde_haired_boy_we' | transloco" cdkTextareaAutosize
-                cdkAutosizeMinRows="3"></textarea>
+        <mat-form-field
+            class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+            [subscriptSizing]="'dynamic'"
+        >
+            <mat-label>{{ "app.auto_appearance_1" | transloco }}</mat-label>
+            <textarea
+                matInput
+                class="px-2 text-base leading-relaxed"
+                [(ngModel)]="editingChar.appearance"
+                [placeholder]="
+                    'app.auto_example_blonde_hair_orange_shi' | transloco
+                "
+                cdkTextareaAutosize
+                cdkAutosizeMinRows="2"
+            ></textarea>
         </mat-form-field>
-    </div>
+
+        <mat-form-field
+            class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+            [subscriptSizing]="'dynamic'"
+        >
+            <mat-label>{{ "app.personality_1" | transloco }}</mat-label>
+            <textarea
+                matInput
+                class="px-2 text-base leading-relaxed"
+                [(ngModel)]="editingChar.personality"
+                [placeholder]="'app.auto_example_energetic_silly' | transloco"
+                cdkTextareaAutosize
+                cdkAutosizeMinRows="2"
+            ></textarea>
+        </mat-form-field>
+
+        <div class="flex flex-col mt-2">
+            <div class="flex items-center gap-1.5 mb-1">
+                <mat-label class="font-semibold text-slate-800">{{
+                    "app.auto_shape_prompt" | transloco
+                }}</mat-label>
+                <button
+                    mat-icon-button
+                    class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full"
+                    (click)="
+                        copyPrompt(editingChar.prompt);
+                        $event.preventDefault();
+                        $event.stopPropagation()
+                    "
+                    matTooltip="Copy Prompt"
+                >
+                    <mat-icon
+                        class="icon-size-3.5 text-slate-400 hover:text-slate-700"
+                        [svgIcon]="'feather:copy'"
+                    ></mat-icon>
+                </button>
+            </div>
+
+            @if (availableReferenceImages.length > 0) {
+                <mat-form-field
+                    class="w-full fuse-mat-dense mb-2 fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-select
+                        [(value)]="referenceImageUrl"
+                        [placeholder]="'app.auto_do_not_use_images' | transloco"
+                    >
+                        <mat-select-trigger>
+                            @if (referenceImageUrl) {
+                                <div class="flex items-center gap-2">
+                                    <mat-icon
+                                        class="icon-size-4 text-indigo-500"
+                                        >image</mat-icon
+                                    >
+                                    <span class="text-sm font-medium">{{
+                                        "app.auto_1_original_image_selected"
+                                            | transloco
+                                    }}</span>
+                                </div>
+                            } @else {
+                                <span class="text-sm text-slate-500">{{
+                                    "app.auto_do_not_use_reference_images"
+                                        | transloco
+                                }}</span>
+                            }
+                        </mat-select-trigger>
+                        <mat-option [value]="null">{{
+                            "app.auto_do_not_use_images" | transloco
+                        }}</mat-option>
+                        @for (img of availableReferenceImages; track img.url) {
+                            <mat-option [value]="img.url" class="h-auto py-2">
+                                <div class="flex items-center gap-3">
+                                    <img
+                                        [src]="getSafeUrl(img.url)"
+                                        class="w-10 h-10 object-cover rounded shadow-sm"
+                                    />
+                                    <div class="flex flex-col">
+                                        <span
+                                            class="text-sm font-semibold truncate max-w-[200px]"
+                                            >{{ img.name }}</span
+                                        >
+                                        <span
+                                            class="text-xs text-slate-500 truncate max-w-[200px]"
+                                            >Bản: {{ img.variant }}</span
+                                        >
+                                    </div>
+                                </div>
+                            </mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            }
+
+            @if (referenceImageUrl) {
+                <div
+                    class="relative w-16 h-16 mb-2 shrink-0 rounded-md flex items-center justify-center bg-gray-50 overflow-visible group border border-slate-200"
+                >
+                    <img
+                        [src]="getSafeUrl(referenceImageUrl)"
+                        class="w-full h-full object-cover rounded-md"
+                    />
+                    <button
+                        mat-icon-button
+                        class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-5 h-5 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                        (click)="removeRefImage()"
+                    >
+                        <mat-icon class="icon-size-3 text-white"
+                            >close</mat-icon
+                        >
+                    </button>
+                </div>
+            }
+
+            <mat-form-field
+                class="custom-textarea fuse-mat-dense w-full fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'"
+            >
+                <textarea
+                    matInput
+                    class="px-2 overflow-x-hidden text-base leading-relaxed"
+                    [(ngModel)]="editingChar.prompt"
+                    [placeholder]="
+                        'app.auto_example_a_blonde_haired_boy_we' | transloco
+                    "
+                    cdkTextareaAutosize
+                    cdkAutosizeMinRows="3"
+                ></textarea>
+            </mat-form-field>
+        </div>
     }
 </mat-dialog-content>
 
 <mat-dialog-actions align="end" class="p-0 mt-3 mb-0 gap-2 shrink-0">
-    <button mat-flat-button class="bg-gray-100 text-gray-700 hover:bg-gray-200" mat-dialog-close>
-        {{ 'app.auto_cancel' | transloco }}
+    <button
+        mat-flat-button
+        class="bg-gray-100 text-gray-700 hover:bg-gray-200"
+        mat-dialog-close
+    >
+        {{ "app.auto_cancel" | transloco }}
     </button>
     @if (showFullForm) {
-    <button mat-flat-button color="primary" [disabled]="!editingChar.name && !editingChar.role" (click)="save()">
-        {{ 'app.auto_save_information' | transloco }}
-    </button>
+        <button
+            mat-flat-button
+            color="primary"
+            [disabled]="!editingChar.name && !editingChar.role"
+            (click)="save()"
+        >
+            {{ "app.auto_save_information" | transloco }}
+        </button>
     }
 </mat-dialog-actions>

@@ -5,10 +5,19 @@ import {
     OnInit,
     ViewEncapsulation,
     AfterViewInit,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import { Title, DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import { filter, interval, Subject, switchMap, take, takeUntil, debounceTime } from 'rxjs';
+import {
+    filter,
+    interval,
+    Subject,
+    switchMap,
+    take,
+    takeUntil,
+    debounceTime,
+} from 'rxjs';
 import { UserService } from 'app/core/user/user.service';
 import { HelperService } from 'app/helper.service';
 import { ToastrService } from 'ngx-toastr';
@@ -33,7 +42,10 @@ import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
 import { ArchiveOrgDialogComponent } from './tools/archive-org-dialog.component';
 import * as CryptoJS from 'crypto-js';
-import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
+import {
+    tryDecryptWithMasterFallback,
+    isMasterKey,
+} from 'app/core/auth/crypto.helper';
 
 export interface AudioClip {
     id: string;
@@ -48,7 +60,7 @@ export interface AudioClip {
     originalHtml?: string;
     isProcessing?: boolean;
     voice?: string;
-    rate?: number;  // Thêm mới: Tốc độ (0.5 đến 2.0)
+    rate?: number; // Thêm mới: Tốc độ (0.5 đến 2.0)
     pitch?: number; // Thêm mới: Cao độ (-20 đến 20)
     prompt?: string;
     localFilePath?: string | null;
@@ -62,6 +74,8 @@ export interface AudioClip {
     templateUrl: './ai-tts.component.html',
     encapsulation: ViewEncapsulation.None,
     providers: [CrawlService, MyKeysService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     config: AppConfig;
@@ -90,7 +104,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     videoFormat: string = 'video'; // Biến lưu định dạng tác phẩm
     aspectRatio: string = '16:9'; // [MỚI] Tỉ lệ khung hình
     maxDuration: number = 0; // [MỚI] Thời lượng mặc định của mỗi cảnh
-    attachedVideoFiles: { file: File, base64: string, mimeType: string }[] = [];
+    attachedVideoFiles: { file: File; base64: string; mimeType: string }[] = [];
 
     // [MỚI] Lưu lại params để dùng cho tính năng "Làm mới" (Reload)
     currentUuid: string | null = null;
@@ -124,11 +138,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     myvoices: any = [];
 
     get isVoiceGenerated(): boolean {
-        if (!this.audioList || this.audioList.length === 0 || this.isGlobalProcessing) {
+        if (
+            !this.audioList ||
+            this.audioList.length === 0 ||
+            this.isGlobalProcessing
+        ) {
             return false;
         }
-        return this.audioList.every((clip) =>
-            !clip.isProcessing && !!(clip.audioFileName || clip.localFilePath || clip.url || clip.rawUrl || clip.file)
+        return this.audioList.every(
+            (clip) =>
+                !clip.isProcessing &&
+                !!(
+                    clip.audioFileName ||
+                    clip.localFilePath ||
+                    clip.url ||
+                    clip.rawUrl ||
+                    clip.file
+                ),
         );
     }
 
@@ -136,19 +162,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     private saveSubject = new Subject<string | undefined>();
 
     getMyKeys() {
-        this._voice.getMyKeys({
-            username: this.user.name
-        })
+        this._voice
+            .getMyKeys({
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data.length > 0) {
                         this.myvoices = result.data;
                         this.myvoices.map((voice: any) => {
-                            if (voice.base === 'ausynclab.io' || voice.base === 'tts.type.vn') {
+                            if (
+                                voice.base === 'ausynclab.io' ||
+                                voice.base === 'tts.type.vn'
+                            ) {
                                 this.voiceList.push({
                                     id: `${voice.id}-${voice.base}`,
-                                    name: voice.name
+                                    name: voice.name,
                                 });
                             }
                         });
@@ -157,7 +187,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => { }
+                complete: () => {},
             });
     }
 
@@ -174,17 +204,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.isDownloadingModel = true;
         this.cd.markForCheck();
-        this.toastr.info("Đang kiểm tra và tải Model Yenai. Vui lòng không tắt app...", "Hệ thống");
+        this.toastr.info(
+            'Đang kiểm tra và tải Model Yenai. Vui lòng không tắt app...',
+            'Hệ thống',
+        );
 
         try {
-            const res = await (window as any).electron.invoke('download-rvc-models', {});
+            const res = await (window as any).electron.invoke(
+                'download-rvc-models',
+                {},
+            );
             if (res.success) {
-                this.toastr.success("Đã tải/cập nhật xong Giọng Yenai!");
+                this.toastr.success('Đã tải/cập nhật xong Giọng Yenai!');
             } else {
-                this.error("Lỗi tải Model: " + res.error);
+                this.error('Lỗi tải Model: ' + res.error);
             }
         } catch (e: any) {
-            this.error("Ngoại lệ: " + e.message);
+            this.error('Ngoại lệ: ' + e.message);
         } finally {
             this.isDownloadingModel = false;
             this.cd.markForCheck();
@@ -222,11 +258,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Kiểm tra xem có clip nào dùng giọng khác Nam Minh và Hoài My không
         const fastVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
-        const hasSlowVoice = pendingClips.some(clip => !fastVoices.includes(clip.voice));
+        const hasSlowVoice = pendingClips.some(
+            (clip) => !fastVoices.includes(clip.voice),
+        );
 
         // Đặt giới hạn luồng = 3 cho Nam Minh/Hoài My, các giọng khác (như OmniVoice) = 1
         const concurrencyLimit = hasSlowVoice ? 1 : 3;
-        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Chạy song song ${concurrencyLimit} mục cùng lúc)...`, 'System');
+        this.toastr.info(
+            `Bắt đầu xử lý ${pendingClips.length} mục (Chạy song song ${concurrencyLimit} mục cùng lúc)...`,
+            'System',
+        );
 
         try {
             let currentIndex = 0;
@@ -235,7 +276,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const worker = async () => {
                 while (currentIndex < pendingClips.length) {
                     if (this.isCancelled) {
-                        console.log('Tiến trình worker đã dừng do người dùng hủy.');
+                        console.log(
+                            'Tiến trình worker đã dừng do người dùng hủy.',
+                        );
                         break;
                     }
 
@@ -273,7 +316,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     async uploadToArchiveOrg() {
         if (!this.isVoiceGenerated) {
-            this.toastr.warning('Vui lòng tạo xong giọng đọc cho tất cả nội dung trước khi upload.');
+            this.toastr.warning(
+                'Vui lòng tạo xong giọng đọc cho tất cả nội dung trước khi upload.',
+            );
             return;
         }
 
@@ -291,7 +336,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             this.isUploadingArchive = true;
             this.cd.markForCheck();
-            this.toastr.info('Đang kết nối và upload audio lên tài khoản Archive.org...', 'Archive.org Upload');
+            this.toastr.info(
+                'Đang kết nối và upload audio lên tài khoản Archive.org...',
+                'Archive.org Upload',
+            );
 
             try {
                 for (let clip of this.audioList) {
@@ -299,18 +347,21 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         clip.isProcessing = true;
                         this.cd.markForCheck();
                         try {
-                            const serverFilename = await this.uploadLocalFile(clip);
+                            const serverFilename =
+                                await this.uploadLocalFile(clip);
                             if (serverFilename) {
                                 clip.audioFileName = serverFilename;
                                 clip.username = this.user?.name || 'anonymous';
                             }
-                        } catch (e) { }
+                        } catch (e) {}
                         clip.isProcessing = false;
                         this.cd.markForCheck();
                     }
                 }
 
-                const validClips = this.audioList.filter((c) => c.audioFileName || c.localFilePath || c.rawUrl);
+                const validClips = this.audioList.filter(
+                    (c) => c.audioFileName || c.localFilePath || c.rawUrl,
+                );
                 if (validClips.length === 0) {
                     this.toastr.error('Chưa có file audio hợp lệ để upload.');
                     return;
@@ -319,8 +370,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 const payload = {
                     accessKey: credentials.accessKey,
                     secretKey: credentials.secretKey,
-                    title: credentials.title || this.projectTitle || 'Giọng đọc AI',
-                    creator: credentials.creator || this.user?.name || 'AI.Type',
+                    title:
+                        credentials.title ||
+                        this.projectTitle ||
+                        'Giọng đọc AI',
+                    creator:
+                        credentials.creator || this.user?.name || 'AI.Type',
                     collection: credentials.collection || 'opensource_audio',
                     uuid: this.uuid,
                     username: this.user?.name || 'anonymous',
@@ -334,39 +389,59 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     })),
                 };
 
-                if ((window as any).electron && (window as any).electron.invoke) {
-                    const res = await (window as any).electron.invoke('upload-to-archive-org', payload);
+                if (
+                    (window as any).electron &&
+                    (window as any).electron.invoke
+                ) {
+                    const res = await (window as any).electron.invoke(
+                        'upload-to-archive-org',
+                        payload,
+                    );
                     if (res && res.success) {
-                        this.toastr.success(`Đã upload thành công ${res.uploadedCount || validClips.length} file lên Archive.org!`, 'Thành công');
+                        this.toastr.success(
+                            `Đã upload thành công ${res.uploadedCount || validClips.length} file lên Archive.org!`,
+                            'Thành công',
+                        );
                         if (res.itemUrl) {
                             window.open(res.itemUrl, '_blank');
                         }
                     } else {
-                        const errMsg = res?.error || 'Không thể upload lên Archive.org.';
+                        const errMsg =
+                            res?.error || 'Không thể upload lên Archive.org.';
                         this.toastr.error(errMsg, 'Upload thất bại');
                     }
                 } else {
                     let baseUrl = this.SERVER_AUDIO_URL || '';
                     if (baseUrl && !baseUrl.endsWith('/')) baseUrl += '/';
                     if (baseUrl) {
-                        this.http.post(`${baseUrl}upload-archive-org`, payload).subscribe({
-                            next: (res: any) => {
-                                this.toastr.success('Upload lên archive.org thành công!');
-                                if (res && res.itemUrl) {
-                                    window.open(res.itemUrl, '_blank');
-                                }
-                            },
-                            error: (err) => {
-                                this.toastr.error('Lỗi kết nối tới Server Upload Archive.org.');
-                            },
-                        });
+                        this.http
+                            .post(`${baseUrl}upload-archive-org`, payload)
+                            .subscribe({
+                                next: (res: any) => {
+                                    this.toastr.success(
+                                        'Upload lên archive.org thành công!',
+                                    );
+                                    if (res && res.itemUrl) {
+                                        window.open(res.itemUrl, '_blank');
+                                    }
+                                },
+                                error: (err) => {
+                                    this.toastr.error(
+                                        'Lỗi kết nối tới Server Upload Archive.org.',
+                                    );
+                                },
+                            });
                     } else {
-                        this.toastr.success('Khởi tạo yêu cầu upload lên archive.org hoàn tất.');
+                        this.toastr.success(
+                            'Khởi tạo yêu cầu upload lên archive.org hoàn tất.',
+                        );
                     }
                 }
             } catch (error: any) {
                 console.error('Archive.org upload error:', error);
-                this.toastr.error('Có lỗi xảy ra khi kết nối và upload lên archive.org.');
+                this.toastr.error(
+                    'Có lỗi xảy ra khi kết nối và upload lên archive.org.',
+                );
             } finally {
                 this.isUploadingArchive = false;
                 this.cd.markForCheck();
@@ -396,8 +471,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const subPath = `${username}/${this.uuid || 'default'}`;
 
             // Nếu không truyền globalIndex (ví dụ bấm tạo lẻ từng cái), tự tìm index của nó
-            const actualIndex = globalIndex !== undefined ? globalIndex : this.audioList.indexOf(clip);
-            const prefix = (actualIndex >= 0 ? actualIndex + 1 : 0).toString().padStart(3, '0');
+            const actualIndex =
+                globalIndex !== undefined
+                    ? globalIndex
+                    : this.audioList.indexOf(clip);
+            const prefix = (actualIndex >= 0 ? actualIndex + 1 : 0)
+                .toString()
+                .padStart(3, '0');
             const slug = this.toSlug(clip.description.substring(0, 50));
 
             // Lấy thông tin voice của clip
@@ -419,16 +499,24 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         filename: niceFilename,
                         username: subPath,
                     };
-                    res = await (window as any).electron.invoke('tts-generate', payload);
+                    res = await (window as any).electron.invoke(
+                        'tts-generate',
+                        payload,
+                    );
                 } else {
                     const selectedVoiceSplit = clipVoice.split('-');
                     const voice_id = selectedVoiceSplit[0];
 
                     if (clipVoice.indexOf('tts.type.vn') !== -1) {
                         const niceFilename = `${prefix}_${slug}_${fileSuffix}`;
-                        const voiceInfo = this.myvoices.filter((v: any) => (v['id'] === voice_id));
+                        const voiceInfo = this.myvoices.filter(
+                            (v: any) => v['id'] === voice_id,
+                        );
 
-                        if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
+                        if (!voiceInfo || voiceInfo.length === 0)
+                            throw new Error(
+                                'Không tìm thấy thông tin API Key cho giọng đọc này.',
+                            );
 
                         // Xử lý text để tránh lỗi ở backend khi câu quá ngắn bị cắt nhỏ thêm
                         let safeText = clip.description;
@@ -451,12 +539,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             filename: niceFilename,
                             username: subPath,
                         };
-                        res = await (window as any).electron.invoke('tts-type-generate', payload);
+                        res = await (window as any).electron.invoke(
+                            'tts-type-generate',
+                            payload,
+                        );
                     } else {
                         const niceFilename = `${prefix}_${slug}_ausync_${fileSuffix}`;
-                        const voiceInfo = this.myvoices.filter((v: any) => (v['id'] === voice_id));
+                        const voiceInfo = this.myvoices.filter(
+                            (v: any) => v['id'] === voice_id,
+                        );
 
-                        if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
+                        if (!voiceInfo || voiceInfo.length === 0)
+                            throw new Error(
+                                'Không tìm thấy thông tin API Key cho giọng đọc này.',
+                            );
 
                         const payload = {
                             text: clip.description,
@@ -466,7 +562,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             filename: niceFilename,
                             username: subPath,
                         };
-                        res = await (window as any).electron.invoke('tts-ausync-generate', payload);
+                        res = await (window as any).electron.invoke(
+                            'tts-ausync-generate',
+                            payload,
+                        );
                     }
                 }
 
@@ -485,7 +584,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         if (!this.isGlobalProcessing) {
                             this.playClip(clip);
-                            this.toastr.success(`Đã tạo: ${clip.audioFileName}`);
+                            this.toastr.success(
+                                `Đã tạo: ${clip.audioFileName}`,
+                            );
                             this.update(); // Tự động lưu lên server
                         }
                         this.saveToLocal();
@@ -514,7 +615,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             if ((window as any).electron) {
                 await (window as any).electron.invoke('cancel-tts');
             }
-        } catch (err) { }
+        } catch (err) {}
     }
 
     // Thêm hàm generateAusyncTTS vào class Voice2videoComponent
@@ -544,7 +645,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         try {
             // Gọi Electron để xử lý chuỗi API phức tạp (POST -> GET -> DOWNLOAD)
-            const res = await (window as any).electron.invoke('tts-ausync-generate', payload);
+            const res = await (window as any).electron.invoke(
+                'tts-ausync-generate',
+                payload,
+            );
 
             if (res && res.success) {
                 clip.audioFileName = res.filePath.split(/[\\/]/).pop();
@@ -600,7 +704,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         try {
             // BƯỚC 1: SINH AUDIO GỐC (EDGE TTS) + FILE .VTT
-            const ttsRes = await (window as any).electron.invoke('tts-generate', payload);
+            const ttsRes = await (window as any).electron.invoke(
+                'tts-generate',
+                payload,
+            );
 
             if (ttsRes && ttsRes.success) {
                 clip.audioFileName = ttsRes.filePath.split(/[\\/]/).pop();
@@ -618,7 +725,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.saveToLocal();
                 this.toastr.success(`Đã tạo: ${clip.audioFileName}`);
             } else {
-                this.handleTTSError(clip, ttsRes.error || 'Lỗi tạo giọng đọc gốc.');
+                this.handleTTSError(
+                    clip,
+                    ttsRes.error || 'Lỗi tạo giọng đọc gốc.',
+                );
             }
         } catch (err: any) {
             console.error(err);
@@ -633,7 +743,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // =====================================================================
     async applyRvcToClip(clip: AudioClip) {
         if (!(window as any).electron || !(window as any).electron.invoke) {
-            this.toastr.error('Tính năng này chỉ hoạt động trên ứng dụng Desktop.');
+            this.toastr.error(
+                'Tính năng này chỉ hoạt động trên ứng dụng Desktop.',
+            );
             return;
         }
 
@@ -648,7 +760,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // Nếu gọi xong mà vẫn không sinh ra được file (do lỗi mạng/API) thì dừng
                 if (!clip['localFilePath']) {
-                    throw new Error("Không thể tạo audio gốc để xử lý RVC.");
+                    throw new Error('Không thể tạo audio gốc để xử lý RVC.');
                 }
             }
 
@@ -672,11 +784,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 outputAudio: outputPath,
                 pitch: finalPitch,
                 pthPath: pthPath,
-                indexPath: indexPath
+                indexPath: indexPath,
             };
 
             // 3. GỌI API PYTHON ĐỂ CLONE
-            const rvcRes = await (window as any).electron.invoke('apply-rvc', data);
+            const rvcRes = await (window as any).electron.invoke(
+                'apply-rvc',
+                data,
+            );
 
             if (rvcRes && rvcRes.success) {
                 // 4. CẬP NHẬT FILE MỚI VÀO GIAO DIỆN
@@ -692,9 +807,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.playClip(clip);
                 }
             } else {
-                throw new Error(rvcRes?.error || "Lỗi không xác định từ RVC Engine");
+                throw new Error(
+                    rvcRes?.error || 'Lỗi không xác định từ RVC Engine',
+                );
             }
-
         } catch (err: any) {
             console.error(err);
             this.toastr.error('Lỗi RVC: ' + err.message);
@@ -722,7 +838,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cd.markForCheck();
 
         // Hiển thị thông báo lỗi lên góc phải màn hình cho người dùng biết
-        this.toastr.error(`Lỗi khi tạo "${clip.name}": ${errorMessage}`, 'Thất bại');
+        this.toastr.error(
+            `Lỗi khi tạo "${clip.name}": ${errorMessage}`,
+            'Thất bại',
+        );
 
         if (resolveCallback) resolveCallback();
     }
@@ -769,7 +888,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (this.videoProject) {
             this.videoProject.aspectRatio = this.aspectRatio || '16:9';
             const storageKeyVideo = `${this.STORAGE_CLIPS_KEY}_${targetUuid}`;
-            this.multiAccountService.setItem(storageKeyVideo, this.videoProject);
+            this.multiAccountService.setItem(
+                storageKeyVideo,
+                this.videoProject,
+            );
         }
     }
 
@@ -802,7 +924,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 if (parsed.maxDuration !== undefined) {
-                    this.maxDuration = parsed.maxDuration === 8 ? 0 : parsed.maxDuration;
+                    this.maxDuration =
+                        parsed.maxDuration === 8 ? 0 : parsed.maxDuration;
                 }
 
                 const clips = parsed.clips || [];
@@ -818,7 +941,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             setTimeout(() => {
                                 this.createVideo();
                             }, 600);
-                        } else if (autoAction === 'script' && this.videoProject) {
+                        } else if (
+                            autoAction === 'script' &&
+                            this.videoProject
+                        ) {
                             setTimeout(() => {
                                 this.openTimelineDialog(this.videoProject);
                             }, 600);
@@ -859,11 +985,18 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     restoreClips(clips: any[]) {
         this.audioList = clips.map((item: any) => {
             if (item.description) {
-                const doc = new DOMParser().parseFromString(item.description, 'text/html');
-                item.description = doc.documentElement.textContent || item.description;
+                const doc = new DOMParser().parseFromString(
+                    item.description,
+                    'text/html',
+                );
+                item.description =
+                    doc.documentElement.textContent || item.description;
             }
             if (item.name) {
-                const doc = new DOMParser().parseFromString(item.name, 'text/html');
+                const doc = new DOMParser().parseFromString(
+                    item.name,
+                    'text/html',
+                );
                 item.name = doc.documentElement.textContent || item.name;
             }
 
@@ -874,7 +1007,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const offlineKeywords = ['ausync', 'tts.type.vn'];
             const isOfflineVoice =
                 (item.voice && offlineVoices.includes(item.voice)) ||
-                (item.voice && offlineKeywords.some((k) => item.voice.includes(k))) ||
+                (item.voice &&
+                    offlineKeywords.some((k) => item.voice.includes(k))) ||
                 (item.audioFileName &&
                     offlineKeywords.some((k) =>
                         item.audioFileName.includes(k),
@@ -892,14 +1026,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             if (item.audioFileName) {
                 // [CẬP NHẬT TRỌNG TÂM]: Kiểm tra localFilePath ĐẦU TIÊN
                 if (item.localFilePath || isOfflineVoice) {
-
-                    // NẾU CÓ localFilePath (C:\...) HOẶC LÀ GIỌNG EDGE TTS 
+                    // NẾU CÓ localFilePath (C:\...) HOẶC LÀ GIỌNG EDGE TTS
                     // => ĐÂY LÀ FILE ĐANG NẰM Ở Ổ CỨNG, BẮT BUỘC ĐỌC TỪ LOCAL
 
                     setTimeout(() => {
                         this.loadLocalAudioContent(newItem);
                     }, 100);
-
                 } else {
                     // CHỈ KHI NÀO KHÔNG CÓ localFilePath THÌ MỚI GẮN LINK SERVER
                     let userFolder =
@@ -953,7 +1085,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     path: filePath,
                     filename: clip.audioFileName,
                     username: this.user?.name || 'admin',
-                    targetUuid: this.uuid
+                    targetUuid: this.uuid,
                 },
             );
 
@@ -967,7 +1099,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 // Dùng protocol media:// để không bị Chromium chặn
-                const fileUrl = cleanPath.startsWith('/') ? `media://${cleanPath}` : `media:///${cleanPath}`;
+                const fileUrl = cleanPath.startsWith('/')
+                    ? `media://${cleanPath}`
+                    : `media:///${cleanPath}`;
 
                 // Nếu clip đã được gán đúng URL này rồi, không cần gán lại hay đo lại duration (tránh nhấp nháy WaveSurfer)
                 if (clip.rawUrl === fileUrl) {
@@ -1005,7 +1139,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.calculateTotalDuration();
                     this.cd.markForCheck();
                     this.saveToLocal(); // [QUAN TRỌNG] Lưu lại trạng thái vào local để không bị lặp lại lỗi khi F5
-                    this.toastr.warning(`File audio của đoạn "${clip.name}" không tồn tại trên máy. Vui lòng tạo lại!`, 'Lỗi File');
+                    this.toastr.warning(
+                        `File audio của đoạn "${clip.name}" không tồn tại trên máy. Vui lòng tạo lại!`,
+                        'Lỗi File',
+                    );
                     return false;
                 }
             }
@@ -1028,7 +1165,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.calculateTotalDuration();
                 this.cd.markForCheck();
                 this.saveToLocal(); // [QUAN TRỌNG] Lưu lại trạng thái vào local
-                this.toastr.warning(`File audio của đoạn "${clip.name}" bị lỗi hoặc không tồn tại.`, 'Lỗi File');
+                this.toastr.warning(
+                    `File audio của đoạn "${clip.name}" bị lỗi hoặc không tồn tại.`,
+                    'Lỗi File',
+                );
                 return false;
             }
         }
@@ -1045,7 +1185,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const clip = this.audioList[i];
 
             // Bỏ qua nếu đã tải hoặc file thực tế
-            if (clip['localFilePath'] || clip.file || (clip.rawUrl && clip.rawUrl.startsWith('blob:'))) continue;
+            if (
+                clip['localFilePath'] ||
+                clip.file ||
+                (clip.rawUrl && clip.rawUrl.startsWith('blob:'))
+            )
+                continue;
 
             let possibleFilenames = [];
             if (clip.audioFileName) {
@@ -1066,9 +1211,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 try {
                     const payload = {
                         username: projectSubPath,
-                        filename: fname
+                        filename: fname,
                     };
-                    const result = await (window as any).electron.invoke('check-local-file-exists', payload);
+                    const result = await (window as any).electron.invoke(
+                        'check-local-file-exists',
+                        payload,
+                    );
 
                     if (result && result.exists) {
                         clip['localFilePath'] = fname; // Chỉ lưu basename
@@ -1081,7 +1229,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         await this.loadLocalAudioContent(clip);
                         break;
                     }
-                } catch (e) { }
+                } catch (e) {}
             }
         }
 
@@ -1126,12 +1274,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.attachedVideoFiles.push({
                     file: file,
                     base64: base64String,
-                    mimeType: file.type
+                    mimeType: file.type,
                 });
             };
             reader.readAsDataURL(file);
         }
-        this.toastr.success(`Đã đính kèm ${files.length} tệp tài liệu.`, 'Thành công');
+        this.toastr.success(
+            `Đã đính kèm ${files.length} tệp tài liệu.`,
+            'Thành công',
+        );
         event.target.value = ''; // Reset input
     }
 
@@ -1144,35 +1295,44 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 aspectRatio: this.aspectRatio,
                 maxDuration: this.maxDuration,
                 hasVideoProject: !!this.videoProject,
-                isAnalyzing: this.isAnalyzing
-            }
+                isAnalyzing: this.isAnalyzing,
+            },
         });
 
-        dialogRef.afterClosed().subscribe(async result => {
+        dialogRef.afterClosed().subscribe(async (result) => {
             if (result) {
                 this.extraPrompt = result.extraPrompt;
                 this.videoFormat = result.videoFormat;
                 this.aspectRatio = result.aspectRatio;
                 this.maxDuration = result.maxDuration;
-                
-                if (result.attachedVideoFiles && result.attachedVideoFiles.length > 0) {
+
+                if (
+                    result.attachedVideoFiles &&
+                    result.attachedVideoFiles.length > 0
+                ) {
                     this.attachedVideoFiles = [];
                     for (const file of result.attachedVideoFiles) {
                         // Check xem nó là File gốc hay object đã có base64
                         if (file.base64) {
                             this.attachedVideoFiles.push(file);
                         } else {
-                            const base64String = await new Promise<string>((resolve) => {
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                    resolve((reader.result as string).split(',')[1]);
-                                };
-                                reader.readAsDataURL(file);
-                            });
+                            const base64String = await new Promise<string>(
+                                (resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                        resolve(
+                                            (reader.result as string).split(
+                                                ',',
+                                            )[1],
+                                        );
+                                    };
+                                    reader.readAsDataURL(file);
+                                },
+                            );
                             this.attachedVideoFiles.push({
                                 file: file,
                                 base64: base64String,
-                                mimeType: file.type
+                                mimeType: file.type,
                             });
                         }
                     }
@@ -1203,7 +1363,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const data = this.multiAccountService.getItem(storageKey);
 
         if (!data || !data.clips) {
-            this.toastr.warning('Không tìm thấy dữ liệu âm thanh để phân tích.');
+            this.toastr.warning(
+                'Không tìm thấy dữ liệu âm thanh để phân tích.',
+            );
             this.isAnalyzing = false;
             return;
         }
@@ -1214,7 +1376,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         for (const clip of allClips) {
             if (clip.localFilePath) {
                 try {
-                    const result = await (window as any).electron.invoke('check-local-file-exists', { path: clip.localFilePath });
+                    const result = await (window as any).electron.invoke(
+                        'check-local-file-exists',
+                        { path: clip.localFilePath },
+                    );
                     if (!result || !result.exists) {
                         clip.localFilePath = null;
                     }
@@ -1233,20 +1398,24 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         if (hasMissingAudio) {
-            this.toastr.info('Hệ thống đang yêu cầu AI tự động ước lượng thời gian cho các cảnh hành động...', 'Thông báo');
+            this.toastr.info(
+                'Hệ thống đang yêu cầu AI tự động ước lượng thời gian cho các cảnh hành động...',
+                'Thông báo',
+            );
         }
 
         // Rút gọn format đầu vào để AI dễ đọc. Phân biệt rõ dòng nào có thoại (có số giây), dòng nào hành động (NO_AUDIO)
         const continuousText = allClips
             .map((c: any) => {
-                return `[${c.id} | ${c.localFilePath ? (c.duration + 's') : 'NO_AUDIO'}] ${c.description}`;
+                return `[${c.id} | ${c.localFilePath ? c.duration + 's' : 'NO_AUDIO'}] ${c.description}`;
             })
             .join('\n');
 
         // Lấy định dạng từ select box
-        const userFormat = this.extraPrompt && this.extraPrompt.trim() !== ''
-            ? this.extraPrompt.trim()
-            : "Cinematic chuyên nghiệp";
+        const userFormat =
+            this.extraPrompt && this.extraPrompt.trim() !== ''
+                ? this.extraPrompt.trim()
+                : 'Cinematic chuyên nghiệp';
 
         const isComic = this.videoFormat === 'comic';
         const isSlide = this.videoFormat === 'slide';
@@ -1254,22 +1423,34 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const isVideo = this.videoFormat === 'video';
 
         // Nhận diện tỉ lệ dọc để tinh chỉnh nhắc nhở AI
-        const isVertical = this.aspectRatio === '9:16' || this.aspectRatio === '3:4';
+        const isVertical =
+            this.aspectRatio === '9:16' || this.aspectRatio === '3:4';
 
-        let formatText = "Video";
+        let formatText = 'Video';
         switch (this.videoFormat) {
-            case 'video': formatText = "Video"; break;
-            case 'comic': formatText = "Truyện tranh"; break;
-            case 'slide': formatText = "Slide Thuyết trình / Khung hình tĩnh"; break;
-            case 'podcast': formatText = "Podcast / Kể chuyện Audio"; break;
+            case 'video':
+                formatText = 'Video';
+                break;
+            case 'comic':
+                formatText = 'Truyện tranh';
+                break;
+            case 'slide':
+                formatText = 'Slide Thuyết trình / Khung hình tĩnh';
+                break;
+            case 'podcast':
+                formatText = 'Podcast / Kể chuyện Audio';
+                break;
         }
 
         // Tự động giải thích tỉ lệ cho AI
         let aspectDesc = `Tỉ lệ ${this.aspectRatio}`;
-        if (this.aspectRatio === '9:16') aspectDesc += " (Khung hình dọc mỏng - Tiktok/Shorts)";
-        if (this.aspectRatio === '16:9') aspectDesc += " (Khung hình ngang tiêu chuẩn)";
-        if (this.aspectRatio === '3:4') aspectDesc += " (Khung hình dọc vừa)";
-        if (this.aspectRatio === '4:3') aspectDesc += " (Khung hình ngang truyền thống)";
+        if (this.aspectRatio === '9:16')
+            aspectDesc += ' (Khung hình dọc mỏng - Tiktok/Shorts)';
+        if (this.aspectRatio === '16:9')
+            aspectDesc += ' (Khung hình ngang tiêu chuẩn)';
+        if (this.aspectRatio === '3:4') aspectDesc += ' (Khung hình dọc vừa)';
+        if (this.aspectRatio === '4:3')
+            aspectDesc += ' (Khung hình ngang truyền thống)';
 
         const finalFormatRequest = `${formatText} - ${aspectDesc}. Phong cách/Yêu cầu: ${userFormat}`;
 
@@ -1277,13 +1458,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const totalSecs = Math.round(this.totalDuration || 0);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
-        const durationString = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
+        const durationString =
+            mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
 
         // Khởi tạo các biến điều hướng Prompt
-        let maxDurationRule = "";
-        let formatInstruction = "";
-        let timeConstraintPrompt = "Tôi có một kịch bản thoại chi tiết.";
-        let masterPromptDurationLimit = "";
+        let maxDurationRule = '';
+        let formatInstruction = '';
+        let timeConstraintPrompt = 'Tôi có một kịch bản thoại chi tiết.';
+        let masterPromptDurationLimit = '';
 
         if (isVideo) {
             // LUẬT KHẮT KHE CHO VIDEO (Để AI render không bị lỗi)
@@ -1335,18 +1517,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const antiDuplicationRule = `
             - 🚫 CHỐNG TRÙNG LẶP: Mỗi ID thoại CHỈ ĐƯỢC XUẤT HIỆN ĐÚNG 1 LẦN DUY NHẤT trong toàn bộ JSON trả về.`;
 
-        let targetLanguage = "TIẾNG ANH (ENGLISH)";
+        let targetLanguage = 'TIẾNG ANH (ENGLISH)';
         if (this.settings?.language) {
             const langMap: { [key: string]: string } = {
-                'vi': 'TIẾNG VIỆT',
-                'en': 'TIẾNG ANH',
-                'fr': 'TIẾNG PHÁP',
-                'es': 'TIẾNG TÂY BAN NHA',
-                'ja': 'TIẾNG NHẬT',
-                'ko': 'TIẾNG HÀN',
-                'zh': 'TIẾNG TRUNG'
+                vi: 'TIẾNG VIỆT',
+                en: 'TIẾNG ANH',
+                fr: 'TIẾNG PHÁP',
+                es: 'TIẾNG TÂY BAN NHA',
+                ja: 'TIẾNG NHẬT',
+                ko: 'TIẾNG HÀN',
+                zh: 'TIẾNG TRUNG',
             };
-            targetLanguage = langMap[this.settings.language] || `MÃ NGÔN NGỮ: ${this.settings.language.toUpperCase()}`;
+            targetLanguage =
+                langMap[this.settings.language] ||
+                `MÃ NGÔN NGỮ: ${this.settings.language.toUpperCase()}`;
         }
 
         // PROMPT TỔNG LỰC GỬI CHO GEMINI
@@ -1417,8 +1601,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let finalContents: any = [
                 {
                     role: 'user',
-                    parts: [{ text: promptText }]
-                }
+                    parts: [{ text: promptText }],
+                },
             ];
 
             if (this.attachedVideoFiles.length > 0) {
@@ -1426,15 +1610,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     {
                         role: 'user',
                         parts: [
-                            ...this.attachedVideoFiles.map(f => ({
+                            ...this.attachedVideoFiles.map((f) => ({
                                 inlineData: {
                                     data: f.base64,
-                                    mimeType: f.mimeType
-                                }
+                                    mimeType: f.mimeType,
+                                },
                             })),
-                            { text: promptText }
-                        ]
-                    }
+                            { text: promptText },
+                        ],
+                    },
                 ];
             }
 
@@ -1444,16 +1628,21 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         model: 'gemini-3.6-flash',
                         contents: finalContents,
                         config: {
-                            responseMimeType: "application/json",
-                            maxOutputTokens: 8192
-                        }
+                            responseMimeType: 'application/json',
+                            maxOutputTokens: 8192,
+                        },
                     });
                     break;
                 } catch (apiError: any) {
-                    const isOverloaded = apiError?.message?.includes('503') || apiError?.status === 503;
+                    const isOverloaded =
+                        apiError?.message?.includes('503') ||
+                        apiError?.status === 503;
                     if (isOverloaded && i < retries - 1) {
-                        this.toastr.info(`AI đang bận, tự động thử lại lần ${i + 1}...`, 'Hệ thống');
-                        await new Promise(r => setTimeout(r, delay));
+                        this.toastr.info(
+                            `AI đang bận, tự động thử lại lần ${i + 1}...`,
+                            'Hệ thống',
+                        );
+                        await new Promise((r) => setTimeout(r, delay));
                         delay *= 2;
                     } else {
                         throw apiError;
@@ -1461,9 +1650,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
             }
 
-            if (!response) throw new Error("Không nhận được phản hồi từ AI.");
+            if (!response) throw new Error('Không nhận được phản hồi từ AI.');
 
-            const aiResponse = this.helperService.safeJsonParseFromAI(response.text);
+            const aiResponse = this.helperService.safeJsonParseFromAI(
+                response.text,
+            );
             const aiResponseScenes = aiResponse.scenes || [];
 
             // Không dán masterPrompt vào prompt tạo hình nhân vật nữa,
@@ -1485,20 +1676,29 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         if (originalClip.localFilePath) {
                             hasAnyAudio = true;
-                            const safePath = originalClip.localFilePath.replace(/\\/g, '/');
-                            safeAudioUrl = safePath.startsWith('/') ? `file://${safePath}` : `file:///${safePath}`;
+                            const safePath = originalClip.localFilePath.replace(
+                                /\\/g,
+                                '/',
+                            );
+                            safeAudioUrl = safePath.startsWith('/')
+                                ? `file://${safePath}`
+                                : `file:///${safePath}`;
                         }
                     }
 
                     return {
                         id: id,
-                        text: originalClip ? originalClip.description : "",
+                        text: originalClip ? originalClip.description : '',
                         duration: clipDuration,
-                        audioUrl: safeAudioUrl
+                        audioUrl: safeAudioUrl,
                     };
                 });
 
-                if (isVideo && this.maxDuration === 0 && scene.estimatedDuration) {
+                if (
+                    isVideo &&
+                    this.maxDuration === 0 &&
+                    scene.estimatedDuration
+                ) {
                     exactSceneDuration = scene.estimatedDuration;
                 } else if (!isVideo && hasAnyAudio) {
                     // Cố định exactSceneDuration = tổng thời lượng các audio của scene này
@@ -1507,46 +1707,64 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     exactSceneDuration = scene.estimatedDuration;
                 }
 
-                const roundedDuration = Math.round(exactSceneDuration * 10) / 10;
+                const roundedDuration =
+                    Math.round(exactSceneDuration * 10) / 10;
 
                 // KHÔNG TỰ ĐỘNG DÁN MASTER PROMPT VÀO ĐÂY vì ở VideoTimelineDialogComponent (khi bấm Copy) đã có logic tự dán masterPrompt rồi!
                 // Nếu dán ở đây sẽ bị nhân đôi. Chỉ lấy đúng prompt của scene do AI tạo ra.
                 if (scene.sketchPrompt) {
                     scene.sketchPrompt = scene.sketchPrompt.trim();
                 }
-                let originalScenePrompt = scene.prompt ? scene.prompt.trim() : '';
-                let originalImagePrompt = scene.imagePrompt ? scene.imagePrompt.trim() : originalScenePrompt;
+                let originalScenePrompt = scene.prompt
+                    ? scene.prompt.trim()
+                    : '';
+                let originalImagePrompt = scene.imagePrompt
+                    ? scene.imagePrompt.trim()
+                    : originalScenePrompt;
 
                 // Tự động bổ sung bối cảnh vào prompt video nếu AI tạo prompt quá sơ sài
                 if (!originalScenePrompt) {
                     originalScenePrompt = originalImagePrompt;
-                } else if (originalImagePrompt.length > originalScenePrompt.length) {
+                } else if (
+                    originalImagePrompt.length > originalScenePrompt.length
+                ) {
                     // Nếu prompt video ngắn hơn prompt hình ảnh, AI đã làm mất mô tả phong cảnh
                     if (originalImagePrompt.includes(originalScenePrompt)) {
                         // AI chỉ lấy một đoạn ngắn (vd: Góc máy, tỉ lệ), ghi đè bằng toàn bộ bối cảnh
                         originalScenePrompt = originalImagePrompt;
                     } else {
                         // AI viết câu mới nhưng ngắn hơn, ghép bối cảnh vào
-                        originalScenePrompt = originalImagePrompt + '\n\n' + originalScenePrompt;
+                        originalScenePrompt =
+                            originalImagePrompt + '\n\n' + originalScenePrompt;
                     }
                 }
-                let masterText = aiResponse.masterPrompt ? aiResponse.masterPrompt.trim() : '';
+                let masterText = aiResponse.masterPrompt
+                    ? aiResponse.masterPrompt.trim()
+                    : '';
 
                 // Lọc bỏ masterText khỏi originalScenePrompt nếu AI lỡ tay lặp lại do không có hành động
                 if (masterText && originalScenePrompt.includes(masterText)) {
-                    originalScenePrompt = originalScenePrompt.replace(masterText, '').trim();
+                    originalScenePrompt = originalScenePrompt
+                        .replace(masterText, '')
+                        .trim();
                 }
                 if (masterText && originalImagePrompt.includes(masterText)) {
-                    originalImagePrompt = originalImagePrompt.replace(masterText, '').trim();
+                    originalImagePrompt = originalImagePrompt
+                        .replace(masterText, '')
+                        .trim();
                 }
 
-                let constraintStr = "completely textless, no text, no watermark, no signature, clean background";
+                let constraintStr =
+                    'completely textless, no text, no watermark, no signature, clean background';
                 if (isComic) {
-                    constraintStr += ", distinct comic panel layout, clear white gutters, split frames, strict panel borders";
+                    constraintStr +=
+                        ', distinct comic panel layout, clear white gutters, split frames, strict panel borders';
                 }
 
-                let finalScenePrompt = originalScenePrompt + `\n\n(Constraints: ${constraintStr})`;
-                let finalImagePrompt = originalImagePrompt + `\n\n(Constraints: ${constraintStr})`;
+                let finalScenePrompt =
+                    originalScenePrompt + `\n\n(Constraints: ${constraintStr})`;
+                let finalImagePrompt =
+                    originalImagePrompt + `\n\n(Constraints: ${constraintStr})`;
 
                 // Tự động nhận diện nhân vật và gắn mô tả (appearance/prompt) vào
                 const characters = aiResponse.characters || [];
@@ -1558,10 +1776,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 let individualPrompts: string[] = [];
                 let individualDurations: number[] = [];
 
-                const splitRegex = /(?:Prompt|Phân đoạn|Phần|Cảnh|Part)\s*\d+[^:]*:/gi;
+                const splitRegex =
+                    /(?:Prompt|Phân đoạn|Phần|Cảnh|Part)\s*\d+[^:]*:/gi;
                 let match;
                 let headers = [];
-                while ((match = splitRegex.exec(originalScenePrompt)) !== null) {
+                while (
+                    (match = splitRegex.exec(originalScenePrompt)) !== null
+                ) {
                     headers.push({ index: match.index, text: match[0] });
                 }
 
@@ -1569,32 +1790,53 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     for (let i = 0; i < headers.length; i++) {
                         const header = headers[i];
                         const startIndex = header.index + header.text.length;
-                        const endIndex = (i + 1 < headers.length) ? headers[i + 1].index : originalScenePrompt.length;
+                        const endIndex =
+                            i + 1 < headers.length
+                                ? headers[i + 1].index
+                                : originalScenePrompt.length;
 
-                        const promptText = originalScenePrompt.substring(startIndex, endIndex).trim();
+                        const promptText = originalScenePrompt
+                            .substring(startIndex, endIndex)
+                            .trim();
                         if (promptText) {
                             individualPrompts.push(promptText);
-                            const timeMatch = header.text.match(/\(([\d\.]+)[sS]?\)/);
-                            individualDurations.push(timeMatch && timeMatch[1] ? parseFloat(timeMatch[1]) : 0);
+                            const timeMatch =
+                                header.text.match(/\(([\d\.]+)[sS]?\)/);
+                            individualDurations.push(
+                                timeMatch && timeMatch[1]
+                                    ? parseFloat(timeMatch[1])
+                                    : 0,
+                            );
                         }
                     }
                 }
 
                 // Chỉ gắn thời lượng chính xác nếu định dạng là VIDEO
-                if (isVideo && maxVideoLength > 0 && roundedDuration > maxVideoLength) {
+                if (
+                    isVideo &&
+                    maxVideoLength > 0 &&
+                    roundedDuration > maxVideoLength
+                ) {
                     const parts = Math.ceil(roundedDuration / maxVideoLength);
 
                     for (let i = 0; i < parts; i++) {
                         let partDuration = maxVideoLength;
                         if (i === parts - 1) {
-                            partDuration = Math.round((roundedDuration - (i * maxVideoLength)) * 10) / 10;
-                            if (partDuration <= 0) partDuration = maxVideoLength;
+                            partDuration =
+                                Math.round(
+                                    (roundedDuration - i * maxVideoLength) * 10,
+                                ) / 10;
+                            if (partDuration <= 0)
+                                partDuration = maxVideoLength;
                         }
 
                         let basePrompt = finalScenePrompt;
                         let baseImagePrompt = finalImagePrompt;
                         if (individualPrompts.length > 0) {
-                            basePrompt = individualPrompts[Math.min(i, individualPrompts.length - 1)] + `\n\n(Constraints: ${constraintStr})`;
+                            basePrompt =
+                                individualPrompts[
+                                    Math.min(i, individualPrompts.length - 1)
+                                ] + `\n\n(Constraints: ${constraintStr})`;
                             // Nếu có split video prompt, image prompt giữ nguyên ảnh tĩnh ban đầu
                             baseImagePrompt = finalImagePrompt;
                         }
@@ -1604,10 +1846,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             prompt: `${basePrompt}\n[NOTE: This scene is ${partDuration} seconds long. Generate video continuation Part ${i + 1}/${parts}. MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]`,
                             imagePrompt: baseImagePrompt,
                             imageUrl: null,
-                            duration: partDuration
+                            duration: partDuration,
                         });
                     }
-                } else if (isVideo && maxVideoLength === 0 && individualPrompts.length > 1) {
+                } else if (
+                    isVideo &&
+                    maxVideoLength === 0 &&
+                    individualPrompts.length > 1
+                ) {
                     for (let i = 0; i < individualPrompts.length; i++) {
                         let partDuration = individualDurations[i] || 5; // Mặc định 5s nếu AI không ghi rõ
                         // GIỚI HẠN CỨNG: Không để clip nào quá 10s dù AI có ảo giác ghi số lớn
@@ -1619,7 +1865,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             prompt: `${individualPrompts[i]}\n\n(Constraints: ${constraintStr})\n[NOTE: Auto-split scene based on story pacing. MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]`,
                             imagePrompt: finalImagePrompt,
                             imageUrl: null,
-                            duration: partDuration
+                            duration: partDuration,
                         });
                     }
                 } else {
@@ -1627,13 +1873,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     let cleanImagePrompt = finalImagePrompt;
 
                     if (isVideo && maxVideoLength === 0) {
-                        let partDuration = roundedDuration > 0 ? roundedDuration : 5; // Lấy từ estimatedDuration do AI quyết định
+                        let partDuration =
+                            roundedDuration > 0 ? roundedDuration : 5; // Lấy từ estimatedDuration do AI quyết định
                         // Cố gắng tìm (5s) hoặc (6.5s) trong prompt phòng trường hợp AI vẫn nhét vào
-                        const timeMatch = singlePrompt.match(/\(([\d\.]+)[sS]?\)/);
+                        const timeMatch =
+                            singlePrompt.match(/\(([\d\.]+)[sS]?\)/);
                         if (timeMatch && timeMatch[1]) {
                             partDuration = parseFloat(timeMatch[1]);
                         }
-                        
+
                         // Tôn trọng quyết định của AI, kể cả khi thời gian không khớp audio
                         // Chỉ giới hạn phần cứng API (ví dụ không quá 10s/scene để tránh lỗi khi render)
                         if (partDuration > 10) partDuration = 10;
@@ -1643,7 +1891,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             prompt: singlePrompt,
                             imagePrompt: cleanImagePrompt,
                             imageUrl: null,
-                            duration: partDuration
+                            duration: partDuration,
                         });
                     } else {
                         if (isVideo) {
@@ -1655,7 +1903,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             prompt: singlePrompt,
                             imagePrompt: cleanImagePrompt,
                             imageUrl: null,
-                            duration: roundedDuration
+                            duration: roundedDuration,
                         });
                     }
                 }
@@ -1667,26 +1915,29 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     imageUrl: null,
                     subtitles: mappedSubtitles,
                     videos: videos,
-                    forcedDuration: roundedDuration
+                    forcedDuration: roundedDuration,
                 };
             });
 
             this.videoProject = {
                 uuid: data.uuid,
                 title: data.title,
-                masterPrompt: aiResponse.masterPrompt || "",
+                masterPrompt: aiResponse.masterPrompt || '',
                 extraPrompt: this.extraPrompt,
                 characters: aiResponse.characters || [],
                 originalClips: allClips,
                 totalOriginalClips: allClips.length,
                 totalScenes: finalScenes.length,
                 scenes: finalScenes,
-                aspectRatio: this.aspectRatio // Lưu tỉ lệ khung hình để render sau này
+                aspectRatio: this.aspectRatio, // Lưu tỉ lệ khung hình để render sau này
             };
 
             // Lưu danh sách nhân vật dưới local
             if (aiResponse.characters && aiResponse.characters.length > 0) {
-                this.multiAccountService.setItem(`casting_list_${data.uuid}`, aiResponse.characters);
+                this.multiAccountService.setItem(
+                    `casting_list_${data.uuid}`,
+                    aiResponse.characters,
+                );
             }
 
             // [QUAN TRỌNG] Xóa editorLayout cũ vì kịch bản đã được tạo mới hoàn toàn
@@ -1702,11 +1953,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             this.saveToLocal();
             this.openTimelineDialog(this.videoProject);
-            this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`);
-
+            this.toastr.success(
+                `Đã tối ưu thành ${finalScenes.length} phân cảnh!`,
+            );
         } catch (error: any) {
             console.error('Lỗi logic gom nhóm:', error);
-            const msg = error?.message || 'Hệ thống AI hiện đang quá tải. Vui lòng thử lại sau.';
+            const msg =
+                error?.message ||
+                'Hệ thống AI hiện đang quá tải. Vui lòng thử lại sau.';
             this.toastr.error(msg, 'Lỗi AI');
         } finally {
             this.isAnalyzing = false;
@@ -1744,21 +1998,38 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             for (const scene of data.scenes) {
                 if (scene.subtitles && scene.subtitles.length > 0) {
                     for (const sub of scene.subtitles) {
-                        const originalClip = this.audioList.find((c: any) => c.id === sub.id);
+                        const originalClip = this.audioList.find(
+                            (c: any) => c.id === sub.id,
+                        );
                         if (originalClip) {
-                            sub.duration = originalClip.duration || sub.duration;
+                            sub.duration =
+                                originalClip.duration || sub.duration;
                             if (originalClip.localFilePath) {
                                 try {
-                                    const result = await (window as any).electron.invoke('check-local-file-exists', {
-                                        path: originalClip.localFilePath,
-                                        filename: originalClip.audioFileName,
-                                        username: this.user?.name || 'admin',
-                                        targetUuid: this.uuid
-                                    });
+                                    const result = await (
+                                        window as any
+                                    ).electron.invoke(
+                                        'check-local-file-exists',
+                                        {
+                                            path: originalClip.localFilePath,
+                                            filename:
+                                                originalClip.audioFileName,
+                                            username:
+                                                this.user?.name || 'admin',
+                                            targetUuid: this.uuid,
+                                        },
+                                    );
                                     if (result && result.exists) {
-                                        originalClip.localFilePath = result.path;
-                                        const safePath = originalClip.localFilePath.replace(/\\/g, '/');
-                                        sub.audioUrl = safePath.startsWith('/') ? `file://${safePath}` : `file:///${safePath}`;
+                                        originalClip.localFilePath =
+                                            result.path;
+                                        const safePath =
+                                            originalClip.localFilePath.replace(
+                                                /\\/g,
+                                                '/',
+                                            );
+                                        sub.audioUrl = safePath.startsWith('/')
+                                            ? `file://${safePath}`
+                                            : `file:///${safePath}`;
                                     } else {
                                         sub.audioUrl = null;
                                         originalClip.localFilePath = null; // Xóa đường dẫn hỏng khỏi clip gốc
@@ -1784,7 +2055,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Dùng setTimeout để đảm bảo việc chuyển trang được thực thi (đề phòng kẹt zone do fetch streaming)
         setTimeout(() => {
-            this.router.navigate(['/voice2video', this.user?.name || 'anonymous', this.uuid, 'node']);
+            this.router.navigate([
+                '/voice2video',
+                this.user?.name || 'anonymous',
+                this.uuid,
+                'node',
+            ]);
         }, 100);
     }
 
@@ -1805,7 +2081,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         clip.audioFileName = serverFilename;
                         clip.username = this.user?.name || 'anonymous';
                     }
-                } catch (e) { }
+                } catch (e) {}
                 clip.isProcessing = false;
                 this.cd.markForCheck();
             }
@@ -1907,7 +2183,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         try {
             this.wavesurfer.stop();
-        } catch (e) { }
+        } catch (e) {}
 
         // 1. File local từ máy tính (User upload)
         if (clip.file && !clip.rawUrl) {
@@ -1931,31 +2207,49 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // 3. Blob URL
         if (clip.rawUrl && clip.rawUrl.startsWith('blob:')) {
-            this.wavesurfer.load(clip.rawUrl).then(() => {
-                this.wavesurfer.play().catch((err: any) => {
-                    console.error("WaveSurfer Blob play error:", err);
-                    this.toastr.error('Lỗi phát âm thanh. Vui lòng thao tác lại.');
+            this.wavesurfer
+                .load(clip.rawUrl)
+                .then(() => {
+                    this.wavesurfer.play().catch((err: any) => {
+                        console.error('WaveSurfer Blob play error:', err);
+                        this.toastr.error(
+                            'Lỗi phát âm thanh. Vui lòng thao tác lại.',
+                        );
+                    });
+                })
+                .catch((err: any) => {
+                    console.error('WaveSurfer Blob load error:', err);
+                    this.toastr.error('Không thể đọc file audio này.');
                 });
-            }).catch((err: any) => {
-                console.error("WaveSurfer Blob load error:", err);
-                this.toastr.error('Không thể đọc file audio này.');
-            });
             return;
         }
 
         // 4. URL đã có sẵn protocol media://, mediacors://, file://
-        if (clip.rawUrl && (clip.rawUrl.startsWith('media://') || clip.rawUrl.startsWith('mediacors://') || clip.rawUrl.startsWith('file://'))) {
-            let playUrl = clip.rawUrl.startsWith('file://') ? `${clip.rawUrl}?t=${Date.now()}` : clip.rawUrl;
+        if (
+            clip.rawUrl &&
+            (clip.rawUrl.startsWith('media://') ||
+                clip.rawUrl.startsWith('mediacors://') ||
+                clip.rawUrl.startsWith('file://'))
+        ) {
+            let playUrl = clip.rawUrl.startsWith('file://')
+                ? `${clip.rawUrl}?t=${Date.now()}`
+                : clip.rawUrl;
             playUrl = playUrl.replace('media://', 'mediacors://');
-            this.wavesurfer.load(playUrl).then(() => {
-                this.wavesurfer.play().catch((err: any) => {
-                    console.error("WaveSurfer play error:", err);
-                    this.toastr.error('Trình duyệt chặn Autoplay hoặc lỗi phát audio.', 'Bị chặn phát audio');
+            this.wavesurfer
+                .load(playUrl)
+                .then(() => {
+                    this.wavesurfer.play().catch((err: any) => {
+                        console.error('WaveSurfer play error:', err);
+                        this.toastr.error(
+                            'Trình duyệt chặn Autoplay hoặc lỗi phát audio.',
+                            'Bị chặn phát audio',
+                        );
+                    });
+                })
+                .catch((err: any) => {
+                    console.error('WaveSurfer load error:', err);
+                    this.tryLoadAndPlayFromDisk(clip);
                 });
-            }).catch((err: any) => {
-                console.error("WaveSurfer load error:", err);
-                this.tryLoadAndPlayFromDisk(clip);
-            });
             return;
         }
 
@@ -1964,20 +2258,33 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     async tryLoadAndPlayFromDisk(clip: AudioClip) {
-        if ((clip.audioFileName || clip['localFilePath']) && (window as any).electron) {
+        if (
+            (clip.audioFileName || clip['localFilePath']) &&
+            (window as any).electron
+        ) {
             const success = await this.loadLocalAudioContent(clip);
             if (success && clip.rawUrl) {
-                let playUrl = clip.rawUrl.startsWith('file://') ? `${clip.rawUrl}?t=${Date.now()}` : clip.rawUrl;
+                let playUrl = clip.rawUrl.startsWith('file://')
+                    ? `${clip.rawUrl}?t=${Date.now()}`
+                    : clip.rawUrl;
                 playUrl = playUrl.replace('media://', 'mediacors://');
-                this.wavesurfer.load(playUrl).then(() => {
-                    this.wavesurfer.play().catch((err: any) => {
-                        console.error("WaveSurfer Local play error:", err);
-                        this.toastr.error('Trình duyệt chặn Autoplay hoặc lỗi phát audio.', 'Bị chặn phát audio');
+                this.wavesurfer
+                    .load(playUrl)
+                    .then(() => {
+                        this.wavesurfer.play().catch((err: any) => {
+                            console.error('WaveSurfer Local play error:', err);
+                            this.toastr.error(
+                                'Trình duyệt chặn Autoplay hoặc lỗi phát audio.',
+                                'Bị chặn phát audio',
+                            );
+                        });
+                    })
+                    .catch((err: any) => {
+                        console.error('WaveSurfer Local load error:', err);
+                        this.toastr.error(
+                            'Không thể tải file audio này vào trình phát.',
+                        );
                     });
-                }).catch((err: any) => {
-                    console.error("WaveSurfer Local load error:", err);
-                    this.toastr.error('Không thể tải file audio này vào trình phát.');
-                });
             } else {
                 if (this.wavesurfer) {
                     this.wavesurfer.empty();
@@ -1985,7 +2292,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.toastr.error('Không tìm thấy file audio trên máy.');
             }
         } else {
-            this.toastr.warning('Đoạn này chưa có file audio. Vui lòng bấm "Tạo giọng đọc".');
+            this.toastr.warning(
+                'Đoạn này chưa có file audio. Vui lòng bấm "Tạo giọng đọc".',
+            );
         }
     }
 
@@ -2071,7 +2380,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const processPath = (filePath: string) => {
             if (!filePath) return null;
-            if (filePath.startsWith('http') || filePath.startsWith('data:') || filePath.startsWith('blob:')) return filePath;
+            if (
+                filePath.startsWith('http') ||
+                filePath.startsWith('data:') ||
+                filePath.startsWith('blob:')
+            )
+                return filePath;
             // Extract filename
             const filename = filePath.split(/[/\\]/).pop();
             mediaPaths.push(filePath);
@@ -2087,15 +2401,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             aspectRatio: this.aspectRatio,
             maxDuration: this.maxDuration,
             videoProject: null,
-            clips: []
+            clips: [],
         };
 
         // Clone videoProject to avoid modifying the current state
         if (this.videoProject) {
-            exportData.videoProject = JSON.parse(JSON.stringify(this.videoProject));
+            exportData.videoProject = JSON.parse(
+                JSON.stringify(this.videoProject),
+            );
 
             // Đảm bảo lấy danh sách nhân vật mới nhất từ localStorage casting_list_${this.uuid}
-            const localCharacters = this.multiAccountService.getItem(`casting_list_${this.uuid}`);
+            const localCharacters = this.multiAccountService.getItem(
+                `casting_list_${this.uuid}`,
+            );
             if (localCharacters) {
                 exportData.videoProject.characters = localCharacters;
             }
@@ -2104,10 +2422,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             if (exportData.videoProject.scenes) {
                 exportData.videoProject.scenes.forEach((scene: any) => {
                     if (scene.audioLocalPath) {
-                        scene.audioLocalPath = processPath(scene.audioLocalPath);
+                        scene.audioLocalPath = processPath(
+                            scene.audioLocalPath,
+                        );
                     }
                     if (scene.customVideoPath) {
-                        scene.customVideoPath = processPath(scene.customVideoPath);
+                        scene.customVideoPath = processPath(
+                            scene.customVideoPath,
+                        );
                     }
                     if (scene.imageUrl) {
                         scene.imageUrl = processPath(scene.imageUrl);
@@ -2124,7 +2446,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                                 video.videoUrl = processPath(video.videoUrl);
                             }
                             if (video.customVideoPath) {
-                                video.customVideoPath = processPath(video.customVideoPath);
+                                video.customVideoPath = processPath(
+                                    video.customVideoPath,
+                                );
                             }
                         });
                     }
@@ -2137,20 +2461,26 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         char.avatarUrl = processPath(char.avatarUrl);
                     }
                     if (char.avatarUrls && Array.isArray(char.avatarUrls)) {
-                        char.avatarUrls = char.avatarUrls.map((url: string) => processPath(url));
+                        char.avatarUrls = char.avatarUrls.map((url: string) =>
+                            processPath(url),
+                        );
                     }
                 });
             }
             // Xử lý hình ảnh nhân vật trong existingCharacters (nếu có)
             if (exportData.videoProject.existingCharacters) {
-                exportData.videoProject.existingCharacters.forEach((char: any) => {
-                    if (char.avatarUrl) {
-                        char.avatarUrl = processPath(char.avatarUrl);
-                    }
-                    if (char.avatarUrls && Array.isArray(char.avatarUrls)) {
-                        char.avatarUrls = char.avatarUrls.map((url: string) => processPath(url));
-                    }
-                });
+                exportData.videoProject.existingCharacters.forEach(
+                    (char: any) => {
+                        if (char.avatarUrl) {
+                            char.avatarUrl = processPath(char.avatarUrl);
+                        }
+                        if (char.avatarUrls && Array.isArray(char.avatarUrls)) {
+                            char.avatarUrls = char.avatarUrls.map(
+                                (url: string) => processPath(url),
+                            );
+                        }
+                    },
+                );
             }
         }
 
@@ -2171,13 +2501,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.toastr.info('Đang đóng gói dự án...', 'Export');
         try {
-            const res = await (window as any).electron.invoke('export-project', {
-                projectJSON: jsonStr,
-                mediaPaths,
-                username: this.user?.name || 'admin'
-            });
+            const res = await (window as any).electron.invoke(
+                'export-project',
+                {
+                    projectJSON: jsonStr,
+                    mediaPaths,
+                    username: this.user?.name || 'admin',
+                },
+            );
             if (res.success) {
-                this.toastr.success(`Đã xuất thành công: ${res.filePath}`, 'Export');
+                this.toastr.success(
+                    `Đã xuất thành công: ${res.filePath}`,
+                    'Export',
+                );
             } else if (!res.canceled) {
                 this.toastr.error(`Lỗi xuất dự án: ${res.error}`, 'Export');
             }
@@ -2189,10 +2525,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     async importProject() {
         try {
-            const res = await (window as any).electron.invoke('import-project', {
-                currentUuid: this.uuid,
-                username: this.user?.name || 'admin'
-            });
+            const res = await (window as any).electron.invoke(
+                'import-project',
+                {
+                    currentUuid: this.uuid,
+                    username: this.user?.name || 'admin',
+                },
+            );
 
             if (res.success) {
                 this.toastr.info('Đang nạp dự án...', 'Import');
@@ -2200,7 +2539,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // Kiểm tra xem kịch bản này đã từng tồn tại trong chương trình chưa
                 const storageKey = `${this.STORAGE_AUDIO_KEY}_${res.targetUuid}`;
-                const isExistingScenario = !!this.multiAccountService.getItem(storageKey);
+                const isExistingScenario =
+                    !!this.multiAccountService.getItem(storageKey);
 
                 // Cập nhật UUID nếu đây là một kịch bản mới/khác kịch bản hiện tại
                 if (res.isNewScenario && res.targetUuid) {
@@ -2208,16 +2548,24 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 if (data.title) this.projectTitle = data.title;
-                if (data.extraPrompt !== undefined) this.extraPrompt = data.extraPrompt;
-                if (data.videoFormat !== undefined) this.videoFormat = data.videoFormat;
-                if (data.aspectRatio !== undefined) this.aspectRatio = data.aspectRatio;
-                if (data.maxDuration !== undefined) this.maxDuration = data.maxDuration === 8 ? 0 : data.maxDuration;
+                if (data.extraPrompt !== undefined)
+                    this.extraPrompt = data.extraPrompt;
+                if (data.videoFormat !== undefined)
+                    this.videoFormat = data.videoFormat;
+                if (data.aspectRatio !== undefined)
+                    this.aspectRatio = data.aspectRatio;
+                if (data.maxDuration !== undefined)
+                    this.maxDuration =
+                        data.maxDuration === 8 ? 0 : data.maxDuration;
 
                 if (data.videoProject) {
                     this.videoProject = data.videoProject;
                     // Đồng bộ hóa danh sách nhân vật vào localStorage casting_list_${this.uuid}
                     if (this.videoProject.characters) {
-                        this.multiAccountService.setItem(`casting_list_${this.uuid}`, this.videoProject.characters);
+                        this.multiAccountService.setItem(
+                            `casting_list_${this.uuid}`,
+                            this.videoProject.characters,
+                        );
                     }
                 }
 
@@ -2230,20 +2578,24 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     isExistingScenario
                         ? `Đã cập nhật dữ liệu kịch bản: ${this.projectTitle}`
                         : `Đã nhập thành kịch bản mới: ${this.projectTitle}`,
-                    'Import'
+                    'Import',
                 );
 
                 if (res.isNewScenario && res.targetUuid) {
                     // Chuyển hướng sang route mới của kịch bản mới vừa import
-                    const routeName = this.currentName || this.user?.name || 'admin';
-                    this.router.navigate(['/voice2video', routeName, res.targetUuid]);
+                    const routeName =
+                        this.currentName || this.user?.name || 'admin';
+                    this.router.navigate([
+                        '/voice2video',
+                        routeName,
+                        res.targetUuid,
+                    ]);
                 } else {
                     // Cần load lại Audio Content từ disk vào thẻ <audio>
                     setTimeout(() => {
                         this.loadAudiosFromLocal(this.uuid);
                     }, 500);
                 }
-
             } else if (!res.canceled) {
                 this.toastr.error(`Lỗi nhập dự án: ${res.error}`, 'Import');
             }
@@ -2260,14 +2612,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         clip.description = clip.tempDescription.trim();
         // Cập nhật lại clip.name để hiển thị bản tóm tắt
-        clip.name = clip.description.length > 50 ? clip.description.substring(0, 50) + '...' : clip.description;
+        clip.name =
+            clip.description.length > 50
+                ? clip.description.substring(0, 50) + '...'
+                : clip.description;
         clip.isEditing = false;
 
         // Cập nhật subtitle trong videoProject nếu có liên kết
         if (this.videoProject && this.videoProject.scenes) {
             for (let scene of this.videoProject.scenes) {
                 if (scene.subtitles) {
-                    let sub = scene.subtitles.find((s: any) => s.id === clip.id);
+                    let sub = scene.subtitles.find(
+                        (s: any) => s.id === clip.id,
+                    );
                     if (sub) {
                         sub.text = clip.description;
                     }
@@ -2292,13 +2649,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (!this.uuid) return;
 
         // Nếu có bản gốc (được nạp từ Server bằng hàm detail) thì lấy làm cơ sở
-        let data = this.originalArchiveData ? { ...this.originalArchiveData } : {
-            uuid: this.uuid,
-            title: this.projectTitle
-        };
+        let data = this.originalArchiveData
+            ? { ...this.originalArchiveData }
+            : {
+                  uuid: this.uuid,
+                  title: this.projectTitle,
+              };
 
         // Ghi đè các trường quan trọng
-        data.done = this.audioList.map(clip => `<p>${clip.description}</p>`);
+        data.done = this.audioList.map((clip) => `<p>${clip.description}</p>`);
         data.confirm = confirm;
         data.username = this.user?.name;
 
@@ -2319,7 +2678,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     // Không cần thông báo thành công ở đây vì saveClipEdit đã thông báo rồi
                     // Để phòng hờ có thể thêm 1 thông báo nhỏ:
                     // this.toastr.info('Đã đồng bộ nội dung lên Server');
-                }
+                },
             });
     }
 
@@ -2351,7 +2710,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             0,
         );
     }
-
 
     async createImgWithDreamina(url: string, prompt: string) {
         this.copy(prompt);
@@ -2391,7 +2749,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         let count = 0;
         for (let i = 1; i < this.audioList.length; i++) {
             const clip = this.audioList[i];
-            if (!clip.file) { // Chỉ áp dụng cho clip text
+            if (!clip.file) {
+                // Chỉ áp dụng cho clip text
                 if (voice) clip.voice = voice;
                 if (rate !== undefined) clip.rate = rate;
                 if (pitch !== undefined) clip.pitch = pitch;
@@ -2401,7 +2760,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (count > 0) {
             this.saveToLocal(); // Lưu vào IndexedDB ngay
-            this.toastr.success(`Đã đồng bộ cấu hình xuống ${count} clips thành công!`);
+            this.toastr.success(
+                `Đã đồng bộ cấu hình xuống ${count} clips thành công!`,
+            );
             this.cd.markForCheck();
         }
     }
@@ -2420,32 +2781,42 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 },
                 error: (e: any) => {
                     this.toastr.warning('Tải dữ liệu bài viết thất bại.');
-                }
+                },
             });
     }
 
     processDetailResult(result: any, uuid: string, isReload: boolean) {
         if (result && result.data) {
             // Kiểm tra và giải mã dữ liệu nếu bài viết bị mã hóa
-            const isEncrypted = result.data.is_encrypted || (result.data.source && result.data.source.encrypted) || result.data.cipher;
+            const isEncrypted =
+                result.data.is_encrypted ||
+                (result.data.source && result.data.source.encrypted) ||
+                result.data.cipher;
             const cipher = result.data.cipher || result.data.source?.cipher;
-            const masterCipher = result.data.master_cipher || result.data.source?.master_cipher;
+            const masterCipher =
+                result.data.master_cipher || result.data.source?.master_cipher;
 
             if (isEncrypted && (cipher || masterCipher)) {
                 let password = '';
-                const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
+                const token = sessionStorage.getItem(
+                    'nav_handshake_pwd_' + uuid,
+                );
                 if (token) {
                     try {
                         const parsedToken = JSON.parse(token);
                         if (parsedToken && parsedToken.password) {
                             password = parsedToken.password;
                         }
-                    } catch (e) { }
+                    } catch (e) {}
                 }
 
                 if (password || isEncrypted) {
                     try {
-                        const decryptedText = tryDecryptWithMasterFallback(cipher, password, masterCipher);
+                        const decryptedText = tryDecryptWithMasterFallback(
+                            cipher,
+                            password,
+                            masterCipher,
+                        );
                         if (decryptedText && decryptedText !== 'VALID') {
                             let decryptedPayload: any = null;
                             try {
@@ -2456,19 +2827,30 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                             if (decryptedPayload) {
                                 if (typeof decryptedPayload === 'object') {
-                                    if (decryptedPayload.done && Array.isArray(decryptedPayload.done) && decryptedPayload.done.length > 0) {
-                                        result.data.done = decryptedPayload.done;
+                                    if (
+                                        decryptedPayload.done &&
+                                        Array.isArray(decryptedPayload.done) &&
+                                        decryptedPayload.done.length > 0
+                                    ) {
+                                        result.data.done =
+                                            decryptedPayload.done;
                                     }
                                     if (decryptedPayload.title) {
-                                        result.data.title = decryptedPayload.title;
+                                        result.data.title =
+                                            decryptedPayload.title;
                                     }
-                                } else if (typeof decryptedPayload === 'string') {
+                                } else if (
+                                    typeof decryptedPayload === 'string'
+                                ) {
                                     result.data.done = [decryptedPayload];
                                 }
                             }
                         }
                     } catch (e) {
-                        console.error('Lỗi giải mã bài viết trong processDetailResult:', e);
+                        console.error(
+                            'Lỗi giải mã bài viết trong processDetailResult:',
+                            e,
+                        );
                     }
                 }
             }
@@ -2481,60 +2863,67 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     );
                 }
 
-            // Lưu lại danh sách cũ để đối chiếu
-            const oldAudioList = this.audioList || [];
+                // Lưu lại danh sách cũ để đối chiếu
+                const oldAudioList = this.audioList || [];
 
-            // Lưu lại bản gốc từ server để có thể update() lên lại
-            this.originalArchiveData = JSON.parse(JSON.stringify(result.data));
+                // Lưu lại bản gốc từ server để có thể update() lên lại
+                this.originalArchiveData = JSON.parse(
+                    JSON.stringify(result.data),
+                );
 
-            this.audioList = result.data.done.map(
-                (htmlItem: any, index: number) => {
-                                let cleanText = this.removeHTML.transform(htmlItem);
-                                if (cleanText) {
-                                    const doc = new DOMParser().parseFromString(cleanText, 'text/html');
-                                    cleanText = doc.documentElement.textContent || cleanText;
-                                }
-
-                                const shortName = cleanText.length > 50
-                                    ? cleanText.substring(0, 50) + '...'
-                                    : cleanText;
-
-                                // Nếu đang Reload VÀ vị trí này đã có clip cũ -> Giữ nguyên file, đắp text mới
-                                if (isReload && index < oldAudioList.length) {
-                                    const oldClip = oldAudioList[index];
-                                    return {
-                                        ...oldClip,             // Giữ nguyên url, audioFileName, duration, ID, voice...
-                                        description: cleanText, // Ghi đè text thoại mới
-                                        name: shortName         // Ghi đè tiêu đề mới
-                                    };
-                                }
-
-                                // Nếu tạo mới (hoặc đoạn văn mới được thêm vào từ Server)
-                                return {
-                                    id: this.generateId(),
-                                    name: shortName,
-                                    duration: 0,
-                                    description: cleanText,
-                                    isProcessing: false,
-                                    voice: 'vi-VN-NamMinhNeural',
-                                    rate: 1.0,
-                                    pitch: 0,
-                                    prompt: '',
-                                };
-                            },
-                        );
-
-                        this.calculateTotalDuration();
-                        this.syncSettingsFromFirst(); // [MỚI] Tự động đồng bộ cài đặt từ clip đầu tiên
-
-                        // Lưu đè lại Storage (Lúc này Storage đã chứa Text mới + Link Audio cũ)
-                        this.saveToLocal(uuid);
-                        this.cd.markForCheck();
-
-                        if (isReload) {
-                            this.toastr.success('Đã cập nhật văn bản mới thành công!');
+                this.audioList = result.data.done.map(
+                    (htmlItem: any, index: number) => {
+                        let cleanText = this.removeHTML.transform(htmlItem);
+                        if (cleanText) {
+                            const doc = new DOMParser().parseFromString(
+                                cleanText,
+                                'text/html',
+                            );
+                            cleanText =
+                                doc.documentElement.textContent || cleanText;
                         }
-                    }
+
+                        const shortName =
+                            cleanText.length > 50
+                                ? cleanText.substring(0, 50) + '...'
+                                : cleanText;
+
+                        // Nếu đang Reload VÀ vị trí này đã có clip cũ -> Giữ nguyên file, đắp text mới
+                        if (isReload && index < oldAudioList.length) {
+                            const oldClip = oldAudioList[index];
+                            return {
+                                ...oldClip, // Giữ nguyên url, audioFileName, duration, ID, voice...
+                                description: cleanText, // Ghi đè text thoại mới
+                                name: shortName, // Ghi đè tiêu đề mới
+                            };
+                        }
+
+                        // Nếu tạo mới (hoặc đoạn văn mới được thêm vào từ Server)
+                        return {
+                            id: this.generateId(),
+                            name: shortName,
+                            duration: 0,
+                            description: cleanText,
+                            isProcessing: false,
+                            voice: 'vi-VN-NamMinhNeural',
+                            rate: 1.0,
+                            pitch: 0,
+                            prompt: '',
+                        };
+                    },
+                );
+
+                this.calculateTotalDuration();
+                this.syncSettingsFromFirst(); // [MỚI] Tự động đồng bộ cài đặt từ clip đầu tiên
+
+                // Lưu đè lại Storage (Lúc này Storage đã chứa Text mới + Link Audio cũ)
+                this.saveToLocal(uuid);
+                this.cd.markForCheck();
+
+                if (isReload) {
+                    this.toastr.success('Đã cập nhật văn bản mới thành công!');
+                }
+            }
         }
     }
 
@@ -2571,8 +2960,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         try {
             const newClips = await Promise.all(promises);
-            if (this.selectedAudioIndex !== -1 && this.selectedAudioIndex < this.audioList.length) {
-                this.audioList.splice(this.selectedAudioIndex + 1, 0, ...newClips);
+            if (
+                this.selectedAudioIndex !== -1 &&
+                this.selectedAudioIndex < this.audioList.length
+            ) {
+                this.audioList.splice(
+                    this.selectedAudioIndex + 1,
+                    0,
+                    ...newClips,
+                );
                 this.audioList = [...this.audioList];
             } else {
                 this.audioList = [...this.audioList, ...newClips];
@@ -2583,7 +2979,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.update(false);
             this.cd.markForCheck();
             this.toastr.success(`Đã thêm ${newClips.length} files.`);
-        } catch (err) { }
+        } catch (err) {}
     }
 
     addEmptyClip() {
@@ -2597,9 +2993,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             rate: 1.0,
             pitch: 0,
             isEditing: true, // Auto open edit mode
-            tempDescription: ''
+            tempDescription: '',
         };
-        if (this.selectedAudioIndex !== -1 && this.selectedAudioIndex < this.audioList.length) {
+        if (
+            this.selectedAudioIndex !== -1 &&
+            this.selectedAudioIndex < this.audioList.length
+        ) {
             this.audioList.splice(this.selectedAudioIndex + 1, 0, newClip);
             this.audioList = [...this.audioList];
         } else {
@@ -2615,7 +3014,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (!text) return [];
 
         // Thêm khoảng trắng sau dấu câu nếu bị dính liền (ví dụ: "có.Power" -> "có. Power")
-        text = text.replace(/([.!?])([A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴEÈÉẸẺẼÊỀẾỆỂỄIÌÍỊỈĨOÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠUÙÚỤỦŨƯỪỨỰỬỮYỲÝỴỶỸĐ])/g, '$1 $2');
+        text = text.replace(
+            /([.!?])([A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴEÈÉẸẺẼÊỀẾỆỂỄIÌÍỊỈĨOÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠUÙÚỤỦŨƯỪỨỰỬỮYỲÝỴỶỸĐ])/g,
+            '$1 $2',
+        );
 
         // Tách theo dấu . ! ? hoặc xuống dòng (giữ lại dấu câu)
         const sentences = text
@@ -2643,14 +3045,22 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // Nếu câu dài hơn maxLength, tách theo dấu phẩy, chấm phẩy
                 const parts = sentence
                     .split(/([,;]+(?:\s+|$))/)
-                    .reduce((acc: string[], val: string, i: number, arr: string[]) => {
-                        if (i % 2 === 0) {
-                            const next = arr[i + 1] || '';
-                            const combined = (val + next).trim();
-                            if (combined) acc.push(combined);
-                        }
-                        return acc;
-                    }, []);
+                    .reduce(
+                        (
+                            acc: string[],
+                            val: string,
+                            i: number,
+                            arr: string[],
+                        ) => {
+                            if (i % 2 === 0) {
+                                const next = arr[i + 1] || '';
+                                const combined = (val + next).trim();
+                                if (combined) acc.push(combined);
+                            }
+                            return acc;
+                        },
+                        [],
+                    );
 
                 let currentPart = '';
                 for (const part of parts) {
@@ -2662,7 +3072,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             const words = part.split(' ');
                             let tempWord = '';
                             for (const word of words) {
-                                if ((tempWord + ' ' + word).trim().length <= maxLength) {
+                                if (
+                                    (tempWord + ' ' + word).trim().length <=
+                                    maxLength
+                                ) {
                                     tempWord = (tempWord + ' ' + word).trim();
                                 } else {
                                     if (tempWord) result.push(tempWord);
@@ -2683,18 +3096,18 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     splitClip(clip: any, index: number) {
         if (!clip.description) {
-            this.toastr.warning("Đoạn văn trống, không thể chia nhỏ.");
+            this.toastr.warning('Đoạn văn trống, không thể chia nhỏ.');
             return;
         }
 
         const parts = this.splitClipText(clip.description, 300);
 
         if (parts.length <= 1) {
-            this.toastr.info("Đoạn văn này đã đủ ngắn, không cần chia nhỏ.");
+            this.toastr.info('Đoạn văn này đã đủ ngắn, không cần chia nhỏ.');
             return;
         }
 
-        const newClips = parts.map(part => {
+        const newClips = parts.map((part) => {
             return {
                 ...clip,
                 id: this.generateId(),
@@ -2705,7 +3118,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 localFilePath: null,
                 duration: 0,
                 tempDescription: part,
-                isEditing: false
+                isEditing: false,
             };
         });
 
@@ -2797,7 +3210,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.secretKey = this.settings.secretKey
                     ? this.settings.secretKey.split(';')
                     : undefined;
-            } catch { }
+            } catch {}
         }
 
         this._fuseConfigService.config$
@@ -2809,17 +3222,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
             });
     }
 
     ngOnInit(): void {
-        this.saveSubject.pipe(
-            debounceTime(2500),
-            takeUntil(this._unsubscribeAll)
-        ).subscribe((uuid) => {
-            this.saveToLocal(uuid);
-        });
+        this.saveSubject
+            .pipe(debounceTime(2500), takeUntil(this._unsubscribeAll))
+            .subscribe((uuid) => {
+                this.saveToLocal(uuid);
+            });
 
         let settings = this.multiAccountService.getItem('settings');
         if (settings) {
@@ -2849,27 +3260,34 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.verifyAndLoadProject(this.uuid, name);
 
                 // Lắng nghe yêu cầu sửa kịch bản từ NodeEditorComponent
-                this.route.queryParams.pipe(takeUntil(this._unsubscribeAll)).subscribe(qParams => {
-                    if (qParams['action'] === 'edit-script') {
-                        setTimeout(() => {
-                            if (this.audioList && this.audioList.length > 0) {
-                                this.openVideoSettings();
-                            } else {
-                                // Thử lại sau nếu audioList chưa kịp load
-                                setTimeout(() => this.openVideoSettings(), 1000);
-                            }
-                            
-                            // Xóa query param để không bị lặp lại nếu f5
-                            this.router.navigate([], {
-                                queryParams: {
-                                  'action': null,
-                                },
-                                queryParamsHandling: 'merge'
-                              });
-                        }, 500);
-                    }
-                });
+                this.route.queryParams
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe((qParams) => {
+                        if (qParams['action'] === 'edit-script') {
+                            setTimeout(() => {
+                                if (
+                                    this.audioList &&
+                                    this.audioList.length > 0
+                                ) {
+                                    this.openVideoSettings();
+                                } else {
+                                    // Thử lại sau nếu audioList chưa kịp load
+                                    setTimeout(
+                                        () => this.openVideoSettings(),
+                                        1000,
+                                    );
+                                }
 
+                                // Xóa query param để không bị lặp lại nếu f5
+                                this.router.navigate([], {
+                                    queryParams: {
+                                        action: null,
+                                    },
+                                    queryParamsHandling: 'merge',
+                                });
+                            }, 500);
+                        }
+                    });
             } else {
                 this.router.navigate(['/tools']);
             }
@@ -2894,22 +3312,29 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const localData = this.multiAccountService.getItem(storageKey);
 
         // 3. Gọi API detail để kiểm tra trạng thái is_encrypted chính xác nhất
-        this._crawlService.detail({ uuid: uuid, username: name }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: (res: any) => {
-                const artData = res?.data || localData;
-                this.executeLoadProject(uuid, name, res);
-            },
-            error: (err) => {
-                this.executeLoadProject(uuid, name);
-            }
-        });
+        this._crawlService
+            .detail({ uuid: uuid, username: name })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (res: any) => {
+                    const artData = res?.data || localData;
+                    this.executeLoadProject(uuid, name, res);
+                },
+                error: (err) => {
+                    this.executeLoadProject(uuid, name);
+                },
+            });
     }
 
     executeLoadProject(uuid: string, name: string, detailRes?: any) {
         const hasAudioLocal = this.loadAudiosFromLocal(uuid);
-        const isEncryptedPlaceholder = this.audioList && this.audioList.some(clip =>
-            clip.description && clip.description.includes('NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA')
-        );
+        const isEncryptedPlaceholder =
+            this.audioList &&
+            this.audioList.some(
+                (clip) =>
+                    clip.description &&
+                    clip.description.includes('NỘI DUNG ĐÃ ĐƯỢC MÃ HÓA'),
+            );
 
         if (!hasAudioLocal || isEncryptedPlaceholder) {
             if (detailRes) {

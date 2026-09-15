@@ -1,11 +1,20 @@
-import { Component, OnDestroy, OnInit, signal, AfterViewInit, ChangeDetectorRef, NgZone } from '@angular/core';
-import { TranslocoService } from '@ngneat/transloco';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    signal,
+    AfterViewInit,
+    ChangeDetectorRef,
+    NgZone,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+import { TranslocoService } from '@jsverse/transloco';
 import { NavigationEnd, Router } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { AppTitleService } from 'app/core/services/app-title.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AuthUtils } from 'app/core/auth/auth.utils';
-import { DeviceUUID } from "device-uuid";
+import { DeviceUUID } from 'device-uuid';
 import { UserService } from './core/user/user.service';
 import { Subject, takeUntil, take, filter } from 'rxjs';
 import { User } from './core/user/user.types';
@@ -20,7 +29,9 @@ import { FontService } from './_services/font.service';
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.scss'],
-    providers: [LicenseKeyService]
+    providers: [LicenseKeyService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     user: User;
@@ -39,7 +50,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     // ===== UI Gemini Popup State =====
     isWebviewVisible = false;
     popupTitle = 'Gemini';
-    popupFavicon = 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64';
+    popupFavicon =
+        'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64';
 
     // Toggle webview: ẩn/hiện nhanh
     toggleWebview() {
@@ -48,46 +60,57 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Nút quay lại trang trước trong webview
     webviewGoBack() {
-        const webview: any = document.querySelector('#webview-container-div webview');
-        if (webview && typeof webview.goBack === 'function' && webview.canGoBack()) {
+        const webview: any = document.querySelector(
+            '#webview-container-div webview',
+        );
+        if (
+            webview &&
+            typeof webview.goBack === 'function' &&
+            webview.canGoBack()
+        ) {
             webview.goBack();
         }
     }
 
-
     // ===============================
 
     updateTime(): void {
-
         let activeInfo = this.multiAccountService.getItem('active_info');
 
         if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
-            const isLicenseKeyExpired = AuthUtils.isLicenseKeyExpired(activeInfo);
+            const isLicenseKeyExpired =
+                AuthUtils.isLicenseKeyExpired(activeInfo);
             // this.checkActiveInfo = AuthUtils._verifyActiveInfo(activeInfo, this.uuid);
 
             if (isLicenseKeyExpired === true) {
                 this.router.navigate(['/settings'], {
                     queryParams: {
-                        tab: 'active'
-                    }
+                        tab: 'active',
+                    },
                 });
-                this._translocoService.selectTranslate('app.software_expired').pipe(take(1)).subscribe(t => this.error(t));
+                this._translocoService
+                    .selectTranslate('app.software_expired')
+                    .pipe(take(1))
+                    .subscribe((t) => this.error(t));
             } else {
                 // Phần mềm đã được kích hoạt
                 if (this.intervalId) {
                     clearInterval(this.intervalId);
                 }
-                
+
                 // Tự động đồng bộ với server để lấy trạng thái mới nhất
                 this.syncActiveInfo(activeInfo);
             }
         } else {
             this.router.navigate(['/settings'], {
                 queryParams: {
-                    tab: 'active'
-                }
+                    tab: 'active',
+                },
             });
-            this._translocoService.selectTranslate('app.software_not_activated').pipe(take(1)).subscribe(t => this.error(t));
+            this._translocoService
+                .selectTranslate('app.software_not_activated')
+                .pipe(take(1))
+                .subscribe((t) => this.error(t));
         }
     }
 
@@ -99,12 +122,20 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         if (this.isSyncingLicense) return;
 
         const activeInfoObj = AuthUtils._getActiveInfo(activeInfoStr);
-        if (!activeInfoObj || !activeInfoObj.user || !activeInfoObj.user.licenseKey) return;
+        if (
+            !activeInfoObj ||
+            !activeInfoObj.user ||
+            !activeInfoObj.user.licenseKey
+        )
+            return;
         if (!this.user || !this.user.name) return;
 
         const now = Date.now();
         // Tránh gọi trùng lặp API activate liên tục cho cùng 1 user trong vòng 10 giây
-        if (this.lastSyncUser === this.user.name && (now - this.lastSyncTime) < 10000) {
+        if (
+            this.lastSyncUser === this.user.name &&
+            now - this.lastSyncTime < 10000
+        ) {
             return;
         }
 
@@ -113,38 +144,59 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         this.lastSyncTime = now;
 
         const du = new DeviceUUID().parse();
-        this._licenseKeyService.activate({
-            username: this.user.name,
-            email: this.user.email,
-            machine: {
-                uuid: this.uuid,
-                du: du
-            },
-            licensekey: activeInfoObj.user.licenseKey
-        })
-        .pipe(take(1))
-        .subscribe({
-            next: async (result) => {
-                this.isSyncingLicense = false;
-                if (result && result.success && result.data) {
-                    const newActiveInfo = AuthUtils._generateActiveInfo(result.data, this.uuid);
-                    if (newActiveInfo) {
-                        await this.multiAccountService.setItem('active_info', newActiveInfo);
-                        if ((window as any).electron) {
-                            await (window as any).electron.invoke('register-license', newActiveInfo);
+        this._licenseKeyService
+            .activate({
+                username: this.user.name,
+                email: this.user.email,
+                machine: {
+                    uuid: this.uuid,
+                    du: du,
+                },
+                licensekey: activeInfoObj.user.licenseKey,
+            })
+            .pipe(take(1))
+            .subscribe({
+                next: async (result) => {
+                    this.isSyncingLicense = false;
+                    if (result && result.success && result.data) {
+                        const newActiveInfo = AuthUtils._generateActiveInfo(
+                            result.data,
+                            this.uuid,
+                        );
+                        if (newActiveInfo) {
+                            await this.multiAccountService.setItem(
+                                'active_info',
+                                newActiveInfo,
+                            );
+                            if ((window as any).electron) {
+                                await (window as any).electron.invoke(
+                                    'register-license',
+                                    newActiveInfo,
+                                );
+                            }
                         }
+                    } else if (
+                        result &&
+                        result.success === false &&
+                        result.status === 403
+                    ) {
+                        // Key trên server đã bị xóa hoặc không hợp lệ -> Xóa bộ nhớ tạm và bắt nhập lại
+                        await this.multiAccountService.removeItem(
+                            'active_info',
+                        );
+                        this.router.navigate(['/settings'], {
+                            queryParams: { tab: 'active' },
+                        });
+                        this._translocoService
+                            .selectTranslate('app.software_not_activated')
+                            .pipe(take(1))
+                            .subscribe((t) => this.error(t));
                     }
-                } else if (result && result.success === false && result.status === 403) {
-                    // Key trên server đã bị xóa hoặc không hợp lệ -> Xóa bộ nhớ tạm và bắt nhập lại
-                    await this.multiAccountService.removeItem('active_info');
-                    this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
-                    this._translocoService.selectTranslate('app.software_not_activated').pipe(take(1)).subscribe(t => this.error(t));
-                }
-            },
-            error: (err) => {
-                this.isSyncingLicense = false;
-            }
-        });
+                },
+                error: (err) => {
+                    this.isSyncingLicense = false;
+                },
+            });
     }
 
     /**
@@ -162,10 +214,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private _translocoService: TranslocoService,
         private _licenseKeyService: LicenseKeyService,
         private _fontService: FontService,
-        private _titleService: Title
+        private _titleService: Title,
     ) {
         // kiểm tra settings và khởi tạo
-        this.multiAccountService.loadActiveAccount().then(data => {
+        this.multiAccountService.loadActiveAccount().then((data) => {
             const groups = data?.user?.groups;
             if (groups && groups.length === 0) {
                 this.multiAccountService.clearCurrentAccountData();
@@ -213,12 +265,14 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         // Lắng nghe sự kiện chuyển trang để cập nhật tiêu đề chuẩn cho Window
         this.router.events
             .pipe(
-                filter(event => event instanceof NavigationEnd),
-                takeUntil(this._unsubscribeAll)
+                filter((event) => event instanceof NavigationEnd),
+                takeUntil(this._unsubscribeAll),
             )
             .subscribe((event: any) => {
                 if (this._titleService instanceof AppTitleService) {
-                    this._titleService.handleRouteChange(event.urlAfterRedirects || event.url);
+                    this._titleService.handleRouteChange(
+                        event.urlAfterRedirects || event.url,
+                    );
                 }
             });
 
@@ -226,7 +280,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         this._fontService.initFontSystem();
 
         // Xoá CSS variable gây lỗi co rút các Dialog của Angular Material (luôn set 100vw)
-        document.documentElement.style.setProperty('--main-pane-width', '100vw');
+        document.documentElement.style.setProperty(
+            '--main-pane-width',
+            '100vw',
+        );
 
         // 2. Thiết lập bộ đếm (Timer)
         this.intervalId = setInterval(() => {
@@ -252,8 +309,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
             // Lắng nghe lệnh force-renewal từ main.js
             (window as any).electron.onForceRenewal(() => {
-                this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
-                this._translocoService.selectTranslate('app.software_expired').pipe(take(1)).subscribe(t => this.error(t));
+                this.router.navigate(['/settings'], {
+                    queryParams: { tab: 'active' },
+                });
+                this._translocoService
+                    .selectTranslate('app.software_expired')
+                    .pipe(take(1))
+                    .subscribe((t) => this.error(t));
             });
 
             (window as any).electron.onToolsResponse((data: any) => {
@@ -292,13 +354,18 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.isWebviewVisible = true;
                 this.cdr.detectChanges();
 
-                const webview: any = document.querySelector('#webview-container-div webview');
+                const webview: any = document.querySelector(
+                    '#webview-container-div webview',
+                );
                 if (webview) {
                     const url = 'https://labs.google/fx/tools/flow';
                     const currentUrl = webview.getURL();
-                    
+
                     const injectScript = () => {
-                        const safePrompt = prompt.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                        const safePrompt = prompt
+                            .replace(/\\/g, '\\\\')
+                            .replace(/`/g, '\\`')
+                            .replace(/\$/g, '\\$');
                         webview.executeJavaScript(`
                             setTimeout(() => {
                                 // Google Flow đặt toàn bộ giao diện trong một Iframe bảo mật chéo nguồn (Cross-Origin),
@@ -328,10 +395,16 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
                     if (!currentUrl.includes('labs.google/fx/tools/flow')) {
                         webview.loadURL(url);
-                        webview.addEventListener('did-stop-loading', function handler() {
-                            webview.removeEventListener('did-stop-loading', handler);
-                            injectScript();
-                        });
+                        webview.addEventListener(
+                            'did-stop-loading',
+                            function handler() {
+                                webview.removeEventListener(
+                                    'did-stop-loading',
+                                    handler,
+                                );
+                                injectScript();
+                            },
+                        );
                     } else {
                         injectScript();
                     }
@@ -343,13 +416,17 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         window.addEventListener('open-colab-gpu-bridge', (e: any) => {
             this.isWebviewVisible = true;
             this.popupTitle = 'Google Colab GPU';
-            this.popupFavicon = 'https://colab.research.google.com/img/colab_favicon_256px.png';
+            this.popupFavicon =
+                'https://colab.research.google.com/img/colab_favicon_256px.png';
             this.cdr.detectChanges();
 
-            const webview: any = document.querySelector('#webview-container-div webview') || document.querySelector('webview');
+            const webview: any =
+                document.querySelector('#webview-container-div webview') ||
+                document.querySelector('webview');
             if (webview) {
-                const targetUrl = 'https://colab.research.google.com/#create=true';
-                
+                const targetUrl =
+                    'https://colab.research.google.com/#create=true';
+
                 const pyCode = `# === AI.TYPE GPU BRIDGE AUTO-RUNNER ===
 import os, sys, time, subprocess, json, base64, threading, io, traceback, re
 print("⏳ [ai.type] Đang chuẩn bị môi trường GPU...")
@@ -441,9 +518,12 @@ if tunnel_url:
                 // Sao chép code vào clipboard máy chủ trước
                 try {
                     navigator.clipboard.writeText(pyCode);
-                } catch(e) {}
+                } catch (e) {}
 
-                const safePyCode = pyCode.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                const safePyCode = pyCode
+                    .replace(/\\/g, '\\\\')
+                    .replace(/`/g, '\\`')
+                    .replace(/\$/g, '\\$');
 
                 const injectColabScript = () => {
                     webview.executeJavaScript(`
@@ -549,10 +629,16 @@ if tunnel_url:
                 };
 
                 webview.loadURL(targetUrl);
-                webview.addEventListener('did-stop-loading', function handler() {
-                    webview.removeEventListener('did-stop-loading', handler);
-                    setTimeout(() => injectColabScript(), 2000);
-                });
+                webview.addEventListener(
+                    'did-stop-loading',
+                    function handler() {
+                        webview.removeEventListener(
+                            'did-stop-loading',
+                            handler,
+                        );
+                        setTimeout(() => injectColabScript(), 2000);
+                    },
+                );
             }
         });
 
@@ -567,10 +653,17 @@ if tunnel_url:
 
     setRecordingState(state: boolean) {
         this.isRecordingSystemAudio = state;
-        window.dispatchEvent(new CustomEvent('recording-state-changed', { detail: state }));
+        window.dispatchEvent(
+            new CustomEvent('recording-state-changed', { detail: state }),
+        );
     }
 
-    showMessage(title: string, message: string, iconName: string = 'feather:info', color: string = 'primary') {
+    showMessage(
+        title: string,
+        message: string,
+        iconName: string = 'feather:info',
+        color: string = 'primary',
+    ) {
         if (this.dialogRef) this._fuseConfirmationService.close();
 
         this.dialogRef = this._fuseConfirmationService.open({
@@ -579,20 +672,20 @@ if tunnel_url:
             icon: {
                 show: true,
                 name: iconName,
-                color: color as any
+                color: color as any,
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'primary'
+                    color: 'primary',
                 },
                 cancel: {
                     show: false,
-                    label: ''
-                }
+                    label: '',
+                },
             },
-            dismissible: true
+            dismissible: true,
         });
     }
 
@@ -611,11 +704,16 @@ if tunnel_url:
             await (window as any).electron.invoke('init-system-audio');
 
             // Lấy danh sách các màn hình/cửa sổ đang mở
-            const sources = await (window as any).electron.invoke('desktop-capturer-get-sources', { types: ['window', 'screen'] });
-            
+            const sources = await (window as any).electron.invoke(
+                'desktop-capturer-get-sources',
+                { types: ['window', 'screen'] },
+            );
+
             // Lấy màn hình đầu tiên (thường là màn hình chính)
-            const mainScreen = sources.find((s: any) => s.id.startsWith('screen:'));
-            
+            const mainScreen = sources.find((s: any) =>
+                s.id.startsWith('screen:'),
+            );
+
             if (!mainScreen) {
                 console.error('Không tìm thấy màn hình.');
                 return;
@@ -626,15 +724,15 @@ if tunnel_url:
                 audio: {
                     mandatory: {
                         chromeMediaSource: 'desktop',
-                        chromeMediaSourceId: mainScreen.id
-                    }
+                        chromeMediaSourceId: mainScreen.id,
+                    },
                 } as any,
                 video: {
                     mandatory: {
                         chromeMediaSource: 'desktop',
-                        chromeMediaSourceId: mainScreen.id
-                    }
-                } as any // Bắt buộc phải có cả video thì API desktop capture mới nhả audio
+                        chromeMediaSourceId: mainScreen.id,
+                    },
+                } as any, // Bắt buộc phải có cả video thì API desktop capture mới nhả audio
             });
 
             // Lọc bỏ hình ảnh, chỉ giữ lại kênh âm thanh
@@ -642,9 +740,11 @@ if tunnel_url:
             const audioStream = new MediaStream([audioTrack]);
 
             // Khởi tạo bộ ghi âm
-            this.mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm;codecs=opus' });
+            this.mediaRecorder = new MediaRecorder(audioStream, {
+                mimeType: 'audio/webm;codecs=opus',
+            });
             const audioChunks: Blob[] = [];
-            
+
             this.mediaRecorder.ondataavailable = (e: any) => {
                 if (e.data.size > 0) {
                     audioChunks.push(e.data);
@@ -652,49 +752,80 @@ if tunnel_url:
             };
 
             this.mediaRecorder.onstop = async () => {
-                this.toastr.info('Hệ thống đang dùng Gemini để dịch âm thanh thành văn bản...', 'Đang xử lý');
-                
+                this.toastr.info(
+                    'Hệ thống đang dùng Gemini để dịch âm thanh thành văn bản...',
+                    'Đang xử lý',
+                );
+
                 try {
                     // Gộp tất cả chunk thành 1 cục Blob duy nhất
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+                    const audioBlob = new Blob(audioChunks, {
+                        type: 'audio/webm;codecs=opus',
+                    });
                     const arrayBuffer = await audioBlob.arrayBuffer();
                     const uint8Array = new Uint8Array(arrayBuffer);
 
                     // Gửi MỘT LẦN duy nhất xuống main.js và nhận lại đường dẫn file
-                    const savedAudioPath = await (window as any).electron.invoke('save-system-audio', uint8Array);
+                    const savedAudioPath = await (
+                        window as any
+                    ).electron.invoke('save-system-audio', uint8Array);
 
                     // Lấy API key từ settings
-                    const settings = this.multiAccountService.getItem('settings');
+                    const settings =
+                        this.multiAccountService.getItem('settings');
                     const secretKeyStr = settings?.secretKey || '';
-                    const secretKeys = secretKeyStr ? secretKeyStr.split(';') : [];
-                    const geminiKey = secretKeys.length > 1 ? secretKeys[1] : (secretKeys[0] || '');
+                    const secretKeys = secretKeyStr
+                        ? secretKeyStr.split(';')
+                        : [];
+                    const geminiKey =
+                        secretKeys.length > 1
+                            ? secretKeys[1]
+                            : secretKeys[0] || '';
 
                     if (geminiKey) {
-                        const text = await (window as any).electron.invoke('transcribe-system-audio', { apiKey: geminiKey, audioPath: savedAudioPath });
+                        const text = await (window as any).electron.invoke(
+                            'transcribe-system-audio',
+                            { apiKey: geminiKey, audioPath: savedAudioPath },
+                        );
                         if (text) {
-                            window.dispatchEvent(new CustomEvent('stt-transcribed', { detail: text }));
+                            window.dispatchEvent(
+                                new CustomEvent('stt-transcribed', {
+                                    detail: text,
+                                }),
+                            );
                         }
                     } else {
-                        this.toastr.warning('Chưa cấu hình API Key của Gemini trong Cài đặt', 'Lỗi cấu hình');
+                        this.toastr.warning(
+                            'Chưa cấu hình API Key của Gemini trong Cài đặt',
+                            'Lỗi cấu hình',
+                        );
                     }
                 } catch (e) {
                     console.error('Lỗi xử lý file hoặc dịch STT:', e);
-                    this.toastr.error('Có lỗi xảy ra khi nhờ Gemini dịch âm thanh.', 'Lỗi phân tích');
+                    this.toastr.error(
+                        'Có lỗi xảy ra khi nhờ Gemini dịch âm thanh.',
+                        'Lỗi phân tích',
+                    );
                 }
 
                 // Tắt luồng mic/loa
                 stream.getTracks().forEach((track: any) => track.stop());
             };
-            
+
             // Cắt nhỏ file âm thanh mỗi 1000ms (1 giây) nhưng chỉ lưu vào mảng
             this.setRecordingState(true);
-            this.mediaRecorder.start(1000); 
-            this.toastr.info('Đang ghi âm toàn hệ thống. Bấm lại nút Micro để kết thúc.', 'Bắt đầu ghi âm');
-            
+            this.mediaRecorder.start(1000);
+            this.toastr.info(
+                'Đang ghi âm toàn hệ thống. Bấm lại nút Micro để kết thúc.',
+                'Bắt đầu ghi âm',
+            );
         } catch (err) {
             console.error('Lỗi thu âm hệ thống:', err);
             this.setRecordingState(false);
-            this.toastr.error('Không thể khởi động ghi âm. Vui lòng kiểm tra quyền truy cập.', 'Lỗi hệ thống');
+            this.toastr.error(
+                'Không thể khởi động ghi âm. Vui lòng kiểm tra quyền truy cập.',
+                'Lỗi hệ thống',
+            );
         }
     }
 
@@ -707,11 +838,16 @@ if tunnel_url:
                 webview.setAttribute('data-tool-id', '1'); // Gắn ID mặc định cho Gemini
                 // Tách phân vùng riêng để không ảnh hưởng cookie của toàn app
                 webview.setAttribute('partition', 'persist:gemini-webview');
-                webview.setAttribute('src', 'https://gemini.google.com/app?hl=vi');
+                webview.setAttribute(
+                    'src',
+                    'https://gemini.google.com/app?hl=vi',
+                );
                 webview.setAttribute('allowpopups', 'true');
                 // Tạo User Agent sạch (từ UA thực của hệ thống) để tránh lệch phiên bản Client Hints với Chrome thực tế
                 // Xóa chữ Electron và tên ứng dụng đi để Google không chặn đăng nhập (lỗi Cookie)
-                let cleanUA = navigator.userAgent.replace(/ Electron\/[\d\.]+/, '').replace(/ ai\.type\/[\d\.]+/, '');
+                let cleanUA = navigator.userAgent
+                    .replace(/ Electron\/[\d\.]+/, '')
+                    .replace(/ ai\.type\/[\d\.]+/, '');
                 webview.setAttribute('useragent', cleanUA);
 
                 webview.style.width = '100%';
@@ -721,12 +857,16 @@ if tunnel_url:
                 webview.style.flex = '1';
                 webview.style.opacity = '0';
                 webview.style.transition = 'opacity 0.2s ease-in-out';
-                
+
                 // Fallback hiển thị sau 1s nếu dom-ready quá lâu
-                setTimeout(() => { webview.style.opacity = '1'; }, 1000);
+                setTimeout(() => {
+                    webview.style.opacity = '1';
+                }, 1000);
 
                 webview.addEventListener('console-message', (e: any) => {
-                    console.log(`[Webview Console] level ${e.level}: ${e.message}`);
+                    console.log(
+                        `[Webview Console] level ${e.level}: ${e.message}`,
+                    );
                 });
 
                 webview.addEventListener('dom-ready', () => {
@@ -752,69 +892,87 @@ if tunnel_url:
                     } catch (e) {
                         console.warn('Không thể inject CSS vào webview:', e);
                     }
-                    
-                // Hiện webview sau khi đã tiêm CSS
-                setTimeout(() => { webview.style.opacity = '1'; }, 50);
-            });
 
-            container.appendChild(webview);
-
-            // Xử lý chống lag mượt mà khi kéo viền (resize) hoặc kéo thanh tiêu đề (drag)
-            const popupEl = document.querySelector('.gemini-popup') as HTMLElement;
-            if (popupEl) {
-                // Giữ mousedown chung để tắt pointer-events khi kéo thanh tiêu đề
-                popupEl.addEventListener('mousedown', () => {
-                    webview.style.pointerEvents = 'none';
+                    // Hiện webview sau khi đã tiêm CSS
+                    setTimeout(() => {
+                        webview.style.opacity = '1';
+                    }, 50);
                 });
 
-                // Logic Custom Resize bắt theo chuỗi sự kiện chuột toàn cục
-                const resizeHandle = document.querySelector('.gemini-resize-handle') as HTMLElement;
-                if (resizeHandle) {
-                    let isResizing = false;
-                    let startX = 0;
-                    let startY = 0;
-                    let startWidth = 0;
-                    let startHeight = 0;
+                container.appendChild(webview);
 
-                    resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
-                        isResizing = true;
-                        startX = e.clientX;
-                        startY = e.clientY;
-                        startWidth = popupEl.offsetWidth;
-                        startHeight = popupEl.offsetHeight;
-                        
+                // Xử lý chống lag mượt mà khi kéo viền (resize) hoặc kéo thanh tiêu đề (drag)
+                const popupEl = document.querySelector(
+                    '.gemini-popup',
+                ) as HTMLElement;
+                if (popupEl) {
+                    // Giữ mousedown chung để tắt pointer-events khi kéo thanh tiêu đề
+                    popupEl.addEventListener('mousedown', () => {
                         webview.style.pointerEvents = 'none';
-                        document.body.style.cursor = 'nwse-resize';
-                        document.body.style.userSelect = 'none'; // Ngăn bôi đen chữ khi kéo nhanh
-                        
-                        e.preventDefault();
-                        e.stopPropagation();
                     });
 
-                    window.addEventListener('mousemove', (e: MouseEvent) => {
-                        if (!isResizing) return;
-                        
-                        const newWidth = Math.max(300, startWidth + (e.clientX - startX));
-                        const newHeight = Math.max(400, startHeight + (e.clientY - startY));
-                        
-                        popupEl.style.width = newWidth + 'px';
-                        popupEl.style.height = newHeight + 'px';
-                    });
+                    // Logic Custom Resize bắt theo chuỗi sự kiện chuột toàn cục
+                    const resizeHandle = document.querySelector(
+                        '.gemini-resize-handle',
+                    ) as HTMLElement;
+                    if (resizeHandle) {
+                        let isResizing = false;
+                        let startX = 0;
+                        let startY = 0;
+                        let startWidth = 0;
+                        let startHeight = 0;
 
-                    window.addEventListener('mouseup', () => {
-                        if (isResizing) {
-                            isResizing = false;
-                            document.body.style.cursor = '';
-                            document.body.style.userSelect = '';
-                        }
-                    });
+                        resizeHandle.addEventListener(
+                            'mousedown',
+                            (e: MouseEvent) => {
+                                isResizing = true;
+                                startX = e.clientX;
+                                startY = e.clientY;
+                                startWidth = popupEl.offsetWidth;
+                                startHeight = popupEl.offsetHeight;
+
+                                webview.style.pointerEvents = 'none';
+                                document.body.style.cursor = 'nwse-resize';
+                                document.body.style.userSelect = 'none'; // Ngăn bôi đen chữ khi kéo nhanh
+
+                                e.preventDefault();
+                                e.stopPropagation();
+                            },
+                        );
+
+                        window.addEventListener(
+                            'mousemove',
+                            (e: MouseEvent) => {
+                                if (!isResizing) return;
+
+                                const newWidth = Math.max(
+                                    300,
+                                    startWidth + (e.clientX - startX),
+                                );
+                                const newHeight = Math.max(
+                                    400,
+                                    startHeight + (e.clientY - startY),
+                                );
+
+                                popupEl.style.width = newWidth + 'px';
+                                popupEl.style.height = newHeight + 'px';
+                            },
+                        );
+
+                        window.addEventListener('mouseup', () => {
+                            if (isResizing) {
+                                isResizing = false;
+                                document.body.style.cursor = '';
+                                document.body.style.userSelect = '';
+                            }
+                        });
+                    }
                 }
+                window.addEventListener('mouseup', () => {
+                    webview.style.pointerEvents = 'auto';
+                });
             }
-            window.addEventListener('mouseup', () => {
-                webview.style.pointerEvents = 'auto';
-            });
-        }
-    }, 500); // Đợi DOM sẵn sàng chút xíu
+        }, 500); // Đợi DOM sẵn sàng chút xíu
     }
 
     ngOnDestroy() {
@@ -830,29 +988,33 @@ if tunnel_url:
 
         this.dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference
         this.dialogRef.afterClosed().subscribe((_) => {
-            this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
+            this.router.navigate(['/settings'], {
+                queryParams: { tab: 'active' },
+            });
         });
     }
 }

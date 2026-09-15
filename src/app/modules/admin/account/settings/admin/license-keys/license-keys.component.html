@@ -1,96 +1,220 @@
 <!-- Header -->
 <div class="flex flex-row items-center justify-between">
     <a mat-flat-button (click)="addNewForm()" [color]="'primary'">
-        <mat-icon class="icon-size-4" [svgIcon]="'feather:plus-circle'"></mat-icon>
-        <mat-label class="ml-2 text-base">{{ 'app.add_new_license_key' | transloco }}</mat-label>
+        <mat-icon
+            class="icon-size-4"
+            [svgIcon]="'feather:plus-circle'"
+        ></mat-icon>
+        <mat-label class="ml-2 text-base">{{
+            "app.add_new_license_key" | transloco
+        }}</mat-label>
     </a>
 
     <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-80">
         <mat-icon matPrefix [svgIcon]="'heroicons_outline:search'"></mat-icon>
-        <input matInput [placeholder]="'Tìm kiếm theo tên, email hoặc mã thanh toán'" (keyup)="filterData($event)">
+        <input
+            matInput
+            [placeholder]="'Tìm kiếm theo tên, email hoặc mã thanh toán'"
+            (keyup)="filterData($event)"
+        />
     </mat-form-field>
 </div>
 
 <!-- Main -->
 <div class="mt-4">
     <!-- CONTENT GOES HERE -->
-    <ngx-datatable [virtualization]="false" #mydatatable class="material shadow-none border rounded-lg" [headerHeight]="50"
-        [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight" [scrollbarV]="false"
-        [scrollbarH]="true" [rows]="rows" [selected]="selected" [selectionType]="SelectionType.checkbox"
-        [selectAllRowsOnPage]="false" (select)="onSelect($event)">
-        <ngx-datatable-column [width]="45" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true">
+    <ngx-datatable
+        [virtualization]="false"
+        #mydatatable
+        class="material shadow-none border rounded-lg"
+        [headerHeight]="50"
+        [columnMode]="ColumnMode.force"
+        [footerHeight]="50"
+        [rowHeight]="getRowHeight"
+        [scrollbarV]="false"
+        [scrollbarH]="true"
+        [rows]="rows"
+        [selected]="selected"
+        [selectionType]="SelectionType.checkbox"
+        [selectAllRowsOnPage]="false"
+        (select)="onSelect($event)"
+    >
+        <ngx-datatable-column
+            [width]="45"
+            [sortable]="false"
+            [canAutoResize]="false"
+            [draggable]="false"
+            [resizeable]="false"
+            [headerCheckboxable]="true"
+            [checkboxable]="true"
+        >
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="App ID" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="90">
-            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+        <ngx-datatable-column
+            name="App ID"
+            [sortable]="false"
+            [canAutoResize]="false"
+            [draggable]="false"
+            [resizeable]="false"
+            [width]="90"
+        >
+            <ng-template
+                ngx-datatable-cell-template
+                let-rowIndex="rowIndex"
+                let-value="value"
+                let-row="row"
+            >
                 {{ row.appId }}
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="Version" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="70">
-            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+        <ngx-datatable-column
+            name="Version"
+            [sortable]="false"
+            [canAutoResize]="false"
+            [draggable]="false"
+            [resizeable]="false"
+            [width]="70"
+        >
+            <ng-template
+                ngx-datatable-cell-template
+                let-rowIndex="rowIndex"
+                let-value="value"
+                let-row="row"
+            >
                 {{ row.appVersion }}
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="Người mua" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-            [resizeable]="true" [width]="150">
-            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
-                <ng-container *ngIf="row.activationInfo && row.activationInfo.length >= 1; else elseTemplate">
+        <ngx-datatable-column
+            name="Người mua"
+            [sortable]="false"
+            [canAutoResize]="true"
+            [draggable]="false"
+            [resizeable]="true"
+            [width]="150"
+        >
+            <ng-template
+                ngx-datatable-cell-template
+                let-rowIndex="rowIndex"
+                let-value="value"
+                let-row="row"
+            >
+                @if (row.activationInfo && row.activationInfo.length >= 1) {
                     <div class="flex items-center justify-self-stretch">
                         <mat-label
-                            class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-green-600 hover:bg-green-500 text-white">
+                            class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-green-600 hover:bg-green-500 text-white"
+                        >
                             {{ row.info.customerName }}
                         </mat-label>
                     </div>
-                </ng-container>
+                } @else {
+                    {{ row.info.customerName }}
+                }
                 <ng-template #elseTemplate>
                     {{ row.info.customerName }}
                 </ng-template>
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="Liên hệ" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-            [resizeable]="true" [width]="180">
-            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+        <ngx-datatable-column
+            name="Liên hệ"
+            [sortable]="false"
+            [canAutoResize]="true"
+            [draggable]="false"
+            [resizeable]="true"
+            [width]="180"
+        >
+            <ng-template
+                ngx-datatable-cell-template
+                let-rowIndex="rowIndex"
+                let-value="value"
+                let-row="row"
+            >
                 {{ row.info.email }}
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="50">
-            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
-                <button mat-icon-button color="primary" (click)="copy(row.licenseKey)" matTooltipPosition="above"
-                    matTooltip="{{ row.licenseKey }}">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:copy'"></mat-icon>
+        <ngx-datatable-column
+            name=""
+            [sortable]="false"
+            [canAutoResize]="false"
+            [draggable]="false"
+            [resizeable]="false"
+            [width]="50"
+        >
+            <ng-template
+                ngx-datatable-cell-template
+                let-rowIndex="rowIndex"
+                let-value="value"
+                let-row="row"
+            >
+                <button
+                    mat-icon-button
+                    color="primary"
+                    (click)="copy(row.licenseKey)"
+                    matTooltipPosition="above"
+                    matTooltip="{{ row.licenseKey }}"
+                >
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:copy'"
+                    ></mat-icon>
                 </button>
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="Ngày hết hạn" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="110">
-            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
-                {{ row.expirationDate | date: 'dd/MM/yyyy' }}
+        <ngx-datatable-column
+            name="Ngày hết hạn"
+            [sortable]="false"
+            [canAutoResize]="false"
+            [draggable]="false"
+            [resizeable]="false"
+            [width]="110"
+        >
+            <ng-template
+                ngx-datatable-cell-template
+                let-rowIndex="rowIndex"
+                let-value="value"
+                let-row="row"
+            >
+                {{ row.expirationDate | date: "dd/MM/yyyy" }}
             </ng-template>
         </ngx-datatable-column>
 
-        <ngx-datatable-column name="Tính năng" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-            [resizeable]="true" [width]="200">
-            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+        <ngx-datatable-column
+            name="Tính năng"
+            [sortable]="false"
+            [canAutoResize]="true"
+            [draggable]="false"
+            [resizeable]="true"
+            [width]="200"
+        >
+            <ng-template
+                ngx-datatable-cell-template
+                let-rowIndex="rowIndex"
+                let-value="value"
+                let-row="row"
+            >
                 <div class="flex items-center justify-self-stretch">
-                    <mat-label matTooltipPosition="above" [matTooltip]="'app.auto_extend_usage' | transloco"
+                    <mat-label
+                        matTooltipPosition="above"
+                        [matTooltip]="'app.auto_extend_usage' | transloco"
                         class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
-                        (click)="extend(row)">
+                        (click)="extend(row)"
+                    >
                         Gia hạn
                     </mat-label>
 
-                    <mat-label matTooltipPosition="above" [matTooltip]="'app.auto_send_an_email_to_the_buyer' | transloco"
+                    <mat-label
+                        matTooltipPosition="above"
+                        [matTooltip]="
+                            'app.auto_send_an_email_to_the_buyer' | transloco
+                        "
                         class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white mr-2"
-                        (click)="sendMail(row)">
-                        {{ 'app.auto_send_mail' | transloco }}
+                        (click)="sendMail(row)"
+                    >
+                        {{ "app.auto_send_mail" | transloco }}
                     </mat-label>
                 </div>
             </ng-template>
@@ -103,24 +227,49 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-2">
         <h2 class="text-xl font-bold text-gray-800 m-0">Gia hạn tài khoản</h2>
-        <button type="button" mat-icon-button (click)="dialog.closeAll()" class="text-gray-500 -mr-4">
-            <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        <button
+            type="button"
+            mat-icon-button
+            (click)="dialog.closeAll()"
+            class="text-gray-500 -mr-4"
+        >
+            <mat-icon
+                class="icon-size-5"
+                [svgIcon]="'heroicons_outline:x'"
+            ></mat-icon>
         </button>
     </div>
-    
-    <p class="text-gray-600 mb-6 text-sm">Đang thao tác cho khách hàng: <b>{{data.info?.customerName || data.info?.email}}</b></p>
+
+    <p class="text-gray-600 mb-6 text-sm">
+        Đang thao tác cho khách hàng:
+        <b>{{ data.info?.customerName || data.info?.email }}</b>
+    </p>
 
     <!-- Content -->
     <div class="flex flex-col gap-4">
-        <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+        <mat-form-field
+            class="w-full fuse-mat-dense"
+            [subscriptSizing]="'dynamic'"
+        >
             <mat-label>License Key</mat-label>
-            <mat-icon class="icon-size-4" [svgIcon]="'feather:key'" matPrefix></mat-icon>
-            <input matInput [(ngModel)]="data.licenseKey" [disabled]="true">
+            <mat-icon
+                class="icon-size-4"
+                [svgIcon]="'feather:key'"
+                matPrefix
+            ></mat-icon>
+            <input matInput [(ngModel)]="data.licenseKey" [disabled]="true" />
         </mat-form-field>
 
-        <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+        <mat-form-field
+            class="w-full fuse-mat-dense"
+            [subscriptSizing]="'dynamic'"
+        >
             <mat-label>Chọn gói gia hạn</mat-label>
-            <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'" matPrefix></mat-icon>
+            <mat-icon
+                class="icon-size-4"
+                [svgIcon]="'feather:calendar'"
+                matPrefix
+            ></mat-icon>
             <mat-select [(ngModel)]="manualMonths">
                 <mat-option [value]="1">1 tháng</mat-option>
                 <mat-option [value]="3">3 tháng</mat-option>
@@ -128,12 +277,32 @@
                 <mat-option [value]="12">1 năm</mat-option>
             </mat-select>
         </mat-form-field>
-        
+
         <div class="flex items-center justify-end mt-4 mb-2">
-            <button mat-flat-button [color]="'primary'" type="button" (click)="confirmExtend()" [disabled]="isActivating">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:check-circle'" *ngIf="!isActivating"></mat-icon>
-                <mat-label class="ml-2 text-base" *ngIf="!isActivating">Xác nhận gia hạn</mat-label>
-                <mat-progress-spinner *ngIf="isActivating" [diameter]="20" [mode]="'indeterminate'"></mat-progress-spinner>
+            <button
+                mat-flat-button
+                [color]="'primary'"
+                type="button"
+                (click)="confirmExtend()"
+                [disabled]="isActivating"
+            >
+                @if (!isActivating) {
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:check-circle'"
+                    ></mat-icon>
+                }
+                @if (!isActivating) {
+                    <mat-label class="ml-2 text-base"
+                        >Xác nhận gia hạn</mat-label
+                    >
+                }
+                @if (isActivating) {
+                    <mat-progress-spinner
+                        [diameter]="20"
+                        [mode]="'indeterminate'"
+                    ></mat-progress-spinner>
+                }
             </button>
         </div>
     </div>

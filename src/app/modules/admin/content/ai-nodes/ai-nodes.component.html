@@ -1,47 +1,74 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
-                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
                     </div>
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">kho node</a>
-                    </div> -->
+          <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+          [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+          <a class="ml-1 text-base text-primary-500">kho node</a>
+        </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">{{ 'app.scanned_nodes_repo' | transloco }}</span>
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            "app.scanned_nodes_repo" | transloco
+                        }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base">{{
+                            "app.back" | transloco
+                        }}</span>
                     </a>
                 </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    {{ 'app.auto_nodes_are_stored_during_your_u' | transloco }}
-                </p>
-            </div> -->
+    <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+      {{ 'app.auto_nodes_are_stored_during_your_u' | transloco }}
+    </p>
+  </div> -->
         </div>
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <mat-form-field class="ml-2 w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
-                appearance="fill">
-                <input matInput (keyup.enter)="searchNode($event)" [placeholder]="'app.search_by_title' | transloco">
-                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
+            <mat-form-field
+                class="ml-2 w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill"
+            >
+                <input
+                    matInput
+                    (keyup.enter)="searchNode($event)"
+                    [placeholder]="'app.search_by_title' | transloco"
+                />
+                <mat-icon
+                    class="icon-size-4"
+                    matPrefix
+                    [svgIcon]="'feather:search'"
+                ></mat-icon>
             </mat-form-field>
         </div>
     </div>
@@ -49,112 +76,231 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative">
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #table class="material fullscreen transition-opacity duration-300" [columnMode]="ColumnMode.force"
-            [class.opacity-50]="isLoading" [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
-            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
-            [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
+        <ngx-datatable
+            [appScrollLock]="isLoading"
+            [virtualization]="true"
+            #table
+            class="material fullscreen transition-opacity duration-300"
+            [columnMode]="ColumnMode.force"
+            [class.opacity-50]="isLoading"
+            [selected]="selected"
+            [selectionType]="SelectionType.checkbox"
+            [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck"
+            (select)="onSelect($event)"
+            [externalPaging]="true"
+            [externalSorting]="true"
+            [count]="totalElements"
+            [offset]="pageNumber"
+            (page)="setPage($event)"
+            [headerHeight]="50"
+            [footerHeight]="50"
+            [rowHeight]="50"
+            [scrollbarV]="true"
+            [rows]="rows"
+        >
+            <!-- Column Templates -->
+            <ngx-datatable-column
+                [width]="30"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                [headerCheckboxable]="true"
+                [checkboxable]="true"
+            ></ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
-
-            <!-- Column Templates -->
-            <ngx-datatable-column name="{{ 'app.title' | transloco }}" [width]="400" [sortable]="true" [canAutoResize]="true"
-                [draggable]="false" [resizeable]="true">
+            <ngx-datatable-column
+                name="{{ 'app.title' | transloco }}"
+                [width]="400"
+                [sortable]="true"
+                [canAutoResize]="true"
+                [draggable]="false"
+                [resizeable]="true"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="font-normal truncate hover:text-clip">
-                        {{row.title}}
-                    </p>
+                    @if (row) {
+                        <p class="font-normal truncate hover:text-clip">
+                            {{ row.title }}
+                        </p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="" [width]="200" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column
+                name=""
+                [width]="200"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-container *ngIf="row">
-                        <a mat-icon-button matTooltipPosition="above" (click)="details(row)" [matTooltip]="'app.view_details' | transloco"
-                            class="ml-0">
-                            <mat-icon class="icon-size-4 text-gray-600" [svgIcon]="'feather:info'"></mat-icon>
+                    @if (row) {
+                        <a
+                            mat-icon-button
+                            matTooltipPosition="above"
+                            (click)="details(row)"
+                            [matTooltip]="'app.view_details' | transloco"
+                            class="ml-0"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-gray-600"
+                                [svgIcon]="'feather:info'"
+                            ></mat-icon>
                         </a>
-
-                        <a mat-icon-button matTooltipPosition="above" (click)="convert(row)"
-                            [matTooltip]="'app.convert_to_text' | transloco">
-                            <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:edit-3'"></mat-icon>
+                        <a
+                            mat-icon-button
+                            matTooltipPosition="above"
+                            (click)="convert(row)"
+                            [matTooltip]="'app.convert_to_text' | transloco"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-green-600"
+                                [svgIcon]="'feather:edit-3'"
+                            ></mat-icon>
                         </a>
-
-                        <a mat-icon-button matTooltipPosition="above" (click)="crawlCompany(row.url)"
-                            [matTooltip]="'app.re_scan' | transloco" class="ml-0">
-                            <mat-icon class="icon-size-4 text-blue-600" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                        <a
+                            mat-icon-button
+                            matTooltipPosition="above"
+                            (click)="crawlCompany(row.url)"
+                            [matTooltip]="'app.re_scan' | transloco"
+                            class="ml-0"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-blue-600"
+                                [svgIcon]="'feather:refresh-cw'"
+                            ></mat-icon>
                         </a>
-                    </ng-container>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"
-                name="{{ 'app.original_link' | transloco }}" [width]="200">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                name="{{ 'app.original_link' | transloco }}"
+                [width]="200"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center justify-self-stretch">
-                        <mat-label matTooltipPosition="above" [matTooltip]="('app.copy_link' | transloco) + ' ' + row.url"
-                            (click)="copy(row.url)"
-                            class="h-7 leading-7 items-center cursor-pointer px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm font-semibold">
-                            {{ row.url | shortDomain }}
-                        </mat-label>
-                    </div>
+                    @if (row) {
+                        <div class="flex items-center justify-self-stretch">
+                            <mat-label
+                                matTooltipPosition="above"
+                                [matTooltip]="
+                                    ('app.copy_link' | transloco) +
+                                    ' ' +
+                                    row.url
+                                "
+                                (click)="copy(row.url)"
+                                class="h-7 leading-7 items-center cursor-pointer px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm font-semibold"
+                            >
+                                {{ row.url | shortDomain }}
+                            </mat-label>
+                        </div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="false"
-                name="{{ 'app.node_id' | transloco }}" [width]="300">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="true"
+                [draggable]="false"
+                [resizeable]="false"
+                name="{{ 'app.node_id' | transloco }}"
+                [width]="300"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div class="flex items-center justify-self-stretch" *ngIf="row && row.uuids && row.uuids.length > 0">
-                        <mat-label *ngFor="let uuid of row.uuids" matTooltipPosition="above"
-                            [matTooltip]="'app.continue_editing_content' | transloco" [routerLink]="['/ai-writer', user.name, uuid]"
-                            class="h-7 leading-7 mr-2 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
-                            {{uuid}}
-                        </mat-label>
-                    </div>
+                    @if (row && row.uuids && row.uuids.length > 0) {
+                        <div class="flex items-center justify-self-stretch">
+                            @for (uuid of row.uuids; track uuid) {
+                                <mat-label
+                                    matTooltipPosition="above"
+                                    [matTooltip]="
+                                        'app.continue_editing_content'
+                                            | transloco
+                                    "
+                                    [routerLink]="[
+                                        '/ai-writer',
+                                        user.name,
+                                        uuid,
+                                    ]"
+                                    class="h-7 leading-7 mr-2 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800"
+                                >
+                                    {{ uuid }}
+                                </mat-label>
+                            }
+                        </div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"
-                name="{{ 'app.date_created' | transloco }}" [width]="150">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                name="{{ 'app.date_created' | transloco }}"
+                [width]="150"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center justify-self-stretch">
-                        {{row.createdAt | timeago}}
-                    </div>
+                    @if (row) {
+                        <div class="flex items-center justify-self-stretch">
+                            {{ row.createdAt | timeago }}
+                        </div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <ngx-datatable-footer>
-                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
-                    let-isVisible="isVisible">
+                <ng-template
+                    ngx-datatable-footer-template
+                    let-rowCount="rowCount"
+                    let-pageSize="pageSize"
+                    let-selectedCount="selectedCount"
+                    let-curPage="curPage"
+                    let-offset="offset"
+                    let-isVisible="isVisible"
+                >
                     <div class="flex w-full sm:items-center sm:justify-between">
                         <div class="flex-1 min-w-0">
                             <!-- Breadcrumbs -->
                             <div class="page-count">
-                                {{ 'app.selected' | transloco }} {{ (selectedCount) ? selectedCount.toLocaleString() : 0 }} / {{ (rowCount) ? rowCount.toLocaleString() : 0 }}
+                                {{ "app.selected" | transloco }}
+                                {{
+                                    selectedCount
+                                        ? selectedCount.toLocaleString()
+                                        : 0
+                                }}
+                                / {{ rowCount ? rowCount.toLocaleString() : 0 }}
                             </div>
                         </div>
 
                         <!-- Actions -->
                         <div class="flex shrink-0 items-center pr-4">
-                            <mat-label (click)="createJsonLink()" *ngIf="selected.length > 0" class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-red-500 hover:bg-red-600 text-white">
-                                Xuất dữ liệu
-                            </mat-label>
+                            @if (selected.length > 0) {
+                                <mat-label
+                                    (click)="createJsonLink()"
+                                    class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-red-500 hover:bg-red-600 text-white"
+                                >
+                                    Xuất dữ liệu
+                                </mat-label>
+                            }
                         </div>
                     </div>
 
                     <!-- <datatable-pager [pagerLeftArrowIcon]="'datatable-icon-left'"
-                        [pagerRightArrowIcon]="'datatable-icon-right'" [pagerPreviousIcon]="'datatable-icon-prev'"
-                        [pagerNextIcon]="'datatable-icon-skip'" [page]="curPage" [size]="pageSize" [count]="rowCount"
-                        [hidden]="!((rowCount / pageSize) > 1)" (change)="table.onFooterPage($event)">
-                    </datatable-pager> -->
+        [pagerRightArrowIcon]="'datatable-icon-right'" [pagerPreviousIcon]="'datatable-icon-prev'"
+        [pagerNextIcon]="'datatable-icon-skip'" [page]="curPage" [size]="pageSize" [count]="rowCount"
+        [hidden]="!((rowCount / pageSize) > 1)" (change)="table.onFooterPage($event)">
+      </datatable-pager> -->
                 </ng-template>
             </ngx-datatable-footer>
         </ngx-datatable>

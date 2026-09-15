@@ -1,96 +1,212 @@
 <div class="flex flex-col h-full w-full">
     <!-- Codec Warning / Install Banner -->
-    <div *ngIf="codecStatus && !codecStatus.isProprietary" 
-         class="flex items-center justify-between p-3 mx-4 mt-3 mb-1 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700/60 shadow-xs z-10">
-        <div class="flex items-center space-x-3">
-            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 shrink-0">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:alert-triangle'"></mat-icon>
+    @if (codecStatus && !codecStatus.isProprietary) {
+        <div
+            class="flex items-center justify-between p-3 mx-4 mt-3 mb-1 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700/60 shadow-xs z-10"
+        >
+            <div class="flex items-center space-x-3">
+                <div
+                    class="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 shrink-0"
+                >
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:alert-triangle'"
+                    ></mat-icon>
+                </div>
+                <div class="flex flex-col">
+                    <span
+                        class="text-sm font-semibold text-amber-900 dark:text-amber-200"
+                    >
+                        Trình duyệt Opera đang thiếu Codec Video độc quyền
+                        (H.264 / AAC)
+                    </span>
+                    <span class="text-xs text-amber-700 dark:text-amber-400">
+                        Opera trên Linux cần thư viện
+                        <code
+                            class="px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 font-mono text-2xs"
+                            >libffmpeg.so</code
+                        >
+                        để phát video trên TikTok, Facebook, Instagram.
+                    </span>
+                </div>
             </div>
-            <div class="flex flex-col">
-                <span class="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                    Trình duyệt Opera đang thiếu Codec Video độc quyền (H.264 / AAC)
-                </span>
-                <span class="text-xs text-amber-700 dark:text-amber-400">
-                    Opera trên Linux cần thư viện <code class="px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 font-mono text-2xs">libffmpeg.so</code> để phát video trên TikTok, Facebook, Instagram.
-                </span>
+            <div class="flex items-center space-x-2 shrink-0 ml-4">
+                <button
+                    mat-flat-button
+                    color="warn"
+                    class="!rounded-lg !text-xs !py-1 !px-3 shadow-xs"
+                    (click)="installOperaCodec()"
+                    [disabled]="isInstallingCodec"
+                >
+                    @if (!isInstallingCodec) {
+                        <mat-icon
+                            [svgIcon]="'feather:download'"
+                            class="icon-size-4 mr-1.5"
+                        ></mat-icon>
+                    }
+                    @if (isInstallingCodec) {
+                        <mat-progress-spinner
+                            [diameter]="16"
+                            [mode]="'indeterminate'"
+                            class="mr-1.5"
+                        ></mat-progress-spinner>
+                    }
+                    <span>{{
+                        isInstallingCodec
+                            ? "Đang cài đặt Codec..."
+                            : "Tải & Cài đặt Codec ngay"
+                    }}</span>
+                </button>
             </div>
         </div>
-        <div class="flex items-center space-x-2 shrink-0 ml-4">
-            <button mat-flat-button color="warn" class="!rounded-lg !text-xs !py-1 !px-3 shadow-xs" 
-                    (click)="installOperaCodec()" [disabled]="isInstallingCodec">
-                <mat-icon *ngIf="!isInstallingCodec" [svgIcon]="'feather:download'" class="icon-size-4 mr-1.5"></mat-icon>
-                <mat-progress-spinner *ngIf="isInstallingCodec" [diameter]="16" [mode]="'indeterminate'" class="mr-1.5"></mat-progress-spinner>
-                <span>{{ isInstallingCodec ? 'Đang cài đặt Codec...' : 'Tải & Cài đặt Codec ngay' }}</span>
-            </button>
-        </div>
-    </div>
+    }
 
     <!-- Table -->
     <div class="flex-auto relative overflow-hidden">
-        <ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force"
-            [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
-            [count]="totalProfiles" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
-            [rows]="profiles">
+        <ngx-datatable
+            [virtualization]="true"
+            #table
+            class="material fullscreen"
+            [columnMode]="ColumnMode.force"
+            [selected]="selected"
+            [selectionType]="SelectionType.checkbox"
+            [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck"
+            (select)="onSelect($event)"
+            [externalPaging]="true"
+            [externalSorting]="true"
+            [count]="totalProfiles"
+            [headerHeight]="50"
+            [footerHeight]="50"
+            [rowHeight]="50"
+            [scrollbarV]="true"
+            [rows]="profiles"
+        >
+            <ngx-datatable-column
+                [width]="40"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                [headerCheckboxable]="true"
+                [checkboxable]="true"
+            ></ngx-datatable-column>
 
-            <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
-
-            <ngx-datatable-column name="Ảnh" [width]="80" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column
+                name="Ảnh"
+                [width]="80"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="relative inline-block">
-                        <img [src]="getAccountAvatar(row)" class="w-8 h-8 rounded-full bg-gray-200 object-cover"
-                            (error)="onImgError($event)" />
-                        <mat-icon *ngIf="row.profile === 'Profile000'" [svgIcon]="'feather:check-circle'"
-                            class="absolute -top-0.5 -right-0.5 icon-size-3 text-emerald-500 bg-white rounded-full"
-                            matTooltip="Profile gốc (Master Profile)">
-                        </mat-icon>
+                        <img
+                            [src]="getAccountAvatar(row)"
+                            class="w-8 h-8 rounded-full bg-gray-200 object-cover"
+                            (error)="onImgError($event)"
+                        />
+                        @if (row.profile === "Profile000") {
+                            <mat-icon
+                                [svgIcon]="'feather:check-circle'"
+                                class="absolute -top-0.5 -right-0.5 icon-size-3 text-emerald-500 bg-white rounded-full"
+                                matTooltip="Profile gốc (Master Profile)"
+                            >
+                            </mat-icon>
+                        }
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Profile" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column
+                name="Profile"
+                [width]="100"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <span class="font-normal">{{row.profile}}</span>
+                    <span class="font-normal">{{ row.profile }}</span>
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Tài khoản" [width]="220" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column
+                name="Tài khoản"
+                [width]="220"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-container *ngIf="row.accounts && row.accounts.length > 0">
+                    @if (row.accounts && row.accounts.length > 0) {
                         <div class="flex flex-col">
                             <!-- <span class="text-sm font-medium truncate"
-                                title="{{row.accounts[0].email}}">{{row.accounts[0].email}}</span> -->
-                            <span class="text-green-500 truncate">{{row.accounts[0].alias}}</span>
+            title="{{row.accounts[0].email}}">{{row.accounts[0].email}}</span> -->
+                            <span class="text-green-500 truncate">{{
+                                row.accounts[0].alias
+                            }}</span>
                         </div>
-                    </ng-container>
-                    <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
-                        <span class="text-gray-400">{{ 'app.unassigned' | transloco }}</span>
-                    </ng-container>
+                    }
+                    @if (!row.accounts || row.accounts.length === 0) {
+                        <span class="text-gray-400">{{
+                            "app.unassigned" | transloco
+                        }}</span>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Nhân cách (Persona)" [width]="250" [sortable]="false" [canAutoResize]="true"
-                [draggable]="false" [resizeable]="true">
+            <ngx-datatable-column
+                name="Nhân cách (Persona)"
+                [width]="250"
+                [sortable]="false"
+                [canAutoResize]="true"
+                [draggable]="false"
+                [resizeable]="true"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-container *ngIf="row.accounts && row.accounts.length > 0">
-                        <div class="text-base" [innerHTML]="getPersonaDisplay(row.accounts[0].note)"></div>
-                    </ng-container>
+                    @if (row.accounts && row.accounts.length > 0) {
+                        <div
+                            class="text-base"
+                            [innerHTML]="
+                                getPersonaDisplay(row.accounts[0].note)
+                            "
+                        ></div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="VPN Opera" [width]="190" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="VPN Opera"
+                [width]="190"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix w-full text-xs" [subscriptSizing]="'dynamic'">
-                        <mat-select [value]="getVpnValue(row)" (selectionChange)="onVpnChange(row, $event.value)" panelClass="vpn-select-panel min-w-[240px]">
-                            <mat-option value="optimal">Tự động (Optimal)</mat-option>
+                    <mat-form-field
+                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full text-xs"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-select
+                            [value]="getVpnValue(row)"
+                            (selectionChange)="onVpnChange(row, $event.value)"
+                            panelClass="vpn-select-panel min-w-[240px]"
+                        >
+                            <mat-option value="optimal"
+                                >Tự động (Optimal)</mat-option
+                            >
                             <mat-divider></mat-divider>
                             <mat-option value="asia">Châu Á (Asia)</mat-option>
-                            <mat-option value="americas">Châu Mỹ (Americas)</mat-option>
-                            <mat-option value="europe">Châu Âu (Europe)</mat-option>
+                            <mat-option value="americas"
+                                >Châu Mỹ (Americas)</mat-option
+                            >
+                            <mat-option value="europe"
+                                >Châu Âu (Europe)</mat-option
+                            >
                             <mat-divider></mat-divider>
                             <mat-option value="off">Tắt VPN</mat-option>
                         </mat-select>
@@ -98,93 +214,204 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Trạng thái" [width]="110" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column
+                name="Trạng thái"
+                [width]="110"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-container *ngIf="row.running === true; else stopNow">
+                    @if (row.running === true) {
                         <div class="flex items-center">
-                            <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                            <span class="text-green-600 font-medium text-base">Running</span>
+                            <div
+                                class="w-2 h-2 rounded-full bg-green-500 mr-2"
+                            ></div>
+                            <span class="text-green-600 font-medium text-base"
+                                >Running</span
+                            >
                         </div>
-                    </ng-container>
-                    <ng-template #stopNow>
+                    } @else {
                         <div class="flex items-center">
-                            <div class="w-2 h-2 rounded-full bg-gray-300 mr-2"></div>
+                            <div
+                                class="w-2 h-2 rounded-full bg-gray-300 mr-2"
+                            ></div>
                             <span class="text-gray-400 text-base">Stopped</span>
                         </div>
-                    </ng-template>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Thao tác" [width]="210" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column
+                name="Thao tác"
+                [width]="210"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-start space-x-1">
                         <!-- Nút Play (Hiện khi Profile chưa Running) -->
-                        <button *ngIf="!row.running" mat-icon-button (click)="runSingleProfile(row)" [matTooltip]="'Chạy profile này'">
-                            <mat-icon class="icon-size-4 text-green-600 hover:text-green-700" [svgIcon]="'feather:play'"></mat-icon>
-                        </button>
+                        @if (!row.running) {
+                            <button
+                                mat-icon-button
+                                (click)="runSingleProfile(row)"
+                                [matTooltip]="'Chạy profile này'"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-green-600 hover:text-green-700"
+                                    [svgIcon]="'feather:play'"
+                                ></mat-icon>
+                            </button>
+                        }
 
                         <!-- Nút Stop (Hiện khi Profile đang Running) -->
-                        <button *ngIf="row.running" mat-icon-button (click)="stopSingleProfile(row)" [matTooltip]="'Tắt profile này'">
-                            <mat-icon class="icon-size-4 text-amber-500 hover:text-amber-600" [svgIcon]="'feather:square'"></mat-icon>
-                        </button>
-
-                        <ng-container *ngIf="row.accounts && row.accounts.length > 0">
-                            <button mat-icon-button (click)="editAcc(row.accounts[0])" [matTooltip]="'app.edit_persona_account' | transloco">
-                                <mat-icon class="icon-size-4 text-primary-600" [svgIcon]="'feather:edit-3'"></mat-icon>
+                        @if (row.running) {
+                            <button
+                                mat-icon-button
+                                (click)="stopSingleProfile(row)"
+                                [matTooltip]="'Tắt profile này'"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-amber-500 hover:text-amber-600"
+                                    [svgIcon]="'feather:square'"
+                                ></mat-icon>
                             </button>
-                        </ng-container>
+                        }
 
-                        <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
-                            <button mat-icon-button (click)="addAcc(row)" [matTooltip]="'app.add_account' | transloco">
-                                <mat-icon class="icon-size-4 text-gray-400 hover:text-primary-500"
-                                    [svgIcon]="'feather:plus-circle'"></mat-icon>
+                        @if (row.accounts && row.accounts.length > 0) {
+                            <button
+                                mat-icon-button
+                                (click)="editAcc(row.accounts[0])"
+                                [matTooltip]="
+                                    'app.edit_persona_account' | transloco
+                                "
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-primary-600"
+                                    [svgIcon]="'feather:edit-3'"
+                                ></mat-icon>
                             </button>
-                        </ng-container>
+                        }
+
+                        @if (!row.accounts || row.accounts.length === 0) {
+                            <button
+                                mat-icon-button
+                                (click)="addAcc(row)"
+                                [matTooltip]="'app.add_account' | transloco"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-gray-400 hover:text-primary-500"
+                                    [svgIcon]="'feather:plus-circle'"
+                                ></mat-icon>
+                            </button>
+                        }
 
                         <!-- Nút Xóa Cookie & Session -->
-                        <button mat-icon-button (click)="clearSingleProfileSession(row)" [matTooltip]="'Xóa Cookie & Session (Đăng xuất tài khoản)'" class="text-red-500 hover:text-red-700">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:rotate-ccw'"></mat-icon>
+                        <button
+                            mat-icon-button
+                            (click)="clearSingleProfileSession(row)"
+                            [matTooltip]="'Xóa Cookie & Session (Đăng xuất tài khoản)'"
+                            class="text-red-500 hover:text-red-700"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:rotate-ccw'"
+                            ></mat-icon>
                         </button>
 
-                        <button mat-icon-button (click)="deleteSingleProfile(row)" [matTooltip]="'Xóa hẳn profile'" class="text-gray-400 hover:text-gray-600">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                        <button
+                            mat-icon-button
+                            (click)="deleteSingleProfile(row)"
+                            [matTooltip]="'Xóa hẳn profile'"
+                            class="text-gray-400 hover:text-gray-600"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:trash-2'"
+                            ></mat-icon>
                         </button>
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
             <ngx-datatable-footer>
-                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset" let-isVisible="isVisible">
-                    <div class="flex w-full sm:items-center sm:justify-between px-4">
-                        <div class="flex-1 min-w-0 flex items-center flex-wrap gap-2 py-1">
-                            <ng-container *ngIf="selectedCount > 0">
-                                <button mat-flat-button color="primary" (click)="run()">
-                                    <mat-icon [svgIcon]="'feather:play'" class="icon-size-4"></mat-icon>
-                                    <span class="ml-2">{{ 'app.run_profile' | transloco }}</span>
+                <ng-template
+                    ngx-datatable-footer-template
+                    let-rowCount="rowCount"
+                    let-pageSize="pageSize"
+                    let-selectedCount="selectedCount"
+                    let-curPage="curPage"
+                    let-offset="offset"
+                    let-isVisible="isVisible"
+                >
+                    <div
+                        class="flex w-full sm:items-center sm:justify-between px-4"
+                    >
+                        <div
+                            class="flex-1 min-w-0 flex items-center flex-wrap gap-2 py-1"
+                        >
+                            @if (selectedCount > 0) {
+                                <button
+                                    mat-flat-button
+                                    color="primary"
+                                    (click)="run()"
+                                >
+                                    <mat-icon
+                                        [svgIcon]="'feather:play'"
+                                        class="icon-size-4"
+                                    ></mat-icon>
+                                    <span class="ml-2">{{
+                                        "app.run_profile" | transloco
+                                    }}</span>
                                 </button>
-
-                                <button mat-flat-button class="!bg-amber-500 !text-white hover:!bg-amber-600 shadow-xs" (click)="killProfiles()">
-                                    <mat-icon [svgIcon]="'feather:x-circle'" class="icon-size-4 !text-white"></mat-icon>
-                                    <span class="ml-2">{{ 'app.auto_stop_profile' | transloco }}</span>
+                                <button
+                                    mat-flat-button
+                                    class="!bg-amber-500 !text-white hover:!bg-amber-600 shadow-xs"
+                                    (click)="killProfiles()"
+                                >
+                                    <mat-icon
+                                        [svgIcon]="'feather:x-circle'"
+                                        class="icon-size-4 !text-white"
+                                    ></mat-icon>
+                                    <span class="ml-2">{{
+                                        "app.auto_stop_profile" | transloco
+                                    }}</span>
                                 </button>
-
-                                <button mat-flat-button class="!bg-red-500 !text-white hover:!bg-red-600 shadow-xs" (click)="clearSelectedProfilesSession()">
-                                    <mat-icon [svgIcon]="'feather:rotate-ccw'" class="icon-size-4 !text-white"></mat-icon>
-                                    <span class="ml-2">Xóa Cookie ({{ selectedCount }})</span>
+                                <button
+                                    mat-flat-button
+                                    class="!bg-red-500 !text-white hover:!bg-red-600 shadow-xs"
+                                    (click)="clearSelectedProfilesSession()"
+                                >
+                                    <mat-icon
+                                        [svgIcon]="'feather:rotate-ccw'"
+                                        class="icon-size-4 !text-white"
+                                    ></mat-icon>
+                                    <span class="ml-2"
+                                        >Xóa Cookie ({{ selectedCount }})</span
+                                    >
                                 </button>
-
-                                <mat-checkbox [(ngModel)]="isHeadless" class="ml-1 text-xs font-medium">
+                                <mat-checkbox
+                                    [(ngModel)]="isHeadless"
+                                    class="ml-1 text-xs font-medium"
+                                >
                                     Chạy ẩn (Headless)
                                 </mat-checkbox>
-                            </ng-container>
+                            }
                         </div>
 
                         <div class="flex shrink-0 items-center">
-                            <button mat-icon-button (click)="refresh()" [matTooltip]="'Tải lại'">
-                                <mat-icon [svgIcon]="'feather:refresh-cw'" class="icon-size-4"></mat-icon>
+                            <button
+                                mat-icon-button
+                                (click)="refresh()"
+                                [matTooltip]="'Tải lại'"
+                            >
+                                <mat-icon
+                                    [svgIcon]="'feather:refresh-cw'"
+                                    class="icon-size-4"
+                                ></mat-icon>
                             </button>
                         </div>
                     </div>

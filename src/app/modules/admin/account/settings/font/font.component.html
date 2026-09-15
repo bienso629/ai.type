@@ -2,7 +2,10 @@
     <!-- Header -->
     <div class="w-full">
         <div class="text-secondary leading-8">
-            <p class="text-base text-gray-500">Quản lý, nhóm và lựa chọn bộ font chữ áp dụng cho toàn bộ phần mềm.</p>
+            <p class="text-base text-gray-500">
+                Quản lý, nhóm và lựa chọn bộ font chữ áp dụng cho toàn bộ phần
+                mềm.
+            </p>
         </div>
     </div>
 
@@ -10,139 +13,320 @@
     <div class="flex flex-wrap items-center justify-between gap-3 w-full">
         <div class="flex flex-wrap items-center gap-3">
             <!-- File Inputs -->
-            <input type="file" #zipFileInput accept=".zip" multiple (change)="onZipFileSelected($event)" class="hidden">
-            <input type="file" #fontFileInput accept=".ttf,.otf,.woff,.woff2" multiple (change)="onFontFilesSelected($event)" class="hidden">
+            <input
+                type="file"
+                #zipFileInput
+                accept=".zip"
+                multiple
+                (change)="onZipFileSelected($event)"
+                class="hidden"
+            />
+            <input
+                type="file"
+                #fontFileInput
+                accept=".ttf,.otf,.woff,.woff2"
+                multiple
+                (change)="onFontFilesSelected($event)"
+                class="hidden"
+            />
 
             <!-- Import ZIP Button -->
-            <button mat-flat-button [color]="'primary'" (click)="zipFileInput.click()" [disabled]="isUploading">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:file-text'"></mat-icon>
-                <span class="ml-2 text-base">Import Bộ Font từ File ZIP (.zip)</span>
+            <button
+                mat-flat-button
+                [color]="'primary'"
+                (click)="zipFileInput.click()"
+                [disabled]="isUploading"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:file-text'"
+                ></mat-icon>
+                <span class="ml-2 text-base"
+                    >Import Bộ Font từ File ZIP (.zip)</span
+                >
             </button>
 
             <!-- Single Font Files Button -->
-            <button mat-flat-button [color]="'accent'" (click)="fontFileInput.click()" [disabled]="isUploading">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:plus'"></mat-icon>
-                <span class="ml-2 text-base">Thêm file Font lẻ (.ttf, .otf)</span>
+            <button
+                mat-flat-button
+                [color]="'accent'"
+                (click)="fontFileInput.click()"
+                [disabled]="isUploading"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:plus'"
+                ></mat-icon>
+                <span class="ml-2 text-base"
+                    >Thêm file Font lẻ (.ttf, .otf)</span
+                >
             </button>
         </div>
 
         <!-- Font Stats Pill -->
-        <div class="flex items-center gap-2 shrink-0 font-normal text-gray-500 bg-white dark:bg-gray-800 border px-3 py-1.5 rounded-md text-base ml-auto">
+        <div
+            class="flex items-center gap-2 shrink-0 font-normal text-gray-500 bg-white dark:bg-gray-800 border px-3 py-1.5 rounded-md text-base ml-auto"
+        >
             <span>{{ fontGroups.length }} Thư mục</span>
             <span>•</span>
-            <span class="text-primary font-semibold">{{ totalFonts }} Font chữ</span>
+            <span class="text-primary font-semibold"
+                >{{ totalFonts }} Font chữ</span
+            >
         </div>
     </div>
-
 
     <!-- Loading State -->
-    <div *ngIf="isLoading" class="flex flex-col items-center justify-center p-12 text-gray-400 space-y-3">
-        <mat-icon class="animate-spin icon-size-8 text-primary" [svgIcon]="'feather:loader'"></mat-icon>
-        <span class="text-base font-medium">Đang quét và sắp xếp các bộ font chữ...</span>
-    </div>
+    @if (isLoading) {
+        <div
+            class="flex flex-col items-center justify-center p-12 text-gray-400 space-y-3"
+        >
+            <mat-icon
+                class="animate-spin icon-size-8 text-primary"
+                [svgIcon]="'feather:loader'"
+            ></mat-icon>
+            <span class="text-base font-medium"
+                >Đang quét và sắp xếp các bộ font chữ...</span
+            >
+        </div>
+    }
 
     <!-- Empty State -->
-    <div *ngIf="!isLoading && fontGroups.length === 0" class="flex flex-col items-center justify-center p-12 bg-white dark:bg-gray-800 rounded-md border-2 border-dashed border-gray-200 dark:border-gray-700 text-center space-y-4">
-        <div class="w-16 h-16 rounded-md bg-primary-50 dark:bg-primary-950/40 text-primary flex items-center justify-center">
-            <mat-icon [svgIcon]="'feather:folder-plus'" class="icon-size-8"></mat-icon>
+    @if (!isLoading && fontGroups.length === 0) {
+        <div
+            class="flex flex-col items-center justify-center p-12 bg-white dark:bg-gray-800 rounded-md border-2 border-dashed border-gray-200 dark:border-gray-700 text-center space-y-4"
+        >
+            <div
+                class="w-16 h-16 rounded-md bg-primary-50 dark:bg-primary-950/40 text-primary flex items-center justify-center"
+            >
+                <mat-icon
+                    [svgIcon]="'feather:folder-plus'"
+                    class="icon-size-8"
+                ></mat-icon>
+            </div>
+            <div class="space-y-1">
+                <h3 class="text-lg font-bold text-gray-800 dark:text-gray-200">
+                    Chưa có Thư mục Font chữ nào được nạp
+                </h3>
+                <p class="text-base text-gray-500 dark:text-gray-400 max-w-sm">
+                    Nhấn "Import Bộ Font từ File ZIP" để tải lên file nén. Mỗi
+                    file nén sẽ được giải nén vào 1 thư mục riêng biệt giúp phân
+                    loại bộ font dễ dàng.
+                </p>
+            </div>
+            <button
+                mat-flat-button
+                [color]="'primary'"
+                (click)="zipFileInput.click()"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:upload-cloud'"
+                ></mat-icon>
+                <span class="ml-2 text-base">Import File ZIP Ngay</span>
+            </button>
         </div>
-        <div class="space-y-1">
-            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-200">Chưa có Thư mục Font chữ nào được nạp</h3>
-            <p class="text-base text-gray-500 dark:text-gray-400 max-w-sm">
-                Nhấn "Import Bộ Font từ File ZIP" để tải lên file nén. Mỗi file nén sẽ được giải nén vào 1 thư mục riêng biệt giúp phân loại bộ font dễ dàng.
-            </p>
-        </div>
-        <button mat-flat-button [color]="'primary'" (click)="zipFileInput.click()">
-            <mat-icon class="icon-size-4" [svgIcon]="'feather:upload-cloud'"></mat-icon>
-            <span class="ml-2 text-base">Import File ZIP Ngay</span>
-        </button>
-    </div>
+    }
 
     <!-- Font Groups Accordion / List -->
-    <div *ngIf="!isLoading && fontGroups.length > 0" class="space-y-6">
-        <div *ngFor="let group of fontGroups" class="space-y-4">
-            <!-- Group Header -->
-            <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700/50">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-md bg-primary-50 dark:bg-primary-950/50 text-primary flex items-center justify-center shrink-0 border border-primary-100 dark:border-primary-900/40">
-                        <mat-icon [svgIcon]="'feather:folder'" class="icon-size-5"></mat-icon>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight m-0" [style.fontFamily]="group.fonts[0]?.fontName">
-                            {{ group.folderName }}
-                        </h3>
-                        <div class="text-sm text-gray-500 font-normal mt-0.5">
-                            {{ group.fonts.length }} kiểu chữ (Đậm, Thường, Nghiêng...)
+    @if (!isLoading && fontGroups.length > 0) {
+        <div class="space-y-6">
+            @for (group of fontGroups; track group) {
+                <div class="space-y-4">
+                    <!-- Group Header -->
+                    <div
+                        class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700/50"
+                    >
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-10 h-10 rounded-md bg-primary-50 dark:bg-primary-950/50 text-primary flex items-center justify-center shrink-0 border border-primary-100 dark:border-primary-900/40"
+                            >
+                                <mat-icon
+                                    [svgIcon]="'feather:folder'"
+                                    class="icon-size-5"
+                                ></mat-icon>
+                            </div>
+                            <div>
+                                <h3
+                                    class="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight m-0"
+                                    [style.fontFamily]="
+                                        group.fonts[0]?.fontName
+                                    "
+                                >
+                                    {{ group.folderName }}
+                                </h3>
+                                <div
+                                    class="text-sm text-gray-500 font-normal mt-0.5"
+                                >
+                                    {{ group.fonts.length }} kiểu chữ (Đậm,
+                                    Thường, Nghiêng...)
+                                </div>
+                            </div>
                         </div>
+                        <!-- Group Actions -->
+                        <div class="flex items-center gap-4">
+                            <!-- Apply Group Link -->
+                            @if (
+                                activeFontGroup?.folderName !== group.folderName
+                            ) {
+                                <a
+                                    (click)="applyGroupFont(group)"
+                                    class="cursor-pointer text-primary hover:underline flex items-center gap-1.5 text-base font-medium select-none"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-primary"
+                                        [svgIcon]="'feather:check-circle'"
+                                    ></mat-icon>
+                                    <span>Áp dụng</span>
+                                </a>
+                            }
+                            @if (
+                                activeFontGroup?.folderName === group.folderName
+                            ) {
+                                <span
+                                    class="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-base font-medium select-none"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-emerald-600 dark:text-emerald-400"
+                                        [svgIcon]="'heroicons_solid:check-circle'"
+                                    ></mat-icon>
+                                    <span>✓ Đang áp dụng cho App</span>
+                                </span>
+                            }
+                            <!-- Delete Entire Group Link -->
+                            <a
+                                (click)="deleteFolderGroup(group)"
+                                class="cursor-pointer text-warn hover:underline flex items-center gap-1.5 text-base font-medium select-none"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-warn"
+                                    [svgIcon]="'feather:trash-2'"
+                                ></mat-icon>
+                                <span>Xóa</span>
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Group Fonts Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @for (item of group.fonts; track item) {
+                            <div
+                                class="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/60 rounded-md p-4 space-y-3 flex flex-col justify-between"
+                            >
+                                <!-- Top row -->
+                                <div
+                                    class="flex items-center justify-between gap-2"
+                                >
+                                    <div
+                                        class="flex items-center gap-2 min-w-0"
+                                    >
+                                        <span
+                                            class="font-bold text-gray-900 dark:text-gray-100 text-base truncate"
+                                            [title]="item.fontName"
+                                        >
+                                            {{ item.fontName }}
+                                        </span>
+                                        <span
+                                            class="text-xs font-mono font-semibold uppercase text-primary shrink-0"
+                                        >
+                                            W:{{
+                                                fontService.detectFontWeight(
+                                                    item.fontName
+                                                )
+                                            }}
+                                            •
+                                            {{
+                                                fontService.detectFontStyle(
+                                                    item.fontName
+                                                )
+                                            }}
+                                        </span>
+                                    </div>
+                                    <div
+                                        class="flex items-center gap-1 shrink-0"
+                                    >
+                                        <button
+                                            mat-icon-button
+                                            [color]="'warn'"
+                                            (click)="deleteFontFile(item)"
+                                            matTooltip="Xóa file font này"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="'feather:trash-2'"
+                                            ></mat-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Live Font Preview -->
+                                <div
+                                    class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/40 rounded-md p-3 space-y-1"
+                                >
+                                    <div
+                                        class="text-xs font-semibold text-gray-400 uppercase tracking-wider"
+                                    >
+                                        Mẫu hiển thị (Weight:
+                                        {{
+                                            fontService.detectFontWeight(
+                                                item.fontName
+                                            )
+                                        }}, Style:
+                                        {{
+                                            fontService.detectFontStyle(
+                                                item.fontName
+                                            )
+                                        }}):
+                                    </div>
+                                    <div
+                                        class="text-2xl text-gray-900 dark:text-gray-100 leading-snug break-words py-1"
+                                        [style.fontFamily]="item.fontName"
+                                        [style.fontWeight]="
+                                            fontService.detectFontWeight(
+                                                item.fontName
+                                            )
+                                        "
+                                        [style.fontStyle]="
+                                            fontService.detectFontStyle(
+                                                item.fontName
+                                            )
+                                        "
+                                    >
+                                        Chúc Mừng Năm Mới!!!
+                                    </div>
+                                    <div
+                                        class="text-base text-gray-500 dark:text-gray-400 break-words"
+                                        [style.fontFamily]="item.fontName"
+                                        [style.fontWeight]="
+                                            fontService.detectFontWeight(
+                                                item.fontName
+                                            )
+                                        "
+                                        [style.fontStyle]="
+                                            fontService.detectFontStyle(
+                                                item.fontName
+                                            )
+                                        "
+                                    >
+                                        The quick brown fox jumps over the lazy
+                                        dog.
+                                    </div>
+                                </div>
+                                <!-- File info footer -->
+                                <div
+                                    class="flex items-center justify-between text-sm text-gray-400"
+                                >
+                                    <span
+                                        class="font-mono truncate max-w-[200px]"
+                                        [title]="item.fileName"
+                                        >{{ item.fileName }}</span
+                                    >
+                                    <span class="font-medium">{{
+                                        item.sizeFormatted
+                                    }}</span>
+                                </div>
+                            </div>
+                        }
                     </div>
                 </div>
-
-                <!-- Group Actions -->
-                <div class="flex items-center gap-4">
-                    <!-- Apply Group Link -->
-                    <a *ngIf="activeFontGroup?.folderName !== group.folderName" (click)="applyGroupFont(group)" class="cursor-pointer text-primary hover:underline flex items-center gap-1.5 text-base font-medium select-none">
-                        <mat-icon class="icon-size-4 text-primary" [svgIcon]="'feather:check-circle'"></mat-icon>
-                        <span>Áp dụng</span>
-                    </a>
-
-                    <span *ngIf="activeFontGroup?.folderName === group.folderName" class="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-base font-medium select-none">
-                        <mat-icon class="icon-size-4 text-emerald-600 dark:text-emerald-400" [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
-                        <span>✓ Đang áp dụng cho App</span>
-                    </span>
-
-                    <!-- Delete Entire Group Link -->
-                    <a (click)="deleteFolderGroup(group)" class="cursor-pointer text-warn hover:underline flex items-center gap-1.5 text-base font-medium select-none">
-                        <mat-icon class="icon-size-4 text-warn" [svgIcon]="'feather:trash-2'"></mat-icon>
-                        <span>Xóa</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Group Fonts Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div *ngFor="let item of group.fonts" class="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/60 rounded-md p-4 space-y-3 flex flex-col justify-between">
-                    <!-- Top row -->
-                    <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span class="font-bold text-gray-900 dark:text-gray-100 text-base truncate" [title]="item.fontName">
-                                {{ item.fontName }}
-                            </span>
-                            <span class="text-xs font-mono font-semibold uppercase text-primary shrink-0">
-                                W:{{ fontService.detectFontWeight(item.fontName) }} • {{ fontService.detectFontStyle(item.fontName) }}
-                            </span>
-                        </div>
-                        <div class="flex items-center gap-1 shrink-0">
-
-                            <button mat-icon-button [color]="'warn'" (click)="deleteFontFile(item)" matTooltip="Xóa file font này">
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Live Font Preview -->
-                    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/40 rounded-md p-3 space-y-1">
-                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Mẫu hiển thị (Weight: {{ fontService.detectFontWeight(item.fontName) }}, Style: {{ fontService.detectFontStyle(item.fontName) }}):</div>
-                        <div class="text-2xl text-gray-900 dark:text-gray-100 leading-snug break-words py-1"
-                             [style.fontFamily]="item.fontName"
-                             [style.fontWeight]="fontService.detectFontWeight(item.fontName)"
-                             [style.fontStyle]="fontService.detectFontStyle(item.fontName)">
-                            Chúc Mừng Năm Mới!!!
-                        </div>
-                        <div class="text-base text-gray-500 dark:text-gray-400 break-words"
-                             [style.fontFamily]="item.fontName"
-                             [style.fontWeight]="fontService.detectFontWeight(item.fontName)"
-                             [style.fontStyle]="fontService.detectFontStyle(item.fontName)">
-                            The quick brown fox jumps over the lazy dog.
-                        </div>
-                    </div>
-
-                    <!-- File info footer -->
-                    <div class="flex items-center justify-between text-sm text-gray-400">
-                        <span class="font-mono truncate max-w-[200px]" [title]="item.fileName">{{ item.fileName }}</span>
-                        <span class="font-medium">{{ item.sizeFormatted }}</span>
-                    </div>
-                </div>
-            </div>
+            }
         </div>
-    </div>
+    }
 </div>

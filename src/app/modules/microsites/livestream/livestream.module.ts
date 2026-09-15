@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { LivestreamComponent } from 'app/modules/microsites/livestream/livestream.component';
 import { MatMenuModule } from '@angular/material/menu';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 const Routes: Route[] = [

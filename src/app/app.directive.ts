@@ -2,7 +2,8 @@ import { Directive, ElementRef, AfterViewInit, Output, EventEmitter } from '@ang
 import { fromEvent } from 'rxjs';
 
 @Directive({
-	selector: '[stopPropagation]',
+    selector: '[stopPropagation]',
+    standalone: false
 })
 export class StopPropagationDirective implements AfterViewInit {
 	@Output() public stop2click = new EventEmitter();

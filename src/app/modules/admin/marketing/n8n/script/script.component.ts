@@ -49,7 +49,8 @@ interface CommentGroup {
     styleUrls: ['./script.component.scss'],
     providers: [BlogService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked {
     config: AppConfig;

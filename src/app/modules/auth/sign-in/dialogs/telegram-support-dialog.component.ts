@@ -1,16 +1,22 @@
-import { Component, ViewEncapsulation } from '@angular/core';
+import {
+    Component,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 
 @Component({
     selector: 'app-telegram-support-dialog',
     templateUrl: './telegram-support-dialog.component.html',
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class TelegramSupportDialogComponent {
     telegramUrl: string = 'https://t.me/AITypeSupport_bot';
 
     constructor(
-        public matDialogRef: MatDialogRef<TelegramSupportDialogComponent>
+        public matDialogRef: MatDialogRef<TelegramSupportDialogComponent>,
     ) {}
 
     openTelegramExternal(): void {

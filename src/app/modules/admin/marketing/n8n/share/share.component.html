@@ -1,204 +1,459 @@
 <div class="flex flex-col flex-auto h-full p-6 sm:p-10 overflow-y-auto">
-    <div class="text-2xl font-semibold mb-6">{{ 'app.multi_channel_share_to' | transloco }}</div>
-
+    <div class="text-2xl font-semibold mb-6">
+        {{ "app.multi_channel_share_to" | transloco }}
+    </div>
 
     <form [formGroup]="shareForm" class="flex flex-col max-w-4xl relative">
-        <div class="text-lg font-medium mb-4">{{ 'app.post_information' | transloco }}</div>
+        <div class="text-lg font-medium mb-4">
+            {{ "app.post_information" | transloco }}
+        </div>
 
         <div class="flex gap-4 mb-4">
             <mat-form-field class="w-1/2 fuse-mat-dense">
-                <mat-label class="ml-2">{{ 'app.select_target_fanpage' | transloco }}</mat-label>
-                <ng-container *ngIf="shareForm.get('pageIds').value?.length > 0; else defaultFbIcon">
-                    <img matPrefix
-                        [src]="'https://graph.facebook.com/' + shareForm.get('pageIds').value[0] + '/picture?type=normal'"
+                <mat-label class="ml-2">{{
+                    "app.select_target_fanpage" | transloco
+                }}</mat-label>
+                @if (shareForm.get("pageIds").value?.length > 0) {
+                    <img
+                        matPrefix
+                        [src]="
+                            'https://graph.facebook.com/' +
+                            shareForm.get('pageIds').value[0] +
+                            '/picture?type=normal'
+                        "
                         class="w-5 h-5 rounded-full mr-2 object-cover shadow-sm bg-gray-100"
-                        onerror="this.src='assets/images/logo/facebook.png'; this.onerror=null;">
-                </ng-container>
-                <ng-template #defaultFbIcon>
-                    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:facebook'"></mat-icon>
-                </ng-template>
+                        onerror="
+                            this.src = 'assets/images/logo/facebook.png';
+                            this.onerror = null;
+                        "
+                    />
+                } @else {
+                    <mat-icon
+                        class="icon-size-4"
+                        matPrefix
+                        [svgIcon]="'feather:facebook'"
+                    ></mat-icon>
+                }
 
-                <mat-select #selectDropdown [formControlName]="'pageIds'" multiple required
-                    (opened)="searchPageTerm = ''">
+                <mat-select
+                    #selectDropdown
+                    [formControlName]="'pageIds'"
+                    multiple
+                    required
+                    (opened)="searchPageTerm = ''"
+                >
                     <mat-select-trigger>
                         <span class="truncate block w-[calc(100%-20px)] pr-2">
-                            {{ shareForm.get('pageIds').value ? getSelectedPageNames() : '' }}
+                            {{
+                                shareForm.get("pageIds").value
+                                    ? getSelectedPageNames()
+                                    : ""
+                            }}
                         </span>
                     </mat-select-trigger>
 
-                    <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-gray-100 flex flex-row items-center cursor-default"
-                        [class.gap-3]="shareForm.get('pageIds').value?.length > 0"
-                        (click)="$event.stopPropagation(); $event.preventDefault()">
+                    <div
+                        class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-gray-100 flex flex-row items-center cursor-default"
+                        [class.gap-3]="
+                            shareForm.get('pageIds').value?.length > 0
+                        "
+                        (click)="
+                            $event.stopPropagation(); $event.preventDefault()
+                        "
+                    >
                         <!-- Search & Token Input Container -->
                         <div
-                            class="flex flex-1 overflow-hidden relative h-9 border border-gray-200 rounded-md bg-gray-50 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
-
-                            <div class="flex flex-col w-full h-full transition-transform duration-300 ease-in-out absolute top-0 left-0"
-                                [ngStyle]="{'transform': showTokenInput ? 'translateY(-100%)' : 'translateY(0)'}">
-
+                            class="flex flex-1 overflow-hidden relative h-9 border border-gray-200 rounded-md bg-gray-50 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all"
+                        >
+                            <div
+                                class="flex flex-col w-full h-full transition-transform duration-300 ease-in-out absolute top-0 left-0"
+                                [ngStyle]="{
+                                    transform: showTokenInput
+                                        ? 'translateY(-100%)'
+                                        : 'translateY(0)',
+                                }"
+                            >
                                 <!-- Search Mode -->
-                                <div class="flex items-center w-full h-full shrink-0 px-2 gap-1.5">
-                                    <mat-icon class="icon-size-4 text-gray-400 shrink-0"
-                                        [svgIcon]="'feather:search'"></mat-icon>
-                                    <input type="text"
+                                <div
+                                    class="flex items-center w-full h-full shrink-0 px-2 gap-1.5"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-gray-400 shrink-0"
+                                        [svgIcon]="'feather:search'"
+                                    ></mat-icon>
+                                    <input
+                                        type="text"
                                         class="flex-1 outline-none text-sm bg-transparent placeholder-gray-400 min-w-0 h-full"
-                                        [placeholder]="'app.search_name_or_id' | transloco"
-                                        (input)="searchPageTerm = $event.target.value" [value]="searchPageTerm"
-                                        (keydown)="$event.stopPropagation()" autofocus>
-                                    
-                                    <button *ngIf="searchPageTerm" type="button"
-                                        class="flex items-center justify-center leading-none shrink-0 w-7 h-7 border-0 bg-transparent cursor-pointer outline-none hover:bg-gray-200/55 rounded-md transition-colors"
-                                        (click)="searchPageTerm = ''; $event.stopPropagation()">
-                                        <mat-icon class="icon-size-4 text-gray-400 hover:text-gray-600"
-                                            [svgIcon]="'feather:x-circle'"></mat-icon>
-                                    </button>
+                                        [placeholder]="
+                                            'app.search_name_or_id' | transloco
+                                        "
+                                        (input)="
+                                            searchPageTerm = $event.target.value
+                                        "
+                                        [value]="searchPageTerm"
+                                        (keydown)="$event.stopPropagation()"
+                                        autofocus
+                                    />
+
+                                    @if (searchPageTerm) {
+                                        <button
+                                            type="button"
+                                            class="flex items-center justify-center leading-none shrink-0 w-7 h-7 border-0 bg-transparent cursor-pointer outline-none hover:bg-gray-200/55 rounded-md transition-colors"
+                                            (click)="
+                                                searchPageTerm = '';
+                                                $event.stopPropagation()
+                                            "
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4 text-gray-400 hover:text-gray-600"
+                                                [svgIcon]="'feather:x-circle'"
+                                            ></mat-icon>
+                                        </button>
+                                    }
 
                                     <!-- Page Count inside search bar -->
-                                    <span class="text-xs font-semibold text-gray-500 shrink-0 select-none mr-0.5">
-                                        {{ shareForm.get('pageIds').value?.length ? shareForm.get('pageIds').value.length + '/' : '' }}{{ filteredFbPages.length }}
+                                    <span
+                                        class="text-xs font-semibold text-gray-500 shrink-0 select-none mr-0.5"
+                                    >
+                                        {{
+                                            shareForm.get("pageIds").value
+                                                ?.length
+                                                ? shareForm.get("pageIds").value
+                                                      .length + "/"
+                                                : ""
+                                        }}{{ filteredFbPages.length }}
                                     </span>
 
                                     <!-- Sync Button inside search bar -->
-                                    <button type="button"
+                                    <button
+                                        type="button"
                                         class="w-7 h-7 text-blue-600 hover:text-blue-700 hover:bg-blue-100/60 rounded-md flex items-center justify-center transition-colors shrink-0 border-0 bg-transparent cursor-pointer outline-none"
-                                        [ngClass]="{'bg-blue-100': showTokenInput}"
-                                        (click)="toggleTokenInput(); $event.stopPropagation()" [matTooltip]="'app.auto_synchronize_fanpage' | transloco">
-                                        <mat-icon *ngIf="!isFetchingPages" class="icon-size-3.5"
-                                            [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                                        <mat-spinner *ngIf="isFetchingPages" diameter="14"></mat-spinner>
+                                        [ngClass]="{
+                                            'bg-blue-100': showTokenInput,
+                                        }"
+                                        (click)="
+                                            toggleTokenInput();
+                                            $event.stopPropagation()
+                                        "
+                                        [matTooltip]="
+                                            'app.auto_synchronize_fanpage'
+                                                | transloco
+                                        "
+                                    >
+                                        @if (!isFetchingPages) {
+                                            <mat-icon
+                                                class="icon-size-3.5"
+                                                [svgIcon]="'feather:refresh-cw'"
+                                            ></mat-icon>
+                                        }
+                                        @if (isFetchingPages) {
+                                            <mat-spinner
+                                                diameter="14"
+                                            ></mat-spinner>
+                                        }
                                     </button>
                                 </div>
 
                                 <!-- Token Mode -->
                                 <div
-                                    class="flex items-center w-full h-full shrink-0 px-2 bg-blue-50/50 border-t border-transparent gap-1.5">
-                                    <mat-icon class="icon-size-4 text-blue-500 shrink-0"
-                                        [svgIcon]="'feather:key'"></mat-icon>
-                                    <input type="text"
+                                    class="flex items-center w-full h-full shrink-0 px-2 bg-blue-50/50 border-t border-transparent gap-1.5"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-500 shrink-0"
+                                        [svgIcon]="'feather:key'"
+                                    ></mat-icon>
+                                    <input
+                                        type="text"
                                         class="flex-1 outline-none text-sm bg-transparent placeholder-blue-300 text-blue-700 min-w-0 h-full"
-                                        [placeholder]="'app.auto_enter_eaac_token' | transloco" (input)="fbTokenInput = $event.target.value"
-                                        [value]="fbTokenInput" (keydown)="$event.stopPropagation()"
-                                        (keydown.enter)="fetchFacebookPages(); $event.stopPropagation(); $event.preventDefault()">
-                                    
-                                    <button *ngIf="fbTokenInput && !isFetchingPages" type="button"
-                                        class="flex items-center w-7 h-7 justify-center shrink-0 border-0 bg-transparent cursor-pointer outline-none hover:bg-blue-100/50 rounded-md transition-colors"
-                                        (click)="fetchFacebookPages(); $event.stopPropagation()">
-                                        <mat-icon class="icon-size-4 text-blue-600"
-                                            [svgIcon]="'feather:arrow-right-circle'"></mat-icon>
-                                    </button>
-                                    
-                                    <button type="button"
+                                        [placeholder]="
+                                            'app.auto_enter_eaac_token'
+                                                | transloco
+                                        "
+                                        (input)="
+                                            fbTokenInput = $event.target.value
+                                        "
+                                        [value]="fbTokenInput"
+                                        (keydown)="$event.stopPropagation()"
+                                        (keydown.enter)="
+                                            fetchFacebookPages();
+                                            $event.stopPropagation();
+                                            $event.preventDefault()
+                                        "
+                                    />
+
+                                    @if (fbTokenInput && !isFetchingPages) {
+                                        <button
+                                            type="button"
+                                            class="flex items-center w-7 h-7 justify-center shrink-0 border-0 bg-transparent cursor-pointer outline-none hover:bg-blue-100/50 rounded-md transition-colors"
+                                            (click)="
+                                                fetchFacebookPages();
+                                                $event.stopPropagation()
+                                            "
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4 text-blue-600"
+                                                [svgIcon]="'feather:arrow-right-circle'"
+                                            ></mat-icon>
+                                        </button>
+                                    }
+
+                                    <button
+                                        type="button"
                                         class="w-7 h-7 text-gray-400 hover:text-gray-600 rounded-md flex items-center justify-center transition-colors shrink-0 border-0 bg-transparent cursor-pointer outline-none hover:bg-blue-100/50"
-                                        (click)="toggleTokenInput(); $event.stopPropagation()">
-                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
+                                        (click)="
+                                            toggleTokenInput();
+                                            $event.stopPropagation()
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="'feather:x'"
+                                        ></mat-icon>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Quick Actions -->
-                        <div class="flex items-center whitespace-nowrap" *ngIf="shareForm.get('pageIds').value?.length > 0">
-                            <button mat-icon-button
-                                class="text-red-500 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
-                                (click)="shareForm.get('pageIds').setValue([]); $event.stopPropagation()"
-                                [matTooltip]="'app.deselect_all' | transloco">
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                            </button>
-                        </div>
+                        @if (shareForm.get("pageIds").value?.length > 0) {
+                            <div class="flex items-center whitespace-nowrap">
+                                <button
+                                    mat-icon-button
+                                    class="text-red-500 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
+                                    (click)="
+                                        shareForm.get('pageIds').setValue([]);
+                                        $event.stopPropagation()
+                                    "
+                                    [matTooltip]="
+                                        'app.deselect_all' | transloco
+                                    "
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:trash-2'"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        }
                     </div>
 
-                    <mat-option *ngIf="filteredFbPages.length === 0" disabled class="text-center italic text-gray-400 py-4">{{ 'app.auto_no_fanpage_found' | transloco }}</mat-option>
-                    <mat-option *ngFor="let page of filteredFbPages" [value]="page.id" class="h-auto py-2 !mt-0 !mb-0">
-                        <div class="flex items-center gap-3 w-full min-w-0">
-                            <img [src]="'https://graph.facebook.com/' + page.id + '/picture?type=normal'"
-                                class="w-8 h-8 rounded-full shadow-sm object-cover flex-shrink-0 bg-gray-100"
-                                onerror="this.src='assets/images/logo/facebook.png'; this.onerror=null;">
-                            <span class="truncate flex-1" [title]="page.name + ' (' + page.id + ')'">
-                                {{ page.name }} <span class="text-xs text-secondary">({{ page.id }})</span>
-                            </span>
-                        </div>
-                    </mat-option>
+                    @if (filteredFbPages.length === 0) {
+                        <mat-option
+                            disabled
+                            class="text-center italic text-gray-400 py-4"
+                            >{{
+                                "app.auto_no_fanpage_found" | transloco
+                            }}</mat-option
+                        >
+                    }
+                    @for (page of filteredFbPages; track page) {
+                        <mat-option
+                            [value]="page.id"
+                            class="h-auto py-2 !mt-0 !mb-0"
+                        >
+                            <div class="flex items-center gap-3 w-full min-w-0">
+                                <img
+                                    [src]="
+                                        'https://graph.facebook.com/' +
+                                        page.id +
+                                        '/picture?type=normal'
+                                    "
+                                    class="w-8 h-8 rounded-full shadow-sm object-cover flex-shrink-0 bg-gray-100"
+                                    onerror="
+                                        this.src =
+                                            'assets/images/logo/facebook.png';
+                                        this.onerror = null;
+                                    "
+                                />
+                                <span
+                                    class="truncate flex-1"
+                                    [title]="page.name + ' (' + page.id + ')'"
+                                >
+                                    {{ page.name }}
+                                    <span class="text-xs text-secondary"
+                                        >({{ page.id }})</span
+                                    >
+                                </span>
+                            </div>
+                        </mat-option>
+                    }
                 </mat-select>
                 <mat-hint class="text-xs flex items-center mt-1">
-                    <a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                    <a
+                        href="https://developers.facebook.com/tools/explorer/"
+                        target="_blank"
+                        class="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                    >
                         Mở Facebook Graph Explorer
                     </a>
                 </mat-hint>
             </mat-form-field>
 
             <mat-form-field class="w-1/2 fuse-mat-dense">
-                <mat-label class="ml-2">{{ 'app.post_title' | transloco }}</mat-label>
-                <input matInput [formControlName]="'title'" [placeholder]="'app.auto_what_do_you_want_to_post_today' | transloco" required>
-                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon>
+                <mat-label class="ml-2">{{
+                    "app.post_title" | transloco
+                }}</mat-label>
+                <input
+                    matInput
+                    [formControlName]="'title'"
+                    [placeholder]="
+                        'app.auto_what_do_you_want_to_post_today' | transloco
+                    "
+                    required
+                />
+                <mat-icon
+                    class="icon-size-4"
+                    matPrefix
+                    [svgIcon]="'feather:edit-3'"
+                ></mat-icon>
             </mat-form-field>
         </div>
 
         <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-2">
-            <mat-label class="ml-2">{{ 'app.auto_article_content' | transloco }}</mat-label>
-            <textarea matInput cdkTextareaAutosize [cdkAutosizeMinRows]="5" [formControlName]="'description'"
-                [placeholder]="'app.auto_detailed_content' | transloco"></textarea>
+            <mat-label class="ml-2">{{
+                "app.auto_article_content" | transloco
+            }}</mat-label>
+            <textarea
+                matInput
+                cdkTextareaAutosize
+                [cdkAutosizeMinRows]="5"
+                [formControlName]="'description'"
+                [placeholder]="'app.auto_detailed_content' | transloco"
+            ></textarea>
         </mat-form-field>
 
         <div class="flex flex-col mt-2 mb-6">
             <div class="flex items-center justify-between mb-2">
-                <mat-label class="text-secondary font-medium">{{ 'app.media_files_image_video' | transloco }}</mat-label>
-                <button mat-icon-button (click)="fileInput.click()" type="button" [color]="'primary'"
-                    [matTooltip]="'app.add_media_file' | transloco">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
+                <mat-label class="text-secondary font-medium">{{
+                    "app.media_files_image_video" | transloco
+                }}</mat-label>
+                <button
+                    mat-icon-button
+                    (click)="fileInput.click()"
+                    type="button"
+                    [color]="'primary'"
+                    [matTooltip]="'app.add_media_file' | transloco"
+                >
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:folder-plus'"
+                    ></mat-icon>
                 </button>
-                <input #fileInput type="file" class="hidden" (change)="onThumbnailSelected($event)"
-                    accept="image/*,video/*" multiple>
+                <input
+                    #fileInput
+                    type="file"
+                    class="hidden"
+                    (change)="onThumbnailSelected($event)"
+                    accept="image/*,video/*"
+                    multiple
+                />
             </div>
 
-            <div class="flex flex-col gap-2 bg-gray-50 p-2 rounded-md border border-gray-200 border-dashed min-h-[60px]"
-                [class.items-center]="thumbnailsList.length === 0" [class.justify-center]="thumbnailsList.length === 0">
-
-                <div *ngIf="thumbnailsList.length === 0" class="text-sm text-gray-400 italic">
-                    {{ 'app.no_file_selected' | transloco }}
-                </div>
-
-                <div *ngFor="let file of thumbnailsList; let i = index" class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2 overflow-hidden flex-1">
-                        <ng-container *ngIf="isImage(file); else fileIcon">
-                            <img [src]="getFileSrc(file)" class="w-8 h-8 object-cover rounded shadow-sm flex-shrink-0">
-                        </ng-container>
-
-                        <ng-template #fileIcon>
-                            <div
-                                class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded shadow-sm flex-shrink-0">
-                                <mat-icon class="icon-size-5 text-gray-500"
-                                    [svgIcon]="isVideo(file) ? 'feather:film' : 'feather:file'"></mat-icon>
-                            </div>
-                        </ng-template>
-
-                        <span class="truncate text-sm font-medium flex-1"
-                            [class.text-red-500]="isMemoryFileMissing(file)"
-                            [class.text-gray-700]="!isMemoryFileMissing(file)" [title]="getFileName(file)">
-                            {{ getFileName(file) }}
-                            <span *ngIf="isMemoryFileMissing(file)" class="text-xs text-red-500 ml-2 italic">{{ 'app.error_file_content_not' | transloco }}</span>
-                        </span>
+            <div
+                class="flex flex-col gap-2 bg-gray-50 p-2 rounded-md border border-gray-200 border-dashed min-h-[60px]"
+                [class.items-center]="thumbnailsList.length === 0"
+                [class.justify-center]="thumbnailsList.length === 0"
+            >
+                @if (thumbnailsList.length === 0) {
+                    <div class="text-sm text-gray-400 italic">
+                        {{ "app.no_file_selected" | transloco }}
                     </div>
-                    <button mat-icon-button (click)="removeThumbnail(i)" class="text-red-500 flex-shrink-0 ml-2"
-                        type="button" [matTooltip]="'app.auto_delete_this_file' | transloco">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                    </button>
-                </div>
+                }
+
+                @for (file of thumbnailsList; track file; let i = $index) {
+                    <div class="flex items-center justify-between">
+                        <div
+                            class="flex items-center space-x-2 overflow-hidden flex-1"
+                        >
+                            @if (isImage(file)) {
+                                <img
+                                    [src]="getFileSrc(file)"
+                                    class="w-8 h-8 object-cover rounded shadow-sm flex-shrink-0"
+                                />
+                            } @else {
+                                <div
+                                    class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded shadow-sm flex-shrink-0"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5 text-gray-500"
+                                        [svgIcon]="
+                                            isVideo(file)
+                                                ? 'feather:film'
+                                                : 'feather:file'
+                                        "
+                                    ></mat-icon>
+                                </div>
+                            }
+                            <span
+                                class="truncate text-sm font-medium flex-1"
+                                [class.text-red-500]="isMemoryFileMissing(file)"
+                                [class.text-gray-700]="
+                                    !isMemoryFileMissing(file)
+                                "
+                                [title]="getFileName(file)"
+                            >
+                                {{ getFileName(file) }}
+                                @if (isMemoryFileMissing(file)) {
+                                    <span
+                                        class="text-xs text-red-500 ml-2 italic"
+                                        >{{
+                                            "app.error_file_content_not"
+                                                | transloco
+                                        }}</span
+                                    >
+                                }
+                            </span>
+                        </div>
+                        <button
+                            mat-icon-button
+                            (click)="removeThumbnail(i)"
+                            class="text-red-500 flex-shrink-0 ml-2"
+                            type="button"
+                            [matTooltip]="
+                                'app.auto_delete_this_file' | transloco
+                            "
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:trash-2'"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                }
             </div>
-            <mat-hint class="text-xs text-secondary mt-1">{{ 'app.auto_local_image_video_path_to_shar' | transloco }}</mat-hint>
+            <mat-hint class="text-xs text-secondary mt-1">{{
+                "app.auto_local_image_video_path_to_shar" | transloco
+            }}</mat-hint>
         </div>
 
         <mat-form-field class="w-full fuse-mat-dense mb-2">
-            <mat-label class="ml-2">{{ 'app.auto_schedule_post' | transloco }}</mat-label>
-            <input #scheduleInput matInput type="datetime-local" [formControlName]="'scheduleTime'"
-                (click)="scheduleInput.showPicker()">
-            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>
-            <mat-hint>{{ 'app.auto_leave_blank_or_select_a_past_p' | transloco }}</mat-hint>
+            <mat-label class="ml-2">{{
+                "app.auto_schedule_post" | transloco
+            }}</mat-label>
+            <input
+                #scheduleInput
+                matInput
+                type="datetime-local"
+                [formControlName]="'scheduleTime'"
+                (click)="scheduleInput.showPicker()"
+            />
+            <mat-icon
+                class="icon-size-4"
+                matPrefix
+                [svgIcon]="'feather:clock'"
+            ></mat-icon>
+            <mat-hint>{{
+                "app.auto_leave_blank_or_select_a_past_p" | transloco
+            }}</mat-hint>
         </mat-form-field>
 
         <div class="flex justify-end mt-2">
             <button mat-flat-button color="primary" (click)="submitShare()">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
-                <mat-label class="ml-2">{{ 'Đăng bài ngay' }}</mat-label>
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:send'"
+                ></mat-icon>
+                <mat-label class="ml-2">{{ "Đăng bài ngay" }}</mat-label>
             </button>
         </div>
     </form>

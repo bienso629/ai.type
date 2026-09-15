@@ -1,7 +1,11 @@
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { NgModule } from '@angular/core';
-import { HttpClientModule } from '@angular/common/http';
+import {
+    provideHttpClient,
+    withInterceptorsFromDi,
+    withXhr,
+} from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -21,11 +25,9 @@ import { SharedModule } from 'app/shared.module';
 import { ModernLayoutComponent } from 'app/layout/layouts/horizontal/modern/modern.component';
 
 @NgModule({
-    declarations: [
-        ModernLayoutComponent
-    ],
-    imports     : [
-        HttpClientModule,
+    declarations: [ModernLayoutComponent],
+    exports: [ModernLayoutComponent],
+    imports: [
         RouterModule,
         MatButtonModule,
         MatDividerModule,
@@ -41,12 +43,8 @@ import { ModernLayoutComponent } from 'app/layout/layouts/horizontal/modern/mode
         SearchModule,
         ShortcutsModule,
         UserModule,
-        SharedModule
+        SharedModule,
     ],
-    exports     : [
-        ModernLayoutComponent
-    ]
+    providers: [provideHttpClient(withXhr(), withInterceptorsFromDi())],
 })
-export class ModernLayoutModule
-{
-}
+export class ModernLayoutModule {}

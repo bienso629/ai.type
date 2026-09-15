@@ -1,4 +1,13 @@
-import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    Input,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
@@ -9,7 +18,11 @@ import { Router } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 import { ToastrService } from 'ngx-toastr';
 import { MXHAutoService } from 'app/_services/mxhauto';
-import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
+import {
+    ColumnMode,
+    DatatableComponent,
+    SelectionType,
+} from '@swimlane/ngx-datatable';
 import _ from 'lodash';
 import { MatDialog } from '@angular/material/dialog';
 import { EditAccountDialog } from './dialogs/edit-dialog';
@@ -23,7 +36,9 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
     templateUrl: './profile.component.html',
     styleUrls: ['./profile.component.scss'],
     providers: [],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AMXHProfileAppComponent implements OnInit, OnDestroy {
     config: AppConfig;
@@ -91,7 +106,9 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             }
         } catch (e) {
             // Nếu không phải JSON, hiển thị text thường (cắt ngắn nếu dài)
-            return this.sanitizer.bypassSecurityTrustHtml(`<span class="text-gray-600 text-sm">${note}</span>`);
+            return this.sanitizer.bypassSecurityTrustHtml(
+                `<span class="text-gray-600 text-sm">${note}</span>`,
+            );
         }
         return '';
     }
@@ -99,7 +116,8 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
     getAccountAvatar(row: any): string {
         if (row.accounts && row.accounts.length > 0) {
             const acc = row.accounts[0];
-            const name = acc.alias || (acc.email ? acc.email.split('@')[0] : '');
+            const name =
+                acc.alias || (acc.email ? acc.email.split('@')[0] : '');
             if (name) {
                 return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&bold=true&size=128`;
             }
@@ -121,7 +139,7 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
     }
 
     displayCheck(row: any) {
-        return true; 
+        return true;
     }
 
     getRowHeight(row: any) {
@@ -132,10 +150,10 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
         const reqData: any = {
             host: '127.0.0.1',
             verify: true,
-            filter: "all",
+            filter: 'all',
             include_accounts: true,
             platform: 'tiktok',
-            username: this.user ? this.user.name : ''
+            username: this.user ? this.user.name : '',
         };
 
         const rootPath = this.getProfilesRoot();
@@ -143,15 +161,22 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             reqData.profiles_root = rootPath;
         }
 
-        this._mxhautoService.profiles(reqData)
+        this._mxhautoService
+            .profiles(reqData)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
                     if (result && result.ok) {
                         const newResults = result.results || [];
-                        if (this.profiles && this.profiles.length > 0 && isSilent) {
+                        if (
+                            this.profiles &&
+                            this.profiles.length > 0 &&
+                            isSilent
+                        ) {
                             newResults.forEach((item: any) => {
-                                const p = this.profiles.find(x => x.profile === item.profile);
+                                const p = this.profiles.find(
+                                    (x) => x.profile === item.profile,
+                                );
                                 if (p) {
                                     p.running = item.running;
                                     p.devtools_port = item.devtools_port;
@@ -161,14 +186,15 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
                         } else {
                             this.profiles = newResults;
                         }
-                        this.totalProfiles = result.count || this.profiles.length;
+                        this.totalProfiles =
+                            result.count || this.profiles.length;
                         this.cd.markForCheck();
                     }
                 },
-                error: () => { },
+                error: () => {},
                 complete: () => {
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -182,12 +208,12 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
                     profiles_root: this.getProfilesRoot(),
                     profiles: [row.profile],
                     platform: 'tiktok',
-                    active: true
-                }
-            }
+                    active: true,
+                },
+            },
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result && result.data) {
                 // Refresh lại list hoặc push tay
                 if (!row['accounts']) row['accounts'] = [];
@@ -203,11 +229,11 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             panelClass: 'dlg-primary',
             data: {
                 item: item,
-                user: this.user
-            }
+                user: this.user,
+            },
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result && result.data) {
                 // Dữ liệu item đã được cập nhật trong dialog (reference)
                 // chỉ cần markCheck để UI vẽ lại cột Nhân cách
@@ -223,7 +249,9 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
     async checkOperaCodec(): Promise<void> {
         try {
             if ((window as any).electron && (window as any).electron.invoke) {
-                this.codecStatus = await (window as any).electron.invoke('opera:check-ffmpeg');
+                this.codecStatus = await (window as any).electron.invoke(
+                    'opera:check-ffmpeg',
+                );
                 this.cd.markForCheck();
             }
         } catch (e) {
@@ -234,19 +262,27 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
     async installOperaCodec(): Promise<void> {
         if (this.isInstallingCodec) return;
         this.isInstallingCodec = true;
-        this.toastr.info('Đang tải và cài đặt thư viện Codec Video H.264/AAC cho Opera...');
+        this.toastr.info(
+            'Đang tải và cài đặt thư viện Codec Video H.264/AAC cho Opera...',
+        );
         this.cd.markForCheck();
         try {
             if ((window as any).electron && (window as any).electron.invoke) {
-                const res = await (window as any).electron.invoke('opera:install-ffmpeg');
+                const res = await (window as any).electron.invoke(
+                    'opera:install-ffmpeg',
+                );
                 if (res && res.ok) {
-                    this.toastr.success('Đã cài đặt thành công Codec Video H.264 & AAC cho Opera!');
+                    this.toastr.success(
+                        'Đã cài đặt thành công Codec Video H.264 & AAC cho Opera!',
+                    );
                     await this.checkOperaCodec();
                 } else {
                     this.toastr.error(res?.error || 'Không thể cài đặt Codec');
                 }
             } else {
-                this.toastr.warning('Chức năng cài đặt tự động chỉ hỗ trợ trên ứng dụng Electron.');
+                this.toastr.warning(
+                    'Chức năng cài đặt tự động chỉ hỗ trợ trên ứng dụng Electron.',
+                );
             }
         } catch (e: any) {
             this.toastr.error(e?.message || 'Lỗi khi cài đặt Codec');
@@ -262,8 +298,8 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             width: '640px',
             data: {
                 profile: row.profile,
-                profiles_root: this.getProfilesRoot()
-            }
+                profiles_root: this.getProfilesRoot(),
+            },
         });
     }
 
@@ -281,27 +317,40 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
         }
     }
 
-    setProfileVpn(row: any, enabled: boolean = true, location: string = 'optimal') {
+    setProfileVpn(
+        row: any,
+        enabled: boolean = true,
+        location: string = 'optimal',
+    ) {
         if (!row || !row.profile) return;
-        const validLocation = (location === 'off' || !location) ? 'optimal' : location;
-        this._mxhautoService.setProfileVpn(row.profile, { 
-            enabled: enabled, 
-            location: validLocation,
-            profiles_root: this.getProfilesRoot(),
-            username: this.user ? this.user.name : ''
-        })
+        const validLocation =
+            location === 'off' || !location ? 'optimal' : location;
+        this._mxhautoService
+            .setProfileVpn(row.profile, {
+                enabled: enabled,
+                location: validLocation,
+                profiles_root: this.getProfilesRoot(),
+                username: this.user ? this.user.name : '',
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (res: any) => {
                     if (res && res.ok !== false) {
                         row.vpn = { enabled, location: validLocation };
-                        this.toastr.success(enabled ? `Đã cài đặt VPN ${validLocation.toUpperCase()} cho ${row.profile}` : `Đã tắt VPN cho ${row.profile}`);
+                        this.toastr.success(
+                            enabled
+                                ? `Đã cài đặt VPN ${validLocation.toUpperCase()} cho ${row.profile}`
+                                : `Đã tắt VPN cho ${row.profile}`,
+                        );
                     } else {
                         this.toastr.error(res?.message || 'Không thể đổi VPN');
                     }
                     this.cd.markForCheck();
                 },
-                error: (err: any) => this.toastr.error(`Có lỗi xảy ra khi đổi VPN: ${err?.error?.detail?.[0]?.msg || err?.message || ''}`)
+                error: (err: any) =>
+                    this.toastr.error(
+                        `Có lỗi xảy ra khi đổi VPN: ${err?.error?.detail?.[0]?.msg || err?.message || ''}`,
+                    ),
             });
     }
 
@@ -312,33 +361,46 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             return;
         }
 
-        const validLocation = (location === 'off' || !location) ? 'optimal' : location;
+        const validLocation =
+            location === 'off' || !location ? 'optimal' : location;
 
-        this._mxhautoService.setVpnRange({
-            start: 0,
-            end: 99,
-            zero_pad: 3,
-            prefix: 'Profile',
-            enabled: enabled,
-            location: validLocation,
-            profiles: profiles,
-            profiles_root: this.getProfilesRoot(),
-            username: this.user ? this.user.name : ''
-        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: (res: any) => {
-                this.toastr.success(enabled ? `Đã áp dụng VPN [${validLocation.toUpperCase()}] cho ${profiles.length} profiles` : `Đã tắt VPN cho ${profiles.length} profiles`);
-                this.getProfiles(true);
-            },
-            error: () => this.toastr.error('Có lỗi khi cài đặt VPN hàng loạt')
-        });
+        this._mxhautoService
+            .setVpnRange({
+                start: 0,
+                end: 99,
+                zero_pad: 3,
+                prefix: 'Profile',
+                enabled: enabled,
+                location: validLocation,
+                profiles: profiles,
+                profiles_root: this.getProfilesRoot(),
+                username: this.user ? this.user.name : '',
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (res: any) => {
+                    this.toastr.success(
+                        enabled
+                            ? `Đã áp dụng VPN [${validLocation.toUpperCase()}] cho ${profiles.length} profiles`
+                            : `Đã tắt VPN cho ${profiles.length} profiles`,
+                    );
+                    this.getProfiles(true);
+                },
+                error: () =>
+                    this.toastr.error('Có lỗi khi cài đặt VPN hàng loạt'),
+            });
     }
 
     run(headless: boolean = this.isHeadless) {
-        const stoppedSelected = (this.selected || []).filter(item => !item.running);
+        const stoppedSelected = (this.selected || []).filter(
+            (item) => !item.running,
+        );
         const profiles = _.map(stoppedSelected, 'profile');
         if (profiles.length === 0) {
             if (this.selected && this.selected.length > 0) {
-                this.toastr.info('Tất cả profile được chọn đều đang chạy (Running)');
+                this.toastr.info(
+                    'Tất cả profile được chọn đều đang chạy (Running)',
+                );
             } else {
                 this.toastr.warning('Vui lòng chọn profile cần chạy');
             }
@@ -346,41 +408,47 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
         }
 
         const payload: any = {
-            "profiles": profiles,
-            "base_debug_port": 0,
-            "opera_path": this.getOperaPath(),
-            "extra_args": ["--ignore-certificate-errors", "--disable-quic"],
-            "devtools_ready_timeout_ms": 8000,
-            "close_tabs_on_start": false,
-            "leave_one_tab": false,
-            "new_tab_url": null,
-            "mode": "skip",
-            "window_state": "maximized",
-            "headless": headless,
-            "prefix_title_with_profile": true,
-            "title_prefix_apply_all_tabs": true,
-            "post_open_wait_ms": 800,
-            "activate_opened_tab": false,
-            "username": this.user ? this.user.name : ''
+            profiles: profiles,
+            base_debug_port: 0,
+            opera_path: this.getOperaPath(),
+            extra_args: ['--ignore-certificate-errors', '--disable-quic'],
+            devtools_ready_timeout_ms: 8000,
+            close_tabs_on_start: false,
+            leave_one_tab: false,
+            new_tab_url: null,
+            mode: 'skip',
+            window_state: 'maximized',
+            headless: headless,
+            prefix_title_with_profile: true,
+            title_prefix_apply_all_tabs: true,
+            post_open_wait_ms: 800,
+            activate_opened_tab: false,
+            username: this.user ? this.user.name : '',
         };
 
         const root = this.getProfilesRoot();
         if (root) payload.profiles_root = root;
 
-        this._mxhautoService.run(payload)
+        this._mxhautoService
+            .run(payload)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
                     if (result && result.results) {
                         // Update trạng thái running trên UI
                         result.results.forEach((resItem: any) => {
-                            const p = this.profiles.find(x => x.profile === resItem.profile);
-                            if (p) p.running = resItem.launched_new || resItem.ok;
+                            const p = this.profiles.find(
+                                (x) => x.profile === resItem.profile,
+                            );
+                            if (p)
+                                p.running = resItem.launched_new || resItem.ok;
                         });
-                        this.toastr.success(`Đã khởi động ${result.results.length} profiles ${headless ? '(Ẩn Headless)' : ''}`);
+                        this.toastr.success(
+                            `Đã khởi động ${result.results.length} profiles ${headless ? '(Ẩn Headless)' : ''}`,
+                        );
                     }
                 },
-                complete: () => this.cd.markForCheck()
+                complete: () => this.cd.markForCheck(),
             });
     }
 
@@ -392,22 +460,27 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
         }
 
         try {
-            this._mxhautoService.liveWatchStop({ username: this.user ? this.user.name : '' }).subscribe({ error: () => {} });
+            this._mxhautoService
+                .liveWatchStop({ username: this.user ? this.user.name : '' })
+                .subscribe({ error: () => {} });
         } catch (e) {}
 
-        this._mxhautoService.killProfiles({
-            "profiles_root": this.getProfilesRoot(),
-            "profiles": profiles,
-            "mode": "force",
-            "force": true,
-            "cache_action": "prune",
-            "username": this.user ? this.user.name : ''
-        })
+        this._mxhautoService
+            .killProfiles({
+                profiles_root: this.getProfilesRoot(),
+                profiles: profiles,
+                mode: 'force',
+                force: true,
+                cache_action: 'prune',
+                username: this.user ? this.user.name : '',
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
-                    profiles.forEach(pName => {
-                        const p = this.profiles.find(x => x.profile === pName);
+                    profiles.forEach((pName) => {
+                        const p = this.profiles.find(
+                            (x) => x.profile === pName,
+                        );
                         if (p) p.running = false;
                     });
                     this.toastr.info(`Đã đóng ${profiles.length} profiles`);
@@ -417,34 +490,35 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
                     this.toastr.error('Có lỗi xảy ra khi đóng profiles');
                     this.getProfiles(true);
                 },
-                complete: () => this.cd.markForCheck()
+                complete: () => this.cd.markForCheck(),
             });
     }
 
     runSingleProfile(row: any) {
         if (!row || !row.profile) return;
         const payload: any = {
-            "profiles": [row.profile],
-            "base_debug_port": 0,
-            "opera_path": this.getOperaPath(),
-            "extra_args": ["--ignore-certificate-errors", "--disable-quic"],
-            "devtools_ready_timeout_ms": 8000,
-            "close_tabs_on_start": false,
-            "leave_one_tab": false,
-            "new_tab_url": null,
-            "mode": "skip",
-            "window_state": "maximized",
-            "headless": false,
-            "prefix_title_with_profile": true,
-            "title_prefix_apply_all_tabs": true,
-            "post_open_wait_ms": 800,
-            "activate_opened_tab": false,
-            "username": this.user ? this.user.name : ''
+            profiles: [row.profile],
+            base_debug_port: 0,
+            opera_path: this.getOperaPath(),
+            extra_args: ['--ignore-certificate-errors', '--disable-quic'],
+            devtools_ready_timeout_ms: 8000,
+            close_tabs_on_start: false,
+            leave_one_tab: false,
+            new_tab_url: null,
+            mode: 'skip',
+            window_state: 'maximized',
+            headless: false,
+            prefix_title_with_profile: true,
+            title_prefix_apply_all_tabs: true,
+            post_open_wait_ms: 800,
+            activate_opened_tab: false,
+            username: this.user ? this.user.name : '',
         };
         const root = this.getProfilesRoot();
         if (root) payload.profiles_root = root;
 
-        this._mxhautoService.run(payload)
+        this._mxhautoService
+            .run(payload)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
@@ -457,35 +531,40 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
                     this.toastr.error(`Không thể khởi động ${row.profile}`);
                     this.cd.markForCheck();
                 },
-                complete: () => this.cd.markForCheck()
+                complete: () => this.cd.markForCheck(),
             });
     }
 
     stopSingleProfile(row: any) {
         if (!row || !row.profile) return;
         try {
-            this._mxhautoService.liveWatchStop({ username: this.user ? this.user.name : '' }).subscribe({ error: () => {} });
+            this._mxhautoService
+                .liveWatchStop({ username: this.user ? this.user.name : '' })
+                .subscribe({ error: () => {} });
         } catch (e) {}
 
-        this._mxhautoService.killProfiles({
-            "profiles_root": this.getProfilesRoot(),
-            "profiles": [row.profile],
-            "mode": "force",
-            "force": true,
-            "cache_action": "prune",
-            "username": this.user ? this.user.name : ''
-        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: (result: any) => {
-                row.running = false;
-                this.toastr.warning(`Đã tắt ${row.profile}`);
-                setTimeout(() => this.getProfiles(true), 500);
-                this.cd.markForCheck();
-            },
-            error: () => {
-                this.toastr.error(`Lỗi khi tắt ${row.profile}`);
-                this.getProfiles(true);
-            }
-        });
+        this._mxhautoService
+            .killProfiles({
+                profiles_root: this.getProfilesRoot(),
+                profiles: [row.profile],
+                mode: 'force',
+                force: true,
+                cache_action: 'prune',
+                username: this.user ? this.user.name : '',
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    row.running = false;
+                    this.toastr.warning(`Đã tắt ${row.profile}`);
+                    setTimeout(() => this.getProfiles(true), 500);
+                    this.cd.markForCheck();
+                },
+                error: () => {
+                    this.toastr.error(`Lỗi khi tắt ${row.profile}`);
+                    this.getProfiles(true);
+                },
+            });
     }
 
     deleteProfiles() {
@@ -501,41 +580,51 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             actions: {
                 confirm: {
                     label: 'Xóa vĩnh viễn',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
-                    label: 'Hủy'
-                }
-            }
+                    label: 'Hủy',
+                },
+            },
         });
 
         confirmDialog.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                this._mxhautoService.killProfiles({
-                    "profiles_root": this.getProfilesRoot(),
-                    "profiles": profiles,
-                    "mode": "force",
-                    "force": true,
-                    "cache_action": "prune",
-                    "username": this.user ? this.user.name : ''
-                }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                    next: () => {
-                        this._mxhautoService.deleteProfiles({
-                            "profiles_root": this.getProfilesRoot(),
-                            "profiles": profiles,
-                            "username": this.user ? this.user.name : ''
-                        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                            next: () => {
-                                this.toastr.success(`Đã xóa hẳn ${profiles.length} profile thành công`);
-                                this.selected = [];
-                                this.refresh();
-                            },
-                            error: () => {
-                                this.toastr.error('Có lỗi xảy ra khi xóa profile');
-                            }
-                        });
-                    }
-                });
+                this._mxhautoService
+                    .killProfiles({
+                        profiles_root: this.getProfilesRoot(),
+                        profiles: profiles,
+                        mode: 'force',
+                        force: true,
+                        cache_action: 'prune',
+                        username: this.user ? this.user.name : '',
+                    })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: () => {
+                            this._mxhautoService
+                                .deleteProfiles({
+                                    profiles_root: this.getProfilesRoot(),
+                                    profiles: profiles,
+                                    username: this.user ? this.user.name : '',
+                                })
+                                .pipe(takeUntil(this._unsubscribeAll))
+                                .subscribe({
+                                    next: () => {
+                                        this.toastr.success(
+                                            `Đã xóa hẳn ${profiles.length} profile thành công`,
+                                        );
+                                        this.selected = [];
+                                        this.refresh();
+                                    },
+                                    error: () => {
+                                        this.toastr.error(
+                                            'Có lỗi xảy ra khi xóa profile',
+                                        );
+                                    },
+                                });
+                        },
+                    });
             }
         });
     }
@@ -549,40 +638,50 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             actions: {
                 confirm: {
                     label: 'Xóa vĩnh viễn',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
-                    label: 'Hủy'
-                }
-            }
+                    label: 'Hủy',
+                },
+            },
         });
 
         confirmDialog.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                this._mxhautoService.killProfiles({
-                    "profiles_root": this.getProfilesRoot(),
-                    "profiles": [row.profile],
-                    "mode": "force",
-                    "force": true,
-                    "cache_action": "prune",
-                    "username": this.user ? this.user.name : ''
-                }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                    next: () => {
-                        this._mxhautoService.deleteProfiles({
-                            "profiles_root": this.getProfilesRoot(),
-                            "profiles": [row.profile],
-                            "username": this.user ? this.user.name : ''
-                        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                            next: () => {
-                                this.toastr.success(`Đã xóa hẳn profile ${row.profile}`);
-                                this.refresh();
-                            },
-                            error: () => {
-                                this.toastr.error('Có lỗi xảy ra khi xóa profile');
-                            }
-                        });
-                    }
-                });
+                this._mxhautoService
+                    .killProfiles({
+                        profiles_root: this.getProfilesRoot(),
+                        profiles: [row.profile],
+                        mode: 'force',
+                        force: true,
+                        cache_action: 'prune',
+                        username: this.user ? this.user.name : '',
+                    })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: () => {
+                            this._mxhautoService
+                                .deleteProfiles({
+                                    profiles_root: this.getProfilesRoot(),
+                                    profiles: [row.profile],
+                                    username: this.user ? this.user.name : '',
+                                })
+                                .pipe(takeUntil(this._unsubscribeAll))
+                                .subscribe({
+                                    next: () => {
+                                        this.toastr.success(
+                                            `Đã xóa hẳn profile ${row.profile}`,
+                                        );
+                                        this.refresh();
+                                    },
+                                    error: () => {
+                                        this.toastr.error(
+                                            'Có lỗi xảy ra khi xóa profile',
+                                        );
+                                    },
+                                });
+                        },
+                    });
             }
         });
     }
@@ -594,29 +693,37 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             actions: {
                 confirm: {
                     label: 'Xóa Cookie',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
-                    label: 'Hủy'
-                }
-            }
+                    label: 'Hủy',
+                },
+            },
         });
 
         confirmDialog.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                this._mxhautoService.clearProfileSession(row.profile, this.getProfilesRoot())
+                this._mxhautoService
+                    .clearProfileSession(row.profile, this.getProfilesRoot())
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
                         next: (res: any) => {
                             if (res && res.ok) {
-                                this.toastr.success(`Đã làm sạch Cookie & Session cho ${row.profile}`);
+                                this.toastr.success(
+                                    `Đã làm sạch Cookie & Session cho ${row.profile}`,
+                                );
                             } else {
-                                this.toastr.warning(res?.detail || 'Không thể làm sạch session profile');
+                                this.toastr.warning(
+                                    res?.detail ||
+                                        'Không thể làm sạch session profile',
+                                );
                             }
                         },
                         error: (err: any) => {
-                            this.toastr.error(err?.message || 'Có lỗi xảy ra khi xóa cookie');
-                        }
+                            this.toastr.error(
+                                err?.message || 'Có lỗi xảy ra khi xóa cookie',
+                            );
+                        },
                     });
             }
         });
@@ -632,12 +739,12 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             actions: {
                 confirm: {
                     label: 'Xóa hàng loạt',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
-                    label: 'Hủy'
-                }
-            }
+                    label: 'Hủy',
+                },
+            },
         });
 
         confirmDialog.afterClosed().subscribe((result) => {
@@ -645,18 +752,24 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
                 let completed = 0;
                 let hasError = false;
                 profileNames.forEach((prof: string) => {
-                    this._mxhautoService.clearProfileSession(prof, this.getProfilesRoot())
+                    this._mxhautoService
+                        .clearProfileSession(prof, this.getProfilesRoot())
                         .pipe(takeUntil(this._unsubscribeAll))
                         .subscribe({
                             next: () => {
                                 completed++;
-                                if (completed === profileNames.length && !hasError) {
-                                    this.toastr.success(`Đã xóa sạch Cookie & Session cho ${profileNames.length} profile!`);
+                                if (
+                                    completed === profileNames.length &&
+                                    !hasError
+                                ) {
+                                    this.toastr.success(
+                                        `Đã xóa sạch Cookie & Session cho ${profileNames.length} profile!`,
+                                    );
                                 }
                             },
                             error: () => {
                                 hasError = true;
-                            }
+                            },
                         });
                 });
             }
@@ -678,7 +791,7 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private cd: ChangeDetectorRef,
-        private sanitizer: DomSanitizer // Inject thêm cái này
+        private sanitizer: DomSanitizer, // Inject thêm cái này
     ) {
         this.titleService.setTitle(`Quản lý Profile & Nhân cách`);
     }
@@ -700,18 +813,27 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             });
 
         // Tự động gọi API GET /v1/opera/profiles/config để lấy cấu hình hệ thống chuẩn
-        this._mxhautoService.getConfig()
+        this._mxhautoService
+            .getConfig()
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (cfg: any) => {
-                    if (cfg && cfg.profiles_root && !localStorage.getItem('opera_profiles_root')) {
+                    if (
+                        cfg &&
+                        cfg.profiles_root &&
+                        !localStorage.getItem('opera_profiles_root')
+                    ) {
                         this.profilesRoot = cfg.profiles_root;
                     }
-                    if (cfg && cfg.opera_exe && !localStorage.getItem('opera_executable_path')) {
+                    if (
+                        cfg &&
+                        cfg.opera_exe &&
+                        !localStorage.getItem('opera_executable_path')
+                    ) {
                         this.operaPath = cfg.opera_exe;
                     }
                     this.cd.markForCheck();
-                }
+                },
             });
 
         this.getProfiles();

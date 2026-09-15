@@ -1,69 +1,123 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
-                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
                     </div>
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
-                    </div> -->
+          <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+          [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+          <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
+        </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">bạn có {{totalElements}} bản ghi.</span>
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary"
+                            >bạn có {{ totalElements }} bản ghi.</span
+                        >
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
                         <span class="ml-1 text-base">quay lại</span>
                     </a>
                 </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
-                </p>
-            </div> -->
+    <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+      {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
+    </p>
+  </div> -->
         </div>
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <mat-form-field class="w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
-                appearance="fill">
-                <input matInput (keyup.enter)="searchNode($event)" [placeholder]="'Tìm kiếm'">
-                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
+            <mat-form-field
+                class="w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill"
+            >
+                <input
+                    matInput
+                    (keyup.enter)="searchNode($event)"
+                    [placeholder]="'Tìm kiếm'"
+                />
+                <mat-icon
+                    class="icon-size-4"
+                    matPrefix
+                    [svgIcon]="'feather:search'"
+                ></mat-icon>
             </mat-form-field>
 
-            <mat-form-field class="min-w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
-                appearance="fill">
-                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:star'"></mat-icon>
-                <mat-select (selectionChange)="status($event)" [(ngModel)]="group">
-                    <ng-container *ngFor="let item of groups; let i = index">
-                        <mat-option [value]="item" class="uppercase">{{item}}</mat-option>
-                    </ng-container>
+            <mat-form-field
+                class="min-w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill"
+            >
+                <mat-icon
+                    matPrefix
+                    class="icon-size-4"
+                    [svgIcon]="'feather:star'"
+                ></mat-icon>
+                <mat-select
+                    (selectionChange)="status($event)"
+                    [(ngModel)]="group"
+                >
+                    @for (item of groups; track item; let i = $index) {
+                        <mat-option [value]="item" class="uppercase">{{
+                            item
+                        }}</mat-option>
+                    }
                 </mat-select>
             </mat-form-field>
 
             <div class="border-l border-gray-300 mx-2 w-0 min-h-5"></div>
 
-            <button mat-flat-button class="bg-green-400 text-white" (click)="scanSitemap()">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:map'"></mat-icon>
-                <mat-label class="ml-2">{{ 'app.auto_enter_sitemap_xml' | transloco }}</mat-label>
+            <button
+                mat-flat-button
+                class="bg-green-400 text-white"
+                (click)="scanSitemap()"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:map'"
+                ></mat-icon>
+                <mat-label class="ml-2">{{
+                    "app.auto_enter_sitemap_xml" | transloco
+                }}</mat-label>
             </button>
 
-            <button mat-flat-button class="ml-2 bg-green-500 text-white" (click)="neverLinks()">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon>
-                <mat-label class="ml-2">{{ 'app.create_url_list' | transloco }}</mat-label>
+            <button
+                mat-flat-button
+                class="ml-2 bg-green-500 text-white"
+                (click)="neverLinks()"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:link'"
+                ></mat-icon>
+                <mat-label class="ml-2">{{
+                    "app.create_url_list" | transloco
+                }}</mat-label>
             </button>
         </div>
     </div>
@@ -71,90 +125,200 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #table class="material fullscreen transition-opacity duration-300" [columnMode]="ColumnMode.force"
-            [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading" [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
-            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
-            [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
+        <ngx-datatable
+            [appScrollLock]="isLoading"
+            [virtualization]="true"
+            #table
+            class="material fullscreen transition-opacity duration-300"
+            [columnMode]="ColumnMode.force"
+            [class.pointer-events-none]="isLoading"
+            [class.opacity-50]="isLoading"
+            [selected]="selected"
+            [selectionType]="SelectionType.checkbox"
+            [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck"
+            (select)="onSelect($event)"
+            [externalPaging]="true"
+            [externalSorting]="true"
+            [count]="totalElements"
+            [offset]="pageNumber"
+            (page)="setPage($event)"
+            [headerHeight]="50"
+            [footerHeight]="50"
+            [rowHeight]="50"
+            [scrollbarV]="true"
+            [rows]="rows"
+        >
             <!-- Column Templates -->
-            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+            <ngx-datatable-column
+                [width]="30"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                [headerCheckboxable]="true"
+                [checkboxable]="true"
+            ></ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Tiêu đề" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                [resizeable]="true">
+            <ngx-datatable-column
+                name="Tiêu đề"
+                [sortable]="false"
+                [canAutoResize]="true"
+                [draggable]="false"
+                [resizeable]="true"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="truncate hover:text-clip text-primary">{{row.title || 'Chưa có title'}}</p>
+                    @if (row) {
+                        <p class="truncate hover:text-clip text-primary">
+                            {{ row.title || "Chưa có title" }}
+                        </p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Tình trạng URL" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="Tình trạng URL"
+                [width]="200"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="truncate hover:text-clip">{{row.http_status || 'Không rõ'}}</p>
+                    @if (row) {
+                        <p class="truncate hover:text-clip">
+                            {{ row.http_status || "Không rõ" }}
+                        </p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Tình trạng" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="Tình trạng"
+                [width]="200"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="truncate hover:text-clip">{{row.status}}</p>
+                    @if (row) {
+                        <p class="truncate hover:text-clip">{{ row.status }}</p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Đường dẫn" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="Đường dẫn"
+                [width]="200"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="truncate hover:text-clip">{{row.url}}</p>
+                    @if (row) {
+                        <p class="truncate hover:text-clip">{{ row.url }}</p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
             <ngx-datatable-footer>
-                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
-                    let-isVisible="isVisible">
+                <ng-template
+                    ngx-datatable-footer-template
+                    let-rowCount="rowCount"
+                    let-pageSize="pageSize"
+                    let-selectedCount="selectedCount"
+                    let-curPage="curPage"
+                    let-offset="offset"
+                    let-isVisible="isVisible"
+                >
                     <div class="flex w-full sm:items-center sm:justify-between">
                         <div class="flex-1 min-w-0">
                             <!-- Breadcrumbs -->
-                            <div class="flex page-count items-center justify-self-stretch">
-                                <button mat-flat-button class="bg-blue-500 text-white" (click)="storeBigData()">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:database'"></mat-icon>
-                                    <mat-label class="ml-2">{{ 'app.start_fetching_data' | transloco }}</mat-label>
+                            <div
+                                class="flex page-count items-center justify-self-stretch"
+                            >
+                                <button
+                                    mat-flat-button
+                                    class="bg-blue-500 text-white"
+                                    (click)="storeBigData()"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:database'"
+                                    ></mat-icon>
+                                    <mat-label class="ml-2">{{
+                                        "app.start_fetching_data" | transloco
+                                    }}</mat-label>
                                 </button>
 
-                                <button mat-flat-button class="ml-2 bg-blue-600 text-white" (click)="donwload()">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:file-text'"></mat-icon>
-                                    <mat-label class="ml-2">{{ 'app.download_pdf_if_any' | transloco }}</mat-label>
+                                <button
+                                    mat-flat-button
+                                    class="ml-2 bg-blue-600 text-white"
+                                    (click)="donwload()"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:file-text'"
+                                    ></mat-icon>
+                                    <mat-label class="ml-2">{{
+                                        "app.download_pdf_if_any" | transloco
+                                    }}</mat-label>
                                 </button>
 
-                                <div class="border-l border-gray-300 mx-2 w-0 min-h-5"></div>
+                                <div
+                                    class="border-l border-gray-300 mx-2 w-0 min-h-5"
+                                ></div>
 
-                                <mat-label (click)="scanErrorLinks()"
-                                    class="h-8 leading-8 items-center px-2 rounded cursor-pointer text-red-600">
-                                    {{ 'app.only_process_broken_links' | transloco }}
+                                <mat-label
+                                    (click)="scanErrorLinks()"
+                                    class="h-8 leading-8 items-center px-2 rounded cursor-pointer text-red-600"
+                                >
+                                    {{
+                                        "app.only_process_broken_links"
+                                            | transloco
+                                    }}
                                 </mat-label>
                             </div>
                         </div>
 
                         <!-- Actions -->
                         <div class="flex shrink-0 items-center pr-6">
-                            <a href="javascript:void(0)" [color]="'primary'" class="ml-0">
-                                {{ 'app.auto_download_gz' | transloco }}
+                            <a
+                                href="javascript:void(0)"
+                                [color]="'primary'"
+                                class="ml-0"
+                            >
+                                {{ "app.auto_download_gz" | transloco }}
                             </a>
 
-                            <div class="border-l border-gray-300 mx-2 w-0 min-h-5"></div>
+                            <div
+                                class="border-l border-gray-300 mx-2 w-0 min-h-5"
+                            ></div>
 
-                            <a href="javascript:void(0)" [color]="'primary'" (click)="report()">
-                                {{ 'app.report' | transloco }}
+                            <a
+                                href="javascript:void(0)"
+                                [color]="'primary'"
+                                (click)="report()"
+                            >
+                                {{ "app.report" | transloco }}
                             </a>
 
-                            <div class="border-l border-gray-300 mx-2 w-0 min-h-5"></div>
+                            <div
+                                class="border-l border-gray-300 mx-2 w-0 min-h-5"
+                            ></div>
 
-                            <a href="javascript:void(0)" [color]="'primary'" (click)="logs()">
+                            <a
+                                href="javascript:void(0)"
+                                [color]="'primary'"
+                                (click)="logs()"
+                            >
                                 Xem log
                             </a>
                         </div>

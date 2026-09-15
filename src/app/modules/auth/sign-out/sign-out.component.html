@@ -1,29 +1,38 @@
 <div class="flex flex-col flex-auto items-center sm:justify-center min-w-0">
-    <div class="w-full sm:w-auto py-8 px-4 sm:p-12 sm:rounded-2xl sm:shadow sm:bg-card">
+    <div
+        class="w-full sm:w-auto py-8 px-4 sm:p-12 sm:rounded-2xl sm:shadow sm:bg-card"
+    >
         <div class="w-full max-w-80 sm:w-80 mx-auto sm:mx-0">
             <!-- Logo -->
             <div class="w-50 mx-auto cursor-pointer" [routerLink]="['/']">
-                <img src="assets/images/logo/typing-logo.svg">
+                <img src="assets/images/logo/typing-logo.svg" />
             </div>
 
             <!-- Title -->
-            <div class="mt-8 text-4xl font-extrabold tracking-tight leading-tight text-center">{{ 'app.auto_you_just_escaped' | transloco }}</div>
+            <div
+                class="mt-8 text-4xl font-extrabold tracking-tight leading-tight text-center"
+            >
+                {{ "app.auto_you_just_escaped" | transloco }}
+            </div>
             <div class="flex justify-center mt-0.5 font-medium text-base">
                 <!-- Redirect countdown -->
-                <ng-container *ngIf="countdown > 0">
-                    Tự động trong {{countdown | i18nPlural: countdownMapping }}
-                </ng-container>
+                @if (countdown > 0) {
+                    Tự động trong {{ countdown | i18nPlural: countdownMapping }}
+                }
 
                 <!-- Redirect message -->
-                <ng-container *ngIf="countdown === 0">
-                    {{ 'app.auto_moving' | transloco }}
-                </ng-container>
+                @if (countdown === 0) {
+                    {{ "app.auto_moving" | transloco }}
+                }
             </div>
 
             <!-- Form footer -->
             <div class="mt-8 text-md font-medium text-secondary text-center">
-                <span>{{ 'app.auto_go_to' | transloco }}</span>
-                <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['/sign-in']">{{ 'app.auto_log_in_1' | transloco }}
+                <span>{{ "app.auto_go_to" | transloco }}</span>
+                <a
+                    class="ml-1 text-primary-500 hover:underline"
+                    [routerLink]="['/sign-in']"
+                    >{{ "app.auto_log_in_1" | transloco }}
                 </a>
             </div>
         </div>

@@ -1,6 +1,19 @@
-import { AfterViewInit, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+    AfterViewInit,
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
+import {
+    ColumnMode,
+    DatatableComponent,
+    SelectionType,
+} from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/_services/crawl';
@@ -17,14 +30,19 @@ import { BlogService } from 'app/_services/blog';
 import { MatDialog } from '@angular/material/dialog';
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
 import * as CryptoJS from 'crypto-js';
-import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
+import {
+    tryDecryptWithMasterFallback,
+    isMasterKey,
+} from 'app/core/auth/crypto.helper';
 
 @Component({
     selector: 'app-collection',
     templateUrl: './collection.component.html',
     styleUrls: ['./collection.component.scss'],
     providers: [CrawlService, BlogService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     user: User;
@@ -75,23 +93,26 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         private router: Router,
         private _genaiService: GenaiService,
         private _blogService: BlogService,
-        public _matDialog: MatDialog
+        public _matDialog: MatDialog,
     ) {
-        this.titleService.setTitle(`tập của bạn | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `tập của bạn | ai.type - công cụ tạo content`,
+        );
 
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-                this.permissionText2Voice = this._userService.permissionText2Voice(this.user);
-                this.permissionScriptCommentLike = this._userService.permissionScriptCommentLike(this.user);
+                this.permissionText2Voice =
+                    this._userService.permissionText2Voice(this.user);
+                this.permissionScriptCommentLike =
+                    this._userService.permissionScriptCommentLike(this.user);
 
                 this.loadCollections();
             });
     }
 
-    ngOnInit(): void {
-    }
+    ngOnInit(): void {}
 
     ngAfterViewInit(): void {
         setTimeout(() => {
@@ -113,36 +134,52 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     loadCollections() {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalCollections) {
-            (window as any).electron.listLocalCollections({ username: this.user?.name || 'admin' }).then((res: any) => {
-                if (res && res.success && res.data) {
-                    this.collections = (res.data || []).map((c: any) => {
-                        const rawU = Array.isArray(c.uuid) ? c.uuid : (c.uuid ? [c.uuid] : []);
-                        const uniqueU = Array.from(new Set(rawU)).filter((u: any) => !!u);
-                        return {
-                            ...c,
-                            count: uniqueU.length
-                        };
-                    });
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.listLocalCollections
+        ) {
+            (window as any).electron
+                .listLocalCollections({ username: this.user?.name || 'admin' })
+                .then((res: any) => {
+                    if (res && res.success && res.data) {
+                        this.collections = (res.data || []).map((c: any) => {
+                            const rawU = Array.isArray(c.uuid)
+                                ? c.uuid
+                                : c.uuid
+                                  ? [c.uuid]
+                                  : [];
+                            const uniqueU = Array.from(new Set(rawU)).filter(
+                                (u: any) => !!u,
+                            );
+                            return {
+                                ...c,
+                                count: uniqueU.length,
+                            };
+                        });
 
-                    this.route.queryParams.subscribe(params => {
-                        if (params['collectionId']) {
-                            const found = this.collections.find(c => c._id === params['collectionId']);
-                            if (found) {
-                                this.goToCollection(found);
+                        this.route.queryParams.subscribe((params) => {
+                            if (params['collectionId']) {
+                                const found = this.collections.find(
+                                    (c) => c._id === params['collectionId'],
+                                );
+                                if (found) {
+                                    this.goToCollection(found);
+                                }
+                            } else if (this.collections.length > 0) {
+                                this.goToCollection(this.collections[0]);
                             }
-                        } else if (this.collections.length > 0) {
-                            this.goToCollection(this.collections[0]);
-                        }
-                    });
-                    this.cd.markForCheck();
-                    return;
-                }
-                this.fetchServerCollections();
-            }).catch(() => {
-                this.fetchServerCollections();
-            });
+                        });
+                        this.cd.markForCheck();
+                        return;
+                    }
+                    this.fetchServerCollections();
+                })
+                .catch(() => {
+                    this.fetchServerCollections();
+                });
             return;
         }
 
@@ -154,25 +191,33 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
             .collections({
                 username: this.user.name,
                 page: { size: 100 },
-                includeUuid: true
+                includeUuid: true,
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result) => {
                     if (result && result.success) {
                         this.collections = (result.data || []).map((c: any) => {
-                            const rawU = Array.isArray(c.uuid) ? c.uuid : (c.uuid ? [c.uuid] : []);
-                            const uniqueU = Array.from(new Set(rawU)).filter((u: any) => !!u);
+                            const rawU = Array.isArray(c.uuid)
+                                ? c.uuid
+                                : c.uuid
+                                  ? [c.uuid]
+                                  : [];
+                            const uniqueU = Array.from(new Set(rawU)).filter(
+                                (u: any) => !!u,
+                            );
                             return {
                                 ...c,
-                                count: uniqueU.length
+                                count: uniqueU.length,
                             };
                         });
 
                         // Check if collectionId is in query params
-                        this.route.queryParams.subscribe(params => {
+                        this.route.queryParams.subscribe((params) => {
                             if (params['collectionId']) {
-                                const found = this.collections.find(c => c._id === params['collectionId']);
+                                const found = this.collections.find(
+                                    (c) => c._id === params['collectionId'],
+                                );
                                 if (found) {
                                     this.goToCollection(found);
                                 }
@@ -182,7 +227,9 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                         });
                     }
                 },
-                complete: () => { this.cd.markForCheck(); }
+                complete: () => {
+                    this.cd.markForCheck();
+                },
             });
     }
 
@@ -203,10 +250,12 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cache = {};
         this.cd.markForCheck();
 
-        let rawUuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
+        let rawUuids = Array.isArray(this.selectedCollection.uuid)
+            ? this.selectedCollection.uuid
+            : this.selectedCollection.uuid
+              ? [this.selectedCollection.uuid]
+              : [];
         let uuids = Array.from(new Set(rawUuids)).filter((u: any) => !!u);
-
-
 
         this.totalElements = uuids.length;
 
@@ -243,113 +292,211 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isLoading = true;
         this.cd.markForCheck();
 
-        let rawUuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
-        let uuids: string[] = Array.from(new Set(rawUuids)).filter((u: any) => !!u).map(String);
+        let rawUuids = Array.isArray(this.selectedCollection.uuid)
+            ? this.selectedCollection.uuid
+            : this.selectedCollection.uuid
+              ? [this.selectedCollection.uuid]
+              : [];
+        let uuids: string[] = Array.from(new Set(rawUuids))
+            .filter((u: any) => !!u)
+            .map(String);
 
         const payloadPage = {
-            ...this.page
+            ...this.page,
         };
 
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalArticles) {
-            (window as any).electron.listLocalArticles({ username: this.user?.name || 'admin' }).then((localRes: any) => {
-                if (localRes && localRes.success && localRes.articles) {
-                    let matchingArticles = localRes.articles;
-                    if (uuids.length > 0) {
-                        matchingArticles = matchingArticles.filter((art: any) => uuids.includes(art.uuid));
-                    }
-                    matchingArticles.forEach((doc: any) => {
-                        doc.has_script = !!doc.has_script || (doc.uuid && !!this.multiAccountService.getItem(`ai_type_script_data_${doc.uuid}`));
-                    });
-
-                    // Sắp xếp bài viết theo thứ tự từ cũ đến mới nhất (cũ nhất ở đầu, mới nhất ở cuối)
-                    matchingArticles.sort((a: any, b: any) => {
-                        const timeA = new Date(a.created_at || a.createdAt || a.updated_at || a.updatedAt || 0).getTime();
-                        const timeB = new Date(b.created_at || b.createdAt || b.updated_at || b.updatedAt || 0).getTime();
-                        return timeA - timeB;
-                    });
-
-                    this.rows = [...matchingArticles];
-                    this.totalElements = this.rows.length;
-                    this.isLoading = false;
-                    this.cd.detectChanges();
-                    setTimeout(() => {
-                        if (this.table) {
-                            this.table.recalculatePages();
-                            this.table.recalculate();
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.listLocalArticles
+        ) {
+            (window as any).electron
+                .listLocalArticles({ username: this.user?.name || 'admin' })
+                .then((localRes: any) => {
+                    if (localRes && localRes.success && localRes.articles) {
+                        let matchingArticles = localRes.articles;
+                        if (uuids.length > 0) {
+                            matchingArticles = matchingArticles.filter(
+                                (art: any) => uuids.includes(art.uuid),
+                            );
                         }
-                        window.dispatchEvent(new Event('resize'));
-                    }, 50);
-                    this.cd.markForCheck();
-                    return;
-                }
-                this.fetchServerArticlesForCollection(uuids, payloadPage, pageInfo);
-            }).catch(() => {
-                this.fetchServerArticlesForCollection(uuids, payloadPage, pageInfo);
-            });
+                        matchingArticles.forEach((doc: any) => {
+                            doc.has_script =
+                                !!doc.has_script ||
+                                (doc.uuid &&
+                                    !!this.multiAccountService.getItem(
+                                        `ai_type_script_data_${doc.uuid}`,
+                                    ));
+                        });
+
+                        // Sắp xếp bài viết theo thứ tự từ cũ đến mới nhất (cũ nhất ở đầu, mới nhất ở cuối)
+                        matchingArticles.sort((a: any, b: any) => {
+                            const timeA = new Date(
+                                a.created_at ||
+                                    a.createdAt ||
+                                    a.updated_at ||
+                                    a.updatedAt ||
+                                    0,
+                            ).getTime();
+                            const timeB = new Date(
+                                b.created_at ||
+                                    b.createdAt ||
+                                    b.updated_at ||
+                                    b.updatedAt ||
+                                    0,
+                            ).getTime();
+                            return timeA - timeB;
+                        });
+
+                        this.rows = [...matchingArticles];
+                        this.totalElements = this.rows.length;
+                        this.isLoading = false;
+                        this.cd.detectChanges();
+                        setTimeout(() => {
+                            if (this.table) {
+                                this.table.recalculatePages();
+                                this.table.recalculate();
+                            }
+                            window.dispatchEvent(new Event('resize'));
+                        }, 50);
+                        this.cd.markForCheck();
+                        return;
+                    }
+                    this.fetchServerArticlesForCollection(
+                        uuids,
+                        payloadPage,
+                        pageInfo,
+                    );
+                })
+                .catch(() => {
+                    this.fetchServerArticlesForCollection(
+                        uuids,
+                        payloadPage,
+                        pageInfo,
+                    );
+                });
             return;
         }
 
         this.fetchServerArticlesForCollection(uuids, payloadPage, pageInfo);
     }
 
-    private fetchServerArticlesForCollection(uuids: string[], payloadPage: any, pageInfo: PageInfo) {
-        this._crawlService.archive({
-            username: this.user.name,
-            keyword: '',
-            uuids: uuids,
-            page: payloadPage,
-            bookmark: this.currentBookmark,
-        })
+    private fetchServerArticlesForCollection(
+        uuids: string[],
+        payloadPage: any,
+        pageInfo: PageInfo,
+    ) {
+        this._crawlService
+            .archive({
+                username: this.user.name,
+                keyword: '',
+                uuids: uuids,
+                page: payloadPage,
+                bookmark: this.currentBookmark,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
                     const resData = result?.data;
                     const start = this.page.pageNumber * this.page.size;
-                    
+
                     if (resData && resData.docs && resData.docs.length > 0) {
                         resData.docs.forEach((doc: any) => {
-                            if (doc && doc.uuid && this.multiAccountService.getItem(`ai_type_script_data_${doc.uuid}`)) {
+                            if (
+                                doc &&
+                                doc.uuid &&
+                                this.multiAccountService.getItem(
+                                    `ai_type_script_data_${doc.uuid}`,
+                                )
+                            ) {
                                 doc.has_script = true;
                             }
                         });
 
                         // Sắp xếp bài viết từ server theo thứ tự từ cũ đến mới nhất
                         resData.docs.sort((a: any, b: any) => {
-                            const timeA = new Date(a.created_at || a.createdAt || a.updated_at || a.updatedAt || 0).getTime();
-                            const timeB = new Date(b.created_at || b.createdAt || b.updated_at || b.updatedAt || 0).getTime();
+                            const timeA = new Date(
+                                a.created_at ||
+                                    a.createdAt ||
+                                    a.updated_at ||
+                                    a.updatedAt ||
+                                    0,
+                            ).getTime();
+                            const timeB = new Date(
+                                b.created_at ||
+                                    b.createdAt ||
+                                    b.updated_at ||
+                                    b.updatedAt ||
+                                    0,
+                            ).getTime();
                             return timeA - timeB;
                         });
                         if (this.page.pageNumber === 0) {
                             this.rows = [...resData.docs];
-                            this.totalElements = uuids.length > 0 ? uuids.length : ((resData.totalDocs !== undefined && resData.totalDocs !== null) ? resData.totalDocs : resData.docs.length);
+                            this.totalElements =
+                                uuids.length > 0
+                                    ? uuids.length
+                                    : resData.totalDocs !== undefined &&
+                                        resData.totalDocs !== null
+                                      ? resData.totalDocs
+                                      : resData.docs.length;
                         } else {
                             if (!this.rows) {
-                                this.rows = new Array<any>(this.totalElements || 0);
+                                this.rows = new Array<any>(
+                                    this.totalElements || 0,
+                                );
                             }
                             const rows = [...this.rows];
-                            rows.splice(start, resData.docs.length, ...resData.docs);
+                            rows.splice(
+                                start,
+                                resData.docs.length,
+                                ...resData.docs,
+                            );
                             this.rows = rows;
-                            if (uuids.length === 0 && start + resData.docs.length > this.totalElements) {
-                                this.totalElements = start + resData.docs.length;
+                            if (
+                                uuids.length === 0 &&
+                                start + resData.docs.length > this.totalElements
+                            ) {
+                                this.totalElements =
+                                    start + resData.docs.length;
                             }
                         }
                         this.apiFetchedCount += resData.docs.length;
                         this.currentBookmark = resData.bookmark;
                         this.isLoading = false;
                         this.cd.detectChanges();
-                    } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
+                    } else if (
+                        resData &&
+                        resData.docs &&
+                        resData.docs.length === 0 &&
+                        resData.bookmark &&
+                        resData.bookmark !== this.currentBookmark
+                    ) {
                         this.currentBookmark = resData.bookmark;
                         this.isLoading = false;
                         delete this.cache[this.page.pageNumber];
                         this.cd.detectChanges();
-                        setTimeout(() => { this.setPage(pageInfo); }, 50);
+                        setTimeout(() => {
+                            this.setPage(pageInfo);
+                        }, 50);
                         return;
-                    } else if (resData && resData.docs && resData.docs.length === 0) {
+                    } else if (
+                        resData &&
+                        resData.docs &&
+                        resData.docs.length === 0
+                    ) {
                         if (this.totalElements !== start) {
                             this.totalElements = start;
-                            if (this.rows && this.rows.length !== this.totalElements) {
-                                this.rows = this.rows.slice(0, this.totalElements);
+                            if (
+                                this.rows &&
+                                this.rows.length !== this.totalElements
+                            ) {
+                                this.rows = this.rows.slice(
+                                    0,
+                                    this.totalElements,
+                                );
                                 this.rows = [...this.rows];
                             }
                         }
@@ -374,7 +521,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                         }, 50);
                     }
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -392,7 +539,10 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     startEditTitle(collection: any, event?: Event) {
         if (event) event.stopPropagation();
         const colId = collection._id || collection.id;
-        if (collection.is_encrypted && !this.collectionUnlockedPasswords[colId]) {
+        if (
+            collection.is_encrypted &&
+            !this.collectionUnlockedPasswords[colId]
+        ) {
             const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
                 data: {
                     mode: 'unlock',
@@ -404,16 +554,19 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                         if (cipher) {
                             try {
                                 const bytes = CryptoJS.AES.decrypt(cipher, pwd);
-                                return bytes.toString(CryptoJS.enc.Utf8) === 'VALID';
+                                return (
+                                    bytes.toString(CryptoJS.enc.Utf8) ===
+                                    'VALID'
+                                );
                             } catch (e) {
                                 return false;
                             }
                         }
                         return pwd && pwd.length > 0;
-                    }
+                    },
                 },
                 width: '450px',
-                disableClose: true
+                disableClose: true,
             });
 
             dialogRef.afterClosed().subscribe((res: any) => {
@@ -434,7 +587,10 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
 
     openArticle(row: any) {
         if (!row || !row.uuid) return;
-        const colIsEncrypted = (this.selectedCollection && this.selectedCollection.is_encrypted) || row.is_encrypted || (row.source && row.source.encrypted);
+        const colIsEncrypted =
+            (this.selectedCollection && this.selectedCollection.is_encrypted) ||
+            row.is_encrypted ||
+            (row.source && row.source.encrypted);
 
         if (colIsEncrypted) {
             const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
@@ -444,34 +600,61 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                     title: row.title || 'Bài viết',
                     validator: async (pwd: string) => {
                         if (isMasterKey(pwd)) return true;
-                        let cipher = this.selectedCollection?.cipher || row.cipher || row.source?.cipher;
-                        let masterCipher = row.master_cipher || row.source?.master_cipher;
+                        let cipher =
+                            this.selectedCollection?.cipher ||
+                            row.cipher ||
+                            row.source?.cipher;
+                        let masterCipher =
+                            row.master_cipher || row.source?.master_cipher;
                         if (!cipher && row.uuid) {
                             try {
-                                const res: any = await firstValueFrom(this._crawlService.detail({ uuid: row.uuid, username: this.user.name }));
+                                const res: any = await firstValueFrom(
+                                    this._crawlService.detail({
+                                        uuid: row.uuid,
+                                        username: this.user.name,
+                                    }),
+                                );
                                 if (res && res.success && res.data) {
-                                    cipher = res.data.cipher || res.data.source?.cipher;
-                                    masterCipher = res.data.master_cipher || res.data.source?.master_cipher;
+                                    cipher =
+                                        res.data.cipher ||
+                                        res.data.source?.cipher;
+                                    masterCipher =
+                                        res.data.master_cipher ||
+                                        res.data.source?.master_cipher;
                                 }
                             } catch (e) {}
                         }
                         if (cipher || masterCipher) {
-                            const text = tryDecryptWithMasterFallback(cipher, pwd, masterCipher);
+                            const text = tryDecryptWithMasterFallback(
+                                cipher,
+                                pwd,
+                                masterCipher,
+                            );
                             return !!text && text.length > 0;
                         }
                         return pwd && pwd.length > 0;
-                    }
+                    },
                 },
                 width: '450px',
-                disableClose: true
+                disableClose: true,
             });
 
             dialogRef.afterClosed().subscribe((res: any) => {
                 if (res && res.password) {
                     if (row.uuid) {
-                        sessionStorage.setItem('nav_handshake_pwd_' + row.uuid, JSON.stringify({ password: res.password, ts: Date.now() }));
+                        sessionStorage.setItem(
+                            'nav_handshake_pwd_' + row.uuid,
+                            JSON.stringify({
+                                password: res.password,
+                                ts: Date.now(),
+                            }),
+                        );
                     }
-                    this.router.navigate(['/ai-writer', this.user.name, row.uuid]);
+                    this.router.navigate([
+                        '/ai-writer',
+                        this.user.name,
+                        row.uuid,
+                    ]);
                 }
             });
             return;
@@ -493,20 +676,22 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         if (!targetCol) return;
         const newTitle = this.editingCollectionTitle.trim();
         if (newTitle && newTitle !== targetCol.title) {
-            this._crawlService.updateCollection({
-                _id: targetCol._id || targetCol.id,
-                title: newTitle,
-                username: this.user.name
-            }).subscribe(res => {
-                if (res.success || res.ok) {
-                    targetCol.title = newTitle;
-                    this.toastr.success('Cập nhật tên tập thành công');
-                    this.editingCollectionId = null;
-                    this.cd.markForCheck();
-                } else {
-                    this.toastr.error('Lỗi khi cập nhật tên tập');
-                }
-            });
+            this._crawlService
+                .updateCollection({
+                    _id: targetCol._id || targetCol.id,
+                    title: newTitle,
+                    username: this.user.name,
+                })
+                .subscribe((res) => {
+                    if (res.success || res.ok) {
+                        targetCol.title = newTitle;
+                        this.toastr.success('Cập nhật tên tập thành công');
+                        this.editingCollectionId = null;
+                        this.cd.markForCheck();
+                    } else {
+                        this.toastr.error('Lỗi khi cập nhật tên tập');
+                    }
+                });
         } else {
             this.editingCollectionId = null;
         }
@@ -517,30 +702,42 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa khỏi tập',
             message: `Bạn có chắc chắn muốn gỡ công việc ${row.uuid} khỏi tập này?`,
-            icon: { show: true, name: 'heroicons_outline:question-mark-circle', color: 'warn' },
+            icon: {
+                show: true,
+                name: 'heroicons_outline:question-mark-circle',
+                color: 'warn',
+            },
             actions: {
                 confirm: { show: true, label: 'Gỡ bỏ', color: 'warn' },
-                cancel: { show: true, label: 'Hủy' }
-            }
+                cancel: { show: true, label: 'Hủy' },
+            },
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                this._crawlService.removeCollection({
-                    _id: this.selectedCollection._id,
-                    uuid: row.uuid,
-                    username: this.user.name
-                }).subscribe(res => {
-                    if (res.success || res.ok) {
-                        this.toastr.success('Đã gỡ công việc khỏi tập');
-                        if (this.selectedCollection.uuid && Array.isArray(this.selectedCollection.uuid)) {
-                            this.selectedCollection.uuid = this.selectedCollection.uuid.filter(u => u !== row.uuid);
+                this._crawlService
+                    .removeCollection({
+                        _id: this.selectedCollection._id,
+                        uuid: row.uuid,
+                        username: this.user.name,
+                    })
+                    .subscribe((res) => {
+                        if (res.success || res.ok) {
+                            this.toastr.success('Đã gỡ công việc khỏi tập');
+                            if (
+                                this.selectedCollection.uuid &&
+                                Array.isArray(this.selectedCollection.uuid)
+                            ) {
+                                this.selectedCollection.uuid =
+                                    this.selectedCollection.uuid.filter(
+                                        (u) => u !== row.uuid,
+                                    );
+                            }
+                            this.onChangeCollection();
+                        } else {
+                            this.toastr.error('Có lỗi xảy ra');
                         }
-                        this.onChangeCollection();
-                    } else {
-                        this.toastr.error('Có lỗi xảy ra');
-                    }
-                });
+                    });
             }
         });
     }
@@ -550,34 +747,48 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa hàng loạt',
             message: `Bạn có chắc chắn muốn gỡ ${this.selected.length} công việc đã chọn khỏi tập này?`,
-            icon: { show: true, name: 'heroicons_outline:question-mark-circle', color: 'warn' },
+            icon: {
+                show: true,
+                name: 'heroicons_outline:question-mark-circle',
+                color: 'warn',
+            },
             actions: {
                 confirm: { show: true, label: 'Gỡ bỏ', color: 'warn' },
-                cancel: { show: true, label: 'Hủy' }
-            }
+                cancel: { show: true, label: 'Hủy' },
+            },
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
                 let count = 0;
                 let total = this.selected.length;
-                this.selected.forEach(row => {
-                    this._crawlService.removeCollection({
-                        _id: this.selectedCollection._id,
-                        uuid: row.uuid,
-                        username: this.user.name
-                    }).subscribe(res => {
-                        count++;
-                        if (res.success || res.ok) {
-                            if (this.selectedCollection.uuid && Array.isArray(this.selectedCollection.uuid)) {
-                                this.selectedCollection.uuid = this.selectedCollection.uuid.filter(u => u !== row.uuid);
+                this.selected.forEach((row) => {
+                    this._crawlService
+                        .removeCollection({
+                            _id: this.selectedCollection._id,
+                            uuid: row.uuid,
+                            username: this.user.name,
+                        })
+                        .subscribe((res) => {
+                            count++;
+                            if (res.success || res.ok) {
+                                if (
+                                    this.selectedCollection.uuid &&
+                                    Array.isArray(this.selectedCollection.uuid)
+                                ) {
+                                    this.selectedCollection.uuid =
+                                        this.selectedCollection.uuid.filter(
+                                            (u) => u !== row.uuid,
+                                        );
+                                }
                             }
-                        }
-                        if (count === total) {
-                            this.toastr.success(`Đã gỡ ${total} công việc khỏi tập`);
-                            this.onChangeCollection();
-                        }
-                    });
+                            if (count === total) {
+                                this.toastr.success(
+                                    `Đã gỡ ${total} công việc khỏi tập`,
+                                );
+                                this.onChangeCollection();
+                            }
+                        });
                 });
             }
         });
@@ -586,7 +797,11 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     refreshCollection() {
         if (!this.selectedCollection || this.isRefreshingCollection) return;
 
-        let rawUuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
+        let rawUuids = Array.isArray(this.selectedCollection.uuid)
+            ? this.selectedCollection.uuid
+            : this.selectedCollection.uuid
+              ? [this.selectedCollection.uuid]
+              : [];
         let uuids = Array.from(new Set(rawUuids)).filter((u: any) => !!u);
 
         if (uuids.length === 0) {
@@ -598,68 +813,91 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cd.markForCheck();
 
         // 1. Lấy danh sách bài viết thực sự tồn tại trong database với các uuids này
-        this._crawlService.archive({
-            username: this.user.name,
-            keyword: '',
-            uuids: uuids,
-            page: {
-                pageNumber: 0,
-                size: 200,
-                totalElements: 0,
-                totalPages: 0,
-            }
-        })
-        .pipe(takeUntil(this._unsubscribeAll))
-        .subscribe({
-            next: (result: any) => {
-                const docs = result?.data?.docs || [];
-                const validUuids = docs.map((d: any) => d.uuid).filter((u: string) => !!u);
-                const removedCount = uuids.length - validUuids.length;
+        this._crawlService
+            .archive({
+                username: this.user.name,
+                keyword: '',
+                uuids: uuids,
+                page: {
+                    pageNumber: 0,
+                    size: 200,
+                    totalElements: 0,
+                    totalPages: 0,
+                },
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    const docs = result?.data?.docs || [];
+                    const validUuids = docs
+                        .map((d: any) => d.uuid)
+                        .filter((u: string) => !!u);
+                    const removedCount = uuids.length - validUuids.length;
 
-                // 2. Cập nhật mảng UUID hợp lệ lên Server
-                const colId = this.selectedCollection._id || this.selectedCollection.id;
-                this._crawlService.updateCollection({
-                    _id: colId,
-                    uuid: validUuids,
-                    username: this.user.name
-                }).subscribe({
-                    next: (res: any) => {
-                        this.selectedCollection.uuid = validUuids;
-                        this.selectedCollection.count = validUuids.length;
-                        
-                        // Cập nhật lại trong mảng danh sách collections
-                        const found = this.collections.find(c => (c._id || c.id) === colId);
-                        if (found) {
-                            found.uuid = validUuids;
-                            found.count = validUuids.length;
-                        }
+                    // 2. Cập nhật mảng UUID hợp lệ lên Server
+                    const colId =
+                        this.selectedCollection._id ||
+                        this.selectedCollection.id;
+                    this._crawlService
+                        .updateCollection({
+                            _id: colId,
+                            uuid: validUuids,
+                            username: this.user.name,
+                        })
+                        .subscribe({
+                            next: (res: any) => {
+                                this.selectedCollection.uuid = validUuids;
+                                this.selectedCollection.count =
+                                    validUuids.length;
 
-                        this.isRefreshingCollection = false;
-                        if (removedCount > 0) {
-                            this.toastr.success(`Đã làm mới tập! Đã loại bỏ ${removedCount} mã bài viết dư thừa/không tồn tại.`);
-                        } else {
-                            this.toastr.success('Dữ liệu tập đã chuẩn xác, không có mã dư thừa.');
-                        }
-                        this.onChangeCollection();
-                    },
-                    error: () => {
-                        this.isRefreshingCollection = false;
-                        this.toastr.error('Lỗi khi cập nhật lại tập lên máy chủ.');
-                        this.cd.markForCheck();
-                    }
-                });
-            },
-            error: () => {
-                this.isRefreshingCollection = false;
-                this.toastr.error('Lỗi khi kiểm tra danh sách bài viết.');
-                this.cd.markForCheck();
-            }
-        });
+                                // Cập nhật lại trong mảng danh sách collections
+                                const found = this.collections.find(
+                                    (c) => (c._id || c.id) === colId,
+                                );
+                                if (found) {
+                                    found.uuid = validUuids;
+                                    found.count = validUuids.length;
+                                }
+
+                                this.isRefreshingCollection = false;
+                                if (removedCount > 0) {
+                                    this.toastr.success(
+                                        `Đã làm mới tập! Đã loại bỏ ${removedCount} mã bài viết dư thừa/không tồn tại.`,
+                                    );
+                                } else {
+                                    this.toastr.success(
+                                        'Dữ liệu tập đã chuẩn xác, không có mã dư thừa.',
+                                    );
+                                }
+                                this.onChangeCollection();
+                            },
+                            error: () => {
+                                this.isRefreshingCollection = false;
+                                this.toastr.error(
+                                    'Lỗi khi cập nhật lại tập lên máy chủ.',
+                                );
+                                this.cd.markForCheck();
+                            },
+                        });
+                },
+                error: () => {
+                    this.isRefreshingCollection = false;
+                    this.toastr.error('Lỗi khi kiểm tra danh sách bài viết.');
+                    this.cd.markForCheck();
+                },
+            });
     }
 
     getDateGroup(doc: any): string {
         if (!doc) return '';
-        let dateVal = doc.updatedAt || doc.updated_at || doc.createdAt || doc.created_at || doc.date || doc.updated || doc.created;
+        let dateVal =
+            doc.updatedAt ||
+            doc.updated_at ||
+            doc.createdAt ||
+            doc.created_at ||
+            doc.date ||
+            doc.updated ||
+            doc.created;
         if (!dateVal) return '';
 
         if (typeof dateVal === 'string' && /^\d+$/.test(dateVal)) {
@@ -673,7 +911,11 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         if (isNaN(d.getTime())) return '';
 
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const today = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+        );
         const itemDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
         const diffTime = today.getTime() - itemDate.getTime();
@@ -682,56 +924,92 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         if (diffDays <= 0) return 'Hôm nay';
         if (diffDays === 1) return 'Hôm qua';
         if (diffDays > 1 && diffDays <= 7) return `${diffDays} ngày trước`;
-        if (diffDays > 7 && diffDays <= 30) return `${Math.floor(diffDays / 7)} tuần trước`;
+        if (diffDays > 7 && diffDays <= 30)
+            return `${Math.floor(diffDays / 7)} tuần trước`;
         return d.toLocaleDateString('vi-VN');
     }
 
     hasVideoProject(row: any): boolean {
         if (!row) return false;
-        const uuid = typeof row === 'string' ? row : (row.uuid || row._id || row.id);
+        const uuid =
+            typeof row === 'string' ? row : row.uuid || row._id || row.id;
         if (!uuid) return false;
-        if (typeof row === 'object' && (row.has_video || row.hasVideo)) return true;
+        if (typeof row === 'object' && (row.has_video || row.hasVideo))
+            return true;
         if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(`ai_type_audio_merger_data_${uuid}`);
+            return !!this.multiAccountService.getItem(
+                `ai_type_audio_merger_data_${uuid}`,
+            );
         }
         return false;
     }
 
     hasScriptProject(row: any): boolean {
         if (!row) return false;
-        const uuid = typeof row === 'string' ? row : (row.uuid || row._id || row.id);
+        const uuid =
+            typeof row === 'string' ? row : row.uuid || row._id || row.id;
         if (!uuid) return false;
-        if (typeof row === 'object' && (row.has_script || row.hasScript)) return true;
+        if (typeof row === 'object' && (row.has_script || row.hasScript))
+            return true;
         if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(`ai_type_script_data_${uuid}`) ||
-                   !!this.multiAccountService.getItem(`ai_type_script_merger_data_${uuid}`);
+            return (
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_data_${uuid}`,
+                ) ||
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_merger_data_${uuid}`,
+                )
+            );
         }
         return false;
     }
 
     hasCollectionScript(): boolean {
-        const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
+        const activeCol =
+            this.selectedCollection ||
+            (this.collections && this.collections[0]);
         if (!activeCol) return false;
 
         if (activeCol.has_script) return true;
 
         if (this.rows && this.rows.length > 0) {
-            if (this.rows.some((r: any) => r && (r.has_script || this.hasScriptProject(r)))) {
+            if (
+                this.rows.some(
+                    (r: any) => r && (r.has_script || this.hasScriptProject(r)),
+                )
+            ) {
                 return true;
             }
         }
 
-        let uuids: string[] = Array.isArray(activeCol.uuid) ? activeCol.uuid : (activeCol.uuid ? [activeCol.uuid] : []);
+        let uuids: string[] = Array.isArray(activeCol.uuid)
+            ? activeCol.uuid
+            : activeCol.uuid
+              ? [activeCol.uuid]
+              : [];
         if (uuids.length > 0 && this.multiAccountService) {
-            return uuids.some(uId =>
-                !!this.multiAccountService.getItem(`ai_type_script_data_${uId}`) ||
-                !!this.multiAccountService.getItem(`ai_type_script_merger_data_${uId}`)
-            ) || !!this.multiAccountService.getItem(`ai_type_script_data_${activeCol._id}`);
+            return (
+                uuids.some(
+                    (uId) =>
+                        !!this.multiAccountService.getItem(
+                            `ai_type_script_data_${uId}`,
+                        ) ||
+                        !!this.multiAccountService.getItem(
+                            `ai_type_script_merger_data_${uId}`,
+                        ),
+                ) ||
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_data_${activeCol._id}`,
+                )
+            );
         }
         return false;
     }
 
-    ensureUnlocked(targetObj: any, callback: (unlocked: boolean, password?: string) => void) {
+    ensureUnlocked(
+        targetObj: any,
+        callback: (unlocked: boolean, password?: string) => void,
+    ) {
         callback(true);
     }
 
@@ -740,7 +1018,12 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         this.ensureUnlocked(row, (unlocked) => {
             if (unlocked) {
                 const username = this.user?.name || 'admin';
-                this.router.navigate(['/ai-writer', username, row.uuid, 'script']);
+                this.router.navigate([
+                    '/ai-writer',
+                    username,
+                    row.uuid,
+                    'script',
+                ]);
             }
         });
     }
@@ -756,7 +1039,9 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     readCollectionScript() {
-        const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
+        const activeCol =
+            this.selectedCollection ||
+            (this.collections && this.collections[0]);
         if (!activeCol) return;
 
         this.ensureUnlocked(activeCol, (unlocked) => {
@@ -764,52 +1049,87 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
 
             let scriptUuid = '';
             if (this.rows && this.rows.length > 0) {
-                const foundScriptRow = this.rows.find((r: any) => r && (r.has_script || this.hasScriptProject(r)));
+                const foundScriptRow = this.rows.find(
+                    (r: any) => r && (r.has_script || this.hasScriptProject(r)),
+                );
                 if (foundScriptRow && foundScriptRow.uuid) {
                     scriptUuid = foundScriptRow.uuid;
                 }
             }
 
             if (!scriptUuid) {
-                let uuids: string[] = Array.isArray(activeCol.uuid) ? activeCol.uuid : (activeCol.uuid ? [activeCol.uuid] : []);
+                let uuids: string[] = Array.isArray(activeCol.uuid)
+                    ? activeCol.uuid
+                    : activeCol.uuid
+                      ? [activeCol.uuid]
+                      : [];
                 if (uuids.length > 0) {
-                    scriptUuid = uuids.find(uId => !!this.multiAccountService.getItem(`ai_type_script_data_${uId}`)) || uuids[0];
+                    scriptUuid =
+                        uuids.find(
+                            (uId) =>
+                                !!this.multiAccountService.getItem(
+                                    `ai_type_script_data_${uId}`,
+                                ),
+                        ) || uuids[0];
                 }
             }
 
             if (!scriptUuid) {
-                this.toastr.warning('Không tìm thấy UUID của Collection!', 'Cảnh báo');
+                this.toastr.warning(
+                    'Không tìm thấy UUID của Collection!',
+                    'Cảnh báo',
+                );
                 return;
             }
 
             const username = this.user?.name || 'admin';
-            this.router.navigate(['/ai-writer', username, scriptUuid, 'script']);
+            this.router.navigate([
+                '/ai-writer',
+                username,
+                scriptUuid,
+                'script',
+            ]);
         });
     }
 
     hasCollectionVideo(): boolean {
-        const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
+        const activeCol =
+            this.selectedCollection ||
+            (this.collections && this.collections[0]);
         if (!activeCol) return false;
 
         if (activeCol.has_video) return true;
 
         if (this.rows && this.rows.length > 0) {
-            if (this.rows.some((r: any) => r && (r.has_video || this.hasVideoProject(r)))) {
+            if (
+                this.rows.some(
+                    (r: any) => r && (r.has_video || this.hasVideoProject(r)),
+                )
+            ) {
                 return true;
             }
         }
 
-        let uuids: string[] = Array.isArray(activeCol.uuid) ? activeCol.uuid : (activeCol.uuid ? [activeCol.uuid] : []);
+        let uuids: string[] = Array.isArray(activeCol.uuid)
+            ? activeCol.uuid
+            : activeCol.uuid
+              ? [activeCol.uuid]
+              : [];
         if (uuids.length > 0 && this.multiAccountService) {
-            return uuids.some(uId =>
-                !!this.multiAccountService.getItem(`ai_type_audio_merger_data_${uId}`)
+            return uuids.some(
+                (uId) =>
+                    !!this.multiAccountService.getItem(
+                        `ai_type_audio_merger_data_${uId}`,
+                    ),
             );
         }
         return false;
     }
 
     editCollectionVideo() {
-        const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
+        const activeCol =
+            this.selectedCollection ||
+            (this.collections && this.collections[0]);
         if (!activeCol) return;
 
         this.ensureUnlocked(activeCol, (unlocked) => {
@@ -825,7 +1145,10 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
             }
 
             if (!firstUuid) {
-                this.toastr.warning('Không tìm thấy UUID của Collection!', 'Cảnh báo');
+                this.toastr.warning(
+                    'Không tìm thấy UUID của Collection!',
+                    'Cảnh báo',
+                );
                 return;
             }
 
@@ -839,11 +1162,21 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     extractCleanDoneContent(art: any): string {
         if (!art) return '';
         let content = '';
-        const rawDone = art.done || art.content || art.text || (art.source ? (art.source.done || art.source.text || art.source.prompt) : null);
+        const rawDone =
+            art.done ||
+            art.content ||
+            art.text ||
+            (art.source
+                ? art.source.done || art.source.text || art.source.prompt
+                : null);
         if (rawDone) {
             if (Array.isArray(rawDone)) {
                 content = rawDone
-                    .map((paragraph: any) => typeof paragraph === 'string' ? paragraph.replace(/<[^>]*>?/gm, '').trim() : '')
+                    .map((paragraph: any) =>
+                        typeof paragraph === 'string'
+                            ? paragraph.replace(/<[^>]*>?/gm, '').trim()
+                            : '',
+                    )
                     .filter((text: string) => text.length > 0)
                     .join('\n\n');
             } else if (typeof rawDone === 'string') {
@@ -853,16 +1186,21 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         return content;
     }
 
-    async fetchCollectionContentBulk(uuids: string[], username: string): Promise<any[]> {
+    async fetchCollectionContentBulk(
+        uuids: string[],
+        username: string,
+    ): Promise<any[]> {
         if (!uuids || uuids.length === 0) return [];
         let docsMap: Record<string, any> = {};
 
         try {
-            const bulkRes: any = await firstValueFrom(this._crawlService.archive({
-                username: username,
-                uuids: uuids,
-                page: { size: Math.max(uuids.length, 2000) }
-            })).catch(() => null);
+            const bulkRes: any = await firstValueFrom(
+                this._crawlService.archive({
+                    username: username,
+                    uuids: uuids,
+                    page: { size: Math.max(uuids.length, 2000) },
+                }),
+            ).catch(() => null);
 
             let docsList: any[] = [];
             if (bulkRes && bulkRes.data) {
@@ -884,8 +1222,16 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                         uuid: doc.uuid || doc._id || doc.id,
                         title: doc.title || doc.name || '',
                         done: cleanContent,
-                        style: (doc.source && doc.source.style) ? doc.source.style : (doc.style || null),
-                        createdAt: doc.createdAt || doc.created_at || doc.date || doc.updatedAt || 0
+                        style:
+                            doc.source && doc.source.style
+                                ? doc.source.style
+                                : doc.style || null,
+                        createdAt:
+                            doc.createdAt ||
+                            doc.created_at ||
+                            doc.date ||
+                            doc.updatedAt ||
+                            0,
                     };
                     if (doc.uuid) docsMap[doc.uuid] = docItem;
                     if (doc._id) docsMap[doc._id] = docItem;
@@ -896,9 +1242,13 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
             console.warn('Lỗi gọi bulk archive:', err);
         }
 
-        let resultDocs = uuids.map(uuid => docsMap[uuid]).filter(doc => !!doc && !!doc.done);
+        let resultDocs = uuids
+            .map((uuid) => docsMap[uuid])
+            .filter((doc) => !!doc && !!doc.done);
         if (resultDocs.length === 0 && Object.keys(docsMap).length > 0) {
-            resultDocs = Object.values(docsMap).filter((doc: any) => !!doc && !!doc.done);
+            resultDocs = Object.values(docsMap).filter(
+                (doc: any) => !!doc && !!doc.done,
+            );
         }
 
         resultDocs.sort((a: any, b: any) => {
@@ -912,18 +1262,27 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     async generateCollectionScriptFromCollectionPage() {
         if (this.isGeneratingCollectionScript) return;
 
-        if (!this.selectedCollection && (!this.collections || this.collections.length === 0)) {
-            this.toastr.warning('Vui lòng chọn 1 Bộ sưu tập (Collection) để tạo kịch bản!', 'Cảnh báo');
+        if (
+            !this.selectedCollection &&
+            (!this.collections || this.collections.length === 0)
+        ) {
+            this.toastr.warning(
+                'Vui lòng chọn 1 Bộ sưu tập (Collection) để tạo kịch bản!',
+                'Cảnh báo',
+            );
             return;
         }
 
-        const activeCol = this.selectedCollection || (this.collections && this.collections[0]);
+        const activeCol =
+            this.selectedCollection ||
+            (this.collections && this.collections[0]);
 
         this.ensureUnlocked(activeCol, async (unlocked) => {
             if (!unlocked) return;
 
-            const collectionTitle = activeCol?.title || 'Kịch bản Bộ Tiểu Thuyết';
-            
+            const collectionTitle =
+                activeCol?.title || 'Kịch bản Bộ Tiểu Thuyết';
+
             let uuids: string[] = [];
             if (activeCol) {
                 if (Array.isArray(activeCol.uuid)) {
@@ -934,11 +1293,16 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
             }
 
             if (uuids.length === 0 && this.rows && this.rows.length > 0) {
-                uuids = this.rows.map((r: any) => r.uuid).filter((u: any) => !!u);
+                uuids = this.rows
+                    .map((r: any) => r.uuid)
+                    .filter((u: any) => !!u);
             }
 
             if (uuids.length === 0) {
-                this.toastr.warning('Collection này chưa có bài viết nào để dựng kịch bản!', 'Trống');
+                this.toastr.warning(
+                    'Collection này chưa có bài viết nào để dựng kịch bản!',
+                    'Trống',
+                );
                 return;
             }
 
@@ -946,47 +1310,64 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
             this.cd.markForCheck();
 
             try {
-                this.toastr.info(`Đang siêu tối ưu đọc ${uuids.length} chương trong Collection "${collectionTitle}"...`, 'Đang xử lý siêu tốc');
-            const username = this.user?.name || 'admin';
-            
-            const fullDocs = await this.fetchCollectionContentBulk(uuids, username);
+                this.toastr.info(
+                    `Đang siêu tối ưu đọc ${uuids.length} chương trong Collection "${collectionTitle}"...`,
+                    'Đang xử lý siêu tốc',
+                );
+                const username = this.user?.name || 'admin';
 
-            if (fullDocs && fullDocs.length > 0) {
-                const firstUuid = uuids[0];
-                let fullScriptParts: string[] = [];
-                let currentSceneNumber = 1;
+                const fullDocs = await this.fetchCollectionContentBulk(
+                    uuids,
+                    username,
+                );
 
-                this.toastr.info(`Bắt đầu chuyển thể chi tiết trọn vẹn ${fullDocs.length} chương sang kịch bản...`, 'Chuyển thể siêu chi tiết');
+                if (fullDocs && fullDocs.length > 0) {
+                    const firstUuid = uuids[0];
+                    let fullScriptParts: string[] = [];
+                    let currentSceneNumber = 1;
 
-                for (let idx = 0; idx < fullDocs.length; idx++) {
-                    const art = fullDocs[idx];
-                    const chapterTitle = art.title || `Chương ${idx + 1}`;
-                    const contentFromDone = (art.done || '').trim();
-                    if (!contentFromDone) continue;
+                    this.toastr.info(
+                        `Bắt đầu chuyển thể chi tiết trọn vẹn ${fullDocs.length} chương sang kịch bản...`,
+                        'Chuyển thể siêu chi tiết',
+                    );
 
-                    this.toastr.info(`[Chương ${idx + 1}/${fullDocs.length}] Đang dựng kịch bản mổ xẻ chi tiết cho: "${chapterTitle}"...`, 'Đang xử lý từng chương');
+                    for (let idx = 0; idx < fullDocs.length; idx++) {
+                        const art = fullDocs[idx];
+                        const chapterTitle = art.title || `Chương ${idx + 1}`;
+                        const contentFromDone = (art.done || '').trim();
+                        if (!contentFromDone) continue;
 
-                    let prompt = `Bạn là một Nhà biên kịch Điện ảnh Chuyên nghiệp.
+                        this.toastr.info(
+                            `[Chương ${idx + 1}/${fullDocs.length}] Đang dựng kịch bản mổ xẻ chi tiết cho: "${chapterTitle}"...`,
+                            'Đang xử lý từng chương',
+                        );
+
+                        let prompt = `Bạn là một Nhà biên kịch Điện ảnh Chuyên nghiệp.
 Nhiệm vụ của bạn là CHUYỂN THỂ TRUNG THỰC TUYỆT ĐỐI (100% High-Fidelity Adaptation) CHƯƠNG ${idx + 1}/${fullDocs.length} thuộc tác phẩm dưới đây thành một KỊCH BẢN PHIM ĐIỆN ẢNH chuẩn mực chiếu rạp.
 
 TIÊU ĐỀ TÁC PHẨM TỔNG THỂ: ${collectionTitle}
 CHƯƠNG HIỆN TẠI (CHƯƠNG ${idx + 1}/${fullDocs.length}): ${chapterTitle}
 `;
-                    if (art.style) {
-                        if (typeof art.style === 'string' && art.style.trim()) {
-                            prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n${art.style.trim()}\n`;
-                        } else if (typeof art.style === 'object') {
-                            const styleName = art.style.name || '';
-                            const styleDesc = art.style.desc || '';
-                            if (styleName || styleDesc) {
-                                prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n`;
-                                if (styleName) prompt += `- Tên phong cách: ${styleName}\n`;
-                                if (styleDesc) prompt += `- Mô tả phong cách: ${styleDesc}\n`;
+                        if (art.style) {
+                            if (
+                                typeof art.style === 'string' &&
+                                art.style.trim()
+                            ) {
+                                prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n${art.style.trim()}\n`;
+                            } else if (typeof art.style === 'object') {
+                                const styleName = art.style.name || '';
+                                const styleDesc = art.style.desc || '';
+                                if (styleName || styleDesc) {
+                                    prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n`;
+                                    if (styleName)
+                                        prompt += `- Tên phong cách: ${styleName}\n`;
+                                    if (styleDesc)
+                                        prompt += `- Mô tả phong cách: ${styleDesc}\n`;
+                                }
                             }
                         }
-                    }
 
-                    prompt += `\nNỘI DUNG VĂN BẢN GỐC CỦA CHƯƠNG NÀY (TRƯỜNG DONE):
+                        prompt += `\nNỘI DUNG VĂN BẢN GỐC CỦA CHƯƠNG NÀY (TRƯỜNG DONE):
 ${contentFromDone}
 
 QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
@@ -1004,132 +1385,222 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 - GIỚI THIỆU NHÂN VẬT TRỰC TIẾP TRONG DÒNG HÀNH ĐỘNG (ACTION LINES) khi nhân vật xuất hiện lần đầu tiên ở phân cảnh (Ví dụ: MAI (27), một phụ nữ trẻ cương nghị...).
 - Bắt đầu kịch bản ngay bằng CẢNH ${currentSceneNumber} hoặc "FADE IN:". KHÔNG kèm lời dẫn hay giải thích thừa.`;
 
-                    try {
-                        const response = await this._genaiService.generateContent({
-                            model: 'gemini-3.6-flash',
-                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                            config: { temperature: 0.1 }
-                        });
-
-                        const chapterScript = response.text ? response.text.trim() : '';
-                        if (chapterScript) {
-                            const sceneMatches = chapterScript.match(/(?:CẢNH|SCENE)\s+(\d+)/gi);
-                            if (sceneMatches && sceneMatches.length > 0) {
-                                const lastMatch = sceneMatches[sceneMatches.length - 1];
-                                const numMatch = lastMatch.match(/\d+/);
-                                if (numMatch) {
-                                    currentSceneNumber = parseInt(numMatch[0], 10) + 1;
-                                }
-                            } else {
-                                currentSceneNumber += 5;
-                            }
-
-                            fullScriptParts.push(`========================================\n[PHẦN KỊCH BẢN CHƯƠNG ${idx + 1}: ${chapterTitle}]\n========================================\n\n` + chapterScript);
-
-                            // Lưu kịch bản riêng lẻ cho từng bài viết / chương
-                            if (art && art.uuid) {
-                                this.multiAccountService.setItem(`ai_type_script_data_${art.uuid}`, true);
-                                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-                                if (isAutoSaveLocal && (window as any).electron && (window as any).electron.saveLocalScript) {
-                                    (window as any).electron.saveLocalScript({
-                                        uuid: art.uuid,
-                                        username: username,
-                                        title: chapterTitle,
-                                        outline: chapterTitle,
-                                        script: chapterScript
-                                    }).catch((errLocal: any) => console.warn('Lỗi lưu kịch bản từng chương vào SQLite:', errLocal));
-                                }
-                                this._blogService.storeScript({
-                                    username: username,
-                                    uuid: art.uuid,
-                                    title: chapterTitle,
-                                    outline: chapterTitle,
-                                    script: chapterScript
-                                }).subscribe({
-                                    next: () => {},
-                                    error: (errStore: any) => console.warn('Lỗi lưu kịch bản chương lên server:', errStore)
+                        try {
+                            const response =
+                                await this._genaiService.generateContent({
+                                    model: 'gemini-3.6-flash',
+                                    contents: [
+                                        {
+                                            role: 'user',
+                                            parts: [{ text: prompt }],
+                                        },
+                                    ],
+                                    config: { temperature: 0.1 },
                                 });
+
+                            const chapterScript = response.text
+                                ? response.text.trim()
+                                : '';
+                            if (chapterScript) {
+                                const sceneMatches = chapterScript.match(
+                                    /(?:CẢNH|SCENE)\s+(\d+)/gi,
+                                );
+                                if (sceneMatches && sceneMatches.length > 0) {
+                                    const lastMatch =
+                                        sceneMatches[sceneMatches.length - 1];
+                                    const numMatch = lastMatch.match(/\d+/);
+                                    if (numMatch) {
+                                        currentSceneNumber =
+                                            parseInt(numMatch[0], 10) + 1;
+                                    }
+                                } else {
+                                    currentSceneNumber += 5;
+                                }
+
+                                fullScriptParts.push(
+                                    `========================================\n[PHẦN KỊCH BẢN CHƯƠNG ${idx + 1}: ${chapterTitle}]\n========================================\n\n` +
+                                        chapterScript,
+                                );
+
+                                // Lưu kịch bản riêng lẻ cho từng bài viết / chương
+                                if (art && art.uuid) {
+                                    this.multiAccountService.setItem(
+                                        `ai_type_script_data_${art.uuid}`,
+                                        true,
+                                    );
+                                    const isAutoSaveLocal =
+                                        localStorage.getItem(
+                                            'ai_type_auto_save_local',
+                                        ) !== 'false';
+                                    if (
+                                        isAutoSaveLocal &&
+                                        (window as any).electron &&
+                                        (window as any).electron.saveLocalScript
+                                    ) {
+                                        (window as any).electron
+                                            .saveLocalScript({
+                                                uuid: art.uuid,
+                                                username: username,
+                                                title: chapterTitle,
+                                                outline: chapterTitle,
+                                                script: chapterScript,
+                                            })
+                                            .catch((errLocal: any) =>
+                                                console.warn(
+                                                    'Lỗi lưu kịch bản từng chương vào SQLite:',
+                                                    errLocal,
+                                                ),
+                                            );
+                                    }
+                                    this._blogService
+                                        .storeScript({
+                                            username: username,
+                                            uuid: art.uuid,
+                                            title: chapterTitle,
+                                            outline: chapterTitle,
+                                            script: chapterScript,
+                                        })
+                                        .subscribe({
+                                            next: () => {},
+                                            error: (errStore: any) =>
+                                                console.warn(
+                                                    'Lỗi lưu kịch bản chương lên server:',
+                                                    errStore,
+                                                ),
+                                        });
+                                }
+                            }
+                        } catch (e) {
+                            console.warn(
+                                `Lỗi khi dựng kịch bản cho Chương ${idx + 1}:`,
+                                e,
+                            );
+                        }
+                    }
+
+                    const scriptText = fullScriptParts.join('\n\n');
+
+                    if (!scriptText || !scriptText.trim()) {
+                        this.toastr.error(
+                            'Không thể dựng kịch bản cho Collection này!',
+                            'Lỗi',
+                        );
+                        this.isGeneratingCollectionScript = false;
+                        this.cd.markForCheck();
+                        return;
+                    }
+
+                    if (scriptText) {
+                        const scriptTitle = `${collectionTitle}`;
+                        const isAutoSaveLocal =
+                            localStorage.getItem('ai_type_auto_save_local') !==
+                            'false';
+                        const outlineText = `Toàn bộ Collection (${uuids.length} chương)`;
+
+                        if (
+                            isAutoSaveLocal &&
+                            (window as any).electron &&
+                            (window as any).electron.saveLocalScript
+                        ) {
+                            try {
+                                await (window as any).electron.saveLocalScript({
+                                    uuid: firstUuid,
+                                    username: username,
+                                    title: scriptTitle,
+                                    outline: outlineText,
+                                    script: scriptText,
+                                });
+                            } catch (eLocal) {
+                                console.warn(
+                                    'Lưu kịch bản local SQLite cảnh báo:',
+                                    eLocal,
+                                );
                             }
                         }
-                    } catch (e) {
-                        console.warn(`Lỗi khi dựng kịch bản cho Chương ${idx + 1}:`, e);
-                    }
-                }
 
-                const scriptText = fullScriptParts.join('\n\n');
-
-                if (!scriptText || !scriptText.trim()) {
-                    this.toastr.error('Không thể dựng kịch bản cho Collection này!', 'Lỗi');
-                    this.isGeneratingCollectionScript = false;
-                    this.cd.markForCheck();
-                    return;
-                }
-
-                if (scriptText) {
-                    const scriptTitle = `${collectionTitle}`;
-                    const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-                    const outlineText = `Toàn bộ Collection (${uuids.length} chương)`;
-
-                    if (isAutoSaveLocal && (window as any).electron && (window as any).electron.saveLocalScript) {
-                        try {
-                            await (window as any).electron.saveLocalScript({
-                                uuid: firstUuid,
+                        this._blogService
+                            .storeScript({
                                 username: username,
+                                uuid: firstUuid,
                                 title: scriptTitle,
                                 outline: outlineText,
-                                script: scriptText
-                            });
-                        } catch (eLocal) {
-                            console.warn('Lưu kịch bản local SQLite cảnh báo:', eLocal);
-                        }
-                    }
+                                script: scriptText,
+                            })
+                            .subscribe({
+                                next: (res) => {
+                                    this.multiAccountService.setItem(
+                                        `ai_type_script_data_${firstUuid}`,
+                                        true,
+                                    );
+                                    this.toastr.success(
+                                        `Dựng kịch bản trọn vẹn chi tiết toàn bộ Collection "${collectionTitle}" (${fullDocs.length} chương) thành công!`,
+                                    );
+                                    this.isGeneratingCollectionScript = false;
+                                    this.cd.markForCheck();
 
-                    this._blogService.storeScript({
-                        username: username,
-                        uuid: firstUuid,
-                        title: scriptTitle,
-                        outline: outlineText,
-                        script: scriptText
-                    }).subscribe({
-                        next: (res) => {
-                            this.multiAccountService.setItem(`ai_type_script_data_${firstUuid}`, true);
-                            this.toastr.success(`Dựng kịch bản trọn vẹn chi tiết toàn bộ Collection "${collectionTitle}" (${fullDocs.length} chương) thành công!`);
-                            this.isGeneratingCollectionScript = false;
-                            this.cd.markForCheck();
-                            
-                            this.router.navigate(['/ai-writer', username, firstUuid, 'script']);
-                        },
-                        error: (err) => {
-                            console.warn('Lỗi lưu kịch bản lên Server:', err);
-                            if (isAutoSaveLocal) {
-                                this.multiAccountService.setItem(`ai_type_script_data_${firstUuid}`, true);
-                                this.toastr.success(`Đã lưu kịch bản vào SQLite máy tính thành công!`);
-                                this.isGeneratingCollectionScript = false;
-                                this.cd.markForCheck();
-                                this.router.navigate(['/ai-writer', username, firstUuid, 'script']);
-                            } else {
-                                this.toastr.error('Dựng kịch bản thành công nhưng không thể lưu vào database.', 'Lỗi lưu trữ');
-                                this.isGeneratingCollectionScript = false;
-                                this.cd.markForCheck();
-                            }
-                        }
-                    });
+                                    this.router.navigate([
+                                        '/ai-writer',
+                                        username,
+                                        firstUuid,
+                                        'script',
+                                    ]);
+                                },
+                                error: (err) => {
+                                    console.warn(
+                                        'Lỗi lưu kịch bản lên Server:',
+                                        err,
+                                    );
+                                    if (isAutoSaveLocal) {
+                                        this.multiAccountService.setItem(
+                                            `ai_type_script_data_${firstUuid}`,
+                                            true,
+                                        );
+                                        this.toastr.success(
+                                            `Đã lưu kịch bản vào SQLite máy tính thành công!`,
+                                        );
+                                        this.isGeneratingCollectionScript = false;
+                                        this.cd.markForCheck();
+                                        this.router.navigate([
+                                            '/ai-writer',
+                                            username,
+                                            firstUuid,
+                                            'script',
+                                        ]);
+                                    } else {
+                                        this.toastr.error(
+                                            'Dựng kịch bản thành công nhưng không thể lưu vào database.',
+                                            'Lỗi lưu trữ',
+                                        );
+                                        this.isGeneratingCollectionScript = false;
+                                        this.cd.markForCheck();
+                                    }
+                                },
+                            });
+                    } else {
+                        this.toastr.error(
+                            'AI không phản hồi nội dung kịch bản.',
+                            'Lỗi AI',
+                        );
+                        this.isGeneratingCollectionScript = false;
+                        this.cd.markForCheck();
+                    }
                 } else {
-                    this.toastr.error('AI không phản hồi nội dung kịch bản.', 'Lỗi AI');
+                    this.toastr.error(
+                        'Không thể đọc nội dung các chương trong Collection.',
+                        'Lỗi dữ liệu',
+                    );
                     this.isGeneratingCollectionScript = false;
                     this.cd.markForCheck();
                 }
-            } else {
-                this.toastr.error('Không thể đọc nội dung các chương trong Collection.', 'Lỗi dữ liệu');
+            } catch (error) {
+                console.error('Lỗi dựng kịch bản Collection:', error);
+                this.toastr.error(
+                    'Không thể kết nối đến máy chủ AI để dựng kịch bản Collection.',
+                    'Lỗi kết nối',
+                );
                 this.isGeneratingCollectionScript = false;
                 this.cd.markForCheck();
             }
-        } catch (error) {
-            console.error('Lỗi dựng kịch bản Collection:', error);
-            this.toastr.error('Không thể kết nối đến máy chủ AI để dựng kịch bản Collection.', 'Lỗi kết nối');
-            this.isGeneratingCollectionScript = false;
-            this.cd.markForCheck();
-        }
         });
     }
 }

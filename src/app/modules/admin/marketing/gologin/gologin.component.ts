@@ -7,6 +7,7 @@ import {
     OnInit,
     ViewChild,
     ViewEncapsulation,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import {
@@ -29,7 +30,7 @@ import { DialogLinksProfile } from 'app/modules/admin/marketing/gologin/dialogs/
 
 import { filter } from 'rxjs/operators';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { DomainService } from 'app/_services/domain';
@@ -64,6 +65,8 @@ function feed<T>(from: Observable<T>, to: Subject<T>): Subscription {
     templateUrl: './gologin.component.html',
     providers: [CrawlService, ForumService, GoLoginService, DomainService],
     encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
     @ViewChild('searchMenu') searchMenu!: MatMenu;
@@ -430,12 +433,12 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
             actions: {
                 confirm: {
                     label: 'Xóa vĩnh viễn',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
-                    label: 'Hủy'
-                }
-            }
+                    label: 'Hủy',
+                },
+            },
         });
 
         confirmDialog.afterClosed().subscribe((result) => {
@@ -445,23 +448,34 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 toDelete.forEach((profile: any) => {
                     if (profile.token && profile.id) {
-                        this._goLoginService.deleteProfile(profile.token, profile.id)
+                        this._goLoginService
+                            .deleteProfile(profile.token, profile.id)
                             .pipe(takeUntil(this._unsubscribeAll))
                             .subscribe({
                                 next: () => {
                                     count++;
-                                    this.rows = this.rows.filter(r => r.id !== profile.id);
-                                    this.data = this.data.filter(d => d.id !== profile.id);
+                                    this.rows = this.rows.filter(
+                                        (r) => r.id !== profile.id,
+                                    );
+                                    this.data = this.data.filter(
+                                        (d) => d.id !== profile.id,
+                                    );
                                     if (count === toDelete.length) {
-                                        this.toastr.success(`Đã xóa hẳn ${count} profile thành công`);
+                                        this.toastr.success(
+                                            `Đã xóa hẳn ${count} profile thành công`,
+                                        );
                                         this.selected = [];
                                         this.cd.markForCheck();
                                     }
-                                }
+                                },
                             });
                     } else {
-                        this.rows = this.rows.filter(r => r.id !== profile.id);
-                        this.data = this.data.filter(d => d.id !== profile.id);
+                        this.rows = this.rows.filter(
+                            (r) => r.id !== profile.id,
+                        );
+                        this.data = this.data.filter(
+                            (d) => d.id !== profile.id,
+                        );
                     }
                 });
                 this.selected = [];
@@ -479,33 +493,42 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
             actions: {
                 confirm: {
                     label: 'Xóa vĩnh viễn',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
-                    label: 'Hủy'
-                }
-            }
+                    label: 'Hủy',
+                },
+            },
         });
 
         confirmDialog.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
                 if (row.token && row.id) {
-                    this._goLoginService.deleteProfile(row.token, row.id)
+                    this._goLoginService
+                        .deleteProfile(row.token, row.id)
                         .pipe(takeUntil(this._unsubscribeAll))
                         .subscribe({
                             next: () => {
-                                this.toastr.success(`Đã xóa hẳn profile ${row.name || row.id}`);
-                                this.rows = this.rows.filter(r => r.id !== row.id);
-                                this.data = this.data.filter(d => d.id !== row.id);
+                                this.toastr.success(
+                                    `Đã xóa hẳn profile ${row.name || row.id}`,
+                                );
+                                this.rows = this.rows.filter(
+                                    (r) => r.id !== row.id,
+                                );
+                                this.data = this.data.filter(
+                                    (d) => d.id !== row.id,
+                                );
                                 this.cd.markForCheck();
                             },
                             error: () => {
-                                this.toastr.error('Có lỗi xảy ra khi xóa profile');
-                            }
+                                this.toastr.error(
+                                    'Có lỗi xảy ra khi xóa profile',
+                                );
+                            },
                         });
                 } else {
-                    this.rows = this.rows.filter(r => r.id !== row.id);
-                    this.data = this.data.filter(d => d.id !== row.id);
+                    this.rows = this.rows.filter((r) => r.id !== row.id);
+                    this.data = this.data.filter((d) => d.id !== row.id);
                     this.toastr.success(`Đã xóa profile`);
                     this.cd.markForCheck();
                 }

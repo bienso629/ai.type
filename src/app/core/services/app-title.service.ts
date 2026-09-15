@@ -1,8 +1,8 @@
-import { Inject, Injectable } from '@angular/core';
+import { Inject, Injectable, DOCUMENT } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { DOCUMENT } from '@angular/common';
+
 import { NavigationEnd, Router } from '@angular/router';
-import { TranslocoService } from '@ngneat/transloco';
+import { TranslocoService } from '@jsverse/transloco';
 import { filter } from 'rxjs';
 
 const APP_NAME = 'AI.Type';

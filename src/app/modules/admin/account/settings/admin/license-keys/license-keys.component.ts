@@ -24,7 +24,8 @@ import { EmailDialogComponent } from 'app/modules/admin/account/settings/admin/d
     styleUrls: ['./license-keys.component.scss'],
     providers: [LicenseKeyService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
     config: AppConfig;

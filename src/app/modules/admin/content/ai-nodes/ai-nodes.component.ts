@@ -1,6 +1,19 @@
-import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    Inject,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { DomSanitizer, Title } from '@angular/platform-browser';
-import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
+import {
+    ColumnMode,
+    DatatableComponent,
+    SelectionType,
+} from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/_services/crawl';
@@ -9,7 +22,11 @@ import { ToastrService } from 'ngx-toastr';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config/config.service';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import {
+    MAT_DIALOG_DATA,
+    MatDialog,
+    MatDialogRef,
+} from '@angular/material/dialog';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
@@ -21,7 +38,9 @@ import * as FileSaver from 'file-saver';
     styleUrls: ['./ai-nodes.component.scss'],
     templateUrl: './ai-nodes.component.html',
     providers: [CrawlService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AINodesComponent implements OnInit, OnDestroy {
     user: User;
@@ -37,13 +56,14 @@ export class AINodesComponent implements OnInit, OnDestroy {
         pageNumber: 0,
         size: 100,
         totalElements: 0,
-        totalPages: 0
+        totalPages: 0,
     };
     isLoading: boolean = false;
     currentBookmark: string;
     apiFetchedCount: number = 0;
 
-    request = 'h1|body\nh2|body\nh3|body\nh4|body\nh5|body\np|body\nspan|body\nlabel|body\ntable|body\nimg,data-lazy-src+title+alt|body\niframe,data-lazy-src|body\na,href+title|body\nli|body\ntitle|html > head\nmeta,content:name|html > head\nmeta,content:property|html > head';
+    request =
+        'h1|body\nh2|body\nh3|body\nh4|body\nh5|body\np|body\nspan|body\nlabel|body\ntable|body\nimg,data-lazy-src+title+alt|body\niframe,data-lazy-src|body\na,href+title|body\nli|body\ntitle|html > head\nmeta,content:name|html > head\nmeta,content:property|html > head';
 
     downloadJsonHref: any;
 
@@ -86,11 +106,13 @@ export class AINodesComponent implements OnInit, OnDestroy {
             return this.user.name;
         }
         try {
-            const activeInfo = JSON.parse(localStorage.getItem('active') || '{}');
+            const activeInfo = JSON.parse(
+                localStorage.getItem('active') || '{}',
+            );
             if (activeInfo && activeInfo.user && activeInfo.user.name) {
                 return activeInfo.user.name;
             }
-        } catch (e) { }
+        } catch (e) {}
         return 'admin';
     }
 
@@ -106,11 +128,12 @@ export class AINodesComponent implements OnInit, OnDestroy {
 
         const username = this.getCurrentUsername();
         if (this.keyword) {
-            this._crawlService.totalSearchNode({
-                username: username,
-                keyword: this.keyword,
-                page: this.page
-            })
+            this._crawlService
+                .totalSearchNode({
+                    username: username,
+                    keyword: this.keyword,
+                    page: this.page,
+                })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: async (result) => {
@@ -121,21 +144,21 @@ export class AINodesComponent implements OnInit, OnDestroy {
                                     offset: 0,
                                     pageSize: undefined,
                                     limit: undefined,
-                                    count: this.totalElements
+                                    count: this.totalElements,
                                 });
                             }
                         }
                     },
-                    error: () => {
-                    },
-                    complete: () => { }
+                    error: () => {},
+                    complete: () => {},
                 });
         } else {
-            this._crawlService.totalSearchNode({
-                username: username,
-                keyword: '',
-                page: this.page
-            })
+            this._crawlService
+                .totalSearchNode({
+                    username: username,
+                    keyword: '',
+                    page: this.page,
+                })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: (res) => {
@@ -145,7 +168,8 @@ export class AINodesComponent implements OnInit, OnDestroy {
                             let temp = localStorage.getItem('statistics');
                             if (temp) {
                                 try {
-                                    this.totalElements = JSON.parse(temp)['node'] || 0;
+                                    this.totalElements =
+                                        JSON.parse(temp)['node'] || 0;
                                 } catch (e) {
                                     this.totalElements = 0;
                                 }
@@ -159,10 +183,10 @@ export class AINodesComponent implements OnInit, OnDestroy {
                                 offset: 0,
                                 pageSize: undefined,
                                 limit: undefined,
-                                count: this.totalElements
+                                count: this.totalElements,
                             });
                         }
-                    }
+                    },
                 });
         }
     }
@@ -172,8 +196,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
      * @param page The page to select
      */
     setPage(pageInfo: PageInfo) {
-        if (!pageInfo.pageSize)
-            pageInfo.pageSize = this.page.size;
+        if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
 
         this.pageNumber = pageInfo.offset;
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
@@ -185,7 +208,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
             pageNumber: targetPage,
             size: pageInfo.pageSize,
             totalElements: 0,
-            totalPages: 0
+            totalPages: 0,
         };
 
         // We keep a index of server loaded pages so we don't load same data twice
@@ -204,15 +227,16 @@ export class AINodesComponent implements OnInit, OnDestroy {
         this.cd.markForCheck();
 
         const payloadPage = {
-            ...this.page
+            ...this.page,
         };
 
-        this._crawlService.nodes({
-            username: this.getCurrentUsername(),
-            keyword: this.keyword,
-            page: payloadPage,
-            bookmark: this.currentBookmark
-        })
+        this._crawlService
+            .nodes({
+                username: this.getCurrentUsername(),
+                keyword: this.keyword,
+                page: payloadPage,
+                bookmark: this.currentBookmark,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
@@ -224,8 +248,6 @@ export class AINodesComponent implements OnInit, OnDestroy {
                         if (!this.rows) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
-
-
 
                         let newTotal = this.totalElements || 0;
                         if (start + resData.docs.length > newTotal) {
@@ -246,13 +268,23 @@ export class AINodesComponent implements OnInit, OnDestroy {
 
                         const rows = [...this.rows];
 
-                        rows.splice(start, resData.docs.length, ...resData.docs);
+                        rows.splice(
+                            start,
+                            resData.docs.length,
+                            ...resData.docs,
+                        );
 
                         this.rows = rows;
                         this.apiFetchedCount += resData.docs.length;
                         this.currentBookmark = resData.bookmark;
                         this.cd.detectChanges();
-                    } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
+                    } else if (
+                        resData &&
+                        resData.docs &&
+                        resData.docs.length === 0 &&
+                        resData.bookmark &&
+                        resData.bookmark !== this.currentBookmark
+                    ) {
                         // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi đệ quy (do PouchDB in-memory filter skip)
                         this.currentBookmark = resData.bookmark;
                         this.isLoading = false;
@@ -260,11 +292,21 @@ export class AINodesComponent implements OnInit, OnDestroy {
                         this.cd.detectChanges();
                         this.setPage(pageInfo);
                         return;
-                    } else if (resData && resData.docs && resData.docs.length === 0) {
+                    } else if (
+                        resData &&
+                        resData.docs &&
+                        resData.docs.length === 0
+                    ) {
                         if (this.totalElements !== start) {
                             this.totalElements = start;
-                            if (this.rows && this.rows.length !== this.totalElements) {
-                                this.rows = this.rows.slice(0, this.totalElements);
+                            if (
+                                this.rows &&
+                                this.rows.length !== this.totalElements
+                            ) {
+                                this.rows = this.rows.slice(
+                                    0,
+                                    this.totalElements,
+                                );
                                 this.rows = [...this.rows];
                             }
                         }
@@ -283,64 +325,66 @@ export class AINodesComponent implements OnInit, OnDestroy {
                         this.table.recalculatePages();
                     }
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
     details(node: any) {
-        this._crawlService.nodeDetails({
-            id: node._id,
-            username: this.getCurrentUsername()
-        })
+        this._crawlService
+            .nodeDetails({
+                id: node._id,
+                username: this.getCurrentUsername(),
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
                         const dialogRef = this.dialog.open(NodeDetailsDialog, {
                             width: 'calc(100vw - 40px)',
-                            data: result.data
+                            data: result.data,
                         });
 
-                        dialogRef.afterClosed().subscribe(result => {
+                        dialogRef.afterClosed().subscribe((result) => {
                             console.log(`Dialog result: ${result}`);
                         });
                     }
                 },
-                error: () => {
-                },
+                error: () => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
     convert(node: any) {
-        this._crawlService.convert({
-            id: node._id,
-            username: this.getCurrentUsername()
-        })
+        this._crawlService
+            .convert({
+                id: node._id,
+                username: this.getCurrentUsername(),
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
                         if (!node.uuids) node.uuids = [];
                         node.uuids.push(result.data.uuid);
-                        this._crawlService.storeNode({
-                            url: node.url,
-                            type: 'norequest',
-                            node: node,
-                            username: this.getCurrentUsername()
-                        }).subscribe();
+                        this._crawlService
+                            .storeNode({
+                                url: node.url,
+                                type: 'norequest',
+                                node: node,
+                                username: this.getCurrentUsername(),
+                            })
+                            .subscribe();
                         this.toastr.success(`Chuyển sang lưu trữ thành công!`);
                     }
                 },
-                error: () => {
-                },
+                error: () => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -351,52 +395,58 @@ export class AINodesComponent implements OnInit, OnDestroy {
     crawlCompany(url: any) {
         if (!url) return;
 
-        this._crawlService.crawlCompany({
-            url: url,
-            request: this.request,
-            username: this.getCurrentUsername()
-        })
+        this._crawlService
+            .crawlCompany({
+                url: url,
+                request: this.request,
+                username: this.getCurrentUsername(),
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: ((result: any) => {
+                next: (result: any) => {
                     if (result && result.title) {
                         this.storeNodeNoRequest(url, result);
                     } else {
-                        this.toastr.error('Link không được phân tích', `đang quét lại`);
+                        this.toastr.error(
+                            'Link không được phân tích',
+                            `đang quét lại`,
+                        );
                     }
-                }),
-                error: (e: any) => { },
-                complete: () => { }
+                },
+                error: (e: any) => {},
+                complete: () => {},
             });
     }
 
     storeNodeNoRequest(url: string, node: any) {
-        this._crawlService.storeNode({
-            url: url,
-            type: 'norequest',
-            node: node,
-            username: this.getCurrentUsername()
-        })
+        this._crawlService
+            .storeNode({
+                url: url,
+                type: 'norequest',
+                node: node,
+                username: this.getCurrentUsername(),
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: ((result: any) => {
+                next: (result: any) => {
                     if (result) {
                         this.toastr.success(`${node.title}`, `Ghi nhớ`);
                     } else {
                         this.toastr.error('Không thể lưu.');
                     }
-                }),
-                error: (e: any) => {
                 },
+                error: (e: any) => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
     createJsonLink() {
-        const blob = new Blob([JSON.stringify(this.selected)], { type: "application/json" });
+        const blob = new Blob([JSON.stringify(this.selected)], {
+            type: 'application/json',
+        });
         FileSaver.saveAs(blob, `${this.getCurrentUsername()}_nodes`);
     }
 
@@ -414,17 +464,17 @@ export class AINodesComponent implements OnInit, OnDestroy {
         private clipboard: Clipboard,
         public dialog: MatDialog,
         private sanitizer: DomSanitizer,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
     ) {
-        this.titleService.setTitle(`tất cả node của bạn | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `tất cả node của bạn | ai.type - công cụ tạo content`,
+        );
 
         // Subscribe to user changes
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
 
                 // totalSearchNode has been moved to ngOnInit to prioritize localStorage
             });
@@ -451,22 +501,24 @@ export class AINodesComponent implements OnInit, OnDestroy {
             this.totalElements = 0;
         }
 
-        this._crawlService.totalSearchNode({
-            username: this.getCurrentUsername(),
-            keyword: '',
-            page: this.page
-        })
+        this._crawlService
+            .totalSearchNode({
+                username: this.getCurrentUsername(),
+                keyword: '',
+                page: this.page,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (res) => {
                     if (res && res.success && !this.keyword) {
-                        this.totalElements = res.data.total ?? this.totalElements;
+                        this.totalElements =
+                            res.data.total ?? this.totalElements;
                     }
                     this.setPage({
                         offset: 0,
                         pageSize: this.page.size,
                         limit: this.page.size,
-                        count: this.totalElements
+                        count: this.totalElements,
                     });
                     this.cd.markForCheck();
                 },
@@ -475,10 +527,10 @@ export class AINodesComponent implements OnInit, OnDestroy {
                         offset: 0,
                         pageSize: this.page.size,
                         limit: this.page.size,
-                        count: this.totalElements
+                        count: this.totalElements,
                     });
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -491,24 +543,26 @@ export class AINodesComponent implements OnInit, OnDestroy {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference
@@ -520,32 +574,44 @@ export class AINodesComponent implements OnInit, OnDestroy {
 
 @Component({
     selector: 'node-details-dialog',
-    template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-        <mat-icon class="self-center mr-2 icon-size-4" [svgIcon]="'feather:info'"></mat-icon>
-        <mat-label class="self-center">Chi tiết Node</mat-label>
-    </div>
+    template: `<div
+            class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch"
+        >
+            <mat-icon
+                class="self-center mr-2 icon-size-4"
+                [svgIcon]="'feather:info'"
+            ></mat-icon>
+            <mat-label class="self-center">Chi tiết Node</mat-label>
+        </div>
 
-    <div mat-dialog-content class="mt-4 p-0">
-        <pre class="text-sm overflow-y-auto overflow-x-auto h-full w-full">{{data | json}}</pre>
-    </div>
+        <div mat-dialog-content class="mt-4 p-0">
+            <pre
+                class="text-sm overflow-y-auto overflow-x-auto h-full w-full"
+                >{{ data | json }}</pre
+            >
+        </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-button class="float-right" [mat-dialog-close]>Đóng cửa sổ</button>
-    </div>`,
+        <div mat-dialog-actions class="p-0 mt-4">
+            <button mat-button class="float-right" [mat-dialog-close]>
+                Đóng cửa sổ
+            </button>
+        </div>`,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class NodeDetailsDialog implements OnInit, OnDestroy {
     constructor(
         public dialogRef: MatDialogRef<any>,
-        @Inject(MAT_DIALOG_DATA) public data: any
-    ) { }
+        @Inject(MAT_DIALOG_DATA) public data: any,
+    ) {}
 
     /**
      * On init
      */
-    ngOnInit(): void { }
+    ngOnInit(): void {}
 
     /**
      * On destroy
      */
-    ngOnDestroy(): void { }
+    ngOnDestroy(): void {}
 }

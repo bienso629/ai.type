@@ -2,14 +2,26 @@
 <fuse-loading-bar></fuse-loading-bar>
 
 <!-- Navigation -->
-<fuse-vertical-navigation class="bg-card dark:bg-gray-900 print:hidden" [appearance]="'thin'"
-    [mode]="isScreenSmall ? 'over' : 'side'" [name]="'mainNavigation'" [navigation]="navigation.compact"
-    [opened]="!isScreenSmall">
+<fuse-vertical-navigation
+    class="bg-card dark:bg-gray-900 print:hidden"
+    [appearance]="'thin'"
+    [mode]="isScreenSmall ? 'over' : 'side'"
+    [name]="'mainNavigation'"
+    [navigation]="navigation.compact"
+    [opened]="!isScreenSmall"
+>
     <!-- Navigation header hook -->
     <ng-container fuseVerticalNavigationContentHeader>
         <!-- Logo -->
-        <div class="flex items-center justify-center mt-2 cursor-pointer" [routerLink]="['/']">
-            <img class="w-10" src="assets/images/logo/favicon.svg" [title]="'app.auto_back_to_homepage' | transloco">
+        <div
+            class="flex items-center justify-center mt-2 cursor-pointer"
+            [routerLink]="['/']"
+        >
+            <img
+                class="w-10"
+                src="assets/images/logo/favicon.svg"
+                [title]="'app.auto_back_to_homepage' | transloco"
+            />
         </div>
     </ng-container>
 </fuse-vertical-navigation>
@@ -18,38 +30,62 @@
 <div class="flex flex-col flex-auto w-full min-w-0 min-h-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b dark:border-b bg-card dark:bg-transparent print:hidden">
+        class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b dark:border-b bg-card dark:bg-transparent print:hidden"
+    >
         <!-- Navigation toggle button -->
         <div class="flex items-center space-x-1 sm:space-x-1">
-            <button mat-icon-button (click)="toggleNavigation('mainNavigation')" [title]="'app.auto_collapse_expand_menu' | transloco">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:sidebar'"></mat-icon>
+            <button
+                mat-icon-button
+                (click)="toggleNavigation('mainNavigation')"
+                [title]="'app.auto_collapse_expand_menu' | transloco"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'feather:sidebar'"
+                ></mat-icon>
             </button>
 
-
-
             <!-- <button mat-icon-button (click)="openPopup()" [title]="'app.auto_entertainment' | transloco">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:smile'"></mat-icon>
-            </button> -->
+      <mat-icon class="icon-size-5" [svgIcon]="'feather:smile'"></mat-icon>
+    </button> -->
 
-            <button mat-icon-button (click)="help()" [title]="'app.auto_help' | transloco">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:help-circle'"></mat-icon>
+            <button
+                mat-icon-button
+                (click)="help()"
+                [title]="'app.auto_help' | transloco"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'feather:help-circle'"
+                ></mat-icon>
             </button>
 
             <app-ai-agent-floating-button></app-ai-agent-floating-button>
 
             <!-- <input hidden type="file" class="file-input" (change)="readFile($event)" #fileUpload>
-            <button mat-icon-button color="primary" (click)="fileUpload.click()">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:zap-off'"></mat-icon>
-            </button> -->
+    <button mat-icon-button color="primary" (click)="fileUpload.click()">
+      <mat-icon class="icon-size-5" [svgIcon]="'feather:zap-off'"></mat-icon>
+    </button> -->
 
             <!-- <search [appearance]="'bar'"></search> -->
         </div>
 
         <!-- Components -->
         <div class="flex items-center pl-0 ml-auto space-x-1 sm:space-x-1">
-            <div class="flex items-center px-3 hidden sm:flex" [matTooltip]="'app.auto_turn_off_to_use_the_original_m' | transloco">
-                <mat-slide-toggle [checked]="enableUmodelverse" (change)="toggleUmodelverse()" [color]="'primary'">
-                    <span class="font-semibold text-sm">{{ 'app.auto_ai_instant_noodles' | transloco }}</span>
+            <div
+                class="flex items-center px-3 hidden sm:flex"
+                [matTooltip]="
+                    'app.auto_turn_off_to_use_the_original_m' | transloco
+                "
+            >
+                <mat-slide-toggle
+                    [checked]="enableUmodelverse"
+                    (change)="toggleUmodelverse()"
+                    [color]="'primary'"
+                >
+                    <span class="font-semibold text-sm">{{
+                        "app.auto_ai_instant_noodles" | transloco
+                    }}</span>
                 </mat-slide-toggle>
             </div>
 
@@ -61,11 +97,11 @@
             <!-- <messages></messages> -->
 
             <!-- <button
-                class="lg:hidden"
-                mat-icon-button
-                (click)="quickChat.toggle()">
-                <mat-icon [svgIcon]="'heroicons_outline:chat-alt-2'"></mat-icon>
-            </button> -->
+    class="lg:hidden"
+    mat-icon-button
+    (click)="quickChat.toggle()">
+    <mat-icon [svgIcon]="'heroicons_outline:chat-alt-2'"></mat-icon>
+  </button> -->
             <user></user>
         </div>
     </div>
@@ -73,23 +109,39 @@
     <!-- Content -->
     <div class="flex flex-col flex-auto min-h-0 overflow-hidden">
         <!-- *ngIf="true" hack is required here for router-outlet to work correctly.
-             Otherwise, layout changes won't be registered and the view won't be updated! -->
-        <router-outlet *ngIf="true"></router-outlet>
+  Otherwise, layout changes won't be registered and the view won't be updated! -->
+        @if (true) {
+            <router-outlet></router-outlet>
+        }
     </div>
 
     <!-- Footer -->
     <div
-        class="relative flex flex-col sm:flex-row flex-0 items-center justify-between w-full p-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden gap-2">
+        class="relative flex flex-col sm:flex-row flex-0 items-center justify-between w-full p-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden gap-2"
+    >
         <div class="font-normal text-base text-secondary">
-            {{ 'app.footer_powered_by_ai' | transloco }} &copy; {{currentYear}}, {{ 'app.footer_version' | transloco }} {{ appVersion }}.
+            {{ "app.footer_powered_by_ai" | transloco }} &copy;
+            {{ currentYear }}, {{ "app.footer_version" | transloco }}
+            {{ appVersion }}.
         </div>
 
-        <div class="font-normal text-base text-secondary flex flex-wrap items-center gap-1.5 sm:ml-auto">
-            <a [routerLink]="['/policy']" [title]="'app.auto_automatic_article_writing_soft' | transloco" class="underline cursor-pointer hover:text-primary">Chính sách phần mềm</a>
+        <div
+            class="font-normal text-base text-secondary flex flex-wrap items-center gap-1.5 sm:ml-auto"
+        >
+            <a
+                [routerLink]="['/policy']"
+                [title]="'app.auto_automatic_article_writing_soft' | transloco"
+                class="underline cursor-pointer hover:text-primary"
+                >Chính sách phần mềm</a
+            >
         </div>
     </div>
 
-    <eco-fab-speed-dial #myFab [direction]="direction" [animationMode]="animationMode">
+    <eco-fab-speed-dial
+        #myFab
+        [direction]="direction"
+        [animationMode]="animationMode"
+    >
         <eco-fab-speed-dial-trigger [spin]="spin">
             <button mat-fab [color]="'primary'" (click)="doAction('trigger')">
                 <mat-icon class="spin360">edit</mat-icon>
@@ -97,17 +149,30 @@
         </eco-fab-speed-dial-trigger>
 
         <eco-fab-speed-dial-actions>
-            <button mat-mini-fab [color]="isRecording ? 'warn' : 'primary'" [class.animate-pulse]="isRecording"
-                (click)="startRecording()" [matTooltip]="'app.auto_system_recording' | transloco" matTooltipPosition="left">
+            <button
+                mat-mini-fab
+                [color]="isRecording ? 'warn' : 'primary'"
+                [class.animate-pulse]="isRecording"
+                (click)="startRecording()"
+                [matTooltip]="'app.auto_system_recording' | transloco"
+                matTooltipPosition="left"
+            >
                 <mat-icon class="icon-size-4" svgIcon="feather:mic"></mat-icon>
             </button>
 
             <!-- <button mat-mini-fab [color]="'primary'" [routerLink]="['/help']">
-                <mat-icon class="icon-size-4" svgIcon="feather:music"></mat-icon>
-            </button> -->
+    <mat-icon class="icon-size-4" svgIcon="feather:music"></mat-icon>
+  </button> -->
 
-            <button mat-mini-fab [color]="'primary'" [routerLink]="['/ai-writer']">
-                <mat-icon class="icon-size-4" svgIcon="feather:edit-3"></mat-icon>
+            <button
+                mat-mini-fab
+                [color]="'primary'"
+                [routerLink]="['/ai-writer']"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    svgIcon="feather:edit-3"
+                ></mat-icon>
             </button>
         </eco-fab-speed-dial-actions>
     </eco-fab-speed-dial>

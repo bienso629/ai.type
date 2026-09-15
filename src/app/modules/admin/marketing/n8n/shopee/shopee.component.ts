@@ -6,7 +6,8 @@ import { AMXHScriptAppComponent } from '../script/script.component';
     templateUrl: '../script/script.component.html',
     styleUrls: ['../script/script.component.scss'],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AMXHShopeeComponent extends AMXHScriptAppComponent {
     platform: string = 'shopee';

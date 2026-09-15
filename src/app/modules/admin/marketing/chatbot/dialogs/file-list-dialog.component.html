@@ -1,95 +1,203 @@
-<ngx-datatable class="material fullscreen w-full shadow-none absolute inset-0" [virtualization]="true" [rows]="rows"
-    [columnMode]="'force'" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
-    [scrollbarH]="false">
-
-    <ngx-datatable-column name="{{ 'app.document_name' | transloco }}" prop="filename" [width]="280" [sortable]="false" [canAutoResize]="false"
-        [draggable]="false" [resizeable]="false">
+<ngx-datatable
+    class="material fullscreen w-full shadow-none absolute inset-0"
+    [virtualization]="true"
+    [rows]="rows"
+    [columnMode]="'force'"
+    [headerHeight]="50"
+    [footerHeight]="50"
+    [rowHeight]="50"
+    [scrollbarV]="true"
+    [scrollbarH]="false"
+>
+    <ngx-datatable-column
+        name="{{ 'app.document_name' | transloco }}"
+        prop="filename"
+        [width]="280"
+        [sortable]="false"
+        [canAutoResize]="false"
+        [draggable]="false"
+        [resizeable]="false"
+    >
         <ng-template let-row="row" ngx-datatable-cell-template>
-            <mat-label class="text-primary font-medium truncate" [title]="row.filename">{{ row.filename
-                }}</mat-label>
+            <mat-label
+                class="text-primary font-medium truncate"
+                [title]="row.filename"
+                >{{ row.filename }}</mat-label
+            >
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="{{ 'app.status' | transloco }}" prop="is_indexed" [width]="200" [sortable]="false" [canAutoResize]="false"
-        [draggable]="false" [resizeable]="false">
+    <ngx-datatable-column
+        name="{{ 'app.status' | transloco }}"
+        prop="is_indexed"
+        [width]="200"
+        [sortable]="false"
+        [canAutoResize]="false"
+        [draggable]="false"
+        [resizeable]="false"
+    >
         <ng-template let-row="row" ngx-datatable-cell-template>
-
-            <div *ngIf="indexingFilename !== row.filename" class="flex items-center h-full">
-                <span *ngIf="row.is_indexed"
-                    class="px-2 py-1 text-xs rounded bg-green-100 font-semibold text-green-700">
-                    {{ 'app.learned' | transloco }}
-                </span>
-                <span *ngIf="!row.is_indexed"
-                    class="px-2 py-1 text-xs rounded bg-yellow-100 font-semibold text-yellow-700">
-                    {{ 'app.unlearned' | transloco }}
-                </span>
-            </div>
-
-            <div *ngIf="indexingFilename === row.filename" class="w-full flex flex-col justify-center h-full">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-[11px] font-semibold text-blue-700 flex items-center gap-1">
-                        <mat-icon class="animate-spin icon-size-3" svgIcon="feather:loader"></mat-icon>
-                        {{ 'app.processing' | transloco }}
-                    </span>
-                    <span class="text-blue-600 text-[11px] font-semibold">{{ progressPercent }}%</span>
+            @if (indexingFilename !== row.filename) {
+                <div class="flex items-center h-full">
+                    @if (row.is_indexed) {
+                        <span
+                            class="px-2 py-1 text-xs rounded bg-green-100 font-semibold text-green-700"
+                        >
+                            {{ "app.learned" | transloco }}
+                        </span>
+                    }
+                    @if (!row.is_indexed) {
+                        <span
+                            class="px-2 py-1 text-xs rounded bg-yellow-100 font-semibold text-yellow-700"
+                        >
+                            {{ "app.unlearned" | transloco }}
+                        </span>
+                    }
                 </div>
-                <div class="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
-                    <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out"
-                        [style.width.%]="progressPercent">
+            }
+
+            @if (indexingFilename === row.filename) {
+                <div class="w-full flex flex-col justify-center h-full">
+                    <div class="flex justify-between items-center mb-1">
+                        <span
+                            class="text-[11px] font-semibold text-blue-700 flex items-center gap-1"
+                        >
+                            <mat-icon
+                                class="animate-spin icon-size-3"
+                                svgIcon="feather:loader"
+                            ></mat-icon>
+                            {{ "app.processing" | transloco }}
+                        </span>
+                        <span class="text-blue-600 text-[11px] font-semibold"
+                            >{{ progressPercent }}%</span
+                        >
                     </div>
+                    <div
+                        class="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden"
+                    >
+                        <div
+                            class="bg-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out"
+                            [style.width.%]="progressPercent"
+                        ></div>
+                    </div>
+                    <span
+                        class="text-[10px] text-gray-500 truncate mt-0.5"
+                        [title]="progressStatus"
+                    >
+                        {{ progressStatus }}
+                    </span>
                 </div>
-                <span class="text-[10px] text-gray-500 truncate mt-0.5" [title]="progressStatus">
-                    {{ progressStatus }}
-                </span>
-            </div>
+            }
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="{{ 'app.category' | transloco }}" prop="doc_type" [width]="130" [sortable]="false" [canAutoResize]="false"
-        [draggable]="false" [resizeable]="false">
+    <ngx-datatable-column
+        name="{{ 'app.category' | transloco }}"
+        prop="doc_type"
+        [width]="130"
+        [sortable]="false"
+        [canAutoResize]="false"
+        [draggable]="false"
+        [resizeable]="false"
+    >
         <ng-template let-row="row" ngx-datatable-cell-template>
-            <mat-label class="text-gray-500">{{ row.doc_type === 'None' ? ('app.default' | transloco) : row.doc_type
-                }}</mat-label>
+            <mat-label class="text-gray-500">{{
+                row.doc_type === "None"
+                    ? ("app.default" | transloco)
+                    : row.doc_type
+            }}</mat-label>
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="{{ 'app.size' | transloco }}" prop="size_mb" [width]="100" [sortable]="false" [canAutoResize]="false"
-        [draggable]="false" [resizeable]="false">
+    <ngx-datatable-column
+        name="{{ 'app.size' | transloco }}"
+        prop="size_mb"
+        [width]="100"
+        [sortable]="false"
+        [canAutoResize]="false"
+        [draggable]="false"
+        [resizeable]="false"
+    >
         <ng-template let-row="row" ngx-datatable-cell-template>
-            <mat-label class="text-gray-500">{{ row.size_mb ? row.size_mb + ' MB' : '--' }}</mat-label>
+            <mat-label class="text-gray-500">{{
+                row.size_mb ? row.size_mb + " MB" : "--"
+            }}</mat-label>
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="{{ 'app.updated_at' | transloco }}" prop="updated_at" [width]="180" [sortable]="false" [canAutoResize]="false"
-        [draggable]="false" [resizeable]="false">
-        <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
-            <mat-label class="font-normal truncate text-gray-500 flex items-center justify-self-stretch">
+    <ngx-datatable-column
+        name="{{ 'app.updated_at' | transloco }}"
+        prop="updated_at"
+        [width]="180"
+        [sortable]="false"
+        [canAutoResize]="false"
+        [draggable]="false"
+        [resizeable]="false"
+    >
+        <ng-template
+            let-row="row"
+            let-rowIndex="rowIndex"
+            ngx-datatable-cell-template
+        >
+            <mat-label
+                class="font-normal truncate text-gray-500 flex items-center justify-self-stretch"
+            >
                 {{ row.updated_at }}
             </mat-label>
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="{{ 'app.action' | transloco }}" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-        [resizeable]="true">
-        <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
+    <ngx-datatable-column
+        name="{{ 'app.action' | transloco }}"
+        [sortable]="false"
+        [canAutoResize]="true"
+        [draggable]="false"
+        [resizeable]="true"
+    >
+        <ng-template
+            let-row="row"
+            let-rowIndex="rowIndex"
+            ngx-datatable-cell-template
+        >
             <div class="flex items-center gap-1">
-                <button mat-icon-button (click)="downloadPdf(row.doc_type, row.filename)" matTooltipPosition="above"
-                    [matTooltip]="'app.download_this_document' | transloco">
-                    <mat-icon class="icon-size-4 text-blue-600" svgIcon="feather:download"></mat-icon>
+                <button
+                    mat-icon-button
+                    (click)="downloadPdf(row.doc_type, row.filename)"
+                    matTooltipPosition="above"
+                    [matTooltip]="'app.download_this_document' | transloco"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-blue-600"
+                        svgIcon="feather:download"
+                    ></mat-icon>
                 </button>
 
-                <button mat-icon-button (click)="reIndexPdf(row.doc_type, row.filename, rowIndex)"
-                    matTooltipPosition="above" [matTooltip]="'app.reindex_this_document' | transloco"
-                    [disabled]="indexingFilename === row.filename">
-                    <mat-icon class="icon-size-4 text-green-600" [class.opacity-40]="indexingFilename === row.filename"
-                        svgIcon="feather:refresh-ccw"></mat-icon>
+                <button
+                    mat-icon-button
+                    (click)="reIndexPdf(row.doc_type, row.filename, rowIndex)"
+                    matTooltipPosition="above"
+                    [matTooltip]="'app.reindex_this_document' | transloco"
+                    [disabled]="indexingFilename === row.filename"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-green-600"
+                        [class.opacity-40]="indexingFilename === row.filename"
+                        svgIcon="feather:refresh-ccw"
+                    ></mat-icon>
                 </button>
 
-                <button mat-icon-button (click)="deletePdf(row.doc_type, row.filename, rowIndex)"
-                    matTooltipPosition="above" [matTooltip]="'app.delete_this_document' | transloco"
-                    [disabled]="indexingFilename === row.filename">
-                    <mat-icon class="icon-size-4 text-red-500" [class.opacity-40]="indexingFilename === row.filename"
-                        svgIcon="feather:trash-2"></mat-icon>
+                <button
+                    mat-icon-button
+                    (click)="deletePdf(row.doc_type, row.filename, rowIndex)"
+                    matTooltipPosition="above"
+                    [matTooltip]="'app.delete_this_document' | transloco"
+                    [disabled]="indexingFilename === row.filename"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-red-500"
+                        [class.opacity-40]="indexingFilename === row.filename"
+                        svgIcon="feather:trash-2"
+                    ></mat-icon>
                 </button>
             </div>
         </ng-template>
@@ -98,10 +206,13 @@
         <ng-template ngx-datatable-footer-template let-rowCount="rowCount">
             <div class="px-4 flex justify-between items-center w-full">
                 <span class="text-gray-500 text-sm">{{ rowCount }} total</span>
-                <a href="javascript:void(0)" class="text-gray-400 hover:text-primary cursor-pointer"
-                    (click)="indexAll()">{{ 'app.reindex_all' | transloco }}</a>
+                <a
+                    href="javascript:void(0)"
+                    class="text-gray-400 hover:text-primary cursor-pointer"
+                    (click)="indexAll()"
+                    >{{ "app.reindex_all" | transloco }}</a
+                >
             </div>
         </ng-template>
     </ngx-datatable-footer>
-
 </ngx-datatable>

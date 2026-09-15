@@ -1,9 +1,21 @@
-import { TranslocoModule } from '@ngneat/transloco';
-import { Component, Inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
+import { TranslocoModule } from '@jsverse/transloco';
+import {
+    Component,
+    Inject,
+    ChangeDetectorRef,
+    ViewChild,
+    ElementRef,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
-import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import {
+    MatDialog,
+    MatDialogModule,
+    MatDialogRef,
+    MAT_DIALOG_DATA,
+} from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -24,13 +36,23 @@ import { CropVideoDialogComponent } from './crop-video-dialog.component';
 
 @Component({
     selector: 'app-edit-scene-prompt-dialog',
-    standalone: true,
     imports: [
-        TranslocoModule,CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, TextFieldModule, MatProgressSpinnerModule, MatTooltipModule, MatSelectModule, MatMenuModule],
-    templateUrl: './edit-scene-prompt-dialog.component.html'
+        TranslocoModule,
+        FormsModule,
+        MatDialogModule,
+        MatButtonModule,
+        MatIconModule,
+        MatInputModule,
+        TextFieldModule,
+        MatProgressSpinnerModule,
+        MatTooltipModule,
+        MatSelectModule,
+        MatMenuModule,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    templateUrl: './edit-scene-prompt-dialog.component.html',
 })
 export class EditScenePromptDialogComponent {
-
     editingScenePrompt: any;
     editingSceneIndex: number;
     editingVideoIndex: number = -1;
@@ -51,7 +73,6 @@ export class EditScenePromptDialogComponent {
     aiReferenceVideoBase64: string | null = null;
     frameBgUrl: string | null = null;
     frameTemplateName: string | null = null;
-
 
     onReferenceImageSelected(event: any) {
         const file = event.target.files[0];
@@ -87,17 +108,23 @@ export class EditScenePromptDialogComponent {
         { value: '9:16', label: '9:16 (Dọc)' },
         { value: '4:3', label: '4:3' },
         { value: '3:4', label: '3:4' },
-        { value: '1:1', label: '1:1 (Vuông)' }
+        { value: '1:1', label: '1:1 (Vuông)' },
     ];
 
     getAspectRatioStyle() {
         switch (this.selectedAspectRatio) {
-            case '16:9': return { 'width': '384px', 'height': '216px' };
-            case '9:16': return { 'width': '216px', 'height': '384px' };
-            case '4:3': return { 'width': '320px', 'height': '240px' };
-            case '3:4': return { 'width': '240px', 'height': '320px' };
-            case '1:1': return { 'width': '288px', 'height': '288px' };
-            default: return { 'width': '384px', 'height': '216px' };
+            case '16:9':
+                return { width: '384px', height: '216px' };
+            case '9:16':
+                return { width: '216px', height: '384px' };
+            case '4:3':
+                return { width: '320px', height: '240px' };
+            case '3:4':
+                return { width: '240px', height: '320px' };
+            case '1:1':
+                return { width: '288px', height: '288px' };
+            default:
+                return { width: '384px', height: '216px' };
         }
     }
 
@@ -123,7 +150,10 @@ export class EditScenePromptDialogComponent {
             if (sub.duration) {
                 subDuration = sub.duration;
             } else if (sub.text) {
-                subDuration = Math.max(1, sub.text.trim().split(/\s+/).length / 4);
+                subDuration = Math.max(
+                    1,
+                    sub.text.trim().split(/\s+/).length / 4,
+                );
             }
 
             const subStartTime = currentSubTime;
@@ -133,11 +163,20 @@ export class EditScenePromptDialogComponent {
                 if (sub.text) {
                     const textStr = sub.text.trim();
                     const words = textStr.split(/\s+/);
-                    if (subStartTime >= partStartTime && subEndTime <= partEndTime) {
+                    if (
+                        subStartTime >= partStartTime &&
+                        subEndTime <= partEndTime
+                    ) {
                         dialogueWords.push(...words);
                     } else {
-                        const overlapStart = Math.max(0, partStartTime - subStartTime);
-                        const overlapEnd = Math.min(subDuration, partEndTime - subStartTime);
+                        const overlapStart = Math.max(
+                            0,
+                            partStartTime - subStartTime,
+                        );
+                        const overlapEnd = Math.min(
+                            subDuration,
+                            partEndTime - subStartTime,
+                        );
 
                         const startRatio = overlapStart / subDuration;
                         const endRatio = overlapEnd / subDuration;
@@ -151,7 +190,15 @@ export class EditScenePromptDialogComponent {
                             let minDistance = 999;
                             let searchRadius = 12; // Adjusted radius
 
-                            for (let i = Math.max(0, targetIndex - searchRadius); i < Math.min(words.length + 1, targetIndex + searchRadius); i++) {
+                            for (
+                                let i = Math.max(0, targetIndex - searchRadius);
+                                i <
+                                Math.min(
+                                    words.length + 1,
+                                    targetIndex + searchRadius,
+                                );
+                                i++
+                            ) {
                                 if (i > 0 && i <= words.length) {
                                     const dist = Math.abs(i - targetIndex);
                                     if (words[i - 1].match(/[.!?]$/)) {
@@ -170,8 +217,14 @@ export class EditScenePromptDialogComponent {
                             return bestIdx;
                         };
 
-                        let bestStartIndex = startRatio > 0.01 ? findBestBoundary(startIndex) : 0;
-                        let bestEndIndex = endRatio < 0.99 ? findBestBoundary(endIndex) : words.length;
+                        let bestStartIndex =
+                            startRatio > 0.01
+                                ? findBestBoundary(startIndex)
+                                : 0;
+                        let bestEndIndex =
+                            endRatio < 0.99
+                                ? findBestBoundary(endIndex)
+                                : words.length;
 
                         // Fallback if snapping causes invalid ranges
                         if (bestEndIndex <= bestStartIndex) {
@@ -179,7 +232,9 @@ export class EditScenePromptDialogComponent {
                             bestEndIndex = endIndex;
                         }
 
-                        dialogueWords.push(...words.slice(bestStartIndex, bestEndIndex));
+                        dialogueWords.push(
+                            ...words.slice(bestStartIndex, bestEndIndex),
+                        );
                     }
                 }
             }
@@ -193,22 +248,26 @@ export class EditScenePromptDialogComponent {
     addDialogueToPrompt() {
         let dialogue = this.getDialogueForThisPart();
         if (!dialogue) {
-            dialogue = "Nhập lời thoại của bạn vào đây...";
-            this.toastr.info('Không tìm thấy lời thoại, đã thêm đoạn mẫu để bạn tự nhập.');
+            dialogue = 'Nhập lời thoại của bạn vào đây...';
+            this.toastr.info(
+                'Không tìm thấy lời thoại, đã thêm đoạn mẫu để bạn tự nhập.',
+            );
         }
 
-        let speaker = "Tên_nhân_vật";
+        let speaker = 'Tên_nhân_vật';
         if (this.selectedReferenceChars.size === 1) {
             const char = Array.from(this.selectedReferenceChars)[0] as any;
-            speaker = char.name || char.role || "Tên_nhân_vật";
+            speaker = char.name || char.role || 'Tên_nhân_vật';
         } else if (this.selectedReferenceChars.size > 1) {
-            speaker = "Tên_nhân_vật_đang_nói";
+            speaker = 'Tên_nhân_vật_đang_nói';
         }
 
         const dialogText = `[${speaker} says: "${dialogue}"]`;
         if (this.editingScenePrompt.prompt) {
             if (this.editingScenePrompt.prompt.includes(dialogText)) {
-                this.toastr.info('Lời thoại đã được thêm vào prompt trước đó rồi.');
+                this.toastr.info(
+                    'Lời thoại đã được thêm vào prompt trước đó rồi.',
+                );
                 return;
             }
 
@@ -220,7 +279,8 @@ export class EditScenePromptDialogComponent {
             if (match && match.index !== undefined) {
                 const firstPart = prompt.substring(0, match.index).trim();
                 const lastPart = prompt.substring(match.index).trim();
-                this.editingScenePrompt.prompt = firstPart + '\n\n' + dialogText + '\n\n' + lastPart;
+                this.editingScenePrompt.prompt =
+                    firstPart + '\n\n' + dialogText + '\n\n' + lastPart;
             } else {
                 this.editingScenePrompt.prompt += '\n\n' + dialogText;
             }
@@ -237,9 +297,17 @@ export class EditScenePromptDialogComponent {
             // Tự động xóa thông tin nhân vật khỏi prompt
             const charName = char.name || char.role;
             if (charName && this.editingScenePrompt.prompt) {
-                const escapedName = charName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const regex = new RegExp(`\\s*\\[Character '${escapedName}'[\\s\\S]*?\\]`, 'g');
-                this.editingScenePrompt.prompt = this.editingScenePrompt.prompt.replace(regex, '').trim();
+                const escapedName = charName.replace(
+                    /[-\/\\^$*+?.()|[\]{}]/g,
+                    '\\$&',
+                );
+                const regex = new RegExp(
+                    `\\s*\\[Character '${escapedName}'[\\s\\S]*?\\]`,
+                    'g',
+                );
+                this.editingScenePrompt.prompt = this.editingScenePrompt.prompt
+                    .replace(regex, '')
+                    .trim();
             }
         } else {
             this.selectedReferenceChars.add(char);
@@ -250,11 +318,15 @@ export class EditScenePromptDialogComponent {
 
             if (this.editingScenePrompt.prompt) {
                 if (!this.editingScenePrompt.prompt.includes(charToken)) {
-                    let charDesc = char.appearance ? char.appearance : `Portrait of ${charName}`;
+                    let charDesc = char.appearance
+                        ? char.appearance
+                        : `Portrait of ${charName}`;
                     this.editingScenePrompt.prompt += `\n\n[Character '${charName}': ${charDesc}]`;
                 }
             } else {
-                let charDesc = char.appearance ? char.appearance : `Portrait of ${charName}`;
+                let charDesc = char.appearance
+                    ? char.appearance
+                    : `Portrait of ${charName}`;
                 this.editingScenePrompt.prompt = `[Character '${charName}': ${charDesc}]`;
             }
         }
@@ -323,9 +395,11 @@ export class EditScenePromptDialogComponent {
                 }
 
                 const dataURL = canvas.toDataURL('image/jpeg', 0.85);
-                resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
+                resolve(
+                    dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ''),
+                );
             };
-            img.onerror = error => reject(error);
+            img.onerror = (error) => reject(error);
             img.src = url;
         });
     }
@@ -338,12 +412,17 @@ export class EditScenePromptDialogComponent {
         private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
-        private sanitizer: DomSanitizer
+        private sanitizer: DomSanitizer,
     ) {
         this.editingSceneIndex = data.index;
         this.editingVideoIndex = data.vIdx !== undefined ? data.vIdx : -1;
-        this.editingScenePrompt = data.video ? { ...data.video } : { ...data.scene };
-        this.selectedAspectRatio = this.editingScenePrompt.aspectRatio || data.projectAspectRatio || '16:9';
+        this.editingScenePrompt = data.video
+            ? { ...data.video }
+            : { ...data.scene };
+        this.selectedAspectRatio =
+            this.editingScenePrompt.aspectRatio ||
+            data.projectAspectRatio ||
+            '16:9';
 
         // Nếu mở từ chế độ chỉnh sửa Frame Video (có frame data kèm theo)
         if (data.frame) {
@@ -367,7 +446,8 @@ export class EditScenePromptDialogComponent {
         this.masterPrompt = data.masterPrompt ? data.masterPrompt.trim() : '';
         this.globalContext = data.globalContext || null;
         this.previousVideoUrl = data.previousVideoUrl || null;
-        this.usePreviousSceneFrame = this.editingScenePrompt.usePreviousSceneFrame || false;
+        this.usePreviousSceneFrame =
+            this.editingScenePrompt.usePreviousSceneFrame || false;
 
         // Không còn dán masterPrompt vào Scene Prompt nữa
         // Theo yêu cầu mới, masterPrompt đã được đưa thẳng vào Character Prompt.
@@ -376,13 +456,18 @@ export class EditScenePromptDialogComponent {
         if (this.editingScenePrompt.prompt) {
             for (const char of this.characters) {
                 const charName = char.name || char.role;
-                if (charName && this.editingScenePrompt.prompt.includes(charName)) {
+                if (
+                    charName &&
+                    this.editingScenePrompt.prompt.includes(charName)
+                ) {
                     this.selectedReferenceChars.add(char);
 
                     // Tự động chèn thông tin nhân vật vào textarea cho người dùng thấy rõ
                     const charToken = `[Character '${charName}'`;
                     if (!this.editingScenePrompt.prompt.includes(charToken)) {
-                        let charDesc = char.appearance ? char.appearance : `Portrait of ${charName}`;
+                        let charDesc = char.appearance
+                            ? char.appearance
+                            : `Portrait of ${charName}`;
                         this.editingScenePrompt.prompt += `\n\n[Character '${charName}': ${charDesc}]`;
                     }
                 }
@@ -390,12 +475,17 @@ export class EditScenePromptDialogComponent {
         }
 
         // Tự động đồng bộ thời lượng trong prompt nếu có sự lệch hướng khi mở dialog
-        if (this.editingScenePrompt.duration && this.editingScenePrompt.prompt) {
-            const regex = /(NOTE:\s*This\s*scene\s*is\s*)([\d.]+)(\s*seconds?\s*long)/gi;
-            this.editingScenePrompt.prompt = this.editingScenePrompt.prompt.replace(
-                regex,
-                `$1${this.editingScenePrompt.duration}$3`
-            );
+        if (
+            this.editingScenePrompt.duration &&
+            this.editingScenePrompt.prompt
+        ) {
+            const regex =
+                /(NOTE:\s*This\s*scene\s*is\s*)([\d.]+)(\s*seconds?\s*long)/gi;
+            this.editingScenePrompt.prompt =
+                this.editingScenePrompt.prompt.replace(
+                    regex,
+                    `$1${this.editingScenePrompt.duration}$3`,
+                );
         }
     }
 
@@ -413,7 +503,11 @@ export class EditScenePromptDialogComponent {
             cleanUrl = cleanUrl.substring(0, hashIndex);
         }
 
-        if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
+        if (
+            cleanUrl.startsWith('http') ||
+            cleanUrl.startsWith('data:') ||
+            cleanUrl.startsWith('blob:')
+        ) {
             cleanUrl = cleanUrl + hash;
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
@@ -442,10 +536,14 @@ export class EditScenePromptDialogComponent {
         const settings = this.multiAccountService.getItem('settings');
         let secretKey;
         try {
-            secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
-        } catch { }
+            secretKey = settings.secretKey
+                ? settings.secretKey.split(';')
+                : undefined;
+        } catch {}
 
-        const keys = secretKey.map((k: string) => k.trim()).filter((k: string) => k);
+        const keys = secretKey
+            .map((k: string) => k.trim())
+            .filter((k: string) => k);
         if (keys.length === 0) return null;
 
         // Random load balancing cho các tính năng render ảnh/video phụ trợ
@@ -454,16 +552,26 @@ export class EditScenePromptDialogComponent {
 
     getFullImagePrompt(): string {
         // Lấy prompt dành cho ảnh (không có lệnh tạo video)
-        let baseText = this.editingScenePrompt.imagePrompt || this.editingScenePrompt.prompt || '';
+        let baseText =
+            this.editingScenePrompt.imagePrompt ||
+            this.editingScenePrompt.prompt ||
+            '';
 
         // Loại bỏ các thẻ [Character ...] cũ nếu có để tạo lại từ các checkbox hiện tại
-        baseText = baseText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
+        baseText = baseText
+            .replace(/\[Character '[^']+': [^\]]+\]/g, '')
+            .trim();
 
         let addedChars = [];
         for (const char of this.selectedReferenceChars) {
             let charDesc = char.prompt || char.appearance || '';
-            if (this.masterPrompt && charDesc.startsWith(this.masterPrompt.trim())) {
-                charDesc = charDesc.substring(this.masterPrompt.trim().length).trim();
+            if (
+                this.masterPrompt &&
+                charDesc.startsWith(this.masterPrompt.trim())
+            ) {
+                charDesc = charDesc
+                    .substring(this.masterPrompt.trim().length)
+                    .trim();
             }
             if (charDesc) {
                 addedChars.push(`[Character '${char.name}': ${charDesc}]`);
@@ -471,7 +579,10 @@ export class EditScenePromptDialogComponent {
         }
 
         if (addedChars.length > 0) {
-            baseText = addedChars.join('\n') + '\n\n[MANDATORY: Use the provided reference images as the EXACT visual appearance for the characters. Match their face, clothing, and details perfectly.]\n\n' + baseText;
+            baseText =
+                addedChars.join('\n') +
+                '\n\n[MANDATORY: Use the provided reference images as the EXACT visual appearance for the characters. Match their face, clothing, and details perfectly.]\n\n' +
+                baseText;
         }
 
         if (this.masterPrompt) {
@@ -486,13 +597,20 @@ export class EditScenePromptDialogComponent {
         let baseText = this.editingScenePrompt.prompt || '';
 
         // Loại bỏ các thẻ [Character ...] cũ nếu có để tạo lại từ các checkbox hiện tại
-        baseText = baseText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
+        baseText = baseText
+            .replace(/\[Character '[^']+': [^\]]+\]/g, '')
+            .trim();
 
         let addedChars = [];
         for (const char of this.selectedReferenceChars) {
             let charDesc = char.prompt || char.appearance || '';
-            if (this.masterPrompt && charDesc.startsWith(this.masterPrompt.trim())) {
-                charDesc = charDesc.substring(this.masterPrompt.trim().length).trim();
+            if (
+                this.masterPrompt &&
+                charDesc.startsWith(this.masterPrompt.trim())
+            ) {
+                charDesc = charDesc
+                    .substring(this.masterPrompt.trim().length)
+                    .trim();
             }
             if (charDesc) {
                 addedChars.push(`[Character '${char.name}': ${charDesc}]`);
@@ -500,7 +618,10 @@ export class EditScenePromptDialogComponent {
         }
 
         if (addedChars.length > 0) {
-            baseText = addedChars.join('\n') + '\n\n[MANDATORY: Use the provided reference images as the EXACT visual appearance for the characters. Match their face, clothing, and details perfectly.]\n\n' + baseText;
+            baseText =
+                addedChars.join('\n') +
+                '\n\n[MANDATORY: Use the provided reference images as the EXACT visual appearance for the characters. Match their face, clothing, and details perfectly.]\n\n' +
+                baseText;
         }
 
         if (this.masterPrompt) {
@@ -512,9 +633,7 @@ export class EditScenePromptDialogComponent {
 
     isAutoFixing: boolean = false;
 
-
-    ngOnInit() {
-    }
+    ngOnInit() {}
 
     openControlNetDialog() {
         let cleanPrompt = this.editingScenePrompt.prompt || '';
@@ -529,13 +648,14 @@ export class EditScenePromptDialogComponent {
                 mediaDir: this.data?.mediaDir,
                 username: this.data?.username,
                 controlImageUrl: this.editingScenePrompt.controlImageUrl,
-                prompt: cleanPrompt
-            }
+                prompt: cleanPrompt,
+            },
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result !== undefined && result.controlImageUrl !== undefined) {
-                this.editingScenePrompt.controlImageUrl = result.controlImageUrl;
+                this.editingScenePrompt.controlImageUrl =
+                    result.controlImageUrl;
 
                 // Tự động append pose prompt vào video prompt
                 if (result.posePromptText) {
@@ -554,7 +674,9 @@ export class EditScenePromptDialogComponent {
 
     openCropVideoDialog() {
         if (!this.editingScenePrompt?.videoUrl) {
-            this.toastr.warning('Phân cảnh này chưa có file Video để cắt khung hình!');
+            this.toastr.warning(
+                'Phân cảnh này chưa có file Video để cắt khung hình!',
+            );
             return;
         }
 
@@ -563,16 +685,16 @@ export class EditScenePromptDialogComponent {
                 video: this.editingScenePrompt,
                 scene: this.data?.scene,
                 sceneIdx: this.data?.index,
-                vIdx: this.data?.vIdx
+                vIdx: this.data?.vIdx,
             },
             width: '85vw',
             maxWidth: '1200px',
             maxHeight: '90vh',
             panelClass: 'dark-theme-dialog',
-            disableClose: true
+            disableClose: true,
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result && result.videoUrl) {
                 this.editingScenePrompt.videoUrl = result.videoUrl;
                 if (result.imageUrl) {
@@ -589,12 +711,18 @@ export class EditScenePromptDialogComponent {
     }
 
     async autoFixVideoPrompt() {
-        if (!this.editingScenePrompt.imagePrompt || !this.editingScenePrompt.imagePrompt.trim()) {
+        if (
+            !this.editingScenePrompt.imagePrompt ||
+            !this.editingScenePrompt.imagePrompt.trim()
+        ) {
             this.toastr.warning('Bạn chưa có Prompt Hình ảnh để bù đắp!');
             return;
         }
 
-        if (!this.editingScenePrompt.prompt || !this.editingScenePrompt.prompt.trim()) {
+        if (
+            !this.editingScenePrompt.prompt ||
+            !this.editingScenePrompt.prompt.trim()
+        ) {
             this.toastr.warning('Bạn chưa có Prompt Video!');
             return;
         }
@@ -604,8 +732,9 @@ export class EditScenePromptDialogComponent {
             panelClass: 'dark-theme-dialog',
             data: {
                 title: 'Yêu cầu thêm với AI (Tùy chọn)',
-                placeholder: 'Ví dụ: Thêm hiệu ứng slow-mo, góc máy kịch tính hơn...'
-            }
+                placeholder:
+                    'Ví dụ: Thêm hiệu ứng slow-mo, góc máy kịch tính hơn...',
+            },
         });
 
         const result = await new Promise<any>((resolve) => {
@@ -622,7 +751,10 @@ export class EditScenePromptDialogComponent {
 
         if (this.isAutoFixing) return;
         this.isAutoFixing = true;
-        this.toastr.info('Đang dùng AI tối ưu hóa Prompt Video...', 'Đang xử lý');
+        this.toastr.info(
+            'Đang dùng AI tối ưu hóa Prompt Video...',
+            'Đang xử lý',
+        );
 
         let systemPrompt = `You are an expert AI video generation prompt engineer (for tools like Kling, Runway Gen-3, Dreamina).
 Your task is to merge a "Scene/Background Image Prompt" and an "Action/Video Prompt" into ONE single highly detailed, coherent, and visually stunning video prompt.
@@ -649,25 +781,28 @@ Instructions:
             parts.push({
                 inlineData: {
                     mimeType: attachedFile.mimeType,
-                    data: attachedFile.data
-                }
+                    data: attachedFile.data,
+                },
             });
             systemPrompt += `\n(Also referring to the attached image for context)`;
         }
 
-        let finalControlImage = this.editingScenePrompt.controlImageUrl || this.data?.masterControlImageUrl;
+        let finalControlImage =
+            this.editingScenePrompt.controlImageUrl ||
+            this.data?.masterControlImageUrl;
         if (finalControlImage) {
             try {
-                const base64Data = await this.getBase64FromImageUrl(finalControlImage);
+                const base64Data =
+                    await this.getBase64FromImageUrl(finalControlImage);
                 parts.push({
                     inlineData: {
                         mimeType: 'image/jpeg',
-                        data: base64Data
-                    }
+                        data: base64Data,
+                    },
                 });
                 systemPrompt += `\n[IMPORTANT INSTRUCTION: A ControlNet/Pose Sketch image is attached. This sketch illustrates the exact sequence of actions or movements of the character. Please analyze this sketch and extract the actions chronologically. Incorporate these precise movements into the final Video Prompt to ensure the character's animation matches the sketch.]`;
             } catch (e) {
-                console.error("Error reading control image for auto fix", e);
+                console.error('Error reading control image for auto fix', e);
             }
         }
 
@@ -676,16 +811,21 @@ Instructions:
                 model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: parts }],
                 config: {
-                    temperature: 0.7
-                }
+                    temperature: 0.7,
+                },
             });
 
             if (result && result.trim()) {
-                result = result.replace(/^```[a-zA-Z]*\n/i, '').replace(/```$/i, '').trim();
+                result = result
+                    .replace(/^```[a-zA-Z]*\n/i, '')
+                    .replace(/```$/i, '')
+                    .trim();
                 this.editingScenePrompt.prompt = result;
                 this.toastr.success('Đã tối ưu xong Prompt Video!');
             } else {
-                this.toastr.error('AI không trả về kết quả. Vui lòng thử lại hoặc kiểm tra API Key.');
+                this.toastr.error(
+                    'AI không trả về kết quả. Vui lòng thử lại hoặc kiểm tra API Key.',
+                );
             }
         } catch (err: any) {
             this.toastr.error('Lỗi khi gọi AI: ' + err.message);
@@ -696,7 +836,9 @@ Instructions:
 
     async generateImage() {
         if (!this.editingScenePrompt.prompt) {
-            this.toastr.warning('Vui lòng nhập prompt phân cảnh trước khi tạo ảnh!');
+            this.toastr.warning(
+                'Vui lòng nhập prompt phân cảnh trước khi tạo ảnh!',
+            );
             return;
         }
 
@@ -708,7 +850,9 @@ Instructions:
 
         const apiKey = this.getGeminiKey();
         if (!apiKey) {
-            this.toastr.error('Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.');
+            this.toastr.error(
+                'Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.',
+            );
             return;
         }
 
@@ -723,39 +867,62 @@ Instructions:
                 promptText += `\n[Global Environment: ${this.globalContext.environmentPrompt}]`;
             }
 
-            const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
+            const noSplitScreenConstraint =
+                '\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]';
 
-            let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
+            let requestParts: any[] = [
+                { text: promptText + noSplitScreenConstraint },
+            ];
 
             // Nếu bật kế thừa khung hình cảnh trước
             let usedPreviousFrame = false;
             if (this.usePreviousSceneFrame && this.previousVideoUrl) {
                 try {
-                    this.toastr.info('Đang trích xuất khung hình từ cảnh trước...', 'Hệ thống');
+                    this.toastr.info(
+                        'Đang trích xuất khung hình từ cảnh trước...',
+                        'Hệ thống',
+                    );
                     let cleanUrl = this.previousVideoUrl.replace('file://', '');
                     // Nếu là đường dẫn an toàn qua bypassSecurityTrustUrl thì bóc url thực
-                    if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
-                        cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
+                    if (
+                        typeof cleanUrl !== 'string' &&
+                        (cleanUrl as any).changingThisBreaksApplicationSecurity
+                    ) {
+                        cleanUrl = (
+                            cleanUrl as any
+                        ).changingThisBreaksApplicationSecurity.replace(
+                            'file://',
+                            '',
+                        );
                     }
 
-                    const extractResult = await electron.extractLastFrame(cleanUrl);
+                    const extractResult =
+                        await electron.extractLastFrame(cleanUrl);
                     if (extractResult && extractResult.success) {
-                        const base64Data = await this.getBase64FromImageUrl('file://' + extractResult.path);
+                        const base64Data = await this.getBase64FromImageUrl(
+                            'file://' + extractResult.path,
+                        );
                         requestParts.push({
                             inlineData: {
                                 data: base64Data,
-                                mimeType: 'image/jpeg'
-                            }
+                                mimeType: 'image/jpeg',
+                            },
                         });
                         usedPreviousFrame = true;
 
                         // Hiển thị trực quan ảnh nối tiếp trên UI
-                        this.editingScenePrompt.imageUrl = 'file://' + extractResult.path;
+                        this.editingScenePrompt.imageUrl =
+                            'file://' + extractResult.path;
 
-                        this.toastr.success('Đã trích xuất khung hình nối tiếp thành công!');
+                        this.toastr.success(
+                            'Đã trích xuất khung hình nối tiếp thành công!',
+                        );
                     }
                 } catch (e) {
-                    console.error('Lỗi khi trích xuất frame từ video trước:', e);
+                    console.error(
+                        'Lỗi khi trích xuất frame từ video trước:',
+                        e,
+                    );
                     this.toastr.error('Lỗi khi trích xuất frame: ' + e);
                 }
             }
@@ -763,12 +930,14 @@ Instructions:
             // Gắn thêm ảnh tham khảo do người dùng tải lên
             if (this.aiReferenceImageLocalUrl) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(this.aiReferenceImageLocalUrl);
+                    const base64Data = await this.getBase64FromImageUrl(
+                        this.aiReferenceImageLocalUrl,
+                    );
                     requestParts.push({
                         inlineData: {
                             data: base64Data,
-                            mimeType: 'image/png'
-                        }
+                            mimeType: 'image/png',
+                        },
                     });
                     // Reset reference image sau khi đã dùng để tránh dùng lại ở lần generate sau
                     this.aiReferenceImageLocalUrl = null;
@@ -780,28 +949,36 @@ Instructions:
             // Gắn thêm Global Reference Image
             if (this.globalContext?.referenceImageUrl) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(this.globalContext.referenceImageUrl);
+                    const base64Data = await this.getBase64FromImageUrl(
+                        this.globalContext.referenceImageUrl,
+                    );
                     requestParts.push({
                         inlineData: {
                             data: base64Data,
-                            mimeType: 'image/png'
-                        }
+                            mimeType: 'image/png',
+                        },
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh Global Reference Image', e);
+                    console.error(
+                        'Không thể đọc ảnh Global Reference Image',
+                        e,
+                    );
                 }
             }
 
             // Gắn thêm control image (Khung xương / Bố cục)
-            let finalControlImage = this.editingScenePrompt.controlImageUrl || this.data?.masterControlImageUrl;
+            let finalControlImage =
+                this.editingScenePrompt.controlImageUrl ||
+                this.data?.masterControlImageUrl;
             if (finalControlImage) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(finalControlImage);
+                    const base64Data =
+                        await this.getBase64FromImageUrl(finalControlImage);
                     requestParts.push({
                         inlineData: {
                             data: base64Data,
-                            mimeType: 'image/png'
-                        }
+                            mimeType: 'image/png',
+                        },
                     });
                 } catch (e) {
                     console.error('Không thể đọc ảnh control image', e);
@@ -810,18 +987,27 @@ Instructions:
 
             // Gắn thêm ảnh reference của nhân vật vào parts
             for (const char of this.selectedReferenceChars) {
-                const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
+                const imgUrl =
+                    char.avatarUrl ||
+                    (char.avatarUrls && char.avatarUrls.length > 0
+                        ? char.avatarUrls[0]
+                        : null);
                 if (imgUrl) {
                     try {
-                        const base64Data = await this.getBase64FromImageUrl(imgUrl);
+                        const base64Data =
+                            await this.getBase64FromImageUrl(imgUrl);
                         requestParts.push({
                             inlineData: {
                                 data: base64Data,
-                                mimeType: 'image/png'
-                            }
+                                mimeType: 'image/png',
+                            },
                         });
                     } catch (e) {
-                        console.error('Không thể đọc ảnh reference cho', char.name, e);
+                        console.error(
+                            'Không thể đọc ảnh reference cho',
+                            char.name,
+                            e,
+                        );
                     }
                 }
             }
@@ -831,8 +1017,8 @@ Instructions:
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     aspectRatio: this.selectedAspectRatio,
-                    responseModalities: ['IMAGE']
-                } as any
+                    responseModalities: ['IMAGE'],
+                } as any,
             });
 
             let base64Data = null;
@@ -855,7 +1041,7 @@ Instructions:
                 fileName: fileName,
                 folder: 'scenes',
                 username: 'ai_type',
-                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
+                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`,
             });
 
             if (result && result.success) {
@@ -878,7 +1064,9 @@ Instructions:
 
     async generateVideo() {
         if (!this.editingScenePrompt.prompt) {
-            this.toastr.warning('Vui lòng nhập prompt phân cảnh trước khi tạo video!');
+            this.toastr.warning(
+                'Vui lòng nhập prompt phân cảnh trước khi tạo video!',
+            );
             return;
         }
 
@@ -895,23 +1083,36 @@ Instructions:
             let base64 = '';
 
             const isProxy = this._genaiService.isUModelverseEnabled();
-            console.log("generateVideo: UModelverse proxy enabled status =", isProxy, "URL =", this._genaiService.umodelverseUrl);
+            console.log(
+                'generateVideo: UModelverse proxy enabled status =',
+                isProxy,
+                'URL =',
+                this._genaiService.umodelverseUrl,
+            );
 
             // Fetch storyboard image if exists
             let referenceImages: any[] = [];
 
-            if (this.editingScenePrompt.imageUrl && this.isImageType(this.editingScenePrompt.imageUrl)) {
+            if (
+                this.editingScenePrompt.imageUrl &&
+                this.isImageType(this.editingScenePrompt.imageUrl)
+            ) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(this.editingScenePrompt.imageUrl);
+                    const base64Data = await this.getBase64FromImageUrl(
+                        this.editingScenePrompt.imageUrl,
+                    );
                     referenceImages.push({
                         image: {
                             imageBytes: base64Data,
-                            mimeType: 'image/png'
+                            mimeType: 'image/png',
                         },
-                        referenceType: 'START_FRAME'
+                        referenceType: 'START_FRAME',
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh Storyboard làm reference cho video:', e);
+                    console.error(
+                        'Không thể đọc ảnh Storyboard làm reference cho video:',
+                        e,
+                    );
                 }
             }
 
@@ -919,27 +1120,36 @@ Instructions:
                 referenceImages.push({
                     image: {
                         imageBytes: this.aiReferenceVideoBase64,
-                        mimeType: 'video/mp4'
+                        mimeType: 'video/mp4',
                     },
-                    referenceType: 'REFERENCE_VIDEO'
+                    referenceType: 'REFERENCE_VIDEO',
                 });
             }
 
             // Fetch character reference images if selected
             for (const char of this.selectedReferenceChars) {
-                const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
+                const imgUrl =
+                    char.avatarUrl ||
+                    (char.avatarUrls && char.avatarUrls.length > 0
+                        ? char.avatarUrls[0]
+                        : null);
                 if (imgUrl) {
                     try {
-                        const base64Data = await this.getBase64FromImageUrl(imgUrl);
+                        const base64Data =
+                            await this.getBase64FromImageUrl(imgUrl);
                         referenceImages.push({
                             image: {
                                 imageBytes: base64Data,
-                                mimeType: 'image/png'
+                                mimeType: 'image/png',
                             },
-                            referenceType: 'CHARACTER_REFERENCE'
+                            referenceType: 'CHARACTER_REFERENCE',
                         });
                     } catch (e) {
-                        console.error('Không thể đọc ảnh reference cho video:', char.name, e);
+                        console.error(
+                            'Không thể đọc ảnh reference cho video:',
+                            char.name,
+                            e,
+                        );
                     }
                 }
             }
@@ -948,49 +1158,66 @@ Instructions:
             let sceneControlImageVid = this.editingScenePrompt.controlImageUrl;
             if (sceneControlImageVid) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(sceneControlImageVid);
+                    const base64Data =
+                        await this.getBase64FromImageUrl(sceneControlImageVid);
                     referenceImages.push({
                         image: {
                             imageBytes: base64Data,
-                            mimeType: 'image/png'
+                            mimeType: 'image/png',
                         },
-                        referenceType: 'CONTROL_IMAGE'
+                        referenceType: 'CONTROL_IMAGE',
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh control image của scene cho video:', e);
+                    console.error(
+                        'Không thể đọc ảnh control image của scene cho video:',
+                        e,
+                    );
                 }
             }
 
             // Fetch Master Control Image (Phong cách chung toàn video)
             let masterControlImageVid = this.data?.masterControlImageUrl;
-            if (masterControlImageVid && masterControlImageVid !== sceneControlImageVid) {
+            if (
+                masterControlImageVid &&
+                masterControlImageVid !== sceneControlImageVid
+            ) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(masterControlImageVid);
+                    const base64Data = await this.getBase64FromImageUrl(
+                        masterControlImageVid,
+                    );
                     referenceImages.push({
                         image: {
                             imageBytes: base64Data,
-                            mimeType: 'image/png'
+                            mimeType: 'image/png',
                         },
-                        referenceType: 'STYLE_REFERENCE'
+                        referenceType: 'STYLE_REFERENCE',
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh master control image cho video:', e);
+                    console.error(
+                        'Không thể đọc ảnh master control image cho video:',
+                        e,
+                    );
                 }
             }
 
             // Fetch Global Reference Image (Nhân vật / Phong cách tham chiếu chung)
             if (this.globalContext?.referenceImageUrl) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(this.globalContext.referenceImageUrl);
+                    const base64Data = await this.getBase64FromImageUrl(
+                        this.globalContext.referenceImageUrl,
+                    );
                     referenceImages.push({
                         image: {
                             imageBytes: base64Data,
-                            mimeType: 'image/png'
+                            mimeType: 'image/png',
                         },
-                        referenceType: 'CHARACTER_REFERENCE'
+                        referenceType: 'CHARACTER_REFERENCE',
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh Global Reference Image cho video:', e);
+                    console.error(
+                        'Không thể đọc ảnh Global Reference Image cho video:',
+                        e,
+                    );
                 }
             }
 
@@ -1006,7 +1233,9 @@ Instructions:
 
             if (referenceImages && referenceImages.length > 0) {
                 mandatoryTags += `\n[MANDATORY: Strictly follow layout, skeleton & character references 100%. No hallucinations or extra details.]`;
-                const hasControlImage = referenceImages.some(img => img.referenceType === 'CONTROL_IMAGE');
+                const hasControlImage = referenceImages.some(
+                    (img) => img.referenceType === 'CONTROL_IMAGE',
+                );
                 if (hasControlImage) {
                     mandatoryTags += `\n[CRITICAL INSTRUCTION: The attached reference image is a SKETCH/StoryBoard layout. DO NOT render the video in a sketch, drawing, or wireframe style. Use the image ONLY for pose, composition, and framing. The final video MUST be highly photorealistic and cinematic according to the prompt.]`;
                 }
@@ -1022,25 +1251,37 @@ Instructions:
             let byteLength = new TextEncoder().encode(finalPrompt).length;
 
             if (byteLength > 2500 && isProxy) {
-                this.toastr.warning(`Độ dài prompt (${byteLength} bytes) vượt quá giới hạn 2500 của hệ thống. Vui lòng rút gọn kịch bản hoặc Master Prompt.`);
+                this.toastr.warning(
+                    `Độ dài prompt (${byteLength} bytes) vượt quá giới hạn 2500 của hệ thống. Vui lòng rút gọn kịch bản hoặc Master Prompt.`,
+                );
                 this.isGeneratingVideo = false;
                 this.cd.detectChanges();
                 return;
             }
 
-            const seedToUse = this.globalContext?.seed ? this.globalContext.seed : undefined;
+            const seedToUse = this.globalContext?.seed
+                ? this.globalContext.seed
+                : undefined;
 
             if (isProxy) {
                 // Sử dụng Mì Tôm AI (Proxy) để tạo Video
-                let modelName = this._genaiService.umodelverseVideoModel || 'cogvideox-5b';
+                let modelName =
+                    this._genaiService.umodelverseVideoModel || 'cogvideox-5b';
 
                 // Bắt buộc chuyển sang Kling-v3 nếu có đính kèm video mẫu
                 if (this.aiReferenceVideoBase64) {
                     modelName = 'kling-v3-motion-control';
-                    this.toastr.info('Phát hiện Video Mẫu, tự động chuyển sang model Kling V3 Motion Control.', 'Hệ thống');
+                    this.toastr.info(
+                        'Phát hiện Video Mẫu, tự động chuyển sang model Kling V3 Motion Control.',
+                        'Hệ thống',
+                    );
                 }
 
-                this.toastr.info(`Đang gửi yêu cầu tạo video qua Mì Tôm AI (Base URL: ${this._genaiService.umodelverseUrl}, Model: ${modelName})...`, 'Hệ thống', { timeOut: 5000 });
+                this.toastr.info(
+                    `Đang gửi yêu cầu tạo video qua Mì Tôm AI (Base URL: ${this._genaiService.umodelverseUrl}, Model: ${modelName})...`,
+                    'Hệ thống',
+                    { timeOut: 5000 },
+                );
 
                 base64 = await this._genaiService.generateVideoUModelverse(
                     finalPrompt,
@@ -1048,19 +1289,23 @@ Instructions:
                     referenceImages,
                     this.editingScenePrompt.duration,
                     seedToUse,
-                    modelName // Truyền thẳng modelName đã ghi đè vào service
+                    modelName, // Truyền thẳng modelName đã ghi đè vào service
                 );
             } else {
                 // Chạy trực tiếp qua máy chủ Google bằng SDK chính thức
                 const apiKey = this.getGeminiKey();
                 if (!apiKey) {
-                    this.toastr.error('Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.');
+                    this.toastr.error(
+                        'Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.',
+                    );
                     this.isGeneratingVideo = false;
                     this.cd.detectChanges();
                     return;
                 }
 
-                const ai = this._genaiService.googleAi || new GoogleGenAI({ apiKey: apiKey });
+                const ai =
+                    this._genaiService.googleAi ||
+                    new GoogleGenAI({ apiKey: apiKey });
                 let operation: any;
 
                 const videoConfig: any = {};
@@ -1074,7 +1319,7 @@ Instructions:
                 operation = await ai.models.generateVideos({
                     model: 'veo-3.1-generate-preview',
                     prompt: finalPrompt,
-                    config: videoConfig
+                    config: videoConfig,
                 });
 
                 let pollCount = 0;
@@ -1082,9 +1327,11 @@ Instructions:
 
                 while (!operation.done) {
                     if (pollCount >= MAX_POLLS) {
-                        throw new Error('Quá thời gian chờ tạo video (10 phút).');
+                        throw new Error(
+                            'Quá thời gian chờ tạo video (10 phút).',
+                        );
                     }
-                    await new Promise(resolve => setTimeout(resolve, 10000));
+                    await new Promise((resolve) => setTimeout(resolve, 10000));
 
                     // Refresh operation status
                     operation = await ai.operations.getVideosOperation({
@@ -1093,7 +1340,11 @@ Instructions:
                     pollCount++;
                 }
 
-                if (!operation.response || !operation.response.generatedVideos || operation.response.generatedVideos.length === 0) {
+                if (
+                    !operation.response ||
+                    !operation.response.generatedVideos ||
+                    operation.response.generatedVideos.length === 0
+                ) {
                     throw new Error('Không nhận được video từ AI.');
                 }
 
@@ -1107,8 +1358,11 @@ Instructions:
                 this.toastr.info('Đang tải video về máy...', 'Hệ thống');
 
                 // Download video using fetch with API key header
-                const res = await fetch(videoUri, { headers: { "x-goog-api-key": apiKey } });
-                if (!res.ok) throw new Error('Không thể tải file video từ Google.');
+                const res = await fetch(videoUri, {
+                    headers: { 'x-goog-api-key': apiKey },
+                });
+                if (!res.ok)
+                    throw new Error('Không thể tải file video từ Google.');
 
                 const buffer = await res.arrayBuffer();
                 const bytes = new Uint8Array(buffer);
@@ -1117,7 +1371,10 @@ Instructions:
                 // Optimization for large base64 conversion
                 const chunkSize = 8192;
                 for (let i = 0; i < len; i += chunkSize) {
-                    base64 += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+                    base64 += String.fromCharCode.apply(
+                        null,
+                        Array.from(bytes.subarray(i, i + chunkSize)),
+                    );
                 }
                 base64 = btoa(base64);
             }
@@ -1128,14 +1385,16 @@ Instructions:
                 fileName: fileName,
                 folder: 'scenes_videos',
                 username: 'ai_type',
-                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
+                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`,
             });
 
             if (result && result.success) {
                 const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
                 this.cacheBuster = Date.now();
                 this.editingScenePrompt.videoUrl = finalPath;
-                this.toastr.success('Đã tạo và tải Video phân cảnh thành công!');
+                this.toastr.success(
+                    'Đã tạo và tải Video phân cảnh thành công!',
+                );
             } else {
                 throw new Error(result.error || 'Lỗi lưu file video.');
             }
@@ -1160,7 +1419,7 @@ Instructions:
                     msg = parsed.error.message;
                 }
             }
-        } catch { }
+        } catch {}
 
         // Nếu là lỗi của Proxy UModelverse hoặc chứa trace_id / model mismatch, giữ nguyên để hiển thị
         if (
@@ -1172,7 +1431,11 @@ Instructions:
             return msg;
         }
 
-        if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+        if (
+            msg.includes('429') ||
+            msg.toLowerCase().includes('quota') ||
+            msg.includes('RESOURCE_EXHAUSTED')
+        ) {
             return 'Tài khoản API Key đã hết hạn mức (Quota Exceeded) hoặc bị giới hạn tốc độ. Vui lòng thiết lập thẻ thanh toán trên Google AI Studio hoặc thử lại sau.';
         }
         if (msg.includes('400') || msg.includes('INVALID_ARGUMENT')) {
@@ -1189,13 +1452,25 @@ Instructions:
     }
 
     async onUsePreviousFrameChange(checked: boolean) {
-        const constraintMsg = '\n\n[MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]';
+        const constraintMsg =
+            '\n\n[MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]';
         if (checked && this.previousVideoUrl) {
             try {
-                this.toastr.info('Đang trích xuất khung hình từ cảnh trước...', 'Hệ thống');
+                this.toastr.info(
+                    'Đang trích xuất khung hình từ cảnh trước...',
+                    'Hệ thống',
+                );
                 let cleanUrl = this.previousVideoUrl.replace('file://', '');
-                if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
-                    cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
+                if (
+                    typeof cleanUrl !== 'string' &&
+                    (cleanUrl as any).changingThisBreaksApplicationSecurity
+                ) {
+                    cleanUrl = (
+                        cleanUrl as any
+                    ).changingThisBreaksApplicationSecurity.replace(
+                        'file://',
+                        '',
+                    );
                 }
 
                 // @ts-ignore
@@ -1204,28 +1479,42 @@ Instructions:
                     let finalUrl = '';
                     if (extractResult.base64) {
                         // Trình xử lý IPC trả về base64 trực tiếp
-                        finalUrl = 'data:image/png;base64,' + extractResult.base64;
+                        finalUrl =
+                            'data:image/png;base64,' + extractResult.base64;
                     } else if (extractResult.path) {
                         // Trình xử lý IPC trả về đường dẫn file
                         let properPath = extractResult.path.replace(/\\/g, '/');
-                        if (!properPath.startsWith('/')) properPath = '/' + properPath;
+                        if (!properPath.startsWith('/'))
+                            properPath = '/' + properPath;
                         finalUrl = 'file://' + properPath;
                     }
 
                     if (finalUrl) {
                         this.editingScenePrompt.imageUrl = finalUrl;
-                        if (this.editingScenePrompt.prompt && !this.editingScenePrompt.prompt.includes('Seamless continuous motion from previous frame')) {
+                        if (
+                            this.editingScenePrompt.prompt &&
+                            !this.editingScenePrompt.prompt.includes(
+                                'Seamless continuous motion from previous frame',
+                            )
+                        ) {
                             this.editingScenePrompt.prompt += constraintMsg;
                         } else if (!this.editingScenePrompt.prompt) {
-                            this.editingScenePrompt.prompt = constraintMsg.trim();
+                            this.editingScenePrompt.prompt =
+                                constraintMsg.trim();
                         }
                         this.cd.detectChanges();
-                        this.toastr.success('Đã trích xuất và gán khung hình nối tiếp thành công!');
+                        this.toastr.success(
+                            'Đã trích xuất và gán khung hình nối tiếp thành công!',
+                        );
                     } else {
-                        throw new Error('Kết quả trích xuất không chứa ảnh hoặc đường dẫn hợp lệ.');
+                        throw new Error(
+                            'Kết quả trích xuất không chứa ảnh hoặc đường dẫn hợp lệ.',
+                        );
                     }
                 } else {
-                    this.toastr.error('Không thể trích xuất khung hình từ video trước.');
+                    this.toastr.error(
+                        'Không thể trích xuất khung hình từ video trước.',
+                    );
                     this.usePreviousSceneFrame = false;
                     this.cd.detectChanges();
                 }
@@ -1237,11 +1526,22 @@ Instructions:
             }
         } else {
             // Khi bỏ check, xoá ảnh kế thừa đi (nếu đó là ảnh last_frame)
-            if (this.editingScenePrompt.imageUrl && this.editingScenePrompt.imageUrl.includes('_last_frame.jpg')) {
+            if (
+                this.editingScenePrompt.imageUrl &&
+                this.editingScenePrompt.imageUrl.includes('_last_frame.jpg')
+            ) {
                 this.editingScenePrompt.imageUrl = null;
             }
-            if (this.editingScenePrompt.prompt && this.editingScenePrompt.prompt.includes('Seamless continuous motion from previous frame')) {
-                this.editingScenePrompt.prompt = this.editingScenePrompt.prompt.replace(constraintMsg, '').replace(constraintMsg.trim(), '').trim();
+            if (
+                this.editingScenePrompt.prompt &&
+                this.editingScenePrompt.prompt.includes(
+                    'Seamless continuous motion from previous frame',
+                )
+            ) {
+                this.editingScenePrompt.prompt = this.editingScenePrompt.prompt
+                    .replace(constraintMsg, '')
+                    .replace(constraintMsg.trim(), '')
+                    .trim();
             }
             this.cd.detectChanges();
         }
@@ -1251,54 +1551,82 @@ Instructions:
         if (!this.editingScenePrompt) return;
         this.editingScenePrompt.duration = newDuration;
 
-        if (this.editingScenePrompt.prompt && newDuration !== null && newDuration !== undefined) {
-            const regex = /(NOTE:\s*This\s*scene\s*is\s*)([\d.]+)(\s*seconds?\s*long)/gi;
-            this.editingScenePrompt.prompt = this.editingScenePrompt.prompt.replace(
-                regex,
-                `$1${newDuration}$3`
-            );
+        if (
+            this.editingScenePrompt.prompt &&
+            newDuration !== null &&
+            newDuration !== undefined
+        ) {
+            const regex =
+                /(NOTE:\s*This\s*scene\s*is\s*)([\d.]+)(\s*seconds?\s*long)/gi;
+            this.editingScenePrompt.prompt =
+                this.editingScenePrompt.prompt.replace(
+                    regex,
+                    `$1${newDuration}$3`,
+                );
         }
     }
 
     addCharToScenePrompt(char: any) {
         if (!this.editingScenePrompt) return;
 
-        const currentPrompt = this.editingScenePrompt.prompt ? this.editingScenePrompt.prompt.trim() : '';
+        const currentPrompt = this.editingScenePrompt.prompt
+            ? this.editingScenePrompt.prompt.trim()
+            : '';
         let charDesc = char.appearance ? char.appearance : char.prompt;
         if (!charDesc) return;
 
-        if (charDesc.toLowerCase().startsWith('mặc ') || charDesc.toLowerCase().startsWith('đang mặc ')) {
+        if (
+            charDesc.toLowerCase().startsWith('mặc ') ||
+            charDesc.toLowerCase().startsWith('đang mặc ')
+        ) {
             charDesc = charDesc.charAt(0).toLowerCase() + charDesc.slice(1);
         }
 
         const textToInsert = `${char.name || char.role}: ${charDesc}`;
 
         if (currentPrompt) {
-            if (currentPrompt.includes(charDesc) || currentPrompt.includes(textToInsert)) {
+            if (
+                currentPrompt.includes(charDesc) ||
+                currentPrompt.includes(textToInsert)
+            ) {
                 this.toastr.info('Nhân vật này đã có trong phân cảnh rồi.');
                 return;
             }
 
             let insertIndex = currentPrompt.length;
-            const constraintsMatch = currentPrompt.match(/\n*(\(Constraints:|\[BẮT BUỘC:)/i);
+            const constraintsMatch = currentPrompt.match(
+                /\n*(\(Constraints:|\[BẮT BUỘC:)/i,
+            );
             if (constraintsMatch && constraintsMatch.index !== undefined) {
                 insertIndex = constraintsMatch.index;
             }
 
             if (insertIndex < currentPrompt.length) {
-                const firstPart = currentPrompt.substring(0, insertIndex).trim();
+                const firstPart = currentPrompt
+                    .substring(0, insertIndex)
+                    .trim();
                 const lastPart = currentPrompt.substring(insertIndex).trim();
-                const separator = firstPart.endsWith(',') || firstPart.endsWith('.') ? '\n\n' : '.\n\n';
-                this.editingScenePrompt.prompt = firstPart + separator + textToInsert + '\n\n' + lastPart;
+                const separator =
+                    firstPart.endsWith(',') || firstPart.endsWith('.')
+                        ? '\n\n'
+                        : '.\n\n';
+                this.editingScenePrompt.prompt =
+                    firstPart + separator + textToInsert + '\n\n' + lastPart;
             } else {
-                const separator = currentPrompt.endsWith(',') || currentPrompt.endsWith('.') ? '\n\n' : '.\n\n';
-                this.editingScenePrompt.prompt = currentPrompt + separator + textToInsert;
+                const separator =
+                    currentPrompt.endsWith(',') || currentPrompt.endsWith('.')
+                        ? '\n\n'
+                        : '.\n\n';
+                this.editingScenePrompt.prompt =
+                    currentPrompt + separator + textToInsert;
             }
         } else {
             this.editingScenePrompt.prompt = textToInsert;
         }
 
-        this.toastr.success(`Đã thêm nhân vật "${char.name || char.role}" vào phân cảnh!`);
+        this.toastr.success(
+            `Đã thêm nhân vật "${char.name || char.role}" vào phân cảnh!`,
+        );
     }
 
     openDirectorModeForScene() {
@@ -1310,40 +1638,68 @@ Instructions:
                 prompt: this.editingScenePrompt?.prompt || '',
                 videoPrompt: this.editingScenePrompt?.videoPrompt || '',
                 targetName: 'Apply to Scene Prompt',
-                controlImageUrl: this.editingScenePrompt?.controlImageUrl || null,
-                aspectRatio: this.selectedAspectRatio || '16:9'
-            }
+                controlImageUrl:
+                    this.editingScenePrompt?.controlImageUrl || null,
+                aspectRatio: this.selectedAspectRatio || '16:9',
+            },
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
-                let promptResult = typeof result === 'string' ? result : result.prompt;
+                let promptResult =
+                    typeof result === 'string' ? result : result.prompt;
 
-                if (typeof result !== 'string' && result.controlImageUrl !== undefined) {
-                    this.editingScenePrompt.controlImageUrl = result.controlImageUrl;
+                if (
+                    typeof result !== 'string' &&
+                    result.controlImageUrl !== undefined
+                ) {
+                    this.editingScenePrompt.controlImageUrl =
+                        result.controlImageUrl;
                 }
 
                 // 1. Áp dụng cho Video Prompt
-                let currentPrompt = this.editingScenePrompt.prompt ? this.editingScenePrompt.prompt.trim() : '';
-                currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                let currentPrompt = this.editingScenePrompt.prompt
+                    ? this.editingScenePrompt.prompt.trim()
+                    : '';
+                currentPrompt = currentPrompt
+                    .replace(/\[(?:Director|Cinematography):.*?\]/g, '')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
 
                 if (currentPrompt) {
-                    this.editingScenePrompt.prompt = '[Cinematography: ' + promptResult + ']\n\n' + currentPrompt;
+                    this.editingScenePrompt.prompt =
+                        '[Cinematography: ' +
+                        promptResult +
+                        ']\n\n' +
+                        currentPrompt;
                 } else {
-                    this.editingScenePrompt.prompt = '[Cinematography: ' + promptResult + ']';
+                    this.editingScenePrompt.prompt =
+                        '[Cinematography: ' + promptResult + ']';
                 }
 
                 // 2. Áp dụng cho Image Prompt (Blueprint)
-                let currentImagePrompt = this.editingScenePrompt.imagePrompt ? this.editingScenePrompt.imagePrompt.trim() : '';
-                currentImagePrompt = currentImagePrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                let currentImagePrompt = this.editingScenePrompt.imagePrompt
+                    ? this.editingScenePrompt.imagePrompt.trim()
+                    : '';
+                currentImagePrompt = currentImagePrompt
+                    .replace(/\[(?:Director|Cinematography):.*?\]/g, '')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
 
                 if (currentImagePrompt) {
-                    this.editingScenePrompt.imagePrompt = '[Cinematography: ' + promptResult + ']\n\n' + currentImagePrompt;
+                    this.editingScenePrompt.imagePrompt =
+                        '[Cinematography: ' +
+                        promptResult +
+                        ']\n\n' +
+                        currentImagePrompt;
                 } else {
-                    this.editingScenePrompt.imagePrompt = '[Cinematography: ' + promptResult + ']';
+                    this.editingScenePrompt.imagePrompt =
+                        '[Cinematography: ' + promptResult + ']';
                 }
 
-                this.toastr.success('Đã áp dụng thông số Director Mode cho cả Hình Ảnh và Video!');
+                this.toastr.success(
+                    'Đã áp dụng thông số Director Mode cho cả Hình Ảnh và Video!',
+                );
             }
         });
     }
@@ -1358,7 +1714,13 @@ Instructions:
         if (url.startsWith('data:image')) return true;
 
         const imageExtensions = [
-            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg',
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'bmp',
+            'webp',
+            'svg',
         ];
         const cleanUrl = url.replace('file://', '');
         const fileExtension = cleanUrl.split('.').pop()?.toLowerCase();
@@ -1374,7 +1736,9 @@ Instructions:
                 const electron = (window as any).electron;
 
                 if (!electron || !electron.getPathForFile) {
-                    this.toastr.error('Lỗi cấu hình. Tính năng này yêu cầu App Desktop.');
+                    this.toastr.error(
+                        'Lỗi cấu hình. Tính năng này yêu cầu App Desktop.',
+                    );
                     return;
                 }
 
@@ -1382,8 +1746,11 @@ Instructions:
                 const originalPath = electron.getPathForFile(file);
 
                 if (originalPath) {
-                    const localFilePath = await electron.selectLocalFile(originalPath);
-                    const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath}`;
+                    const localFilePath =
+                        await electron.selectLocalFile(originalPath);
+                    const finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath}`;
                     this.cacheBuster = Date.now();
                     this.editingScenePrompt.imageUrl = finalPath;
                 }
@@ -1401,17 +1768,24 @@ Instructions:
             this.toastr.warning('Không có nội dung để copy.');
             return;
         }
-        navigator.clipboard.writeText(text).then(() => {
-            this.toastr.success('Đã copy Prompt phân cảnh (bao gồm Master Prompt & Nhân vật)!');
-        }).catch(err => {
-            console.error('Lỗi khi copy:', err);
-            this.toastr.error('Lỗi khi copy!');
-        });
+        navigator.clipboard
+            .writeText(text)
+            .then(() => {
+                this.toastr.success(
+                    'Đã copy Prompt phân cảnh (bao gồm Master Prompt & Nhân vật)!',
+                );
+            })
+            .catch((err) => {
+                console.error('Lỗi khi copy:', err);
+                this.toastr.error('Lỗi khi copy!');
+            });
     }
 
     async generateKlingFromTrimmed() {
         if (!this.data || !this.data.video || !this.data.video.videoUrl) {
-            this.toastr.warning('Video này không hợp lệ để tạo Kling Motion Control.');
+            this.toastr.warning(
+                'Video này không hợp lệ để tạo Kling Motion Control.',
+            );
             return;
         }
 
@@ -1425,13 +1799,16 @@ Instructions:
         this.cd.detectChanges();
 
         try {
-            this.toastr.info('Đang trích xuất đoạn video làm mẫu...', 'Hệ thống');
+            this.toastr.info(
+                'Đang trích xuất đoạn video làm mẫu...',
+                'Hệ thống',
+            );
 
             // 1. Trích xuất video
             const payload = {
                 videoUrl: this.data.video.videoUrl,
                 trimStart: this.data.video.trimStart || 0,
-                duration: this.data.video.duration || 5
+                duration: this.data.video.duration || 5,
             };
 
             const extractResult = await electron.invoke('trim-video', payload);
@@ -1442,15 +1819,15 @@ Instructions:
             // 2. Lấy Base64 của video đã cắt
             const originalPath = extractResult.path.replace(/\\/g, '/');
             const localVideoPath = 'file://' + originalPath;
-            
+
             const mediaDir = this.data?.mediaDir || '';
             const projectUuid = this.data?.uuid || 'default';
             // Gọi media://SMART_FIND/ để lách qua CORS và Local File Restriction của browser
             const fetchUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid)}`;
-            
+
             const res = await fetch(fetchUrl);
             const blob = await res.blob();
-            
+
             const reader = new FileReader();
             const base64Promise = new Promise<string>((resolve, reject) => {
                 reader.onloadend = () => {
@@ -1460,14 +1837,16 @@ Instructions:
                 reader.onerror = reject;
             });
             reader.readAsDataURL(blob);
-            
+
             const base64Video = await base64Promise;
 
             // 3. Gán vào aiReferenceVideoBase64 và aiReferenceVideoLocalUrl để generateVideo sử dụng
             this.aiReferenceVideoBase64 = base64Video;
             this.aiReferenceVideoLocalUrl = localVideoPath;
 
-            this.toastr.success('Trích xuất thành công, bắt đầu gửi tới Kling...');
+            this.toastr.success(
+                'Trích xuất thành công, bắt đầu gửi tới Kling...',
+            );
 
             // 4. Gọi generateVideo (generateVideo sẽ bắt cờ aiReferenceVideoBase64 và tự dùng Kling v3)
             await this.generateVideo();
@@ -1476,7 +1855,6 @@ Instructions:
             if (this.editingScenePrompt && this.editingScenePrompt.videoUrl) {
                 this.editingScenePrompt.trimStart = 0;
             }
-
         } catch (e: any) {
             console.error('Error generating from trimmed video:', e);
             this.toastr.error('Lỗi khi tạo từ video cắt: ' + (e.message || e));
@@ -1488,14 +1866,20 @@ Instructions:
     save() {
         if (this.editingScenePrompt) {
             this.editingScenePrompt.aspectRatio = this.selectedAspectRatio;
-            this.editingScenePrompt.usePreviousSceneFrame = this.usePreviousSceneFrame;
+            this.editingScenePrompt.usePreviousSceneFrame =
+                this.usePreviousSceneFrame;
             // Đảm bảo đồng bộ thời lượng trong prompt một lần nữa trước khi lưu
-            if (this.editingScenePrompt.duration && this.editingScenePrompt.prompt) {
-                const regex = /(NOTE:\s*This\s*scene\s*is\s*)([\d.]+)(\s*seconds?\s*long)/gi;
-                this.editingScenePrompt.prompt = this.editingScenePrompt.prompt.replace(
-                    regex,
-                    `$1${this.editingScenePrompt.duration}$3`
-                );
+            if (
+                this.editingScenePrompt.duration &&
+                this.editingScenePrompt.prompt
+            ) {
+                const regex =
+                    /(NOTE:\s*This\s*scene\s*is\s*)([\d.]+)(\s*seconds?\s*long)/gi;
+                this.editingScenePrompt.prompt =
+                    this.editingScenePrompt.prompt.replace(
+                        regex,
+                        `$1${this.editingScenePrompt.duration}$3`,
+                    );
             }
         }
         this.dialogRef.close(this.editingScenePrompt);
@@ -1504,45 +1888,87 @@ Instructions:
 
 @Component({
     selector: 'app-prompt-input-dialog',
-    standalone: true,
     imports: [
-        TranslocoModule,CommonModule, FormsModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatTooltipModule],
+        TranslocoModule,
+        FormsModule,
+        MatButtonModule,
+        MatInputModule,
+        TextFieldModule,
+        MatIconModule,
+        MatTooltipModule,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
-        <h2 class="text-lg font-semibold mb-4 text-slate-800">{{data.title}}</h2>
-        <mat-form-field class="custom-textarea fuse-mat-dense w-full fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <textarea matInput [(ngModel)]="value" [placeholder]="data.placeholder" cdkTextareaAutosize cdkAutosizeMinRows="3"></textarea>
+        <h2 class="text-lg font-semibold mb-4 text-slate-800">
+            {{ data.title }}
+        </h2>
+        <mat-form-field
+            class="custom-textarea fuse-mat-dense w-full fuse-mat-emphasized-affix"
+            [subscriptSizing]="'dynamic'"
+        >
+            <textarea
+                matInput
+                [(ngModel)]="value"
+                [placeholder]="data.placeholder"
+                cdkTextareaAutosize
+                cdkAutosizeMinRows="3"
+            ></textarea>
         </mat-form-field>
-        
+
         <div class="flex justify-between items-center mt-4">
             <div class="flex items-center gap-2 overflow-hidden mr-2">
-                <button mat-icon-button class="text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors rounded-full flex-shrink-0" matTooltip="Đính kèm ảnh/tài liệu" (click)="fileInput.click()">
+                <button
+                    mat-icon-button
+                    class="text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors rounded-full flex-shrink-0"
+                    matTooltip="Đính kèm ảnh/tài liệu"
+                    (click)="fileInput.click()"
+                >
                     <mat-icon class="icon-size-5">attach_file</mat-icon>
                 </button>
-                <input #fileInput type="file" class="hidden" (change)="onFileSelected($event)">
-                
-                <div *ngIf="attachedFile" class="flex items-center gap-1 overflow-hidden bg-slate-50 rounded-full px-3 py-1 pr-1">
-                    <span class="text-sm text-slate-700 truncate max-w-[200px]" [matTooltip]="attachedFileName">{{attachedFileName}}</span>
-                    <button mat-icon-button class="text-red-500 hover:bg-red-50 icon-size-6 flex-shrink-0" (click)="removeFile()">
-                        <mat-icon class="icon-size-4">close</mat-icon>
-                    </button>
-                </div>
+                <input
+                    #fileInput
+                    type="file"
+                    class="hidden"
+                    (change)="onFileSelected($event)"
+                />
+
+                @if (attachedFile) {
+                    <div
+                        class="flex items-center gap-1 overflow-hidden bg-slate-50 rounded-full px-3 py-1 pr-1"
+                    >
+                        <span
+                            class="text-sm text-slate-700 truncate max-w-[200px]"
+                            [matTooltip]="attachedFileName"
+                            >{{ attachedFileName }}</span
+                        >
+                        <button
+                            mat-icon-button
+                            class="text-red-500 hover:bg-red-50 icon-size-6 flex-shrink-0"
+                            (click)="removeFile()"
+                        >
+                            <mat-icon class="icon-size-4">close</mat-icon>
+                        </button>
+                    </div>
+                }
             </div>
             <div class="flex gap-2 flex-shrink-0">
                 <button mat-button (click)="dialogRef.close(null)">Hủy</button>
-                <button mat-flat-button color="primary" (click)="submit()">Đồng ý</button>
+                <button mat-flat-button color="primary" (click)="submit()">
+                    Đồng ý
+                </button>
             </div>
         </div>
-    `
+    `,
 })
 export class PromptInputDialogComponent {
     value: string = '';
-    attachedFile: { mimeType: string, data: string } | null = null;
+    attachedFile: { mimeType: string; data: string } | null = null;
     attachedFileName: string = '';
 
     constructor(
         public dialogRef: MatDialogRef<PromptInputDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any
-    ) { }
+        @Inject(MAT_DIALOG_DATA) public data: any,
+    ) {}
 
     onFileSelected(event: any) {
         const file = event.target.files[0];
@@ -1555,7 +1981,7 @@ export class PromptInputDialogComponent {
             const base64Data = result.split(',')[1];
             this.attachedFile = {
                 mimeType: file.type,
-                data: base64Data
+                data: base64Data,
             };
         };
         reader.readAsDataURL(file);
@@ -1571,7 +1997,7 @@ export class PromptInputDialogComponent {
     submit() {
         this.dialogRef.close({
             text: this.value || '',
-            file: this.attachedFile
+            file: this.attachedFile,
         });
     }
 }

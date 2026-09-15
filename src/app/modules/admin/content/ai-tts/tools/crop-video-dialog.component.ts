@@ -1,7 +1,21 @@
-import { Component, Inject, ViewChild, ElementRef, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import {
+    Component,
+    Inject,
+    ViewChild,
+    ElementRef,
+    OnInit,
+    AfterViewInit,
+    OnDestroy,
+    ChangeDetectorRef,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import {
+    MatDialogModule,
+    MatDialogRef,
+    MAT_DIALOG_DATA,
+} from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -22,18 +36,20 @@ export interface CropRect {
 
 @Component({
     selector: 'app-crop-video-dialog',
-    standalone: true,
     imports: [
         CommonModule,
         FormsModule,
         MatDialogModule,
         MatButtonModule,
         MatIconModule,
-        MatProgressSpinnerModule
+        MatProgressSpinnerModule,
     ],
-    templateUrl: './crop-video-dialog.component.html'
+    changeDetection: ChangeDetectionStrategy.Eager,
+    templateUrl: './crop-video-dialog.component.html',
 })
-export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestroy {
+export class CropVideoDialogComponent
+    implements OnInit, AfterViewInit, OnDestroy
+{
     @ViewChild('videoElement') videoRef!: ElementRef<HTMLVideoElement>;
     @ViewChild('cropCanvas') canvasRef!: ElementRef<HTMLCanvasElement>;
     @ViewChild('containerRef') containerRef!: ElementRef<HTMLDivElement>;
@@ -66,17 +82,33 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
     private animFrameId: number | null = null;
 
     // Kéo thả Crop Box
-    private dragTarget: 'box' | 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | null = null;
+    private dragTarget:
+        | 'box'
+        | 'tl'
+        | 'tr'
+        | 'bl'
+        | 'br'
+        | 't'
+        | 'b'
+        | 'l'
+        | 'r'
+        | null = null;
     private startMousePos = { x: 0, y: 0 };
     private startCropRect: CropRect = { x: 0, y: 0, w: 0, h: 0 };
     private readonly HANDLE_SIZE = 14;
 
     constructor(
         public dialogRef: MatDialogRef<CropVideoDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: { video: any; scene?: any; sceneIdx?: number; vIdx?: number },
+        @Inject(MAT_DIALOG_DATA)
+        public data: {
+            video: any;
+            scene?: any;
+            sceneIdx?: number;
+            vIdx?: number;
+        },
         private sanitizer: DomSanitizer,
         private toastr: ToastrService,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
     ) {}
 
     ngOnInit(): void {
@@ -184,7 +216,10 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
             let originalPath = cleanUrl.split('?')[0];
             originalPath = originalPath.replace(/^file:\/{2,3}/i, '');
 
-            if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+            if (
+                !/^[a-zA-Z]:/.test(originalPath) &&
+                !originalPath.startsWith('/')
+            ) {
                 originalPath = '/' + originalPath;
             }
 
@@ -245,7 +280,9 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         console.error('Lỗi tải video trong Crop Video Dialog:', event);
         this.isVideoLoaded = true;
         this.cd.detectChanges();
-        this.toastr.error('Không thể tải hoặc giải mã video. Vui lòng kiểm tra định dạng hoặc đường dẫn file!');
+        this.toastr.error(
+            'Không thể tải hoặc giải mã video. Vui lòng kiểm tra định dạng hoặc đường dẫn file!',
+        );
     }
 
     onVideoTimeUpdate(): void {
@@ -262,10 +299,19 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
 
     private calculateCanvasDisplaySize(): void {
         if (!this.containerRef?.nativeElement) return;
-        const containerW = Math.max(200, this.containerRef.nativeElement.clientWidth - 48);
-        const containerH = Math.max(200, this.containerRef.nativeElement.clientHeight - 80);
+        const containerW = Math.max(
+            200,
+            this.containerRef.nativeElement.clientWidth - 48,
+        );
+        const containerH = Math.max(
+            200,
+            this.containerRef.nativeElement.clientHeight - 80,
+        );
 
-        const videoRatio = (this.naturalWidth && this.naturalHeight) ? (this.naturalWidth / this.naturalHeight) : (16 / 9);
+        const videoRatio =
+            this.naturalWidth && this.naturalHeight
+                ? this.naturalWidth / this.naturalHeight
+                : 16 / 9;
         const containerRatio = containerW / containerH;
 
         if (videoRatio > containerRatio) {
@@ -289,21 +335,26 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         }
 
         if (v.paused || v.ended) {
-            if (v.ended || (this.duration > 0 && v.currentTime >= this.duration - 0.05)) {
+            if (
+                v.ended ||
+                (this.duration > 0 && v.currentTime >= this.duration - 0.05)
+            ) {
                 v.currentTime = 0;
             }
             v.muted = true; // Đảm bảo mute để tránh browser policy chặn play
             const playPromise = v.play();
             if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    this.isPlaying = true;
-                    this.startRenderLoop();
-                    this.cd.detectChanges();
-                }).catch(e => {
-                    console.warn('Lỗi play video:', e);
-                    this.isPlaying = false;
-                    this.cd.detectChanges();
-                });
+                playPromise
+                    .then(() => {
+                        this.isPlaying = true;
+                        this.startRenderLoop();
+                        this.cd.detectChanges();
+                    })
+                    .catch((e) => {
+                        console.warn('Lỗi play video:', e);
+                        this.isPlaying = false;
+                        this.cd.detectChanges();
+                    });
             } else {
                 this.isPlaying = true;
                 this.startRenderLoop();
@@ -371,12 +422,22 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         this.ctx.fillRect(0, 0, w, h);
 
         // 3. Xóa màn tối ở vùng Crop để làm sáng vùng chọn
-        this.ctx.clearRect(this.cropRect.x, this.cropRect.y, this.cropRect.w, this.cropRect.h);
+        this.ctx.clearRect(
+            this.cropRect.x,
+            this.cropRect.y,
+            this.cropRect.w,
+            this.cropRect.h,
+        );
 
         // 4. Vẽ lại frame video bên trong vùng Crop
         this.ctx.save();
         this.ctx.beginPath();
-        this.ctx.rect(this.cropRect.x, this.cropRect.y, this.cropRect.w, this.cropRect.h);
+        this.ctx.rect(
+            this.cropRect.x,
+            this.cropRect.y,
+            this.cropRect.w,
+            this.cropRect.h,
+        );
         this.ctx.clip();
         try {
             this.ctx.drawImage(v, 0, 0, w, h);
@@ -389,20 +450,43 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         this.ctx.beginPath();
         // Cột dọc
         this.ctx.moveTo(this.cropRect.x + this.cropRect.w / 3, this.cropRect.y);
-        this.ctx.lineTo(this.cropRect.x + this.cropRect.w / 3, this.cropRect.y + this.cropRect.h);
-        this.ctx.moveTo(this.cropRect.x + (2 * this.cropRect.w) / 3, this.cropRect.y);
-        this.ctx.lineTo(this.cropRect.x + (2 * this.cropRect.w) / 3, this.cropRect.y + this.cropRect.h);
+        this.ctx.lineTo(
+            this.cropRect.x + this.cropRect.w / 3,
+            this.cropRect.y + this.cropRect.h,
+        );
+        this.ctx.moveTo(
+            this.cropRect.x + (2 * this.cropRect.w) / 3,
+            this.cropRect.y,
+        );
+        this.ctx.lineTo(
+            this.cropRect.x + (2 * this.cropRect.w) / 3,
+            this.cropRect.y + this.cropRect.h,
+        );
         // Hàng ngang
         this.ctx.moveTo(this.cropRect.x, this.cropRect.y + this.cropRect.h / 3);
-        this.ctx.lineTo(this.cropRect.x + this.cropRect.w, this.cropRect.y + this.cropRect.h / 3);
-        this.ctx.moveTo(this.cropRect.x, this.cropRect.y + (2 * this.cropRect.h) / 3);
-        this.ctx.lineTo(this.cropRect.x + this.cropRect.w, this.cropRect.y + (2 * this.cropRect.h) / 3);
+        this.ctx.lineTo(
+            this.cropRect.x + this.cropRect.w,
+            this.cropRect.y + this.cropRect.h / 3,
+        );
+        this.ctx.moveTo(
+            this.cropRect.x,
+            this.cropRect.y + (2 * this.cropRect.h) / 3,
+        );
+        this.ctx.lineTo(
+            this.cropRect.x + this.cropRect.w,
+            this.cropRect.y + (2 * this.cropRect.h) / 3,
+        );
         this.ctx.stroke();
 
         // 6. Vẽ khung viền chính màu xanh dương sáng
         this.ctx.strokeStyle = '#6366f1';
         this.ctx.lineWidth = 3;
-        this.ctx.strokeRect(this.cropRect.x, this.cropRect.y, this.cropRect.w, this.cropRect.h);
+        this.ctx.strokeRect(
+            this.cropRect.x,
+            this.cropRect.y,
+            this.cropRect.w,
+            this.cropRect.h,
+        );
 
         // 7. Vẽ các tay nắm kéo góc & cạnh (Handles)
         const hs = this.getCropHandles(this.cropRect);
@@ -410,15 +494,28 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         this.ctx.strokeStyle = '#6366f1';
         this.ctx.lineWidth = 2;
 
-        const hSize = this.HANDLE_SIZE * (this.naturalWidth / this.canvasDisplayWidth);
+        const hSize =
+            this.HANDLE_SIZE * (this.naturalWidth / this.canvasDisplayWidth);
         for (const k in hs) {
             const hPt = hs[k];
-            this.ctx.fillRect(hPt.x - hSize / 2, hPt.y - hSize / 2, hSize, hSize);
-            this.ctx.strokeRect(hPt.x - hSize / 2, hPt.y - hSize / 2, hSize, hSize);
+            this.ctx.fillRect(
+                hPt.x - hSize / 2,
+                hPt.y - hSize / 2,
+                hSize,
+                hSize,
+            );
+            this.ctx.strokeRect(
+                hPt.x - hSize / 2,
+                hPt.y - hSize / 2,
+                hSize,
+                hSize,
+            );
         }
     }
 
-    private getCropHandles(r: CropRect): { [key: string]: { x: number; y: number } } {
+    private getCropHandles(r: CropRect): {
+        [key: string]: { x: number; y: number };
+    } {
         return {
             tl: { x: r.x, y: r.y },
             tr: { x: r.x + r.w, y: r.y },
@@ -427,7 +524,7 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
             t: { x: r.x + r.w / 2, y: r.y },
             b: { x: r.x + r.w / 2, y: r.y + r.h },
             l: { x: r.x, y: r.y + r.h / 2 },
-            r: { x: r.x + r.w, y: r.y + r.h / 2 }
+            r: { x: r.x + r.w, y: r.y + r.h / 2 },
         };
     }
 
@@ -438,7 +535,7 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         const scaleY = this.naturalHeight / rect.height;
         return {
             x: (event.clientX - rect.left) * scaleX,
-            y: (event.clientY - rect.top) * scaleY
+            y: (event.clientY - rect.top) * scaleY,
         };
     }
 
@@ -446,12 +543,17 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         if (!this.isVideoLoaded || this.isProcessing) return;
         const pos = this.getCanvasMousePos(event);
         const handles = this.getCropHandles(this.cropRect);
-        const hitRadius = (this.HANDLE_SIZE * 1.5 * this.naturalWidth) / this.canvasDisplayWidth;
+        const hitRadius =
+            (this.HANDLE_SIZE * 1.5 * this.naturalWidth) /
+            this.canvasDisplayWidth;
 
         // Kiểm tra xem chuột có click vào các Handle kéo không
         for (const k in handles) {
             const hPt = handles[k];
-            if (Math.abs(pos.x - hPt.x) <= hitRadius && Math.abs(pos.y - hPt.y) <= hitRadius) {
+            if (
+                Math.abs(pos.x - hPt.x) <= hitRadius &&
+                Math.abs(pos.y - hPt.y) <= hitRadius
+            ) {
                 this.dragTarget = k as any;
                 this.startMousePos = pos;
                 this.startCropRect = { ...this.cropRect };
@@ -479,12 +581,17 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
         if (!this.dragTarget) {
             // Thay đổi icon con trỏ chuột
             const handles = this.getCropHandles(this.cropRect);
-            const hitRadius = (this.HANDLE_SIZE * 1.5 * this.naturalWidth) / this.canvasDisplayWidth;
+            const hitRadius =
+                (this.HANDLE_SIZE * 1.5 * this.naturalWidth) /
+                this.canvasDisplayWidth;
             let cursor = 'default';
 
             for (const k in handles) {
                 const hPt = handles[k];
-                if (Math.abs(pos.x - hPt.x) <= hitRadius && Math.abs(pos.y - hPt.y) <= hitRadius) {
+                if (
+                    Math.abs(pos.x - hPt.x) <= hitRadius &&
+                    Math.abs(pos.y - hPt.y) <= hitRadius
+                ) {
                     if (k === 'tl' || k === 'br') cursor = 'nwse-resize';
                     else if (k === 'tr' || k === 'bl') cursor = 'nesw-resize';
                     else if (k === 't' || k === 'b') cursor = 'ns-resize';
@@ -514,8 +621,14 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
             // Di chuyển hộp crop
             let newX = this.startCropRect.x + dx;
             let newY = this.startCropRect.y + dy;
-            newX = Math.max(0, Math.min(this.naturalWidth - this.cropRect.w, newX));
-            newY = Math.max(0, Math.min(this.naturalHeight - this.cropRect.h, newY));
+            newX = Math.max(
+                0,
+                Math.min(this.naturalWidth - this.cropRect.w, newX),
+            );
+            newY = Math.max(
+                0,
+                Math.min(this.naturalHeight - this.cropRect.h, newY),
+            );
             this.cropRect.x = Math.round(newX);
             this.cropRect.y = Math.round(newY);
         } else {
@@ -527,33 +640,45 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
 
             if (this.dragTarget === 'br') {
                 newW = Math.max(80, this.startCropRect.w + dx);
-                newH = this.targetRatioNumber ? newW / this.targetRatioNumber : Math.max(80, this.startCropRect.h + dy);
+                newH = this.targetRatioNumber
+                    ? newW / this.targetRatioNumber
+                    : Math.max(80, this.startCropRect.h + dy);
             } else if (this.dragTarget === 'tl') {
                 newW = Math.max(80, this.startCropRect.w - dx);
-                newH = this.targetRatioNumber ? newW / this.targetRatioNumber : Math.max(80, this.startCropRect.h - dy);
+                newH = this.targetRatioNumber
+                    ? newW / this.targetRatioNumber
+                    : Math.max(80, this.startCropRect.h - dy);
                 newX = this.startCropRect.x + (this.startCropRect.w - newW);
                 newY = this.startCropRect.y + (this.startCropRect.h - newH);
             } else if (this.dragTarget === 'tr') {
                 newW = Math.max(80, this.startCropRect.w + dx);
-                newH = this.targetRatioNumber ? newW / this.targetRatioNumber : Math.max(80, this.startCropRect.h - dy);
+                newH = this.targetRatioNumber
+                    ? newW / this.targetRatioNumber
+                    : Math.max(80, this.startCropRect.h - dy);
                 newY = this.startCropRect.y + (this.startCropRect.h - newH);
             } else if (this.dragTarget === 'bl') {
                 newW = Math.max(80, this.startCropRect.w - dx);
-                newH = this.targetRatioNumber ? newW / this.targetRatioNumber : Math.max(80, this.startCropRect.h + dy);
+                newH = this.targetRatioNumber
+                    ? newW / this.targetRatioNumber
+                    : Math.max(80, this.startCropRect.h + dy);
                 newX = this.startCropRect.x + (this.startCropRect.w - newW);
             } else if (this.dragTarget === 'r') {
                 newW = Math.max(80, this.startCropRect.w + dx);
-                if (this.targetRatioNumber) newH = newW / this.targetRatioNumber;
+                if (this.targetRatioNumber)
+                    newH = newW / this.targetRatioNumber;
             } else if (this.dragTarget === 'b') {
                 newH = Math.max(80, this.startCropRect.h + dy);
-                if (this.targetRatioNumber) newW = newH * this.targetRatioNumber;
+                if (this.targetRatioNumber)
+                    newW = newH * this.targetRatioNumber;
             } else if (this.dragTarget === 'l') {
                 newW = Math.max(80, this.startCropRect.w - dx);
-                if (this.targetRatioNumber) newH = newW / this.targetRatioNumber;
+                if (this.targetRatioNumber)
+                    newH = newW / this.targetRatioNumber;
                 newX = this.startCropRect.x + (this.startCropRect.w - newW);
             } else if (this.dragTarget === 't') {
                 newH = Math.max(80, this.startCropRect.h - dy);
-                if (this.targetRatioNumber) newW = newH * this.targetRatioNumber;
+                if (this.targetRatioNumber)
+                    newW = newH * this.targetRatioNumber;
                 newY = this.startCropRect.y + (this.startCropRect.h - newH);
             }
 
@@ -566,8 +691,10 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
                 newH += newY;
                 newY = 0;
             }
-            if (newX + newW > this.naturalWidth) newW = this.naturalWidth - newX;
-            if (newY + newH > this.naturalHeight) newH = this.naturalHeight - newY;
+            if (newX + newW > this.naturalWidth)
+                newW = this.naturalWidth - newX;
+            if (newY + newH > this.naturalHeight)
+                newH = this.naturalHeight - newY;
 
             this.cropRect.x = Math.round(newX);
             this.cropRect.y = Math.round(newY);
@@ -618,8 +745,14 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
     }
 
     centerCropRect(): void {
-        this.cropRect.x = Math.max(0, Math.round((this.naturalWidth - this.cropRect.w) / 2));
-        this.cropRect.y = Math.max(0, Math.round((this.naturalHeight - this.cropRect.h) / 2));
+        this.cropRect.x = Math.max(
+            0,
+            Math.round((this.naturalWidth - this.cropRect.w) / 2),
+        );
+        this.cropRect.y = Math.max(
+            0,
+            Math.round((this.naturalHeight - this.cropRect.h) / 2),
+        );
         this.syncMarginsFromCropRect();
         this.draw();
         this.cd.detectChanges();
@@ -659,20 +792,48 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
     syncMarginsFromCropRect(): void {
         this.marginLeft = Math.max(0, this.cropRect.x);
         this.marginTop = Math.max(0, this.cropRect.y);
-        this.marginRight = Math.max(0, this.naturalWidth - (this.cropRect.x + this.cropRect.w));
-        this.marginBottom = Math.max(0, this.naturalHeight - (this.cropRect.y + this.cropRect.h));
+        this.marginRight = Math.max(
+            0,
+            this.naturalWidth - (this.cropRect.x + this.cropRect.w),
+        );
+        this.marginBottom = Math.max(
+            0,
+            this.naturalHeight - (this.cropRect.y + this.cropRect.h),
+        );
     }
 
     onMarginChange(): void {
-        this.marginLeft = Math.max(0, Math.min(this.naturalWidth - 40, Number(this.marginLeft) || 0));
-        this.marginRight = Math.max(0, Math.min(this.naturalWidth - this.marginLeft - 40, Number(this.marginRight) || 0));
-        this.marginTop = Math.max(0, Math.min(this.naturalHeight - 40, Number(this.marginTop) || 0));
-        this.marginBottom = Math.max(0, Math.min(this.naturalHeight - this.marginTop - 40, Number(this.marginBottom) || 0));
+        this.marginLeft = Math.max(
+            0,
+            Math.min(this.naturalWidth - 40, Number(this.marginLeft) || 0),
+        );
+        this.marginRight = Math.max(
+            0,
+            Math.min(
+                this.naturalWidth - this.marginLeft - 40,
+                Number(this.marginRight) || 0,
+            ),
+        );
+        this.marginTop = Math.max(
+            0,
+            Math.min(this.naturalHeight - 40, Number(this.marginTop) || 0),
+        );
+        this.marginBottom = Math.max(
+            0,
+            Math.min(
+                this.naturalHeight - this.marginTop - 40,
+                Number(this.marginBottom) || 0,
+            ),
+        );
 
         this.cropRect.x = Math.round(this.marginLeft);
         this.cropRect.y = Math.round(this.marginTop);
-        this.cropRect.w = Math.round(this.naturalWidth - this.marginLeft - this.marginRight);
-        this.cropRect.h = Math.round(this.naturalHeight - this.marginTop - this.marginBottom);
+        this.cropRect.w = Math.round(
+            this.naturalWidth - this.marginLeft - this.marginRight,
+        );
+        this.cropRect.h = Math.round(
+            this.naturalHeight - this.marginTop - this.marginBottom,
+        );
 
         this.draw();
         this.cd.detectChanges();
@@ -711,7 +872,7 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
                 cropHeight: this.cropRect.h,
                 originalWidth: this.naturalWidth,
                 originalHeight: this.naturalHeight,
-                mode: this.cropMode
+                mode: this.cropMode,
             });
 
             if (res && res.success) {
@@ -721,9 +882,13 @@ export class CropVideoDialogComponent implements OnInit, AfterViewInit, OnDestro
                     imageUrl: res.imageUrl,
                     width: res.width,
                     height: res.height,
-                    aspectRatio: this.cropMode === 'crop_pad' 
-                        ? (this.data?.video?.aspectRatio || `${this.naturalWidth}:${this.naturalHeight}`)
-                        : (this.activeRatio === 'free' ? `${res.width}:${res.height}` : this.activeRatio)
+                    aspectRatio:
+                        this.cropMode === 'crop_pad'
+                            ? this.data?.video?.aspectRatio ||
+                              `${this.naturalWidth}:${this.naturalHeight}`
+                            : this.activeRatio === 'free'
+                              ? `${res.width}:${res.height}`
+                              : this.activeRatio,
                 });
             } else {
                 throw new Error(res?.error || 'Không thể crop video');

@@ -1,97 +1,203 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
-                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
                     </div>
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">{{ 'app.all_tube_tool' | transloco }}</span>
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            "app.all_tube_tool" | transloco
+                        }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base">{{
+                            "app.back" | transloco
+                        }}</span>
                     </a>
                 </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    {{ 'app.auto_download_videos_from_any_youtu' | transloco }}
-                </p>
-            </div> -->
+      <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+        {{ 'app.auto_download_videos_from_any_youtu' | transloco }}
+      </p>
+    </div> -->
         </div>
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <a mat-flat-button [matMenuTriggerFor]="play" class="ml-2 relative overflow-hidden" color="primary">
-                <mat-progress-spinner *ngIf="isDownloading" [diameter]="18" [strokeWidth]="2" [mode]="'indeterminate'" class="mr-2"></mat-progress-spinner>
-                <mat-icon *ngIf="!isDownloading" class="icon-size-4" [svgIcon]="'feather:arrow-down'"></mat-icon>
+            <a
+                mat-flat-button
+                [matMenuTriggerFor]="play"
+                class="ml-2 relative overflow-hidden"
+                color="primary"
+            >
+                @if (isDownloading) {
+                    <mat-progress-spinner
+                        [diameter]="18"
+                        [strokeWidth]="2"
+                        [mode]="'indeterminate'"
+                        class="mr-2"
+                    ></mat-progress-spinner>
+                }
+                @if (!isDownloading) {
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:arrow-down'"
+                    ></mat-icon>
+                }
                 <mat-label class="ml-2 text-base">
-                    {{ isDownloading ? ('Đang tải: ' + downloadPercent + '%') : ('app.quick_download_video' | transloco) }}
+                    {{
+                        isDownloading
+                            ? "Đang tải: " + downloadPercent + "%"
+                            : ("app.quick_download_video" | transloco)
+                    }}
                 </mat-label>
                 <!-- Thanh tiến trình mỏng dưới đáy nút chính -->
-                <div *ngIf="isDownloading" class="absolute bottom-0 left-0 right-0 h-1 bg-black/20 overflow-hidden">
-                    <div class="h-full bg-emerald-400 transition-all duration-200" [style.width.%]="downloadPercent"></div>
-                </div>
+                @if (isDownloading) {
+                    <div
+                        class="absolute bottom-0 left-0 right-0 h-1 bg-black/20 overflow-hidden"
+                    >
+                        <div
+                            class="h-full bg-emerald-400 transition-all duration-200"
+                            [style.width.%]="downloadPercent"
+                        ></div>
+                    </div>
+                }
             </a>
 
             <!-- <a mat-icon-button [color]="'primary'" class="" matTooltipPosition="above"
-                [matTooltip]="'Tải video từ Youtube hoặc Facebook'" [matMenuTriggerFor]="play">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:video'"></mat-icon>
-            </a> -->
+    [matTooltip]="'Tải video từ Youtube hoặc Facebook'" [matMenuTriggerFor]="play">
+    <mat-icon class="icon-size-4" [svgIcon]="'feather:video'"></mat-icon>
+  </a> -->
 
-            <mat-menu #play="matMenu"
-                class="min-w-100 mt-2 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
+            <mat-menu
+                #play="matMenu"
+                class="min-w-100 mt-2 overflow-hidden shadow-xl border-4 border-primary rounded-2xl"
+            >
                 <!-- Header -->
                 <div
-                    class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
-                    {{ 'app.copy_paste_your_video' | transloco }}
+                    class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b"
+                >
+                    {{ "app.copy_paste_your_video" | transloco }}
                 </div>
 
                 <!-- Content -->
                 <div
-                    class="px-6 p-6 pb-4 relative flex flex-col flex-auto overflow-y-auto overflow-x-hidden bg-card" (click)="$event.stopPropagation()">
+                    class="px-6 p-6 pb-4 relative flex flex-col flex-auto overflow-y-auto overflow-x-hidden bg-card"
+                    (click)="$event.stopPropagation()"
+                >
                     <mat-form-field
                         class="w-full custom-textarea field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
-                        appearance="fill">
-                        <textarea class="px-2 min-h-40" (click)="$event.stopPropagation()" [(ngModel)]="strLinks"
+                        appearance="fill"
+                    >
+                        <textarea
+                            class="px-2 min-h-40"
+                            (click)="$event.stopPropagation()"
+                            [(ngModel)]="strLinks"
                             [disabled]="isDownloading"
-                            [placeholder]="'app.accept_platforms' | transloco" matInput></textarea>
-                        <mat-hint>{{ 'app.enter_to_newline' | transloco }}</mat-hint>
+                            [placeholder]="'app.accept_platforms' | transloco"
+                            matInput
+                        ></textarea>
+                        <mat-hint>{{
+                            "app.enter_to_newline" | transloco
+                        }}</mat-hint>
                     </mat-form-field>
 
                     <!-- Khối hiển thị tiến trình tải khi đang chạy hoặc vừa xong -->
-                    <div *ngIf="isDownloading || downloadStatus" class="mt-4 p-3 rounded-xl bg-slate-100 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 flex flex-col gap-1.5">
-                        <div class="flex items-center justify-between text-xs font-semibold">
-                            <span class="text-slate-700 dark:text-slate-200 truncate mr-2">{{ downloadStatus }}</span>
-                            <span class="text-primary font-mono text-sm shrink-0">{{ downloadPercent }}%</span>
+                    @if (isDownloading || downloadStatus) {
+                        <div
+                            class="mt-4 p-3 rounded-xl bg-slate-100 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 flex flex-col gap-1.5"
+                        >
+                            <div
+                                class="flex items-center justify-between text-xs font-semibold"
+                            >
+                                <span
+                                    class="text-slate-700 dark:text-slate-200 truncate mr-2"
+                                    >{{ downloadStatus }}</span
+                                >
+                                <span
+                                    class="text-primary font-mono text-sm shrink-0"
+                                    >{{ downloadPercent }}%</span
+                                >
+                            </div>
+                            <!-- Thanh tiến trình chính -->
+                            <div
+                                class="w-full bg-slate-300 dark:bg-neutral-700 rounded-full h-2.5 overflow-hidden"
+                            >
+                                <div
+                                    class="bg-primary h-full transition-all duration-300 rounded-full"
+                                    [style.width.%]="downloadPercent"
+                                ></div>
+                            </div>
+                            @if (downloadSpeed || downloadEta) {
+                                <div
+                                    class="flex justify-between text-[11px] text-slate-500 font-mono"
+                                >
+                                    <span>{{
+                                        downloadSpeed
+                                            ? "Tốc độ: " + downloadSpeed
+                                            : ""
+                                    }}</span>
+                                    <span>{{
+                                        downloadEta
+                                            ? "Còn lại: " + downloadEta
+                                            : ""
+                                    }}</span>
+                                </div>
+                            }
                         </div>
-                        <!-- Thanh tiến trình chính -->
-                        <div class="w-full bg-slate-300 dark:bg-neutral-700 rounded-full h-2.5 overflow-hidden">
-                            <div class="bg-primary h-full transition-all duration-300 rounded-full"
-                                [style.width.%]="downloadPercent"></div>
-                        </div>
-                        <div *ngIf="downloadSpeed || downloadEta" class="flex justify-between text-[11px] text-slate-500 font-mono">
-                            <span>{{ downloadSpeed ? ('Tốc độ: ' + downloadSpeed) : '' }}</span>
-                            <span>{{ downloadEta ? ('Còn lại: ' + downloadEta) : '' }}</span>
-                        </div>
-                    </div>
+                    }
 
                     <div class="flex items-center justify-end w-full mt-4">
-                        <button mat-flat-button color="primary" (click)="download()" [disabled]="isDownloading">
-                            <mat-spinner *ngIf="isDownloading" [diameter]="16" class="mr-2"></mat-spinner>
-                            <mat-icon *ngIf="!isDownloading" class="icon-size-4" [svgIcon]="'feather:arrow-down'"></mat-icon>
-                            <span class="ml-2">{{ isDownloading ? ('Đang tải (' + downloadPercent + '%)...') : (('app.download_video_1' | transloco) + ' ngay') }}</span>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            (click)="download()"
+                            [disabled]="isDownloading"
+                        >
+                            @if (isDownloading) {
+                                <mat-spinner
+                                    [diameter]="16"
+                                    class="mr-2"
+                                ></mat-spinner>
+                            }
+                            @if (!isDownloading) {
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'feather:arrow-down'"
+                                ></mat-icon>
+                            }
+                            <span class="ml-2">{{
+                                isDownloading
+                                    ? "Đang tải (" + downloadPercent + "%)..."
+                                    : ("app.download_video_1" | transloco) +
+                                      " ngay"
+                            }}</span>
                         </button>
                     </div>
                 </div>
@@ -102,15 +208,17 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <mat-drawer-container class="flex-auto h-full bg-white place-items-center">
+        <mat-drawer-container
+            class="flex-auto h-full bg-white place-items-center"
+        >
             <!-- Drawer -->
             <!-- <mat-drawer class="w-160 bg-gray-50 border-0 dark:bg-transparent" [autoFocus]="false" [mode]="drawerMode"
-                [opened]="drawerOpened" #matDrawer>
-                <div class="flex flex-col flex-auto shrink-0 pt-4 px-8 pb-4">
-                    <mat-accordion>
-                    
-                </div>
-            </mat-drawer> -->
+    [opened]="drawerOpened" #matDrawer>
+    <div class="flex flex-col flex-auto shrink-0 pt-4 px-8 pb-4">
+      <mat-accordion>
+
+      </div>
+    </mat-drawer> -->
 
             <!-- Content -->
             <mat-drawer-content class="m-auto">

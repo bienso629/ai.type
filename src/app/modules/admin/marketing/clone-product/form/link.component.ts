@@ -1,4 +1,12 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { FuseConfigService } from '@fuse/services/config/config.service';
 import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
@@ -14,7 +22,9 @@ import { ToastrService } from 'ngx-toastr';
     selector: 'linkform',
     templateUrl: './link.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [WordpressService]
+    providers: [WordpressService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class LinkFormComponent implements OnInit, OnDestroy {
     user: User;
@@ -59,10 +69,11 @@ export class LinkFormComponent implements OnInit, OnDestroy {
 
     crawling() {
         this.hostname = new URL(this.link);
-        this._wpService.crawler({
-            link: this.link,
-            username: this.user.name
-        })
+        this._wpService
+            .crawler({
+                link: this.link,
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (links) => {
@@ -81,7 +92,7 @@ export class LinkFormComponent implements OnInit, OnDestroy {
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -89,40 +100,45 @@ export class LinkFormComponent implements OnInit, OnDestroy {
         let done = 0;
         this.products = [];
 
-        await Promise.all(this.selected.map(async item => {
-            this._wpService.scan({
-                link: item.href,
-                protocol: this.hostname.protocol,
-                hostname: this.hostname.hostname,
-                username: this.user.name
-            })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: async (data) => {
-                        if (data) {
+        await Promise.all(
+            this.selected.map(async (item) => {
+                this._wpService
+                    .scan({
+                        link: item.href,
+                        protocol: this.hostname.protocol,
+                        hostname: this.hostname.hostname,
+                        username: this.user.name,
+                    })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: async (data) => {
                             if (data) {
-                                this.products.push(data);
-                            }
+                                if (data) {
+                                    this.products.push(data);
+                                }
 
-                            this.toastr.success(`Đã tìm thấy sản phẩm.`);
-                        } else {
-                            this.toastr.warning(`Không tìm thấy sản phẩm.`);
-                        }
-                    },
-                    error: (e: any) => {
-                        done++;
-                        this.toastr.warning(`Lỗi quét dữ liệu.`);
-                    },
-                    complete: () => {
-                        done++;
-                        if (done === this.selected.length) {
-                            console.log('this.products', this.products);
-                            this.selected = [];
-                            this.toastr.success(`Hoàn thành quét sản phẩm.`);
-                        }
-                    }
-                });
-        }));
+                                this.toastr.success(`Đã tìm thấy sản phẩm.`);
+                            } else {
+                                this.toastr.warning(`Không tìm thấy sản phẩm.`);
+                            }
+                        },
+                        error: (e: any) => {
+                            done++;
+                            this.toastr.warning(`Lỗi quét dữ liệu.`);
+                        },
+                        complete: () => {
+                            done++;
+                            if (done === this.selected.length) {
+                                console.log('this.products', this.products);
+                                this.selected = [];
+                                this.toastr.success(
+                                    `Hoàn thành quét sản phẩm.`,
+                                );
+                            }
+                        },
+                    });
+            }),
+        );
     }
 
     export() {
@@ -130,7 +146,66 @@ export class LinkFormComponent implements OnInit, OnDestroy {
             data: this.products,
             filename: 'products',
             delimiter: ',',
-            headers: ['Type', "SKU", "Name", "Published", "Is featured?", "Visibility in catalog", "Short description", "Description", "Date sale price starts", "Date sale price ends", "Tax status", "Tax class", "In stock?", "Stock", "Backorders allowed?", "Sold individually?", "Weight (lbs)", "Length (in)", "Width (in)", "Height (in)", "Allow customer reviews?", "Purchase note", "Sale price", "Regular price", "Categories", "Tags", "Shipping class", "Images", "Download limit", "Download expiry days", "Parent", "Grouped products", "Upsells", "Cross-sells", "External URL", "Button text", "Position", "Attribute 1 name", "Attribute 1 value(s)", "Attribute 1 visible", "Attribute 1 global", "Attribute 2 name", "Attribute 2 value(s)", "Attribute 2 visible", "Attribute 2 global", "Attribute 3 name", "Attribute 3 value(s)", "Attribute 3 visible", "Attribute 3 global", "Attribute 4 name", "Attribute 4 value(s)", "Attribute 4 visible", "Attribute 4 global", "Meta: _wpcom_is_markdown", "Download 1 name", "Download 1 URL", "Download 2 name", "Download 2 URL"]
+            headers: [
+                'Type',
+                'SKU',
+                'Name',
+                'Published',
+                'Is featured?',
+                'Visibility in catalog',
+                'Short description',
+                'Description',
+                'Date sale price starts',
+                'Date sale price ends',
+                'Tax status',
+                'Tax class',
+                'In stock?',
+                'Stock',
+                'Backorders allowed?',
+                'Sold individually?',
+                'Weight (lbs)',
+                'Length (in)',
+                'Width (in)',
+                'Height (in)',
+                'Allow customer reviews?',
+                'Purchase note',
+                'Sale price',
+                'Regular price',
+                'Categories',
+                'Tags',
+                'Shipping class',
+                'Images',
+                'Download limit',
+                'Download expiry days',
+                'Parent',
+                'Grouped products',
+                'Upsells',
+                'Cross-sells',
+                'External URL',
+                'Button text',
+                'Position',
+                'Attribute 1 name',
+                'Attribute 1 value(s)',
+                'Attribute 1 visible',
+                'Attribute 1 global',
+                'Attribute 2 name',
+                'Attribute 2 value(s)',
+                'Attribute 2 visible',
+                'Attribute 2 global',
+                'Attribute 3 name',
+                'Attribute 3 value(s)',
+                'Attribute 3 visible',
+                'Attribute 3 global',
+                'Attribute 4 name',
+                'Attribute 4 value(s)',
+                'Attribute 4 visible',
+                'Attribute 4 global',
+                'Meta: _wpcom_is_markdown',
+                'Download 1 name',
+                'Download 1 URL',
+                'Download 2 name',
+                'Download 2 URL',
+            ],
         });
     }
 
@@ -160,8 +235,7 @@ export class LinkFormComponent implements OnInit, OnDestroy {
             });
     }
 
-    ngOnInit(): void {
-    }
+    ngOnInit(): void {}
 
     ngOnDestroy(): void {
         // Unsubscribe from all subscriptions

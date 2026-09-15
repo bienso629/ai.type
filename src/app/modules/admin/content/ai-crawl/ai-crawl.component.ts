@@ -14,7 +14,7 @@ import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config';
 import { GenaiService } from 'app/genai.service';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 @Component({
     selector: 'ai-crawl',
@@ -22,7 +22,8 @@ import * as _ from 'lodash';
     providers: [CrawlService],
     animations: fuseAnimations,
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AIWordComponent implements OnInit, OnDestroy {
     animationStates: any;

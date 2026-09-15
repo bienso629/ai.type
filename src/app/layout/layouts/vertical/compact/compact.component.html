@@ -2,14 +2,23 @@
 <fuse-loading-bar></fuse-loading-bar>
 
 <!-- Navigation -->
-<fuse-vertical-navigation class="dark bg-dark print:hidden" [appearance]="'compact'"
-    [mode]="isScreenSmall ? 'over' : 'side'" [name]="'mainNavigation'" [navigation]="navigation.compact"
-    [opened]="!isScreenSmall">
+<fuse-vertical-navigation
+    class="dark bg-dark print:hidden"
+    [appearance]="'compact'"
+    [mode]="isScreenSmall ? 'over' : 'side'"
+    [name]="'mainNavigation'"
+    [navigation]="navigation.compact"
+    [opened]="!isScreenSmall"
+>
     <!-- Navigation header hook -->
     <ng-container fuseVerticalNavigationContentHeader>
         <!-- Logo -->
         <div class="flex items-center justify-center py-4 mb-0">
-            <img class="w-10 m-2" src="assets/images/logo/typing-logo.svg" alt="Logo image">
+            <img
+                class="w-10 m-2"
+                src="assets/images/logo/typing-logo.svg"
+                alt="Logo image"
+            />
         </div>
     </ng-container>
 </fuse-vertical-navigation>
@@ -18,7 +27,8 @@
 <div class="flex flex-col flex-auto w-full min-w-0">
     <!-- Header -->
     <div
-        class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b bg-card dark:bg-transparent print:hidden">
+        class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b bg-card dark:bg-transparent print:hidden"
+    >
         <!-- Navigation toggle button -->
         <button mat-icon-button (click)="toggleNavigation('mainNavigation')">
             <mat-icon [svgIcon]="'feather:sidebar'"></mat-icon>
@@ -32,11 +42,11 @@
             <notifications></notifications>
             <fuse-fullscreen class="hidden md:block"></fuse-fullscreen>
             <!-- <button
-                class="lg:hidden"
-                mat-icon-button
-                (click)="quickChat.toggle()">
-                <mat-icon [svgIcon]="'heroicons_outline:chat-alt-2'"></mat-icon>
-            </button> -->
+      class="lg:hidden"
+      mat-icon-button
+      (click)="quickChat.toggle()">
+      <mat-icon [svgIcon]="'heroicons_outline:chat-alt-2'"></mat-icon>
+    </button> -->
             <user></user>
         </div>
     </div>
@@ -44,22 +54,35 @@
     <!-- Content -->
     <div class="flex flex-col flex-auto">
         <!-- *ngIf="true" hack is required here for router-outlet to work correctly.
-             Otherwise, layout changes won't be registered and the view won't be updated! -->
-        <router-outlet *ngIf="true"></router-outlet>
+  Otherwise, layout changes won't be registered and the view won't be updated! -->
+        @if (true) {
+            <router-outlet></router-outlet>
+        }
     </div>
 
     <!-- Footer -->
     <div
-        class="relative flex flex-0 items-center justify-start w-full h-14 px-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden">
-        <span class="font-medium text-secondary"><a href="https://type.vn"
-                [title]="'app.auto_ai_software_for_creating_profe' | transloco">type.vn</a> &copy; {{currentYear}}</span>
+        class="relative flex flex-0 items-center justify-start w-full h-14 px-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden"
+    >
+        <span class="font-medium text-secondary"
+            ><a
+                href="https://type.vn"
+                [title]="'app.auto_ai_software_for_creating_profe' | transloco"
+                >type.vn</a
+            >
+            &copy; {{ currentYear }}</span
+        >
     </div>
 </div>
 
 <!-- Quick chat -->
 <!-- <quick-chat #quickChat="quickChat"></quick-chat> -->
 
-<eco-fab-speed-dial #myFab [direction]="direction" [animationMode]="animationMode">
+<eco-fab-speed-dial
+    #myFab
+    [direction]="direction"
+    [animationMode]="animationMode"
+>
     <eco-fab-speed-dial-trigger [spin]="spin">
         <button mat-fab (click)="doAction('trigger')">
             <mat-icon class="spin360">edit</mat-icon>
@@ -67,7 +90,14 @@
     </eco-fab-speed-dial-trigger>
 
     <eco-fab-speed-dial-actions>
-        <button mat-mini-fab [color]="isRecording ? 'warn' : 'primary'" [class.animate-pulse]="isRecording" (click)="startRecording()" [matTooltip]="'app.auto_system_recording' | transloco" matTooltipPosition="left">
+        <button
+            mat-mini-fab
+            [color]="isRecording ? 'warn' : 'primary'"
+            [class.animate-pulse]="isRecording"
+            (click)="startRecording()"
+            [matTooltip]="'app.auto_system_recording' | transloco"
+            matTooltipPosition="left"
+        >
             <mat-icon svgIcon="feather:mic"></mat-icon>
         </button>
         <button mat-mini-fab [routerLink]="['/ai-writer']">

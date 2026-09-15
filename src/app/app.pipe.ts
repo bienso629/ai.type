@@ -8,7 +8,10 @@ const toTimestamp = (strDate: any) => {
     return datum / 1000;
 }
 
-@Pipe({ name: "checkExpirationDate" })
+@Pipe({
+    name: "checkExpirationDate",
+    standalone: false
+})
 export class CheckExpirationDate implements PipeTransform {
     transform(activationInfo: any, expirationDate: any) {
         if (!activationInfo) {
@@ -29,7 +32,10 @@ export class CheckExpirationDate implements PipeTransform {
     }
 }
 
-@Pipe({ name: "isFirefox" })
+@Pipe({
+    name: "isFirefox",
+    standalone: false
+})
 export class isFirefoxPipe implements PipeTransform {
     transform() {
         const agent = window.navigator.userAgent.toLowerCase()
@@ -52,7 +58,10 @@ export class isFirefoxPipe implements PipeTransform {
     }
 }
 
-@Pipe({ name: "isObject" })
+@Pipe({
+    name: "isObject",
+    standalone: false
+})
 export class IsObjectPipe implements PipeTransform {
     transform(item: any) {
         if (typeof item === "object") {
@@ -63,7 +72,10 @@ export class IsObjectPipe implements PipeTransform {
     }
 }
 
-@Pipe({ name: "isIframe" })
+@Pipe({
+    name: "isIframe",
+    standalone: false
+})
 export class IsIframe implements PipeTransform {
     transform(value: any) {
         var tagsFound = [];
@@ -85,7 +97,10 @@ export class IsIframe implements PipeTransform {
     }
 }
 
-@Pipe({ name: "isMp3" })
+@Pipe({
+    name: "isMp3",
+    standalone: false
+})
 export class IsMp3 implements PipeTransform {
     transform(value: any) {
         if (value.indexOf('.mp3') >= 0) {
@@ -96,7 +111,10 @@ export class IsMp3 implements PipeTransform {
     }
 }
 
-@Pipe({ name: 'hackHTML' })
+@Pipe({
+    name: 'hackHTML',
+    standalone: false
+})
 export class HackHTMLPipe implements PipeTransform {
     transform(value: any, tag: any): any {
         value = value.map((item: any) => {
@@ -107,7 +125,10 @@ export class HackHTMLPipe implements PipeTransform {
     }
 }
 
-@Pipe({ name: 'removeHTML' })
+@Pipe({
+    name: 'removeHTML',
+    standalone: false
+})
 export class RemoveHTMLPipe implements PipeTransform {
     static transform: any;
     transform(value: string): string {
@@ -128,7 +149,10 @@ export class RemoveHTMLPipe implements PipeTransform {
     }
 }
 
-@Pipe({ name: 'html2Paragraph' })
+@Pipe({
+    name: 'html2Paragraph',
+    standalone: false
+})
 export class HTML2Paragraph implements PipeTransform {
     static transform: any;
     transform(value: string): any {
@@ -152,7 +176,10 @@ export class HTML2Paragraph implements PipeTransform {
     }
 }
 
-@Pipe({ name: 'seoScore' })
+@Pipe({
+    name: 'seoScore',
+    standalone: false
+})
 export class SEOScorePipe implements PipeTransform {
     transform(data: any): any {
         if (data) {
@@ -287,7 +314,10 @@ export class SEOScorePipe implements PipeTransform {
     }
 }
 
-@Pipe({ name: 'slugify' })
+@Pipe({
+    name: 'slugify',
+    standalone: false
+})
 export class SlugifyPipe implements PipeTransform {
     transform(str: string): string {
         // Chuyển hết sang chữ thường
@@ -312,7 +342,10 @@ export class SlugifyPipe implements PipeTransform {
     }
 }
 
-@Pipe({ name: 'renderTrustHTML' })
+@Pipe({
+    name: 'renderTrustHTML',
+    standalone: false
+})
 export class renderTrustHTML implements PipeTransform {
     constructor(
         private sanitized: DomSanitizer,
@@ -341,7 +374,10 @@ export class renderTrustHTML implements PipeTransform {
     }
 }
 
-@Pipe({ name: 'youtube' })
+@Pipe({
+    name: 'youtube',
+    standalone: false
+})
 export class YoutubePlay implements PipeTransform {
     constructor(
         private sanitized: DomSanitizer,
@@ -355,7 +391,10 @@ export class YoutubePlay implements PipeTransform {
     }
 }
 
-@Pipe({ name: 'shortDomain' })
+@Pipe({
+    name: 'shortDomain',
+    standalone: false
+})
 export class ShortDomainPipe implements PipeTransform {
     transform(url: string, args?: any): any {
         if (url) {

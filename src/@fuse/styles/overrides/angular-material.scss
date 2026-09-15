@@ -8,15 +8,33 @@
 /* -------------------------------------------------------------------------- */
 /*  @ Font smoothing
 /* -------------------------------------------------------------------------- */
-*[class*=mat-],
-*[class*=mat-mdc-] {
+*[class*=mat-]:not(mat-icon):not(.mat-icon):not(.material-icons),
+*[class*=mat-mdc-]:not(mat-icon):not(.mat-icon):not(.material-icons) {
     -webkit-font-smoothing: auto !important;
     -moz-osx-font-smoothing: auto !important;
+    font-family: "Inter var", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 
-    * {
+    *:not(mat-icon):not(.mat-icon):not(.material-icons) {
         -webkit-font-smoothing: auto !important;
         -moz-osx-font-smoothing: auto !important;
+        font-family: inherit !important;
     }
+}
+
+mat-icon,
+.mat-icon,
+.material-icons {
+    font-family: 'Material Icons' !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+    direction: ltr !important;
+    -webkit-font-feature-settings: 'liga' !important;
+    font-feature-settings: 'liga' !important;
+    -webkit-font-smoothing: antialiased !important;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -4,7 +4,8 @@ import {
     OnDestroy,
     OnInit,
     ViewChild,
-    ViewEncapsulation
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { FuseConfigService } from '@fuse/services/config/config.service';
@@ -29,7 +30,7 @@ import {
     ApexDataLabels,
     ApexPlotOptions,
     ApexLegend,
-    ApexYAxis
+    ApexYAxis,
 } from 'ng-apexcharts';
 import { DomainService } from 'app/_services/domain';
 import { WordpressService } from 'app/_services/wordpress';
@@ -49,16 +50,16 @@ interface QueryStat {
     query: string;
     clicks: number;
     impressions: number;
-    ctr: number;       // %
+    ctr: number; // %
     position: number;
 }
 
 interface QueryDailyStat {
     query: string;
-    date: string;      // YYYY-MM-DD
+    date: string; // YYYY-MM-DD
     clicks: number;
     impressions: number;
-    ctr: number;       // %
+    ctr: number; // %
     position: number;
 }
 
@@ -84,9 +85,17 @@ declare global {
                 customerId: string;
                 languageConstant?: string;
                 geoTargetConstants?: string[];
-            }) => Promise<{ success: boolean; results?: any[]; error?: string }>;
-            exportGscPdf?: (payload: any) => Promise<{ success: boolean; error?: string }>;
-            scheduleSeoEmail?: (payload: any) => Promise<{ success: boolean; error?: string }>;
+            }) => Promise<{
+                success: boolean;
+                results?: any[];
+                error?: string;
+            }>;
+            exportGscPdf?: (
+                payload: any,
+            ) => Promise<{ success: boolean; error?: string }>;
+            scheduleSeoEmail?: (
+                payload: any,
+            ) => Promise<{ success: boolean; error?: string }>;
             analyticsReport?: (payload: {
                 propertyId?: string;
                 startDate: string;
@@ -105,7 +114,9 @@ declare global {
     styleUrls: ['./seo-report.component.scss'],
     templateUrl: './seo-report.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [WP2MDService, DomainService, WordpressService]
+    providers: [WP2MDService, DomainService, WordpressService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class GSCReportComponent implements OnInit, OnDestroy {
     xml: any;
@@ -159,8 +170,8 @@ export class GSCReportComponent implements OnInit, OnDestroy {
 
     // biểu đồ theo ngày
     public chartOptionsKeywordCompare!: Partial<ChartOptions> | undefined; // CTR theo ngày
-    public chartOptionsKeywordGrowth!: Partial<ChartOptions> | undefined;  // tăng trưởng metric
-    public chartOptionsHeatmap: any;                                       // heatmap
+    public chartOptionsKeywordGrowth!: Partial<ChartOptions> | undefined; // tăng trưởng metric
+    public chartOptionsHeatmap: any; // heatmap
 
     // chọn nhiều keyword để so sánh
     selectedComparisonQueries: string[] = [];
@@ -218,7 +229,14 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     // ------------------------------------------------
 
     get isAnyLoading(): boolean {
-        return !!(this.gscLoading || this.gaLoading || this.isPageSpeedLoading || this.aiLoading || this.isExportingPdf || this.isExportingImage);
+        return !!(
+            this.gscLoading ||
+            this.gaLoading ||
+            this.isPageSpeedLoading ||
+            this.aiLoading ||
+            this.isExportingPdf ||
+            this.isExportingImage
+        );
     }
 
     getRowHeight(row?: any): number {
@@ -229,43 +247,49 @@ export class GSCReportComponent implements OnInit, OnDestroy {
      * Lấy tất cả domain của khách
      */
     alldomains() {
-        this._domainService.fetch({
-            username: this.user.name
-        })
+        this._domainService
+            .fetch({
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data.length > 0) {
                         this.domainOptions = result.data;
                     } else {
-                        this.domainOptions = [{ domain: 'https://type.vn' }] as any;
+                        this.domainOptions = [
+                            { domain: 'https://type.vn' },
+                        ] as any;
                     }
                     this.siteUrl = this.domainOptions[0]['domain'];
                     this.onDomainChange();
 
                     this.cd.markForCheck();
                 },
-                error: () => {
-                },
-                complete: () => {
-                }
+                error: () => {},
+                complete: () => {},
             });
     }
 
     normalizeDomainUrl(domain: string): string {
         if (!domain) return '';
         let normalized = domain.trim().toLowerCase();
-        if (normalized.startsWith('http://')) normalized = normalized.substring(7);
-        if (normalized.startsWith('https://')) normalized = normalized.substring(8);
+        if (normalized.startsWith('http://'))
+            normalized = normalized.substring(7);
+        if (normalized.startsWith('https://'))
+            normalized = normalized.substring(8);
         if (normalized.startsWith('www.')) normalized = normalized.substring(4);
-        if (normalized.endsWith('/')) normalized = normalized.substring(0, normalized.length - 1);
+        if (normalized.endsWith('/'))
+            normalized = normalized.substring(0, normalized.length - 1);
         return normalized;
     }
 
     onDomainChange() {
         this.getCategories();
         const norm = this.normalizeDomainUrl(this.siteUrl);
-        const current = this.domainOptions.find(d => this.normalizeDomainUrl(d.domain) === norm);
+        const current = this.domainOptions.find(
+            (d) => this.normalizeDomainUrl(d.domain) === norm,
+        );
         if (current && current['ga4PropertyId']) {
             this.gaPropertyId = current['ga4PropertyId'];
         } else if (this.gaPropertyIds && this.gaPropertyIds.length > 0) {
@@ -277,22 +301,32 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     }
 
     onGaPropertyIdChange() {
-        if (this.gaPropertyId === undefined || this.gaPropertyId === null) return;
+        if (this.gaPropertyId === undefined || this.gaPropertyId === null)
+            return;
         const trimmed = this.gaPropertyId.trim();
         const norm = this.normalizeDomainUrl(this.siteUrl);
-        const current = this.domainOptions.find(d => this.normalizeDomainUrl(d.domain) === norm);
+        const current = this.domainOptions.find(
+            (d) => this.normalizeDomainUrl(d.domain) === norm,
+        );
         if (current && current['ga4PropertyId'] !== trimmed) {
             current['ga4PropertyId'] = trimmed;
-            this._domainService.edit({
-                username: this.user.name,
-                domain: current
-            }).subscribe({
-                next: (result: any) => {
-                    if (result && result.success && result.data && result.data._rev) {
-                        current._rev = result.data._rev;
-                    }
-                }
-            });
+            this._domainService
+                .edit({
+                    username: this.user.name,
+                    domain: current,
+                })
+                .subscribe({
+                    next: (result: any) => {
+                        if (
+                            result &&
+                            result.success &&
+                            result.data &&
+                            result.data._rev
+                        ) {
+                            current._rev = result.data._rev;
+                        }
+                    },
+                });
         }
     }
 
@@ -301,9 +335,10 @@ export class GSCReportComponent implements OnInit, OnDestroy {
      * Logic: Ban đầu sort tạm theo số bài viết (count)
      */
     getCategories() {
-        this._wordpressService.categories({
-            domain: this.siteUrl
-        })
+        this._wordpressService
+            .categories({
+                domain: this.siteUrl,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -311,10 +346,12 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                         // Khởi tạo views = 0
                         this.categoryItems = result.map((c: any) => ({
                             ...c,
-                            attributedViews: 0
+                            attributedViews: 0,
                         }));
                         // Sort ban đầu theo count
-                        this.categoryItems.sort((a: any, b: any) => (b.count || 0) - (a.count || 0));
+                        this.categoryItems.sort(
+                            (a: any, b: any) => (b.count || 0) - (a.count || 0),
+                        );
                     } else {
                         this.toastr.warning('Lấy danh mục thất bại.');
                     }
@@ -323,7 +360,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 error: () => {
                     this.toastr.warning('Lấy danh mục thất bại.');
                 },
-                complete: () => { }
+                complete: () => {},
             });
     }
 
@@ -345,9 +382,9 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     parseCsv(csvString: string): void {
         const lines = csvString
             .split(/\r\n|\n/)
-            .filter(line => line.trim().length > 0);
+            .filter((line) => line.trim().length > 0);
 
-        const parsed = lines.map(line => line.split(','));
+        const parsed = lines.map((line) => line.split(','));
         this.csvData = parsed;
 
         if (parsed.length === 0) {
@@ -365,14 +402,17 @@ export class GSCReportComponent implements OnInit, OnDestroy {
         const idxCtr = this.columns.indexOf('CTR');
         const idxPosition = this.columns.indexOf('Vị trí');
 
-        const stats: QueryStat[] = parsed.slice(1).map(line => {
-            const rawCtr = (line[idxCtr] || '0').toString().replace('%', '').trim();
+        const stats: QueryStat[] = parsed.slice(1).map((line) => {
+            const rawCtr = (line[idxCtr] || '0')
+                .toString()
+                .replace('%', '')
+                .trim();
             return {
                 query: line[idxQuery] ?? '',
                 clicks: Number(line[idxClicks] || 0),
                 impressions: Number(line[idxImpressions] || 0),
                 ctr: Number(rawCtr || 0),
-                position: Number(line[idxPosition] || 0)
+                position: Number(line[idxPosition] || 0),
             };
         });
 
@@ -380,7 +420,10 @@ export class GSCReportComponent implements OnInit, OnDestroy {
         this.filteredRows = [...this.rows];
 
         this.totalClicks = stats.reduce((sum, r) => sum + r.clicks, 0);
-        this.totalImpressions = stats.reduce((sum, r) => sum + r.impressions, 0);
+        this.totalImpressions = stats.reduce(
+            (sum, r) => sum + r.impressions,
+            0,
+        );
         this.avgCtr = stats.length
             ? stats.reduce((sum, r) => sum + r.ctr, 0) / stats.length
             : 0;
@@ -398,7 +441,9 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 return;
             }
             if (!this.startDate || !this.endDate) {
-                this.toastr.error('Vui lòng chọn ngày bắt đầu và ngày kết thúc');
+                this.toastr.error(
+                    'Vui lòng chọn ngày bắt đầu và ngày kết thúc',
+                );
                 return;
             }
 
@@ -416,26 +461,32 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 siteUrl: this.siteUrl,
                 mode: 'detail',
                 dimensions: ['query', 'date'],
-                rowLimit: 25000
+                rowLimit: 25000,
             });
 
             const totalsPromise = window.electron.gscQuery({
                 startDate: this.startDate,
                 endDate: this.endDate,
                 siteUrl: this.siteUrl,
-                mode: 'totals'
+                mode: 'totals',
             });
 
-            const trendPromise = window.electron.gscQuery({
-                startDate: yearStart,
-                endDate: todayStr,
-                siteUrl: this.siteUrl,
-                mode: 'detail',
-                dimensions: ['date'],
-                rowLimit: 5000
-            }).catch(() => null);
+            const trendPromise = window.electron
+                .gscQuery({
+                    startDate: yearStart,
+                    endDate: todayStr,
+                    siteUrl: this.siteUrl,
+                    mode: 'detail',
+                    dimensions: ['date'],
+                    rowLimit: 5000,
+                })
+                .catch(() => null);
 
-            const [detailRes, totalsRes, trendRes] = await Promise.all([detailPromise, totalsPromise, trendPromise]);
+            const [detailRes, totalsRes, trendRes] = await Promise.all([
+                detailPromise,
+                totalsPromise,
+                trendPromise,
+            ]);
 
             if (!detailRes.success) {
                 this.toastr.error(`Lỗi GSC (detail): ${detailRes.error}`);
@@ -450,20 +501,27 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 this.buildGscYearTrendCharts(trendRes.rows);
             }
 
-            this.dailyStatsAll = (detailRes.rows || []).map(r => ({
+            this.dailyStatsAll = (detailRes.rows || []).map((r) => ({
                 query: r.keys[0],
                 date: r.keys[1],
                 clicks: r.clicks || 0,
                 impressions: r.impressions || 0,
                 ctr: (r.ctr || 0) * 100,
-                position: r.position || 0
+                position: r.position || 0,
             }));
 
-            const aggMap = new Map<string, { clicks: number; impressions: number; posSum: number }>();
+            const aggMap = new Map<
+                string,
+                { clicks: number; impressions: number; posSum: number }
+            >();
 
             for (const d of this.dailyStatsAll) {
                 if (!aggMap.has(d.query)) {
-                    aggMap.set(d.query, { clicks: 0, impressions: 0, posSum: 0 });
+                    aggMap.set(d.query, {
+                        clicks: 0,
+                        impressions: 0,
+                        posSum: 0,
+                    });
                 }
                 const a = aggMap.get(d.query)!;
                 a.clicks += d.clicks;
@@ -471,13 +529,15 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 a.posSum += d.position * d.impressions;
             }
 
-            const stats: QueryStat[] = Array.from(aggMap.entries()).map(([query, a]) => {
-                const impressions = a.impressions;
-                const clicks = a.clicks;
-                const ctr = impressions ? (clicks / impressions) * 100 : 0;
-                const position = impressions ? a.posSum / impressions : 0;
-                return { query, clicks, impressions, ctr, position };
-            });
+            const stats: QueryStat[] = Array.from(aggMap.entries()).map(
+                ([query, a]) => {
+                    const impressions = a.impressions;
+                    const clicks = a.clicks;
+                    const ctr = impressions ? (clicks / impressions) * 100 : 0;
+                    const position = impressions ? a.posSum / impressions : 0;
+                    return { query, clicks, impressions, ctr, position };
+                },
+            );
 
             this.rows = stats;
             this.filteredRows = [...this.rows];
@@ -492,7 +552,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
 
             this.totalClicks = totalRow?.clicks ?? 0;
             this.totalImpressions = totalRow?.impressions ?? 0;
-            this.avgCtr = (totalRow?.ctr ?? 0) * 100;     // ctr trả về 0–1
+            this.avgCtr = (totalRow?.ctr ?? 0) * 100; // ctr trả về 0–1
             this.avgPosition = totalRow?.position ?? 0;
 
             this.cd.markForCheck();
@@ -511,48 +571,49 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             .sort((a, b) => b.clicks - a.clicks)
             .slice(0, 10);
 
-        const categories = topByClicks.map(r => r.query);
+        const categories = topByClicks.map((r) => r.query);
 
         this.chartOptionsTopQueries = {
             series: [
-                { name: 'Lượt nhấp', data: topByClicks.map(r => r.clicks) },
-                { name: 'Lượt hiển thị', data: topByClicks.map(r => r.impressions) }
+                { name: 'Lượt nhấp', data: topByClicks.map((r) => r.clicks) },
+                {
+                    name: 'Lượt hiển thị',
+                    data: topByClicks.map((r) => r.impressions),
+                },
             ],
             colors: ['#2563eb', '#16a34a'],
             chart: {
                 type: 'line',
                 height: 380,
-                toolbar: { show: false }
+                toolbar: { show: false },
             },
             stroke: { curve: 'smooth', width: 3 } as any,
             markers: {
-                size: 4
+                size: 4,
             } as any,
             xaxis: {
                 categories,
                 labels: { show: false },
                 axisBorder: { show: false },
-                axisTicks: { show: false }
+                axisTicks: { show: false },
             },
             yaxis: {
                 labels: { show: false },
                 axisBorder: { show: false },
-                axisTicks: { show: false }
+                axisTicks: { show: false },
             },
             grid: { show: false },
             dataLabels: { enabled: false },
-            legend: { position: 'top', horizontalAlign: 'right' }
+            legend: { position: 'top', horizontalAlign: 'right' },
         };
 
         this.chartOptionsCtr = {
-            series: [
-                { name: 'CTR (%)', data: topByClicks.map(r => r.ctr) }
-            ],
+            series: [{ name: 'CTR (%)', data: topByClicks.map((r) => r.ctr) }],
             colors: ['#9333ea'],
             chart: {
                 type: 'area',
                 height: 380,
-                toolbar: { show: false }
+                toolbar: { show: false },
             },
             stroke: { curve: 'smooth', width: 3 } as any,
             fill: {
@@ -561,45 +622,57 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                     shadeIntensity: 1,
                     opacityFrom: 0.45,
                     opacityTo: 0.05,
-                    stops: [0, 95, 100]
-                }
+                    stops: [0, 95, 100],
+                },
             } as any,
             markers: {
                 size: 5,
                 colors: ['#9333ea'],
                 strokeColors: '#ffffff',
-                strokeWidth: 2
+                strokeWidth: 2,
             } as any,
             grid: { show: false },
             xaxis: {
                 categories,
                 labels: { show: false },
                 axisBorder: { show: false },
-                axisTicks: { show: false }
+                axisTicks: { show: false },
             },
             yaxis: {
                 labels: { show: false },
                 axisBorder: { show: false },
-                axisTicks: { show: false }
+                axisTicks: { show: false },
             },
             dataLabels: {
                 enabled: true,
                 formatter: (val: number) => `${val.toFixed(1)}%`,
                 style: { fontSize: '11px', colors: ['#9333ea'] },
-                background: { enabled: true, foreColor: '#ffffff', borderRadius: 4, padding: 4 }
-            }
+                background: {
+                    enabled: true,
+                    foreColor: '#ffffff',
+                    borderRadius: 4,
+                    padding: 4,
+                },
+            },
         };
     }
 
     private buildGscYearTrendCharts(rows: any[]): void {
-        const monthlyMap = new Map<string, { clicks: number; impressions: number; posImpSum: number }>();
+        const monthlyMap = new Map<
+            string,
+            { clicks: number; impressions: number; posImpSum: number }
+        >();
 
-        rows.forEach(r => {
+        rows.forEach((r) => {
             const dateStr = r.keys?.[0] || '';
             if (!dateStr) return;
             const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
             if (!monthlyMap.has(monthKey)) {
-                monthlyMap.set(monthKey, { clicks: 0, impressions: 0, posImpSum: 0 });
+                monthlyMap.set(monthKey, {
+                    clicks: 0,
+                    impressions: 0,
+                    posImpSum: 0,
+                });
             }
             const m = monthlyMap.get(monthKey)!;
             const c = r.clicks || 0;
@@ -611,41 +684,80 @@ export class GSCReportComponent implements OnInit, OnDestroy {
         });
 
         const sortedMonths = Array.from(monthlyMap.keys()).sort();
-        const categories = sortedMonths.map(m => {
+        const categories = sortedMonths.map((m) => {
             const parts = m.split('-');
             return `${parts[1]}/${parts[0]}`;
         });
 
-        const clicksData = sortedMonths.map(m => monthlyMap.get(m)!.clicks);
-        const impressionsData = sortedMonths.map(m => monthlyMap.get(m)!.impressions);
-        const ctrData = sortedMonths.map(m => {
+        const clicksData = sortedMonths.map((m) => monthlyMap.get(m)!.clicks);
+        const impressionsData = sortedMonths.map(
+            (m) => monthlyMap.get(m)!.impressions,
+        );
+        const ctrData = sortedMonths.map((m) => {
             const item = monthlyMap.get(m)!;
-            return item.impressions > 0 ? Math.round((item.clicks / item.impressions) * 10000) / 100 : 0;
+            return item.impressions > 0
+                ? Math.round((item.clicks / item.impressions) * 10000) / 100
+                : 0;
         });
-        const positionData = sortedMonths.map(m => {
+        const positionData = sortedMonths.map((m) => {
             const item = monthlyMap.get(m)!;
-            return item.impressions > 0 ? Math.round((item.posImpSum / item.impressions) * 100) / 100 : 0;
+            return item.impressions > 0
+                ? Math.round((item.posImpSum / item.impressions) * 100) / 100
+                : 0;
         });
 
-        const makeSparkline = (name: string, data: number[], color: string, isPercent = false): ChartOptions => ({
-            series: [{ name, data }],
-            chart: { type: 'area', height: 80, sparkline: { enabled: true } } as any,
-            colors: [color],
-            stroke: { curve: 'smooth', width: 2.5 } as any,
-            grid: {
-                padding: { top: 12, bottom: 4, left: 4, right: 4 }
-            },
-            xaxis: { categories },
-            dataLabels: { enabled: false },
-            yaxis: isPercent ? { labels: { formatter: (val: number) => `${val.toFixed(1)}%` } } : undefined,
-            plotOptions: undefined,
-            legend: undefined,
-        } as any);
+        const makeSparkline = (
+            name: string,
+            data: number[],
+            color: string,
+            isPercent = false,
+        ): ChartOptions =>
+            ({
+                series: [{ name, data }],
+                chart: {
+                    type: 'area',
+                    height: 80,
+                    sparkline: { enabled: true },
+                } as any,
+                colors: [color],
+                stroke: { curve: 'smooth', width: 2.5 } as any,
+                grid: {
+                    padding: { top: 12, bottom: 4, left: 4, right: 4 },
+                },
+                xaxis: { categories },
+                dataLabels: { enabled: false },
+                yaxis: isPercent
+                    ? {
+                          labels: {
+                              formatter: (val: number) => `${val.toFixed(1)}%`,
+                          },
+                      }
+                    : undefined,
+                plotOptions: undefined,
+                legend: undefined,
+            }) as any;
 
-        this.chartOptionsGscClicksTrend = makeSparkline('Lượt nhấp', clicksData, '#2563eb');
-        this.chartOptionsGscImpressionsTrend = makeSparkline('Lượt hiển thị', impressionsData, '#16a34a');
-        this.chartOptionsGscCtrTrend = makeSparkline('CTR trung bình', ctrData, '#9333ea', true);
-        this.chartOptionsGscPositionTrend = makeSparkline('Vị trí trung bình', positionData, '#ea580c');
+        this.chartOptionsGscClicksTrend = makeSparkline(
+            'Lượt nhấp',
+            clicksData,
+            '#2563eb',
+        );
+        this.chartOptionsGscImpressionsTrend = makeSparkline(
+            'Lượt hiển thị',
+            impressionsData,
+            '#16a34a',
+        );
+        this.chartOptionsGscCtrTrend = makeSparkline(
+            'CTR trung bình',
+            ctrData,
+            '#9333ea',
+            true,
+        );
+        this.chartOptionsGscPositionTrend = makeSparkline(
+            'Vị trí trung bình',
+            positionData,
+            '#ea580c',
+        );
     }
 
     applyFilter(): void {
@@ -654,8 +766,8 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             this.filteredRows = [...this.rows];
             return;
         }
-        this.filteredRows = this.rows.filter(r =>
-            (r.query || '').toLowerCase().includes(term)
+        this.filteredRows = this.rows.filter((r) =>
+            (r.query || '').toLowerCase().includes(term),
         );
     }
 
@@ -688,7 +800,10 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     };
 
     private updateKeywordCharts(): void {
-        if (!this.dailyStatsAll.length || !this.selectedComparisonQueries.length) {
+        if (
+            !this.dailyStatsAll.length ||
+            !this.selectedComparisonQueries.length
+        ) {
             this.chartOptionsKeywordCompare = undefined;
             this.chartOptionsKeywordGrowth = undefined;
             this.chartOptionsHeatmap = undefined;
@@ -710,18 +825,21 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             cur.setDate(cur.getDate() + 1);
         }
 
-        const dateLabels = dates.map(d => {
+        const dateLabels = dates.map((d) => {
             const [y, m, day] = d.split('-');
             return `${day}/${m}`;
         });
 
-        const ctrSeries: ApexAxisChartSeries = this.selectedComparisonQueries.map(query => {
-            const data = dates.map(date => {
-                const found = this.dailyStatsAll.find(dd => dd.query === query && dd.date === date);
-                return found ? found.ctr : 0;
+        const ctrSeries: ApexAxisChartSeries =
+            this.selectedComparisonQueries.map((query) => {
+                const data = dates.map((date) => {
+                    const found = this.dailyStatsAll.find(
+                        (dd) => dd.query === query && dd.date === date,
+                    );
+                    return found ? found.ctr : 0;
+                });
+                return { name: query, data } as any;
             });
-            return { name: query, data } as any;
-        });
 
         this.chartOptionsKeywordCompare = {
             series: ctrSeries,
@@ -729,23 +847,27 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             xaxis: { categories: dateLabels },
             yaxis: {
                 title: { text: 'CTR (%)' },
-                labels: { formatter: (val: number) => `${val.toFixed(1)}%` }
+                labels: { formatter: (val: number) => `${val.toFixed(1)}%` },
             },
             dataLabels: { enabled: false },
-            legend: { position: 'top' }
+            legend: { position: 'top' },
         };
 
-        const growthSeries: ApexAxisChartSeries = this.selectedComparisonQueries.map(query => {
-            const data = dates.map(date => {
-                const found = this.dailyStatsAll.find(dd => dd.query === query && dd.date === date);
-                if (!found) return 0;
-                if (this.selectedMetric === 'clicks') return found.clicks;
-                if (this.selectedMetric === 'impressions') return found.impressions;
-                if (this.selectedMetric === 'ctr') return found.ctr;
-                return found.position;
+        const growthSeries: ApexAxisChartSeries =
+            this.selectedComparisonQueries.map((query) => {
+                const data = dates.map((date) => {
+                    const found = this.dailyStatsAll.find(
+                        (dd) => dd.query === query && dd.date === date,
+                    );
+                    if (!found) return 0;
+                    if (this.selectedMetric === 'clicks') return found.clicks;
+                    if (this.selectedMetric === 'impressions')
+                        return found.impressions;
+                    if (this.selectedMetric === 'ctr') return found.ctr;
+                    return found.position;
+                });
+                return { name: query, data } as any;
             });
-            return { name: query, data } as any;
-        });
 
         this.chartOptionsKeywordGrowth = {
             series: growthSeries,
@@ -754,23 +876,29 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             yaxis: {
                 title: {
                     text:
-                        this.selectedMetric === 'clicks' ? 'Clicks'
-                            : this.selectedMetric === 'impressions' ? 'Impressions'
-                                : this.selectedMetric === 'ctr' ? 'CTR (%)'
-                                    : 'Position'
-                }
+                        this.selectedMetric === 'clicks'
+                            ? 'Clicks'
+                            : this.selectedMetric === 'impressions'
+                              ? 'Impressions'
+                              : this.selectedMetric === 'ctr'
+                                ? 'CTR (%)'
+                                : 'Position',
+                },
             },
             dataLabels: { enabled: false },
-            legend: { position: 'top' }
+            legend: { position: 'top' },
         };
 
-        const heatmapSeries = this.selectedComparisonQueries.map(query => {
+        const heatmapSeries = this.selectedComparisonQueries.map((query) => {
             const data = dates.map((date, i) => {
-                const found = this.dailyStatsAll.find(dd => dd.query === query && dd.date === date);
+                const found = this.dailyStatsAll.find(
+                    (dd) => dd.query === query && dd.date === date,
+                );
                 let value = 0;
                 if (found) {
                     if (this.selectedMetric === 'clicks') value = found.clicks;
-                    else if (this.selectedMetric === 'impressions') value = found.impressions;
+                    else if (this.selectedMetric === 'impressions')
+                        value = found.impressions;
                     else if (this.selectedMetric === 'ctr') value = found.ctr;
                     else value = found.position;
                 }
@@ -783,7 +911,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             series: heatmapSeries,
             chart: { type: 'heatmap', height: 400 },
             xaxis: { type: 'category' },
-            dataLabels: { enabled: false }
+            dataLabels: { enabled: false },
         };
 
         this.cd.markForCheck();
@@ -802,7 +930,9 @@ export class GSCReportComponent implements OnInit, OnDestroy {
         // }
 
         if (!this.rows || this.rows.length === 0) {
-            this.toastr.error('Chưa có dữ liệu từ khóa để phân tích. Hãy tải dữ liệu GSC trước.');
+            this.toastr.error(
+                'Chưa có dữ liệu từ khóa để phân tích. Hãy tải dữ liệu GSC trước.',
+            );
             return;
         }
 
@@ -813,9 +943,12 @@ export class GSCReportComponent implements OnInit, OnDestroy {
         try {
             // Lấy tối đa 50 từ khóa hàng đầu để tránh quá tải token
             const top50 = this.rows.slice(0, 50);
-            const dataString = top50.map((r: any) =>
-                `- Từ khóa: "${r.query}", Lượt nhấp: ${r.clicks}, Hiển thị: ${r.impressions}, CTR: ${r.ctr.toFixed(1)}%, Vị trí TB: ${r.position.toFixed(1)}`
-            ).join('\n');
+            const dataString = top50
+                .map(
+                    (r: any) =>
+                        `- Từ khóa: "${r.query}", Lượt nhấp: ${r.clicks}, Hiển thị: ${r.impressions}, CTR: ${r.ctr.toFixed(1)}%, Vị trí TB: ${r.position.toFixed(1)}`,
+                )
+                .join('\n');
 
             let gaContext = '';
             if (this.gaSummary) {
@@ -834,10 +967,22 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 const acc = this.getPageSpeedScore('accessibility');
                 const bp = this.getPageSpeedScore('best-practices');
                 const seo = this.getPageSpeedScore('seo');
-                const fcp = this.pageSpeedData.lighthouseResult?.audits['first-contentful-paint']?.displayValue || 'N/A';
-                const lcp = this.pageSpeedData.lighthouseResult?.audits['largest-contentful-paint']?.displayValue || 'N/A';
-                const cls = this.pageSpeedData.lighthouseResult?.audits['cumulative-layout-shift']?.displayValue || 'N/A';
-                const tbt = this.pageSpeedData.lighthouseResult?.audits['total-blocking-time']?.displayValue || 'N/A';
+                const fcp =
+                    this.pageSpeedData.lighthouseResult?.audits[
+                        'first-contentful-paint'
+                    ]?.displayValue || 'N/A';
+                const lcp =
+                    this.pageSpeedData.lighthouseResult?.audits[
+                        'largest-contentful-paint'
+                    ]?.displayValue || 'N/A';
+                const cls =
+                    this.pageSpeedData.lighthouseResult?.audits[
+                        'cumulative-layout-shift'
+                    ]?.displayValue || 'N/A';
+                const tbt =
+                    this.pageSpeedData.lighthouseResult?.audits[
+                        'total-blocking-time'
+                    ]?.displayValue || 'N/A';
 
                 pageSpeedContext = `
 Đồng thời, trang web đang có kết quả phân tích tốc độ & trải nghiệm người dùng từ PageSpeed Insights:
@@ -895,16 +1040,22 @@ Quy định định dạng:
                         } else {
                             currentStreamedText += chunk;
                         }
-                        let cleanText = currentStreamedText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+                        let cleanText = currentStreamedText
+                            .replace(/^```html\s*/i, '')
+                            .replace(/```\s*$/i, '')
+                            .trim();
                         this.aiSuggestions = cleanText;
                         this.cd.markForCheck();
-                    }
-                } as any
+                    },
+                } as any,
             });
             let responseText = response?.text || currentStreamedText;
 
             // Loại bỏ bọc markdown nếu có bị dính
-            responseText = responseText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+            responseText = responseText
+                .replace(/^```html\s*/i, '')
+                .replace(/```\s*$/i, '')
+                .trim();
 
             this.aiSuggestions = responseText;
         } catch (error: any) {
@@ -923,20 +1074,21 @@ Quy định định dạng:
         }
 
         const header = 'query,date,clicks,impressions,ctr,position';
-        const lines = this.dailyStatsAll.map(
-            d =>
-                [
-                    `"${d.query.replace(/"/g, '""')}"`,
-                    d.date,
-                    d.clicks,
-                    d.impressions,
-                    d.ctr.toFixed(2),
-                    d.position.toFixed(2)
-                ].join(',')
+        const lines = this.dailyStatsAll.map((d) =>
+            [
+                `"${d.query.replace(/"/g, '""')}"`,
+                d.date,
+                d.clicks,
+                d.impressions,
+                d.ctr.toFixed(2),
+                d.position.toFixed(2),
+            ].join(','),
         );
 
         const csvContent = [header, ...lines].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csvContent], {
+            type: 'text/csv;charset=utf-8;',
+        });
         const url = window.URL.createObjectURL(blob);
 
         const a = document.createElement('a');
@@ -954,26 +1106,35 @@ Quy định định dạng:
         this.cd.detectChanges();
 
         // Ngủ 500ms để chờ Angular nặn hàng ngàn thẻ table row (DOM) ra màn hình thay vì cuộn ảo
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         try {
-            const element = document.querySelector('google-search-console') as HTMLElement
-                || document.querySelector('google-search-console\\.component') as HTMLElement;
+            const element =
+                (document.querySelector(
+                    'google-search-console',
+                ) as HTMLElement) ||
+                (document.querySelector(
+                    'google-search-console\\.component',
+                ) as HTMLElement);
 
             if (!element) {
                 this.toastr.error('Không tìm thấy vùng báo cáo để chụp PDF');
                 return;
             }
 
-            this.toastr.info('Đang kết xuất hình ảnh báo cáo (có thể mất vài giây)...');
+            this.toastr.info(
+                'Đang kết xuất hình ảnh báo cáo (có thể mất vài giây)...',
+            );
 
             // 1. Phá vỡ các giới hạn scroll, cắt thẻ flex-auto để web bung vô hạn chiều dọc
-            const scrollContainer = element.querySelector('.overflow-y-auto') as HTMLElement;
+            const scrollContainer = element.querySelector(
+                '.overflow-y-auto',
+            ) as HTMLElement;
             const targetCapture = scrollContainer || element;
 
             // Xoá tạm thời class dark của ứng dụng nếu có để ngăn PDF bị ám đen màu nền
             const darkElements = Array.from(document.querySelectorAll('.dark'));
-            darkElements.forEach(el => el.classList.remove('dark'));
+            darkElements.forEach((el) => el.classList.remove('dark'));
 
             // Gán chết màu nền trắng vào thuộc tính style inline để dập lại màu nền xám đen (#212121) của cửa sổ BrowserWindow
             const htmlTag = document.documentElement;
@@ -990,7 +1151,7 @@ Quy định định dạng:
             printOverlay.innerHTML = targetCapture.outerHTML;
             document.body.appendChild(printOverlay);
 
-            // 3. Tạo một style động dành riêng cho quá trình in 
+            // 3. Tạo một style động dành riêng cho quá trình in
             const printStyle = document.createElement('style');
             printStyle.innerHTML = `
                 @media print {
@@ -1061,21 +1222,20 @@ Quy định định dạng:
             await (window as any).electron.exportGscPdf({
                 siteUrl: this.siteUrl,
                 startDate: this.startDate,
-                endDate: this.endDate
+                endDate: this.endDate,
             });
 
             // 5. Quét dọn chiến trường sau khi hoàn tất
             document.body.removeChild(printOverlay);
             document.head.removeChild(printStyle);
-            darkElements.forEach(el => el.classList.add('dark'));
+            darkElements.forEach((el) => el.classList.add('dark'));
             htmlTag.style.backgroundColor = originalHtmlBg;
             bodyTag.style.backgroundColor = originalBodyBg;
 
             this.toastr.success('✅ Đã xuất File Báo Cáo thành công!');
-
         } catch (e: any) {
             this.toastr.error(e.message || 'Lỗi khi xuất PDF');
-            console.error("Lỗi xuất File PDF: ", e);
+            console.error('Lỗi xuất File PDF: ', e);
         } finally {
             this.isExportingPdf = false;
             this.cd.detectChanges();
@@ -1087,7 +1247,9 @@ Quy định định dạng:
     async exportImageReport(): Promise<void> {
         this.isExportingImage = true;
         this.cd.markForCheck();
-        this.toastr.info('Đang tổng hợp dữ liệu từ 3 tab (GSC, GA4, PageSpeed) & tạo Báo cáo bằng ảnh AI...');
+        this.toastr.info(
+            'Đang tổng hợp dữ liệu từ 3 tab (GSC, GA4, PageSpeed) & tạo Báo cáo bằng ảnh AI...',
+        );
 
         try {
             // 1. Thu thập dữ liệu từ cả 3 tab
@@ -1095,12 +1257,18 @@ Quy định định dạng:
             const gscImpressions = this.totalImpressions || 0;
             const gscCtr = (this.avgCtr || 0).toFixed(2);
             const gscPos = (this.avgPosition || 0).toFixed(2);
-            const topKeywords = (this.rows || []).slice(0, 5).map((r: any) => r.query).join(', ') || 'N/A';
+            const topKeywords =
+                (this.rows || [])
+                    .slice(0, 5)
+                    .map((r: any) => r.query)
+                    .join(', ') || 'N/A';
 
             const gaUsers = this.gaSummary?.totalUsers || 0;
             const gaSessions = this.gaSummary?.sessions || 0;
             const gaViews = this.gaSummary?.screenPageViews || 0;
-            const gaEngage = ((this.gaSummary?.engagementRate || 0) * 100).toFixed(1);
+            const gaEngage = (
+                (this.gaSummary?.engagementRate || 0) * 100
+            ).toFixed(1);
 
             const perfScore = this.getPageSpeedScore('performance');
             const accScore = this.getPageSpeedScore('accessibility');
@@ -1121,13 +1289,16 @@ Viết nhận xét 2-3 câu bằng Tiếng Việt cực kỳ rõ ràng, đi th�
 
                     const response = await this._genaiService.generateContent({
                         model: 'gemini-3.6-flash',
-                        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     });
                     if (response && response.text) {
                         aiSummaryText = response.text;
                     }
                 } catch (err) {
-                    console.warn("AI text generation fallback for Image Report:", err);
+                    console.warn(
+                        'AI text generation fallback for Image Report:',
+                        err,
+                    );
                 }
             }
 
@@ -1153,7 +1324,8 @@ Viết nhận xét 2-3 câu bằng Tiếng Việt cực kỳ rõ ràng, đi th�
             reportContainer.style.minHeight = '1920px';
             reportContainer.style.padding = '0px';
             reportContainer.style.backgroundColor = '#ffffff';
-            reportContainer.style.fontFamily = 'Inter, Roboto, system-ui, -apple-system, sans-serif';
+            reportContainer.style.fontFamily =
+                'Inter, Roboto, system-ui, -apple-system, sans-serif';
             reportContainer.style.boxSizing = 'border-box';
             reportContainer.style.color = '#0f172a';
             reportContainer.style.display = 'flex';
@@ -1284,27 +1456,32 @@ Viết nhận xét 2-3 câu bằng Tiếng Việt cực kỳ rõ ràng, đi th�
 
             document.body.appendChild(reportContainer);
 
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             // Xuất ảnh chuẩn 9:16 Mobile 4K (Width: 1080px * 2 = 2160px, Height: ~1920px * 2 = 3840px)
             const canvas = await html2canvas(reportContainer, {
                 scale: 2.0,
                 useCORS: true,
-                backgroundColor: '#0f172a'
+                backgroundColor: '#0f172a',
             });
 
             const base64Image = canvas.toDataURL('image/png');
             document.body.removeChild(reportContainer);
 
-            if ((window as any).electron && (window as any).electron.exportGscImage) {
+            if (
+                (window as any).electron &&
+                (window as any).electron.exportGscImage
+            ) {
                 const res = await (window as any).electron.exportGscImage({
                     siteUrl: this.siteUrl,
                     startDate: this.startDate,
                     endDate: this.endDate,
-                    base64Image: base64Image
+                    base64Image: base64Image,
                 });
                 if (res && res.success) {
-                    this.toastr.success('✅ Đã kết xuất Báo Cáo Ảnh AI thành công!');
+                    this.toastr.success(
+                        '✅ Đã kết xuất Báo Cáo Ảnh AI thành công!',
+                    );
                 } else if (res && res.error) {
                     this.toastr.info(res.error);
                 }
@@ -1315,9 +1492,8 @@ Viết nhận xét 2-3 câu bằng Tiếng Việt cực kỳ rõ ràng, đi th�
                 link.click();
                 this.toastr.success('✅ Đã tải Báo Cáo Ảnh thành công!');
             }
-
         } catch (e: any) {
-            console.error("Lỗi tạo Báo cáo bằng ảnh:", e);
+            console.error('Lỗi tạo Báo cáo bằng ảnh:', e);
             this.toastr.error(e.message || 'Lỗi khi tạo Báo cáo bằng ảnh');
         } finally {
             this.isExportingImage = false;
@@ -1332,16 +1508,20 @@ Viết nhận xét 2-3 câu bằng Tiếng Việt cực kỳ rõ ràng, đi th�
                     siteUrl: this.siteUrl,
                     startDate: this.startDate,
                     endDate: this.endDate,
-                    metric: this.selectedMetric
+                    metric: this.selectedMetric,
                 });
                 if (!res.success) {
-                    this.toastr.error(res.error || 'Không tạo được lịch gửi email');
+                    this.toastr.error(
+                        res.error || 'Không tạo được lịch gửi email',
+                    );
                     return;
                 }
-                this.toastr.success('Đã tạo lịch gửi báo cáo hằng ngày qua email');
+                this.toastr.success(
+                    'Đã tạo lịch gửi báo cáo hằng ngày qua email',
+                );
             } else {
                 this.toastr.info(
-                    'Hook scheduleSeoEmail chưa được implement ở Electron / backend. Hãy nối IPC/API ở phía server.'
+                    'Hook scheduleSeoEmail chưa được implement ở Electron / backend. Hãy nối IPC/API ở phía server.',
                 );
             }
         } catch (e: any) {
@@ -1417,7 +1597,8 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
         if (!window.electron?.googleAdsKeyword) {
             this.adsLoading = false;
-            this.adsError = 'Chưa cấu hình bridge electron.googleAdsKeyword trong preload.js / main.js';
+            this.adsError =
+                'Chưa cấu hình bridge electron.googleAdsKeyword trong preload.js / main.js';
             this.cd.markForCheck();
             return;
         }
@@ -1430,11 +1611,12 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
                 keywordText: trimmed,
                 customerId: this.googleAdsCustomerId,
                 languageConstant: 'languageConstants/1004',
-                geoTargetConstants: ['geoTargetConstants/2392']
+                geoTargetConstants: ['geoTargetConstants/2392'],
             });
 
             if (!res || !res.success) {
-                this.adsError = res?.error || 'Không lấy được dữ liệu Google Ads';
+                this.adsError =
+                    res?.error || 'Không lấy được dữ liệu Google Ads';
                 return;
             }
 
@@ -1457,7 +1639,9 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         endDate?: string;
     }): Promise<any | null> {
         if (!window.electron?.analyticsReport) {
-            this.toastr.error('Chưa cấu hình bridge analyticsReport trong Electron');
+            this.toastr.error(
+                'Chưa cấu hình bridge analyticsReport trong Electron',
+            );
             return null;
         }
 
@@ -1465,12 +1649,14 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             propertyId: this.gaPropertyId || undefined,
             startDate: this.startDate,
             endDate: this.endDate,
-            ...payload
+            ...payload,
         };
 
         const res = await window.electron.analyticsReport(body);
         if (!res || !res.success) {
-            throw new Error(res?.error || 'Không lấy được dữ liệu Google Analytics 4');
+            throw new Error(
+                res?.error || 'Không lấy được dữ liệu Google Analytics 4',
+            );
         }
         return res.result;
     }
@@ -1485,27 +1671,41 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             if (trimmed && !this.gaPropertyIds.includes(trimmed)) {
                 this.gaPropertyIds.unshift(trimmed);
                 if (this.gaPropertyIds.length > 20) this.gaPropertyIds.pop();
-                this.multiAccountService.setItem('gaPropertyIds', this.gaPropertyIds);
+                this.multiAccountService.setItem(
+                    'gaPropertyIds',
+                    this.gaPropertyIds,
+                );
             }
             const norm = this.normalizeDomainUrl(this.siteUrl);
-            const current = this.domainOptions.find(d => this.normalizeDomainUrl(d.domain) === norm);
+            const current = this.domainOptions.find(
+                (d) => this.normalizeDomainUrl(d.domain) === norm,
+            );
             if (current && current['ga4PropertyId'] !== trimmed) {
                 current['ga4PropertyId'] = trimmed;
-                this._domainService.edit({
-                    username: this.user.name,
-                    domain: current
-                }).subscribe({
-                    next: (result: any) => {
-                        if (result && result.success && result.data && result.data._rev) {
-                            current._rev = result.data._rev;
-                        }
-                    }
-                });
+                this._domainService
+                    .edit({
+                        username: this.user.name,
+                        domain: current,
+                    })
+                    .subscribe({
+                        next: (result: any) => {
+                            if (
+                                result &&
+                                result.success &&
+                                result.data &&
+                                result.data._rev
+                            ) {
+                                current._rev = result.data._rev;
+                            }
+                        },
+                    });
             }
         }
 
         if (!this.startDate || !this.endDate) {
-            this.toastr.error('Vui lòng chọn ngày bắt đầu và kết thúc ở bước 1 trước');
+            this.toastr.error(
+                'Vui lòng chọn ngày bắt đầu và kết thúc ở bước 1 trước',
+            );
             return;
         }
 
@@ -1522,7 +1722,14 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
         try {
             // A. Summary Metrics (Luôn lấy All Users)
-            const summary = await this.callGaReport({ metrics: ['totalUsers', 'sessions', 'screenPageViews', 'engagementRate'] });
+            const summary = await this.callGaReport({
+                metrics: [
+                    'totalUsers',
+                    'sessions',
+                    'screenPageViews',
+                    'engagementRate',
+                ],
+            });
             const row0 = summary?.rows?.[0]?.metricValues || [];
             const summaryMetrics: any = {};
             (summary?.metricHeaders || []).forEach((m: any, idx: number) => {
@@ -1540,17 +1747,45 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             await this.buildGaMonthlyTrendCharts();
 
             // B. Load Lists (Country, Device, Age)
-            const byCountry = await this.callGaReport({ metrics: ['totalUsers'], dimensions: ['country'], limit: 15 });
-            this.gaByCountry = (byCountry?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, totalUsers: Number(r.metricValues?.[0]?.value) }));
+            const byCountry = await this.callGaReport({
+                metrics: ['totalUsers'],
+                dimensions: ['country'],
+                limit: 15,
+            });
+            this.gaByCountry = (byCountry?.rows || []).map((r: any) => ({
+                dimension: r.dimensionValues?.[0]?.value,
+                totalUsers: Number(r.metricValues?.[0]?.value),
+            }));
 
-            const byDevice = await this.callGaReport({ metrics: ['totalUsers'], dimensions: ['deviceCategory'], limit: 10 });
-            this.gaByDevice = (byDevice?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, totalUsers: Number(r.metricValues?.[0]?.value) }));
+            const byDevice = await this.callGaReport({
+                metrics: ['totalUsers'],
+                dimensions: ['deviceCategory'],
+                limit: 10,
+            });
+            this.gaByDevice = (byDevice?.rows || []).map((r: any) => ({
+                dimension: r.dimensionValues?.[0]?.value,
+                totalUsers: Number(r.metricValues?.[0]?.value),
+            }));
 
-            const byAge = await this.callGaReport({ metrics: ['totalUsers'], dimensions: ['userAgeBracket'], limit: 10 });
-            this.gaByAge = (byAge?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, totalUsers: Number(r.metricValues?.[0]?.value) }));
+            const byAge = await this.callGaReport({
+                metrics: ['totalUsers'],
+                dimensions: ['userAgeBracket'],
+                limit: 10,
+            });
+            this.gaByAge = (byAge?.rows || []).map((r: any) => ({
+                dimension: r.dimensionValues?.[0]?.value,
+                totalUsers: Number(r.metricValues?.[0]?.value),
+            }));
 
-            const byEvent = await this.callGaReport({ metrics: ['eventCount'], dimensions: ['eventName'], limit: 10 });
-            this.gaByEvent = (byEvent?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, count: Number(r.metricValues?.[0]?.value) }));
+            const byEvent = await this.callGaReport({
+                metrics: ['eventCount'],
+                dimensions: ['eventName'],
+                limit: 10,
+            });
+            this.gaByEvent = (byEvent?.rows || []).map((r: any) => ({
+                dimension: r.dimensionValues?.[0]?.value,
+                count: Number(r.metricValues?.[0]?.value),
+            }));
 
             // C. Lập danh sách các phân tích cần chạy
             // 1. All Users
@@ -1559,15 +1794,45 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             // 4. Top Country (nếu có)
             const tasks = [
                 { name: 'All Users', filter: undefined },
-                { name: 'Mobile', filter: { filter: { fieldName: 'deviceCategory', stringFilter: { value: 'mobile', matchType: 'EXACT' } } } },
-                { name: 'Desktop', filter: { filter: { fieldName: 'deviceCategory', stringFilter: { value: 'desktop', matchType: 'EXACT' } } } }
+                {
+                    name: 'Mobile',
+                    filter: {
+                        filter: {
+                            fieldName: 'deviceCategory',
+                            stringFilter: {
+                                value: 'mobile',
+                                matchType: 'EXACT',
+                            },
+                        },
+                    },
+                },
+                {
+                    name: 'Desktop',
+                    filter: {
+                        filter: {
+                            fieldName: 'deviceCategory',
+                            stringFilter: {
+                                value: 'desktop',
+                                matchType: 'EXACT',
+                            },
+                        },
+                    },
+                },
             ];
 
             if (this.gaByCountry.length > 0) {
                 const topCountry = this.gaByCountry[0].dimension;
                 tasks.push({
                     name: `Top Country (${topCountry})`,
-                    filter: { filter: { fieldName: 'country', stringFilter: { value: topCountry, matchType: 'EXACT' } } }
+                    filter: {
+                        filter: {
+                            fieldName: 'country',
+                            stringFilter: {
+                                value: topCountry,
+                                matchType: 'EXACT',
+                            },
+                        },
+                    },
                 });
             }
 
@@ -1586,16 +1851,18 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
                     views: Number(r.metricValues?.[0]?.value || 0),
                 }));
 
-                const sortedCats = this.mapGaDataToCategoriesAggregated(rawPages);
+                const sortedCats =
+                    this.mapGaDataToCategoriesAggregated(rawPages);
 
                 this.analyzedResults.push({
                     name: task.name,
-                    categories: sortedCats
+                    categories: sortedCats,
                 });
             }
 
-            this.toastr.success(`Đã phân tích xong ${this.analyzedResults.length} nhóm đối tượng.`);
-
+            this.toastr.success(
+                `Đã phân tích xong ${this.analyzedResults.length} nhóm đối tượng.`,
+            );
         } catch (e: any) {
             console.error(e);
             this.gaError = e.message || 'Lỗi khi gọi Google Analytics 4';
@@ -1615,7 +1882,12 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
         const monthly = await this.callGaReport({
-            metrics: ['totalUsers', 'sessions', 'screenPageViews', 'engagementRate'],
+            metrics: [
+                'totalUsers',
+                'sessions',
+                'screenPageViews',
+                'engagementRate',
+            ],
             dimensions: ['yearMonth'],
             startDate: yearStart,
             endDate: todayStr,
@@ -1623,10 +1895,14 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         });
 
         const rows = (monthly?.rows || []).slice().sort((a: any, b: any) => {
-            return (a.dimensionValues?.[0]?.value || '').localeCompare(b.dimensionValues?.[0]?.value || '');
+            return (a.dimensionValues?.[0]?.value || '').localeCompare(
+                b.dimensionValues?.[0]?.value || '',
+            );
         });
 
-        const metricHeaders = (monthly?.metricHeaders || []).map((m: any) => m.name);
+        const metricHeaders = (monthly?.metricHeaders || []).map(
+            (m: any) => m.name,
+        );
         const idxUsers = metricHeaders.indexOf('totalUsers');
         const idxSessions = metricHeaders.indexOf('sessions');
         const idxPageViews = metricHeaders.indexOf('screenPageViews');
@@ -1637,30 +1913,66 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             return ym.length === 6 ? `${ym.slice(4, 6)}/${ym.slice(0, 4)}` : ym;
         });
 
-        const buildSeriesData = (idx: number, isPercent = false) => rows.map((r: any) => {
-            const val = Number(r.metricValues?.[idx]?.value || 0);
-            return isPercent ? Math.round(val * 10000) / 100 : val;
-        });
+        const buildSeriesData = (idx: number, isPercent = false) =>
+            rows.map((r: any) => {
+                const val = Number(r.metricValues?.[idx]?.value || 0);
+                return isPercent ? Math.round(val * 10000) / 100 : val;
+            });
 
-        const makeSparkline = (name: string, data: number[], color: string, isPercent = false): ChartOptions => ({
-            series: [{ name, data }],
-            chart: { type: 'area', height: 80, sparkline: { enabled: true } } as any,
-            colors: [color],
-            xaxis: { categories },
-            dataLabels: { enabled: false },
-            yaxis: isPercent ? { labels: { formatter: (val: number) => `${val.toFixed(1)}%` } } : undefined,
-            plotOptions: undefined,
-            legend: undefined,
-        } as any);
+        const makeSparkline = (
+            name: string,
+            data: number[],
+            color: string,
+            isPercent = false,
+        ): ChartOptions =>
+            ({
+                series: [{ name, data }],
+                chart: {
+                    type: 'area',
+                    height: 80,
+                    sparkline: { enabled: true },
+                } as any,
+                colors: [color],
+                xaxis: { categories },
+                dataLabels: { enabled: false },
+                yaxis: isPercent
+                    ? {
+                          labels: {
+                              formatter: (val: number) => `${val.toFixed(1)}%`,
+                          },
+                      }
+                    : undefined,
+                plotOptions: undefined,
+                legend: undefined,
+            }) as any;
 
-        this.chartOptionsGaUsersTrend = makeSparkline('Người dùng', buildSeriesData(idxUsers), '#2563eb');
-        this.chartOptionsGaSessionsTrend = makeSparkline('Phiên truy cập', buildSeriesData(idxSessions), '#16a34a');
-        this.chartOptionsGaPageViewsTrend = makeSparkline('Lượt xem trang', buildSeriesData(idxPageViews), '#9333ea');
-        this.chartOptionsGaEngagementTrend = makeSparkline('Tỷ lệ tương tác', buildSeriesData(idxEngagement, true), '#ea580c', true);
+        this.chartOptionsGaUsersTrend = makeSparkline(
+            'Người dùng',
+            buildSeriesData(idxUsers),
+            '#2563eb',
+        );
+        this.chartOptionsGaSessionsTrend = makeSparkline(
+            'Phiên truy cập',
+            buildSeriesData(idxSessions),
+            '#16a34a',
+        );
+        this.chartOptionsGaPageViewsTrend = makeSparkline(
+            'Lượt xem trang',
+            buildSeriesData(idxPageViews),
+            '#9333ea',
+        );
+        this.chartOptionsGaEngagementTrend = makeSparkline(
+            'Tỷ lệ tương tác',
+            buildSeriesData(idxEngagement, true),
+            '#ea580c',
+            true,
+        );
     }
 
     // Logic Map Pages -> Categories (Trả về mảng mới để không đè dữ liệu cũ)
-    private mapGaDataToCategoriesAggregated(gaPages: { path: string; title: string; views: number }[]): any[] {
+    private mapGaDataToCategoriesAggregated(
+        gaPages: { path: string; title: string; views: number }[],
+    ): any[] {
         if (!this.categoryItems || this.categoryItems.length === 0) return [];
 
         const clonedCats = JSON.parse(JSON.stringify(this.categoryItems));
@@ -1675,15 +1987,20 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
                 return;
             }
 
-            gaPages.forEach(page => {
+            gaPages.forEach((page) => {
                 const pPath = (page.path || '').toLowerCase();
                 const pTitle = (page.title || '').toLowerCase();
                 let isMatch = false;
 
-                if (catSlug && pPath.includes(catSlug)) { isMatch = true; }
-                else if (catName && pTitle.includes(catName)) { isMatch = true; }
+                if (catSlug && pPath.includes(catSlug)) {
+                    isMatch = true;
+                } else if (catName && pTitle.includes(catName)) {
+                    isMatch = true;
+                }
 
-                if (isMatch) { catTotalViews += page.views; }
+                if (isMatch) {
+                    catTotalViews += page.views;
+                }
             });
 
             cat.attributedViews = catTotalViews;
@@ -1710,9 +2027,11 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         private _fuseConfigService: FuseConfigService,
         private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
-        private route: ActivatedRoute
+        private route: ActivatedRoute,
     ) {
-        this.titleService.setTitle(`báo cáo seo | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `báo cáo seo | ai.type - công cụ tạo content`,
+        );
 
         this.route.queryParams.subscribe((params: Params) => {
             if (params['tab']) {
@@ -1730,14 +2049,16 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
             });
 
         this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
-            this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
+            this.secretKey = this.settings.secretKey
+                ? this.settings.secretKey.split(';')
+                : undefined;
+            this.searchAPIKey = this.settings.searchAPIKey
+                ? this.settings.searchAPIKey.split(';')
+                : undefined;
 
             if (this.secretKey) {
                 // let geminiKey = this.secretKey[0];
@@ -1775,24 +2096,26 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         dialogRef.afterClosed().subscribe((_) => {
@@ -1812,7 +2135,7 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         this.pageSpeedData = null;
 
         if (!this.siteUrl) {
-            this.pageSpeedError = "Vui lòng chọn hoặc nhập Domain!";
+            this.pageSpeedError = 'Vui lòng chọn hoặc nhập Domain!';
             return;
         }
 
@@ -1820,20 +2143,26 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         this.cd.markForCheck();
 
         const API_KEY = 'AIzaSyD8CKrKLMTByra9kiAZFcTRYgoarpVixXA';
-        const normalizedUrl = /^https?:\/\//i.test(this.siteUrl) ? this.siteUrl : `https://${this.siteUrl}`;
+        const normalizedUrl = /^https?:\/\//i.test(this.siteUrl)
+            ? this.siteUrl
+            : `https://${this.siteUrl}`;
         const apiEndpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(normalizedUrl)}&strategy=desktop&key=${API_KEY}&category=performance&category=accessibility&category=best-practices&category=seo`;
 
         try {
-            this.toastr.info("⚡ Đang gửi yêu cầu phân tích PageSpeed Insights ngầm... Bạn có thể tiếp tục xem & thao tác các tab khác bình thường!");
+            this.toastr.info(
+                '⚡ Đang gửi yêu cầu phân tích PageSpeed Insights ngầm... Bạn có thể tiếp tục xem & thao tác các tab khác bình thường!',
+            );
             const response = await fetch(apiEndpoint);
             if (!response.ok) {
                 const errData = await response.json();
-                throw new Error(errData.error?.message || `Lỗi HTTP: ${response.status}`);
+                throw new Error(
+                    errData.error?.message || `Lỗi HTTP: ${response.status}`,
+                );
             }
 
             this.pageSpeedData = await response.json();
             this.pageSpeedActiveTab = 'performance';
-            this.toastr.success("✅ Đã hoàn tất phân tích PageSpeed Insights!");
+            this.toastr.success('✅ Đã hoàn tất phân tích PageSpeed Insights!');
         } catch (error: any) {
             console.error(error);
             this.pageSpeedError = `Đã xảy ra lỗi: ${error.message}`;
@@ -1846,7 +2175,8 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
     getPageSpeedScore(category: string): number | string {
         if (!this.pageSpeedData) return 'N/A';
-        const score = this.pageSpeedData.lighthouseResult?.categories[category]?.score;
+        const score =
+            this.pageSpeedData.lighthouseResult?.categories[category]?.score;
         return score !== undefined ? Math.round(score * 100) : 'N/A';
     }
 
@@ -1865,8 +2195,10 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
     }
 
     getAuditLists(categoryKey: string) {
-        if (!this.pageSpeedData) return { passed: [], failed: [], inform: [], category: null };
-        const category = this.pageSpeedData.lighthouseResult.categories[categoryKey];
+        if (!this.pageSpeedData)
+            return { passed: [], failed: [], inform: [], category: null };
+        const category =
+            this.pageSpeedData.lighthouseResult.categories[categoryKey];
         const audits = this.pageSpeedData.lighthouseResult.audits;
         const passed: any[] = [];
         const failed: any[] = [];
@@ -1876,8 +2208,10 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             category.auditRefs.forEach((ref: any) => {
                 const audit = audits[ref.id];
                 if (!audit) return;
-                
-                audit.cleanDesc = audit.description ? audit.description.replace(/\[(.*?)\]\((.*?)\)/g, '$1') : '';
+
+                audit.cleanDesc = audit.description
+                    ? audit.description.replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+                    : '';
                 audit.isPassed = audit.score !== null && audit.score >= 0.9;
                 audit.isInformational = audit.score === null;
                 audit.isExpanded = false;
@@ -1900,10 +2234,13 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             const parsed = new URL(url);
             let path = parsed.pathname + parsed.search;
             if (path.length > 40) {
-                path = path.substring(0, 18) + '...' + path.substring(path.length - 15);
+                path =
+                    path.substring(0, 18) +
+                    '...' +
+                    path.substring(path.length - 15);
             }
             return parsed.hostname + path;
-        } catch(e) {
+        } catch (e) {
             return url.length > 40 ? url.substring(0, 37) + '...' : url;
         }
     }
@@ -1911,17 +2248,25 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
     formatAuditValue(val: any, heading: any, key: string) {
         if (val === undefined || val === null) return '';
         if (typeof val === 'object' && val.type === 'url') return val.value;
-        if (heading.valueType === 'bytes') return (val / 1024).toFixed(1) + ' KB';
-        if (heading.valueType === 'timespanMs' || key.includes('Ms') || key.includes('time')) {
+        if (heading.valueType === 'bytes')
+            return (val / 1024).toFixed(1) + ' KB';
+        if (
+            heading.valueType === 'timespanMs' ||
+            key.includes('Ms') ||
+            key.includes('time')
+        ) {
             return typeof val === 'number' ? val.toFixed(0) + ' ms' : val;
         }
         return val;
     }
 
     isUrlValue(val: any) {
-        return (typeof val === 'object' && val.type === 'url') || (typeof val === 'string' && val.startsWith('http'));
+        return (
+            (typeof val === 'object' && val.type === 'url') ||
+            (typeof val === 'string' && val.startsWith('http'))
+        );
     }
-    
+
     getUrlValue(val: any) {
         if (typeof val === 'object' && val.type === 'url') return val.value;
         return val;
@@ -1929,22 +2274,27 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
     getFieldData(experience: any) {
         if (!experience || !experience.metrics) return null;
-        
+
         const category = experience.overall_category || 'AVERAGE';
         let badgeClass = 'badge none';
         let badgeText = 'TRUNG BÌNH';
-        if (category === 'FAST') { badgeClass = 'badge passed'; badgeText = 'ĐẠT (FAST)'; }
-        else if (category === 'SLOW') { badgeClass = 'badge failed'; badgeText = 'TỆ (SLOW)'; }
-        
+        if (category === 'FAST') {
+            badgeClass = 'badge passed';
+            badgeText = 'ĐẠT (FAST)';
+        } else if (category === 'SLOW') {
+            badgeClass = 'badge failed';
+            badgeText = 'TỆ (SLOW)';
+        }
+
         const metricsMapping: any = {
-            'FIRST_CONTENTFUL_PAINT_MS': 'FCP (First Contentful Paint)',
-            'LARGEST_CONTENTFUL_PAINT_MS': 'LCP (Largest Contentful Paint)',
-            'CUMULATIVE_LAYOUT_SHIFT_SCORE': 'CLS (Cumulative Layout Shift)',
-            'INTERACTIVE_TO_NEXT_PAINT': 'INP (Interaction to Next Paint)',
-            'FIRST_INPUT_DELAY_MS': 'FID (First Input Delay)'
+            FIRST_CONTENTFUL_PAINT_MS: 'FCP (First Contentful Paint)',
+            LARGEST_CONTENTFUL_PAINT_MS: 'LCP (Largest Contentful Paint)',
+            CUMULATIVE_LAYOUT_SHIFT_SCORE: 'CLS (Cumulative Layout Shift)',
+            INTERACTIVE_TO_NEXT_PAINT: 'INP (Interaction to Next Paint)',
+            FIRST_INPUT_DELAY_MS: 'FID (First Input Delay)',
         };
 
-        const metricsList = Object.keys(experience.metrics).map(key => {
+        const metricsList = Object.keys(experience.metrics).map((key) => {
             const metric = experience.metrics[key];
             const name = metricsMapping[key] || key;
             const val = metric.percentile;
@@ -1967,13 +2317,13 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
     downloadFullJSON() {
         if (!this.pageSpeedData) return;
-        let domainName = "domain";
+        let domainName = 'domain';
         try {
             domainName = new URL(this.siteUrl).hostname.replace('www.', '');
-        } catch(e) {}
-        const filename = `PageSpeed_RawData_${domainName}_${new Date().toISOString().slice(0,10)}.json`;
+        } catch (e) {}
+        const filename = `PageSpeed_RawData_${domainName}_${new Date().toISOString().slice(0, 10)}.json`;
         const jsonStr = JSON.stringify(this.pageSpeedData, null, 2);
-        const blob = new Blob([jsonStr], { type: "application/json" });
+        const blob = new Blob([jsonStr], { type: 'application/json' });
         const downloadUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
@@ -1991,10 +2341,14 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         }
 
         if (!this.pageSpeedData) {
-            this.toastr.info('Chưa có dữ liệu PageSpeed Insights. Đang tiến hành lấy dữ liệu...');
+            this.toastr.info(
+                'Chưa có dữ liệu PageSpeed Insights. Đang tiến hành lấy dữ liệu...',
+            );
             await this.fetchPageSpeedData();
             if (!this.pageSpeedData) {
-                this.toastr.error('Không thể lấy dữ liệu PageSpeed Insights để phân tích.');
+                this.toastr.error(
+                    'Không thể lấy dữ liệu PageSpeed Insights để phân tích.',
+                );
                 return;
             }
         }
@@ -2011,23 +2365,32 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
             const audits = this.pageSpeedData.lighthouseResult?.audits || {};
             const fcp = audits['first-contentful-paint']?.displayValue || 'N/A';
-            const lcp = audits['largest-contentful-paint']?.displayValue || 'N/A';
-            const cls = audits['cumulative-layout-shift']?.displayValue || 'N/A';
+            const lcp =
+                audits['largest-contentful-paint']?.displayValue || 'N/A';
+            const cls =
+                audits['cumulative-layout-shift']?.displayValue || 'N/A';
             const tbt = audits['total-blocking-time']?.displayValue || 'N/A';
             const speedIndex = audits['speed-index']?.displayValue || 'N/A';
             const tti = audits['interactive']?.displayValue || 'N/A';
 
             let failedAuditsSummary = '';
-            const perfCategory = this.pageSpeedData.lighthouseResult?.categories?.performance;
+            const perfCategory =
+                this.pageSpeedData.lighthouseResult?.categories?.performance;
             if (perfCategory && perfCategory.auditRefs) {
                 const failedList: string[] = [];
                 perfCategory.auditRefs.forEach((ref: any) => {
                     const audit = audits[ref.id];
                     if (audit && audit.score !== null && audit.score < 0.9) {
                         const title = audit.title || ref.id;
-                        const displayVal = audit.displayValue ? ` (${audit.displayValue})` : '';
-                        const desc = audit.description ? `: ${audit.description.replace(/\[.*?\]\(.*?\)/g, '')}` : '';
-                        failedList.push(`- [${ref.id}] ${title}${displayVal}${desc}`);
+                        const displayVal = audit.displayValue
+                            ? ` (${audit.displayValue})`
+                            : '';
+                        const desc = audit.description
+                            ? `: ${audit.description.replace(/\[.*?\]\(.*?\)/g, '')}`
+                            : '';
+                        failedList.push(
+                            `- [${ref.id}] ${title}${displayVal}${desc}`,
+                        );
                     }
                 });
                 if (failedList.length > 0) {
@@ -2094,18 +2457,28 @@ Quy định xuất HTML:
                         } else {
                             currentStreamedText += chunk;
                         }
-                        let cleanText = currentStreamedText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+                        let cleanText = currentStreamedText
+                            .replace(/^```html\s*/i, '')
+                            .replace(/```\s*$/i, '')
+                            .trim();
                         this.aiPageSpeedSuggestions = cleanText;
                         this.cd.markForCheck();
-                    }
-                } as any
+                    },
+                } as any,
             });
             let responseText = response?.text || currentStreamedText;
-            responseText = responseText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+            responseText = responseText
+                .replace(/^```html\s*/i, '')
+                .replace(/```\s*$/i, '')
+                .trim();
             this.aiPageSpeedSuggestions = responseText;
-            this.toastr.success('AI đã hoàn thành phân tích hướng dẫn tăng tốc!');
+            this.toastr.success(
+                'AI đã hoàn thành phân tích hướng dẫn tăng tốc!',
+            );
         } catch (error: any) {
-            this.toastr.error('Lỗi khi phân tích AI Tăng tốc: ' + error.message);
+            this.toastr.error(
+                'Lỗi khi phân tích AI Tăng tốc: ' + error.message,
+            );
             console.error('AI PageSpeed Error:', error);
         } finally {
             this.aiPageSpeedLoading = false;
@@ -2117,7 +2490,7 @@ Quy định xuất HTML:
         this.router.navigate([], {
             relativeTo: this.route,
             queryParams: { tab: e.index },
-            queryParamsHandling: 'merge'
+            queryParamsHandling: 'merge',
         });
     }
 }

@@ -11,7 +11,7 @@ import { UserClientService } from 'app/_services/user';
 import { ToastrService } from 'ngx-toastr';
 import { Observable, Subject, map, startWith, takeUntil, finalize, timeout, catchError, of } from 'rxjs';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import { TranslocoService } from '@ngneat/transloco';
+import { TranslocoService } from '@jsverse/transloco';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 
 interface ModelGroup {
@@ -25,7 +25,8 @@ interface ModelGroup {
     styleUrls: ['./account.component.scss'],
     providers: [UserClientService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsAccountComponent implements OnInit {
     chatModelsList: string[] = [];

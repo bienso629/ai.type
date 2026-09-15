@@ -7,91 +7,197 @@
             <!-- <div class="text-secondary mt-2">{{ 'app.auto_add_the_number_of_days_using_t' | transloco }}</div> -->
 
             <div class="text-secondary leading-8 mt-4">
-                <ng-container *ngIf="(activeInfo && activeInfo.user); else elseTemplate">
+                @if (activeInfo && activeInfo.user) {
                     <fuse-alert [appearance]="'outline'" [type]="'success'">
-                        {{ 'app.valid_until' | transloco }} {{activeInfo.user.expirationDate | date:'d/M/Y h:mma z'}}
+                        {{ "app.valid_until" | transloco }}
+                        {{
+                            activeInfo.user.expirationDate
+                                | date: "d/M/Y h:mma z"
+                        }}
                     </fuse-alert>
-                </ng-container>
-                <ng-template #elseTemplate>
+                } @else {
                     <fuse-alert [appearance]="'outline'" [type]="'warning'">
-                        {{ 'app.use_license_key_to_activate' | transloco }}
+                        {{ "app.use_license_key_to_activate" | transloco }}
                     </fuse-alert>
-                </ng-template>
+                }
             </div>
 
-            <div class="text-secondary leading-8 mt-4" *ngIf="activeInfo && activeInfo.user">
-                <fuse-alert [appearance]="'outline'" [type]="'warning'" (click)="copy(activeInfo?.user?.appToken || uuid)">
-                    <mat-icon class="icon-size-5" fuseAlertIcon [svgIcon]="'feather:copy'">
-                    </mat-icon>
-                    {{activeInfo?.user?.appToken || uuid}}
-                </fuse-alert>
-            </div>
+            @if (activeInfo && activeInfo.user) {
+                <div class="text-secondary leading-8 mt-4">
+                    <fuse-alert
+                        [appearance]="'outline'"
+                        [type]="'warning'"
+                        (click)="copy(activeInfo?.user?.appToken || uuid)"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            fuseAlertIcon
+                            [svgIcon]="'feather:copy'"
+                        >
+                        </mat-icon>
+                        {{ activeInfo?.user?.appToken || uuid }}
+                    </fuse-alert>
+                </div>
+            }
         </div>
 
-        <div class="w-full mt-12" *ngIf="!(activeInfo && activeInfo.user)">
-            <mat-label class="text-base font-medium leading-8">{{ 'app.enter_license_key' | transloco }}</mat-label>
-
-            <mat-grid-list class="max-w-140" cols="6" gutterSize="10px" rowHeight="60px">
-                <mat-grid-tile class="">
-                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                        <input #digitOne [formControlName]="'licensekey1'" placeholder="XXXXX"
-                            (paste)="onDigitPaste($event)" (keyup)="onDigitInput($event, null, digitTwo)" type="text"
-                            maxlength="5" class="uppercase" required matInput>
-                    </mat-form-field>
-                </mat-grid-tile>
-                <mat-grid-tile class="">
-                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                        <input #digitTwo [formControlName]="'licensekey2'" placeholder="XXXXX"
-                            (keyup)="onDigitInput($event, digitOne, digitThree)" type="text" maxlength="5"
-                            class="uppercase" required matInput>
-                    </mat-form-field>
-                </mat-grid-tile>
-                <mat-grid-tile class="">
-                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                        <input #digitThree [formControlName]="'licensekey3'" placeholder="XXXXX"
-                            (keyup)="onDigitInput($event, digitTwo, digitFour)" type="text" maxlength="5"
-                            class="uppercase" required matInput>
-                    </mat-form-field>
-                </mat-grid-tile>
-                <mat-grid-tile class="">
-                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                        <input #digitFour [formControlName]="'licensekey4'" placeholder="XXXXX"
-                            (keyup)="onDigitInput($event, digitThree, digitFive)" type="text" maxlength="5"
-                            class="uppercase" required matInput>
-                    </mat-form-field>
-                </mat-grid-tile>
-                <mat-grid-tile class="">
-                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                        <input #digitFive [formControlName]="'licensekey5'" placeholder="XXXXX"
-                            (keyup)="onDigitInput($event, digitFour, digitSix)" type="text" maxlength="5"
-                            class="uppercase" required matInput>
-                    </mat-form-field>
-                </mat-grid-tile>
-                <mat-grid-tile class="">
-                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                        <input #digitSix [formControlName]="'licensekey6'" placeholder="XXXXX"
-                            (keyup)="onDigitInput($event, digitFive, null)" type="text" maxlength="5" class="uppercase"
-                            required matInput>
-                    </mat-form-field>
-                </mat-grid-tile>
-            </mat-grid-list>
-
-            <!-- Divider -->
-             <div class="mt-8 border-t"></div>
-
-            <div class="mt-4 flex items-center">
-                <button mat-flat-button type="submit" [color]="'primary'">{{ 'app.activate_software' | transloco }}</button>
-                <a *ngIf="showPaymentButton" class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline" (click)="openMomoPayment()">{{ 'app.auto_receive_license_key' | transloco }}</a>
+        @if (!(activeInfo && activeInfo.user)) {
+            <div class="w-full mt-12">
+                <mat-label class="text-base font-medium leading-8">{{
+                    "app.enter_license_key" | transloco
+                }}</mat-label>
+                <mat-grid-list
+                    class="max-w-140"
+                    cols="6"
+                    gutterSize="10px"
+                    rowHeight="60px"
+                >
+                    <mat-grid-tile class="">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                        >
+                            <input
+                                #digitOne
+                                [formControlName]="'licensekey1'"
+                                placeholder="XXXXX"
+                                (paste)="onDigitPaste($event)"
+                                (keyup)="onDigitInput($event, null, digitTwo)"
+                                type="text"
+                                maxlength="5"
+                                class="uppercase"
+                                required
+                                matInput
+                            />
+                        </mat-form-field>
+                    </mat-grid-tile>
+                    <mat-grid-tile class="">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                        >
+                            <input
+                                #digitTwo
+                                [formControlName]="'licensekey2'"
+                                placeholder="XXXXX"
+                                (keyup)="
+                                    onDigitInput($event, digitOne, digitThree)
+                                "
+                                type="text"
+                                maxlength="5"
+                                class="uppercase"
+                                required
+                                matInput
+                            />
+                        </mat-form-field>
+                    </mat-grid-tile>
+                    <mat-grid-tile class="">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                        >
+                            <input
+                                #digitThree
+                                [formControlName]="'licensekey3'"
+                                placeholder="XXXXX"
+                                (keyup)="
+                                    onDigitInput($event, digitTwo, digitFour)
+                                "
+                                type="text"
+                                maxlength="5"
+                                class="uppercase"
+                                required
+                                matInput
+                            />
+                        </mat-form-field>
+                    </mat-grid-tile>
+                    <mat-grid-tile class="">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                        >
+                            <input
+                                #digitFour
+                                [formControlName]="'licensekey4'"
+                                placeholder="XXXXX"
+                                (keyup)="
+                                    onDigitInput($event, digitThree, digitFive)
+                                "
+                                type="text"
+                                maxlength="5"
+                                class="uppercase"
+                                required
+                                matInput
+                            />
+                        </mat-form-field>
+                    </mat-grid-tile>
+                    <mat-grid-tile class="">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                        >
+                            <input
+                                #digitFive
+                                [formControlName]="'licensekey5'"
+                                placeholder="XXXXX"
+                                (keyup)="
+                                    onDigitInput($event, digitFour, digitSix)
+                                "
+                                type="text"
+                                maxlength="5"
+                                class="uppercase"
+                                required
+                                matInput
+                            />
+                        </mat-form-field>
+                    </mat-grid-tile>
+                    <mat-grid-tile class="">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                        >
+                            <input
+                                #digitSix
+                                [formControlName]="'licensekey6'"
+                                placeholder="XXXXX"
+                                (keyup)="onDigitInput($event, digitFive, null)"
+                                type="text"
+                                maxlength="5"
+                                class="uppercase"
+                                required
+                                matInput
+                            />
+                        </mat-form-field>
+                    </mat-grid-tile>
+                </mat-grid-list>
+                <!-- Divider -->
+                <div class="mt-8 border-t"></div>
+                <div class="mt-4 flex items-center">
+                    <button mat-flat-button type="submit" [color]="'primary'">
+                        {{ "app.activate_software" | transloco }}
+                    </button>
+                    @if (showPaymentButton) {
+                        <a
+                            class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline"
+                            (click)="openMomoPayment()"
+                            >{{ "app.auto_receive_license_key" | transloco }}</a
+                        >
+                    }
+                </div>
             </div>
-        </div>
+        }
 
-        <div class="w-full mt-8" *ngIf="activeInfo && activeInfo.user">
-            <div class="flex flex-col items-start space-y-3">
-                <button mat-flat-button type="button" [color]="'primary'" (click)="openMomoPayment()">
-                    <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
-                    <span class="ml-2">Thêm ngày sử dụng</span>
-                </button>
+        @if (activeInfo && activeInfo.user) {
+            <div class="w-full mt-8">
+                <div class="flex flex-col items-start space-y-3">
+                    <button
+                        mat-flat-button
+                        type="button"
+                        [color]="'primary'"
+                        (click)="openMomoPayment()"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:calendar'"
+                        ></mat-icon>
+                        <span class="ml-2">Thêm ngày sử dụng</span>
+                    </button>
+                </div>
             </div>
-        </div>
+        }
     </form>
 </div>

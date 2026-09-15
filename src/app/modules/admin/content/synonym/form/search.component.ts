@@ -4,14 +4,15 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
 import { ColumnMode, DatatableComponent } from '@swimlane/ngx-datatable';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 @Component({
     selector: 'synonymform',
     templateUrl: './search.component.html',
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SynonymFormComponent implements OnInit, OnDestroy, AfterContentChecked {
     user: User;

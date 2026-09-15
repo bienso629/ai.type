@@ -10,7 +10,8 @@ import { ToastrService } from 'ngx-toastr';
     templateUrl: './livestream.component.html',
     styleUrls: ['./livestream.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    standalone: false
 })
 export class LivestreamComponent implements OnInit, OnDestroy {
     private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';

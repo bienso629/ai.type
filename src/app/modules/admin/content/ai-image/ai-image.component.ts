@@ -7,6 +7,7 @@ import {
     OnInit,
     ViewChild,
     ViewEncapsulation,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import { DomSanitizer, Title } from '@angular/platform-browser';
 import { ChatGPTService } from 'app/_services/chatgpt';
@@ -45,11 +46,21 @@ interface ReferenceFile {
     selector: 'ai-image',
     templateUrl: './ai-image.component.html',
     styleUrls: ['./ai-image.component.scss'],
-    providers: [ChatGPTService, BlogService, DomainService, MyKeysService, ForumService, WordpressService],
+    providers: [
+        ChatGPTService,
+        BlogService,
+        DomainService,
+        MyKeysService,
+        ForumService,
+        WordpressService,
+    ],
     encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AIImageComponent
-    implements OnInit, OnDestroy, AfterContentChecked {
+    implements OnInit, OnDestroy, AfterContentChecked
+{
     config: AppConfig;
     user: User;
     settings: any;
@@ -176,9 +187,10 @@ export class AIImageComponent
 
     // --- CÁC LOGIC KHÁC GIỮ NGUYÊN ---
     getMyKeys() {
-        this._voice.getMyKeys({
-            username: this.user.name
-        })
+        this._voice
+            .getMyKeys({
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -197,7 +209,7 @@ export class AIImageComponent
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => { }
+                complete: () => {},
             });
     }
 
@@ -236,8 +248,11 @@ export class AIImageComponent
                 let mimeType = result.format;
 
                 if (ext !== 'jpg' && ext !== 'jpeg') {
-                     base64Content = await this.convertToJpg(base64Content, mimeType);
-                     ext = 'jpg';
+                    base64Content = await this.convertToJpg(
+                        base64Content,
+                        mimeType,
+                    );
+                    ext = 'jpg';
                 }
 
                 const newFileName = `edited_${new Date().getTime()}.${ext}`;
@@ -260,7 +275,7 @@ export class AIImageComponent
         const cleanPath = imgPath.replace('file:///', '');
         const filename = cleanPath.split('/').pop() || 'image.png';
         const ext = filename.split('.').pop()?.toLowerCase() || 'png';
-        
+
         let mimeType = 'image/png';
         if (ext === 'jpg' || ext === 'jpeg') {
             mimeType = 'image/jpeg';
@@ -293,8 +308,8 @@ export class AIImageComponent
                     name: filename,
                     type: mimeType,
                     path: cleanPath,
-                    base64: base64Data
-                }
+                    base64: base64Data,
+                },
             });
         } catch (err) {
             this.toastr.error('Không thể đọc file ảnh để chia sẻ.');
@@ -302,7 +317,9 @@ export class AIImageComponent
     }
 
     async attachToPrompt(imagePath: string) {
-        let cleanPath = imagePath.replace(/^file:\/\/\//, '').replace(/^file:\/\//, '');
+        let cleanPath = imagePath
+            .replace(/^file:\/\/\//, '')
+            .replace(/^file:\/\//, '');
         let filename = cleanPath.split('/').pop() || 'image.png';
 
         let ext = filename.split('.').pop()?.toLowerCase();
@@ -337,7 +354,7 @@ export class AIImageComponent
             this.referenceFiles.push({
                 base64Data: base64Data,
                 mimeType: mimeType,
-                fileName: filename
+                fileName: filename,
             });
 
             this.cd.markForCheck();
@@ -351,9 +368,9 @@ export class AIImageComponent
         let ext = format.split('/')[1];
 
         if (ext !== 'jpg' && ext !== 'jpeg') {
-             base64Content = await this.convertToJpg(base64Content, format);
-             ext = 'jpg';
-             base64Data = `data:image/jpeg;base64,${base64Content}`;
+            base64Content = await this.convertToJpg(base64Content, format);
+            ext = 'jpg';
+            base64Data = `data:image/jpeg;base64,${base64Content}`;
         }
 
         const newFileName = `edited_${new Date().getTime()}.${ext}`;
@@ -387,12 +404,15 @@ export class AIImageComponent
             cb: async () => {
                 if ((window as any).electron) {
                     try {
-                        await (window as any).electron.invoke('delete-local-file', filePath);
+                        await (window as any).electron.invoke(
+                            'delete-local-file',
+                            filePath,
+                        );
                     } catch (e) {
                         console.error('Failed to delete file via electron', e);
                     }
                 }
-                
+
                 this.imageUrls.splice(index, 1);
                 this.rebuildRows();
                 this.toastr.success('Xóa hình ảnh khỏi danh sách thành công!');
@@ -405,30 +425,37 @@ export class AIImageComponent
             try {
                 const response = await fetch('file:///' + imagePath);
                 const blob = await response.blob();
-                const base64Data = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        const base64 = (reader.result as string).split(',')[1];
-                        resolve(base64);
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
-
-                this._wordpressService.upload_media(
-                    this.domain.domain,
-                    base64Data,
-                    '',
-                    '',
-                    this.domain
-                ).subscribe({
-                    next: (res) => {
-                        if (res) this.toastr.success('Tải hình ảnh thành công!');
+                const base64Data = await new Promise<string>(
+                    (resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const base64 = (reader.result as string).split(
+                                ',',
+                            )[1];
+                            resolve(base64);
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
                     },
-                    error: () => {
-                        this.toastr.warning('Không tải được hình ảnh.');
-                    }
-                });
+                );
+
+                this._wordpressService
+                    .upload_media(
+                        this.domain.domain,
+                        base64Data,
+                        '',
+                        '',
+                        this.domain,
+                    )
+                    .subscribe({
+                        next: (res) => {
+                            if (res)
+                                this.toastr.success('Tải hình ảnh thành công!');
+                        },
+                        error: () => {
+                            this.toastr.warning('Không tải được hình ảnh.');
+                        },
+                    });
             } catch (err) {
                 this.toastr.warning('Không thể đọc file ảnh.');
             }
@@ -442,7 +469,8 @@ export class AIImageComponent
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: async (result) => {
-                        if (result) this.toastr.success('Tải hình ảnh thành công!');
+                        if (result)
+                            this.toastr.success('Tải hình ảnh thành công!');
                     },
                     error: () => {
                         this.toastr.warning('Không tải được hình ảnh.');
@@ -457,7 +485,7 @@ export class AIImageComponent
             .stop2025({})
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: () => { },
+                next: () => {},
                 error: () => {
                     this.toastr.warning('Không thể dừng tạo hình ảnh.');
                 },
@@ -477,7 +505,7 @@ export class AIImageComponent
                     this.referenceFiles.push({
                         base64Data: e.target.result.split(',')[1],
                         mimeType: file.type,
-                        fileName: file.name
+                        fileName: file.name,
                     });
                     this.cd.markForCheck();
                 };
@@ -506,8 +534,8 @@ export class AIImageComponent
         if (!promptValue || this.loading) return;
 
         this.loading = true;
-        const selectedSize = this.form.get('resolution')?.value || "512px";
-        const selectedRatio = this.form.get('aspectRatio')?.value || "16:9";
+        const selectedSize = this.form.get('resolution')?.value || '512px';
+        const selectedRatio = this.form.get('aspectRatio')?.value || '16:9';
         const modelId = this.form.get('modelId')?.value;
 
         let qualityTag = '';
@@ -519,32 +547,44 @@ export class AIImageComponent
             qualityTag = ', chất lượng 4K';
         }
 
-        const finalPromptText = promptValue.trim() + (promptValue.toLowerCase().includes('1k') || promptValue.toLowerCase().includes('2k') || promptValue.toLowerCase().includes('4k') ? '' : qualityTag);
+        const finalPromptText =
+            promptValue.trim() +
+            (promptValue.toLowerCase().includes('1k') ||
+            promptValue.toLowerCase().includes('2k') ||
+            promptValue.toLowerCase().includes('4k')
+                ? ''
+                : qualityTag);
 
         try {
             // 1. Cấu hình gửi đi chuẩn SDK v2 (@google/genai)
             const generateOptions = {
                 model: modelId,
-                contents: [{ role: 'user', parts: [{ text: finalPromptText }] }],
+                contents: [
+                    { role: 'user', parts: [{ text: finalPromptText }] },
+                ],
                 config: {
                     responseModalities: ['TEXT', 'IMAGE'],
                     imageConfig: {
-                        aspectRatio: selectedRatio
-                    }
-                }
+                        aspectRatio: selectedRatio,
+                    },
+                },
             };
 
             // Thêm ảnh tham chiếu nếu có
             if (this.referenceFiles?.length > 0) {
-                this.referenceFiles.forEach(file => {
+                this.referenceFiles.forEach((file) => {
                     generateOptions.contents[0].parts.push({
-                        inlineData: { data: file.base64Data, mimeType: file.mimeType }
+                        inlineData: {
+                            data: file.base64Data,
+                            mimeType: file.mimeType,
+                        },
                     } as any);
                 });
             }
 
             // 2. Gọi API thông qua GenaiService (Routing tự động)
-            const response = await this._genaiService.generateContent(generateOptions);
+            const response =
+                await this._genaiService.generateContent(generateOptions);
 
             // 3. Rà soát Logic phản hồi
             const candidates = response.candidates;
@@ -571,7 +611,9 @@ export class AIImageComponent
                         // const fullBase64ForPreview = `data:${mimeType};base64,${rawBase64}`;
                         // this.downloadImage(fullBase64ForPreview, `banana-${Date.now()}.png`);
 
-                        this.toastr.info(`Tiêu tốn: ${usage?.totalTokenCount || 0} tokens`);
+                        this.toastr.info(
+                            `Tiêu tốn: ${usage?.totalTokenCount || 0} tokens`,
+                        );
 
                         // 2. LOGIC QUAN TRỌNG: Gửi lên Server
                         await this.processAndUploadImage(rawBase64, mimeType);
@@ -582,11 +624,13 @@ export class AIImageComponent
                 // this.referenceFiles = [];
                 // this.form.get('prompt')?.setValue('');
 
-                this.toastr.success('Tạo hình ảnh thành công!')
+                this.toastr.success('Tạo hình ảnh thành công!');
             }
         } catch (err: any) {
             console.error('Lỗi Banana Logic:', err);
-            this.toastr.error('Lỗi tạo ảnh: ' + (err.message || 'Vui lòng thử lại.'));
+            this.toastr.error(
+                'Lỗi tạo ảnh: ' + (err.message || 'Vui lòng thử lại.'),
+            );
 
             this.loading = false;
             this.cd.markForCheck();
@@ -691,7 +735,7 @@ export class AIImageComponent
                 folder: 'thumbnails',
                 username: this.user.name,
                 ext: 'png',
-                mimeType: 'image/png'
+                mimeType: 'image/png',
             }),
         ]);
 
@@ -795,7 +839,7 @@ export class AIImageComponent
         private _genaiService: GenaiService,
         private _forumService: ForumService,
         private _h: HelperService,
-        private _wordpressService: WordpressService
+        private _wordpressService: WordpressService,
     ) {
         this.titleService.setTitle(`tạo hình | ai.type - công cụ tạo content`);
 
@@ -860,7 +904,7 @@ export class AIImageComponent
         this.detectGrid();
     }
 
-    ngAfterContentChecked(): void { }
+    ngAfterContentChecked(): void {}
 
     ngOnInit(): void {
         this.form = this._formBuilder.group({
@@ -881,9 +925,10 @@ export class AIImageComponent
     alert(alert?: any) {
         const dialogRef = this._fuseConfirmationService.open({
             title: alert && alert.title ? alert.title : 'Hoàn tất!',
-            message: alert && alert.message
-                ? alert.message
-                : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu.',
+            message:
+                alert && alert.message
+                    ? alert.message
+                    : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu.',
             icon: { show: true, name: 'feather:check', color: 'success' },
             actions: {
                 confirm: {

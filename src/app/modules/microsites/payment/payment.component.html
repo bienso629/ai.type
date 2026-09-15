@@ -1,7 +1,14 @@
 <form [formGroup]="paymentForm" (ngSubmit)="send()">
-    <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-        <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:dollar-sign'"></mat-icon>
-        <mat-label class="self-center">{{ 'app.auto_encourage_the_author_to_contin' | transloco }}</mat-label>
+    <div
+        class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch"
+    >
+        <mat-icon
+            class="self-center mr-2 icon-size-5"
+            [svgIcon]="'feather:dollar-sign'"
+        ></mat-icon>
+        <mat-label class="self-center">{{
+            "app.auto_encourage_the_author_to_contin" | transloco
+        }}</mat-label>
     </div>
 
     <div mat-dialog-content class="mt-4 p-0">
@@ -10,48 +17,96 @@
             <div class="flex flex-col sm:flex-row flex-0">
                 <div class="flex-1 min-w-0 max-w-90">
                     <div class="relative">
-                        <ng-container *ngIf="linkDonate; else elseTemplate">
+                        @if (linkDonate) {
                             <div class="flex flex-1 w-full h-auto">
-                                <qrcode [qrdata]="linkDonate" [allowEmptyString]="true"
+                                <qrcode
+                                    [qrdata]="linkDonate"
+                                    [allowEmptyString]="true"
                                     [ariaLabel]="'QR Code image with the following content...'"
-                                    [cssClass]="'rounded-md'" [colorDark]="'#000000ff'" [colorLight]="'#ffffffff'"
-                                    [elementType]="'svg'" [errorCorrectionLevel]="'M'"
-                                    [imageSrc]="'./assets/images/logo/favicon.svg'" [imageHeight]="24" [imageWidth]="24"
-                                    [margin]="1" [scale]="1" [title]="'A custom title attribute'" [width]="300">
+                                    [cssClass]="'rounded-md'"
+                                    [colorDark]="'#000000ff'"
+                                    [colorLight]="'#ffffffff'"
+                                    [elementType]="'svg'"
+                                    [errorCorrectionLevel]="'M'"
+                                    [imageSrc]="'./assets/images/logo/favicon.svg'"
+                                    [imageHeight]="24"
+                                    [imageWidth]="24"
+                                    [margin]="1"
+                                    [scale]="1"
+                                    [title]="'A custom title attribute'"
+                                    [width]="300"
+                                >
                                 </qrcode>
                             </div>
-                        </ng-container>
-
-                        <ng-template #elseTemplate>
-                            <mat-label class="text-base">{{ 'app.auto_not_updated' | transloco }}</mat-label>
-                        </ng-template>
+                        } @else {
+                            <mat-label class="text-base">{{
+                                "app.auto_not_updated" | transloco
+                            }}</mat-label>
+                        }
                     </div>
                 </div>
 
                 <!-- Actions -->
-                <div class="flex flex-col shrink-0 items-center mt-0 sm:mt-0 sm:ml-4">
-                    <mat-form-field class="w-full min-w-60 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'app.auto_amount_of_money' | transloco }}</mat-label>
-                        <input class="max-h-30 min-h-10" [currencyMask]="options"
-                            [formControlName]="'amountCtrl'" [placeholder]="'25.000'" required matInput />
+                <div
+                    class="flex flex-col shrink-0 items-center mt-0 sm:mt-0 sm:ml-4"
+                >
+                    <mat-form-field
+                        class="w-full min-w-60 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{
+                            "app.auto_amount_of_money" | transloco
+                        }}</mat-label>
+                        <input
+                            class="max-h-30 min-h-10"
+                            [currencyMask]="options"
+                            [formControlName]="'amountCtrl'"
+                            [placeholder]="'25.000'"
+                            required
+                            matInput
+                        />
                         <span matSuffix>đ</span>
-                        <mat-hint><mat-label class="text-red-500">{{ 'app.auto_check_the_correct_author_s_nam' | transloco }}</mat-label></mat-hint>
+                        <mat-hint
+                            ><mat-label class="text-red-500">{{
+                                "app.auto_check_the_correct_author_s_nam"
+                                    | transloco
+                            }}</mat-label></mat-hint
+                        >
                     </mat-form-field>
 
-                    <mat-form-field class="w-full mt-4 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix">
-                        <mat-label>{{ 'app.auto_note' | transloco }}</mat-label>
-                        <textarea class="max-h-30 min-h-10 w-full" [formControlName]="'noteCtrl'"
-                            [placeholder]="'Cám ơn bài viết của tác giả!'" type="text" required matInput
-                            cdkTextareaAutosize></textarea>
+                    <mat-form-field
+                        class="w-full mt-4 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                    >
+                        <mat-label>{{ "app.auto_note" | transloco }}</mat-label>
+                        <textarea
+                            class="max-h-30 min-h-10 w-full"
+                            [formControlName]="'noteCtrl'"
+                            [placeholder]="'Cám ơn bài viết của tác giả!'"
+                            type="text"
+                            required
+                            matInput
+                            cdkTextareaAutosize
+                        ></textarea>
                     </mat-form-field>
 
                     <div class="mt-4">
-                        <button mat-flat-button type="submit" color="primary" class="float-right">
-                            {{ 'app.auto_confirm_donate' | transloco }}
+                        <button
+                            mat-flat-button
+                            type="submit"
+                            color="primary"
+                            class="float-right"
+                        >
+                            {{ "app.auto_confirm_donate" | transloco }}
                         </button>
-                        <button mat-flat-button type="button" color="medium" (click)="close()"
-                            class="float-right ml-2">{{ 'app.auto_close_the_window' | transloco }}</button>
+                        <button
+                            mat-flat-button
+                            type="button"
+                            color="medium"
+                            (click)="close()"
+                            class="float-right ml-2"
+                        >
+                            {{ "app.auto_close_the_window" | transloco }}
+                        </button>
                     </div>
                 </div>
             </div>

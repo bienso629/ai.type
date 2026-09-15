@@ -15,7 +15,8 @@ import { UserService } from 'app/core/user/user.service';
     templateUrl: './share.component.html',
     styleUrls: ['./share.component.scss'],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     @Input() data: any;

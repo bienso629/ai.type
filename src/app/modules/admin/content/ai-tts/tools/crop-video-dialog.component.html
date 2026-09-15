@@ -1,19 +1,35 @@
-<div class="flex flex-col h-full max-h-[90vh] overflow-hidden bg-[#18181b] text-neutral-200 select-none rounded-2xl border border-neutral-700/80 shadow-2xl">
+<div
+    class="flex flex-col h-full max-h-[90vh] overflow-hidden bg-[#18181b] text-neutral-200 select-none rounded-2xl border border-neutral-700/80 shadow-2xl"
+>
     <!-- Header -->
-    <div class="flex items-center justify-between px-5 py-3.5 bg-[#121214] border-b border-neutral-800 shrink-0">
+    <div
+        class="flex items-center justify-between px-5 py-3.5 bg-[#121214] border-b border-neutral-800 shrink-0"
+    >
         <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-md bg-indigo-950/80 border border-indigo-500/50 flex items-center justify-center">
+            <div
+                class="w-8 h-8 rounded-md bg-indigo-950/80 border border-indigo-500/50 flex items-center justify-center"
+            >
                 <mat-icon class="icon-size-4.5 text-indigo-400">crop</mat-icon>
             </div>
             <div>
-                <h2 class="text-sm font-bold text-white tracking-wide">Cắt Khung Hình Video (Crop Video Frame)</h2>
-                <p class="text-[11px] text-neutral-400">Điều chỉnh vùng khung hình chữ nhật bạn muốn giữ lại cho video</p>
+                <h2 class="text-sm font-bold text-white tracking-wide">
+                    Cắt Khung Hình Video (Crop Video Frame)
+                </h2>
+                <p class="text-[11px] text-neutral-400">
+                    Điều chỉnh vùng khung hình chữ nhật bạn muốn giữ lại cho
+                    video
+                </p>
             </div>
         </div>
 
         <div class="flex items-center gap-2">
             <!-- Nút Đóng -->
-            <button mat-icon-button (click)="cancel()" [disabled]="isProcessing" class="text-neutral-400 hover:text-white">
+            <button
+                mat-icon-button
+                (click)="cancel()"
+                [disabled]="isProcessing"
+                class="text-neutral-400 hover:text-white"
+            >
                 <mat-icon>close</mat-icon>
             </button>
         </div>
@@ -22,9 +38,13 @@
     <!-- Main Workspace -->
     <div class="flex flex-row flex-1 overflow-hidden relative">
         <!-- Cột Trái: Canvas & Video Preview -->
-        <div class="flex-1 flex flex-col items-center justify-center bg-[#09090b] p-6 relative overflow-hidden" #containerRef>
+        <div
+            class="flex-1 flex flex-col items-center justify-center bg-[#09090b] p-6 relative overflow-hidden"
+            #containerRef
+        >
             <!-- Lớp Video Ẩn để lấy frame vẽ lên Canvas -->
-            <video #videoElement
+            <video
+                #videoElement
                 [src]="videoSrc"
                 (loadedmetadata)="onVideoMetadataLoaded()"
                 (loadeddata)="onVideoMetadataLoaded()"
@@ -38,228 +58,467 @@
                 playsinline
                 webkit-playsinline
                 muted
-                style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; left: -9999px; top: -9999px;"></video>
+                style="
+                    position: absolute;
+                    width: 1px;
+                    height: 1px;
+                    opacity: 0;
+                    pointer-events: none;
+                    left: -9999px;
+                    top: -9999px;
+                "
+            ></video>
 
             <!-- Khung Canvas Crop tương tác -->
-            <div class="relative shadow-2xl border border-neutral-800/80 rounded bg-black flex items-center justify-center"
+            <div
+                class="relative shadow-2xl border border-neutral-800/80 rounded bg-black flex items-center justify-center"
                 [style.width.px]="canvasDisplayWidth"
-                [style.height.px]="canvasDisplayHeight">
-                
-                <canvas #cropCanvas
+                [style.height.px]="canvasDisplayHeight"
+            >
+                <canvas
+                    #cropCanvas
                     class="cursor-crosshair w-full h-full block rounded"
                     [width]="naturalWidth || 640"
                     [height]="naturalHeight || 360"
                     (mousedown)="onMouseDown($event)"
                     (mousemove)="onMouseMove($event)"
                     (mouseup)="onMouseUp()"
-                    (mouseleave)="onMouseUp()"></canvas>
+                    (mouseleave)="onMouseUp()"
+                ></canvas>
 
                 <!-- Loading Spinner khi đang đọc Video hoặc đang FFmpeg Crop -->
-                <div *ngIf="!isVideoLoaded || isProcessing" class="absolute inset-0 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3 z-50">
-                    <mat-spinner diameter="36" class="!text-indigo-500"></mat-spinner>
-                    <span class="text-xs text-indigo-200 font-medium">
-                        {{ isProcessing ? 'FFmpeg đang crop video...' : 'Đang tải video...' }}
-                    </span>
-                </div>
+                @if (!isVideoLoaded || isProcessing) {
+                    <div
+                        class="absolute inset-0 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3 z-50"
+                    >
+                        <mat-spinner
+                            diameter="36"
+                            class="!text-indigo-500"
+                        ></mat-spinner>
+                        <span class="text-xs text-indigo-200 font-medium">
+                            {{
+                                isProcessing
+                                    ? "FFmpeg đang crop video..."
+                                    : "Đang tải video..."
+                            }}
+                        </span>
+                    </div>
+                }
             </div>
 
             <!-- Mini Playback Bar cho Video Preview -->
-            <div class="flex items-center gap-3 mt-4 px-4 py-1.5 bg-[#141416]/90 border border-neutral-800 rounded-full z-10 shadow-lg">
-                <button mat-icon-button class="w-7 h-7 flex items-center justify-center text-neutral-300 hover:text-white" (click)="togglePlay()">
-                    <mat-icon class="icon-size-4">{{ isPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+            <div
+                class="flex items-center gap-3 mt-4 px-4 py-1.5 bg-[#141416]/90 border border-neutral-800 rounded-full z-10 shadow-lg"
+            >
+                <button
+                    mat-icon-button
+                    class="w-7 h-7 flex items-center justify-center text-neutral-300 hover:text-white"
+                    (click)="togglePlay()"
+                >
+                    <mat-icon class="icon-size-4">{{
+                        isPlaying ? "pause" : "play_arrow"
+                    }}</mat-icon>
                 </button>
-                <span class="font-mono text-[11px] text-neutral-300 select-none">
+                <span
+                    class="font-mono text-[11px] text-neutral-300 select-none"
+                >
                     {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
                 </span>
-                <input type="range" min="0" [max]="duration || 1" step="0.05" [value]="currentTime"
+                <input
+                    type="range"
+                    min="0"
+                    [max]="duration || 1"
+                    step="0.05"
+                    [value]="currentTime"
                     (input)="seekVideo($any($event.target).value)"
-                    class="w-48 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                    class="w-48 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                />
             </div>
         </div>
 
         <!-- Cột Phải: Công cụ Chọn Tỉ lệ & Kích thước Crop -->
-        <div class="w-80 bg-[#121215] border-l border-neutral-800/90 flex flex-col p-4 space-y-4 overflow-y-auto shrink-0">
+        <div
+            class="w-80 bg-[#121215] border-l border-neutral-800/90 flex flex-col p-4 space-y-4 overflow-y-auto shrink-0"
+        >
             <!-- Thông số gốc -->
-            <div class="p-3 bg-[#18181f] border border-neutral-800 rounded-lg flex flex-col gap-1.5">
-                <span class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Video Gốc</span>
-                <div class="flex items-center justify-between text-xs text-neutral-200">
+            <div
+                class="p-3 bg-[#18181f] border border-neutral-800 rounded-lg flex flex-col gap-1.5"
+            >
+                <span
+                    class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider"
+                    >Video Gốc</span
+                >
+                <div
+                    class="flex items-center justify-between text-xs text-neutral-200"
+                >
                     <span>Độ phân giải:</span>
-                    <span class="font-mono text-indigo-300 font-semibold">{{ naturalWidth }} × {{ naturalHeight }} px</span>
+                    <span class="font-mono text-indigo-300 font-semibold"
+                        >{{ naturalWidth }} × {{ naturalHeight }} px</span
+                    >
                 </div>
-                <div class="flex items-center justify-between text-xs text-neutral-200">
+                <div
+                    class="flex items-center justify-between text-xs text-neutral-200"
+                >
                     <span>Tỷ lệ ban đầu:</span>
-                    <span class="font-mono text-neutral-400">{{ getAspectRatioLabel(naturalWidth, naturalHeight) }}</span>
+                    <span class="font-mono text-neutral-400">{{
+                        getAspectRatioLabel(naturalWidth, naturalHeight)
+                    }}</span>
                 </div>
             </div>
 
             <!-- Lựa chọn Chế độ Cắt Video (Crop Mode) -->
-            <div class="flex flex-col gap-2 p-3 bg-[#18181f] border border-indigo-500/30 rounded-lg">
-                <label class="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <mat-icon class="icon-size-3.5 text-indigo-400">tune</mat-icon>
+            <div
+                class="flex flex-col gap-2 p-3 bg-[#18181f] border border-indigo-500/30 rounded-lg"
+            >
+                <label
+                    class="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5"
+                >
+                    <mat-icon class="icon-size-3.5 text-indigo-400"
+                        >tune</mat-icon
+                    >
                     <span>Chế độ Cắt (Crop Mode)</span>
                 </label>
-                <div class="grid grid-cols-2 gap-1.5 p-1 bg-[#101014] rounded border border-neutral-800">
-                    <button type="button" (click)="setCropMode('crop_pad')"
+                <div
+                    class="grid grid-cols-2 gap-1.5 p-1 bg-[#101014] rounded border border-neutral-800"
+                >
+                    <button
+                        type="button"
+                        (click)="setCropMode('crop_pad')"
                         class="px-2 py-2 text-center rounded transition-all flex flex-col items-center gap-0.5"
-                        [ngClass]="cropMode === 'crop_pad' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-neutral-400 hover:text-white'">
+                        [ngClass]="
+                            cropMode === 'crop_pad'
+                                ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                                : 'text-neutral-400 hover:text-white'
+                        "
+                    >
                         <span class="text-xs">Giữ Tỉ Lệ & Tọa Độ</span>
-                        <span class="text-[9px] opacity-80">(Cắt 4 Biên / Giữ Canvas)</span>
+                        <span class="text-[9px] opacity-80"
+                            >(Cắt 4 Biên / Giữ Canvas)</span
+                        >
                     </button>
-                    <button type="button" (click)="setCropMode('crop_resize')"
+                    <button
+                        type="button"
+                        (click)="setCropMode('crop_resize')"
                         class="px-2 py-2 text-center rounded transition-all flex flex-col items-center gap-0.5"
-                        [ngClass]="cropMode === 'crop_resize' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-neutral-400 hover:text-white'">
+                        [ngClass]="
+                            cropMode === 'crop_resize'
+                                ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                                : 'text-neutral-400 hover:text-white'
+                        "
+                    >
                         <span class="text-xs">Thu Nhỏ Khung</span>
-                        <span class="text-[9px] opacity-80">(Thay đổi độ phân giải)</span>
+                        <span class="text-[9px] opacity-80"
+                            >(Thay đổi độ phân giải)</span
+                        >
                     </button>
                 </div>
-                <p class="text-[10px] text-neutral-400 leading-tight" *ngIf="cropMode === 'crop_pad'">
-                    Gọt bỏ các phần thừa ở Trên, Dưới, Trái, Phải nhưng video vẫn giữ nguyên kích thước và tọa độ gốc (nền trong suốt cho WebM hoặc nền đen cho MP4).
-                </p>
-                <p class="text-[10px] text-neutral-400 leading-tight" *ngIf="cropMode === 'crop_resize'">
-                    Khung video sẽ co lại vừa đúng kích thước vùng bạn chọn.
-                </p>
+                @if (cropMode === "crop_pad") {
+                    <p class="text-[10px] text-neutral-400 leading-tight">
+                        Gọt bỏ các phần thừa ở Trên, Dưới, Trái, Phải nhưng
+                        video vẫn giữ nguyên kích thước và tọa độ gốc (nền trong
+                        suốt cho WebM hoặc nền đen cho MP4).
+                    </p>
+                }
+                @if (cropMode === "crop_resize") {
+                    <p class="text-[10px] text-neutral-400 leading-tight">
+                        Khung video sẽ co lại vừa đúng kích thước vùng bạn chọn.
+                    </p>
+                }
             </div>
 
             <!-- Cắt 4 Biên: Trên, Dưới, Trái, Phải (Margins) -->
-            <div class="p-3 bg-[#18181f] border border-neutral-800 rounded-lg flex flex-col gap-2.5">
-                <span class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center justify-between">
+            <div
+                class="p-3 bg-[#18181f] border border-neutral-800 rounded-lg flex flex-col gap-2.5"
+            >
+                <span
+                    class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center justify-between"
+                >
                     <span>Cắt 4 Biên (Padding px)</span>
-                    <span class="text-[10px] text-indigo-400 lowercase font-mono">w: {{ cropRect.w }} × h: {{ cropRect.h }}</span>
+                    <span
+                        class="text-[10px] text-indigo-400 lowercase font-mono"
+                        >w: {{ cropRect.w }} × h: {{ cropRect.h }}</span
+                    >
                 </span>
 
                 <div class="grid grid-cols-2 gap-2">
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] text-neutral-400">Cắt Trên (Top)</label>
-                        <input type="number" [(ngModel)]="marginTop" (ngModelChange)="onMarginChange()" min="0" [max]="naturalHeight"
-                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                        <label class="text-[10px] text-neutral-400"
+                            >Cắt Trên (Top)</label
+                        >
+                        <input
+                            type="number"
+                            [(ngModel)]="marginTop"
+                            (ngModelChange)="onMarginChange()"
+                            min="0"
+                            [max]="naturalHeight"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500"
+                        />
                     </div>
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] text-neutral-400">Cắt Dưới (Bottom)</label>
-                        <input type="number" [(ngModel)]="marginBottom" (ngModelChange)="onMarginChange()" min="0" [max]="naturalHeight"
-                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                        <label class="text-[10px] text-neutral-400"
+                            >Cắt Dưới (Bottom)</label
+                        >
+                        <input
+                            type="number"
+                            [(ngModel)]="marginBottom"
+                            (ngModelChange)="onMarginChange()"
+                            min="0"
+                            [max]="naturalHeight"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500"
+                        />
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] text-neutral-400">Cắt Trái (Left)</label>
-                        <input type="number" [(ngModel)]="marginLeft" (ngModelChange)="onMarginChange()" min="0" [max]="naturalWidth"
-                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                        <label class="text-[10px] text-neutral-400"
+                            >Cắt Trái (Left)</label
+                        >
+                        <input
+                            type="number"
+                            [(ngModel)]="marginLeft"
+                            (ngModelChange)="onMarginChange()"
+                            min="0"
+                            [max]="naturalWidth"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500"
+                        />
                     </div>
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] text-neutral-400">Cắt Phải (Right)</label>
-                        <input type="number" [(ngModel)]="marginRight" (ngModelChange)="onMarginChange()" min="0" [max]="naturalWidth"
-                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                        <label class="text-[10px] text-neutral-400"
+                            >Cắt Phải (Right)</label
+                        >
+                        <input
+                            type="number"
+                            [(ngModel)]="marginRight"
+                            (ngModelChange)="onMarginChange()"
+                            min="0"
+                            [max]="naturalWidth"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500"
+                        />
                     </div>
                 </div>
             </div>
 
             <!-- Tỉ lệ khung hình định sẵn (Presets) - Chỉ hiện khi ở chế độ Thu nhỏ khung hoặc chỉnh tỷ lệ -->
-            <div class="flex flex-col gap-2" *ngIf="cropMode === 'crop_resize'">
-                <label class="text-[11px] font-semibold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <mat-icon class="icon-size-3.5 text-indigo-400">aspect_ratio</mat-icon>
-                    <span>Tỉ lệ khung hình (Aspect Ratio)</span>
-                </label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button type="button" (click)="setCropRatio(16, 9)"
-                        class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
-                        [ngClass]="activeRatio === '16:9' ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm' : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'">
-                        <mat-icon class="icon-size-4 text-red-400">smart_display</mat-icon>
-                        <span class="font-medium">16:9 (Ngang/YT)</span>
-                    </button>
-
-                    <button type="button" (click)="setCropRatio(9, 16)"
-                        class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
-                        [ngClass]="activeRatio === '9:16' ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm' : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'">
-                        <mat-icon class="icon-size-4 text-emerald-400">stay_current_portrait</mat-icon>
-                        <span class="font-medium">9:16 (TikTok/Shorts)</span>
-                    </button>
-
-                    <button type="button" (click)="setCropRatio(1, 1)"
-                        class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
-                        [ngClass]="activeRatio === '1:1' ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm' : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'">
-                        <mat-icon class="icon-size-4 text-amber-400">crop_square</mat-icon>
-                        <span class="font-medium">1:1 (Vuông)</span>
-                    </button>
-
-                    <button type="button" (click)="setCropRatio(4, 5)"
-                        class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
-                        [ngClass]="activeRatio === '4:5' ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm' : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'">
-                        <mat-icon class="icon-size-4 text-blue-400">photo_size_select_small</mat-icon>
-                        <span class="font-medium">4:5 (Facebook)</span>
-                    </button>
-
-                    <button type="button" (click)="setCropRatio(4, 3)"
-                        class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
-                        [ngClass]="activeRatio === '4:3' ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm' : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'">
-                        <mat-icon class="icon-size-4 text-cyan-400">tv</mat-icon>
-                        <span class="font-medium">4:3 (Truyền hình)</span>
-                    </button>
-
-                    <button type="button" (click)="setFreeRatio()"
-                        class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
-                        [ngClass]="activeRatio === 'free' ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm' : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'">
-                        <mat-icon class="icon-size-4 text-neutral-400">crop_free</mat-icon>
-                        <span class="font-medium">Tự do (Free)</span>
-                    </button>
+            @if (cropMode === "crop_resize") {
+                <div class="flex flex-col gap-2">
+                    <label
+                        class="text-[11px] font-semibold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5"
+                    >
+                        <mat-icon class="icon-size-3.5 text-indigo-400"
+                            >aspect_ratio</mat-icon
+                        >
+                        <span>Tỉ lệ khung hình (Aspect Ratio)</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            (click)="setCropRatio(16, 9)"
+                            class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
+                            [ngClass]="
+                                activeRatio === '16:9'
+                                    ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm'
+                                    : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                            "
+                        >
+                            <mat-icon class="icon-size-4 text-red-400"
+                                >smart_display</mat-icon
+                            >
+                            <span class="font-medium">16:9 (Ngang/YT)</span>
+                        </button>
+                        <button
+                            type="button"
+                            (click)="setCropRatio(9, 16)"
+                            class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
+                            [ngClass]="
+                                activeRatio === '9:16'
+                                    ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm'
+                                    : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                            "
+                        >
+                            <mat-icon class="icon-size-4 text-emerald-400"
+                                >stay_current_portrait</mat-icon
+                            >
+                            <span class="font-medium"
+                                >9:16 (TikTok/Shorts)</span
+                            >
+                        </button>
+                        <button
+                            type="button"
+                            (click)="setCropRatio(1, 1)"
+                            class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
+                            [ngClass]="
+                                activeRatio === '1:1'
+                                    ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm'
+                                    : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                            "
+                        >
+                            <mat-icon class="icon-size-4 text-amber-400"
+                                >crop_square</mat-icon
+                            >
+                            <span class="font-medium">1:1 (Vuông)</span>
+                        </button>
+                        <button
+                            type="button"
+                            (click)="setCropRatio(4, 5)"
+                            class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
+                            [ngClass]="
+                                activeRatio === '4:5'
+                                    ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm'
+                                    : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                            "
+                        >
+                            <mat-icon class="icon-size-4 text-blue-400"
+                                >photo_size_select_small</mat-icon
+                            >
+                            <span class="font-medium">4:5 (Facebook)</span>
+                        </button>
+                        <button
+                            type="button"
+                            (click)="setCropRatio(4, 3)"
+                            class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
+                            [ngClass]="
+                                activeRatio === '4:3'
+                                    ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm'
+                                    : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                            "
+                        >
+                            <mat-icon class="icon-size-4 text-cyan-400"
+                                >tv</mat-icon
+                            >
+                            <span class="font-medium">4:3 (Truyền hình)</span>
+                        </button>
+                        <button
+                            type="button"
+                            (click)="setFreeRatio()"
+                            class="p-2 text-xs rounded border transition-all flex flex-col items-center gap-1"
+                            [ngClass]="
+                                activeRatio === 'free'
+                                    ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 shadow-sm'
+                                    : 'bg-[#1a1a22] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                            "
+                        >
+                            <mat-icon class="icon-size-4 text-neutral-400"
+                                >crop_free</mat-icon
+                            >
+                            <span class="font-medium">Tự do (Free)</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            }
 
             <!-- Kích thước vùng chọn Crop -->
-            <div class="p-3 bg-[#18181f] border border-neutral-800 rounded-lg flex flex-col gap-2.5">
-                <span class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Tọa Độ & Kích Thước Vùng Giữ Lại (px)</span>
-                
+            <div
+                class="p-3 bg-[#18181f] border border-neutral-800 rounded-lg flex flex-col gap-2.5"
+            >
+                <span
+                    class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider"
+                    >Tọa Độ & Kích Thước Vùng Giữ Lại (px)</span
+                >
+
                 <div class="grid grid-cols-2 gap-2">
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] text-neutral-400">Rộng (Width)</label>
-                        <input type="number" [(ngModel)]="cropRect.w" (ngModelChange)="onManualCropSizeChange()"
-                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                        <label class="text-[10px] text-neutral-400"
+                            >Rộng (Width)</label
+                        >
+                        <input
+                            type="number"
+                            [(ngModel)]="cropRect.w"
+                            (ngModelChange)="onManualCropSizeChange()"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500"
+                        />
                     </div>
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] text-neutral-400">Cao (Height)</label>
-                        <input type="number" [(ngModel)]="cropRect.h" (ngModelChange)="onManualCropSizeChange()"
-                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                        <label class="text-[10px] text-neutral-400"
+                            >Cao (Height)</label
+                        >
+                        <input
+                            type="number"
+                            [(ngModel)]="cropRect.h"
+                            (ngModelChange)="onManualCropSizeChange()"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500"
+                        />
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] text-neutral-400">Vị trí X</label>
-                        <input type="number" [(ngModel)]="cropRect.x" (ngModelChange)="onManualCropSizeChange()"
-                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                        <label class="text-[10px] text-neutral-400"
+                            >Vị trí X</label
+                        >
+                        <input
+                            type="number"
+                            [(ngModel)]="cropRect.x"
+                            (ngModelChange)="onManualCropSizeChange()"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500"
+                        />
                     </div>
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] text-neutral-400">Vị trí Y</label>
-                        <input type="number" [(ngModel)]="cropRect.y" (ngModelChange)="onManualCropSizeChange()"
-                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500">
+                        <label class="text-[10px] text-neutral-400"
+                            >Vị trí Y</label
+                        >
+                        <input
+                            type="number"
+                            [(ngModel)]="cropRect.y"
+                            (ngModelChange)="onManualCropSizeChange()"
+                            class="px-2.5 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 font-mono focus:outline-none focus:border-indigo-500"
+                        />
                     </div>
                 </div>
 
                 <!-- Nút Căn giữa khung Crop -->
-                <button type="button" (click)="centerCropRect()"
-                    class="w-full mt-1 py-1.5 px-2 text-xs font-medium rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition-colors flex items-center justify-center gap-1.5">
-                    <mat-icon class="icon-size-3.5 text-indigo-400">filter_center_focus</mat-icon>
+                <button
+                    type="button"
+                    (click)="centerCropRect()"
+                    class="w-full mt-1 py-1.5 px-2 text-xs font-medium rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition-colors flex items-center justify-center gap-1.5"
+                >
+                    <mat-icon class="icon-size-3.5 text-indigo-400"
+                        >filter_center_focus</mat-icon
+                    >
                     <span>Căn giữa khung Crop</span>
                 </button>
             </div>
 
             <!-- Lưu ý hướng dẫn -->
             <p class="text-[11px] text-neutral-400 leading-relaxed">
-                💡 <b class="text-neutral-300">Mẹo:</b> Kéo rê các góc hoặc các cạnh của khung viền màu xanh trên màn hình để thay đổi kích thước vùng crop, hoặc nắm giữ ở giữa để di chuyển vị trí.
+                💡 <b class="text-neutral-300">Mẹo:</b> Kéo rê các góc hoặc các
+                cạnh của khung viền màu xanh trên màn hình để thay đổi kích
+                thước vùng crop, hoặc nắm giữ ở giữa để di chuyển vị trí.
             </p>
 
             <div class="flex-1"></div>
 
             <!-- Nút Hành Động -->
-            <div class="pt-3 border-t border-neutral-800 flex items-center justify-end gap-2">
-                <button mat-button (click)="cancel()" [disabled]="isProcessing" class="text-neutral-400 hover:text-white">
+            <div
+                class="pt-3 border-t border-neutral-800 flex items-center justify-end gap-2"
+            >
+                <button
+                    mat-button
+                    (click)="cancel()"
+                    [disabled]="isProcessing"
+                    class="text-neutral-400 hover:text-white"
+                >
                     Hủy bỏ
                 </button>
-                <button mat-flat-button color="primary" (click)="applyCrop()" [disabled]="isProcessing || !isVideoLoaded"
-                    class="!bg-indigo-600 hover:!bg-indigo-500 text-white font-medium flex items-center gap-1.5 px-4 shadow-lg shadow-indigo-600/30">
-                    <mat-icon class="icon-size-4" *ngIf="!isProcessing">check</mat-icon>
-                    <mat-spinner diameter="16" *ngIf="isProcessing" class="!text-white"></mat-spinner>
-                    <span>{{ isProcessing ? 'Đang Crop...' : 'Áp dụng Crop Video' }}</span>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    (click)="applyCrop()"
+                    [disabled]="isProcessing || !isVideoLoaded"
+                    class="!bg-indigo-600 hover:!bg-indigo-500 text-white font-medium flex items-center gap-1.5 px-4 shadow-lg shadow-indigo-600/30"
+                >
+                    @if (!isProcessing) {
+                        <mat-icon class="icon-size-4">check</mat-icon>
+                    }
+                    @if (isProcessing) {
+                        <mat-spinner
+                            diameter="16"
+                            class="!text-white"
+                        ></mat-spinner>
+                    }
+                    <span>{{
+                        isProcessing ? "Đang Crop..." : "Áp dụng Crop Video"
+                    }}</span>
                 </button>
             </div>
         </div>

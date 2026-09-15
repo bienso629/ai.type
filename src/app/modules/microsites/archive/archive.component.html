@@ -1,421 +1,894 @@
 <div class="absolute inset-0 flex flex-col bg-white min-w-0 overflow-hidden">
-	<!-- Header -->
-	<div
-		class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10">
-		<div class="flex-1 min-w-0">
-			<!-- Breadcrumbs -->
-			<div>
-				<div class="hidden sm:flex flex-wrap items-center font-medium">
-					<div class="flex items-center whitespace-nowrap">
-						<a [routerLink]="['/']" class="text-base text-primary-500">typing</a>
-					</div>
-					<div class="flex items-center ml-1 whitespace-nowrap">
-						<mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-							[svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-						<a [routerLink]="['/archives']" class="ml-1 text-base text-primary-500">{{name}}</a>
-					</div>
-					<div class="flex items-center ml-1 whitespace-nowrap">
-						<mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-							[svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-						<span class="ml-1 text-base text-secondary">{{uuid}}</span>
-					</div>
-				</div>
-				<div class="flex sm:hidden">
-					<a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-						<mat-icon class="icon-size-4 text-secondary"
-							[svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-						<span class="ml-1 text-base">quay lại</span>
-					</a>
-				</div>
-			</div>
-			<!-- Title -->
-			<div class="mt-2">
-				<p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate tw"
-					[innerHTML]="title"></p>
-			</div>
-		</div>
+    <!-- Header -->
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10"
+    >
+        <div class="flex-1 min-w-0">
+            <!-- Breadcrumbs -->
+            <div>
+                <div class="hidden sm:flex flex-wrap items-center font-medium">
+                    <div class="flex items-center whitespace-nowrap">
+                        <a
+                            [routerLink]="['/']"
+                            class="text-base text-primary-500"
+                            >typing</a
+                        >
+                    </div>
+                    <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <a
+                            [routerLink]="['/archives']"
+                            class="ml-1 text-base text-primary-500"
+                            >{{ name }}</a
+                        >
+                    </div>
+                    <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            uuid
+                        }}</span>
+                    </div>
+                </div>
+                <div class="flex sm:hidden">
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base">quay lại</span>
+                    </a>
+                </div>
+            </div>
+            <!-- Title -->
+            <div class="mt-2">
+                <p
+                    class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate tw"
+                    [innerHTML]="title"
+                ></p>
+            </div>
+        </div>
 
-		<!-- Actions -->
-		<div class="flex flex-row shrink-0 items-center mt-2 sm:mt-0 sm:ml-4">
-			<fuse-fullscreen class="hidden md:block"></fuse-fullscreen>
+        <!-- Actions -->
+        <div class="flex flex-row shrink-0 items-center mt-2 sm:mt-0 sm:ml-4">
+            <fuse-fullscreen class="hidden md:block"></fuse-fullscreen>
 
-			<button mat-icon-button class="ml-2" color="primary" (click)="payment()" matTooltip="Mua 1 ly cafe">
-				<mat-icon class="icon-size-6" [svgIcon]="'feather:dollar-sign'"></mat-icon>
-				<!-- <mat-label class="ml-2">mua 1 ly cafe</mat-label> -->
-			</button>
-		</div>
-	</div>
+            <button
+                mat-icon-button
+                class="ml-2"
+                color="primary"
+                (click)="payment()"
+                matTooltip="Mua 1 ly cafe"
+            >
+                <mat-icon
+                    class="icon-size-6"
+                    [svgIcon]="'feather:dollar-sign'"
+                ></mat-icon>
+                <!-- <mat-label class="ml-2">mua 1 ly cafe</mat-label> -->
+            </button>
+        </div>
+    </div>
 
-	<!-- Main -->
-	<div class="flex-auto overflow-y-auto" *ngIf="details" cdkScrollable>
-		<fuse-alert *ngIf="details.authors.includes(user.name)" class="w-full rounded-none" [type]="'warning'"
-			[name]="'alertBox4'" [appearance]="'soft'" [dismissible]="true">
-			<span fuseAlertTitle>{{ 'app.auto_please_write_together' | transloco }}</span>
-			{{ 'app.auto_author' | transloco }} <b>{{name}}</b> {{ 'app.auto_has_invited_you_to_write_the_s' | transloco }} <mat-label
-				class="cursor-pointer hover:opacity-50 font-semibold" (click)="agree()">{{ 'app.auto_agree' | transloco }}</mat-label>
-		</fuse-alert>
-
-		<!-- CONTENT GOES HERE -->
-		<mat-tab-group (selectedTabChange)="changetab($event)" [selectedIndex]="selectedIndex" class="mt-0" mat-stretch-tabs="false" mat-align-tabs="center" [animationDuration]="'0'">
-			<mat-tab label="Dàn ý">
-				<div class="p-4 w-full">
-					<div class="flex items-center w-full bg-slate-50 hover:bg-slate-100 p-2 mb-2 rounded-md"
-						*ngFor="let item of done; let i = index">
-						<div class="flex-1 text-base relative">
-							<div class="absolute -left-4 -top-4 bg-slate-50 opacity-75 border w-6 h-6 text-sm justify-center items-center text-center rounded-full"
-								style="margin-left: -4px;">
-								{{i + 1}}
-							</div>
-
-							<ng-container *ngIf="item | isObject">{{item |
-								json}}</ng-container>
-							<ng-container *ngIf="!(item | isObject)">
-								<div class="z-10 relative leading-8" [innerHTML]="item"></div>
-							</ng-container>
-						</div>
-
-						<div class="flex shrink-0">
-							<button class="ml-2" mat-icon-button [matMenuTriggerFor]="menu">
-								<mat-icon>more_vert</mat-icon>
-							</button>
-							<mat-menu #menu="matMenu">
-								<button mat-menu-item [cdkCopyToClipboard]="item | removeHTML" [color]="'primary'">
-									<mat-icon class="icon-size-4" [svgIcon]="'feather:copy'"></mat-icon>
-									<span>Copy text</span>
-								</button>
-							</mat-menu>
-						</div>
-					</div>
-				</div>
-			</mat-tab>
-
-			<mat-tab [label]="'app.auto_seo_score' | transloco">
-				<div class="px-4">
-					<p class="my-2 pb-2 font-normal text-base">Thông tin kiểm tra {{score}}/100</p>
-
-					<ul>
-						<!-- SEO title -->
-						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">Tiêu đề</mat-label>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.title.characters > 60">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.title_too_long' | transloco }}
-									({{seo.title.characters}}/60 ký tự)</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.title.characters < 30">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.title_too_short' | transloco }}
-									({{seo.title.characters}}/60 ký tự)</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.title.findmainkey < 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.auto_title_not_found_main_key' | transloco }}</mat-label>
-							</div>
-						</li>
-						<!-- <li class="font-normal text-base mb-2" *ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
-                                    <div class="flex items-center justify-self-stretch">
-                                        <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">{{ 'app.title_perfect' | transloco }} ({{seo.title.characters}}/60 ký tự)</mat-label>
+    <!-- Main -->
+    @if (details) {
+        <div class="flex-auto overflow-y-auto" cdkScrollable>
+            @if (details.authors.includes(user.name)) {
+                <fuse-alert
+                    class="w-full rounded-none"
+                    [type]="'warning'"
+                    [name]="'alertBox4'"
+                    [appearance]="'soft'"
+                    [dismissible]="true"
+                >
+                    <span fuseAlertTitle>{{
+                        "app.auto_please_write_together" | transloco
+                    }}</span>
+                    {{ "app.auto_author" | transloco }} <b>{{ name }}</b>
+                    {{ "app.auto_has_invited_you_to_write_the_s" | transloco }}
+                    <mat-label
+                        class="cursor-pointer hover:opacity-50 font-semibold"
+                        (click)="agree()"
+                        >{{ "app.auto_agree" | transloco }}</mat-label
+                    >
+                </fuse-alert>
+            }
+            <!-- CONTENT GOES HERE -->
+            <mat-tab-group
+                (selectedTabChange)="changetab($event)"
+                [selectedIndex]="selectedIndex"
+                class="mt-0"
+                mat-stretch-tabs="false"
+                mat-align-tabs="center"
+                [animationDuration]="'0'"
+            >
+                <mat-tab label="Dàn ý">
+                    <div class="p-4 w-full">
+                        @for (item of done; track item; let i = $index) {
+                            <div
+                                class="flex items-center w-full bg-slate-50 hover:bg-slate-100 p-2 mb-2 rounded-md"
+                            >
+                                <div class="flex-1 text-base relative">
+                                    <div
+                                        class="absolute -left-4 -top-4 bg-slate-50 opacity-75 border w-6 h-6 text-sm justify-center items-center text-center rounded-full"
+                                        style="margin-left: -4px"
+                                    >
+                                        {{ i + 1 }}
                                     </div>
-                                </li> -->
-						<li class="font-normal text-base mb-2" *ngIf="seo.title.findmainkey > 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.primary_keyword_should_be_in_title_beginning' | transloco }}
-									đề</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.title.findmainkey == 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_is_in_title_beginning' | transloco }}
-									đề</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2"
-							*ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">{{ 'app.title_achieved' | transloco }}
-									{{seo.title.characters}}/60 ký tự</mat-label>
-							</div>
-						</li>
+                                    @if (item | isObject) {
+                                        {{ item | json }}
+                                    }
+                                    @if (!(item | isObject)) {
+                                        <div
+                                            class="z-10 relative leading-8"
+                                            [innerHTML]="item"
+                                        ></div>
+                                    }
+                                </div>
+                                <div class="flex shrink-0">
+                                    <button
+                                        class="ml-2"
+                                        mat-icon-button
+                                        [matMenuTriggerFor]="menu"
+                                    >
+                                        <mat-icon>more_vert</mat-icon>
+                                    </button>
+                                    <mat-menu #menu="matMenu">
+                                        <button
+                                            mat-menu-item
+                                            [cdkCopyToClipboard]="
+                                                item | removeHTML
+                                            "
+                                            [color]="'primary'"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="'feather:copy'"
+                                            ></mat-icon>
+                                            <span>Copy text</span>
+                                        </button>
+                                    </mat-menu>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </mat-tab>
+                <mat-tab [label]="'app.auto_seo_score' | transloco">
+                    <div class="px-4">
+                        <p class="my-2 pb-2 font-normal text-base">
+                            Thông tin kiểm tra {{ score }}/100
+                        </p>
+                        <ul>
+                            <!-- SEO title -->
+                            <li class="font-normal text-base mb-2">
+                                <mat-label class="my-2 pb-2 ml-0"
+                                    >Tiêu đề</mat-label
+                                >
+                            </li>
+                            @if (seo.title.characters > 60) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.title_too_long" | transloco
+                                            }}
+                                            ({{ seo.title.characters }}/60 ký
+                                            tự)</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.title.characters < 30) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.title_too_short"
+                                                    | transloco
+                                            }}
+                                            ({{ seo.title.characters }}/60 ký
+                                            tự)</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.title.findmainkey < 0) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500">{{
+                                            "app.auto_title_not_found_main_key"
+                                                | transloco
+                                        }}</mat-label>
+                                    </div>
+                                </li>
+                            }
+                            <!-- <li class="font-normal text-base mb-2" *ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
+            <div class="flex items-center justify-self-stretch">
+              <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:check-square'"></mat-icon>
+              <mat-label class="ml-2 text-green-600">{{ 'app.title_perfect' | transloco }} ({{seo.title.characters}}/60 ký tự)</mat-label>
+            </div>
+          </li> -->
+                            @if (seo.title.findmainkey > 0) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.primary_keyword_should_be_in_title_beginning"
+                                                    | transloco
+                                            }}
+                                            đề</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.title.findmainkey == 0) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-green-600"
+                                            >{{
+                                                "app.primary_keyword_is_in_title_beginning"
+                                                    | transloco
+                                            }}
+                                            đề</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (
+                                seo.title.characters <= 60 &&
+                                seo.title.characters >= 30
+                            ) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-green-600"
+                                            >{{
+                                                "app.title_achieved" | transloco
+                                            }}
+                                            {{ seo.title.characters }}/60 ký
+                                            tự</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            <!-- SEO mo ta -->
+                            <li class="font-normal text-base mb-2">
+                                <mat-label class="my-2 pb-2 ml-0">{{
+                                    "app.description_label" | transloco
+                                }}</mat-label>
+                            </li>
+                            @if (seo.description.findmainkey < 0) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500">{{
+                                            "app.description_missing_primary_keyword"
+                                                | transloco
+                                        }}</mat-label>
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.description.characters > 160) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.description_too_long"
+                                                    | transloco
+                                            }}
+                                            ({{
+                                                seo.description.characters
+                                            }}/160 ký tự)</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.description.characters < 100) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.description_too_short"
+                                                    | transloco
+                                            }}
+                                            ({{
+                                                seo.description.characters
+                                            }}/160 ký tự)</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.description.findmainkey >= 0) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label
+                                            class="ml-2 text-green-600"
+                                            >{{
+                                                "app.description_has_primary_keyword"
+                                                    | transloco
+                                            }}</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (
+                                seo.description.characters >= 100 &&
+                                seo.description.characters <= 160
+                            ) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-green-600"
+                                            >{{
+                                                "app.description_perfect"
+                                                    | transloco
+                                            }}
+                                            ({{
+                                                seo.description.characters
+                                            }}/160 ký tự)</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            <!-- SEO H1 -->
+                            <li class="font-normal text-base mb-2">
+                                <mat-label class="my-2 pb-2 ml-0">H1</mat-label>
+                            </li>
+                            @if (seo.heading.h1.total < 1) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500">{{
+                                            "app.auto_content_does_not_have_h1"
+                                                | transloco
+                                        }}</mat-label>
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.heading.h1.total > 1) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500">{{
+                                            "app.auto_content_contains_too_many_h1s"
+                                                | transloco
+                                        }}</mat-label>
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.heading.h1.total == 1) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label
+                                            class="ml-2 text-green-600"
+                                            >{{
+                                                "app.auto_content_already_has_h1"
+                                                    | transloco
+                                            }}</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.heading.h1.characters > 75) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label
+                                            class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.auto_h1_does_not_exceed_75_characte"
+                                                    | transloco
+                                            }}</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (
+                                seo.heading.h1.total >= 1 &&
+                                seo.heading.h1.findmainkey < 0
+                            ) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500">{{
+                                            "app.h1_missing_primary_keyword"
+                                                | transloco
+                                        }}</mat-label>
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.heading.h1.findmainkey >= 0) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label
+                                            class="ml-2 text-green-600"
+                                            >{{
+                                                "app.h1_contains_primary_keyword"
+                                                    | transloco
+                                            }}</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            <!-- SEO body -->
+                            <li class="font-normal text-base mb-2">
+                                <mat-label class="my-2 pb-2 ml-0">{{
+                                    "app.content_label" | transloco
+                                }}</mat-label>
+                            </li>
+                            @if (seo.words.total < 1) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500">{{
+                                            "app.auto_content_has_not_appeared"
+                                                | transloco
+                                        }}</mat-label>
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.words.total < 300) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.content_too_short"
+                                                    | transloco
+                                            }}
+                                            ({{
+                                                seo.words.total
+                                            }}/600)</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.words.total > 300) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-green-600"
+                                            >Content đang phát triển ({{
+                                                seo.words.total
+                                            }}/1000 từ)</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (
+                                seo.words.find_mainkey_in_first_paragraph < 0
+                            ) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500">{{
+                                            "app.primary_keyword_missing_first_line"
+                                                | transloco
+                                        }}</mat-label>
+                                    </div>
+                                </li>
+                            }
+                            @if (
+                                seo.words.find_mainkey_in_first_paragraph >= 0
+                            ) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-green-600"
+                                            >{{
+                                                "app.primary_keyword_appears_first_line"
+                                                    | transloco
+                                            }}
+                                            dòng</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.words.mainkey_percent_in_words < 1) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.primary_keyword_appears"
+                                                    | transloco
+                                            }}
+                                            {{ seo.words.find_mainkey_in_words
+                                            }}{{ "app.times" | transloco
+                                            }}{{
+                                                seo.words
+                                                    .mainkey_percent_in_words
+                                                    | number: "1.0-0"
+                                            }}%</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo.words.mainkey_percent_in_words > 8) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500"
+                                            >{{
+                                                "app.primary_keyword_appears"
+                                                    | transloco
+                                            }}
+                                            {{ seo.words.find_mainkey_in_words
+                                            }}{{ "app.times_over" | transloco
+                                            }}{{
+                                                seo.words
+                                                    .mainkey_percent_in_words
+                                                    | number: "1.0-0"
+                                            }}%</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (
+                                seo.words.mainkey_percent_in_words <= 8 &&
+                                seo.words.mainkey_percent_in_words > 0
+                            ) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-green-600"
+                                            >{{
+                                                "app.primary_keyword_appears"
+                                                    | transloco
+                                            }}
+                                            {{ seo.words.find_mainkey_in_words
+                                            }}{{ "app.times" | transloco }}({{
+                                                seo.words
+                                                    .mainkey_percent_in_words
+                                                    | number: "1.0-0"
+                                            }}%)</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            <!-- SEO image -->
+                            <li class="font-normal text-base mb-2">
+                                <mat-label class="my-2 pb-2 ml-0">{{
+                                    "app.image_label" | transloco
+                                }}</mat-label>
+                            </li>
+                            @if (seo["images"].total < 1) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500"
+                                            >Chưa có
+                                            {{
+                                                "app.images_count_label"
+                                                    | transloco
+                                            }}</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo["images"].find_mainkey_in_alt < 0) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-yellow-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label
+                                            class="ml-2 text-yellow-500"
+                                            >{{
+                                                "app.alt_missing_primary_keyword"
+                                                    | transloco
+                                            }}</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo["images"].total > 0) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-green-600"
+                                            >Có {{ seo["images"].total }} hình
+                                            ảnh</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            <!-- SEO Link -->
+                            <li class="font-normal text-base mb-2">
+                                <mat-label class="my-2 pb-2 ml-0">{{
+                                    "app.link_label" | transloco
+                                }}</mat-label>
+                            </li>
+                            @if (seo["links"] >= 1) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-green-600"
+                                            >Đã có {{ seo["links"] }} liên
+                                            kết</mat-label
+                                        >
+                                    </div>
+                                </li>
+                            }
+                            @if (seo["links"] < 1) {
+                                <li class="font-normal text-base mb-2">
+                                    <div
+                                        class="flex items-center justify-self-stretch"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:check-square'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-red-500">{{
+                                            "app.auto_add_link_to_improve_experience"
+                                                | transloco
+                                        }}</mat-label>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </mat-tab>
+                <mat-tab label="Từ khoá">
+                    <div class="w-full p-4">
+                        <mat-form-field class="w-full custom-textarea col">
+                            <mat-label>{{
+                                "app.auto_select_at_least_1_keyword" | transloco
+                            }}</mat-label>
+                            <mat-chip-grid
+                                #chipGrid
+                                aria-label="Enter keywords"
+                                [formControl]="formControl"
+                            >
+                                @for (item of arr_keyword; track item) {
+                                    <mat-chip-option
+                                        class=""
+                                        (click)="changeSelected(item)"
+                                        >{{ item }}</mat-chip-option
+                                    >
+                                }
+                                <input
+                                    class="py-2 border rounded"
+                                    [placeholder]="
+                                        'app.auto_create_new_keyword'
+                                            | transloco
+                                    "
+                                    [matChipInputFor]="chipGrid"
+                                    (matChipInputTokenEnd)="add($event)"
+                                />
+                            </mat-chip-grid>
+                            <mat-hint
+                                >Từ khoá đã chọn:
+                                {{ selectedChips.join(";") }}</mat-hint
+                            >
+                        </mat-form-field>
+                        <!-- <mat-chip-listbox aria-label="Fish selection">
+        <mat-chip-option class="" *ngFor="let item of arr_keyword">{{item}}</mat-chip-option>
+      </mat-chip-listbox> -->
+                    </div>
+                </mat-tab>
+                <mat-tab [label]="'app.auto_preview' | transloco">
+                    <div class="p-4">
+                        <quill-view-html
+                            theme="snow"
+                            [content]="editor"
+                        ></quill-view-html>
+                    </div>
+                </mat-tab>
+            </mat-tab-group>
+        </div>
+    }
 
-						<!-- SEO mo ta -->
-						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">{{ 'app.description_label' | transloco }}</mat-label>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.description.findmainkey < 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.description_missing_primary_keyword' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.description.characters > 160">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.description_too_long' | transloco }}
-									({{seo.description.characters}}/160 ký tự)</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.description.characters < 100">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.description_too_short' | transloco }}
-									({{seo.description.characters}}/160 ký tự)</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.description.findmainkey >= 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">{{ 'app.description_has_primary_keyword' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2"
-							*ngIf="seo.description.characters >= 100 && seo.description.characters <= 160">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">{{ 'app.description_perfect' | transloco }}
-									({{seo.description.characters}}/160 ký tự)</mat-label>
-							</div>
-						</li>
+    <!-- Footer -->
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 border-t relative"
+    >
+        <div class="flex-1 min-w-0">
+            <span class="font-normal text-base text-secondary">
+                <a
+                    href="https://type.vn"
+                    [title]="
+                        'app.auto_ai_software_for_creating_profe' | transloco
+                    "
+                    >type.vn</a
+                >
+                &copy;
+                {{ currentYear }}
+            </span>
+        </div>
 
-						<!-- SEO H1 -->
-						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">H1</mat-label>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total < 1">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.auto_content_does_not_have_h1' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total > 1">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.auto_content_contains_too_many_h1s' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total == 1">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">{{ 'app.auto_content_already_has_h1' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.characters > 75">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.auto_h1_does_not_exceed_75_characte' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2"
-							*ngIf="seo.heading.h1.total >= 1 && seo.heading.h1.findmainkey < 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.h1_missing_primary_keyword' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.findmainkey >= 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">{{ 'app.h1_contains_primary_keyword' | transloco }}</mat-label>
-							</div>
-						</li>
-
-						<!-- SEO body -->
-						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">{{ 'app.content_label' | transloco }}</mat-label>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.words.total < 1">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.auto_content_has_not_appeared' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.words.total < 300">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.content_too_short' | transloco }}
-									({{seo.words.total}}/600)</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.words.total > 300">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Content đang phát triển
-									({{seo.words.total}}/1000 từ)</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.words.find_mainkey_in_first_paragraph < 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.primary_keyword_missing_first_line' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.words.find_mainkey_in_first_paragraph >= 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_appears_first_line' | transloco }}
-									dòng</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.words.mainkey_percent_in_words < 1">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.primary_keyword_appears' | transloco }}
-									{{seo.words.find_mainkey_in_words}}{{ 'app.times' | transloco }}{{
-									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo.words.mainkey_percent_in_words > 8">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.primary_keyword_appears' | transloco }}
-									{{seo.words.find_mainkey_in_words}}{{ 'app.times_over' | transloco }}{{
-									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2"
-							*ngIf="seo.words.mainkey_percent_in_words <= 8 && seo.words.mainkey_percent_in_words > 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_appears' | transloco }}
-									{{seo.words.find_mainkey_in_words}}{{ 'app.times' | transloco }}({{
-									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%)</mat-label>
-							</div>
-						</li>
-
-						<!-- SEO image -->
-						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">{{ 'app.image_label' | transloco }}</mat-label>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo['images'].total < 1">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Chưa có {{ 'app.images_count_label' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo['images'].find_mainkey_in_alt < 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-yellow-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">{{ 'app.alt_missing_primary_keyword' | transloco }}</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo['images'].total > 0">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Có {{seo['images'].total}} hình
-									ảnh</mat-label>
-							</div>
-						</li>
-
-						<!-- SEO Link -->
-						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">{{ 'app.link_label' | transloco }}</mat-label>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo['links'] >= 1">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-green-600"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Đã có {{ seo['links'] }} liên
-									kết</mat-label>
-							</div>
-						</li>
-						<li class="font-normal text-base mb-2" *ngIf="seo['links'] < 1">
-							<div class="flex items-center justify-self-stretch">
-								<mat-icon class="icon-size-4 text-red-500"
-									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">{{ 'app.auto_add_link_to_improve_experience' | transloco }}</mat-label>
-							</div>
-						</li>
-					</ul>
-				</div>
-			</mat-tab>
-
-			<mat-tab label="Từ khoá">
-				<div class="w-full p-4">
-					<mat-form-field class="w-full custom-textarea col">
-						<mat-label>{{ 'app.auto_select_at_least_1_keyword' | transloco }}</mat-label>
-						<mat-chip-grid #chipGrid aria-label="Enter keywords" [formControl]="formControl">
-							<mat-chip-option class="" *ngFor="let item of arr_keyword"
-								(click)="changeSelected(item)">{{item}}</mat-chip-option>
-							<input class="py-2 border rounded" [placeholder]="'app.auto_create_new_keyword' | transloco"
-								[matChipInputFor]="chipGrid" (matChipInputTokenEnd)="add($event)" />
-						</mat-chip-grid>
-						<mat-hint>Từ khoá đã chọn: {{selectedChips.join(';')}}</mat-hint>
-					</mat-form-field>
-
-					<!-- <mat-chip-listbox aria-label="Fish selection">
-						<mat-chip-option class="" *ngFor="let item of arr_keyword">{{item}}</mat-chip-option>
-					</mat-chip-listbox> -->
-				</div>
-			</mat-tab>
-
-			<mat-tab [label]="'app.auto_preview' | transloco">
-				<div class="p-4">
-					<quill-view-html theme="snow" [content]="editor"></quill-view-html>
-				</div>
-			</mat-tab>
-		</mat-tab-group>
-	</div>
-
-	<!-- Footer -->
-	<div
-		class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 border-t relative">
-		<div class="flex-1 min-w-0">
-			<span class="font-normal text-base text-secondary">
-				<a href="https://type.vn" [title]="'app.auto_ai_software_for_creating_profe' | transloco">type.vn</a> &copy;
-				{{currentYear}}
-			</span>
-		</div>
-
-		<!-- Actions -->
-		<div class="flex shrink-0 items-center mt-2 sm:mt-0 sm:ml-4">
-			<mat-form-field *ngIf="uuid && details"
-				class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-				<mat-select [value]="details.createdAt" (selectionChange)="history($event)">
-					<mat-option [value]="details.createdAt">bản gốc {{details.createdAt | timeago}}</mat-option>
-					<ng-container *ngIf="details.history && details.history.length > 0">
-						<mat-option *ngFor="let item of details.history; let i = index" [value]="item.createdAt">
-							phiên bản {{i + 1}} tạo ra {{item.createdAt | timeago}}
-						</mat-option>
-					</ng-container>
-				</mat-select>
-			</mat-form-field>
-		</div>
-	</div>
+        <!-- Actions -->
+        <div class="flex shrink-0 items-center mt-2 sm:mt-0 sm:ml-4">
+            @if (uuid && details) {
+                <mat-form-field
+                    class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                    appearance="fill"
+                >
+                    <mat-select
+                        [value]="details.createdAt"
+                        (selectionChange)="history($event)"
+                    >
+                        <mat-option [value]="details.createdAt"
+                            >bản gốc
+                            {{ details.createdAt | timeago }}</mat-option
+                        >
+                        @if (details.history && details.history.length > 0) {
+                            @for (
+                                item of details.history;
+                                track item;
+                                let i = $index
+                            ) {
+                                <mat-option [value]="item.createdAt">
+                                    phiên bản {{ i + 1 }} tạo ra
+                                    {{ item.createdAt | timeago }}
+                                </mat-option>
+                            }
+                        }
+                    </mat-select>
+                </mat-form-field>
+            }
+        </div>
+    </div>
 </div>

@@ -1,116 +1,319 @@
 <form [formGroup]="createForm" (ngSubmit)="submit()">
-  <!-- Header -->
-  <div class="flex items-center justify-between mb-2">
-      <h2 class="text-xl font-bold text-gray-800 m-0">{{data.title}}</h2>
-      <button type="button" mat-icon-button mat-dialog-close class="text-gray-500 -mr-4">
-          <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
-      </button>
-  </div>
-  
-  <p class="text-gray-600 mb-6 text-sm">{{ 'app.auto_fill_in_all_the_information_in' | transloco }}</p>
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-2">
+        <h2 class="text-xl font-bold text-gray-800 m-0">{{ data.title }}</h2>
+        <button
+            type="button"
+            mat-icon-button
+            mat-dialog-close
+            class="text-gray-500 -mr-4"
+        >
+            <mat-icon
+                class="icon-size-5"
+                [svgIcon]="'heroicons_outline:x'"
+            ></mat-icon>
+        </button>
+    </div>
 
-  <div class="flex flex-col gap-2">
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-0" [subscriptSizing]="'dynamic'"
-      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">{{ 'app.auto_software_id' | transloco }}</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:code'"></mat-icon>
-      <input [formControlName]="'appId'" [readonly]="data && data.type === 'extend'" [placeholder]="'Ví dụ: ai.type'"
-        type="text" (input)="licensekey()" required matInput />
-      <!-- <mat-hint class="px-1">{{ 'app.auto_software_id_used_to_access_the' | transloco }}</mat-hint> -->
-    </mat-form-field>
+    <p class="text-gray-600 mb-6 text-sm">
+        {{ "app.auto_fill_in_all_the_information_in" | transloco }}
+    </p>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
-      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">{{ 'app.auto_version' | transloco }}</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:package'"></mat-icon>
-      <input [formControlName]="'appVersion'" [readonly]="data && data.type === 'extend'" [placeholder]="'1.0.1'"
-        type="text" (input)="licensekey()" required matInput />
-    </mat-form-field>
+    <div class="flex flex-col gap-2">
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-0"
+            [subscriptSizing]="'dynamic'"
+            [ngClass]="{ 'input-disabled': data && data.type === 'extend' }"
+        >
+            <span matPrefix class="w-30">{{
+                "app.auto_software_id" | transloco
+            }}</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:code'"
+            ></mat-icon>
+            <input
+                [formControlName]="'appId'"
+                [readonly]="data && data.type === 'extend'"
+                [placeholder]="'Ví dụ: ai.type'"
+                type="text"
+                (input)="licensekey()"
+                required
+                matInput
+            />
+            <!-- <mat-hint class="px-1">{{ 'app.auto_software_id_used_to_access_the' | transloco }}</mat-hint> -->
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense input-disabled fuse-mat-emphasized-affix p-0 mt-2"
-      [subscriptSizing]="'dynamic'">
-      <span matPrefix class="w-30">App Token</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:shield'"></mat-icon>
-      <input [formControlName]="'appToken'" [placeholder]="'App Token'" type="text" matInput />
-      <!-- <mat-hint class="px-1">{{ 'app.auto_app_token_is_used_to_access_th' | transloco }}</mat-hint> -->
-    </mat-form-field>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+            [ngClass]="{ 'input-disabled': data && data.type === 'extend' }"
+        >
+            <span matPrefix class="w-30">{{
+                "app.auto_version" | transloco
+            }}</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:package'"
+            ></mat-icon>
+            <input
+                [formControlName]="'appVersion'"
+                [readonly]="data && data.type === 'extend'"
+                [placeholder]="'1.0.1'"
+                type="text"
+                (input)="licensekey()"
+                required
+                matInput
+            />
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
-      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">{{ 'app.buyer_name' | transloco }}</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
-      <input [formControlName]="'customerName'" [readonly]="data && data.type === 'extend'"
-        [placeholder]="'Nguyễn Văn A'" type="text" (input)="licensekey()" required matInput />
-    </mat-form-field>
+        <mat-form-field
+            class="w-full fuse-mat-dense input-disabled fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+        >
+            <span matPrefix class="w-30">App Token</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:shield'"
+            ></mat-icon>
+            <input
+                [formControlName]="'appToken'"
+                [placeholder]="'App Token'"
+                type="text"
+                matInput
+            />
+            <!-- <mat-hint class="px-1">{{ 'app.auto_app_token_is_used_to_access_th' | transloco }}</mat-hint> -->
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
-      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">{{ 'app.auto_address' | transloco }}</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:map'"></mat-icon>
-      <input [formControlName]="'address'" [readonly]="data && data.type === 'extend'" [placeholder]="'Tp.HCM'"
-        type="text" (input)="licensekey()" matInput />
-    </mat-form-field>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+            [ngClass]="{ 'input-disabled': data && data.type === 'extend' }"
+        >
+            <span matPrefix class="w-30">{{
+                "app.buyer_name" | transloco
+            }}</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:user'"
+            ></mat-icon>
+            <input
+                [formControlName]="'customerName'"
+                [readonly]="data && data.type === 'extend'"
+                [placeholder]="'Nguyễn Văn A'"
+                type="text"
+                (input)="licensekey()"
+                required
+                matInput
+            />
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
-      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">{{ 'app.phone_number' | transloco }}</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:smartphone'"></mat-icon>
-      <input [formControlName]="'phoneNumber'" [readonly]="data && data.type === 'extend'" [placeholder]="'0987654321'"
-        type="text" (input)="licensekey()" matInput />
-    </mat-form-field>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+            [ngClass]="{ 'input-disabled': data && data.type === 'extend' }"
+        >
+            <span matPrefix class="w-30">{{
+                "app.auto_address" | transloco
+            }}</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:map'"
+            ></mat-icon>
+            <input
+                [formControlName]="'address'"
+                [readonly]="data && data.type === 'extend'"
+                [placeholder]="'Tp.HCM'"
+                type="text"
+                (input)="licensekey()"
+                matInput
+            />
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
-      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">{{ 'app.auto_buyer_s_email' | transloco }}</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
-      <input [formControlName]="'email'" [readonly]="data && data.type === 'extend'"
-        [placeholder]="'nguyenvana@gmail.com'" type="text" (input)="licensekey()" matInput />
-    </mat-form-field>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+            [ngClass]="{ 'input-disabled': data && data.type === 'extend' }"
+        >
+            <span matPrefix class="w-30">{{
+                "app.phone_number" | transloco
+            }}</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:smartphone'"
+            ></mat-icon>
+            <input
+                [formControlName]="'phoneNumber'"
+                [readonly]="data && data.type === 'extend'"
+                [placeholder]="'0987654321'"
+                type="text"
+                (input)="licensekey()"
+                matInput
+            />
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
-      <span matPrefix class="w-30">{{ 'app.auto_reputation_score' | transloco }}</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:heart'"></mat-icon>
-      <input [formControlName]="'reputationScore'" [placeholder]="'1000'" type="number" required matInput />
-    </mat-form-field>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+            [ngClass]="{ 'input-disabled': data && data.type === 'extend' }"
+        >
+            <span matPrefix class="w-30">{{
+                "app.auto_buyer_s_email" | transloco
+            }}</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:mail'"
+            ></mat-icon>
+            <input
+                [formControlName]="'email'"
+                [readonly]="data && data.type === 'extend'"
+                [placeholder]="'nguyenvana@gmail.com'"
+                type="text"
+                (input)="licensekey()"
+                matInput
+            />
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
-      <span matPrefix class="w-30">{{ 'app.auto_purchase_date' | transloco }}</span>
-      <input [formControlName]="'createDate'" [placeholder]="'20/11/1986'" [matDatepicker]="picker1"
-        (dateInput)="licensekey()" required readonly matInput />
-      <mat-datepicker-toggle matIconSuffix [for]="picker1">
-        <mat-icon matDatepickerToggleIcon class="icon-size-4" [svgIcon]="'feather:clock'"></mat-icon>
-      </mat-datepicker-toggle>
-      <mat-datepicker #picker1></mat-datepicker>
-      <!-- <mat-hint class="px-1">{{ 'app.auto_for_example_30_06_2024_thirty' | transloco }}</mat-hint> -->
-    </mat-form-field>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+        >
+            <span matPrefix class="w-30">{{
+                "app.auto_reputation_score" | transloco
+            }}</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:heart'"
+            ></mat-icon>
+            <input
+                [formControlName]="'reputationScore'"
+                [placeholder]="'1000'"
+                type="number"
+                required
+                matInput
+            />
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
-      <span matPrefix class="w-30">{{ 'app.auto_expiration_date' | transloco }}</span>
-      <input [formControlName]="'expirationDate'" [placeholder]="'20/11/1987'" [matDatepicker]="picker2"
-        (dateInput)="licensekey()" required readonly matInput />
-      <mat-datepicker-toggle matIconSuffix [for]="picker2">
-        <mat-icon matDatepickerToggleIcon class="icon-size-4" [svgIcon]="'feather:clock'"></mat-icon>
-      </mat-datepicker-toggle>
-      <mat-datepicker #picker2></mat-datepicker>
-      <!-- <mat-hint class="px-1">{{ 'app.auto_for_example_30_06_2025_thirty' | transloco }}</mat-hint> -->
-    </mat-form-field>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+        >
+            <span matPrefix class="w-30">{{
+                "app.auto_purchase_date" | transloco
+            }}</span>
+            <input
+                [formControlName]="'createDate'"
+                [placeholder]="'20/11/1986'"
+                [matDatepicker]="picker1"
+                (dateInput)="licensekey()"
+                required
+                readonly
+                matInput
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="picker1">
+                <mat-icon
+                    matDatepickerToggleIcon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:clock'"
+                ></mat-icon>
+            </mat-datepicker-toggle>
+            <mat-datepicker #picker1></mat-datepicker>
+            <!-- <mat-hint class="px-1">{{ 'app.auto_for_example_30_06_2024_thirty' | transloco }}</mat-hint> -->
+        </mat-form-field>
 
-    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
-      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">License Key</span>
-      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:key'"></mat-icon>
-      <input [formControlName]="'licenseKey'" [placeholder]="'Tự động tạo ra'" type="text" readonly required matInput />
-      <!-- <mat-hint class="px-1">{{ 'app.auto_license_key_automatically_gene' | transloco }}</mat-hint> -->
-    </mat-form-field>
-  </div>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+        >
+            <span matPrefix class="w-30">{{
+                "app.auto_expiration_date" | transloco
+            }}</span>
+            <input
+                [formControlName]="'expirationDate'"
+                [placeholder]="'20/11/1987'"
+                [matDatepicker]="picker2"
+                (dateInput)="licensekey()"
+                required
+                readonly
+                matInput
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="picker2">
+                <mat-icon
+                    matDatepickerToggleIcon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:clock'"
+                ></mat-icon>
+            </mat-datepicker-toggle>
+            <mat-datepicker #picker2></mat-datepicker>
+            <!-- <mat-hint class="px-1">{{ 'app.auto_for_example_30_06_2025_thirty' | transloco }}</mat-hint> -->
+        </mat-form-field>
 
-  <!-- Content -->
-  <div class="flex items-center justify-end mt-4">
-    <button mat-flat-button [color]="'primary'" type="button" (click)="submit()" [disabled]="createForm.invalid || isCreating">
-      <mat-icon class="icon-size-4" [svgIcon]="data.type === 'extend' ? 'feather:check-circle' : 'heroicons_outline:plus-circle'" *ngIf="!isCreating"></mat-icon>
-      <mat-label class="ml-2 text-base" *ngIf="!isCreating && data.type !== 'extend'">Thêm mới License Key</mat-label>
-      <mat-label class="ml-2 text-base" *ngIf="!isCreating && data.type === 'extend'">Cập nhật License Key</mat-label>
-      <mat-progress-spinner *ngIf="isCreating" [diameter]="20" [mode]="'indeterminate'"></mat-progress-spinner>
-    </button>
-  </div>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+            [subscriptSizing]="'dynamic'"
+            [ngClass]="{ 'input-disabled': data && data.type === 'extend' }"
+        >
+            <span matPrefix class="w-30">License Key</span>
+            <mat-icon
+                matSuffix
+                class="icon-size-4"
+                [svgIcon]="'feather:key'"
+            ></mat-icon>
+            <input
+                [formControlName]="'licenseKey'"
+                [placeholder]="'Tự động tạo ra'"
+                type="text"
+                readonly
+                required
+                matInput
+            />
+            <!-- <mat-hint class="px-1">{{ 'app.auto_license_key_automatically_gene' | transloco }}</mat-hint> -->
+        </mat-form-field>
+    </div>
+
+    <!-- Content -->
+    <div class="flex items-center justify-end mt-4">
+        <button
+            mat-flat-button
+            [color]="'primary'"
+            type="button"
+            (click)="submit()"
+            [disabled]="createForm.invalid || isCreating"
+        >
+            @if (!isCreating) {
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="
+                        data.type === 'extend'
+                            ? 'feather:check-circle'
+                            : 'heroicons_outline:plus-circle'
+                    "
+                ></mat-icon>
+            }
+            @if (!isCreating && data.type !== "extend") {
+                <mat-label class="ml-2 text-base"
+                    >Thêm mới License Key</mat-label
+                >
+            }
+            @if (!isCreating && data.type === "extend") {
+                <mat-label class="ml-2 text-base"
+                    >Cập nhật License Key</mat-label
+                >
+            }
+            @if (isCreating) {
+                <mat-progress-spinner
+                    [diameter]="20"
+                    [mode]="'indeterminate'"
+                ></mat-progress-spinner>
+            }
+        </button>
+    </div>
 </form>

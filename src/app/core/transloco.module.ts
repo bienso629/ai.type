@@ -1,16 +1,14 @@
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { HttpClient } from "@angular/common/http";
 import {
-  TRANSLOCO_LOADER,
   Translation,
   TranslocoLoader,
-  TRANSLOCO_CONFIG,
-  translocoConfig,
+  provideTransloco,
   TranslocoModule
-} from "@ngneat/transloco";
-import { TranslocoMessageFormatModule } from "@ngneat/transloco-messageformat";
+} from "@jsverse/transloco";
+import { provideTranslocoMessageformat } from "@jsverse/transloco-messageformat";
 import { Injectable, NgModule } from "@angular/core";
-import { TranslocoLocaleModule } from "@ngneat/transloco-locale";
+import { provideTranslocoLocale } from "@jsverse/transloco-locale";
 
 @Injectable({ providedIn: "root" })
 export class TranslocoHttpLoader implements TranslocoLoader {
@@ -26,19 +24,11 @@ export class TranslocoHttpLoader implements TranslocoLoader {
         TranslocoModule,
         MatTooltipModule,
     // TranslocoPreloadLangsModule.forRoot(['lazy-page/es']),
-    TranslocoMessageFormatModule.forRoot(),
-    TranslocoLocaleModule.forRoot({
-      langToLocaleMapping: {
-        en: "en-US",
-        vi: "vi-VN"
-      }
-    })
   ],
   exports: [TranslocoModule],
   providers: [
-    {
-      provide: TRANSLOCO_CONFIG,
-      useValue: translocoConfig({
+    provideTransloco({
+      config: {
         availableLangs: [
           { id: "en", label: "English" },
           { id: "vi", label: "Vietnam" }
@@ -49,10 +39,16 @@ export class TranslocoHttpLoader implements TranslocoLoader {
         missingHandler: {
           useFallbackTranslation: false
         }
-        // interpolation: ['<<<', '>>>']
-      })
-    },
-    { provide: TRANSLOCO_LOADER, useClass: TranslocoHttpLoader }
+      },
+      loader: TranslocoHttpLoader
+    }),
+    provideTranslocoMessageformat(),
+    provideTranslocoLocale({
+      langToLocaleMapping: {
+        en: "en-US",
+        vi: "vi-VN"
+      }
+    })
   ]
 })
 export class TranslocoCoreModule { }

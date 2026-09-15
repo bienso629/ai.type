@@ -1,98 +1,224 @@
-<div class="fixed lg:sticky top-0 bottom-0 lg:left-full w-full sm:w-[500px] lg:w-[64px] lg:h-screen lg:border-l">
-    <div class="flex flex-col w-full sm:w-[500px] h-full transition-transform duration-400 ease-drawer bg-card"
-        [ngClass]="{'-translate-x-full sm:-translate-x-[500px] lg:-translate-x-[436px] border-l': opened, 'translate-x-0': !opened}">
-
+<div
+    class="fixed lg:sticky top-0 bottom-0 lg:left-full w-full sm:w-[500px] lg:w-[64px] lg:h-screen lg:border-l"
+>
+    <div
+        class="flex flex-col w-full sm:w-[500px] h-full transition-transform duration-400 ease-drawer bg-card"
+        [ngClass]="{
+            '-translate-x-full sm:-translate-x-[500px] lg:-translate-x-[436px] border-l':
+                opened,
+            'translate-x-0': !opened,
+        }"
+    >
         <!-- Header -->
-        <div class="quick-chat-header flex flex-0 items-center justify-start cursor-pointer" (click)="toggle()">
-            <ng-container *ngIf="!opened">
-                <div class="flex items-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover">
-                    <div class="relative flex flex-0 items-center justify-center w-10 h-10">
-                        <mat-icon class="icon-size-5 text-primary transition-all cursor-pointer hover:scale-110"
-                            [title]="'app.auto_open_tools_manager' | transloco" [svgIcon]="'feather:grid'"></mat-icon>
+        <div
+            class="quick-chat-header flex flex-0 items-center justify-start cursor-pointer"
+            (click)="toggle()"
+        >
+            @if (!opened) {
+                <div
+                    class="flex items-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover"
+                >
+                    <div
+                        class="relative flex flex-0 items-center justify-center w-10 h-10"
+                    >
+                        <mat-icon
+                            class="icon-size-5 text-primary transition-all cursor-pointer hover:scale-110"
+                            [title]="'app.auto_open_tools_manager' | transloco"
+                            [svgIcon]="'feather:grid'"
+                        ></mat-icon>
                     </div>
                 </div>
-            </ng-container>
+            }
 
-            <ng-container *ngIf="opened">
+            @if (opened) {
                 <div class="flex flex-auto items-center ml-4">
                     <div class="text-lg font-medium leading-5">Web Tools</div>
-                    <button class="ml-auto mr-4" mat-icon-button (click)="$event.stopPropagation(); close()">
-                        <mat-icon [svgIcon]="'heroicons_outline:x'" class="icon-size-5"></mat-icon>
+                    <button
+                        class="ml-auto mr-4"
+                        mat-icon-button
+                        (click)="$event.stopPropagation(); close()"
+                    >
+                        <mat-icon
+                            [svgIcon]="'heroicons_outline:x'"
+                            class="icon-size-5"
+                        ></mat-icon>
                     </button>
                 </div>
-            </ng-container>
+            }
         </div>
 
         <!-- Content -->
         <div class="flex flex-auto overflow-hidden border-t">
             <!-- Tools list (Left Sidebar) -->
-            <div class="flex-0 w-16 h-full overflow-y-auto overscroll-y-contain sm:overflow-hidden sm:overscroll-auto"
-                fuseScrollbar [fuseScrollbarOptions]="{wheelPropagation: false}">
+            <div
+                class="flex-0 w-16 h-full overflow-y-auto overscroll-y-contain sm:overflow-hidden sm:overscroll-auto"
+                fuseScrollbar
+                [fuseScrollbarOptions]="{ wheelPropagation: false }"
+            >
                 <div class="flex-auto">
-                    <ng-container *ngFor="let tool of tools; trackBy: trackByFn">
-                        <div class="flex items-center justify-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover"
-                            (click)="openTool(tool)" [title]="tool.name"
-                            [class.zalo-running-blink]="isZaloTool(tool) && isZaloRunningBackground">
+                    @for (tool of tools; track trackByFn($index, tool)) {
+                        <div
+                            class="flex items-center justify-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover"
+                            (click)="openTool(tool)"
+                            [title]="tool.name"
+                            [class.zalo-running-blink]="
+                                isZaloTool(tool) && isZaloRunningBackground
+                            "
+                        >
                             <div class="relative flex flex-0 w-6 h-6">
-                                <img class="w-full h-full rounded-md object-cover"
-                                    [src]="getFavicon(tool)" [alt]="tool.name"
-                                    onerror="this.src='./assets/images/logo/favicon.svg'" />
+                                <img
+                                    class="w-full h-full rounded-md object-cover"
+                                    [src]="getFavicon(tool)"
+                                    [alt]="tool.name"
+                                    onerror="
+                                        this.src =
+                                            './assets/images/logo/favicon.svg'
+                                    "
+                                />
                             </div>
                         </div>
-                    </ng-container>
+                    }
                 </div>
             </div>
 
             <!-- Form Area (Right Panel) -->
-            <div class="flex flex-col flex-auto border-l overflow-hidden bg-gray-50 dark:bg-transparent">
+            <div
+                class="flex flex-col flex-auto border-l overflow-hidden bg-gray-50 dark:bg-transparent"
+            >
                 <div class="flex flex-col flex-auto p-6 overflow-y-auto">
                     <div class="mb-8">
-                        <h2 class="text-xl font-semibold mb-2 text-secondary">{{ 'app.auto_web_tools_management' | transloco }}</h2>
-                        <p class="text-sm text-gray-500">{{ 'app.auto_add_frequently_used_websites_t' | transloco }}</p>
+                        <h2 class="text-xl font-semibold mb-2 text-secondary">
+                            {{ "app.auto_web_tools_management" | transloco }}
+                        </h2>
+                        <p class="text-sm text-gray-500">
+                            {{
+                                "app.auto_add_frequently_used_websites_t"
+                                    | transloco
+                            }}
+                        </p>
                     </div>
 
                     <!-- Tool Management List -->
                     <div class="bg-card rounded-2xl border overflow-hidden">
-                        <div class="flex items-center px-4 py-3 bg-gray-50 border-b">
-                            <span class="font-medium flex-auto">{{ 'app.auto_current_list' | transloco }}</span>
-                            <button mat-icon-button color="primary" (click)="openAddDialog()"
-                                [matTooltip]="'app.auto_add_new_tool' | transloco">
-                                <mat-icon class="icon-size-5">add_circle</mat-icon>
+                        <div
+                            class="flex items-center px-4 py-3 bg-gray-50 border-b"
+                        >
+                            <span class="font-medium flex-auto">{{
+                                "app.auto_current_list" | transloco
+                            }}</span>
+                            <button
+                                mat-icon-button
+                                color="primary"
+                                (click)="openAddDialog()"
+                                [matTooltip]="
+                                    'app.auto_add_new_tool' | transloco
+                                "
+                            >
+                                <mat-icon class="icon-size-5"
+                                    >add_circle</mat-icon
+                                >
                             </button>
                         </div>
-                        <div class="flex flex-col h-auto" cdkDropList (cdkDropListDropped)="drop($event)">
-                            <ng-container *ngFor="let tool of tools">
-                                <div cdkDrag class="flex items-center px-4 py-3 border-b last:border-none hover:bg-gray-50 cursor-move bg-white dark:bg-transparent">
-                                    <div class="flex items-center mr-3 shrink-0">
-                                        <input #editFileInput type="file" class="hidden" accept="image/*" (change)="onEditIconSelected($event, tool)">
-                                        <img [src]="getFavicon(tool)" class="w-8 h-8 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                        <div
+                            class="flex flex-col h-auto"
+                            cdkDropList
+                            (cdkDropListDropped)="drop($event)"
+                        >
+                            @for (tool of tools; track tool) {
+                                <div
+                                    cdkDrag
+                                    class="flex items-center px-4 py-3 border-b last:border-none hover:bg-gray-50 cursor-move bg-white dark:bg-transparent"
+                                >
+                                    <div
+                                        class="flex items-center mr-3 shrink-0"
+                                    >
+                                        <input
+                                            #editFileInput
+                                            type="file"
+                                            class="hidden"
+                                            accept="image/*"
+                                            (change)="
+                                                onEditIconSelected($event, tool)
+                                            "
+                                        />
+                                        <img
+                                            [src]="getFavicon(tool)"
+                                            class="w-8 h-8 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
                                             (click)="editFileInput.click()"
                                             matTooltip="Nhấp để thay đổi Icon"
-                                            onerror="this.src='./assets/images/logo/favicon.svg'" />
+                                            onerror="
+                                                this.src =
+                                                    './assets/images/logo/favicon.svg'
+                                            "
+                                        />
                                     </div>
                                     <div class="flex-auto min-w-0">
-                                        <div class="font-medium truncate">{{ tool.name }}</div>
-                                        <div class="text-xs text-gray-500 truncate" dir="ltr">{{ tool.url }}</div>
+                                        <div class="font-medium truncate">
+                                            {{ tool.name }}
+                                        </div>
+                                        <div
+                                            class="text-xs text-gray-500 truncate"
+                                            dir="ltr"
+                                        >
+                                            {{ tool.url }}
+                                        </div>
                                     </div>
-                                    <button mat-icon-button (click)="removeTool(tool.id)" [matTooltip]="'app.auto_delete_1' | transloco">
-                                        <mat-icon class="icon-size-5 text-red-400 hover:bg-red-500">delete</mat-icon>
+                                    <button
+                                        mat-icon-button
+                                        (click)="removeTool(tool.id)"
+                                        [matTooltip]="
+                                            'app.auto_delete_1' | transloco
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5 text-red-400 hover:bg-red-500"
+                                            >delete</mat-icon
+                                        >
                                     </button>
                                 </div>
-                            </ng-container>
+                            }
 
-                            <div *ngIf="tools.length === 0" class="p-4 text-center text-gray-500 italic">
-                                {{ 'app.auto_there_is_no_tool_yet' | transloco }}
-                            </div>
+                            @if (tools.length === 0) {
+                                <div
+                                    class="p-4 text-center text-gray-500 italic"
+                                >
+                                    {{
+                                        "app.auto_there_is_no_tool_yet"
+                                            | transloco
+                                    }}
+                                </div>
+                            }
                         </div>
                     </div>
 
-                    <p class="text-sm text-gray-500 mb-2 mt-4">{{ 'app.auto_to_fully_use_google_s_tools_pl' | transloco }}</p>
+                    <p class="text-sm text-gray-500 mb-2 mt-4">
+                        {{
+                            "app.auto_to_fully_use_google_s_tools_pl"
+                                | transloco
+                        }}
+                    </p>
                     <div class="flex gap-2">
-                        <button mat-flat-button color="primary" (click)="openLoginBrowser()" [matTooltip]="'app.auto_open_a_private_browser_to_sign' | transloco">
-                            {{ 'app.auto_log_in_2' | transloco }}
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            (click)="openLoginBrowser()"
+                            [matTooltip]="
+                                'app.auto_open_a_private_browser_to_sign'
+                                    | transloco
+                            "
+                        >
+                            {{ "app.auto_log_in_2" | transloco }}
                         </button>
-                        <button mat-flat-button color="warn" (click)="clearWebviewCookie()" [matTooltip]="'app.auto_delete_all_cookies_session_of' | transloco">
-                            {{ 'app.auto_delete_cookie' | transloco }}
+                        <button
+                            mat-flat-button
+                            color="warn"
+                            (click)="clearWebviewCookie()"
+                            [matTooltip]="
+                                'app.auto_delete_all_cookies_session_of'
+                                    | transloco
+                            "
+                        >
+                            {{ "app.auto_delete_cookie" | transloco }}
                         </button>
                     </div>
                 </div>

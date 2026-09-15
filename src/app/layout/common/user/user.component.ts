@@ -11,7 +11,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     templateUrl: './user.component.html',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    exportAs: 'user'
+    exportAs: 'user',
+    standalone: false
 })
 export class UserComponent implements OnInit, OnDestroy {
     /* eslint-disable @typescript-eslint/naming-convention */

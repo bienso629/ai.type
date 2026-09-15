@@ -1,200 +1,549 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b"
+    >
         <div class="flex-1 min-w-0">
             <div class="hidden sm:flex flex-wrap items-center font-medium">
                 <div class="flex items-center whitespace-nowrap">
-                    <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                    <a
+                        class="text-base text-primary-500"
+                        [routerLink]="['/dashboard']"
+                        >ai.type</a
+                    >
                 </div>
                 <div class="flex items-center ml-1 whitespace-nowrap">
-                    <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                        [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <span class="ml-1 text-base text-secondary">{{ 'app.your_image_library' | transloco }}</span>
+                    <mat-icon
+                        class="icon-size-4 text-secondary"
+                        style="margin-top: 2px"
+                        [svgIcon]="'heroicons_solid:chevron-right'"
+                    ></mat-icon>
+                    <span class="ml-1 text-base text-secondary">{{
+                        "app.your_image_library" | transloco
+                    }}</span>
                 </div>
             </div>
             <div class="flex sm:hidden">
-                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                    <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                <a
+                    class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                    [routerLink]="'./..'"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-secondary"
+                        [svgIcon]="'heroicons_solid:chevron-left'"
+                    ></mat-icon>
                     <span class="ml-1 text-base">quay lại</span>
                 </a>
             </div>
         </div>
 
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <mat-form-field *ngIf="domains" stopPropagation (stop2click)="handler($event)"
-                class="min-w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                <mat-text matPrefix>{{ 'app.upload' | transloco }}</mat-text>
-                <mat-select (selectionChange)="onDomainChange($event)" [(ngModel)]="domain">
-                    <ng-container *ngFor="let item of domains; let i = index">
-                        <mat-option [value]="item">{{cleanDomain(item.domain)}}</mat-option>
-                    </ng-container>
-                </mat-select>
-            </mat-form-field>
+            @if (domains) {
+                <mat-form-field
+                    stopPropagation
+                    (stop2click)="handler($event)"
+                    class="min-w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                    appearance="fill"
+                >
+                    <mat-text matPrefix>{{
+                        "app.upload" | transloco
+                    }}</mat-text>
+                    <mat-select
+                        (selectionChange)="onDomainChange($event)"
+                        [(ngModel)]="domain"
+                    >
+                        @for (item of domains; track item; let i = $index) {
+                            <mat-option [value]="item">{{
+                                cleanDomain(item.domain)
+                            }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            }
         </div>
     </div>
 
     <div class="flex-auto overflow-y-auto" cdkScrollable>
-        <mat-drawer-container class="flex-auto h-full bg-white place-items-center">
+        <mat-drawer-container
+            class="flex-auto h-full bg-white place-items-center"
+        >
             <mat-drawer-content class="m-auto w-full bg-transparent">
                 <div class="absolute inset-0 flex flex-col overflow-hidden">
-                    <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between">
-                        <div class="min-w-200 max-w-1/2 mx-auto p-4 md:px-4 sm:px-10">
+                    <div
+                        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between"
+                    >
+                        <div
+                            class="min-w-200 max-w-1/2 mx-auto p-4 md:px-4 sm:px-10"
+                        >
                             <form [formGroup]="form" class="w-full">
-                                <mat-form-field class="w-full fuse-mat-no-subscript" appearance="outline">
-                                    <div matPrefix class="flex items-center ml-2">
-                                        <input type="file" #fileInput (change)="onFileSelected($event)" hidden
-                                            multiple>
-                                        <button type="button" mat-icon-button (click)="fileInput.click()"
-                                            [matTooltip]="'app.add_reference_image' | transloco">
-                                            <mat-icon [class.text-primary]="referenceFiles.length > 0"
-                                                [svgIcon]="referenceFiles.length > 0 ? 'heroicons_solid:paper-clip' : 'heroicons_outline:paper-clip'"></mat-icon>
+                                <mat-form-field
+                                    class="w-full fuse-mat-no-subscript"
+                                    appearance="outline"
+                                >
+                                    <div
+                                        matPrefix
+                                        class="flex items-center ml-2"
+                                    >
+                                        <input
+                                            type="file"
+                                            #fileInput
+                                            (change)="onFileSelected($event)"
+                                            hidden
+                                            multiple
+                                        />
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            (click)="fileInput.click()"
+                                            [matTooltip]="
+                                                'app.add_reference_image'
+                                                    | transloco
+                                            "
+                                        >
+                                            <mat-icon
+                                                [class.text-primary]="
+                                                    referenceFiles.length > 0
+                                                "
+                                                [svgIcon]="
+                                                    referenceFiles.length > 0
+                                                        ? 'heroicons_solid:paper-clip'
+                                                        : 'heroicons_outline:paper-clip'
+                                                "
+                                            ></mat-icon>
                                         </button>
-                                        <span *ngIf="referenceFiles.length > 0"
-                                            class="text-xs font-semibold text-primary mr-2">{{referenceFiles.length}}</span>
+                                        @if (referenceFiles.length > 0) {
+                                            <span
+                                                class="text-xs font-semibold text-primary mr-2"
+                                                >{{
+                                                    referenceFiles.length
+                                                }}</span
+                                            >
+                                        }
                                     </div>
 
-                                    <input matInput formControlName="prompt"
-                                        [placeholder]="'app.image_prompt_placeholder' | transloco" (keyup.enter)="createImg()">
+                                    <input
+                                        matInput
+                                        formControlName="prompt"
+                                        [placeholder]="
+                                            'app.image_prompt_placeholder'
+                                                | transloco
+                                        "
+                                        (keyup.enter)="createImg()"
+                                    />
 
-                                    <div matSuffix class="flex items-center mr-1 gap-2">
-                                        <mat-select formControlName="modelId" class="w-28 text-sm border-l pl-2"
-                                            [matTooltip]="'app.select_model' | transloco">
-                                            <mat-option value="gemini-3.1-flash-image-preview">Bình thường</mat-option>
-                                            <mat-option value="imagen-3.0-generate-002">Chất lượng</mat-option>
-                                            <mat-option value="gemini-3-pro-image-preview">Chất lượng cao</mat-option>
+                                    <div
+                                        matSuffix
+                                        class="flex items-center mr-1 gap-2"
+                                    >
+                                        <mat-select
+                                            formControlName="modelId"
+                                            class="w-28 text-sm border-l pl-2"
+                                            [matTooltip]="
+                                                'app.select_model' | transloco
+                                            "
+                                        >
+                                            <mat-option
+                                                value="gemini-3.1-flash-image-preview"
+                                                >Bình thường</mat-option
+                                            >
+                                            <mat-option
+                                                value="imagen-3.0-generate-002"
+                                                >Chất lượng</mat-option
+                                            >
+                                            <mat-option
+                                                value="gemini-3-pro-image-preview"
+                                                >Chất lượng cao</mat-option
+                                            >
                                         </mat-select>
 
-                                        <mat-select formControlName="aspectRatio" class="w-16 text-sm border-l pl-2"
-                                            [matTooltip]="'app.aspect_ratio' | transloco">
-                                            <mat-option value="1:1">1:1</mat-option>
-                                            <mat-option value="2:3">2:3</mat-option>
-                                            <mat-option value="3:2">3:2</mat-option>
-                                            <mat-option value="3:4">3:4</mat-option>
-                                            <mat-option value="4:3">4:3</mat-option>
-                                            <mat-option value="9:16">9:16</mat-option>
-                                            <mat-option value="16:9">16:9</mat-option>
+                                        <mat-select
+                                            formControlName="aspectRatio"
+                                            class="w-16 text-sm border-l pl-2"
+                                            [matTooltip]="
+                                                'app.aspect_ratio' | transloco
+                                            "
+                                        >
+                                            <mat-option value="1:1"
+                                                >1:1</mat-option
+                                            >
+                                            <mat-option value="2:3"
+                                                >2:3</mat-option
+                                            >
+                                            <mat-option value="3:2"
+                                                >3:2</mat-option
+                                            >
+                                            <mat-option value="3:4"
+                                                >3:4</mat-option
+                                            >
+                                            <mat-option value="4:3"
+                                                >4:3</mat-option
+                                            >
+                                            <mat-option value="9:16"
+                                                >9:16</mat-option
+                                            >
+                                            <mat-option value="16:9"
+                                                >16:9</mat-option
+                                            >
                                         </mat-select>
 
-                                        <button type="button" mat-icon-button color="primary" (click)="createImg()"
-                                            [disabled]="loading || !form.get('prompt')?.value">
-                                            <mat-icon *ngIf="!loading"
-                                                svgIcon="heroicons_solid:paper-airplane"></mat-icon>
-                                            <mat-progress-spinner *ngIf="loading" [diameter]="20"
-                                                [mode]="'indeterminate'"></mat-progress-spinner>
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            color="primary"
+                                            (click)="createImg()"
+                                            [disabled]="
+                                                loading ||
+                                                !form.get('prompt')?.value
+                                            "
+                                        >
+                                            @if (!loading) {
+                                                <mat-icon
+                                                    svgIcon="heroicons_solid:paper-airplane"
+                                                ></mat-icon>
+                                            }
+                                            @if (loading) {
+                                                <mat-progress-spinner
+                                                    [diameter]="20"
+                                                    [mode]="'indeterminate'"
+                                                ></mat-progress-spinner>
+                                            }
                                         </button>
                                     </div>
-                                    <mat-hint>{{ 'app.we_create_images_using' | transloco }}</mat-hint>
+                                    <mat-hint>{{
+                                        "app.we_create_images_using" | transloco
+                                    }}</mat-hint>
                                 </mat-form-field>
 
-                                <div class="flex gap-3 mt-2 px-4 flex-wrap" *ngIf="referenceFiles.length > 0">
-                                    <div *ngFor="let file of referenceFiles; let i = index" class="relative group flex items-center">
-                                        <!-- Image Preview -->
-                                        <ng-container *ngIf="file.mimeType.startsWith('image/'); else nonImageTemplate">
-                                            <img [src]="'data:' + file.mimeType + ';base64,' + file.base64Data"
-                                                class="w-10 h-10 object-cover rounded"
-                                                [matTooltip]="file.fileName">
-                                        </ng-container>
-                                        
-                                        <!-- Non-Image Preview -->
-                                        <ng-template #nonImageTemplate>
-                                            <div class="w-10 h-10 flex flex-col items-center pt-1.5 bg-gray-100 hover:bg-gray-200 rounded text-gray-500 cursor-pointer"
-                                                [matTooltip]="file.fileName">
-                                                <mat-icon class="icon-size-4" svgIcon="heroicons_outline:document-text"></mat-icon>
-                                                <span class="text-[8px] font-bold uppercase text-gray-600 truncate max-w-full px-0.5 mt-0.5 leading-none">
-                                                    {{ getFileExtension(file.fileName) }}
-                                                </span>
+                                @if (referenceFiles.length > 0) {
+                                    <div class="flex gap-3 mt-2 px-4 flex-wrap">
+                                        @for (
+                                            file of referenceFiles;
+                                            track file;
+                                            let i = $index
+                                        ) {
+                                            <div
+                                                class="relative group flex items-center"
+                                            >
+                                                <!-- Image Preview -->
+                                                @if (
+                                                    file.mimeType.startsWith(
+                                                        "image/"
+                                                    )
+                                                ) {
+                                                    <img
+                                                        [src]="
+                                                            'data:' +
+                                                            file.mimeType +
+                                                            ';base64,' +
+                                                            file.base64Data
+                                                        "
+                                                        class="w-10 h-10 object-cover rounded"
+                                                        [matTooltip]="
+                                                            file.fileName
+                                                        "
+                                                    />
+                                                } @else {
+                                                    <div
+                                                        class="w-10 h-10 flex flex-col items-center pt-1.5 bg-gray-100 hover:bg-gray-200 rounded text-gray-500 cursor-pointer"
+                                                        [matTooltip]="
+                                                            file.fileName
+                                                        "
+                                                    >
+                                                        <mat-icon
+                                                            class="icon-size-4"
+                                                            svgIcon="heroicons_outline:document-text"
+                                                        ></mat-icon>
+                                                        <span
+                                                            class="text-[8px] font-bold uppercase text-gray-600 truncate max-w-full px-0.5 mt-0.5 leading-none"
+                                                        >
+                                                            {{
+                                                                getFileExtension(
+                                                                    file.fileName
+                                                                )
+                                                            }}
+                                                        </span>
+                                                    </div>
+                                                }
+                                                <!-- Non-Image Preview -->
+                                                <!-- Delete Button -->
+                                                <mat-icon
+                                                    (click)="
+                                                        referenceFiles.splice(
+                                                            i,
+                                                            1
+                                                        )
+                                                    "
+                                                    class="absolute -top-1.5 -right-1.5 icon-size-3 bg-red-500 text-white rounded-full cursor-pointer hover:bg-red-600"
+                                                    svgIcon="heroicons_solid:x-mark"
+                                                ></mat-icon>
                                             </div>
-                                        </ng-template>
-
-                                        <!-- Delete Button -->
-                                        <mat-icon (click)="referenceFiles.splice(i, 1)"
-                                            class="absolute -top-1.5 -right-1.5 icon-size-3 bg-red-500 text-white rounded-full cursor-pointer hover:bg-red-600"
-                                            svgIcon="heroicons_solid:x-mark"></mat-icon>
+                                        }
+                                        <span
+                                            class="text-xs text-secondary self-center cursor-pointer hover:underline ml-2"
+                                            (click)="referenceFiles = []"
+                                            >{{
+                                                "app.auto_delete_all"
+                                                    | transloco
+                                            }}</span
+                                        >
                                     </div>
-                                    <span class="text-xs text-secondary self-center cursor-pointer hover:underline ml-2"
-                                        (click)="referenceFiles = []">{{ 'app.auto_delete_all' | transloco }}</span>
-                                </div>
+                                }
                             </form>
                         </div>
                     </div>
 
                     <div class="flex-auto relative rounded-md overflow-y-auto">
-                        <div class="mx-auto w-full bg-transparent" cdkScrollable>
-                            <ng-container *ngIf="rows.length > 0">
-                                <ngx-datatable [appScrollLock]="loading" #datatable class="material grid fullscreen image-thumbnails"
-                                    [rows]="rows" [virtualization]="true" [scrollbarV]="true" [rowHeight]="rowHeight"
-                                    [headerHeight]="0" [footerHeight]="0" [columnMode]="'force'">
+                        <div
+                            class="mx-auto w-full bg-transparent"
+                            cdkScrollable
+                        >
+                            @if (rows.length > 0) {
+                                <ngx-datatable
+                                    [appScrollLock]="loading"
+                                    #datatable
+                                    class="material grid fullscreen image-thumbnails"
+                                    [rows]="rows"
+                                    [virtualization]="true"
+                                    [scrollbarV]="true"
+                                    [rowHeight]="rowHeight"
+                                    [headerHeight]="0"
+                                    [footerHeight]="0"
+                                    [columnMode]="'force'"
+                                >
                                     <ngx-datatable-column [flexGrow]="1">
-                                        <ng-template ngx-datatable-cell-template let-row="row" let-rowIndex="rowIndex">
-                                            <div class="row-grid w-full flex flex-wrap">
-                                                <div class="thumb-wrap p-3 box-border"
-                                                    *ngFor="let img of row.images; let i = index" [ngStyle]="{
-                                                    flex: '0 0 ' + (100 / gridSize) + '%',
-                                                }">
-
-                                                    <ng-container
-                                                        *ngIf="img.toLowerCase().endsWith('.mp4'); else imageTemplate">
-                                                        <video [src]="'file:///' + img"
-                                                            class="thumb w-full h-auto object-cover rounded-2xl"
-                                                            controls muted loop>
-                                                        </video>
-
-                                                        <div class="thumb-actions">
-                                                            <button mat-icon-button class="bg-white bg-opacity-75 hover:bg-opacity-100 text-gray-800 rounded-full shadow-sm" [matMenuTriggerFor]="videoMenu">
-                                                                <mat-icon class="icon-size-4" svgIcon="heroicons_outline:dots-vertical"></mat-icon>
-                                                            </button>
-                                                            <mat-menu #videoMenu="matMenu">
-                                                                <button mat-menu-item (click)="attachToPrompt(img)">
-                                                                    <mat-icon class="icon-size-4 text-purple-600" svgIcon="heroicons_outline:paper-clip"></mat-icon>
-                                                                    <span>Đính kèm vào prompt</span>
+                                        <ng-template
+                                            ngx-datatable-cell-template
+                                            let-row="row"
+                                            let-rowIndex="rowIndex"
+                                        >
+                                            <div
+                                                class="row-grid w-full flex flex-wrap"
+                                            >
+                                                @for (
+                                                    img of row.images;
+                                                    track img;
+                                                    let i = $index
+                                                ) {
+                                                    <div
+                                                        class="thumb-wrap p-3 box-border"
+                                                        [ngStyle]="{
+                                                            flex:
+                                                                '0 0 ' +
+                                                                100 / gridSize +
+                                                                '%',
+                                                        }"
+                                                    >
+                                                        @if (
+                                                            img
+                                                                .toLowerCase()
+                                                                .endsWith(
+                                                                    ".mp4"
+                                                                )
+                                                        ) {
+                                                            <video
+                                                                [src]="
+                                                                    'file:///' +
+                                                                    img
+                                                                "
+                                                                class="thumb w-full h-auto object-cover rounded-2xl"
+                                                                controls
+                                                                muted
+                                                                loop
+                                                            ></video>
+                                                            <div
+                                                                class="thumb-actions"
+                                                            >
+                                                                <button
+                                                                    mat-icon-button
+                                                                    class="bg-white bg-opacity-75 hover:bg-opacity-100 text-gray-800 rounded-full shadow-sm"
+                                                                    [matMenuTriggerFor]="
+                                                                        videoMenu
+                                                                    "
+                                                                >
+                                                                    <mat-icon
+                                                                        class="icon-size-4"
+                                                                        svgIcon="heroicons_outline:dots-vertical"
+                                                                    ></mat-icon>
                                                                 </button>
-                                                                <button mat-menu-item (click)="uploadImage(img)">
-                                                                    <mat-icon class="icon-size-4 text-blue-500" svgIcon="feather:cloud"></mat-icon>
-                                                                    <span>Tải lên Website</span>
+                                                                <mat-menu
+                                                                    #videoMenu="matMenu"
+                                                                >
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
+                                                                            attachToPrompt(
+                                                                                img
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-purple-600"
+                                                                            svgIcon="heroicons_outline:paper-clip"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Đính
+                                                                            kèm
+                                                                            vào
+                                                                            prompt</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
+                                                                            uploadImage(
+                                                                                img
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-blue-500"
+                                                                            svgIcon="feather:cloud"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Tải
+                                                                            lên
+                                                                            Website</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
+                                                                            deleteImage(
+                                                                                img,
+                                                                                rowIndex *
+                                                                                    gridSize +
+                                                                                    i
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-red-500"
+                                                                            svgIcon="feather:trash"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Xóa</span
+                                                                        >
+                                                                    </button>
+                                                                </mat-menu>
+                                                            </div>
+                                                        } @else {
+                                                            <img
+                                                                [src]="
+                                                                    'file:///' +
+                                                                    img
+                                                                "
+                                                                class="thumb w-full h-auto object-cover rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
+                                                                (click)="
+                                                                    editImage(
+                                                                        img
+                                                                    )
+                                                                "
+                                                                matTooltip="Nhấp để sửa ảnh"
+                                                            />
+                                                            <div
+                                                                class="thumb-actions"
+                                                            >
+                                                                <button
+                                                                    mat-icon-button
+                                                                    class="bg-white bg-opacity-75 hover:bg-opacity-100 text-gray-800 rounded-full shadow-sm"
+                                                                    [matMenuTriggerFor]="
+                                                                        imageMenu
+                                                                    "
+                                                                >
+                                                                    <mat-icon
+                                                                        class="icon-size-4"
+                                                                        svgIcon="heroicons_outline:dots-vertical"
+                                                                    ></mat-icon>
                                                                 </button>
-                                                                <button mat-menu-item (click)="deleteImage(img, rowIndex * gridSize + i)">
-                                                                    <mat-icon class="icon-size-4 text-red-500" svgIcon="feather:trash"></mat-icon>
-                                                                    <span>Xóa</span>
-                                                                </button>
-                                                            </mat-menu>
-                                                        </div>
-                                                    </ng-container>
-
-                                                    <ng-template #imageTemplate>
-                                                        <img [src]="'file:///' + img"
-                                                            class="thumb w-full h-auto object-cover rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
-                                                            (click)="editImage(img)" matTooltip="Nhấp để sửa ảnh" />
-
-                                                        <div class="thumb-actions">
-                                                            <button mat-icon-button class="bg-white bg-opacity-75 hover:bg-opacity-100 text-gray-800 rounded-full shadow-sm" [matMenuTriggerFor]="imageMenu">
-                                                                <mat-icon class="icon-size-4" svgIcon="heroicons_outline:dots-vertical"></mat-icon>
-                                                            </button>
-                                                            <mat-menu #imageMenu="matMenu">
-                                                                <button mat-menu-item (click)="attachToPrompt(img)">
-                                                                    <mat-icon class="icon-size-4 text-purple-600" svgIcon="heroicons_outline:paper-clip"></mat-icon>
-                                                                    <span>Đính kèm vào prompt</span>
-                                                                </button>
-                                                                <button mat-menu-item (click)="shareImage(img)">
-                                                                    <mat-icon class="icon-size-4 text-blue-600" svgIcon="heroicons_outline:share"></mat-icon>
-                                                                    <span>Chia sẻ lên Mạng xã hội</span>
-                                                                </button>
-                                                                <button mat-menu-item (click)="uploadImage(img)">
-                                                                    <mat-icon class="icon-size-4 text-blue-500" svgIcon="feather:cloud"></mat-icon>
-                                                                    <span>Tải lên Website</span>
-                                                                </button>
-                                                                <button mat-menu-item (click)="deleteImage(img, rowIndex * gridSize + i)">
-                                                                    <mat-icon class="icon-size-4 text-red-500" svgIcon="feather:trash"></mat-icon>
-                                                                    <span>Xóa</span>
-                                                                </button>
-                                                            </mat-menu>
-                                                        </div>
-                                                    </ng-template>
-                                                </div>
+                                                                <mat-menu
+                                                                    #imageMenu="matMenu"
+                                                                >
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
+                                                                            attachToPrompt(
+                                                                                img
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-purple-600"
+                                                                            svgIcon="heroicons_outline:paper-clip"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Đính
+                                                                            kèm
+                                                                            vào
+                                                                            prompt</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
+                                                                            shareImage(
+                                                                                img
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-blue-600"
+                                                                            svgIcon="heroicons_outline:share"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Chia
+                                                                            sẻ
+                                                                            lên
+                                                                            Mạng
+                                                                            xã
+                                                                            hội</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
+                                                                            uploadImage(
+                                                                                img
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-blue-500"
+                                                                            svgIcon="feather:cloud"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Tải
+                                                                            lên
+                                                                            Website</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
+                                                                            deleteImage(
+                                                                                img,
+                                                                                rowIndex *
+                                                                                    gridSize +
+                                                                                    i
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-red-500"
+                                                                            svgIcon="feather:trash"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Xóa</span
+                                                                        >
+                                                                    </button>
+                                                                </mat-menu>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
                                             </div>
                                         </ng-template>
                                     </ngx-datatable-column>
                                 </ngx-datatable>
-                            </ng-container>
+                            }
                         </div>
                     </div>
                 </div>

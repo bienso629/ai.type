@@ -1,12 +1,34 @@
-<div class="policy-layout-page absolute inset-0 flex flex-col bg-white dark:bg-gray-900 min-w-0 overflow-y-auto">
+<div
+    class="policy-layout-page absolute inset-0 flex flex-col bg-white dark:bg-gray-900 min-w-0 overflow-y-auto"
+>
     <!-- Header Topbar (no-print) -->
-    <header class="no-print sticky top-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-100 dark:border-gray-800">
-        <div class="max-w-5xl w-full mx-auto px-4 sm:px-6 py-3 flex items-center gap-1">
-            <button mat-icon-button (click)="goBack()" matTooltip="Quay lại" class="w-9 h-9 min-h-9 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:arrow-left'"></mat-icon>
+    <header
+        class="no-print sticky top-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-100 dark:border-gray-800"
+    >
+        <div
+            class="max-w-5xl w-full mx-auto px-4 sm:px-6 py-3 flex items-center gap-1"
+        >
+            <button
+                mat-icon-button
+                (click)="goBack()"
+                matTooltip="Quay lại"
+                class="w-9 h-9 min-h-9 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'feather:arrow-left'"
+                ></mat-icon>
             </button>
-            <button mat-icon-button (click)="goHome()" matTooltip="Trang chủ" class="w-9 h-9 min-h-9 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:home'"></mat-icon>
+            <button
+                mat-icon-button
+                (click)="goHome()"
+                matTooltip="Trang chủ"
+                class="w-9 h-9 min-h-9 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'feather:home'"
+                ></mat-icon>
             </button>
         </div>
     </header>
@@ -16,106 +38,209 @@
         <!-- Hero Banner -->
         <div class="bg-white dark:bg-gray-900 p-4 sm:p-6 mb-6">
             <div class="max-w-3xl">
-                <div *ngIf="badgeText" class="inline-flex items-center gap-2 text-base font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-3">
-                    <mat-icon class="icon-size-5 text-blue-600 dark:text-blue-400" [svgIcon]="badgeIcon"></mat-icon>
-                    <span>{{ badgeText }}</span>
-                </div>
-                <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
+                @if (badgeText) {
+                    <div
+                        class="inline-flex items-center gap-2 text-base font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-3"
+                    >
+                        <mat-icon
+                            class="icon-size-5 text-blue-600 dark:text-blue-400"
+                            [svgIcon]="badgeIcon"
+                        ></mat-icon>
+                        <span>{{ badgeText }}</span>
+                    </div>
+                }
+                <h1
+                    class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4"
+                >
                     {{ title }}
                 </h1>
-                <p *ngIf="description" class="text-base text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
-                    {{ description }}
-                </p>
-                <div class="flex flex-wrap items-center gap-4 text-base text-gray-500 dark:text-gray-400 pt-3">
-                    <span *ngIf="lastUpdated" class="flex items-center gap-1.5">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'"></mat-icon>
-                        Cập nhật lần cuối:&nbsp;<strong>{{ lastUpdated }}</strong>
-                    </span>
-                    <span *ngIf="lastUpdated && version">•</span>
-                    <span *ngIf="version" class="flex items-center gap-1.5">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:layers'"></mat-icon>
-                        Phiên bản:&nbsp;<strong>{{ version }}</strong>
-                    </span>
-                    <span *ngIf="version && scope">•</span>
-                    <span *ngIf="scope" class="flex items-center gap-1.5">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
-                        Áp dụng:&nbsp;<strong>{{ scope }}</strong>
-                    </span>
+                @if (description) {
+                    <p
+                        class="text-base text-gray-600 dark:text-gray-300 leading-relaxed mb-6"
+                    >
+                        {{ description }}
+                    </p>
+                }
+                <div
+                    class="flex flex-wrap items-center gap-4 text-base text-gray-500 dark:text-gray-400 pt-3"
+                >
+                    @if (lastUpdated) {
+                        <span class="flex items-center gap-1.5">
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:calendar'"
+                            ></mat-icon>
+                            Cập nhật lần cuối:&nbsp;<strong>{{
+                                lastUpdated
+                            }}</strong>
+                        </span>
+                    }
+                    @if (lastUpdated && version) {
+                        <span>•</span>
+                    }
+                    @if (version) {
+                        <span class="flex items-center gap-1.5">
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:layers'"
+                            ></mat-icon>
+                            Phiên bản:&nbsp;<strong>{{ version }}</strong>
+                        </span>
+                    }
+                    @if (version && scope) {
+                        <span>•</span>
+                    }
+                    @if (scope) {
+                        <span class="flex items-center gap-1.5">
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:globe'"
+                            ></mat-icon>
+                            Áp dụng:&nbsp;<strong>{{ scope }}</strong>
+                        </span>
+                    }
                 </div>
             </div>
         </div>
 
         <!-- Layout Grid: Sidebar TOC + Policy Content -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
             <!-- Sticky Sidebar (Table of Contents) -->
-            <aside *ngIf="sections && sections.length > 0" class="no-print lg:col-span-4 sticky top-20">
-                <div class="bg-gray-50 dark:bg-gray-850 p-5 rounded-2xl">
-                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4 flex items-center gap-2">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:list'"></mat-icon>
-                        <span>Mục lục điều khoản</span>
-                    </h3>
-                    <nav class="flex flex-col space-y-1">
-                        <button *ngFor="let s of sections" (click)="scrollTo(s.id)"
-                            class="text-left py-2.5 px-3.5 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
-                            [ngClass]="{'!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 font-semibold': activeSection === s.id}">
-                            {{ s.title }}
-                        </button>
-                    </nav>
-
-                    <!-- Policy Links -->
-                    <div class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
-                        <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-2">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:shield'"></mat-icon>
-                            <span>Danh mục chính sách</span>
+            @if (sections && sections.length > 0) {
+                <aside class="no-print lg:col-span-4 sticky top-20">
+                    <div class="bg-gray-50 dark:bg-gray-850 p-5 rounded-2xl">
+                        <h3
+                            class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4 flex items-center gap-2"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:list'"
+                            ></mat-icon>
+                            <span>Mục lục điều khoản</span>
                         </h3>
                         <nav class="flex flex-col space-y-1">
-                            <a [routerLink]="['/policy']" routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 font-semibold"
-                                class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700">
-                                <mat-icon class="icon-size-4 text-blue-600 dark:text-blue-400" [svgIcon]="'feather:lock'"></mat-icon>
-                                <span>Chính sách bảo mật</span>
-                            </a>
-                            <a [routerLink]="['/chinh-sach-mua-hang']" routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:text-blue-400 font-semibold"
-                                class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700">
-                                <mat-icon class="icon-size-4 text-blue-600 dark:text-blue-400" [svgIcon]="'feather:credit-card'"></mat-icon>
-                                <span>Chính sách thanh toán</span>
-                            </a>
-                            <a [routerLink]="['/chinh-sach-giao-nhan']" routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:text-blue-400 font-semibold"
-                                class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700">
-                                <mat-icon class="icon-size-4 text-blue-600 dark:text-blue-400" [svgIcon]="'feather:truck'"></mat-icon>
-                                <span>Chính sách giao nhận</span>
-                            </a>
-                            <a [routerLink]="['/chinh-sach-bao-hanh']" routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:text-blue-400 font-semibold"
-                                class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700">
-                                <mat-icon class="icon-size-4 text-blue-600 dark:text-blue-400" [svgIcon]="'feather:award'"></mat-icon>
-                                <span>Chính sách bảo hành</span>
-                            </a>
-                            <a [routerLink]="['/dieu-khoan-su-dung']" routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:text-blue-400 font-semibold"
-                                class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700">
-                                <mat-icon class="icon-size-4 text-blue-600 dark:text-blue-400" [svgIcon]="'feather:file-text'"></mat-icon>
-                                <span>Điều khoản sử dụng</span>
-                            </a>
+                            @for (s of sections; track s) {
+                                <button
+                                    (click)="scrollTo(s.id)"
+                                    class="text-left py-2.5 px-3.5 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
+                                    [ngClass]="{
+                                        '!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 font-semibold':
+                                            activeSection === s.id,
+                                    }"
+                                >
+                                    {{ s.title }}
+                                </button>
+                            }
                         </nav>
-                    </div>
-
-                    <div *ngIf="sidebarBadgeText" class="mt-6 pt-4 border-t border-gray-200/70 dark:border-gray-700/70">
-                        <div class="flex items-center gap-2 text-base text-gray-500 dark:text-gray-400">
-                            <mat-icon class="icon-size-5 text-blue-600 dark:text-blue-400" [svgIcon]="sidebarBadgeIcon"></mat-icon>
-                            <span>{{ sidebarBadgeText }}</span>
+                        <!-- Policy Links -->
+                        <div
+                            class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700"
+                        >
+                            <h3
+                                class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-2"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'feather:shield'"
+                                ></mat-icon>
+                                <span>Danh mục chính sách</span>
+                            </h3>
+                            <nav class="flex flex-col space-y-1">
+                                <a
+                                    [routerLink]="['/policy']"
+                                    routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 font-semibold"
+                                    class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-600 dark:text-blue-400"
+                                        [svgIcon]="'feather:lock'"
+                                    ></mat-icon>
+                                    <span>Chính sách bảo mật</span>
+                                </a>
+                                <a
+                                    [routerLink]="['/chinh-sach-mua-hang']"
+                                    routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:text-blue-400 font-semibold"
+                                    class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-600 dark:text-blue-400"
+                                        [svgIcon]="'feather:credit-card'"
+                                    ></mat-icon>
+                                    <span>Chính sách thanh toán</span>
+                                </a>
+                                <a
+                                    [routerLink]="['/chinh-sach-giao-nhan']"
+                                    routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:text-blue-400 font-semibold"
+                                    class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-600 dark:text-blue-400"
+                                        [svgIcon]="'feather:truck'"
+                                    ></mat-icon>
+                                    <span>Chính sách giao nhận</span>
+                                </a>
+                                <a
+                                    [routerLink]="['/chinh-sach-bao-hanh']"
+                                    routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:text-blue-400 font-semibold"
+                                    class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-600 dark:text-blue-400"
+                                        [svgIcon]="'feather:award'"
+                                    ></mat-icon>
+                                    <span>Chính sách bảo hành</span>
+                                </a>
+                                <a
+                                    [routerLink]="['/dieu-khoan-su-dung']"
+                                    routerLinkActive="!bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:text-blue-400 font-semibold"
+                                    class="flex items-center gap-2.5 py-2 px-3 rounded-md transition-colors font-medium text-base text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-600 dark:text-blue-400"
+                                        [svgIcon]="'feather:file-text'"
+                                    ></mat-icon>
+                                    <span>Điều khoản sử dụng</span>
+                                </a>
+                            </nav>
                         </div>
+                        @if (sidebarBadgeText) {
+                            <div
+                                class="mt-6 pt-4 border-t border-gray-200/70 dark:border-gray-700/70"
+                            >
+                                <div
+                                    class="flex items-center gap-2 text-base text-gray-500 dark:text-gray-400"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5 text-blue-600 dark:text-blue-400"
+                                        [svgIcon]="sidebarBadgeIcon"
+                                    ></mat-icon>
+                                    <span>{{ sidebarBadgeText }}</span>
+                                </div>
+                            </div>
+                        }
                     </div>
-                </div>
-            </aside>
+                </aside>
+            }
 
             <!-- Policy Content Column -->
-            <article [ngClass]="(sections && sections.length > 0) ? 'lg:col-span-8' : 'lg:col-span-12'" class="policy-content space-y-8 text-gray-800 dark:text-gray-200">
+            <article
+                [ngClass]="
+                    sections && sections.length > 0
+                        ? 'lg:col-span-8'
+                        : 'lg:col-span-12'
+                "
+                class="policy-content space-y-8 text-gray-800 dark:text-gray-200"
+            >
                 <ng-content></ng-content>
             </article>
         </div>
 
         <!-- Footer note (Full width centered) -->
-        <div class="w-full text-center pt-8 pb-4 mt-6 text-sm text-gray-400 dark:text-gray-500">
-            AI.TYPE &copy; {{ currentYear }}. Bản quyền thuộc về Yên AI. Tất cả các quyền được bảo lưu.
+        <div
+            class="w-full text-center pt-8 pb-4 mt-6 text-sm text-gray-400 dark:text-gray-500"
+        >
+            AI.TYPE &copy; {{ currentYear }}. Bản quyền thuộc về Yên AI. Tất cả
+            các quyền được bảo lưu.
         </div>
     </main>
 </div>

@@ -11,7 +11,8 @@ import { MessagesService } from 'app/layout/common/messages/messages.service';
     templateUrl: './messages.component.html',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    exportAs: 'messages'
+    exportAs: 'messages',
+    standalone: false
 })
 export class MessagesComponent implements OnInit, OnDestroy {
     @ViewChild('messagesOrigin') private _messagesOrigin: MatButton;

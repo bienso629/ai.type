@@ -6,7 +6,8 @@ import { Title } from '@angular/platform-browser';
     templateUrl: './terms-policy.component.html',
     styleUrls: ['./terms-policy.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    standalone: false
 })
 export class TermsPolicyComponent implements OnInit {
     readonly sections = [

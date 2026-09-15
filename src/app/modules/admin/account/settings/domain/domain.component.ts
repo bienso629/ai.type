@@ -19,7 +19,8 @@ import { Router } from '@angular/router';
     styleUrls: ['./domain.component.scss'],
     providers: [DomainService, CrawlService, UserClientService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsDomainComponent implements OnInit, OnDestroy {
     @ViewChild('editDialogTemplate') editDialogTemplate: TemplateRef<any>;

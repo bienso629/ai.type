@@ -1,60 +1,99 @@
-import { ChangeDetectorRef, Component, Inject, OnInit, ViewChild } from "@angular/core";
-import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
-import { ColumnMode, DatatableComponent } from "@swimlane/ngx-datatable";
-import { User } from "app/core/user/user.types";
-import { BigDataService } from "app/_services/bigdata";
-import { LogStreamService } from "app/_services/log-stream.service";
-import { ToastrService } from "ngx-toastr";
-import { auditTime, Subject, Subscription, takeUntil } from "rxjs";
+import {
+    ChangeDetectorRef,
+    Component,
+    Inject,
+    OnInit,
+    ViewChild,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { ColumnMode, DatatableComponent } from '@swimlane/ngx-datatable';
+import { User } from 'app/core/user/user.types';
+import { BigDataService } from 'app/_services/bigdata';
+import { LogStreamService } from 'app/_services/log-stream.service';
+import { ToastrService } from 'ngx-toastr';
+import { auditTime, Subject, Subscription, takeUntil } from 'rxjs';
 
 @Component({
     selector: 'bigdata-logs-dialog',
-    template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-        <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:clock'"></mat-icon>
-        <mat-label class="self-center">Xem logs</mat-label>
-    </div>
-
-    <div mat-dialog-content class="mt-4 p-0">
-        <div class="log-view w-full h-full min-h-100 relative">
-            <ngx-datatable
-                #table
-                id="logsTable"
-                class="border rounded material fullscreen shadow-none"
-                [virtualization]="true"
-                [headerHeight]="50"
-                [columnMode]="ColumnMode.force"
-                [footerHeight]="50"
-                [rowHeight]="50"
-                [scrollbarV]="true"
-                [rows]="logs"
-                [rowIdentity]="rowIdentity"
-            >
-                <ngx-datatable-column name="URL" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="false">
-                    <ng-template let-row="row" ngx-datatable-cell-template>
-                        <p class="truncate hover:text-clip">{{row.url || 'Chưa có link'}}</p>
-                    </ng-template>
-                </ngx-datatable-column>
-
-                <ngx-datatable-column name="Status" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                    <ng-template let-row="row" ngx-datatable-cell-template>
-                        <p class="truncate hover:text-clip">{{row.status || 'Chưa xác định'}}</p>
-                    </ng-template>
-                </ngx-datatable-column>
-            </ngx-datatable>
+    template: `<div
+            class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch"
+        >
+            <mat-icon
+                class="self-center mr-2 icon-size-5"
+                [svgIcon]="'feather:clock'"
+            ></mat-icon>
+            <mat-label class="self-center">Xem logs</mat-label>
         </div>
-    </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button (click)="stop()" color="primary" class="float-right">
-            Tắt chương trình
-        </button>
+        <div mat-dialog-content class="mt-4 p-0">
+            <div class="log-view w-full h-full min-h-100 relative">
+                <ngx-datatable
+                    #table
+                    id="logsTable"
+                    class="border rounded material fullscreen shadow-none"
+                    [virtualization]="true"
+                    [headerHeight]="50"
+                    [columnMode]="ColumnMode.force"
+                    [footerHeight]="50"
+                    [rowHeight]="50"
+                    [scrollbarV]="true"
+                    [rows]="logs"
+                    [rowIdentity]="rowIdentity"
+                >
+                    <ngx-datatable-column
+                        name="URL"
+                        [sortable]="false"
+                        [canAutoResize]="true"
+                        [draggable]="false"
+                        [resizeable]="false"
+                    >
+                        <ng-template let-row="row" ngx-datatable-cell-template>
+                            <p class="truncate hover:text-clip">
+                                {{ row.url || 'Chưa có link' }}
+                            </p>
+                        </ng-template>
+                    </ngx-datatable-column>
 
-        <button mat-button (click)="onNoClick()" class="float-right">Đóng cửa sổ</button>
-    </div>`,
+                    <ngx-datatable-column
+                        name="Status"
+                        [width]="100"
+                        [sortable]="false"
+                        [canAutoResize]="false"
+                        [draggable]="false"
+                        [resizeable]="false"
+                    >
+                        <ng-template let-row="row" ngx-datatable-cell-template>
+                            <p class="truncate hover:text-clip">
+                                {{ row.status || 'Chưa xác định' }}
+                            </p>
+                        </ng-template>
+                    </ngx-datatable-column>
+                </ngx-datatable>
+            </div>
+        </div>
+
+        <div mat-dialog-actions class="p-0 mt-4">
+            <button
+                mat-flat-button
+                (click)="stop()"
+                color="primary"
+                class="float-right"
+            >
+                Tắt chương trình
+            </button>
+
+            <button mat-button (click)="onNoClick()" class="float-right">
+                Đóng cửa sổ
+            </button>
+        </div>`,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class BigDataLogsDialog implements OnInit {
     private static readonly MAX_LOGS = 2000;
-    rowIdentity = (row: any) => row.id ?? row.url ?? row.ts ?? row.raw ?? Math.random();
+    rowIdentity = (row: any) =>
+        row.id ?? row.url ?? row.ts ?? row.raw ?? Math.random();
     logs: any[] = [];
     user: User;
     jobID: string = '';
@@ -72,7 +111,11 @@ export class BigDataLogsDialog implements OnInit {
         this.sub?.unsubscribe();
         this.sub = this.logStream.streamJobLogs().subscribe({
             next: (data) => {
-                try { this.buffer.push(JSON.parse(data)); } catch { this.buffer.push({ raw: data }); }
+                try {
+                    this.buffer.push(JSON.parse(data));
+                } catch {
+                    this.buffer.push({ raw: data });
+                }
 
                 if (!this.flushTimer) {
                     this.flushTimer = setTimeout(() => {
@@ -82,7 +125,11 @@ export class BigDataLogsDialog implements OnInit {
 
                         setTimeout(() => {
                             this.table?.recalculate();
-                            const bodyEl = (this.table as any)?.element?.querySelector?.('.datatable-body') as HTMLElement;
+                            const bodyEl = (
+                                this.table as any
+                            )?.element?.querySelector?.(
+                                '.datatable-body',
+                            ) as HTMLElement;
                             bodyEl && (bodyEl.scrollTop = bodyEl.scrollHeight);
                             this.cd.markForCheck();
                         });
@@ -94,19 +141,20 @@ export class BigDataLogsDialog implements OnInit {
     }
 
     stop() {
-        this._bigdataService.stopAllJob({
-            username: this.user.name,
-            appID: 'fastmailv2.tadu.fastmailv2'
-        })
+        this._bigdataService
+            .stopAllJob({
+                username: this.user.name,
+                appID: 'fastmailv2.tadu.fastmailv2',
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result) {
-                        this.toastr.success("Đã dừng tiến trình.");
+                        this.toastr.success('Đã dừng tiến trình.');
                     }
                 },
-                error: () => { },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -116,16 +164,14 @@ export class BigDataLogsDialog implements OnInit {
         private logStream: LogStreamService,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-        @Inject(MAT_DIALOG_DATA) public data: BigDataLogsDialog
+        @Inject(MAT_DIALOG_DATA) public data: BigDataLogsDialog,
     ) {
         this.user = data['user'];
         this.jobID = localStorage.getItem('dataJobID');
         this.startStream();
     }
 
-    ngOnInit(): void {
-    }
-
+    ngOnInit(): void {}
 
     ngAfterViewInit(): void {
         // Cho chắc: tính lại layout lần đầu

@@ -1,11 +1,17 @@
 <div class="flex flex-col sm:flex-row flex-auto w-full h-full bg-white">
     <div class="flex-1 min-w-0 relative h-full">
         <!-- Zoom Controls -->
-        <div class="absolute top-2 right-4 z-20 flex gap-2 bg-white rounded-md shadow p-1">
+        <div
+            class="absolute top-2 right-4 z-20 flex gap-2 bg-white rounded-md shadow p-1"
+        >
             <button mat-icon-button (click)="zoomOut()" matTooltip="Thu nhỏ">
                 <mat-icon [svgIcon]="'heroicons_outline:minus'"></mat-icon>
             </button>
-            <button mat-icon-button (click)="scrollToToday()" matTooltip="Về hôm nay">
+            <button
+                mat-icon-button
+                (click)="scrollToToday()"
+                matTooltip="Về hôm nay"
+            >
                 <mat-icon [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
             </button>
             <button mat-icon-button (click)="zoomIn()" matTooltip="Phóng to">
@@ -15,77 +21,209 @@
 
         <div class="flex-auto h-full overflow-y-auto" cdkScrollable>
             <div class="timeline-container fullscreen">
-                <timeline-calendar #timeline locale="vi" [showDateMarket]="true" [isPanelResizable]="false"
-                    [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
+                <timeline-calendar
+                    #timeline
+                    locale="vi"
+                    [showDateMarket]="true"
+                    [isPanelResizable]="false"
+                    [panelWidth]="150"
+                    [maxPanelWidth]="200"
+                    [headerHeight]="70"
+                    [items]="items"
                     [zooms]="customZooms"
-                    [startDate]="timelineStartDate" [endDate]="timelineEndDate"
-                    [panelLabel]="'Công việc'" (itemTimeChanged)="onItemTimeChanged($event)"
+                    [startDate]="timelineStartDate"
+                    [endDate]="timelineEndDate"
+                    [panelLabel]="'Công việc'"
+                    (itemTimeChanged)="onItemTimeChanged($event)"
                     [itemContentTemplate]="customItemTemplate"
-                    [panelItemTemplate]="customPanelItemTemplate"></timeline-calendar>
+                    [panelItemTemplate]="customPanelItemTemplate"
+                ></timeline-calendar>
 
                 <ng-template #customItemTemplate let-item let-locale="locale">
-                    <div (click)="!item.isLoading && changeEvent(item)" 
-                         class="flex flex-row cursor-pointer items-center justify-center transition-all shadow-2xs hover:brightness-105 rounded-md px-2 py-1" 
-                         [style.background-color]="(item.isMonthlyTotalBar || item.isGroup) ? '#4f46e5' : null"
-                         [ngClass]="{
-                            'text-white font-bold w-full h-full rounded-md': item.isMonthlyTotalBar,
-                            'text-white font-semibold w-full h-full': item.isGroup && !item.isMonthlyTotalBar,
-                            'animate-pulse opacity-75 cursor-wait': item.isLoading, 
-                            'bg-emerald-600 text-white w-full h-full': !item.isGroup && item.done,
-                            'bg-red-500 text-white w-full h-full': !item.isGroup && !item.done && item.priority === 'high',
-                            'bg-amber-400 text-slate-900 w-full h-full': !item.isGroup && !item.done && item.priority !== 'high'
-                         }"
-                         [matTooltip]="item.isMonthlyTotalBar ? (item.monthLabel + ': ' + item.taskCount + ' công việc') : (item.isGroup ? 'Bấm để xem danh sách ' + item.taskCount + ' công việc' : (item.name + (item.meta && item.meta.length ? '\n' + item.meta : '')))">
-                        
+                    <div
+                        (click)="!item.isLoading && changeEvent(item)"
+                        class="flex flex-row cursor-pointer items-center justify-center transition-all shadow-2xs hover:brightness-105 rounded-md px-2 py-1"
+                        [style.background-color]="
+                            item.isMonthlyTotalBar || item.isGroup
+                                ? '#4f46e5'
+                                : null
+                        "
+                        [ngClass]="{
+                            'text-white font-bold w-full h-full rounded-md':
+                                item.isMonthlyTotalBar,
+                            'text-white font-semibold w-full h-full':
+                                item.isGroup && !item.isMonthlyTotalBar,
+                            'animate-pulse opacity-75 cursor-wait':
+                                item.isLoading,
+                            'bg-emerald-600 text-white w-full h-full':
+                                !item.isGroup && item.done,
+                            'bg-red-500 text-white w-full h-full':
+                                !item.isGroup &&
+                                !item.done &&
+                                item.priority === 'high',
+                            'bg-amber-400 text-slate-900 w-full h-full':
+                                !item.isGroup &&
+                                !item.done &&
+                                item.priority !== 'high',
+                        }"
+                        [matTooltip]="
+                            item.isMonthlyTotalBar
+                                ? item.monthLabel +
+                                  ': ' +
+                                  item.taskCount +
+                                  ' công việc'
+                                : item.isGroup
+                                  ? 'Bấm để xem danh sách ' +
+                                    item.taskCount +
+                                    ' công việc'
+                                  : item.name +
+                                    (item.meta && item.meta.length
+                                        ? '\n' + item.meta
+                                        : '')
+                        "
+                    >
                         <!-- Monthly Total Bar Centered Content -->
-                        <div *ngIf="item.isMonthlyTotalBar" class="flex items-center justify-center font-bold text-base text-white w-full h-full min-w-0 overflow-hidden px-2 gap-2">
-                            <mat-icon class="icon-size-4 text-white shrink-0" [svgIcon]="'feather:bar-chart-2'"></mat-icon>
-                            <span class="truncate font-bold text-white text-base">
-                                {{ item.monthLabel }}: {{ item.taskCount }} công việc
-                            </span>
-                        </div>
+                        @if (item.isMonthlyTotalBar) {
+                            <div
+                                class="flex items-center justify-center font-bold text-base text-white w-full h-full min-w-0 overflow-hidden px-2 gap-2"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-white shrink-0"
+                                    [svgIcon]="'feather:bar-chart-2'"
+                                ></mat-icon>
+                                <span
+                                    class="truncate font-bold text-white text-base"
+                                >
+                                    {{ item.monthLabel }}:
+                                    {{ item.taskCount }} công việc
+                                </span>
+                            </div>
+                        }
 
                         <!-- Standard Items -->
-                        <ng-container *ngIf="!item.isMonthlyTotalBar">
+                        @if (!item.isMonthlyTotalBar) {
                             <!-- Trường hợp đang tạo: chỉ hiển thị icon xoay và chữ Đang tạo -->
-                            <div *ngIf="item.isLoading" class="flex-1 text-base font-medium flex items-center justify-center min-w-0 text-slate-800">
-                                <mat-icon class="icon-size-4 mr-1.5 animate-spin shrink-0 text-indigo-600" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
-                                <span class="font-medium text-sm">Đang tạo</span>
-                            </div>
-
+                            @if (item.isLoading) {
+                                <div
+                                    class="flex-1 text-base font-medium flex items-center justify-center min-w-0 text-slate-800"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 mr-1.5 animate-spin shrink-0 text-indigo-600"
+                                        [svgIcon]="'heroicons_outline:refresh'"
+                                    ></mat-icon>
+                                    <span class="font-medium text-sm"
+                                        >Đang tạo</span
+                                    >
+                                </div>
+                            }
                             <!-- Trường hợp bình thường -->
-                            <ng-container *ngIf="!item.isLoading">
-                                <div class="flex-1 text-base font-medium flex items-center min-w-0" 
-                                     [class.line-through]="!item.isGroup && item.done"
-                                     [ngClass]="{'text-white': item.isGroup || item.done || item.priority === 'high', 'text-slate-900': !item.isGroup && !item.done && item.priority !== 'high'}">
-                                    <mat-icon *ngIf="item.isGroup" class="icon-size-4 mr-1.5 shrink-0 text-white" [svgIcon]="'heroicons_outline:collection'"></mat-icon>
-                                    <mat-icon *ngIf="!item.isGroup && item.done" class="icon-size-4 mr-1 shrink-0 text-white" [svgIcon]="'heroicons_outline:check'"></mat-icon>
+                            @if (!item.isLoading) {
+                                <div
+                                    class="flex-1 text-base font-medium flex items-center min-w-0"
+                                    [class.line-through]="
+                                        !item.isGroup && item.done
+                                    "
+                                    [ngClass]="{
+                                        'text-white':
+                                            item.isGroup ||
+                                            item.done ||
+                                            item.priority === 'high',
+                                        'text-slate-900':
+                                            !item.isGroup &&
+                                            !item.done &&
+                                            item.priority !== 'high',
+                                    }"
+                                >
+                                    @if (item.isGroup) {
+                                        <mat-icon
+                                            class="icon-size-4 mr-1.5 shrink-0 text-white"
+                                            [svgIcon]="'heroicons_outline:collection'"
+                                        ></mat-icon>
+                                    }
+                                    @if (!item.isGroup && item.done) {
+                                        <mat-icon
+                                            class="icon-size-4 mr-1 shrink-0 text-white"
+                                            [svgIcon]="'heroicons_outline:check'"
+                                        ></mat-icon>
+                                    }
                                     <span class="truncate block font-semibold">
                                         {{ item.name }}
                                     </span>
                                 </div>
-                                <div class="flex-0 ml-1 text-base whitespace-nowrap shrink-0" 
-                                     [ngClass]="{'text-blue-100': item.done || item.priority === 'high', 'text-slate-700': !item.done && item.priority !== 'high'}"
-                                     *ngIf="!item.isGroup && item.meta && item.meta.length && !item.meta.substring">
-                                    <span>({{ item.meta.length }})</span>
-                                </div>
-                            </ng-container>
-                        </ng-container>
+                                @if (
+                                    !item.isGroup &&
+                                    item.meta &&
+                                    item.meta.length &&
+                                    !item.meta.substring
+                                ) {
+                                    <div
+                                        class="flex-0 ml-1 text-base whitespace-nowrap shrink-0"
+                                        [ngClass]="{
+                                            'text-blue-100':
+                                                item.done ||
+                                                item.priority === 'high',
+                                            'text-slate-700':
+                                                !item.done &&
+                                                item.priority !== 'high',
+                                        }"
+                                    >
+                                        <span>({{ item.meta.length }})</span>
+                                    </div>
+                                }
+                            }
+                        }
                     </div>
                 </ng-template>
 
-                <ng-template #customPanelItemTemplate let-item='item' let-index='index' let-depth='depth'>
-                    <div [style.height.px]='40 * (item.streamItems ? item?._streamLevels?.length || 1 : 1)'
-                         class='panel-item group transition-colors hover:bg-gray-50'
-                         [class.bg-amber-50]="item.isTotalRow"
-                         style="width: 100%; display: flex; align-items: center; border-bottom: 1px solid #e9eef4; padding: 0 16px;">
-                        <div class='item-content flex items-center justify-between w-full min-w-0'>
-                            <span class='item-name font-medium text-gray-800 truncate' [class.font-bold]="item.isTotalRow" [class.text-amber-900]="item.isTotalRow" [title]="cleanDomain(item.name)">{{cleanDomain(item.name)}}</span>
-                            <ng-container *ngIf="!item.isTotalRow">
-                                <span class="ml-2 px-2 py-0.5 text-base font-semibold rounded bg-indigo-50 text-indigo-700 shrink-0" title="Chỉ tiêu tháng">
-                                    {{ (item.domainData?.monthlyTarget || getResolvedTarget(item.name)) ? ((item.domainData?.monthlyTarget || getResolvedTarget(item.name)) + ' bài') : '0 bài' }}
+                <ng-template
+                    #customPanelItemTemplate
+                    let-item="item"
+                    let-index="index"
+                    let-depth="depth"
+                >
+                    <div
+                        [style.height.px]="
+                            40 *
+                            (item.streamItems
+                                ? item?._streamLevels?.length || 1
+                                : 1)
+                        "
+                        class="panel-item group transition-colors hover:bg-gray-50"
+                        [class.bg-amber-50]="item.isTotalRow"
+                        style="
+                            width: 100%;
+                            display: flex;
+                            align-items: center;
+                            border-bottom: 1px solid #e9eef4;
+                            padding: 0 16px;
+                        "
+                    >
+                        <div
+                            class="item-content flex items-center justify-between w-full min-w-0"
+                        >
+                            <span
+                                class="item-name font-medium text-gray-800 truncate"
+                                [class.font-bold]="item.isTotalRow"
+                                [class.text-amber-900]="item.isTotalRow"
+                                [title]="cleanDomain(item.name)"
+                                >{{ cleanDomain(item.name) }}</span
+                            >
+                            @if (!item.isTotalRow) {
+                                <span
+                                    class="ml-2 px-2 py-0.5 text-base font-semibold rounded bg-indigo-50 text-indigo-700 shrink-0"
+                                    title="Chỉ tiêu tháng"
+                                >
+                                    {{
+                                        item.domainData?.monthlyTarget ||
+                                        getResolvedTarget(item.name)
+                                            ? (item.domainData?.monthlyTarget ||
+                                                  getResolvedTarget(
+                                                      item.name
+                                                  )) + " bài"
+                                            : "0 bài"
+                                    }}
                                 </span>
-                            </ng-container>
+                            }
                         </div>
                     </div>
                 </ng-template>
@@ -94,185 +232,445 @@
     </div>
 
     <!-- Ultra Smooth 60fps Hover Slide Chat Panel (Expands to w-[500px] on hover, collapses smoothly to w-12 on mouseleave) -->
-    <div class="relative shrink-0 h-full w-12 z-40 select-none bg-gray-50 border-l border-gray-200">
+    <div
+        class="relative shrink-0 h-full w-12 z-40 select-none bg-gray-50 border-l border-gray-200"
+    >
         <!-- Hardware-Accelerated Overlay Drawer Container -->
-        <div class="absolute right-0 top-0 bottom-0 h-full bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col overflow-hidden"
-             (mouseenter)="onChatMouseEnter()"
-             (mouseleave)="onChatMouseLeave()"
-             [style.width]="(isChatHovered || isChatFocused || isChatPinned) ? '500px' : '48px'"
-             style="will-change: width; transition: width 280ms cubic-bezier(0.16, 1, 0.3, 1);">
-
+        <div
+            class="absolute right-0 top-0 bottom-0 h-full bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col overflow-hidden"
+            (mouseenter)="onChatMouseEnter()"
+            (mouseleave)="onChatMouseLeave()"
+            [style.width]="
+                isChatHovered || isChatFocused || isChatPinned
+                    ? '500px'
+                    : '48px'
+            "
+            style="
+                will-change: width;
+                transition: width 280ms cubic-bezier(0.16, 1, 0.3, 1);
+            "
+        >
             <!-- Collapsed Vertical Handle Indicator (Visible when collapsed) -->
-            <div *ngIf="!(isChatHovered || isChatFocused || isChatPinned)"
-                 class="absolute inset-0 flex flex-col items-center justify-between py-6 px-1 cursor-pointer bg-white hover:bg-gray-50 transition-colors z-20">
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                        <mat-icon [svgIcon]="'feather:message-circle'" class="icon-size-5"></mat-icon>
+            @if (!(isChatHovered || isChatFocused || isChatPinned)) {
+                <div
+                    class="absolute inset-0 flex flex-col items-center justify-between py-6 px-1 cursor-pointer bg-white hover:bg-gray-50 transition-colors z-20"
+                >
+                    <div class="flex flex-col items-center gap-3">
+                        <div
+                            class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center"
+                        >
+                            <mat-icon
+                                [svgIcon]="'feather:message-circle'"
+                                class="icon-size-5"
+                            ></mat-icon>
+                        </div>
+                        <span
+                            class="text-xs font-bold [writing-mode:vertical-lr] rotate-180 tracking-wider text-gray-600 uppercase"
+                            >Trợ lý AI Chat</span
+                        >
                     </div>
-                    <span class="text-xs font-bold [writing-mode:vertical-lr] rotate-180 tracking-wider text-gray-600 uppercase">Trợ lý AI Chat</span>
+                    @if (chatHistory.length > 0) {
+                        <div
+                            class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"
+                        ></div>
+                    }
                 </div>
-                <div *ngIf="chatHistory.length > 0" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-            </div>
+            }
 
             <!-- Expanded Panel Content Container (min-w-[500px] prevents text reflow during width animation for 60fps smoothness) -->
             <div class="flex flex-col w-full h-full min-w-[500px] bg-white">
                 <!-- Header -->
-                <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/90 shrink-0">
+                <div
+                    class="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/90 shrink-0"
+                >
                     <div class="flex items-center space-x-2">
-                        <mat-icon class="text-primary icon-size-5" [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
-                        <span class="font-bold text-sm text-gray-800">Lên kế hoạch công việc của bạn</span>
+                        <mat-icon
+                            class="text-primary icon-size-5"
+                            [svgIcon]="'heroicons_outline:calendar'"
+                        ></mat-icon>
+                        <span class="font-bold text-sm text-gray-800"
+                            >Lên kế hoạch công việc của bạn</span
+                        >
                     </div>
                     <div class="flex items-center space-x-1">
-                        <button mat-icon-button class="text-gray-400 hover:text-red-500" (click)="clearChatHistory()" matTooltip="Xóa bớt lịch sử chat">
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                        <button
+                            mat-icon-button
+                            class="text-gray-400 hover:text-red-500"
+                            (click)="clearChatHistory()"
+                            matTooltip="Xóa bớt lịch sử chat"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'heroicons_outline:trash'"
+                            ></mat-icon>
                         </button>
-                        <button mat-icon-button class="text-gray-400 hover:text-gray-700" 
-                                (click)="isChatPinned = !isChatPinned"
-                                [matTooltip]="isChatPinned ? 'Bỏ ghim (Hover để mở)' : 'Ghim cố định khung chat'">
-                            <mat-icon class="icon-size-4" [ngClass]="isChatPinned ? 'text-primary' : 'text-gray-400'" [svgIcon]="isChatPinned ? 'heroicons_solid:bookmark' : 'heroicons_outline:bookmark'"></mat-icon>
+                        <button
+                            mat-icon-button
+                            class="text-gray-400 hover:text-gray-700"
+                            (click)="isChatPinned = !isChatPinned"
+                            [matTooltip]="
+                                isChatPinned
+                                    ? 'Bỏ ghim (Hover để mở)'
+                                    : 'Ghim cố định khung chat'
+                            "
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [ngClass]="
+                                    isChatPinned
+                                        ? 'text-primary'
+                                        : 'text-gray-400'
+                                "
+                                [svgIcon]="
+                                    isChatPinned
+                                        ? 'heroicons_solid:bookmark'
+                                        : 'heroicons_outline:bookmark'
+                                "
+                            ></mat-icon>
                         </button>
                     </div>
                 </div>
 
                 <div class="flex flex-col flex-auto h-full overflow-hidden">
                     <div class="flex-auto overflow-y-auto" #chatScroll>
-                        <div class="flex flex-col p-4 space-y-4 min-h-full justify-end">
+                        <div
+                            class="flex flex-col p-4 space-y-4 min-h-full justify-end"
+                        >
                             <!-- Welcome Message -->
-                            <div *ngIf="chatHistory.length === 0" class="flex flex-col items-center justify-center h-full text-center text-gray-500 flex-auto mt-auto mb-auto px-4 py-6">
-                                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 shadow-2xs">
-                                    <mat-icon class="icon-size-6 text-indigo-600" [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
-                                </div>
-                                <h3 class="text-lg font-bold text-gray-900 mb-1">Lên kế hoạch công việc của bạn</h3>
-                                <p class="text-base text-gray-500 mb-5">Chọn câu lệnh gợi ý nhanh bên dưới hoặc tự nhập lệnh mới:</p>
-
-                                <!-- Quick Suggestion Grid in Welcome View -->
-                                <div class="grid grid-cols-1 gap-2.5 w-full max-w-md text-left">
-                                    <button *ngFor="let sug of promptSuggestions" 
-                                            (click)="usePromptSuggestion(sug.text)"
-                                            [disabled]="isChatting"
-                                            class="flex items-center gap-3 p-3 rounded-xl border border-gray-200/90 bg-white hover:bg-indigo-50/60 hover:border-indigo-200 transition-all shadow-2xs group cursor-pointer text-left w-full disabled:opacity-50">
-                                        <div class="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-indigo-100 text-gray-600 group-hover:text-indigo-600 flex items-center justify-center shrink-0 transition-colors">
-                                            <mat-icon class="icon-size-4" [svgIcon]="sug.icon"></mat-icon>
-                                        </div>
-                                        <div class="flex flex-col min-w-0 flex-1">
-                                            <span class="text-base font-bold text-gray-800 group-hover:text-indigo-700 truncate">{{ sug.label }}</span>
-                                            <span class="text-base text-gray-500 truncate mt-0.5">{{ sug.text }}</span>
-                                        </div>
-                                        <mat-icon class="icon-size-4 text-gray-300 group-hover:text-indigo-500 shrink-0 transition-colors" [svgIcon]="'heroicons_solid:arrow-narrow-right'"></mat-icon>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Chat Messages (Hiển thị 10 tin nhắn mới nhất) -->
-                            <ng-container *ngFor="let msg of chatHistory.slice(-10)">
-                                <div class="flex flex-col w-full mb-2" [ngClass]="msg.role === 'user' ? 'items-end' : 'items-start'">
-                                    <div class="max-w-[95%] rounded-2xl px-4 py-3 text-base overflow-hidden break-words shadow-2xs"
-                                         [ngClass]="msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'">
-                                        
-                                        <div *ngIf="msg.role === 'model'" class="whitespace-normal break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 markdown-content overflow-hidden" [innerHTML]="msg.content | markdown"></div>
-                                        <div *ngIf="msg.role === 'user'" class="whitespace-pre-wrap break-words">{{msg.content}}</div>
-
-                                         <!-- Confirmation Action Button -->
-                                        <div *ngIf="msg.isConfirmMessage && msg.confirmData && !msg.isConfirmed" class="mt-3 pt-3 border-t border-gray-200/80 flex flex-col gap-2">
-                                            <button mat-flat-button
-                                                    [color]="'primary'"
-                                                    (click)="confirmAndExecuteTask(msg.confirmData, msg)"
-                                                    [disabled]="isChatting"
-                                                    class="w-full">
-                                                <mat-icon class="icon-size-5 mr-1.5" [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
-                                                 <span class="ml-2">{{ msg.confirmData?.buttonText || 'Xác nhận lưu vào CSDL' }}</span>
+                            @if (chatHistory.length === 0) {
+                                <div
+                                    class="flex flex-col items-center justify-center h-full text-center text-gray-500 flex-auto mt-auto mb-auto px-4 py-6"
+                                >
+                                    <div
+                                        class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 shadow-2xs"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-6 text-indigo-600"
+                                            [svgIcon]="'heroicons_outline:calendar'"
+                                        ></mat-icon>
+                                    </div>
+                                    <h3
+                                        class="text-lg font-bold text-gray-900 mb-1"
+                                    >
+                                        Lên kế hoạch công việc của bạn
+                                    </h3>
+                                    <p class="text-base text-gray-500 mb-5">
+                                        Chọn câu lệnh gợi ý nhanh bên dưới hoặc
+                                        tự nhập lệnh mới:
+                                    </p>
+                                    <!-- Quick Suggestion Grid in Welcome View -->
+                                    <div
+                                        class="grid grid-cols-1 gap-2.5 w-full max-w-md text-left"
+                                    >
+                                        @for (
+                                            sug of promptSuggestions;
+                                            track sug
+                                        ) {
+                                            <button
+                                                (click)="
+                                                    usePromptSuggestion(
+                                                        sug.text
+                                                    )
+                                                "
+                                                [disabled]="isChatting"
+                                                class="flex items-center gap-3 p-3 rounded-xl border border-gray-200/90 bg-white hover:bg-indigo-50/60 hover:border-indigo-200 transition-all shadow-2xs group cursor-pointer text-left w-full disabled:opacity-50"
+                                            >
+                                                <div
+                                                    class="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-indigo-100 text-gray-600 group-hover:text-indigo-600 flex items-center justify-center shrink-0 transition-colors"
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-4"
+                                                        [svgIcon]="sug.icon"
+                                                    ></mat-icon>
+                                                </div>
+                                                <div
+                                                    class="flex flex-col min-w-0 flex-1"
+                                                >
+                                                    <span
+                                                        class="text-base font-bold text-gray-800 group-hover:text-indigo-700 truncate"
+                                                        >{{ sug.label }}</span
+                                                    >
+                                                    <span
+                                                        class="text-base text-gray-500 truncate mt-0.5"
+                                                        >{{ sug.text }}</span
+                                                    >
+                                                </div>
+                                                <mat-icon
+                                                    class="icon-size-4 text-gray-300 group-hover:text-indigo-500 shrink-0 transition-colors"
+                                                    [svgIcon]="'heroicons_solid:arrow-narrow-right'"
+                                                ></mat-icon>
                                             </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Chat Messages (Hiển thị 10 tin nhắn mới nhất) -->
+                            @for (msg of chatHistory.slice(-10); track msg) {
+                                <div
+                                    class="flex flex-col w-full mb-2"
+                                    [ngClass]="
+                                        msg.role === 'user'
+                                            ? 'items-end'
+                                            : 'items-start'
+                                    "
+                                >
+                                    <div
+                                        class="max-w-[95%] rounded-2xl px-4 py-3 text-base overflow-hidden break-words shadow-2xs"
+                                        [ngClass]="
+                                            msg.role === 'user'
+                                                ? 'bg-primary text-white rounded-br-none'
+                                                : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                                        "
+                                    >
+                                        @if (msg.role === "model") {
+                                            <div
+                                                class="whitespace-normal break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 markdown-content overflow-hidden"
+                                                [innerHTML]="
+                                                    msg.content | markdown
+                                                "
+                                            ></div>
+                                        }
+                                        @if (msg.role === "user") {
+                                            <div
+                                                class="whitespace-pre-wrap break-words"
+                                            >
+                                                {{ msg.content }}
+                                            </div>
+                                        }
+                                        <!-- Confirmation Action Button -->
+                                        @if (
+                                            msg.isConfirmMessage &&
+                                            msg.confirmData &&
+                                            !msg.isConfirmed
+                                        ) {
+                                            <div
+                                                class="mt-3 pt-3 border-t border-gray-200/80 flex flex-col gap-2"
+                                            >
+                                                <button
+                                                    mat-flat-button
+                                                    [color]="'primary'"
+                                                    (click)="
+                                                        confirmAndExecuteTask(
+                                                            msg.confirmData,
+                                                            msg
+                                                        )
+                                                    "
+                                                    [disabled]="isChatting"
+                                                    class="w-full"
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-5 mr-1.5"
+                                                        [svgIcon]="'heroicons_solid:check-circle'"
+                                                    ></mat-icon>
+                                                    <span class="ml-2">{{
+                                                        msg.confirmData
+                                                            ?.buttonText ||
+                                                            "Xác nhận lưu vào CSDL"
+                                                    }}</span>
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                    <!-- Footer dưới mỗi bong bóng: Thời gian, Nút Copy, Nút Hỏi lại -->
+                                    <div
+                                        class="flex items-center gap-2 mt-1 px-1 text-xs text-gray-400 select-none"
+                                        [ngClass]="
+                                            msg.role === 'user'
+                                                ? 'justify-end'
+                                                : 'justify-start'
+                                        "
+                                    >
+                                        <span>{{ getMessageTime(msg) }}</span>
+                                        <button
+                                            type="button"
+                                            (click)="copyMessage(msg.content)"
+                                            class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Sao chép nội dung"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-3.5 mr-1"
+                                                [svgIcon]="'feather:copy'"
+                                            ></mat-icon>
+                                            <span class="text-[11px]"
+                                                >Copy</span
+                                            >
+                                        </button>
+                                        <button
+                                            type="button"
+                                            (click)="reAskMessage(msg)"
+                                            class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Hỏi lại nội dung này"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-3.5 mr-1"
+                                                [svgIcon]="'feather:refresh-cw'"
+                                            ></mat-icon>
+                                            <span class="text-[11px]"
+                                                >Hỏi lại</span
+                                            >
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Loading indicator -->
+                            @if (isChatting) {
+                                <div class="flex flex-col items-start">
+                                    <div
+                                        class="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-3"
+                                    >
+                                        <div class="flex space-x-1">
+                                            <div
+                                                class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                            ></div>
+                                            <div
+                                                class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                                style="animation-delay: 0.1s"
+                                            ></div>
+                                            <div
+                                                class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                                style="animation-delay: 0.2s"
+                                            ></div>
                                         </div>
                                     </div>
-
-                                    <!-- Footer dưới mỗi bong bóng: Thời gian, Nút Copy, Nút Hỏi lại -->
-                                    <div class="flex items-center gap-2 mt-1 px-1 text-xs text-gray-400 select-none" [ngClass]="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                                        <span>{{ getMessageTime(msg) }}</span>
-                                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
-                                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
-                                            <span class="text-[11px]">Copy</span>
-                                        </button>
-                                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại nội dung này">
-                                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                                            <span class="text-[11px]">Hỏi lại</span>
-                                        </button>
-                                    </div>
                                 </div>
-                            </ng-container>
-                            
-                            <!-- Loading indicator -->
-                            <div *ngIf="isChatting" class="flex flex-col items-start">
-                                <div class="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-3">
-                                    <div class="flex space-x-1">
-                                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-                                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-                                    </div>
-                                </div>
-                            </div>
+                            }
                         </div>
                     </div>
-                    
+
                     <!-- Chat Input -->
-                    <div class="p-3 bg-white shrink-0 border-t border-gray-100 flex flex-col gap-2">
+                    <div
+                        class="p-3 bg-white shrink-0 border-t border-gray-100 flex flex-col gap-2"
+                    >
                         <div class="flex flex-wrap items-center gap-2.5 py-1">
-                            <button *ngFor="let sug of promptSuggestions"
+                            @for (sug of promptSuggestions; track sug) {
+                                <button
                                     (click)="usePromptSuggestion(sug.text)"
                                     [disabled]="isChatting"
-                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 hover:text-indigo-700 text-base font-normal transition-all shadow-2xs cursor-pointer disabled:opacity-50">
-                                <mat-icon class="icon-size-3.5 text-indigo-600 shrink-0" [svgIcon]="sug.icon"></mat-icon>
-                                <span class="font-normal">{{ sug.label }}</span>
-                            </button>
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 hover:text-indigo-700 text-base font-normal transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                                >
+                                    <mat-icon
+                                        class="icon-size-3.5 text-indigo-600 shrink-0"
+                                        [svgIcon]="sug.icon"
+                                    ></mat-icon>
+                                    <span class="font-normal">{{
+                                        sug.label
+                                    }}</span>
+                                </button>
+                            }
                         </div>
 
-                        <div class="relative flex items-end bg-white rounded-xl border border-gray-300 focus-within:border-emerald-600 focus-within:ring-1 focus-within:ring-emerald-600 overflow-visible p-1.5 transition-all">
+                        <div
+                            class="relative flex items-end bg-white rounded-xl border border-gray-300 focus-within:border-emerald-600 focus-within:ring-1 focus-within:ring-emerald-600 overflow-visible p-1.5 transition-all"
+                        >
                             <!-- Attach button -->
-                            <input type="file" #fileInput (change)="onFileSelected($event)" style="display: none;" multiple>
-                            <button mat-icon-button class="shrink-0 mb-0.5 text-gray-500 hover:text-gray-700" (click)="fileInput.click()">
-                                <mat-icon class="icon-size-5" [svgIcon]="'feather:paperclip'"></mat-icon>
+                            <input
+                                type="file"
+                                #fileInput
+                                (change)="onFileSelected($event)"
+                                style="display: none"
+                                multiple
+                            />
+                            <button
+                                mat-icon-button
+                                class="shrink-0 mb-0.5 text-gray-500 hover:text-gray-700"
+                                (click)="fileInput.click()"
+                            >
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [svgIcon]="'feather:paperclip'"
+                                ></mat-icon>
                             </button>
-                            
-                            <textarea 
+
+                            <textarea
                                 class="flex-auto bg-transparent border-0 focus:ring-0 outline-none resize-none py-3 px-2 text-base text-gray-800 placeholder-gray-400"
                                 cdkTextareaAutosize
                                 [cdkAutosizeMinRows]="1"
                                 [cdkAutosizeMaxRows]="5"
-                                placeholder="Hỏi tiếp từ prompt này..." 
+                                placeholder="Hỏi tiếp từ prompt này..."
                                 [(ngModel)]="chatPrompt"
                                 [ngModelOptions]="{ standalone: true }"
                                 (focus)="isChatFocused = true"
                                 (blur)="isChatFocused = false"
                                 (input)="onChatInput($event, chatInput)"
                                 (keydown)="onChatKeyDown($event, chatInput)"
-                                (keydown.enter)="!ignoreNextEnter && !showMentions && sendChat($event)"
-                                #chatInput></textarea>
-                                
-                            <!-- Suggestions Dropdown -->
-                            <div *ngIf="showMentions && filteredMentionOptions.length > 0" 
-                                 class="absolute bottom-[110%] left-10 z-50 w-64 bg-white shadow-lg rounded-lg border border-gray-200 py-1 overflow-hidden">
-                                <div *ngFor="let option of filteredMentionOptions; let i = index" 
-                                     (click)="selectMention(option, chatInput)"
-                                     class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
-                                     [ngClass]="{'bg-blue-50 text-blue-700': i === mentionIndex, 'text-gray-700 hover:bg-gray-100': i !== mentionIndex}">
-                                    <mat-icon class="icon-size-4 mr-3 text-current" [svgIcon]="option.icon"></mat-icon>
-                                    <span class="font-medium text-sm">{{ option.id }}</span>
-                                </div>
-                            </div>
-                                
-                            <!-- Send/Loading button -->
-                            <button *ngIf="!isChatting" 
-                                    mat-icon-button color="primary" class="shrink-0 mb-0.5 mr-0.5"
-                                    (click)="sendChat()" 
-                                    [disabled]="!chatPrompt || !chatPrompt.trim()">
-                                <mat-icon [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
-                            </button>
+                                (keydown.enter)="
+                                    !ignoreNextEnter &&
+                                        !showMentions &&
+                                        sendChat($event)
+                                "
+                                #chatInput
+                            ></textarea>
 
-                            <button *ngIf="isChatting" 
-                                    mat-icon-button color="primary" class="shrink-0 mb-0.5 mr-0.5 cursor-pointer"
+                            <!-- Suggestions Dropdown -->
+                            @if (
+                                showMentions &&
+                                filteredMentionOptions.length > 0
+                            ) {
+                                <div
+                                    class="absolute bottom-[110%] left-10 z-50 w-64 bg-white shadow-lg rounded-lg border border-gray-200 py-1 overflow-hidden"
+                                >
+                                    @for (
+                                        option of filteredMentionOptions;
+                                        track option;
+                                        let i = $index
+                                    ) {
+                                        <div
+                                            (click)="
+                                                selectMention(option, chatInput)
+                                            "
+                                            class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
+                                            [ngClass]="{
+                                                'bg-blue-50 text-blue-700':
+                                                    i === mentionIndex,
+                                                'text-gray-700 hover:bg-gray-100':
+                                                    i !== mentionIndex,
+                                            }"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4 mr-3 text-current"
+                                                [svgIcon]="option.icon"
+                                            ></mat-icon>
+                                            <span class="font-medium text-sm">{{
+                                                option.id
+                                            }}</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Send/Loading button -->
+                            @if (!isChatting) {
+                                <button
+                                    mat-icon-button
+                                    color="primary"
+                                    class="shrink-0 mb-0.5 mr-0.5"
+                                    (click)="sendChat()"
+                                    [disabled]="
+                                        !chatPrompt || !chatPrompt.trim()
+                                    "
+                                >
+                                    <mat-icon
+                                        [svgIcon]="'heroicons_solid:paper-airplane'"
+                                    ></mat-icon>
+                                </button>
+                            }
+
+                            @if (isChatting) {
+                                <button
+                                    mat-icon-button
+                                    color="primary"
+                                    class="shrink-0 mb-0.5 mr-0.5 cursor-pointer"
                                     (click)="stopChat()"
-                                    matTooltip="Đang xử lý... Bấm để dừng">
-                                <mat-icon class="animate-spin text-primary-600" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
-                            </button>
+                                    matTooltip="Đang xử lý... Bấm để dừng"
+                                >
+                                    <mat-icon
+                                        class="animate-spin text-primary-600"
+                                        [svgIcon]="'heroicons_outline:refresh'"
+                                    ></mat-icon>
+                                </button>
+                            }
                         </div>
                     </div>
                 </div>
@@ -282,55 +680,134 @@
 </div>
 
 <ng-template #taskDetailDialog>
-    <div class="flex flex-col h-full bg-card p-6 rounded-lg overflow-hidden relative" style="max-width: 600px; min-width: 400px">
-        <button mat-icon-button (click)="_matDialog.closeAll()" class="absolute top-4 right-4 z-10 text-gray-500 hover:text-gray-800 bg-white/80 rounded-full">
+    <div
+        class="flex flex-col h-full bg-card p-6 rounded-lg overflow-hidden relative"
+        style="max-width: 600px; min-width: 400px"
+    >
+        <button
+            mat-icon-button
+            (click)="_matDialog.closeAll()"
+            class="absolute top-4 right-4 z-10 text-gray-500 hover:text-gray-800 bg-white/80 rounded-full"
+        >
             <mat-icon [svgIcon]="'feather:x'"></mat-icon>
         </button>
 
         <div class="flex flex-col pr-8 shrink-0">
-            <div class="text-xs font-semibold text-primary mb-1 uppercase tracking-wider">{{ cleanDomain(editingItemDomain) }}</div>
+            <div
+                class="text-xs font-semibold text-primary mb-1 uppercase tracking-wider"
+            >
+                {{ cleanDomain(editingItemDomain) }}
+            </div>
             <h2 class="text-xl font-bold m-0 text-gray-800 leading-snug">
-                <span class="mr-1 opacity-80" *ngIf="editingItem?.taskIndex">#{{ editingItem.taskIndex }}</span>
+                @if (editingItem?.taskIndex) {
+                    <span class="mr-1 opacity-80"
+                        >#{{ editingItem.taskIndex }}</span
+                    >
+                }
                 {{ editingItem?.name }}
             </h2>
         </div>
 
         <div class="mt-4 overflow-y-auto max-h-[60vh] -mx-6 px-6">
-            <div class="flex flex-wrap gap-4 text-sm text-gray-600 font-medium bg-gray-50 p-4 rounded-lg border border-gray-100">
-                <div class="flex items-center"><mat-icon class="icon-size-4 mr-2 text-primary" [svgIcon]="'heroicons_outline:calendar'"></mat-icon> {{ editingItem?.startDate | date:'dd/MM/yyyy HH:mm' }}</div>
-                <div class="flex items-center"><mat-icon class="icon-size-4 mr-2 text-red-500" [svgIcon]="'heroicons_outline:clock'"></mat-icon> {{ editingItem?.endDate | date:'dd/MM/yyyy HH:mm' }}</div>
-                <div class="flex items-center w-full mt-1 pt-3 border-t border-gray-200">
-                    <mat-icon class="icon-size-4 mr-2 text-green-600" [svgIcon]="'heroicons_outline:pencil'"></mat-icon>
+            <div
+                class="flex flex-wrap gap-4 text-sm text-gray-600 font-medium bg-gray-50 p-4 rounded-lg border border-gray-100"
+            >
+                <div class="flex items-center">
+                    <mat-icon
+                        class="icon-size-4 mr-2 text-primary"
+                        [svgIcon]="'heroicons_outline:calendar'"
+                    ></mat-icon>
+                    {{
+                        $safeNavigationMigration(editingItem?.startDate)
+                            | date: "dd/MM/yyyy HH:mm"
+                    }}
+                </div>
+                <div class="flex items-center">
+                    <mat-icon
+                        class="icon-size-4 mr-2 text-red-500"
+                        [svgIcon]="'heroicons_outline:clock'"
+                    ></mat-icon>
+                    {{
+                        $safeNavigationMigration(editingItem?.endDate)
+                            | date: "dd/MM/yyyy HH:mm"
+                    }}
+                </div>
+                <div
+                    class="flex items-center w-full mt-1 pt-3 border-t border-gray-200"
+                >
+                    <mat-icon
+                        class="icon-size-4 mr-2 text-green-600"
+                        [svgIcon]="'heroicons_outline:pencil'"
+                    ></mat-icon>
                     <span class="text-gray-500 mr-2">Phong cách:</span>
-                    <span class="text-gray-800">{{ editingItemWritingStyle }}</span>
+                    <span class="text-gray-800">{{
+                        editingItemWritingStyle
+                    }}</span>
                 </div>
             </div>
-            
+
             <div class="mt-6 pb-2">
-                <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">Chi tiết công việc / Nội dung bài viết:</h3>
-                <div class="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap text-sm text-gray-800 border border-gray-100 markdown-content overflow-x-auto" 
-                     [innerHTML]="editingItem?.meta | markdown">
-                    {{ (!editingItem?.meta || editingItem.meta === '') ? 'Không có mô tả chi tiết' : '' }}
+                <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">
+                    Chi tiết công việc / Nội dung bài viết:
+                </h3>
+                <div
+                    class="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap text-sm text-gray-800 border border-gray-100 markdown-content overflow-x-auto"
+                    [innerHTML]="
+                        $safeNavigationMigration(editingItem?.meta) | markdown
+                    "
+                >
+                    {{
+                        !editingItem?.meta || editingItem.meta === ""
+                            ? "Không có mô tả chi tiết"
+                            : ""
+                    }}
                 </div>
             </div>
         </div>
 
         <!-- Action Footer -->
-        <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0">
-            <button mat-flat-button color="primary" (click)="resolveTask(editingItem)" [disabled]="isResolvingSingleTask" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
-                <mat-icon *ngIf="!isResolvingSingleTask" [svgIcon]="'heroicons_solid:sparkles'" class="icon-size-4"></mat-icon>
-                <mat-icon *ngIf="isResolvingSingleTask" [svgIcon]="'heroicons_outline:refresh'" class="icon-size-4 animate-spin"></mat-icon>
-                <span class="ml-2">{{ isResolvingSingleTask ? 'Đang AI xử lý...' : 'Giải quyết công việc bằng AI' }}</span>
+        <div
+            class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0"
+        >
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="resolveTask(editingItem)"
+                [disabled]="isResolvingSingleTask"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+            >
+                @if (!isResolvingSingleTask) {
+                    <mat-icon
+                        [svgIcon]="'heroicons_solid:sparkles'"
+                        class="icon-size-4"
+                    ></mat-icon>
+                }
+                @if (isResolvingSingleTask) {
+                    <mat-icon
+                        [svgIcon]="'heroicons_outline:refresh'"
+                        class="icon-size-4 animate-spin"
+                    ></mat-icon>
+                }
+                <span class="ml-2">{{
+                    isResolvingSingleTask
+                        ? "Đang AI xử lý..."
+                        : "Giải quyết công việc bằng AI"
+                }}</span>
             </button>
         </div>
     </div>
 </ng-template>
 
 <ng-template #promptDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 600px">
-        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
+    <div
+        class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden"
+        style="max-width: 600px"
+    >
+        <div
+            class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0"
+        >
             <h2 class="text-xl font-semibold m-0 text-gray-800">
-                {{ 'app.use_ai_to_create' | transloco }}
+                {{ "app.use_ai_to_create" | transloco }}
             </h2>
             <button mat-icon-button (click)="_matDialog.closeAll()">
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
@@ -338,38 +815,64 @@
         </div>
         <div class="p-6">
             <p class="text-gray-600 text-sm">
-                {{ 'app.auto_enter_specific_instructions_fo' | transloco }}
+                {{ "app.auto_enter_specific_instructions_fo" | transloco }}
             </p>
 
             <mat-form-field class="w-full mt-3" appearance="outline">
-                <mat-label class="ml-2">{{ 'app.auto_enter_additional_prompt' | transloco }}</mat-label>
-                <textarea matInput [(ngModel)]="customPromptInput" [ngModelOptions]="{ standalone: true }" rows="5"
-                    [placeholder]="'app.auto_for_example_video_link_https' | transloco"></textarea>
+                <mat-label class="ml-2">{{
+                    "app.auto_enter_additional_prompt" | transloco
+                }}</mat-label>
+                <textarea
+                    matInput
+                    [(ngModel)]="customPromptInput"
+                    [ngModelOptions]="{ standalone: true }"
+                    rows="5"
+                    [placeholder]="
+                        'app.auto_for_example_video_link_https' | transloco
+                    "
+                ></textarea>
             </mat-form-field>
 
             <p class="text-blue-700 text-xs">
-                <strong>Ví dụ: </strong> {{ 'app.auto_create_a_comment_script_and_as' | transloco }}
+                <strong>Ví dụ: </strong>
+                {{ "app.auto_create_a_comment_script_and_as" | transloco }}
             </p>
         </div>
 
-        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0 gap-2">
+        <div
+            class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0 gap-2"
+        >
             <button mat-button (click)="_matDialog.closeAll()">
-                {{ 'app.auto_cancel' | transloco }}
+                {{ "app.auto_cancel" | transloco }}
             </button>
-            <button mat-flat-button color="primary" (click)="confirmGenerateComment()">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:check'"></mat-icon>
-                <span class="ml-2">{{ 'app.auto_confirm_script_creation' | transloco }}</span>
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="confirmGenerateComment()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'feather:check'"
+                ></mat-icon>
+                <span class="ml-2">{{
+                    "app.auto_confirm_script_creation" | transloco
+                }}</span>
             </button>
         </div>
     </div>
 </ng-template>
 
 <ng-template #commentDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded-lg w-full overflow-hidden">
-        <div class="flex items-center justify-between px-6 py-4 bg-gray-50 border-b shrink-0 z-10">
+    <div
+        class="flex flex-col h-full bg-card p-0 rounded-lg w-full overflow-hidden"
+    >
+        <div
+            class="flex items-center justify-between px-6 py-4 bg-gray-50 border-b shrink-0 z-10"
+        >
             <div>
                 <h2 class="text-2xl font-semibold m-0 text-gray-800">
-                    {{ 'app.auto_approve_script_total_selected' | transloco }} <strong>{{ totalSelected }}</strong> comment)
+                    {{ "app.auto_approve_script_total_selected" | transloco }}
+                    <strong>{{ totalSelected }}</strong> comment)
                 </h2>
             </div>
             <button mat-icon-button (click)="_matDialog.closeAll()">
@@ -378,172 +881,368 @@
         </div>
 
         <div class="flex items-center px-6 py-3 bg-white border-b shrink-0">
-            <mat-checkbox color="primary" [checked]="isAllSelected" [ngModelOptions]="{ standalone: true }"
-                (change)="toggleAllSelection($event.checked)">
+            <mat-checkbox
+                color="primary"
+                [checked]="isAllSelected"
+                [ngModelOptions]="{ standalone: true }"
+                (change)="toggleAllSelection($event.checked)"
+            >
                 Chọn tất cả ({{ commentGroups.length }} nhóm)
             </mat-checkbox>
         </div>
 
         <div class="flex-1 relative overflow-y-auto min-h-0 bg-white">
-            <ng-container *ngFor="let group of commentGroups">
-                <div class="flex items-center px-6 py-3 bg-gray-100 border-t first:border-t-0 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                    (click)="toggleGroup(group)">
-                    <mat-icon class="icon-size-5 text-gray-500 mr-2 transition-transform duration-200"
-                        [class.rotate-90]="group.expanded" [svgIcon]="'feather:chevron-right'"></mat-icon>
+            @for (group of commentGroups; track group) {
+                <div
+                    class="flex items-center px-6 py-3 bg-gray-100 border-t first:border-t-0 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                    (click)="toggleGroup(group)"
+                >
+                    <mat-icon
+                        class="icon-size-5 text-gray-500 mr-2 transition-transform duration-200"
+                        [class.rotate-90]="group.expanded"
+                        [svgIcon]="'feather:chevron-right'"
+                    ></mat-icon>
                     <span class="font-semibold text-gray-800 text-sm">{{
                         group.key
-                        }}</span>
-                    <span class="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">{{
-                        group.items.length }} comments</span>
+                    }}</span>
+                    <span
+                        class="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold"
+                        >{{ group.items.length }} comments</span
+                    >
                 </div>
-
-                <div *ngIf="group.expanded">
-                    <div class="overflow-x-auto overflow-y-auto max-h-[400px]">
-                        <table class="w-full text-left border-collapse">
-                            <thead
-                                class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-medium">
-                                <tr>
-                                    <th class="w-12 px-4 py-2 text-center">#</th>
-                                    <th class="w-28 px-4 py-2">{{ 'app.time' | transloco }}</th>
-                                    <th class="w-28 px-4 py-2">Link Video</th>
-                                    <th class="w-1/4 px-4 py-2">
-                                        {{ 'app.auto_comment_content' | transloco }}
-                                    </th>
-                                    <th class="px-4 py-2">{{ 'app.auto_feedback_suggestion' | transloco }}</th>
-                                    <th class="w-24 px-4 py-2 text-center">
-                                        {{ 'app.action' | transloco }}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm divide-y divide-gray-100">
-                                <tr *ngFor="let item of group.items" class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-6 py-3 text-center">
-                                        <mat-checkbox color="primary" [(ngModel)]="item.selected"
-                                            [ngModelOptions]="{ standalone: true }"
-                                            (change)="updateSelectionCount()"></mat-checkbox>
-                                    </td>
-                                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap align-top">
-                                        <div class="font-medium text-blue-600">
-                                            {{ item.start | date: "HH:mm:ss" }}
-                                        </div>
-                                        <div class="text-xs text-gray-400">
-                                            {{ item.start | date: "dd/MM/yyyy" }}
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <ng-container *ngIf="!item.isEditing">
-                                            <a *ngIf="item.videoUrl" [href]="item.videoUrl" target="_blank"
-                                                class="text-blue-500 hover:underline flex items-center"
-                                                matTooltip="{{ item.videoUrl }}">
-                                                <mat-icon class="icon-size-4 mr-1" [svgIcon]="
-                                                    'feather:external-link'
-                                                "></mat-icon>
-                                                Link
-                                            </a>
-                                            <span *ngIf="!item.videoUrl" class="text-gray-400 text-xs">-</span>
-                                        </ng-container>
-                                        <ng-container *ngIf="item.isEditing">
-                                            <input type="text" class="w-full p-2 border border-gray-200 rounded text-xs"
-                                                placeholder="URL video..." [(ngModel)]="item.videoUrlDraft"
-                                                [ngModelOptions]="{
-                                                standalone: true,
-                                            }" />
-                                        </ng-container>
-                                    </td>
-                                    <td class="px-4 py-3 text-gray-900 font-medium align-top">
-                                        <div class="flex flex-col gap-1">
-                                            <div class="flex gap-2">
-                                                <span [class]="
-                                                    item.type === 'LIKE'
-                                                        ? 'bg-pink-100 text-pink-700'
-                                                        : 'bg-blue-100 text-blue-700'
-                                                " class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase">
+                @if (group.expanded) {
+                    <div>
+                        <div
+                            class="overflow-x-auto overflow-y-auto max-h-[400px]"
+                        >
+                            <table class="w-full text-left border-collapse">
+                                <thead
+                                    class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-medium"
+                                >
+                                    <tr>
+                                        <th class="w-12 px-4 py-2 text-center">
+                                            #
+                                        </th>
+                                        <th class="w-28 px-4 py-2">
+                                            {{ "app.time" | transloco }}
+                                        </th>
+                                        <th class="w-28 px-4 py-2">
+                                            Link Video
+                                        </th>
+                                        <th class="w-1/4 px-4 py-2">
+                                            {{
+                                                "app.auto_comment_content"
+                                                    | transloco
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-2">
+                                            {{
+                                                "app.auto_feedback_suggestion"
+                                                    | transloco
+                                            }}
+                                        </th>
+                                        <th class="w-24 px-4 py-2 text-center">
+                                            {{ "app.action" | transloco }}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm divide-y divide-gray-100">
+                                    @for (item of group.items; track item) {
+                                        <tr
+                                            class="hover:bg-gray-50 transition-colors"
+                                        >
+                                            <td class="px-6 py-3 text-center">
+                                                <mat-checkbox
+                                                    color="primary"
+                                                    [(ngModel)]="item.selected"
+                                                    [ngModelOptions]="{
+                                                        standalone: true,
+                                                    }"
+                                                    (change)="
+                                                        updateSelectionCount()
+                                                    "
+                                                ></mat-checkbox>
+                                            </td>
+                                            <td
+                                                class="px-4 py-3 text-gray-600 whitespace-nowrap align-top"
+                                            >
+                                                <div
+                                                    class="font-medium text-blue-600"
+                                                >
                                                     {{
-                                                    item.type === "LIKE"
-                                                    ? "Thả tim"
-                                                    : "Comment"
+                                                        item.start
+                                                            | date: "HH:mm:ss"
                                                     }}
-                                                </span>
-                                            </div>
-
-                                            <ng-container *ngIf="!item.isEditing">
-                                                <span [class.text-pink-600]="
-                                                    item.type === 'LIKE'
-                                                ">{{ item.comment }}</span>
-                                            </ng-container>
-
-                                            <ng-container *ngIf="item.isEditing">
-                                                <textarea *ngIf="item.type === 'COMMENT'"
-                                                    class="w-full p-2 border border-gray-200 rounded focus:outline-none"
-                                                    rows="3" [(ngModel)]="item.commentDraft"></textarea>
-                                                <span *ngIf="item.type === 'LIKE'" class="text-gray-400 italic">{{ 'app.auto_content_like_cannot_be_edited' | transloco }}</span>
-                                            </ng-container>
-
-                                            <div class="text-[10px] text-gray-400 truncate mt-1"
-                                                [matTooltip]="item.videoUrl">
-                                                URL: {{ item.videoUrl }}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 text-gray-500 align-top">
-                                        <ng-container *ngIf="!item.isEditing">{{
-                                            item.result || "---"
-                                            }}</ng-container>
-                                        <ng-container *ngIf="item.isEditing">
-                                            <textarea
-                                                class="w-full p-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"
-                                                rows="3" [(ngModel)]="item.resultDraft" [ngModelOptions]="{
-                                                standalone: true,
-                                            }"></textarea>
-                                        </ng-container>
-                                    </td>
-                                    <td class="px-4 py-3 text-center align-top">
-                                        <div *ngIf="!item.isEditing" class="flex justify-center items-center gap-2">
-                                            <button mat-icon-button (click)="enableEdit(item)" [matTooltip]="'app.edit' | transloco"
-                                                class="text-blue-500 hover:bg-blue-50">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-2'"></mat-icon>
-                                            </button>
-                                            <button mat-icon-button (click)="deleteComment(group, item)"
-                                                [matTooltip]="'app.auto_delete' | transloco" class="text-red-500 hover:bg-red-50">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                                            </button>
-                                        </div>
-                                        <div *ngIf="item.isEditing" class="flex justify-center items-center gap-2">
-                                            <button mat-icon-button (click)="saveEdit(item)" [matTooltip]="'app.auto_save' | transloco"
-                                                class="text-green-600 hover:bg-green-50">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
-                                            </button>
-                                            <button mat-icon-button (click)="cancelEdit(item)" [matTooltip]="'app.auto_cancel' | transloco"
-                                                class="text-gray-500 hover:bg-gray-50">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                                </div>
+                                                <div
+                                                    class="text-xs text-gray-400"
+                                                >
+                                                    {{
+                                                        item.start
+                                                            | date: "dd/MM/yyyy"
+                                                    }}
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3 align-top">
+                                                @if (!item.isEditing) {
+                                                    @if (item.videoUrl) {
+                                                        <a
+                                                            [href]="
+                                                                item.videoUrl
+                                                            "
+                                                            target="_blank"
+                                                            class="text-blue-500 hover:underline flex items-center"
+                                                            matTooltip="{{
+                                                                item.videoUrl
+                                                            }}"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4 mr-1"
+                                                                [svgIcon]="'feather:external-link'"
+                                                            ></mat-icon>
+                                                            Link
+                                                        </a>
+                                                    }
+                                                    @if (!item.videoUrl) {
+                                                        <span
+                                                            class="text-gray-400 text-xs"
+                                                            >-</span
+                                                        >
+                                                    }
+                                                }
+                                                @if (item.isEditing) {
+                                                    <input
+                                                        type="text"
+                                                        class="w-full p-2 border border-gray-200 rounded text-xs"
+                                                        placeholder="URL video..."
+                                                        [(ngModel)]="
+                                                            item.videoUrlDraft
+                                                        "
+                                                        [ngModelOptions]="{
+                                                            standalone: true,
+                                                        }"
+                                                    />
+                                                }
+                                            </td>
+                                            <td
+                                                class="px-4 py-3 text-gray-900 font-medium align-top"
+                                            >
+                                                <div
+                                                    class="flex flex-col gap-1"
+                                                >
+                                                    <div class="flex gap-2">
+                                                        <span
+                                                            [class]="
+                                                                item.type ===
+                                                                'LIKE'
+                                                                    ? 'bg-pink-100 text-pink-700'
+                                                                    : 'bg-blue-100 text-blue-700'
+                                                            "
+                                                            class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase"
+                                                        >
+                                                            {{
+                                                                item.type ===
+                                                                "LIKE"
+                                                                    ? "Thả tim"
+                                                                    : "Comment"
+                                                            }}
+                                                        </span>
+                                                    </div>
+                                                    @if (!item.isEditing) {
+                                                        <span
+                                                            [class.text-pink-600]="
+                                                                item.type ===
+                                                                'LIKE'
+                                                            "
+                                                            >{{
+                                                                item.comment
+                                                            }}</span
+                                                        >
+                                                    }
+                                                    @if (item.isEditing) {
+                                                        @if (
+                                                            item.type ===
+                                                            "COMMENT"
+                                                        ) {
+                                                            <textarea
+                                                                class="w-full p-2 border border-gray-200 rounded focus:outline-none"
+                                                                rows="3"
+                                                                [(ngModel)]="
+                                                                    item.commentDraft
+                                                                "
+                                                            ></textarea>
+                                                        }
+                                                        @if (
+                                                            item.type === "LIKE"
+                                                        ) {
+                                                            <span
+                                                                class="text-gray-400 italic"
+                                                                >{{
+                                                                    "app.auto_content_like_cannot_be_edited"
+                                                                        | transloco
+                                                                }}</span
+                                                            >
+                                                        }
+                                                    }
+                                                    <div
+                                                        class="text-[10px] text-gray-400 truncate mt-1"
+                                                        [matTooltip]="
+                                                            item.videoUrl
+                                                        "
+                                                    >
+                                                        URL: {{ item.videoUrl }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td
+                                                class="px-4 py-3 text-gray-500 align-top"
+                                            >
+                                                @if (!item.isEditing) {
+                                                    {{ item.result || "---" }}
+                                                }
+                                                @if (item.isEditing) {
+                                                    <textarea
+                                                        class="w-full p-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"
+                                                        rows="3"
+                                                        [(ngModel)]="
+                                                            item.resultDraft
+                                                        "
+                                                        [ngModelOptions]="{
+                                                            standalone: true,
+                                                        }"
+                                                    ></textarea>
+                                                }
+                                            </td>
+                                            <td
+                                                class="px-4 py-3 text-center align-top"
+                                            >
+                                                @if (!item.isEditing) {
+                                                    <div
+                                                        class="flex justify-center items-center gap-2"
+                                                    >
+                                                        <button
+                                                            mat-icon-button
+                                                            (click)="
+                                                                enableEdit(item)
+                                                            "
+                                                            [matTooltip]="
+                                                                'app.edit'
+                                                                    | transloco
+                                                            "
+                                                            class="text-blue-500 hover:bg-blue-50"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="'feather:edit-2'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                        <button
+                                                            mat-icon-button
+                                                            (click)="
+                                                                deleteComment(
+                                                                    group,
+                                                                    item
+                                                                )
+                                                            "
+                                                            [matTooltip]="
+                                                                'app.auto_delete'
+                                                                    | transloco
+                                                            "
+                                                            class="text-red-500 hover:bg-red-50"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="'feather:trash-2'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                    </div>
+                                                }
+                                                @if (item.isEditing) {
+                                                    <div
+                                                        class="flex justify-center items-center gap-2"
+                                                    >
+                                                        <button
+                                                            mat-icon-button
+                                                            (click)="
+                                                                saveEdit(item)
+                                                            "
+                                                            [matTooltip]="
+                                                                'app.auto_save'
+                                                                    | transloco
+                                                            "
+                                                            class="text-green-600 hover:bg-green-50"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="'feather:check'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                        <button
+                                                            mat-icon-button
+                                                            (click)="
+                                                                cancelEdit(item)
+                                                            "
+                                                            [matTooltip]="
+                                                                'app.auto_cancel'
+                                                                    | transloco
+                                                            "
+                                                            class="text-gray-500 hover:bg-gray-50"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="'feather:x'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+                }
+            }
+            @if (commentGroups.length === 0) {
+                <div
+                    class="flex flex-col items-center justify-center h-64 text-gray-500"
+                >
+                    <mat-icon
+                        class="icon-size-12 mb-2"
+                        [svgIcon]="'heroicons_outline:inbox'"
+                    ></mat-icon>
+                    <span>{{ "app.no_comment_data_yet" | transloco }}</span>
                 </div>
-            </ng-container>
-            <div *ngIf="commentGroups.length === 0"
-                class="flex flex-col items-center justify-center h-64 text-gray-500">
-                <mat-icon class="icon-size-12 mb-2" [svgIcon]="'heroicons_outline:inbox'"></mat-icon>
-                <span>{{ 'app.no_comment_data_yet' | transloco }}</span>
-            </div>
+            }
         </div>
 
-        <div class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0 z-10">
+        <div
+            class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0 z-10"
+        >
             <div class="text-sm text-gray-600 ml-2">
-                <span class="text-gray-500 mr-4">{{ 'app.statistics' | transloco }}</span>
-                <span class="text-blue-600 mr-4">Comment: {{ countTypeInGroups("COMMENT") }}</span>
-                <span class="text-pink-600">Thả tim: {{ countTypeInGroups("LIKE") }}</span>
+                <span class="text-gray-500 mr-4">{{
+                    "app.statistics" | transloco
+                }}</span>
+                <span class="text-blue-600 mr-4"
+                    >Comment: {{ countTypeInGroups("COMMENT") }}</span
+                >
+                <span class="text-pink-600"
+                    >Thả tim: {{ countTypeInGroups("LIKE") }}</span
+                >
             </div>
             <div class="flex items-center gap-2">
-                <button mat-button (click)="_matDialog.closeAll()">
-                    Đóng
-                </button>
-                <button mat-flat-button color="primary" (click)="submitToN8n()" [disabled]="totalSelected === 0">
-                    <mat-icon class="icon-size-5" [svgIcon]="'feather:send'"></mat-icon>
+                <button mat-button (click)="_matDialog.closeAll()">Đóng</button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    (click)="submitToN8n()"
+                    [disabled]="totalSelected === 0"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'feather:send'"
+                    ></mat-icon>
                     <span class="ml-2">Gửi sang N8N ({{ totalSelected }})</span>
                 </button>
             </div>
@@ -552,10 +1251,15 @@
 </ng-template>
 
 <ng-template #likeDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="min-width: 500px">
-        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
+    <div
+        class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden"
+        style="min-width: 500px"
+    >
+        <div
+            class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0"
+        >
             <h2 class="text-xl font-semibold m-0 text-gray-800">
-                {{ 'app.mass_hearting_script_settings' | transloco }}
+                {{ "app.mass_hearting_script_settings" | transloco }}
             </h2>
             <button mat-icon-button (click)="_matDialog.closeAll()">
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
@@ -565,166 +1269,385 @@
         <div class="p-6">
             <mat-form-field class="w-full mt-3" appearance="outline">
                 <mat-label class="ml-2">Link video TikTok</mat-label>
-                <input matInput [(ngModel)]="likeVideoUrl" placeholder="https://www.tiktok.com/@..." />
-                <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:link'"></mat-icon>
+                <input
+                    matInput
+                    [(ngModel)]="likeVideoUrl"
+                    placeholder="https://www.tiktok.com/@..."
+                />
+                <mat-icon
+                    matSuffix
+                    class="icon-size-5"
+                    [svgIcon]="'feather:link'"
+                ></mat-icon>
             </mat-form-field>
 
             <div class="flex flex-col gap-2">
                 <div class="flex gap-6">
                     <mat-form-field class="flex-1" appearance="outline">
-                        <mat-label class="ml-2">{{ 'app.auto_from_the_moment' | transloco }}</mat-label>
-                        <input matInput type="datetime-local" #startTimeInput (click)="startTimeInput.showPicker()"
-                            [(ngModel)]="likeStartTime" />
-                        <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:calendar'"></mat-icon>
+                        <mat-label class="ml-2">{{
+                            "app.auto_from_the_moment" | transloco
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="datetime-local"
+                            #startTimeInput
+                            (click)="startTimeInput.showPicker()"
+                            [(ngModel)]="likeStartTime"
+                        />
+                        <mat-icon
+                            matSuffix
+                            class="icon-size-5"
+                            [svgIcon]="'feather:calendar'"
+                        ></mat-icon>
                     </mat-form-field>
 
                     <mat-form-field class="flex-1" appearance="outline">
-                        <mat-label class="ml-2">{{ 'app.auto_by_the_time' | transloco }}</mat-label>
-                        <input matInput type="datetime-local" #endTimeInput (click)="endTimeInput.showPicker()"
-                            [(ngModel)]="likeEndTime" />
-                        <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:clock'"></mat-icon>
+                        <mat-label class="ml-2">{{
+                            "app.auto_by_the_time" | transloco
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="datetime-local"
+                            #endTimeInput
+                            (click)="endTimeInput.showPicker()"
+                            [(ngModel)]="likeEndTime"
+                        />
+                        <mat-icon
+                            matSuffix
+                            class="icon-size-5"
+                            [svgIcon]="'feather:clock'"
+                        ></mat-icon>
                     </mat-form-field>
                 </div>
             </div>
 
             <p class="text-blue-700 text-xs m-0">
-                <strong>{{ 'app.auto_note_1' | transloco }}</strong> {{ 'app.auto_the_system_will_randomly_sprea' | transloco }} <b>{{ items.length }} Profiles</b>
-                {{ 'app.auto_during_the_time_period_you_sel' | transloco }}
+                <strong>{{ "app.auto_note_1" | transloco }}</strong>
+                {{ "app.auto_the_system_will_randomly_sprea" | transloco }}
+                <b>{{ items.length }} Profiles</b>
+                {{ "app.auto_during_the_time_period_you_sel" | transloco }}
             </p>
         </div>
 
         <!-- Dialog Footer -->
-        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0 gap-2">
+        <div
+            class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0 gap-2"
+        >
             <button mat-button (click)="_matDialog.closeAll()">
-                {{ 'app.auto_cancel' | transloco }}
+                {{ "app.auto_cancel" | transloco }}
             </button>
-            <button mat-flat-button color="primary" (click)="confirmGenerateLike()" class="px-6">
-                {{ 'app.auto_confirm_creation' | transloco }}
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="confirmGenerateLike()"
+                class="px-6"
+            >
+                {{ "app.auto_confirm_creation" | transloco }}
             </button>
         </div>
     </div>
 </ng-template>
 
 <ng-template #groupTasksDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 720px; min-width: 520px;">
-        <div class="flex items-center justify-between p-6 bg-gray-50 border-b border-gray-200 shrink-0">
+    <div
+        class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden"
+        style="max-width: 720px; min-width: 520px"
+    >
+        <div
+            class="flex items-center justify-between p-6 bg-gray-50 border-b border-gray-200 shrink-0"
+        >
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded bg-primary text-white flex items-center justify-center">
-                    <mat-icon class="icon-size-5 text-white" [svgIcon]="'feather:layers'"></mat-icon>
+                <div
+                    class="w-10 h-10 rounded bg-primary text-white flex items-center justify-center"
+                >
+                    <mat-icon
+                        class="icon-size-5 text-white"
+                        [svgIcon]="'feather:layers'"
+                    ></mat-icon>
                 </div>
                 <div>
-                    <h2 class="text-base font-bold text-gray-900 m-0 leading-tight">
-                        Danh sách {{ selectedGroupItem?.tasks?.length || 0 }} công việc
+                    <h2
+                        class="text-base font-bold text-gray-900 m-0 leading-tight"
+                    >
+                        Danh sách
+                        {{ selectedGroupItem?.tasks?.length || 0 }} công việc
                     </h2>
-                    <div class="text-xs text-gray-500 font-medium mt-0.5" *ngIf="selectedGroupItem?.isMonthlyTotalBar">
-                        Domain: {{ selectedGroupDomainCount || 1 }} • {{ (selectedGroupStartDate || selectedGroupItem?.startDate) | date:'dd/MM/yyyy' }} - {{ (selectedGroupEndDate || selectedGroupItem?.endDate) | date:'dd/MM/yyyy' }}
-                    </div>
-                    <div class="text-xs text-gray-500 font-medium mt-0.5" *ngIf="!selectedGroupItem?.isMonthlyTotalBar">
-                        Domain: {{ cleanDomain(selectedGroupDomain) }} • {{ selectedGroupItem?.startDate | date:'dd/MM/yyyy' }}
-                    </div>
+                    @if (selectedGroupItem?.isMonthlyTotalBar) {
+                        <div class="text-xs text-gray-500 font-medium mt-0.5">
+                            Domain: {{ selectedGroupDomainCount || 1 }} •
+                            {{
+                                selectedGroupStartDate ||
+                                    selectedGroupItem?.startDate
+                                    | date: "dd/MM/yyyy"
+                            }}
+                            -
+                            {{
+                                selectedGroupEndDate ||
+                                    selectedGroupItem?.endDate
+                                    | date: "dd/MM/yyyy"
+                            }}
+                        </div>
+                    }
+                    @if (!selectedGroupItem?.isMonthlyTotalBar) {
+                        <div class="text-xs text-gray-500 font-medium mt-0.5">
+                            Domain: {{ cleanDomain(selectedGroupDomain) }} •
+                            {{
+                                $safeNavigationMigration(
+                                    selectedGroupItem?.startDate
+                                ) | date: "dd/MM/yyyy"
+                            }}
+                        </div>
+                    }
                 </div>
             </div>
-            <button mat-icon-button (click)="_matDialog.closeAll()" class="text-gray-500 hover:text-gray-800">
+            <button
+                mat-icon-button
+                (click)="_matDialog.closeAll()"
+                class="text-gray-500 hover:text-gray-800"
+            >
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
             </button>
         </div>
 
         <!-- Toolbar chọn nhiều (Multi-select bar) -->
-        <div class="flex items-center px-6 py-2.5 bg-slate-50 border-b border-gray-200 shrink-0 select-none">
+        <div
+            class="flex items-center px-6 py-2.5 bg-slate-50 border-b border-gray-200 shrink-0 select-none"
+        >
             <div class="flex items-center gap-2">
-                <mat-checkbox color="primary" 
-                              [checked]="isAllGroupTasksSelected()" 
-                              [indeterminate]="isSomeGroupTasksSelected()" 
-                              (change)="toggleSelectAllGroupTasks($event)">
-                    <span class="text-xs font-semibold text-gray-700">Chọn tất cả</span>
+                <mat-checkbox
+                    color="primary"
+                    [checked]="isAllGroupTasksSelected()"
+                    [indeterminate]="isSomeGroupTasksSelected()"
+                    (change)="toggleSelectAllGroupTasks($event)"
+                >
+                    <span class="text-xs font-semibold text-gray-700"
+                        >Chọn tất cả</span
+                    >
                 </mat-checkbox>
             </div>
         </div>
 
-        <div class="p-6 overflow-y-auto max-h-[70vh] flex flex-col gap-3 bg-white">
-            <div *ngFor="let task of selectedGroupItem?.tasks; let i = index" 
-                 class="flex flex-col shrink-0 rounded border border-gray-200 bg-white overflow-hidden transition-all duration-150"
-                 [class.border-primary]="isTaskSelected(task)"
-                 [class.bg-blue-50]="isTaskSelected(task)">
-
-                <!-- Accordion Header -->
-                <div (click)="toggleTaskExpanded(task, $event)"
-                     class="flex items-center justify-between p-3.5 cursor-pointer hover:bg-slate-50 transition-colors select-none">
-                    <div class="flex items-center gap-3 min-w-0 pr-2">
-                        <!-- Checkbox Multi-select -->
-                        <div (click)="$event.stopPropagation()" class="flex items-center shrink-0">
-                            <mat-checkbox color="primary" 
-                                          [checked]="isTaskSelected(task)" 
-                                          (change)="toggleSelectTask(task, $event)">
-                            </mat-checkbox>
+        <div
+            class="p-6 overflow-y-auto max-h-[70vh] flex flex-col gap-3 bg-white"
+        >
+            @for (
+                task of selectedGroupItem?.tasks;
+                track task;
+                let i = $index
+            ) {
+                <div
+                    class="flex flex-col shrink-0 rounded border border-gray-200 bg-white overflow-hidden transition-all duration-150"
+                    [class.border-primary]="isTaskSelected(task)"
+                    [class.bg-blue-50]="isTaskSelected(task)"
+                >
+                    <!-- Accordion Header -->
+                    <div
+                        (click)="toggleTaskExpanded(task, $event)"
+                        class="flex items-center justify-between p-3.5 cursor-pointer hover:bg-slate-50 transition-colors select-none"
+                    >
+                        <div class="flex items-center gap-3 min-w-0 pr-2">
+                            <!-- Checkbox Multi-select -->
+                            <div
+                                (click)="$event.stopPropagation()"
+                                class="flex items-center shrink-0"
+                            >
+                                <mat-checkbox
+                                    color="primary"
+                                    [checked]="isTaskSelected(task)"
+                                    (change)="toggleSelectTask(task, $event)"
+                                >
+                                </mat-checkbox>
+                            </div>
+                            <span
+                                class="w-7 h-7 rounded text-xs font-bold flex items-center justify-center shrink-0 transition-colors"
+                                [ngClass]="
+                                    task.done
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-amber-500 text-white'
+                                "
+                            >
+                                #{{ task.taskIndex || i + 1 }}
+                            </span>
+                            <div class="min-w-0">
+                                <div
+                                    class="text-base font-semibold text-gray-800 truncate"
+                                    [class.line-through]="task.done"
+                                >
+                                    {{
+                                        task.name ||
+                                            task.title ||
+                                            task.comment ||
+                                            task.prompt ||
+                                            "Công việc #" +
+                                                (task.taskIndex || i + 1)
+                                    }}
+                                </div>
+                                @if (
+                                    !task._expanded &&
+                                    (task.meta || task.comment)
+                                ) {
+                                    <div
+                                        class="text-xs text-gray-500 truncate mt-0.5"
+                                    >
+                                        {{ task.meta || task.comment }}
+                                    </div>
+                                }
+                            </div>
                         </div>
-
-                        <span class="w-7 h-7 rounded text-xs font-bold flex items-center justify-center shrink-0 transition-colors"
-                              [ngClass]="task.done ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'">
-                            #{{ task.taskIndex || (i + 1) }}
-                        </span>
-                        <div class="min-w-0">
-                            <div class="text-base font-semibold text-gray-800 truncate" [class.line-through]="task.done">
-                                {{ task.name || task.title || task.comment || task.prompt || ('Công việc #' + (task.taskIndex || (i + 1))) }}
-                            </div>
-                            <div class="text-xs text-gray-500 truncate mt-0.5" *ngIf="!task._expanded && (task.meta || task.comment)">
-                                {{ task.meta || task.comment }}
-                            </div>
+                        <div class="flex items-center gap-2.5 shrink-0">
+                            <span
+                                class="px-2 py-0.5 rounded text-xs font-semibold"
+                                [ngClass]="
+                                    task.done
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : 'bg-amber-100 text-amber-700'
+                                "
+                            >
+                                {{ task.done ? "Đã xong" : "Đang chờ xử lý" }}
+                            </span>
+                            <mat-icon
+                                class="icon-size-5 text-gray-400 transition-transform duration-200"
+                                [class.rotate-180]="task._expanded"
+                                [svgIcon]="'feather:chevron-down'"
+                            ></mat-icon>
                         </div>
                     </div>
-
-                    <div class="flex items-center gap-2.5 shrink-0">
-                        <span class="px-2 py-0.5 rounded text-xs font-semibold"
-                              [ngClass]="task.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
-                            {{ task.done ? 'Đã xong' : 'Đang chờ xử lý' }}
-                        </span>
-                        <mat-icon class="icon-size-5 text-gray-400 transition-transform duration-200" 
-                                  [class.rotate-180]="task._expanded"
-                                  [svgIcon]="'feather:chevron-down'"></mat-icon>
-                    </div>
+                    <!-- Accordion Content (Expandable Body) -->
+                    @if (task._expanded) {
+                        <div
+                            class="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50/50 flex flex-col gap-3"
+                        >
+                            @if (task.meta || task.comment || task.prompt) {
+                                <div
+                                    class="text-xs text-gray-700 bg-white p-3 rounded border border-gray-200/80 leading-relaxed whitespace-pre-wrap"
+                                >
+                                    <span class="font-bold text-gray-900"
+                                        >Mô tả / Ý tưởng:</span
+                                    >
+                                    <div class="mt-1 text-gray-800">
+                                        {{
+                                            task.meta ||
+                                                task.comment ||
+                                                task.prompt
+                                        }}
+                                    </div>
+                                </div>
+                            }
+                            <div
+                                class="flex items-center justify-between text-xs gap-2 pt-2 border-t border-gray-100"
+                            >
+                                <div
+                                    class="flex items-center"
+                                    [ngClass]="
+                                        task.done
+                                            ? 'text-emerald-600'
+                                            : 'text-amber-600'
+                                    "
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 mr-1"
+                                        [ngClass]="
+                                            task.done
+                                                ? 'text-emerald-600'
+                                                : 'text-amber-600'
+                                        "
+                                        [svgIcon]="'feather:calendar'"
+                                    ></mat-icon>
+                                    <span class="font-medium">Thời gian:</span>
+                                    <span class="ml-1 font-semibold">{{
+                                        task.startDate
+                                            | date: "HH:mm • dd/MM/yyyy"
+                                    }}</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="text-gray-500">
+                                        Status:
+                                        <span
+                                            class="font-semibold"
+                                            [ngClass]="
+                                                task.done
+                                                    ? 'text-emerald-600'
+                                                    : 'text-amber-600'
+                                            "
+                                            >{{
+                                                task.done
+                                                    ? "Đã hoàn thành"
+                                                    : "Đang chờ xử lý"
+                                            }}</span
+                                        >
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <button
+                                            mat-icon-button
+                                            [matTooltip]="
+                                                task.done
+                                                    ? 'Đánh dấu làm lại'
+                                                    : 'Đánh dấu đã xong'
+                                            "
+                                            (click)="
+                                                toggleTaskDone(task, $event)
+                                            "
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [ngClass]="
+                                                    task.done
+                                                        ? 'text-amber-600'
+                                                        : 'text-emerald-600'
+                                                "
+                                                [svgIcon]="
+                                                    task.done
+                                                        ? 'feather:rotate-ccw'
+                                                        : 'feather:check-circle'
+                                                "
+                                            ></mat-icon>
+                                        </button>
+                                        <button
+                                            mat-icon-button
+                                            color="primary"
+                                            [matTooltip]="'Chỉnh sửa / AI Edit'"
+                                            (click)="openSingleTaskDetail(task)"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="'feather:edit-3'"
+                                            ></mat-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
-
-                <!-- Accordion Content (Expandable Body) -->
-                <div *ngIf="task._expanded" class="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50/50 flex flex-col gap-3">
-                    <div class="text-xs text-gray-700 bg-white p-3 rounded border border-gray-200/80 leading-relaxed whitespace-pre-wrap" *ngIf="task.meta || task.comment || task.prompt">
-                        <span class="font-bold text-gray-900">Mô tả / Ý tưởng:</span>
-                        <div class="mt-1 text-gray-800">{{ task.meta || task.comment || task.prompt }}</div>
-                    </div>
-
-                    <div class="flex items-center justify-between text-xs gap-2 pt-2 border-t border-gray-100">
-                        <div class="flex items-center" [ngClass]="task.done ? 'text-emerald-600' : 'text-amber-600'">
-                            <mat-icon class="icon-size-4 mr-1" [ngClass]="task.done ? 'text-emerald-600' : 'text-amber-600'" [svgIcon]="'feather:calendar'"></mat-icon>
-                            <span class="font-medium">Thời gian:</span>
-                            <span class="ml-1 font-semibold">{{ task.startDate | date:'HH:mm • dd/MM/yyyy' }}</span>
-                        </div>
-
-                        <div class="flex items-center gap-3">
-                            <div class="text-gray-500">
-                                Status: <span class="font-semibold" [ngClass]="task.done ? 'text-emerald-600' : 'text-amber-600'">{{ task.done ? 'Đã hoàn thành' : 'Đang chờ xử lý' }}</span>
-                            </div>
-                            <div class="flex items-center gap-1">
-                                <button mat-icon-button [matTooltip]="task.done ? 'Đánh dấu làm lại' : 'Đánh dấu đã xong'" (click)="toggleTaskDone(task, $event)">
-                                    <mat-icon class="icon-size-4" [ngClass]="task.done ? 'text-amber-600' : 'text-emerald-600'" [svgIcon]="task.done ? 'feather:rotate-ccw' : 'feather:check-circle'"></mat-icon>
-                                </button>
-                                <button mat-icon-button color="primary" [matTooltip]="'Chỉnh sửa / AI Edit'" (click)="openSingleTaskDetail(task)">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
+            }
         </div>
 
         <!-- Dialog Footer -->
-        <div class="flex items-center justify-end gap-2 p-4 bg-gray-50 border-t border-gray-200 shrink-0">
-            <button mat-flat-button class="!bg-amber-500 hover:!bg-amber-600 !text-white" (click)="markSelectedTasksDone(false)" [matTooltip]="'Chuyển các mục đã chọn về trạng thái Chờ xử lý để làm lại'">
-                <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:rotate-ccw'"></mat-icon>
+        <div
+            class="flex items-center justify-end gap-2 p-4 bg-gray-50 border-t border-gray-200 shrink-0"
+        >
+            <button
+                mat-flat-button
+                class="!bg-amber-500 hover:!bg-amber-600 !text-white"
+                (click)="markSelectedTasksDone(false)"
+                [matTooltip]="'Chuyển các mục đã chọn về trạng thái Chờ xử lý để làm lại'"
+            >
+                <mat-icon
+                    class="icon-size-4 text-white"
+                    [svgIcon]="'feather:rotate-ccw'"
+                ></mat-icon>
                 <span class="ml-2">Đánh dấu làm lại</span>
             </button>
-            <button mat-flat-button color="primary" (click)="markSelectedTasksDone(true)" [matTooltip]="'Đánh dấu hoàn thành các mục đã chọn'">
-                <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:check-circle'"></mat-icon>
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="markSelectedTasksDone(true)"
+                [matTooltip]="'Đánh dấu hoàn thành các mục đã chọn'"
+            >
+                <mat-icon
+                    class="icon-size-4 text-white"
+                    [svgIcon]="'feather:check-circle'"
+                ></mat-icon>
                 <span class="ml-2">Đã hoàn thành</span>
             </button>
         </div>

@@ -1,4 +1,10 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { UserService } from 'app/core/user/user.service';
@@ -14,7 +20,9 @@ import { Router } from '@angular/router';
     selector: 'synonym',
     templateUrl: './synonym.component.html',
     providers: [BlogService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class SynonymComponent implements OnInit, OnDestroy {
     config: AppConfig;
@@ -31,9 +39,10 @@ export class SynonymComponent implements OnInit, OnDestroy {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     synonymscan() {
-        this._blogService.synonymscan({
-            username: this.user.name
-        })
+        this._blogService
+            .synonymscan({
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (links) => {
@@ -46,41 +55,40 @@ export class SynonymComponent implements OnInit, OnDestroy {
                             icon: {
                                 show: true,
                                 name: 'feather:search',
-                                color: 'primary'
+                                color: 'primary',
                             },
                             actions: {
                                 confirm: {
                                     show: true,
                                     label: 'Lưu trữ',
-                                    color: 'primary'
+                                    color: 'primary',
                                 },
                                 cancel: {
                                     show: true,
-                                    label: 'Đóng lại'
-                                }
+                                    label: 'Đóng lại',
+                                },
                             },
-                            dismissible: false
+                            dismissible: false,
                         });
 
                         // Subscribe to afterClosed from the dialog reference
                         dialogRef.afterClosed().subscribe((result) => {
-                            if (result === "confirmed") {
+                            if (result === 'confirmed') {
                                 this.synonymdownload(links[0]);
                             }
                         });
                     }
                 },
-                error: (e: any) => {
-                },
-                complete: () => {
-                }
+                error: (e: any) => {},
+                complete: () => {},
             });
     }
 
     synonymdownload(link: string) {
-        this._blogService.synonymdownload({
-            link: link
-        })
+        this._blogService
+            .synonymdownload({
+                link: link,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (results) => {
@@ -103,38 +111,41 @@ export class SynonymComponent implements OnInit, OnDestroy {
                             icon: {
                                 show: true,
                                 name: 'feather:info',
-                                color: 'primary'
+                                color: 'primary',
                             },
                             actions: {
                                 confirm: {
                                     show: true,
                                     label: 'Tải xuống',
-                                    color: 'primary'
+                                    color: 'primary',
                                 },
                                 cancel: {
                                     show: true,
-                                    label: 'Đóng lại'
-                                }
+                                    label: 'Đóng lại',
+                                },
                             },
-                            dismissible: false
+                            dismissible: false,
                         });
 
                         // Subscribe to afterClosed from the dialog reference
                         dialogRef.afterClosed().subscribe((result) => {
-                            if (result === "confirmed") {
+                            if (result === 'confirmed') {
                                 this.downloadJson(this.words);
                             }
                         });
                     }
-                }
+                },
             });
     }
 
     downloadJson(myJson: any) {
         var sJson = JSON.stringify(myJson);
         var element = document.createElement('a');
-        element.setAttribute('href', "data:text/json;charset=UTF-8," + encodeURIComponent(sJson));
-        element.setAttribute('download', "tu-dong-nghia.json");
+        element.setAttribute(
+            'href',
+            'data:text/json;charset=UTF-8,' + encodeURIComponent(sJson),
+        );
+        element.setAttribute('download', 'tu-dong-nghia.json');
         element.style.display = 'none';
         document.body.appendChild(element);
         element.click(); // simulate click
@@ -142,7 +153,8 @@ export class SynonymComponent implements OnInit, OnDestroy {
     }
 
     synonymlocal() {
-        this._blogService.synonymlocal()
+        this._blogService
+            .synonymlocal()
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (synonyms) => {
@@ -150,10 +162,8 @@ export class SynonymComponent implements OnInit, OnDestroy {
                         this.synonyms = synonyms;
                     }
                 },
-                error: (e: any) => {
-                },
-                complete: () => {
-                }
+                error: (e: any) => {},
+                complete: () => {},
             });
     }
 
@@ -169,12 +179,14 @@ export class SynonymComponent implements OnInit, OnDestroy {
         private _blogService: BlogService,
         private toastr: ToastrService,
     ) {
-        this.titleService.setTitle(`tra cứu từ | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `tra cứu từ | ai.type - công cụ tạo content`,
+        );
     }
 
     ngOnInit(): void {
         this.synonymlocal();
-        
+
         // Subscribe to config changes
         this._fuseConfigService.config$
             .pipe(takeUntil(this._unsubscribeAll))
@@ -188,8 +200,6 @@ export class SynonymComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
             });
     }
 
@@ -202,24 +212,26 @@ export class SynonymComponent implements OnInit, OnDestroy {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference

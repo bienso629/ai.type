@@ -1,197 +1,478 @@
-<div class="w-full h-full flex flex-col bg-gray-900 text-white min-w-0 overflow-hidden group relative">
-	<div class="flex flex-row flex-0 items-center justify-between p-4 bg-black/50 z-50 absolute top-0 left-0 right-0 hover:bg-black/80 transition-all duration-500 ease-in-out"
-		[ngClass]="hasStarted ? 'opacity-0 -translate-y-full group-hover:opacity-100 group-hover:translate-y-0' : 'opacity-100'">
-		<div class="flex-1 shrink-0 items-center">
-			<label class="uppercase font-semibold tracking-wider text-white">
-				🔴 Livestream Studio
-			</label>
+<div
+    class="w-full h-full flex flex-col bg-gray-900 text-white min-w-0 overflow-hidden group relative"
+>
+    <div
+        class="flex flex-row flex-0 items-center justify-between p-4 bg-black/50 z-50 absolute top-0 left-0 right-0 hover:bg-black/80 transition-all duration-500 ease-in-out"
+        [ngClass]="
+            hasStarted
+                ? 'opacity-0 -translate-y-full group-hover:opacity-100 group-hover:translate-y-0'
+                : 'opacity-100'
+        "
+    >
+        <div class="flex-1 shrink-0 items-center">
+            <label class="uppercase font-semibold tracking-wider text-white">
+                🔴 Livestream Studio
+            </label>
 
-			<br />
+            <br />
 
-			<span class="truncate max-w-md opacity-70">{{ projectData?.title || 'Chưa có dự án' }}</span>
-		</div>
+            <span class="truncate max-w-md opacity-70">{{
+                projectData?.title || "Chưa có dự án"
+            }}</span>
+        </div>
 
-		<div class="flex flex-row shrink-0 items-center text-sm gap-4">
-			<button mat-icon-button (click)="toggleSubtitle()" class="transition-colors rounded-full"
-				[ngClass]="showSubtitle ? 'bg-blue-600/60 text-white hover:bg-blue-600/80' : 'bg-white/10 text-gray-400 hover:text-white'">
-				<mat-icon class="icon-size-5" svgIcon="feather:message-square"></mat-icon>
-			</button>
+        <div class="flex flex-row shrink-0 items-center text-sm gap-4">
+            <button
+                mat-icon-button
+                (click)="toggleSubtitle()"
+                class="transition-colors rounded-full"
+                [ngClass]="
+                    showSubtitle
+                        ? 'bg-blue-600/60 text-white hover:bg-blue-600/80'
+                        : 'bg-white/10 text-gray-400 hover:text-white'
+                "
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    svgIcon="feather:message-square"
+                ></mat-icon>
+            </button>
 
-			<button mat-icon-button (click)="toggleScreenRatio()"
-				class="text-gray-300 hover:text-white transition-colors bg-white/10 rounded-full"
-				[matTooltip]="'app.auto_change_mobile_desktop_ratio' | transloco">
-				<mat-icon class="icon-size-5" [svgIcon]="isMobileRatio ? 'feather:smartphone' : 'feather:monitor'">
-				</mat-icon>
-			</button>
+            <button
+                mat-icon-button
+                (click)="toggleScreenRatio()"
+                class="text-gray-300 hover:text-white transition-colors bg-white/10 rounded-full"
+                [matTooltip]="
+                    'app.auto_change_mobile_desktop_ratio' | transloco
+                "
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="
+                        isMobileRatio ? 'feather:smartphone' : 'feather:monitor'
+                    "
+                >
+                </mat-icon>
+            </button>
 
-			<button mat-icon-button (click)="stopAudio()"
-				class="text-gray-300 hover:text-white transition-colors bg-white/10 rounded-full">
-				<mat-icon class="icon-size-5" svgIcon="feather:x"></mat-icon>
-			</button>
-		</div>
-	</div>
+            <button
+                mat-icon-button
+                (click)="stopAudio()"
+                class="text-gray-300 hover:text-white transition-colors bg-white/10 rounded-full"
+            >
+                <mat-icon class="icon-size-5" svgIcon="feather:x"></mat-icon>
+            </button>
+        </div>
+    </div>
 
-	<div class="flex-auto relative flex items-center justify-center bg-black w-full h-full">
-		<ng-container *ngIf="projectData && projectData.scenes?.length > 0; else noData">
-			<div *ngIf="!hasStarted"
-				class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm">
-				<mat-icon class="icon-size-24 text-blue-500 mb-6" svgIcon="heroicons_solid:play"></mat-icon>
-				<h2 class="text-2xl font-semibold mb-2">{{ 'app.auto_livestream_system_ready' | transloco }}</h2>
-				<p class="text-gray-400 mb-8">{{ 'app.auto_video_and_audio_will_automatic' | transloco }}</p>
-				<button mat-flat-button color="primary" class="px-8 py-6 text-lg rounded-full shadow-lg"
-					(click)="startLivestream()">
-					{{ 'app.auto_start_broadcasting' | transloco }}
-				</button>
-			</div>
-
-			<ng-container *ngIf="hasStarted && currentScene">
-				<video *ngIf="isVideo(currentMediaUrl)" [src]="currentMediaUrl" autoplay loop [muted]="true" playsinline
-					class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500">
-				</video>
-
-				<img *ngIf="isImage(currentMediaUrl)" [src]="currentMediaUrl"
-					class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500"
-					alt="Scene Background">
-			</ng-container>
-
-			<div *ngIf="hasStarted && currentSubtitle"
-				class="absolute left-0 right-0 flex justify-center z-30 transition-all duration-500 ease-in-out pointer-events-none"
-				[ngClass]="[
-                    isMobileRatio ? 'bottom-8 px-2' : 'bottom-12 md:bottom-16 px-4 md:px-12',
-                    showSubtitle ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-6 scale-95'
-                ]">
-
-				<div class="bg-black/75 backdrop-blur rounded-xl md:rounded-2xl max-w-4xl mx-auto text-center pointer-events-auto flex items-center justify-center transition-all duration-300"
-					[ngClass]="isMobileRatio ? 'px-3 py-2 min-h-[48px] w-auto' : 'px-5 py-3 md:px-6 md:py-3 w-auto min-h-[60px]'">
-
-					<p class="font-medium tracking-wide text-gray-100 drop-shadow-md transition-all duration-200"
-						[ngClass]="isMobileRatio ? 'text-base leading-snug' : 'text-lg md:text-xl lg:text-2xl leading-snug'">
-						{{ currentDisplayedText }}
-					</p>
-				</div>
-			</div>
-
-			<div *ngIf="hasStarted"
-				class="absolute bottom-4 left-6 z-50 flex items-center space-x-3 transition-all duration-500 ease-in-out opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0">
-
-				<div class="flex items-center space-x-2 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg shadow-lg">
-					<mat-icon class="icon-size-4" [ngClass]="{'animate-pulse text-red-500': isPlaying}">
-						{{ isPlaying ? 'fiber_manual_record' : 'pause' }}
-					</mat-icon>
-					<span class="text-xs font-mono uppercase tracking-widest text-gray-200">
-						{{ isPlaying ? 'Đang Live' : 'Tạm dừng' }}
-					</span>
-				</div>
-
-				<div
-					class="relative group/menu cursor-pointer bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-mono shadow-lg text-gray-200">
-					<div class="flex items-center gap-0">
-						<mat-icon class="icon-size-4 text-gray-400" svgIcon="feather:list"></mat-icon>
-						<span>Scene {{ currentSceneIndex + 1 }}/{{ projectData.scenes.length }}</span>
-					</div>
-
-					<div
-						class="absolute bottom-full left-0 mb-0 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
-						<div class="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40">
-							<span class="font-semibold text-gray-200 font-sans tracking-wide">{{ 'app.auto_scene_list' | transloco }}</span>
-							<span class="bg-blue-600/30 text-blue-400 px-2 py-0.5 rounded text-[10px]">{{
-								projectData.scenes.length }} Scenes</span>
-						</div>
-
-						<div class="overflow-y-auto flex-1 p-1.5 custom-scrollbar">
-							<ng-container *ngFor="let scene of projectData.scenes; let i = index">
-								<div class="px-3 py-3 my-0.5 rounded-lg cursor-pointer transition-colors flex items-center gap-3"
-									[ngClass]="i === currentSceneIndex ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'"
-									(click)="jumpToScene(i); $event.stopPropagation()">
-									<span class="font-mono font-semibold w-5 text-center"
-										[ngClass]="i === currentSceneIndex ? 'text-blue-500' : 'text-gray-600'">
-										{{ i + 1 }}
-									</span>
-									<div class="flex-1 overflow-hidden">
-										<p class="truncate font-sans text-xs leading-tight"
-											[title]="scene.subtitles?.[0]?.text || 'Phân cảnh ' + (i + 1)">
-											{{ scene.subtitles?.[0]?.text || 'Phân cảnh ' + (i + 1) }}
-										</p>
-									</div>
-									<mat-icon *ngIf="i === currentSceneIndex" class="icon-size-4 text-blue-500 shrink-0"
-										svgIcon="heroicons_solid:volume-up"></mat-icon>
-								</div>
-							</ng-container>
-
-							<div
-								class="px-3 py-2 rounded-md border-gray-700 flex justify-between items-center bg-black/40">
-								<span class="flex items-center justify-center text-white"
-									[matMenuTriggerFor]="mainExportMenu">
-									<mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:download'"></mat-icon>
-									<mat-label class="ml-2 text-white">{{ 'app.auto_export_video' | transloco }}</mat-label>
-								</span>
-
-								<div class="flex items-center">
-									<input type="checkbox" id="toggleSub" [checked]="exportWithSubtitle"
-										(change)="exportWithSubtitle = !exportWithSubtitle; cd.markForCheck()"
-										class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer appearance-auto">
-									<label for="toggleSub"
-										class="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
-										{{ 'app.auto_burn_subtitles' | transloco }}
-									</label>
-								</div>
-							</div>
-
-							<mat-menu #mainExportMenu="matMenu" class="mt-1">
-								<button mat-menu-item [matMenuTriggerFor]="tiktokMenu">
-									<mat-icon class="text-blue-500" svgIcon="feather:smartphone"></mat-icon>
-									<span>TikTok / Shorts (9:16)</span>
-								</button>
-								<button mat-menu-item [matMenuTriggerFor]="youtubeMenu">
-									<mat-icon class="text-red-500" svgIcon="feather:monitor"></mat-icon>
-									<span>YouTube / PC (16:9)</span>
-								</button>
-								<button mat-menu-item [matMenuTriggerFor]="squareMenu">
-									<mat-icon class="text-purple-500" svgIcon="feather:instagram"></mat-icon>
-									<span>Facebook / Insta (1:1)</span>
-								</button>
-							</mat-menu>
-
-							<mat-menu #tiktokMenu="matMenu">
-								<button mat-menu-item (click)="exportCustomVideo('9:16', '1080p')">{{ 'app.auto_standard_1080x1920' | transloco }}</button>
-								<button mat-menu-item (click)="exportCustomVideo('9:16', '2k')">{{ 'app.auto_2k_sharpness_1440x2560' | transloco }}</button>
-								<button mat-menu-item (click)="exportCustomVideo('9:16', '4k')">{{ 'app.auto_ultra_hd_4k_2160x3840' | transloco }}</button>
-							</mat-menu>
-
-							<mat-menu #youtubeMenu="matMenu">
-								<button mat-menu-item (click)="exportCustomVideo('16:9', '1080p')">{{ 'app.auto_standard_1920x1080' | transloco }}</button>
-								<button mat-menu-item (click)="exportCustomVideo('16:9', '2k')">{{ 'app.auto_2k_sharpness_2560x1440' | transloco }}</button>
-								<button mat-menu-item (click)="exportCustomVideo('16:9', '4k')">{{ 'app.auto_ultra_hd_4k_3840x2160' | transloco }}</button>
-							</mat-menu>
-
-							<mat-menu #squareMenu="matMenu">
-								<button mat-menu-item (click)="exportCustomVideo('1:1', '1080p')">{{ 'app.auto_standard_1080x1080' | transloco }}</button>
-								<button mat-menu-item (click)="exportCustomVideo('1:1', '2k')">{{ 'app.auto_2k_sharpness_1440x1440' | transloco }}</button>
-								<button mat-menu-item (click)="exportCustomVideo('1:1', '4k')">{{ 'app.auto_ultra_hd_4k_2160x2160' | transloco }}</button>
-							</mat-menu>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<div *ngIf="hasStarted"
-				class="absolute inset-0 z-40 flex items-center justify-center bg-black/20 cursor-pointer transition-opacity duration-500 opacity-0 group-hover:opacity-100"
-				(click)="togglePlayPause()">
-				<div
-					class="bg-black/60 rounded-full w-16 h-16 flex items-center justify-center transform scale-150 hover:scale-125 transition-transform shadow-lg">
-					<mat-icon class="icon-size-10 text-white"
-						[svgIcon]="isPlaying ? 'heroicons_solid:pause' : 'heroicons_solid:play'"></mat-icon>
-				</div>
-			</div>
-		</ng-container>
-
-		<ng-template #noData>
-			<div class="flex flex-col items-center justify-center text-center p-8">
-				<mat-icon class="icon-size-20 text-gray-600 mb-4" svgIcon="feather:alert-circle"></mat-icon>
-				<h2 class="text-2xl font-semibold mb-2">{{ 'app.auto_video_data_not_found' | transloco }}</h2>
-				<p class="text-gray-400 max-w-md mb-6">{{ 'app.auto_you_need_to_complete_the_steps' | transloco }}</p>
-				<button mat-flat-button color="primary" (click)="stopAudio()">{{ 'app.auto_back_to_tool' | transloco }}</button>
-			</div>
-		</ng-template>
-	</div>
+    <div
+        class="flex-auto relative flex items-center justify-center bg-black w-full h-full"
+    >
+        @if (projectData && projectData.scenes?.length > 0) {
+            @if (!hasStarted) {
+                <div
+                    class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm"
+                >
+                    <mat-icon
+                        class="icon-size-24 text-blue-500 mb-6"
+                        svgIcon="heroicons_solid:play"
+                    ></mat-icon>
+                    <h2 class="text-2xl font-semibold mb-2">
+                        {{ "app.auto_livestream_system_ready" | transloco }}
+                    </h2>
+                    <p class="text-gray-400 mb-8">
+                        {{
+                            "app.auto_video_and_audio_will_automatic"
+                                | transloco
+                        }}
+                    </p>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        class="px-8 py-6 text-lg rounded-full shadow-lg"
+                        (click)="startLivestream()"
+                    >
+                        {{ "app.auto_start_broadcasting" | transloco }}
+                    </button>
+                </div>
+            }
+            @if (hasStarted && currentScene) {
+                @if (isVideo(currentMediaUrl)) {
+                    <video
+                        [src]="currentMediaUrl"
+                        autoplay
+                        loop
+                        [muted]="true"
+                        playsinline
+                        class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500"
+                    ></video>
+                }
+                @if (isImage(currentMediaUrl)) {
+                    <img
+                        [src]="currentMediaUrl"
+                        class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500"
+                        alt="Scene Background"
+                    />
+                }
+            }
+            @if (hasStarted && currentSubtitle) {
+                <div
+                    class="absolute left-0 right-0 flex justify-center z-30 transition-all duration-500 ease-in-out pointer-events-none"
+                    [ngClass]="[
+                        isMobileRatio
+                            ? 'bottom-8 px-2'
+                            : 'bottom-12 md:bottom-16 px-4 md:px-12',
+                        showSubtitle
+                            ? 'opacity-100 translate-y-0 scale-100'
+                            : 'opacity-0 translate-y-6 scale-95',
+                    ]"
+                >
+                    <div
+                        class="bg-black/75 backdrop-blur rounded-xl md:rounded-2xl max-w-4xl mx-auto text-center pointer-events-auto flex items-center justify-center transition-all duration-300"
+                        [ngClass]="
+                            isMobileRatio
+                                ? 'px-3 py-2 min-h-[48px] w-auto'
+                                : 'px-5 py-3 md:px-6 md:py-3 w-auto min-h-[60px]'
+                        "
+                    >
+                        <p
+                            class="font-medium tracking-wide text-gray-100 drop-shadow-md transition-all duration-200"
+                            [ngClass]="
+                                isMobileRatio
+                                    ? 'text-base leading-snug'
+                                    : 'text-lg md:text-xl lg:text-2xl leading-snug'
+                            "
+                        >
+                            {{ currentDisplayedText }}
+                        </p>
+                    </div>
+                </div>
+            }
+            @if (hasStarted) {
+                <div
+                    class="absolute bottom-4 left-6 z-50 flex items-center space-x-3 transition-all duration-500 ease-in-out opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0"
+                >
+                    <div
+                        class="flex items-center space-x-2 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg shadow-lg"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [ngClass]="{
+                                'animate-pulse text-red-500': isPlaying,
+                            }"
+                        >
+                            {{ isPlaying ? "fiber_manual_record" : "pause" }}
+                        </mat-icon>
+                        <span
+                            class="text-xs font-mono uppercase tracking-widest text-gray-200"
+                        >
+                            {{ isPlaying ? "Đang Live" : "Tạm dừng" }}
+                        </span>
+                    </div>
+                    <div
+                        class="relative group/menu cursor-pointer bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-mono shadow-lg text-gray-200"
+                    >
+                        <div class="flex items-center gap-0">
+                            <mat-icon
+                                class="icon-size-4 text-gray-400"
+                                svgIcon="feather:list"
+                            ></mat-icon>
+                            <span
+                                >Scene {{ currentSceneIndex + 1 }}/{{
+                                    projectData.scenes.length
+                                }}</span
+                            >
+                        </div>
+                        <div
+                            class="absolute bottom-full left-0 mb-0 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden"
+                        >
+                            <div
+                                class="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40"
+                            >
+                                <span
+                                    class="font-semibold text-gray-200 font-sans tracking-wide"
+                                    >{{
+                                        "app.auto_scene_list" | transloco
+                                    }}</span
+                                >
+                                <span
+                                    class="bg-blue-600/30 text-blue-400 px-2 py-0.5 rounded text-[10px]"
+                                    >{{
+                                        projectData.scenes.length
+                                    }}
+                                    Scenes</span
+                                >
+                            </div>
+                            <div
+                                class="overflow-y-auto flex-1 p-1.5 custom-scrollbar"
+                            >
+                                @for (
+                                    scene of projectData.scenes;
+                                    track scene;
+                                    let i = $index
+                                ) {
+                                    <div
+                                        class="px-3 py-3 my-0.5 rounded-lg cursor-pointer transition-colors flex items-center gap-3"
+                                        [ngClass]="
+                                            i === currentSceneIndex
+                                                ? 'bg-blue-600/20 text-blue-400'
+                                                : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                                        "
+                                        (click)="
+                                            jumpToScene(i);
+                                            $event.stopPropagation()
+                                        "
+                                    >
+                                        <span
+                                            class="font-mono font-semibold w-5 text-center"
+                                            [ngClass]="
+                                                i === currentSceneIndex
+                                                    ? 'text-blue-500'
+                                                    : 'text-gray-600'
+                                            "
+                                        >
+                                            {{ i + 1 }}
+                                        </span>
+                                        <div class="flex-1 overflow-hidden">
+                                            <p
+                                                class="truncate font-sans text-xs leading-tight"
+                                                [title]="
+                                                    scene.subtitles?.[0]
+                                                        ?.text ||
+                                                    'Phân cảnh ' + (i + 1)
+                                                "
+                                            >
+                                                {{
+                                                    scene.subtitles?.[0]
+                                                        ?.text ||
+                                                        "Phân cảnh " + (i + 1)
+                                                }}
+                                            </p>
+                                        </div>
+                                        @if (i === currentSceneIndex) {
+                                            <mat-icon
+                                                class="icon-size-4 text-blue-500 shrink-0"
+                                                svgIcon="heroicons_solid:volume-up"
+                                            ></mat-icon>
+                                        }
+                                    </div>
+                                }
+                                <div
+                                    class="px-3 py-2 rounded-md border-gray-700 flex justify-between items-center bg-black/40"
+                                >
+                                    <span
+                                        class="flex items-center justify-center text-white"
+                                        [matMenuTriggerFor]="mainExportMenu"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-3 text-white"
+                                            [svgIcon]="'feather:download'"
+                                        ></mat-icon>
+                                        <mat-label class="ml-2 text-white">{{
+                                            "app.auto_export_video" | transloco
+                                        }}</mat-label>
+                                    </span>
+                                    <div class="flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            id="toggleSub"
+                                            [checked]="exportWithSubtitle"
+                                            (change)="
+                                                exportWithSubtitle =
+                                                    !exportWithSubtitle;
+                                                cd.markForCheck()
+                                            "
+                                            class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer appearance-auto"
+                                        />
+                                        <label
+                                            for="toggleSub"
+                                            class="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none"
+                                        >
+                                            {{
+                                                "app.auto_burn_subtitles"
+                                                    | transloco
+                                            }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <mat-menu
+                                    #mainExportMenu="matMenu"
+                                    class="mt-1"
+                                >
+                                    <button
+                                        mat-menu-item
+                                        [matMenuTriggerFor]="tiktokMenu"
+                                    >
+                                        <mat-icon
+                                            class="text-blue-500"
+                                            svgIcon="feather:smartphone"
+                                        ></mat-icon>
+                                        <span>TikTok / Shorts (9:16)</span>
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        [matMenuTriggerFor]="youtubeMenu"
+                                    >
+                                        <mat-icon
+                                            class="text-red-500"
+                                            svgIcon="feather:monitor"
+                                        ></mat-icon>
+                                        <span>YouTube / PC (16:9)</span>
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        [matMenuTriggerFor]="squareMenu"
+                                    >
+                                        <mat-icon
+                                            class="text-purple-500"
+                                            svgIcon="feather:instagram"
+                                        ></mat-icon>
+                                        <span>Facebook / Insta (1:1)</span>
+                                    </button>
+                                </mat-menu>
+                                <mat-menu #tiktokMenu="matMenu">
+                                    <button
+                                        mat-menu-item
+                                        (click)="
+                                            exportCustomVideo('9:16', '1080p')
+                                        "
+                                    >
+                                        {{
+                                            "app.auto_standard_1080x1920"
+                                                | transloco
+                                        }}
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        (click)="
+                                            exportCustomVideo('9:16', '2k')
+                                        "
+                                    >
+                                        {{
+                                            "app.auto_2k_sharpness_1440x2560"
+                                                | transloco
+                                        }}
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        (click)="
+                                            exportCustomVideo('9:16', '4k')
+                                        "
+                                    >
+                                        {{
+                                            "app.auto_ultra_hd_4k_2160x3840"
+                                                | transloco
+                                        }}
+                                    </button>
+                                </mat-menu>
+                                <mat-menu #youtubeMenu="matMenu">
+                                    <button
+                                        mat-menu-item
+                                        (click)="
+                                            exportCustomVideo('16:9', '1080p')
+                                        "
+                                    >
+                                        {{
+                                            "app.auto_standard_1920x1080"
+                                                | transloco
+                                        }}
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        (click)="
+                                            exportCustomVideo('16:9', '2k')
+                                        "
+                                    >
+                                        {{
+                                            "app.auto_2k_sharpness_2560x1440"
+                                                | transloco
+                                        }}
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        (click)="
+                                            exportCustomVideo('16:9', '4k')
+                                        "
+                                    >
+                                        {{
+                                            "app.auto_ultra_hd_4k_3840x2160"
+                                                | transloco
+                                        }}
+                                    </button>
+                                </mat-menu>
+                                <mat-menu #squareMenu="matMenu">
+                                    <button
+                                        mat-menu-item
+                                        (click)="
+                                            exportCustomVideo('1:1', '1080p')
+                                        "
+                                    >
+                                        {{
+                                            "app.auto_standard_1080x1080"
+                                                | transloco
+                                        }}
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        (click)="exportCustomVideo('1:1', '2k')"
+                                    >
+                                        {{
+                                            "app.auto_2k_sharpness_1440x1440"
+                                                | transloco
+                                        }}
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        (click)="exportCustomVideo('1:1', '4k')"
+                                    >
+                                        {{
+                                            "app.auto_ultra_hd_4k_2160x2160"
+                                                | transloco
+                                        }}
+                                    </button>
+                                </mat-menu>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (hasStarted) {
+                <div
+                    class="absolute inset-0 z-40 flex items-center justify-center bg-black/20 cursor-pointer transition-opacity duration-500 opacity-0 group-hover:opacity-100"
+                    (click)="togglePlayPause()"
+                >
+                    <div
+                        class="bg-black/60 rounded-full w-16 h-16 flex items-center justify-center transform scale-150 hover:scale-125 transition-transform shadow-lg"
+                    >
+                        <mat-icon
+                            class="icon-size-10 text-white"
+                            [svgIcon]="
+                                isPlaying
+                                    ? 'heroicons_solid:pause'
+                                    : 'heroicons_solid:play'
+                            "
+                        ></mat-icon>
+                    </div>
+                </div>
+            }
+        } @else {
+            <div
+                class="flex flex-col items-center justify-center text-center p-8"
+            >
+                <mat-icon
+                    class="icon-size-20 text-gray-600 mb-4"
+                    svgIcon="feather:alert-circle"
+                ></mat-icon>
+                <h2 class="text-2xl font-semibold mb-2">
+                    {{ "app.auto_video_data_not_found" | transloco }}
+                </h2>
+                <p class="text-gray-400 max-w-md mb-6">
+                    {{ "app.auto_you_need_to_complete_the_steps" | transloco }}
+                </p>
+                <button mat-flat-button color="primary" (click)="stopAudio()">
+                    {{ "app.auto_back_to_tool" | transloco }}
+                </button>
+            </div>
+        }
+    </div>
 </div>

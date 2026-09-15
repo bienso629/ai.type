@@ -1,7 +1,11 @@
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { NgModule } from '@angular/core';
-import { HttpClientModule } from '@angular/common/http';
+import {
+    provideHttpClient,
+    withInterceptorsFromDi,
+    withXhr,
+} from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -20,11 +24,9 @@ import { SharedModule } from 'app/shared.module';
 import { MaterialLayoutComponent } from 'app/layout/layouts/horizontal/material/material.component';
 
 @NgModule({
-    declarations: [
-        MaterialLayoutComponent
-    ],
-    imports     : [
-        HttpClientModule,
+    declarations: [MaterialLayoutComponent],
+    exports: [MaterialLayoutComponent],
+    imports: [
         RouterModule,
         MatButtonModule,
         MatDividerModule,
@@ -39,12 +41,8 @@ import { MaterialLayoutComponent } from 'app/layout/layouts/horizontal/material/
         SearchModule,
         ShortcutsModule,
         UserModule,
-        SharedModule
+        SharedModule,
     ],
-    exports     : [
-        MaterialLayoutComponent
-    ]
+    providers: [provideHttpClient(withXhr(), withInterceptorsFromDi())],
 })
-export class MaterialLayoutModule
-{
-}
+export class MaterialLayoutModule {}

@@ -1,57 +1,96 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
-                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
                     </div>
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
-                    </div> -->
+          <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+          [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+          <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
+        </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">{{ 'app.auto_manage_customers_by_e_mail_sms' | transloco }}</span>
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            "app.auto_manage_customers_by_e_mail_sms"
+                                | transloco
+                        }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
                         <span class="ml-1 text-base">quay lại</span>
                     </a>
                 </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
-                </p>
-            </div> -->
+    <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+      {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
+    </p>
+  </div> -->
         </div>
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <mat-form-field class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
-                appearance="fill">
-                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:tag'"></mat-icon>
-                <mat-select (selectionChange)="chooseGroup($event)" [(ngModel)]="group">
-                    <ng-container *ngFor="let item of ['Khách chuẩn', 'Khách thường']; let i = index">
-                        <mat-option [value]="item">{{item}}</mat-option>
-                    </ng-container>
+            <mat-form-field
+                class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill"
+            >
+                <mat-icon
+                    matPrefix
+                    class="icon-size-4"
+                    [svgIcon]="'feather:tag'"
+                ></mat-icon>
+                <mat-select
+                    (selectionChange)="chooseGroup($event)"
+                    [(ngModel)]="group"
+                >
+                    @for (
+                        item of ["Khách chuẩn", "Khách thường"];
+                        track item;
+                        let i = $index
+                    ) {
+                        <mat-option [value]="item">{{ item }}</mat-option>
+                    }
                 </mat-select>
             </mat-form-field>
 
-            <mat-form-field class="w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
-                appearance="fill">
-                <input matInput (keyup.enter)="searchNode($event)" [placeholder]="'Tìm kiếm'">
-                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
+            <mat-form-field
+                class="w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill"
+            >
+                <input
+                    matInput
+                    (keyup.enter)="searchNode($event)"
+                    [placeholder]="'Tìm kiếm'"
+                />
+                <mat-icon
+                    class="icon-size-4"
+                    matPrefix
+                    [svgIcon]="'feather:search'"
+                ></mat-icon>
             </mat-form-field>
         </div>
     </div>
@@ -59,120 +98,220 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #table class="material fullscreen transition-opacity duration-300" [columnMode]="ColumnMode.force"
-            [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading" [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
-            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
-            [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
+        <ngx-datatable
+            [appScrollLock]="isLoading"
+            [virtualization]="true"
+            #table
+            class="material fullscreen transition-opacity duration-300"
+            [columnMode]="ColumnMode.force"
+            [class.pointer-events-none]="isLoading"
+            [class.opacity-50]="isLoading"
+            [selected]="selected"
+            [selectionType]="SelectionType.checkbox"
+            [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck"
+            (select)="onSelect($event)"
+            [externalPaging]="true"
+            [externalSorting]="true"
+            [count]="totalElements"
+            [offset]="pageNumber"
+            (page)="setPage($event)"
+            [headerHeight]="50"
+            [footerHeight]="50"
+            [rowHeight]="50"
+            [scrollbarV]="true"
+            [rows]="rows"
+        >
             <!-- Column Templates -->
-            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+            <ngx-datatable-column
+                [width]="30"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                [headerCheckboxable]="true"
+                [checkboxable]="true"
+            ></ngx-datatable-column>
 
             <!-- Column Templates -->
             <!-- <ngx-datatable-column name="Họ và Tên" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p class="truncate hover:text-clip">{{row.customer_info.full_name || 'Chưa cập nhật'}}</p>
-                </ng-template>
-            </ngx-datatable-column> -->
+    [draggable]="false" [resizeable]="false">
+    <ng-template let-row="row" ngx-datatable-cell-template>
+      <p class="truncate hover:text-clip">{{row.customer_info.full_name || 'Chưa cập nhật'}}</p>
+    </ng-template>
+  </ngx-datatable-column> -->
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="E-mail" [width]="300" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="E-mail"
+                [width]="300"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="truncate hover:text-clip text-primary">{{row.customer_info.email || 'Chưa cập nhật'}}</p>
+                    @if (row) {
+                        <p class="truncate hover:text-clip text-primary">
+                            {{ row.customer_info.email || "Chưa cập nhật" }}
+                        </p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Bật/Tắt Thông báo" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="Bật/Tắt Thông báo"
+                [width]="200"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="truncate hover:text-clip">{{(row.status) ? 'Đang bật' : 'Đã tắt'}}</p>
+                    @if (row) {
+                        <p class="truncate hover:text-clip">
+                            {{ row.status ? "Đang bật" : "Đã tắt" }}
+                        </p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Thiết bị" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="Thiết bị"
+                [width]="200"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="truncate hover:text-clip">{{row.platform || 'Không rõ'}}</p>
+                    @if (row) {
+                        <p class="truncate hover:text-clip">
+                            {{ row.platform || "Không rõ" }}
+                        </p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
             <!-- <ngx-datatable-column name="Nhóm" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div class="flex items-center justify-self-stretch">
-                        <mat-label class="truncate hover:text-clip" *ngFor="let g of row.groups">{{g.name}}</mat-label>
-                    </div>
-                </ng-template>
-            </ngx-datatable-column> -->
+  [draggable]="false" [resizeable]="false">
+  <ng-template let-row="row" ngx-datatable-cell-template>
+    <div class="flex items-center justify-self-stretch">
+      <mat-label class="truncate hover:text-clip" *ngFor="let g of row.groups">{{g.name}}</mat-label>
+    </div>
+  </ng-template>
+</ngx-datatable-column> -->
 
             <!-- Column Templates -->
             <!-- <ngx-datatable-column name="Số điện thoại" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div class="flex items-center justify-self-stretch">
-                        <mat-label
-                            class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer bg-blue-500 hover:bg-blue-400 text-white">
-                            {{row.customer_info.phone || 'Chưa cập nhật'}}
-                        </mat-label>
-                    </div>
-                </ng-template>
-            </ngx-datatable-column> -->
+[draggable]="false" [resizeable]="false">
+<ng-template let-row="row" ngx-datatable-cell-template>
+  <div class="flex items-center justify-self-stretch">
+    <mat-label
+      class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer bg-blue-500 hover:bg-blue-400 text-white">
+      {{row.customer_info.phone || 'Chưa cập nhật'}}
+    </mat-label>
+  </div>
+</ng-template>
+</ngx-datatable-column> -->
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Ngày tham gia" [width]="200" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="Ngày tham gia"
+                [width]="200"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="truncate hover:text-clip">{{row.created_at | timeago}}</p>
+                    @if (row) {
+                        <p class="truncate hover:text-clip">
+                            {{ row.created_at | timeago }}
+                        </p>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Công cụ" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                [resizeable]="true">
+            <ngx-datatable-column
+                name="Công cụ"
+                [sortable]="false"
+                [canAutoResize]="true"
+                [draggable]="false"
+                [resizeable]="true"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center justify-self-stretch">
-                        <mat-label matTooltipPosition="above" [matTooltip]="'app.auto_send_activation_message' | transloco"
-                            [routerLink]="['/ai-writer', user.name, row.uuid]"
-                            class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
-                            {{ 'app.auto_send_zns' | transloco }}
-                        </mat-label>
-
-                        <!-- <mat-label (click)="edit(row)" matTooltipPosition="above"
-                            [matTooltip]="'app.auto_update_customer_information' | transloco"
-                            class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white">
-                            {{ 'app.auto_information' | transloco }}
-                        </mat-label> -->
-                    </div>
+                    @if (row) {
+                        <div class="flex items-center justify-self-stretch">
+                            <mat-label
+                                matTooltipPosition="above"
+                                [matTooltip]="
+                                    'app.auto_send_activation_message'
+                                        | transloco
+                                "
+                                [routerLink]="[
+                                    '/ai-writer',
+                                    user.name,
+                                    row.uuid,
+                                ]"
+                                class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800"
+                            >
+                                {{ "app.auto_send_zns" | transloco }}
+                            </mat-label>
+                            <!-- <mat-label (click)="edit(row)" matTooltipPosition="above"
+        [matTooltip]="'app.auto_update_customer_information' | transloco"
+        class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white">
+        {{ 'app.auto_information' | transloco }}
+      </mat-label> -->
+                        </div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
             <ngx-datatable-footer>
-                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
-                    let-isVisible="isVisible">
+                <ng-template
+                    ngx-datatable-footer-template
+                    let-rowCount="rowCount"
+                    let-pageSize="pageSize"
+                    let-selectedCount="selectedCount"
+                    let-curPage="curPage"
+                    let-offset="offset"
+                    let-isVisible="isVisible"
+                >
                     <div class="flex w-full sm:items-center sm:justify-between">
                         <div class="flex-1 min-w-0">
                             <!-- Breadcrumbs -->
-                            <div class="flex page-count items-center justify-self-stretch">
-                                <mat-label (click)="sms()"
-                                    class="h-8 leading-8 items-center px-3 rounded cursor-pointer bg-blue-800 hover:bg-blue-700 text-white">
-                                    Gửi tin nhắn tới {{selectedCount.toLocaleString()}} khách hàng
+                            <div
+                                class="flex page-count items-center justify-self-stretch"
+                            >
+                                <mat-label
+                                    (click)="sms()"
+                                    class="h-8 leading-8 items-center px-3 rounded cursor-pointer bg-blue-800 hover:bg-blue-700 text-white"
+                                >
+                                    Gửi tin nhắn tới
+                                    {{ selectedCount.toLocaleString() }} khách
+                                    hàng
                                 </mat-label>
                             </div>
                         </div>
 
                         <!-- Actions -->
                         <div class="flex shrink-0 items-center pr-4">
-                            <a [href]="downloadJsonHref" [download]="user.name + '.links.json'"
-                                *ngIf="selected.length > 0" [color]="'primary'" class="ml-0">
-                                Xuất dữ liệu
-                            </a>
+                            @if (selected.length > 0) {
+                                <a
+                                    [href]="downloadJsonHref"
+                                    [download]="user.name + '.links.json'"
+                                    [color]="'primary'"
+                                    class="ml-0"
+                                >
+                                    Xuất dữ liệu
+                                </a>
+                            }
                         </div>
                     </div>
                 </ng-template>

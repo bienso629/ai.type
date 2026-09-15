@@ -1,5 +1,15 @@
-import { AfterViewInit, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
-import { A11y, Mousewheel, Navigation, Pagination, SwiperOptions } from 'swiper';
+import {
+    AfterViewInit,
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+import type { SwiperOptions } from 'swiper/types';
+import { A11y, Mousewheel, Navigation, Pagination } from 'swiper/modules';
 import { Title } from '@angular/platform-browser';
 import { Subject, takeUntil } from 'rxjs';
 import { ChatGPTService } from 'app/_services/chatgpt';
@@ -9,7 +19,7 @@ import { AIText2SpeechComponent } from 'app/modules/admin/content/ai-text2speech
 import { BlogService } from 'app/_services/blog';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSelectionList } from '@angular/material/list';
-import { TranslocoService } from '@ngneat/transloco';
+import { TranslocoService } from '@jsverse/transloco';
 // import { CloudData, CloudOptions, ZoomOnHoverOptions } from 'angular-tag-cloud-module';
 
 import Typewriter from 't-writer.js';
@@ -20,9 +30,10 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     templateUrl: './home.component.html',
     styleUrls: ['./home.component.scss'],
     providers: [ChatGPTService, BlogService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
-
 export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
     yearlyBilling: boolean = true;
 
@@ -33,7 +44,7 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
     goiy: string = '';
     cocongtent = {
         q: '',
-        text: []
+        text: [],
     };
 
     @ViewChild('trend') trend: MatSelectionList;
@@ -60,10 +71,10 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
         breakpoints: {
             400: {
                 slidesPerView: 'auto',
-                centeredSlides: true
+                centeredSlides: true,
             },
-        }
-    }
+        },
+    };
 
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
@@ -79,13 +90,17 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
      * Sắp xếp lại nội dung bài viết
      */
     drop(event: CdkDragDrop<string[]>) {
-        moveItemInArray(this.cocongtent.text, event.previousIndex, event.currentIndex);
+        moveItemInArray(
+            this.cocongtent.text,
+            event.previousIndex,
+            event.currentIndex,
+        );
     }
 
     /**
      * Lưu bài viết tét thử
      */
-    save() { }
+    save() {}
 
     /**
      * Bắt sự kiện khi slide hoạt động
@@ -103,14 +118,18 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
         this.goiy = '';
 
         if (this.trend) {
-            results.push(this.trend.selectedOptions.selected.map(s => s.value['ht:news_item']));
+            results.push(
+                this.trend.selectedOptions.selected.map(
+                    (s) => s.value['ht:news_item'],
+                ),
+            );
         }
 
-        results.map(item => {
+        results.map((item) => {
             item.map((s: any) => {
                 s.map((d: any, i: number) => {
                     news_item_title.push(d['ht:news_item_title'][0]);
-                })
+                });
             });
         });
 
@@ -125,7 +144,7 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.cocongtent = {
             q: '',
-            text: []
+            text: [],
         };
     }
 
@@ -144,7 +163,8 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
      * Lấy trend của Google mới nhất 247
      */
     googletrend() {
-        this._blogService.googletrend()
+        this._blogService
+            .googletrend()
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -152,8 +172,8 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
                         this.trends = result;
                     }
                 },
-                error: (e: any) => { },
-                complete: () => { }
+                error: (e: any) => {},
+                complete: () => {},
             });
     }
 
@@ -161,18 +181,23 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
      * Dừng hoạt động tạo nội dung
      */
     stop() {
-        this._chatGPTService.stop2025({
-            username: 'khach123'
-        })
+        this._chatGPTService
+            .stop2025({
+                username: 'khach123',
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (result) => { },
+                next: async (result) => {},
                 error: (e: any) => {
-                    this.toastr.warning(this.translate?.toastr.chatgpt.stop.error);
+                    this.toastr.warning(
+                        this.translate?.toastr.chatgpt.stop.error,
+                    );
                 },
                 complete: () => {
-                    this.toastr.success(this.translate?.toastr.chatgpt.stop.success);
-                }
+                    this.toastr.success(
+                        this.translate?.toastr.chatgpt.stop.success,
+                    );
+                },
             });
     }
 
@@ -183,37 +208,53 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
         if (question) {
             this.loading = !this.loading;
             let settings: any = this.multiAccountService.getItem('settings');
-            
-            this._chatGPTService.faq2025({
-                OPENAI_API_KEY: settings.secretKey,
-                openwindow: (settings.proccessing) ? 'close' : 'always',
-                closethread: (settings.closethread) ? 'close' : 'always',
-                username: 'khach123'
-            }, question)
+
+            this._chatGPTService
+                .faq2025(
+                    {
+                        OPENAI_API_KEY: settings.secretKey,
+                        openwindow: settings.proccessing ? 'close' : 'always',
+                        closethread: settings.closethread ? 'close' : 'always',
+                        username: 'khach123',
+                    },
+                    question,
+                )
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: async (result) => {
                         if (result && result.html && result.text) {
-                            result.text = result.text.split('\n').filter((i: string) => i);
+                            result.text = result.text
+                                .split('\n')
+                                .filter((i: string) => i);
                             result.q = question;
 
                             if (index && index >= 0) {
                                 // nôí kết quả nội dung
-                                this.cocongtent.text.splice.apply(this.cocongtent.text, [index + 1, 0].concat(result.text));
+                                this.cocongtent.text.splice.apply(
+                                    this.cocongtent.text,
+                                    [index + 1, 0].concat(result.text),
+                                );
                             } else {
                                 // nếu chưa phát sinh nội dung gì thì bắt đầu thôi
                                 this.cocongtent = result;
                             }
 
                             // lưu nội dung tét thử dưới local
-                            localStorage.setItem('test.chatgpt', JSON.stringify({
-                                q: question,
-                                text: this.cocongtent.text
-                            }));
+                            localStorage.setItem(
+                                'test.chatgpt',
+                                JSON.stringify({
+                                    q: question,
+                                    text: this.cocongtent.text,
+                                }),
+                            );
 
-                            this.toastr.success(this.translate?.toastr.chatgpt.stop.success);
+                            this.toastr.success(
+                                this.translate?.toastr.chatgpt.stop.success,
+                            );
                         } else {
-                            this.toastr.warning('Type Lite của bạn chưa được bật.');
+                            this.toastr.warning(
+                                'Type Lite của bạn chưa được bật.',
+                            );
                         }
                     },
                     error: (e: any) => {
@@ -221,7 +262,7 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
                     },
                     complete: () => {
                         this.loading = !this.loading;
-                    }
+                    },
                 });
         } else {
             this.toastr.warning(this.translate?.toastr.chatgpt.stop.success);
@@ -237,10 +278,10 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
             maxWidth: '95vw',
             panelClass: 'dlg-primary',
             data: ct,
-            autoFocus: false
+            autoFocus: false,
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result) {
                 this.toastr.success(this.translate?.toastr.voice.success);
             }
@@ -255,7 +296,7 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
         if (target) {
             const writer = new Typewriter(target, {
                 loop: true,
-                typeColor: 'blue'
+                typeColor: 'blue',
             });
 
             writer
@@ -290,13 +331,13 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
         private translocoService: TranslocoService,
         private _chatGPTService: ChatGPTService,
         private _blogService: BlogService,
-         private multiAccountService: MultiAccountService
-    ) { }
+        private multiAccountService: MultiAccountService,
+    ) {}
 
     /**
      * Khởi tạo dữ liệu ban đầu
      */
-    ngAfterViewInit() { }
+    ngAfterViewInit() {}
 
     /**
      * Bắt đầu ứng dụng
@@ -304,8 +345,13 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
     ngOnInit() {
         // this.googletrend();
         this.translocoService
-            .selectTranslate("microsites.home", {}, this.translocoService.getActiveLang(), true)
-            .subscribe(translate => {
+            .selectTranslate(
+                'microsites.home',
+                {},
+                this.translocoService.getActiveLang(),
+                true,
+            )
+            .subscribe((translate) => {
                 this.translate = translate;
                 this.titleService.setTitle(this.translate?.title);
 

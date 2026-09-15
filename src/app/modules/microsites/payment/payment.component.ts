@@ -14,7 +14,8 @@ import { UserClientService } from 'app/_services/user';
     templateUrl: './payment.component.html',
     providers: [CrawlService, UserClientService],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    standalone: false
 })
 export class PaymentComponent implements OnInit, OnDestroy, AfterContentChecked {
     uuid: string;

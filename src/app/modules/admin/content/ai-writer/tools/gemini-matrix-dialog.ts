@@ -1,83 +1,137 @@
-import { Component, Inject, ViewChild } from "@angular/core";
-import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
-import { BlogService } from "app/_services/blog";
-import { Subject, takeUntil } from "rxjs";
+import {
+    Component,
+    Inject,
+    ViewChild,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { BlogService } from 'app/_services/blog';
+import { Subject, takeUntil } from 'rxjs';
 
 import { GenaiService } from 'app/genai.service';
-import { UserService } from "app/core/user/user.service";
-import { FuseConfigService } from "@fuse/services/config";
-import { User } from "app/core/user/user.types";
-import { AppConfig } from "app/core/config/app.config";
-import { WordpressService } from "app/_services/wordpress";
-import { ToastrService } from "ngx-toastr";
+import { UserService } from 'app/core/user/user.service';
+import { FuseConfigService } from '@fuse/services/config';
+import { User } from 'app/core/user/user.types';
+import { AppConfig } from 'app/core/config/app.config';
+import { WordpressService } from 'app/_services/wordpress';
+import { ToastrService } from 'ngx-toastr';
 
 import * as $ from 'jquery';
-import { FuseConfirmationService } from "@fuse/services/confirmation/confirmation.service";
-import { Router } from "@angular/router";
-import { MatSelectionList } from "@angular/material/list";
-import { MultiAccountService } from "app/_services/multi-account.service";
+import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
+import { Router } from '@angular/router';
+import { MatSelectionList } from '@angular/material/list';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'gemini-matrix-dialog',
     template: `<div class="flex items-center justify-between mb-4">
-        <div class="text-2xl font-bold text-gray-800 tracking-tight">Tạo bài viết theo nhiều phong cách</div>
-        <button mat-icon-button mat-dialog-close type="button">
-            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
-        </button>
-    </div>
-
-    <div mat-dialog-content class="mt-4 p-0 overflow-hidden">
-        <mat-label class="my-2 text-base font-semibold">
-            Chọn phong cách viết của bài
-        </mat-label>
-
-        <mat-selection-list #stylelist class="max-h-80 p-0 my-2 overflow-auto">
-            <mat-list-option [disableRipple]="false"
-                class="mb-2 last:mb-0 p-3 rounded-lg cursor-pointer bg-gray-50"
-                *ngFor="let style of styles" [value]="style">
-                <div *ngIf="style['avatar']"
-                    class="w-13 h-13 m-0 my-auto mr-3 rounded-md"
-                    [ngStyle]="{'background-image': 'url(' +style['avatar']+ ')', 'background-size': 'cover', 'background-repeat': 'no-repeat', 'background-position': 'center'}"
-                    matListItemIcon>
-                </div>
-                <div>
-                    <p class="font-semibold">{{ style.name }}</p>
-                    <p class="text-base line-clamp-1">{{ style.desc }}</p>
-                </div>
-            </mat-list-option>
-        </mat-selection-list>
-
-        <div class="w-full mt-3">
-            <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0" [subscriptSizing]="'dynamic'">
-                <mat-label>Bạn muốn viết nội dung như thế nào?</mat-label>
-                <textarea class="max-h-50 min-h-20 px-2" [(ngModel)]="prompt" [placeholder]="'Prompt'" type="text" required matInput cdkTextareaAutosize></textarea>
-            </mat-form-field>
+            <div class="text-2xl font-bold text-gray-800 tracking-tight">
+                Tạo bài viết theo nhiều phong cách
+            </div>
+            <button mat-icon-button mat-dialog-close type="button">
+                <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+            </button>
         </div>
 
-        <div class="w-full mt-2">
-            <mat-form-field class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Domain tham chiếu (option)</mat-label>
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'" matPrefix></mat-icon>
-                <input [(ngModel)]="cdomain" type="text" matInput>
-            </mat-form-field>
+        <div mat-dialog-content class="mt-4 p-0 overflow-hidden">
+            <mat-label class="my-2 text-base font-semibold">
+                Chọn phong cách viết của bài
+            </mat-label>
+
+            <mat-selection-list
+                #stylelist
+                class="max-h-80 p-0 my-2 overflow-auto"
+            >
+                @for (style of styles; track style) {
+                    <mat-list-option
+                        [disableRipple]="false"
+                        class="mb-2 last:mb-0 p-3 rounded-lg cursor-pointer bg-gray-50"
+                        [value]="style"
+                    >
+                        @if (style['avatar']) {
+                            <div
+                                class="w-13 h-13 m-0 my-auto mr-3 rounded-md"
+                                [ngStyle]="{
+                                    'background-image':
+                                        'url(' + style['avatar'] + ')',
+                                    'background-size': 'cover',
+                                    'background-repeat': 'no-repeat',
+                                    'background-position': 'center',
+                                }"
+                                matListItemIcon
+                            ></div>
+                        }
+                        <div>
+                            <p class="font-semibold">{{ style.name }}</p>
+                            <p class="text-base line-clamp-1">
+                                {{ style.desc }}
+                            </p>
+                        </div>
+                    </mat-list-option>
+                }
+            </mat-selection-list>
+
+            <div class="w-full mt-3">
+                <mat-form-field
+                    class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Bạn muốn viết nội dung như thế nào?</mat-label>
+                    <textarea
+                        class="max-h-50 min-h-20 px-2"
+                        [(ngModel)]="prompt"
+                        [placeholder]="'Prompt'"
+                        type="text"
+                        required
+                        matInput
+                        cdkTextareaAutosize
+                    ></textarea>
+                </mat-form-field>
+            </div>
+
+            <div class="w-full mt-2">
+                <mat-form-field
+                    class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Domain tham chiếu (option)</mat-label>
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:globe'"
+                        matPrefix
+                    ></mat-icon>
+                    <input [(ngModel)]="cdomain" type="text" matInput />
+                </mat-form-field>
+            </div>
+
+            <div class="w-full mt-3">
+                <mat-form-field
+                    class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Tiêu đề tham chiếu (option)</mat-label>
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:type'"
+                        matPrefix
+                    ></mat-icon>
+                    <input [(ngModel)]="tdomain" type="text" matInput />
+                </mat-form-field>
+            </div>
         </div>
 
-        <div class="w-full mt-3">
-            <mat-form-field class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Tiêu đề tham chiếu (option)</mat-label>
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:type'" matPrefix></mat-icon>
-                <input [(ngModel)]="tdomain" type="text" matInput>
-            </mat-form-field>
-        </div>
-    </div>
-
-    <div mat-dialog-actions class="p-0 mt-6 flex justify-end gap-2">
-    <button mat-flat-button (click)="send()" color="primary" class="">
-            <mat-icon class="icon-size-4 text-white" svgIcon="feather:edit-3"></mat-icon>
-            <mat-label class="">Viết nhanh</mat-label>
-        </button>
-</div>`,
+        <div mat-dialog-actions class="p-0 mt-6 flex justify-end gap-2">
+            <button mat-flat-button (click)="send()" color="primary" class="">
+                <mat-icon
+                    class="icon-size-4 text-white"
+                    svgIcon="feather:edit-3"
+                ></mat-icon>
+                <mat-label class="">Viết nhanh</mat-label>
+            </button>
+        </div>`,
     providers: [WordpressService, BlogService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class GeminiMatrixDialog {
     user: User;
@@ -96,8 +150,8 @@ export class GeminiMatrixDialog {
 
     prompt: String = '';
     categories: any;
-    cdomain = "";
-    tdomain = "";
+    cdomain = '';
+    tdomain = '';
 
     publish: boolean = false;
     createThumbnail: boolean = false;
@@ -120,8 +174,11 @@ export class GeminiMatrixDialog {
                 message: `Bạn chưa tạo phong cách viết của mình.`,
                 confirm: 'Tạo ngay',
                 cb: () => {
-                    this._router.navigate(['/settings', { queryParams: { tab: 'style' } }]);
-                }
+                    this._router.navigate([
+                        '/settings',
+                        { queryParams: { tab: 'style' } },
+                    ]);
+                },
             });
         }
     }
@@ -130,9 +187,10 @@ export class GeminiMatrixDialog {
     getCategories(e: any): void {
         if (!this.domain || this.domain['domain'] === '') return;
 
-        this._wordpressService.categories({
-            domain: this.domain['domain']
-        })
+        this._wordpressService
+            .categories({
+                domain: this.domain['domain'],
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -148,8 +206,8 @@ export class GeminiMatrixDialog {
                         this.categories = categories;
                     }
                 },
-                error: () => { },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -167,31 +225,39 @@ export class GeminiMatrixDialog {
             query: query,
             searchAPIKey: this.searchAPIKey,
             index: index,
-            searchType: searchType
+            searchType: searchType,
         });
     }
 
     share(post: any): void {
-        this._wordpressService.create_post(post)
+        this._wordpressService
+            .create_post(post)
             .pipe()
             .subscribe({
                 next: async (result) => {
-                    if (result && result.success && result.data && result.data.id) {
+                    if (
+                        result &&
+                        result.success &&
+                        result.data &&
+                        result.data.id
+                    ) {
                         // cập nhật trạng thái facepost đã làm xong
-                        this.toastr.success(`Đăng bài ID POST ${result.data.id}!`);
+                        this.toastr.success(
+                            `Đăng bài ID POST ${result.data.id}!`,
+                        );
 
                         this.dialogRef.close();
                     } else {
                         this.toastr.warning('Đăng bài thất bại.');
                     }
                 },
-                error: () => { },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
     send(): void {
-        this.stylelist.selectedOptions.selected.map(style => {
+        this.stylelist.selectedOptions.selected.map((style) => {
             let index = 0;
 
             this.data['selectedItems'].forEach(async (text: string) => {
@@ -246,16 +312,22 @@ export class GeminiMatrixDialog {
                             excerpt: data['description'],
                             username: this.domain['username'],
                             apppass: this.domain['password'],
-                            status: (this.publish) ? 'publish' : 'pending',
-                            domain: this.domain['domain']
+                            status: this.publish ? 'publish' : 'pending',
+                            domain: this.domain['domain'],
                         };
 
                         // thêm nhiều tag cho bài viết
-                        if (data.long_keywords && data.long_keywords.length > 0) {
+                        if (
+                            data.long_keywords &&
+                            data.long_keywords.length > 0
+                        ) {
                             try {
-                                const requests = data.long_keywords.map((name: string) => this.createTag(name));
-                                const long_keywords = await Promise.all(requests);
-                                long_keywords.forEach(tag => {
+                                const requests = data.long_keywords.map(
+                                    (name: string) => this.createTag(name),
+                                );
+                                const long_keywords =
+                                    await Promise.all(requests);
+                                long_keywords.forEach((tag) => {
                                     if (tag) {
                                         post['tags'].push(tag.id);
                                     }
@@ -266,21 +338,41 @@ export class GeminiMatrixDialog {
                         }
 
                         // gắn link liên quan cho bài viết
-                        if (data.short_keywords && data.short_keywords.length > 0 && this.searchGoogle) {
+                        if (
+                            data.short_keywords &&
+                            data.short_keywords.length > 0 &&
+                            this.searchGoogle
+                        ) {
                             try {
                                 const join = data.short_keywords.join(' OR ');
-                                const site = (this.cdomain) ? this.cdomain : this.domain['domain'];
+                                const site = this.cdomain
+                                    ? this.cdomain
+                                    : this.domain['domain'];
 
                                 const requests = [
-                                    this.googleSearch(`${join} site:${site}`, 0),
+                                    this.googleSearch(
+                                        `${join} site:${site}`,
+                                        0,
+                                    ),
                                     // this.googleSearch(`${join} site:${this.domain['domain']}`, index, 'image')
                                 ];
 
-                                const short_keywords = await Promise.all(requests);
+                                const short_keywords =
+                                    await Promise.all(requests);
                                 short_keywords.forEach((search: any) => {
                                     if (search && search[0]) {
-                                        post.content = post.content.replace(this.domain['domain'], search[0]['link']);
-                                        post.content = post.content.replace((this.tdomain) ? this.tdomain : (this.domain['name']) ? this.domain['name'] : this.domain['domain'], search[0]['title']);
+                                        post.content = post.content.replace(
+                                            this.domain['domain'],
+                                            search[0]['link'],
+                                        );
+                                        post.content = post.content.replace(
+                                            this.tdomain
+                                                ? this.tdomain
+                                                : this.domain['name']
+                                                  ? this.domain['name']
+                                                  : this.domain['domain'],
+                                            search[0]['title'],
+                                        );
                                     }
                                 });
                             } catch (error) {
@@ -295,7 +387,7 @@ export class GeminiMatrixDialog {
 
                         // lên bài nào
                         this.share(post);
-                    } catch (error) { }
+                    } catch (error) {}
                 }
             });
         });
@@ -316,13 +408,17 @@ export class GeminiMatrixDialog {
         private _fuseConfigService: FuseConfigService,
         @Inject(MAT_DIALOG_DATA) public data: GeminiMatrixDialog,
         private multiAccountService: MultiAccountService,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
     ) {
         // lấy secretKey và searchAPIKey
         this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
-            this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
+            this.secretKey = this.settings.secretKey
+                ? this.settings.secretKey.split(';')
+                : undefined;
+            this.searchAPIKey = this.settings.searchAPIKey
+                ? this.settings.searchAPIKey.split(';')
+                : undefined;
         }
 
         this.getStyles();
@@ -348,7 +444,7 @@ export class GeminiMatrixDialog {
     /**
      * On init
      */
-    ngOnInit(): void { }
+    ngOnInit(): void {}
 
     /**
      * On destroy
@@ -361,30 +457,32 @@ export class GeminiMatrixDialog {
 
     alert(alert?: any) {
         const dialogRef = this._fuseConfirmationService.open({
-            title: (alert) ? alert.title : 'Hoàn tất!',
-            message: (alert) ? alert.message : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu. <span class="font-medium">Hãy tiếp tục với một URL mới luôn nào!</span>',
+            title: alert ? alert.title : 'Hoàn tất!',
+            message: alert
+                ? alert.message
+                : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu. <span class="font-medium">Hãy tiếp tục với một URL mới luôn nào!</span>',
             icon: {
                 show: true,
                 name: 'feather:check',
-                color: 'success'
+                color: 'success',
             },
             actions: {
                 confirm: {
                     show: true,
-                    label: (alert) ? alert.confirm : 'Khởi động lại',
-                    color: 'primary'
+                    label: alert ? alert.confirm : 'Khởi động lại',
+                    color: 'primary',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng cửa sổ'
-                }
+                    label: 'Đóng cửa sổ',
+                },
             },
-            dismissible: true
+            dismissible: true,
         });
 
         // Subscribe to afterClosed from the dialog reference
         dialogRef.afterClosed().subscribe((result) => {
-            if (result === "confirmed") {
+            if (result === 'confirmed') {
                 if (alert.cb) {
                     alert.cb();
                 }

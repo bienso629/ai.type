@@ -1,7 +1,6 @@
 <div class="flex items-center justify-between">
-    <h2 class="text-lg font-semibold">{{ 'app.settings' | transloco }}</h2>
+    <h2 class="text-lg font-semibold">{{ "app.settings" | transloco }}</h2>
     <div class="flex items-center gap-2">
-
         <button mat-icon-button (click)="close()">
             <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
         </button>
@@ -12,131 +11,252 @@
     <!-- Master Prompt Section -->
     <div class="flex items-center justify-between mt-4 mb-2">
         <div class="flex items-center">
-            <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:color-swatch'"></mat-icon>
+            <mat-icon
+                class="icon-size-5 text-indigo-600 mr-2"
+                [svgIcon]="'heroicons_outline:color-swatch'"
+            ></mat-icon>
             <h3 class="font-semibold text-indigo-800 text-sm">Master Prompt</h3>
         </div>
         <div class="flex items-center gap-0">
-            <button mat-icon-button class="icon-size-8 text-indigo-600" [matTooltip]="'app.edit_master_prompt' | transloco"
-                (click)="toggleEditMasterPrompt()" [disabled]="isReanalyzingScenes">
-                <mat-icon class="icon-size-4" *ngIf="!isReanalyzingScenes">{{ isEditingMasterPrompt ? 'check' : 'edit'
+            <button
+                mat-icon-button
+                class="icon-size-8 text-indigo-600"
+                [matTooltip]="'app.edit_master_prompt' | transloco"
+                (click)="toggleEditMasterPrompt()"
+                [disabled]="isReanalyzingScenes"
+            >
+                @if (!isReanalyzingScenes) {
+                    <mat-icon class="icon-size-4">{{
+                        isEditingMasterPrompt ? "check" : "edit"
                     }}</mat-icon>
-                <mat-icon class="icon-size-4 animate-spin" *ngIf="isReanalyzingScenes">autorenew</mat-icon>
+                }
+                @if (isReanalyzingScenes) {
+                    <mat-icon class="icon-size-4 animate-spin"
+                        >autorenew</mat-icon
+                    >
+                }
             </button>
-            <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Director mode"
-                (click)="openDirectorMode()">
+            <button
+                mat-icon-button
+                class="icon-size-8 text-indigo-600"
+                matTooltip="Director mode"
+                (click)="openDirectorMode()"
+            >
                 <mat-icon class="icon-size-4">movie_creation</mat-icon>
             </button>
         </div>
     </div>
 
     @if (!isEditingMasterPrompt) {
-    <p class="text-gray-700 text-sm mb-4 italic" (dblclick)="toggleEditMasterPrompt()">"{{
-        projectData?.masterPrompt }}"</p>
+        <p
+            class="text-gray-700 text-sm mb-4 italic"
+            (dblclick)="toggleEditMasterPrompt()"
+        >
+            "{{ projectData?.masterPrompt }}"
+        </p>
     } @else {
-    <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-4 bg-white rounded" [subscriptSizing]="'dynamic'">
-        <textarea matInput class="px-2 py-1 text-base text-gray-800 leading-relaxed"
-            [(ngModel)]="projectData.masterPrompt" cdkTextareaAutosize></textarea>
-    </mat-form-field>
+        <mat-form-field
+            class="w-full custom-textarea fuse-mat-dense mb-4 bg-white rounded"
+            [subscriptSizing]="'dynamic'"
+        >
+            <textarea
+                matInput
+                class="px-2 py-1 text-base text-gray-800 leading-relaxed"
+                [(ngModel)]="projectData.masterPrompt"
+                cdkTextareaAutosize
+            ></textarea>
+        </mat-form-field>
     }
 
     <!-- Characters Section -->
     <div class="flex items-center justify-between mb-4 mt-6">
         <div class="flex items-center">
-            <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:users'"></mat-icon>
-            <h3 class="font-semibold text-indigo-800 text-sm">{{ 'app.character_design_casting' | transloco }}</h3>
+            <mat-icon
+                class="icon-size-5 text-indigo-600 mr-2"
+                [svgIcon]="'heroicons_outline:users'"
+            ></mat-icon>
+            <h3 class="font-semibold text-indigo-800 text-sm">
+                {{ "app.character_design_casting" | transloco }}
+            </h3>
         </div>
 
-        <button mat-icon-button class="icon-size-8 text-indigo-500 bg-indigo-50 hover:bg-indigo-100"
-            [matTooltip]="'app.add_character' | transloco" (click)="openCharacterDialog()">
+        <button
+            mat-icon-button
+            class="icon-size-8 text-indigo-500 bg-indigo-50 hover:bg-indigo-100"
+            [matTooltip]="'app.add_character' | transloco"
+            (click)="openCharacterDialog()"
+        >
             <mat-icon class="icon-size-4">person_add</mat-icon>
         </button>
     </div>
 
     <!-- Horizontal Scroll Container for Characters -->
     <div class="w-full pb-8">
-        <swiper-container fmSwiper [config]="swipe" init="false" class="w-full pb-8">
-            @for (char of projectData?.characters; track char; let charIdx = $index) {
-            <swiper-slide class="w-[320px] max-w-[85vw] h-auto">
-                <div
-                    class="bg-white h-full p-4 rounded-xl group relative flex flex-col gap-3 border border-gray-200 hover:border-indigo-300 transition-colors flex-shrink-0">
-                    <div class="flex-1 min-w-0 w-full">
-                        <div class="flex justify-between items-start mb-3 border-b border-gray-50 pb-2">
-                            <span
-                                class="font-semibold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
-                                {{ char.name || char.role }}
-                                @if (char.variant) {
+        <swiper-container
+            fmSwiper
+            [config]="swipe"
+            init="false"
+            class="w-full pb-8"
+        >
+            @for (
+                char of projectData?.characters;
+                track char;
+                let charIdx = $index
+            ) {
+                <swiper-slide class="w-[320px] max-w-[85vw] h-auto">
+                    <div
+                        class="bg-white h-full p-4 rounded-xl group relative flex flex-col gap-3 border border-gray-200 hover:border-indigo-300 transition-colors flex-shrink-0"
+                    >
+                        <div class="flex-1 min-w-0 w-full">
+                            <div
+                                class="flex justify-between items-start mb-3 border-b border-gray-50 pb-2"
+                            >
                                 <span
-                                    class="text-[10px] font-normal text-white bg-indigo-500 px-2 py-0.5 rounded-full whitespace-nowrap">{{
-                                    char.variant }}</span>
+                                    class="font-semibold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1"
+                                >
+                                    {{ char.name || char.role }}
+                                    @if (char.variant) {
+                                        <span
+                                            class="text-[10px] font-normal text-white bg-indigo-500 px-2 py-0.5 rounded-full whitespace-nowrap"
+                                            >{{ char.variant }}</span
+                                        >
+                                    }
+                                </span>
+
+                                <div
+                                    class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <button
+                                        mat-icon-button
+                                        class="icon-size-7 text-gray-400 hover:text-green-600 hover:bg-green-50"
+                                        [matTooltip]="
+                                            'app.auto_duplicate_create_a_new_version'
+                                                | transloco
+                                        "
+                                        (click)="duplicateCharacter(char)"
+                                        [disabled]="isGeneratingCharacter"
+                                    >
+                                        @if (!isGeneratingCharacter) {
+                                            <mat-icon class="icon-size-3.5"
+                                                >content_copy</mat-icon
+                                            >
+                                        }
+                                        @if (isGeneratingCharacter) {
+                                            <mat-icon
+                                                class="icon-size-3.5 animate-spin"
+                                                >autorenew</mat-icon
+                                            >
+                                        }
+                                    </button>
+
+                                    <button
+                                        mat-icon-button
+                                        class="icon-size-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                        [matTooltip]="
+                                            'app.edit_character' | transloco
+                                        "
+                                        (click)="
+                                            openCharacterDialog(char, charIdx)
+                                        "
+                                    >
+                                        <mat-icon class="icon-size-3.5"
+                                            >edit</mat-icon
+                                        >
+                                    </button>
+
+                                    <button
+                                        mat-icon-button
+                                        class="icon-size-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                        [matTooltip]="
+                                            'app.auto_delete_character'
+                                                | transloco
+                                        "
+                                        (click)="removeCharacter(charIdx)"
+                                    >
+                                        <mat-icon class="icon-size-3.5"
+                                            >delete</mat-icon
+                                        >
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div
+                                class="text-xs text-gray-700 leading-relaxed space-y-2"
+                            >
+                                <div class="flex items-start gap-1">
+                                    <span
+                                        class="font-semibold text-gray-900 min-w-[70px]"
+                                        >{{ "app.auto_role" | transloco }}</span
+                                    >
+                                    <span>{{ char.role }}</span>
+                                </div>
+                                <div class="flex items-start gap-1">
+                                    <span
+                                        class="font-semibold text-gray-900 min-w-[70px]"
+                                        >{{
+                                            "app.auto_appearance" | transloco
+                                        }}</span
+                                    >
+                                    <span class="line-clamp-3">{{
+                                        char.appearance || "Đang cập nhật"
+                                    }}</span>
+                                </div>
+                                <div class="flex items-start gap-1">
+                                    <span
+                                        class="font-semibold text-gray-900 min-w-[70px]"
+                                        >{{
+                                            "app.personality" | transloco
+                                        }}</span
+                                    >
+                                    <span class="line-clamp-2">{{
+                                        char.personality
+                                    }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (char.avatarUrls?.length > 0 || char.avatarUrl) {
+                            <div
+                                class="flex flex-row flex-wrap gap-2 w-full mt-2 pt-2 border-t border-gray-50"
+                            >
+                                @for (
+                                    url of char.avatarUrls?.length
+                                        ? char.avatarUrls
+                                        : [char.avatarUrl];
+                                    track url
+                                ) {
+                                    <div
+                                        class="w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-gray-50"
+                                    >
+                                        <img
+                                            [src]="getSafeUrl(url)"
+                                            class="w-full h-full object-cover"
+                                        />
+                                    </div>
                                 }
-                            </span>
-
-                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button mat-icon-button
-                                    class="icon-size-7 text-gray-400 hover:text-green-600 hover:bg-green-50"
-                                    [matTooltip]="'app.auto_duplicate_create_a_new_version' | transloco" (click)="duplicateCharacter(char)"
-                                    [disabled]="isGeneratingCharacter">
-                                    <mat-icon class="icon-size-3.5"
-                                        *ngIf="!isGeneratingCharacter">content_copy</mat-icon>
-                                    <mat-icon class="icon-size-3.5 animate-spin"
-                                        *ngIf="isGeneratingCharacter">autorenew</mat-icon>
-                                </button>
-
-                                <button mat-icon-button
-                                    class="icon-size-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                                    [matTooltip]="'app.edit_character' | transloco" (click)="openCharacterDialog(char, charIdx)">
-                                    <mat-icon class="icon-size-3.5">edit</mat-icon>
-                                </button>
-
-                                <button mat-icon-button
-                                    class="icon-size-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
-                                    [matTooltip]="'app.auto_delete_character' | transloco" (click)="removeCharacter(charIdx)">
-                                    <mat-icon class="icon-size-3.5">delete</mat-icon>
-                                </button>
                             </div>
-                        </div>
-
-                        <div class="text-xs text-gray-700 leading-relaxed space-y-2">
-                            <div class="flex items-start gap-1"><span
-                                    class="font-semibold text-gray-900 min-w-[70px]">{{ 'app.auto_role' | transloco }}</span> <span>{{ char.role }}</span></div>
-                            <div class="flex items-start gap-1"><span
-                                    class="font-semibold text-gray-900 min-w-[70px]">{{ 'app.auto_appearance' | transloco }}</span>
-                                <span class="line-clamp-3">{{ char.appearance ||
-                                    'Đang cập nhật' }}</span>
-                            </div>
-                            <div class="flex items-start gap-1"><span
-                                    class="font-semibold text-gray-900 min-w-[70px]">{{ 'app.personality' | transloco }}</span>
-                                <span class="line-clamp-2">{{ char.personality }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    @if (char.avatarUrls?.length > 0 || char.avatarUrl) {
-                    <div class="flex flex-row flex-wrap gap-2 w-full mt-2 pt-2 border-t border-gray-50">
-                        @for (url of (char.avatarUrls?.length ? char.avatarUrls : [char.avatarUrl]); track url)
-                        {
-                        <div class="w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-gray-50">
-                            <img [src]="getSafeUrl(url)" class="w-full h-full object-cover">
-                        </div>
                         }
                     </div>
-                    }
-                </div>
-            </swiper-slide>
+                </swiper-slide>
             }
         </swiper-container>
 
         @if (!projectData?.characters || projectData?.characters.length === 0) {
-        <div
-            class="w-full text-xs text-gray-500 italic text-center py-8 bg-white/50 rounded-xl border border-dashed border-gray-300">
-            {{ 'app.no_character_designed_yet' | transloco }}
-        </div>
+            <div
+                class="w-full text-xs text-gray-500 italic text-center py-8 bg-white/50 rounded-xl border border-dashed border-gray-300"
+            >
+                {{ "app.no_character_designed_yet" | transloco }}
+            </div>
         }
     </div>
 </div>
 
 <mat-dialog-actions align="end" class="p-0 mt-3 mb-0 gap-2 shrink-0">
-    <button mat-flat-button class="bg-gray-100 text-gray-700 hover:bg-gray-200" (click)="close()">
-        {{ 'app.auto_cancel' | transloco }}
+    <button
+        mat-flat-button
+        class="bg-gray-100 text-gray-700 hover:bg-gray-200"
+        (click)="close()"
+    >
+        {{ "app.auto_cancel" | transloco }}
     </button>
 </mat-dialog-actions>

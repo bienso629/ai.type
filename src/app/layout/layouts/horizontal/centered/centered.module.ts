@@ -1,7 +1,11 @@
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { NgModule } from '@angular/core';
-import { HttpClientModule } from '@angular/common/http';
+import {
+    provideHttpClient,
+    withInterceptorsFromDi,
+    withXhr,
+} from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -20,11 +24,9 @@ import { SharedModule } from 'app/shared.module';
 import { CenteredLayoutComponent } from 'app/layout/layouts/horizontal/centered/centered.component';
 
 @NgModule({
-    declarations: [
-        CenteredLayoutComponent
-    ],
-    imports     : [
-        HttpClientModule,
+    declarations: [CenteredLayoutComponent],
+    exports: [CenteredLayoutComponent],
+    imports: [
         RouterModule,
         MatButtonModule,
         MatDividerModule,
@@ -39,12 +41,8 @@ import { CenteredLayoutComponent } from 'app/layout/layouts/horizontal/centered/
         SearchModule,
         ShortcutsModule,
         UserModule,
-        SharedModule
+        SharedModule,
     ],
-    exports     : [
-        CenteredLayoutComponent
-    ]
+    providers: [provideHttpClient(withXhr(), withInterceptorsFromDi())],
 })
-export class CenteredLayoutModule
-{
-}
+export class CenteredLayoutModule {}

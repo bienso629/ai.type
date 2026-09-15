@@ -1,10 +1,19 @@
-import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    inject,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { FuseConfigService } from '@fuse/services/config';
 import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { A11y, Mousewheel, Navigation, Pagination, SwiperOptions } from 'swiper';
+import type { SwiperOptions } from 'swiper/types';
+import { A11y, Mousewheel, Navigation, Pagination } from 'swiper/modules';
 import { Subject, takeUntil } from 'rxjs';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -13,23 +22,28 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
     selector: 'ai-tools',
     templateUrl: './tools.component.html',
     encapsulation: ViewEncapsulation.None,
-    styles: [`
-        @keyframes zalo-simple-blink {
-            0%, 100% {
-                opacity: 0.75;
-                filter: drop-shadow(0 0 1px rgba(0, 104, 255, 0.25));
+    styles: [
+        `
+            @keyframes zalo-simple-blink {
+                0%,
+                100% {
+                    opacity: 0.75;
+                    filter: drop-shadow(0 0 1px rgba(0, 104, 255, 0.25));
+                }
+                50% {
+                    opacity: 1;
+                    filter: drop-shadow(0 0 5px rgba(0, 104, 255, 0.65));
+                }
             }
-            50% {
-                opacity: 1;
-                filter: drop-shadow(0 0 5px rgba(0, 104, 255, 0.65));
+            .zalo-background-running {
+                color: #0068ff !important;
+                display: inline-block !important;
+                animation: zalo-simple-blink 2.2s infinite ease-in-out;
             }
-        }
-        .zalo-background-running {
-            color: #0068FF !important;
-            display: inline-block !important;
-            animation: zalo-simple-blink 2.2s infinite ease-in-out;
-        }
-    `]
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AIToolsComponent implements OnInit, OnDestroy {
     year: number = 2023;
@@ -46,13 +60,13 @@ export class AIToolsComponent implements OnInit, OnDestroy {
         lg: 4,
         md: 3,
         sm: 3,
-        xs: 3
-    }
+        xs: 3,
+    };
 
     public swipe: SwiperOptions = {
         modules: [Navigation, Pagination, A11y, Mousewheel],
-        autoHeight: true,
-        direction: "horizontal",
+        autoHeight: false,
+        direction: 'horizontal',
         mousewheel: true,
         autoplay: false,
         keyboard: true,
@@ -63,20 +77,20 @@ export class AIToolsComponent implements OnInit, OnDestroy {
         pagination: { clickable: true, dynamicBullets: true },
         slidesPerView: 1,
         centeredSlides: true,
-        "grid": {
-            "fill": "row",
-            "rows": 1
+        grid: {
+            fill: 'row',
+            rows: 1,
         },
         breakpoints: {
-            "576": { "slidesPerView": 1 },
-            "768": { "slidesPerView": 1 },
-            "992": { "slidesPerView": 1 }
-        }
-    }
+            '576': { slidesPerView: 1 },
+            '768': { slidesPerView: 1 },
+            '992': { slidesPerView: 1 },
+        },
+    };
 
     public cn = {
         cn2: 0,
-        cn3: 0
+        cn3: 0,
     };
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -91,7 +105,9 @@ export class AIToolsComponent implements OnInit, OnDestroy {
         private breakpointObserver: BreakpointObserver,
         private cd: ChangeDetectorRef,
     ) {
-        this.titleService.setTitle(`bộ công cụ | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `bộ công cụ | ai.type - công cụ tạo content`,
+        );
 
         // Subscribe to config changes
         this._fuseConfigService.config$
@@ -109,31 +125,33 @@ export class AIToolsComponent implements OnInit, OnDestroy {
                 this.user = user;
             });
 
-        this.breakpointObserver.observe([
-            Breakpoints.XSmall,
-            Breakpoints.Small,
-            Breakpoints.Medium,
-            Breakpoints.Large,
-            Breakpoints.XLarge,
-        ]).subscribe(result => {
-            if (result.matches) {
-                if (result.breakpoints[Breakpoints.XSmall]) {
-                    this.cols = this.gridByBreakpoint.xs;
+        this.breakpointObserver
+            .observe([
+                Breakpoints.XSmall,
+                Breakpoints.Small,
+                Breakpoints.Medium,
+                Breakpoints.Large,
+                Breakpoints.XLarge,
+            ])
+            .subscribe((result) => {
+                if (result.matches) {
+                    if (result.breakpoints[Breakpoints.XSmall]) {
+                        this.cols = this.gridByBreakpoint.xs;
+                    }
+                    if (result.breakpoints[Breakpoints.Small]) {
+                        this.cols = this.gridByBreakpoint.sm;
+                    }
+                    if (result.breakpoints[Breakpoints.Medium]) {
+                        this.cols = this.gridByBreakpoint.md;
+                    }
+                    if (result.breakpoints[Breakpoints.Large]) {
+                        this.cols = this.gridByBreakpoint.lg;
+                    }
+                    if (result.breakpoints[Breakpoints.XLarge]) {
+                        this.cols = this.gridByBreakpoint.xl;
+                    }
                 }
-                if (result.breakpoints[Breakpoints.Small]) {
-                    this.cols = this.gridByBreakpoint.sm;
-                }
-                if (result.breakpoints[Breakpoints.Medium]) {
-                    this.cols = this.gridByBreakpoint.md;
-                }
-                if (result.breakpoints[Breakpoints.Large]) {
-                    this.cols = this.gridByBreakpoint.lg;
-                }
-                if (result.breakpoints[Breakpoints.XLarge]) {
-                    this.cols = this.gridByBreakpoint.xl;
-                }
-            }
-        });
+            });
     }
 
     ngOnInit(): void {
@@ -141,12 +159,21 @@ export class AIToolsComponent implements OnInit, OnDestroy {
     }
 
     async checkZaloPlugin() {
-        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+        if (
+            (window as any).electronAPI &&
+            (window as any).electronAPI.getPluginsStatus
+        ) {
             try {
-                const list = await (window as any).electronAPI.getPluginsStatus();
+                const list = await (
+                    window as any
+                ).electronAPI.getPluginsStatus();
                 const zalo = list.find((p: any) => p.id === 'zalo_reply');
-                this.isZaloInstalled = zalo ? (zalo.installed && zalo.enabled) : false;
-                this.isZaloRunningBackground = zalo ? (zalo.installed && zalo.enabled) : false;
+                this.isZaloInstalled = zalo
+                    ? zalo.installed && zalo.enabled
+                    : false;
+                this.isZaloRunningBackground = zalo
+                    ? zalo.installed && zalo.enabled
+                    : false;
             } catch (e) {
                 this.isZaloInstalled = false;
                 this.isZaloRunningBackground = false;

@@ -1,4 +1,11 @@
-import { Component, Inject, AfterViewInit, ViewChild, ChangeDetectorRef } from '@angular/core';
+import {
+    Component,
+    Inject,
+    AfterViewInit,
+    ViewChild,
+    ChangeDetectorRef,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { DatatableComponent } from '@swimlane/ngx-datatable';
 import { AppConfig } from 'app/core/config/app.config';
@@ -6,13 +13,24 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { ChatbotService } from 'app/_services/chatbot';
 import { ToastrService } from 'ngx-toastr';
-import { catchError, interval, of, Subject, Subscription, switchMap, takeUntil, takeWhile } from 'rxjs';
+import {
+    catchError,
+    interval,
+    of,
+    Subject,
+    Subscription,
+    switchMap,
+    takeUntil,
+    takeWhile,
+} from 'rxjs';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'app-file-list-dialog',
     providers: [ChatbotService],
     templateUrl: './file-list-dialog.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class FileListDialogComponent implements AfterViewInit {
     config: AppConfig;
@@ -23,7 +41,7 @@ export class FileListDialogComponent implements AfterViewInit {
 
     username: string = '';
     google_api_key: string = '';
-    llm_model: string = "gemini-3.6-flash";
+    llm_model: string = 'gemini-3.6-flash';
     index_dir: string = `faiss_pdf_index`;
 
     // THÊM: Các biến quản lý thanh tiến trình
@@ -36,13 +54,18 @@ export class FileListDialogComponent implements AfterViewInit {
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
-    async reIndexPdf(doc_type: string, filename: string, rowIndex: number): Promise<void> {
+    async reIndexPdf(
+        doc_type: string,
+        filename: string,
+        rowIndex: number,
+    ): Promise<void> {
         if (!this.google_api_key) {
             this.toastr.warning('Chưa có Google API Key');
             return;
         }
 
-        const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
+        const isMinerUEnabled =
+            localStorage.getItem('isMinerUEnabled') === 'true';
 
         if (filename.toLowerCase().endsWith('.pdf')) {
             const electron = (window as any).electron;
@@ -54,7 +77,8 @@ export class FileListDialogComponent implements AfterViewInit {
                 this.cdr.markForCheck();
 
                 const dType = doc_type === 'None' ? 'default' : doc_type;
-                const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
+                const backendUrl =
+                    this.config?.settings?.chatbot || 'https://bot.type.vn';
                 const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
                 const jsonUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filenameWithoutExt)}.mineru.json`;
 
@@ -70,56 +94,79 @@ export class FileListDialogComponent implements AfterViewInit {
                         const pdfUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}`;
 
                         // Gọi main.js tải file PDF về thư mục temp
-                        const tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
+                        const tempPdfPath = await electron.invoke(
+                            'download-temp-pdf',
+                            pdfUrl,
+                        );
 
-                        this.progressStatus = isMinerUEnabled ? 'Đang chuẩn bị phân tích bằng MinerU...' : 'Đang chuẩn bị phân tích bằng OpenAI (Local)...';
+                        this.progressStatus = isMinerUEnabled
+                            ? 'Đang chuẩn bị phân tích bằng MinerU...'
+                            : 'Đang chuẩn bị phân tích bằng OpenAI (Local)...';
                         this.progressPercent = 50;
                         this.cdr.markForCheck();
 
                         // Lắng nghe tiến trình AI
-                        const cleanup = electron.onPdfProgress((data: string) => {
-                            this.progressStatus = data;
-                            this.cdr.markForCheck();
-                        });
+                        const cleanup = electron.onPdfProgress(
+                            (data: string) => {
+                                this.progressStatus = data;
+                                this.cdr.markForCheck();
+                            },
+                        );
 
                         try {
-                            const ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
+                            const ipcMethod = isMinerUEnabled
+                                ? 'run-pdf-analysis'
+                                : 'run-pdf-analysis-openai';
 
                             let configData = undefined;
                             if (!isMinerUEnabled) {
                                 try {
-                                    const settings = this._multiAccountService.getItem('settings');
+                                    const settings =
+                                        this._multiAccountService.getItem(
+                                            'settings',
+                                        );
                                     if (settings) {
                                         configData = {
                                             url: settings.umodelverseUrl || '',
-                                            key: settings.umodelverseKey || ''
+                                            key: settings.umodelverseKey || '',
                                         };
                                     }
                                 } catch (e) {
-                                    console.error("Error loading settings:", e);
+                                    console.error('Error loading settings:', e);
                                 }
                             }
 
-                            const result = await electron.invoke(ipcMethod, tempPdfPath, configData);
+                            const result = await electron.invoke(
+                                ipcMethod,
+                                tempPdfPath,
+                                configData,
+                            );
 
-                            this.progressStatus = 'Đang lưu kết quả AI lên Server...';
+                            this.progressStatus =
+                                'Đang lưu kết quả AI lên Server...';
                             this.progressPercent = 90;
                             this.cdr.markForCheck();
 
                             // Upload file json lên server
                             await new Promise((resolve, reject) => {
-                                this._chatbotService.uploadMinerUResult({
-                                    username: this.username,
-                                    filename: filename,
-                                    doc_type: doc_type,
-                                    content_json: result
-                                }).subscribe({
-                                    next: (res) => {
-                                        if (res && res.success) resolve(res);
-                                        else reject('Tải kết quả lên Server thất bại');
-                                    },
-                                    error: reject
-                                });
+                                this._chatbotService
+                                    .uploadMinerUResult({
+                                        username: this.username,
+                                        filename: filename,
+                                        doc_type: doc_type,
+                                        content_json: result,
+                                    })
+                                    .subscribe({
+                                        next: (res) => {
+                                            if (res && res.success)
+                                                resolve(res);
+                                            else
+                                                reject(
+                                                    'Tải kết quả lên Server thất bại',
+                                                );
+                                        },
+                                        error: reject,
+                                    });
                             });
                         } finally {
                             cleanup();
@@ -135,10 +182,11 @@ export class FileListDialogComponent implements AfterViewInit {
                     // Bước cuối: Gọi API Re-index bình thường
                     this.triggerNormalReindex(doc_type, filename);
                     return;
-
                 } catch (err: any) {
                     this.stopProgressPolling();
-                    this.toastr.error('Lỗi phân tích tài liệu AI: ' + (err.message || err));
+                    this.toastr.error(
+                        'Lỗi phân tích tài liệu AI: ' + (err.message || err),
+                    );
                     return;
                 }
             }
@@ -164,7 +212,9 @@ export class FileListDialogComponent implements AfterViewInit {
         this._chatbotService.reindexSpecificFile(payload).subscribe({
             next: (res: any) => {
                 if (res.success) {
-                    this.toastr.info(`Đang tiến hành re-index file: ${filename}`);
+                    this.toastr.info(
+                        `Đang tiến hành re-index file: ${filename}`,
+                    );
                     this.startProgressPolling(); // Kích hoạt thanh tiến trình
                 } else {
                     this.toastr.error(res.message || 'Lỗi gửi yêu cầu');
@@ -174,35 +224,48 @@ export class FileListDialogComponent implements AfterViewInit {
             error: (err) => {
                 this.toastr.error('Lỗi kết nối đến máy chủ.');
                 this.stopProgressPolling();
-            }
+            },
         });
     }
 
     // THÊM: Logic Polling hỏi thăm Server
     startProgressPolling(): void {
-        if (this.indexingSubscription && !this.indexingSubscription.closed) return;
+        if (this.indexingSubscription && !this.indexingSubscription.closed)
+            return;
 
         this.isIndexing = true;
         this.progressPercent = 0;
         this.progressStatus = 'Đang khởi tạo AI...';
 
-        this.indexingSubscription = interval(2000).pipe(
-            switchMap(() => this._chatbotService.getIndexProgress({ username: this.username })),
-            // Thêm catchError để lỡ gọi API xịt thì không bị đứng form
-            catchError(() => of({ is_running: false, percent: 100, status: 'Lỗi lấy tiến độ' })),
-            takeWhile((resp: any) => resp.is_running, true)
-        ).subscribe({
-            next: (resp: any) => {
-                if (resp.is_running) {
-                    this.progressPercent = resp.percent || 0;
-                    this.progressStatus = `${resp.status} (${resp.current || 0}/${resp.total || 0})`;
-                    this.cdr.markForCheck();
-                } else if (this.isIndexing) {
-                    this.handleIndexingComplete();
-                }
-            },
-            error: () => this.stopProgressPolling()
-        });
+        this.indexingSubscription = interval(2000)
+            .pipe(
+                switchMap(() =>
+                    this._chatbotService.getIndexProgress({
+                        username: this.username,
+                    }),
+                ),
+                // Thêm catchError để lỡ gọi API xịt thì không bị đứng form
+                catchError(() =>
+                    of({
+                        is_running: false,
+                        percent: 100,
+                        status: 'Lỗi lấy tiến độ',
+                    }),
+                ),
+                takeWhile((resp: any) => resp.is_running, true),
+            )
+            .subscribe({
+                next: (resp: any) => {
+                    if (resp.is_running) {
+                        this.progressPercent = resp.percent || 0;
+                        this.progressStatus = `${resp.status} (${resp.current || 0}/${resp.total || 0})`;
+                        this.cdr.markForCheck();
+                    } else if (this.isIndexing) {
+                        this.handleIndexingComplete();
+                    }
+                },
+                error: () => this.stopProgressPolling(),
+            });
     }
 
     handleIndexingComplete(): void {
@@ -213,7 +276,9 @@ export class FileListDialogComponent implements AfterViewInit {
         // Cập nhật lại trạng thái file trên bảng ngx-datatable
 
         // 1. Force update local array immediately
-        const idx = this.rows.findIndex(r => r.filename === this.indexingFilename);
+        const idx = this.rows.findIndex(
+            (r) => r.filename === this.indexingFilename,
+        );
         if (idx > -1) {
             this.rows[idx] = { ...this.rows[idx], is_indexed: true };
             this.rows = [...this.rows];
@@ -233,7 +298,7 @@ export class FileListDialogComponent implements AfterViewInit {
                     this.rows = [...res];
                     this.cdr.markForCheck();
                 }
-            }
+            },
         });
 
         setTimeout(() => this.stopProgressPolling(), 2000);
@@ -254,28 +319,34 @@ export class FileListDialogComponent implements AfterViewInit {
             username: this.username,
             google_api_key: this.google_api_key,
             llm_model: this.llm_model,
-            index_dir: this.index_dir
+            index_dir: this.index_dir,
         };
 
-        this._chatbotService.indexFiles(payload).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: (res: any) => {
-                if (res && res.success) {
-                    this.toastr.info('Đang tiến hành học tất cả tài liệu...');
-                    this.indexingFilename = null; // Đánh dấu là đang học tất cả
-                    this.startProgressPolling();
-                } else {
-                    this.toastr.error('Khởi tạo học tài liệu thất bại.');
-                }
-            },
-            error: () => {
-                this.toastr.error('Lỗi kết nối đến máy chủ.');
-            }
-        });
+        this._chatbotService
+            .indexFiles(payload)
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (res: any) => {
+                    if (res && res.success) {
+                        this.toastr.info(
+                            'Đang tiến hành học tất cả tài liệu...',
+                        );
+                        this.indexingFilename = null; // Đánh dấu là đang học tất cả
+                        this.startProgressPolling();
+                    } else {
+                        this.toastr.error('Khởi tạo học tài liệu thất bại.');
+                    }
+                },
+                error: () => {
+                    this.toastr.error('Lỗi kết nối đến máy chủ.');
+                },
+            });
     }
 
     downloadPdf(doc_type: string, filename: string): void {
-        const dType = (!doc_type || doc_type === 'None') ? 'default' : doc_type;
-        const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
+        const dType = !doc_type || doc_type === 'None' ? 'default' : doc_type;
+        const backendUrl =
+            this.config?.settings?.chatbot || 'https://bot.type.vn';
 
         let downloadFilename = filename;
         let fileUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}`;
@@ -297,11 +368,13 @@ export class FileListDialogComponent implements AfterViewInit {
     }
 
     deletePdf(doc_type: string, filename: string, rowIndex: number): void {
-        this._chatbotService.deleteFile({
-            username: this.user.name,
-            doc_type: doc_type,
-            filename: filename
-        }).pipe(takeUntil(this._unsubscribeAll))
+        this._chatbotService
+            .deleteFile({
+                username: this.user.name,
+                doc_type: doc_type,
+                filename: filename,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (res) => {
                     if (res && res.ok) {
@@ -316,8 +389,7 @@ export class FileListDialogComponent implements AfterViewInit {
                 error: () => {
                     this.toastr.error('Xóa file thất bại.');
                 },
-                complete: () => {
-                }
+                complete: () => {},
             });
     }
 
@@ -327,7 +399,7 @@ export class FileListDialogComponent implements AfterViewInit {
         private toastr: ToastrService,
         private _chatbotService: ChatbotService,
         private cdr: ChangeDetectorRef,
-        private _multiAccountService: MultiAccountService
+        private _multiAccountService: MultiAccountService,
     ) {
         this.rows = data.rows;
 

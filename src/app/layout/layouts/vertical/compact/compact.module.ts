@@ -1,5 +1,9 @@
 import { NgModule } from '@angular/core';
-import { HttpClientModule } from '@angular/common/http';
+import {
+    provideHttpClient,
+    withInterceptorsFromDi,
+    withXhr,
+} from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -19,19 +23,17 @@ import { ShortcutsModule } from 'app/layout/common/shortcuts/shortcuts.module';
 import { UserModule } from 'app/layout/common/user/user.module';
 import { SharedModule } from 'app/shared.module';
 import { CompactLayoutComponent } from 'app/layout/layouts/vertical/compact/compact.component';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 @NgModule({
-    declarations: [
-        CompactLayoutComponent
-    ],
+    declarations: [CompactLayoutComponent],
+    exports: [CompactLayoutComponent],
     imports: [
         TranslocoModule,
         MatTooltipModule,
         MatTooltipModule,
         TranslocoModule,
-        HttpClientModule,
         RouterModule,
         MatButtonModule,
         MatDividerModule,
@@ -48,12 +50,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         ShortcutsModule,
         UserModule,
         EcoFabSpeedDialModule,
-        SharedModule
+        SharedModule,
     ],
-    exports     : [
-        CompactLayoutComponent
-    ]
+    providers: [provideHttpClient(withXhr(), withInterceptorsFromDi())],
 })
-export class CompactLayoutModule
-{
-}
+export class CompactLayoutModule {}

@@ -12,7 +12,7 @@ import { SharedModule } from 'app/shared.module';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { QuickChatComponent } from 'app/layout/common/quick-chat/quick-chat.component';
 import { AddToolDialog } from 'app/layout/common/quick-chat/add-tool-dialog.component';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 @NgModule({

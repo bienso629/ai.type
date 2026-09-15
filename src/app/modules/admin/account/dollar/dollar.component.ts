@@ -1,4 +1,10 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { CrawlService } from 'app/_services/crawl';
@@ -7,7 +13,7 @@ import { ApexOptions } from 'ng-apexcharts';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 import moment from 'moment';
 import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -18,7 +24,9 @@ import { FuseConfigService } from '@fuse/services/config';
     styleUrls: ['./dollar.component.scss'],
     templateUrl: './dollar.component.html',
     providers: [CrawlService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class DollarComponent implements OnInit, OnDestroy {
     moneyChart: ApexOptions;
@@ -27,14 +35,16 @@ export class DollarComponent implements OnInit, OnDestroy {
 
     d = new Date();
 
-    money = [{
-        name: "Nhuận bút",
-        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    },
-    {
-        name: "Thanh toán",
-        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    }];
+    money = [
+        {
+            name: 'Nhuận bút',
+            data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        },
+        {
+            name: 'Thanh toán',
+            data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        },
+    ];
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -56,7 +66,7 @@ export class DollarComponent implements OnInit, OnDestroy {
                     top: 18,
                     left: 7,
                     blur: 10,
-                    opacity: 0.2
+                    opacity: 0.2,
                 },
                 toolbar: {
                     show: true,
@@ -65,16 +75,16 @@ export class DollarComponent implements OnInit, OnDestroy {
                         selection: true,
                         zoom: false,
                         reset: false,
-                        pan: false
-                    }
-                }
+                        pan: false,
+                    },
+                },
             },
             colors: ['#1ba274', '#feb019'],
             dataLabels: {
                 enabled: false,
             },
             stroke: {
-                curve: 'straight'
+                curve: 'straight',
             },
             title: {
                 text: `Nhuận bút của admin`,
@@ -86,25 +96,38 @@ export class DollarComponent implements OnInit, OnDestroy {
                 borderColor: 'transparent',
                 row: {
                     colors: ['#f3f3f3', 'transparent'], // takes an array which will be repeated on columns
-                    opacity: 0.5
+                    opacity: 0.5,
                 },
             },
             xaxis: {
-                categories: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'],
+                categories: [
+                    'Tháng 1',
+                    'Tháng 2',
+                    'Tháng 3',
+                    'Tháng 4',
+                    'Tháng 5',
+                    'Tháng 6',
+                    'Tháng 7',
+                    'Tháng 8',
+                    'Tháng 9',
+                    'Tháng 10',
+                    'Tháng 11',
+                    'Tháng 12',
+                ],
                 title: {
-                    text: 'Tháng'
+                    text: 'Tháng',
                 },
                 axisBorder: {
                     show: false,
-                    strokeWidth: 0
+                    strokeWidth: 0,
                 },
                 axisTicks: {
-                    show: false
-                }
+                    show: false,
+                },
             },
             yaxis: {
                 title: {
-                    text: `ƯỚC TÍNH ${this.d.getFullYear()} (VND)`
+                    text: `ƯỚC TÍNH ${this.d.getFullYear()} (VND)`,
                 },
                 // min: 0,
                 // max: 40
@@ -114,8 +137,8 @@ export class DollarComponent implements OnInit, OnDestroy {
                 horizontalAlign: 'right',
                 floating: true,
                 offsetY: 10,
-                offsetX: 0
-            }
+                offsetX: 0,
+            },
         };
     }
 
@@ -141,27 +164,35 @@ export class DollarComponent implements OnInit, OnDestroy {
         // 2. Filter out the ones that doesn't have cross reference so we only left with the ones that use the 'url(#id)' syntax
         // 3. Insert the 'currentURL' at the front of the 'fill' attribute value
         Array.from(element.querySelectorAll('*[fill]'))
-            .filter(el => el.getAttribute('fill').indexOf('url(') !== -1)
+            .filter((el) => el.getAttribute('fill').indexOf('url(') !== -1)
             .forEach((el) => {
                 const attrVal = el.getAttribute('fill');
-                el.setAttribute('fill', `url(${currentURL}${attrVal.slice(attrVal.indexOf('#'))}`);
+                el.setAttribute(
+                    'fill',
+                    `url(${currentURL}${attrVal.slice(attrVal.indexOf('#'))}`,
+                );
             });
     }
 
     fetch() {
-        this._crawlService.money({
-            year: this.d.getFullYear(),
-            username: this.user.name
-        })
+        this._crawlService
+            .money({
+                year: this.d.getFullYear(),
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (!result || result.length === 0) {
                     } else {
                         if (result && result.success) {
-                            this.money[0].data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                            this.money[0].data = [
+                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            ];
                             let temp = _(result.data)
-                                .groupBy(v => moment(v.createdAt).format('MM'))
+                                .groupBy((v) =>
+                                    moment(v.createdAt).format('MM'),
+                                )
                                 .map((objs, key) => {
                                     const amount = _.sumBy(objs, 'amount');
                                     const index = parseInt(key);
@@ -170,39 +201,47 @@ export class DollarComponent implements OnInit, OnDestroy {
                                     this.money[0].data[index - 1] = amount;
 
                                     return {
-                                        [`${index}`]: amount
-                                    }
+                                        [`${index}`]: amount,
+                                    };
                                 })
                                 .value();
                         } else {
-
                         }
                     }
                 },
-                error: () => {
-                },
+                error: () => {},
                 complete: () => {
                     if (this.user) {
                         const cacheKey = `admin_money_stats_${this.user.name}_${this.d.getFullYear()}`;
-                        localStorage.setItem(cacheKey, JSON.stringify(this.money));
+                        localStorage.setItem(
+                            cacheKey,
+                            JSON.stringify(this.money),
+                        );
                     }
-                    this._prepareChartData(JSON.parse(JSON.stringify(this.money)));
-                }
+                    this._prepareChartData(
+                        JSON.parse(JSON.stringify(this.money)),
+                    );
+                },
             });
 
-        this._crawlService.payment({
-            year: this.d.getFullYear(),
-            username: this.user.name
-        })
+        this._crawlService
+            .payment({
+                year: this.d.getFullYear(),
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (!result || result.length === 0) {
                     } else {
                         if (result && result.success) {
-                            this.money[1].data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                            this.money[1].data = [
+                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            ];
                             let temp = _(result.data)
-                                .groupBy(v => moment(v.createdAt).format('MM'))
+                                .groupBy((v) =>
+                                    moment(v.createdAt).format('MM'),
+                                )
                                 .map((objs, key) => {
                                     const amount = _.sumBy(objs, 'amount');
                                     const index = parseInt(key);
@@ -211,24 +250,27 @@ export class DollarComponent implements OnInit, OnDestroy {
                                     this.money[1].data[index - 1] = amount;
 
                                     return {
-                                        [`${index}`]: amount
-                                    }
+                                        [`${index}`]: amount,
+                                    };
                                 })
                                 .value();
                         } else {
-
                         }
                     }
                 },
-                error: () => {
-                },
+                error: () => {},
                 complete: () => {
                     if (this.user) {
                         const cacheKey = `admin_money_stats_${this.user.name}_${this.d.getFullYear()}`;
-                        localStorage.setItem(cacheKey, JSON.stringify(this.money));
+                        localStorage.setItem(
+                            cacheKey,
+                            JSON.stringify(this.money),
+                        );
                     }
-                    this._prepareChartData(JSON.parse(JSON.stringify(this.money)));
-                }
+                    this._prepareChartData(
+                        JSON.parse(JSON.stringify(this.money)),
+                    );
+                },
             });
     }
 
@@ -241,7 +283,7 @@ export class DollarComponent implements OnInit, OnDestroy {
         private _crawlService: CrawlService,
         private _fuseConfigService: FuseConfigService,
         private _fuseConfirmationService: FuseConfirmationService,
-        private _router: Router
+        private _router: Router,
     ) {
         this.titleService.setTitle(`nhuận bút | ai.type - công cụ tạo content`);
     }
@@ -256,9 +298,9 @@ export class DollarComponent implements OnInit, OnDestroy {
                     },
                     updated: (chart: any, options?: any): void => {
                         this._fixSvgFill(chart.el);
-                    }
-                }
-            }
+                    },
+                },
+            },
         };
 
         // Subscribe to config changes
@@ -275,8 +317,6 @@ export class DollarComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-
-
                 // Cache màn hình thống kê để hiển thị tức thì
                 const cacheKey = `admin_money_stats_${this.user.name}_${this.d.getFullYear()}`;
                 const cachedData = localStorage.getItem(cacheKey);
@@ -285,13 +325,14 @@ export class DollarComponent implements OnInit, OnDestroy {
                         const parsed = JSON.parse(cachedData);
                         if (parsed && parsed.length === 2) {
                             this.money = parsed;
-                            this._prepareChartData(JSON.parse(JSON.stringify(this.money)));
+                            this._prepareChartData(
+                                JSON.parse(JSON.stringify(this.money)),
+                            );
                         }
                     } catch (e) {}
                 }
 
                 this.fetch();
-
             });
     }
 
@@ -304,24 +345,26 @@ export class DollarComponent implements OnInit, OnDestroy {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference

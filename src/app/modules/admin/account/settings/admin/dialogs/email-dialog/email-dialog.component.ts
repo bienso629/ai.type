@@ -1,19 +1,30 @@
-import { Component, Inject, ViewEncapsulation } from '@angular/core';
+import {
+    Component,
+    Inject,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 @Component({
     selector: 'email-dialog',
     templateUrl: './email-dialog.component.html',
     styleUrls: ['./email-dialog.component.scss'],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class EmailDialogComponent {
-    emailComposer = { senderName: 'Ban Quản Trị Type.vn', subject: '', content: '' };
+    emailComposer = {
+        senderName: 'Ban Quản Trị Type.vn',
+        subject: '',
+        content: '',
+    };
     selectedCount: number = 0;
 
     constructor(
         public dialogRef: MatDialogRef<EmailDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any
+        @Inject(MAT_DIALOG_DATA) public data: any,
     ) {
         if (data && data.selectedCount) {
             this.selectedCount = data.selectedCount;

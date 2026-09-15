@@ -6,11 +6,16 @@ import {
     ElementRef,
     ChangeDetectorRef,
     OnDestroy,
-    Optional
+    Optional,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import {
+    MAT_DIALOG_DATA,
+    MatDialogRef,
+    MatDialogModule,
+} from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -40,7 +45,6 @@ export interface BroadcastDialogData {
 
 @Component({
     selector: 'app-broadcast-preview-dialog',
-    standalone: true,
     imports: [
         CommonModule,
         FormsModule,
@@ -50,27 +54,30 @@ export interface BroadcastDialogData {
         MatTooltipModule,
         MatProgressSpinnerModule,
         MatFormFieldModule,
-        MatInputModule
+        MatInputModule,
     ],
     templateUrl: './broadcast-preview-dialog.component.html',
-    styles: []
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [],
 })
 export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
-    @ViewChild('broadcastVideoPlayer') broadcastVideoPlayer?: ElementRef<HTMLVideoElement>;
+    @ViewChild('broadcastVideoPlayer')
+    broadcastVideoPlayer?: ElementRef<HTMLVideoElement>;
 
     title: string = 'Phát sóng video';
     currentStreamUrl: string | null = null;
     currentSourceUrl: string | null = null;
     safeStreamUrl: SafeUrl | string | null = null;
-    
+
     subtitles: BroadcastSubtitleItem[] = [];
     activeSubtitleText: string | null = null;
-    activeSubtitleInfo: { primaryText: string, secondaryText?: string } | null = null;
+    activeSubtitleInfo: { primaryText: string; secondaryText?: string } | null =
+        null;
     activeSubtitleIndex: number = -1;
 
     currentTime: number = 0;
     videoDuration: number = 0;
-    
+
     showSubtitles: boolean = true;
     subtitleSize: 'small' | 'medium' | 'large' = 'medium';
     subtitlePosition: 'bottom' | 'middle' | 'top' = 'bottom';
@@ -88,7 +95,7 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
         private dialogRef: MatDialogRef<BroadcastPreviewDialogComponent>,
         private sanitizer: DomSanitizer,
         private toastr: ToastrService,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
     ) {
         if (this.data) {
             this.title = this.data.title || 'Phát sóng video';
@@ -100,18 +107,34 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
 
     get subtitleSizeLabel(): string {
         switch (this.subtitleSize) {
-            case 'small': return 'Nhỏ';
-            case 'medium': return 'Vừa';
-            case 'large': return 'Lớn';
+            case 'small':
+                return 'Nhỏ';
+            case 'medium':
+                return 'Vừa';
+            case 'large':
+                return 'Lớn';
         }
     }
 
     ngOnInit(): void {
-        if (this.currentSourceUrl && (this.currentSourceUrl.startsWith('http://') || this.currentSourceUrl.startsWith('https://'))) {
+        if (
+            this.currentSourceUrl &&
+            (this.currentSourceUrl.startsWith('http://') ||
+                this.currentSourceUrl.startsWith('https://'))
+        ) {
             this.loadOnlineStream(this.currentSourceUrl);
         } else if (this.currentStreamUrl) {
-            if (this.currentStreamUrl.startsWith('http://') || this.currentStreamUrl.startsWith('https://')) {
-                if (this.currentStreamUrl.includes('facebook.com') || this.currentStreamUrl.includes('fb.watch') || this.currentStreamUrl.includes('youtube.com') || this.currentStreamUrl.includes('youtu.be') || this.currentStreamUrl.includes('tiktok.com')) {
+            if (
+                this.currentStreamUrl.startsWith('http://') ||
+                this.currentStreamUrl.startsWith('https://')
+            ) {
+                if (
+                    this.currentStreamUrl.includes('facebook.com') ||
+                    this.currentStreamUrl.includes('fb.watch') ||
+                    this.currentStreamUrl.includes('youtube.com') ||
+                    this.currentStreamUrl.includes('youtu.be') ||
+                    this.currentStreamUrl.includes('tiktok.com')
+                ) {
                     this.loadOnlineStream(this.currentStreamUrl);
                 } else {
                     this.setVideoUrl(this.currentStreamUrl);
@@ -123,7 +146,10 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
-        if (this.broadcastVideoPlayer && this.broadcastVideoPlayer.nativeElement) {
+        if (
+            this.broadcastVideoPlayer &&
+            this.broadcastVideoPlayer.nativeElement
+        ) {
             this.broadcastVideoPlayer.nativeElement.pause();
             this.broadcastVideoPlayer.nativeElement.src = '';
         }
@@ -131,12 +157,23 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
 
     setVideoUrl(url: string): void {
         this.currentStreamUrl = url;
-        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('media://') || url.startsWith('mediacors://')) {
+        if (
+            url.startsWith('http://') ||
+            url.startsWith('https://') ||
+            url.startsWith('blob:') ||
+            url.startsWith('data:') ||
+            url.startsWith('media://') ||
+            url.startsWith('mediacors://')
+        ) {
             this.safeStreamUrl = this.sanitizer.bypassSecurityTrustUrl(url);
         } else {
             const cleanPath = url.replace(/^file:\/\//i, '');
-            const mediaUrl = 'media://SMART_FIND/?path=' + encodeURIComponent(cleanPath) + '&dir=&uuid=default';
-            this.safeStreamUrl = this.sanitizer.bypassSecurityTrustUrl(mediaUrl);
+            const mediaUrl =
+                'media://SMART_FIND/?path=' +
+                encodeURIComponent(cleanPath) +
+                '&dir=&uuid=default';
+            this.safeStreamUrl =
+                this.sanitizer.bypassSecurityTrustUrl(mediaUrl);
         }
         this.isStreamActive = true;
         this.isLoading = false;
@@ -166,14 +203,22 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
                 this.currentSourceUrl = url;
                 if (res.title) this.title = res.title;
                 this.setVideoUrl(res.streamUrl);
-                this.toastr.success('Đã kết nối luồng phát thành công!', res.title || 'Video Stream');
+                this.toastr.success(
+                    'Đã kết nối luồng phát thành công!',
+                    res.title || 'Video Stream',
+                );
             } else {
                 this.isLoading = false;
-                this.toastr.error(res?.error || 'Không thể trích xuất luồng video từ đường dẫn này.');
+                this.toastr.error(
+                    res?.error ||
+                        'Không thể trích xuất luồng video từ đường dẫn này.',
+                );
             }
         } catch (err: any) {
             this.isLoading = false;
-            this.toastr.error('Lỗi khi tải luồng phát: ' + (err.message || err));
+            this.toastr.error(
+                'Lỗi khi tải luồng phát: ' + (err.message || err),
+            );
         }
         this.cd.detectChanges();
     }
@@ -198,7 +243,7 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
         this.isLoading = false;
     }
 
-    onPause(): void { }
+    onPause(): void {}
 
     onWaiting(): void {
         this.isLoading = true;
@@ -230,13 +275,16 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
 
     isLikelyVietnamese(text: string): boolean {
         if (!text) return false;
-        return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(text);
+        return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
+            text,
+        );
     }
 
     updateActiveSubtitle(time: number): void {
         let foundIndex = -1;
         let foundText: string | null = null;
-        let foundInfo: { primaryText: string, secondaryText?: string } | null = null;
+        let foundInfo: { primaryText: string; secondaryText?: string } | null =
+            null;
 
         for (let i = 0; i < this.subtitles.length; i++) {
             const sub = this.subtitles[i];
@@ -246,20 +294,41 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
                 foundIndex = i;
                 foundText = sub.text;
 
-                let original = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || '';
-                let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || '';
+                let original =
+                    sub.originalText ||
+                    (sub.translations &&
+                        (sub.translations['original'] ||
+                            sub.translations['en'])) ||
+                    '';
+                let vietnamese =
+                    sub.vietnameseText ||
+                    (sub.translations && sub.translations['vi']) ||
+                    '';
 
-                if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) {
+                if (
+                    !vietnamese &&
+                    sub.text &&
+                    this.isLikelyVietnamese(sub.text)
+                ) {
                     vietnamese = sub.text;
                 }
-                if (!original && sub.text && !this.isLikelyVietnamese(sub.text)) {
+                if (
+                    !original &&
+                    sub.text &&
+                    !this.isLikelyVietnamese(sub.text)
+                ) {
                     original = sub.text;
                 }
 
-                if (original && vietnamese && original.trim().toLowerCase() !== vietnamese.trim().toLowerCase()) {
+                if (
+                    original &&
+                    vietnamese &&
+                    original.trim().toLowerCase() !==
+                        vietnamese.trim().toLowerCase()
+                ) {
                     foundInfo = {
                         primaryText: original.trim(),
-                        secondaryText: vietnamese.trim()
+                        secondaryText: vietnamese.trim(),
                     };
                 } else {
                     const mainText = sub.text || original || vietnamese || '';
@@ -276,7 +345,9 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
             this.cd.detectChanges();
 
             if (foundIndex !== -1 && this.showSidebar) {
-                const el = document.getElementById('broadcast-sub-' + foundIndex);
+                const el = document.getElementById(
+                    'broadcast-sub-' + foundIndex,
+                );
                 if (el) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
@@ -313,10 +384,14 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
                 const parsed = this.parseSrt(content);
                 if (parsed.length > 0) {
                     this.subtitles = parsed;
-                    this.toastr.success('Đã nạp ' + parsed.length + ' câu phụ đề từ file!');
+                    this.toastr.success(
+                        'Đã nạp ' + parsed.length + ' câu phụ đề từ file!',
+                    );
                     this.cd.detectChanges();
                 } else {
-                    this.toastr.error('Không tìm thấy phụ đề hợp lệ trong file.');
+                    this.toastr.error(
+                        'Không tìm thấy phụ đề hợp lệ trong file.',
+                    );
                 }
             };
             reader.readAsText(file, 'utf-8');
@@ -328,7 +403,11 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
         const results: BroadcastSubtitleItem[] = [];
         if (!srtText) return results;
 
-        const normalized = srtText.split('\r\n').join('\n').split('\r').join('\n');
+        const normalized = srtText
+            .split('\r\n')
+            .join('\n')
+            .split('\r')
+            .join('\n');
         const blocks = normalized.split(/\n\s*\n/);
 
         const parseTimestampToSeconds = (timeStr: string): number => {
@@ -339,11 +418,15 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
             const secParts = parts[2].split(/[,\.]/);
             const seconds = parseFloat(secParts[0]) || 0;
             const ms = parseFloat(secParts[1] || '0') || 0;
-            return hours * 3600 + minutes * 60 + seconds + (ms / 1000);
+            return hours * 3600 + minutes * 60 + seconds + ms / 1000;
         };
 
         for (const block of blocks) {
-            const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+            const lines = block
+                .trim()
+                .split('\n')
+                .map((l) => l.trim())
+                .filter(Boolean);
             if (lines.length < 2) continue;
 
             let timeLineIndex = -1;
@@ -362,16 +445,22 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
 
             const startSec = parseTimestampToSeconds(startStr);
             const endSec = parseTimestampToSeconds(endStr);
-            const duration = Math.max(0.1, parseFloat((endSec - startSec).toFixed(2)));
+            const duration = Math.max(
+                0.1,
+                parseFloat((endSec - startSec).toFixed(2)),
+            );
 
             const textLines = lines.slice(timeLineIndex + 1);
-            const text = textLines.join(' ').replace(/<[^>]*>/g, '').trim();
+            const text = textLines
+                .join(' ')
+                .replace(/<[^>]*>/g, '')
+                .trim();
 
             if (text) {
                 results.push({
                     text,
                     startTime: parseFloat(startSec.toFixed(2)),
-                    duration
+                    duration,
                 });
             }
         }
@@ -382,7 +471,11 @@ export class BroadcastPreviewDialogComponent implements OnInit, OnDestroy {
         if (!seconds || isNaN(seconds) || seconds < 0) return '00:00';
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
-        return mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+        return (
+            mins.toString().padStart(2, '0') +
+            ':' +
+            secs.toString().padStart(2, '0')
+        );
     }
 
     close(): void {

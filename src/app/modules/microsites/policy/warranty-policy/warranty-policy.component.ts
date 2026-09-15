@@ -6,7 +6,8 @@ import { Title } from '@angular/platform-browser';
     templateUrl: './warranty-policy.component.html',
     styleUrls: ['./warranty-policy.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    standalone: false
 })
 export class WarrantyPolicyComponent implements OnInit {
     readonly sections = [

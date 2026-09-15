@@ -17,7 +17,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     templateUrl: './shortcuts.component.html',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    exportAs: 'shortcuts'
+    exportAs: 'shortcuts',
+    standalone: false
 })
 export class ShortcutsComponent implements OnInit, OnDestroy {
     config: AppConfig;

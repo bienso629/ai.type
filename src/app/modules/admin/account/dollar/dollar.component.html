@@ -4,14 +4,24 @@
         <!-- CONTENT GOES HERE -->
         <div class="flex items-center justify-center h-full">
             <!-- Visitors vs. Page Views -->
-        <div class="flex flex-col min-w-200 w-240 p-4" *ngIf="moneyChart">
-            <apx-chart class="flex-auto w-full h-full" [chart]="moneyChart.chart" [title]="moneyChart.title"
-                [colors]="moneyChart.colors" [dataLabels]="moneyChart.dataLabels"
-                [grid]="moneyChart.grid" [legend]="moneyChart.legend"
-                [series]="moneyChart.series" [stroke]="moneyChart.stroke"
-                [tooltip]="moneyChart.tooltip" [xaxis]="moneyChart.xaxis"
-                [yaxis]="moneyChart.yaxis"></apx-chart>
-        </div>
+            @if (moneyChart) {
+                <div class="flex flex-col min-w-200 w-240 p-4">
+                    <apx-chart
+                        class="flex-auto w-full h-full"
+                        [chart]="moneyChart.chart"
+                        [title]="moneyChart.title"
+                        [colors]="moneyChart.colors"
+                        [dataLabels]="moneyChart.dataLabels"
+                        [grid]="moneyChart.grid"
+                        [legend]="moneyChart.legend"
+                        [series]="moneyChart.series"
+                        [stroke]="moneyChart.stroke"
+                        [tooltip]="moneyChart.tooltip"
+                        [xaxis]="moneyChart.xaxis"
+                        [yaxis]="moneyChart.yaxis"
+                    ></apx-chart>
+                </div>
+            }
         </div>
     </div>
 </div>

@@ -1,7 +1,16 @@
-import { TranslocoModule } from '@ngneat/transloco';
-import { Component, Inject, OnInit } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
-import { CommonModule } from '@angular/common';
+import { TranslocoModule } from '@jsverse/transloco';
+import {
+    Component,
+    Inject,
+    OnInit,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+import {
+    MAT_DIALOG_DATA,
+    MatDialogRef,
+    MatDialogModule,
+} from '@angular/material/dialog';
+
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,10 +27,8 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 
 @Component({
     selector: 'app-magic-prompt-dialog',
-    standalone: true,
     imports: [
         TranslocoModule,
-        CommonModule,
         MatDialogModule,
         MatProgressSpinnerModule,
         MatIconModule,
@@ -29,14 +36,25 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
         MatTooltipModule,
         FormsModule,
         MatInputModule,
-        TextFieldModule
+        TextFieldModule,
     ],
     templateUrl: './magic-prompt-dialog.component.html',
-    styles: [`
-        .light-theme { background-color: #ffffff; color: #111827; }
-        .section-card { padding: 0; margin-bottom: 16px; }
-        .section-card:last-child { margin-bottom: 0; }
-    `]
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [
+        `
+            .light-theme {
+                background-color: #ffffff;
+                color: #111827;
+            }
+            .section-card {
+                padding: 0;
+                margin-bottom: 16px;
+            }
+            .section-card:last-child {
+                margin-bottom: 0;
+            }
+        `,
+    ],
 })
 export class MagicPromptDialogComponent implements OnInit {
     currentPrompt: string = '';
@@ -51,7 +69,7 @@ export class MagicPromptDialogComponent implements OnInit {
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private genaiService: GenaiService,
-        private sanitizer: DomSanitizer
+        private sanitizer: DomSanitizer,
     ) {
         if (data?.currentPrompt) {
             this.currentPrompt = data.currentPrompt;
@@ -90,24 +108,26 @@ export class MagicPromptDialogComponent implements OnInit {
     }
 
     getSafeUrl(): SafeUrl | string {
-        return this.imageBase64 ? this.sanitizer.bypassSecurityTrustUrl(this.imageBase64) : '';
+        return this.imageBase64
+            ? this.sanitizer.bypassSecurityTrustUrl(this.imageBase64)
+            : '';
     }
 
     async generate(): Promise<void> {
         this.isGenerating = true;
         try {
             let promptText = `Bạn là một chuyên gia viết prompt cho AI tạo ảnh và video. Tôi có một prompt gốc như sau:\n"${this.currentPrompt}"\n\n`;
-            
+
             if (this.userInstruction) {
                 promptText += `Yêu cầu bổ sung để chỉnh sửa/phát triển prompt này:\n"${this.userInstruction}"\n\n`;
             }
-            
+
             if (this.data?.type === 'character') {
                 promptText += `Hãy viết lại và bổ sung thật chi tiết (ngoại hình, quần áo, góc mặt, phong cách...) để dùng tạo nhân vật nhất quán.\n`;
             } else {
                 promptText += `Hãy viết lại và bổ sung thật chi tiết (ánh sáng, góc máy, môi trường, hành động...) để dùng tạo video điện ảnh.\n`;
             }
-            
+
             promptText += `Trả về CHỈ kết quả prompt đã được viết lại bằng tiếng Anh (hoặc ngôn ngữ gốc nếu là tiếng Việt, nhưng ưu tiên tiếng Anh cho AI tạo ảnh). Không giải thích gì thêm.`;
 
             const contents: any[] = [{ text: promptText }];
@@ -116,24 +136,26 @@ export class MagicPromptDialogComponent implements OnInit {
                 contents.push({
                     inlineData: {
                         data: base64Data,
-                        mimeType: this.imageFile?.type || 'image/jpeg'
-                    }
+                        mimeType: this.imageFile?.type || 'image/jpeg',
+                    },
                 });
             }
 
             const res = await this.genaiService.generateText({
                 model: 'gemini-1.5-pro',
-                contents: contents
+                contents: contents,
             } as any);
 
             this.generatedPrompt = res || '';
-            
+
             if (!this.generatedPrompt) {
                 this.toastr.warning('Không có kết quả trả về từ AI.');
             }
         } catch (error: any) {
             console.error('Error generating prompt:', error);
-            this.toastr.error('Lỗi khi tạo prompt: ' + (error.message || 'Unknown error'));
+            this.toastr.error(
+                'Lỗi khi tạo prompt: ' + (error.message || 'Unknown error'),
+            );
         } finally {
             this.isGenerating = false;
         }
