@@ -36,7 +36,8 @@ import { AMXHScriptAppComponent } from '../script/script.component';
     styleUrls: ['./type.component.scss'],
     providers: [CrawlService, BlogService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AMXHTypeComponent extends AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit {
     override platform: string = 'type';

@@ -6,7 +6,8 @@ import { Title } from '@angular/platform-browser';
     templateUrl: './policy.component.html',
     styleUrls: ['./policy.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    standalone: false
 })
 export class PolicyComponent implements OnInit {
     readonly sections = [

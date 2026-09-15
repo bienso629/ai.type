@@ -5,229 +5,518 @@
         <!-- Statistics Chart Section -->
         <div class="p-6 md:p-8 pb-0">
             <div class="mb-6">
-                <div class="text-2xl font-semibold tracking-tight leading-8">Số lượng bài viết tạo ra trong {{selectedYear}}</div>
+                <div class="text-2xl font-semibold tracking-tight leading-8">
+                    Số lượng bài viết tạo ra trong {{ selectedYear }}
+                </div>
             </div>
-            <div class="bg-card shadow-none border border-gray-200 rounded-xl flex flex-col relative">
+            <div
+                class="bg-card shadow-none border border-gray-200 rounded-xl flex flex-col relative"
+            >
                 <div class="flex justify-end px-6 pt-6 pb-0">
                     <div class="flex items-center z-10">
-                        <button mat-icon-button (click)="forceRefresh()" matTooltip="Làm mới dữ liệu" class="mr-2 text-gray-500 hover:text-gray-900">
-                            <mat-icon [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
+                        <button
+                            mat-icon-button
+                            (click)="forceRefresh()"
+                            matTooltip="Làm mới dữ liệu"
+                            class="mr-2 text-gray-500 hover:text-gray-900"
+                        >
+                            <mat-icon
+                                [svgIcon]="'heroicons_outline:refresh'"
+                            ></mat-icon>
                         </button>
-                        <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-28">
-                            <mat-select [(value)]="selectedYear" (selectionChange)="onYearChange()">
-                                <mat-option *ngFor="let year of yearsList" [value]="year">{{year}}</mat-option>
+                        <mat-form-field
+                            appearance="fill"
+                            class="fuse-mat-dense field-hidden-subscript w-28"
+                        >
+                            <mat-select
+                                [(value)]="selectedYear"
+                                (selectionChange)="onYearChange()"
+                            >
+                                @for (year of yearsList; track year) {
+                                    <mat-option [value]="year">{{
+                                        year
+                                    }}</mat-option>
+                                }
                             </mat-select>
                         </mat-form-field>
                     </div>
                 </div>
-                <div class="w-full overflow-hidden" *ngIf="chartOptions">
-                    <apx-chart 
-                        [series]="chartOptions.series" 
-                        [chart]="chartOptions.chart" 
-                        [dataLabels]="chartOptions.dataLabels" 
-                        [plotOptions]="chartOptions.plotOptions" 
-                        [yaxis]="chartOptions.yaxis" 
-                        [xaxis]="chartOptions.xaxis" 
-                        [fill]="chartOptions.fill" 
-                        [tooltip]="chartOptions.tooltip" 
-                        [stroke]="chartOptions.stroke"
-                        [grid]="chartOptions.grid"
-                        [legend]="chartOptions.legend">
-                    </apx-chart>
-                </div>
+                @if (chartOptions) {
+                    <div class="w-full overflow-hidden">
+                        <apx-chart
+                            [series]="chartOptions.series"
+                            [chart]="chartOptions.chart"
+                            [dataLabels]="chartOptions.dataLabels"
+                            [plotOptions]="chartOptions.plotOptions"
+                            [yaxis]="chartOptions.yaxis"
+                            [xaxis]="chartOptions.xaxis"
+                            [fill]="chartOptions.fill"
+                            [tooltip]="chartOptions.tooltip"
+                            [stroke]="chartOptions.stroke"
+                            [grid]="chartOptions.grid"
+                            [legend]="chartOptions.legend"
+                        >
+                        </apx-chart>
+                    </div>
+                }
             </div>
 
             <!-- Mini Stat Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6" *ngIf="sparkline1">
-                <!-- Card 1 -->
-                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col">
-                    <div class="p-6 pb-4">
-                        <div class="text-lg font-medium text-secondary">Tổng số bài viết</div>
-                        <div class="text-4xl font-bold mt-2">{{totalArticles}}</div>
-                        <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="totalArticlesStatus.color">
-                            <mat-icon class="icon-size-4 mr-1 text-current">{{totalArticlesStatus.icon}}</mat-icon> {{totalArticlesStatus.text}}
-                        </div>
-                    </div>
-                    <div class="h-16 mt-auto">
-                        <apx-chart 
-                            [series]="sparkline1.series" [chart]="sparkline1.chart" [stroke]="sparkline1.stroke" 
-                            [fill]="sparkline1.fill" [colors]="sparkline1.colors" [tooltip]="sparkline1.tooltip"
-                            [grid]="sparkline1.grid" [xaxis]="sparkline1.xaxis" [yaxis]="sparkline1.yaxis"
-                            [dataLabels]="sparkline1.dataLabels" [markers]="sparkline1.markers">
-                        </apx-chart>
-                    </div>
-                </div>
-
-                <!-- Card 2 -->
-                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col">
-                    <div class="p-6 pb-4">
-                        <div class="text-lg font-medium text-secondary">Domain hoạt động</div>
-                        <div class="text-4xl font-bold mt-2">{{activeDomains}}</div>
-                        <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="activeDomainsStatus.color">
-                            <mat-icon class="icon-size-4 mr-1 text-current">{{activeDomainsStatus.icon}}</mat-icon> {{activeDomainsStatus.text}}
-                        </div>
-                    </div>
-                    <div class="h-16 mt-auto">
-                        <apx-chart 
-                            [series]="sparkline2.series" [chart]="sparkline2.chart" [stroke]="sparkline2.stroke" 
-                            [fill]="sparkline2.fill" [colors]="sparkline2.colors" [tooltip]="sparkline2.tooltip"
-                            [grid]="sparkline2.grid" [xaxis]="sparkline2.xaxis" [yaxis]="sparkline2.yaxis"
-                            [dataLabels]="sparkline2.dataLabels" [markers]="sparkline2.markers">
-                        </apx-chart>
-                    </div>
-                </div>
-
-                <!-- Card 3 -->
-                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col">
-                    <div class="p-6 pb-4">
-                        <div class="text-lg font-medium text-secondary">Tiến độ bài tháng {{evalMonthToDisplay < 10 ? '0' + evalMonthToDisplay : evalMonthToDisplay}}</div>
-                        <div class="text-4xl font-bold mt-2">{{progressCurrent | number}} <span class="text-xl font-medium text-secondary ml-1">({{progressPercent}}%)</span> <span class="text-2xl text-secondary ml-2">/ {{progressTarget | number}}</span></div>
-                        <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="progressStatus.color">
-                            <mat-icon class="icon-size-4 mr-1 text-current">{{progressStatus.icon}}</mat-icon> {{progressStatus.text}}
-                        </div>
-                    </div>
-                    <div class="h-16 mt-auto">
-                        <apx-chart *ngIf="sparkline3"
-                            [series]="sparkline3.series" [chart]="sparkline3.chart" [stroke]="sparkline3.stroke" 
-                            [fill]="sparkline3.fill" [colors]="sparkline3.colors" [tooltip]="sparkline3.tooltip"
-                            [grid]="sparkline3.grid" [xaxis]="sparkline3.xaxis" [yaxis]="sparkline3.yaxis"
-                            [dataLabels]="sparkline3.dataLabels" [markers]="sparkline3.markers">
-                        </apx-chart>
-                    </div>
-                </div>
-
-            </div>
-            
-        </div>
-        <div class="p-6 md:p-8">
-            <div class="text-2xl font-semibold tracking-tight leading-8 mb-6">{{collections?.length || 0}} {{ 'app.your_collections' | transloco }}
-            </div>
-
-            <div *ngIf="collections && collections.length > 0"
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <div *ngFor="let item of collections" [routerLink]="['/collection']"
-                    [queryParams]="{ collectionId: item._id }"
-                    class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-green-600 rounded-xl overflow-hidden cursor-pointer">
-                    <div class="p-6 flex flex-col flex-auto">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="text-lg font-medium tracking-tight truncate" [title]="item.title">
-                                {{item.title}}
+            @if (sparkline1) {
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6">
+                    <!-- Card 1 -->
+                    <div
+                        class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col"
+                    >
+                        <div class="p-6 pb-4">
+                            <div class="text-lg font-medium text-secondary">
+                                Tổng số bài viết
+                            </div>
+                            <div class="text-4xl font-bold mt-2">
+                                {{ totalArticles }}
+                            </div>
+                            <div
+                                class="text-sm font-medium mt-2 flex items-center"
+                                [ngClass]="totalArticlesStatus.color"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 mr-1 text-current"
+                                    >{{ totalArticlesStatus.icon }}</mat-icon
+                                >
+                                {{ totalArticlesStatus.text }}
                             </div>
                         </div>
-                        <div class="mt-4 flex items-center justify-between text-xs text-secondary">
-                            <span class="flex items-center" [title]="'app.last_edited_date' | transloco">
-                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:clock'"></mat-icon>
-                                {{(item.lastItemUpdatedAt || item.lastUpdatedAt || item.lastUpdated || item.updatedAt) |
-                                timeago}}
-                            </span>
-                            <span
-                                class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">
-                                {{item.count || 0}} {{ 'app.records' | transloco }}
-                            </span>
+                        <div class="h-16 mt-auto">
+                            <apx-chart
+                                [series]="sparkline1.series"
+                                [chart]="sparkline1.chart"
+                                [stroke]="sparkline1.stroke"
+                                [fill]="sparkline1.fill"
+                                [colors]="sparkline1.colors"
+                                [tooltip]="sparkline1.tooltip"
+                                [grid]="sparkline1.grid"
+                                [xaxis]="sparkline1.xaxis"
+                                [yaxis]="sparkline1.yaxis"
+                                [dataLabels]="sparkline1.dataLabels"
+                                [markers]="sparkline1.markers"
+                            >
+                            </apx-chart>
+                        </div>
+                    </div>
+                    <!-- Card 2 -->
+                    <div
+                        class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col"
+                    >
+                        <div class="p-6 pb-4">
+                            <div class="text-lg font-medium text-secondary">
+                                Domain hoạt động
+                            </div>
+                            <div class="text-4xl font-bold mt-2">
+                                {{ activeDomains }}
+                            </div>
+                            <div
+                                class="text-sm font-medium mt-2 flex items-center"
+                                [ngClass]="activeDomainsStatus.color"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 mr-1 text-current"
+                                    >{{ activeDomainsStatus.icon }}</mat-icon
+                                >
+                                {{ activeDomainsStatus.text }}
+                            </div>
+                        </div>
+                        <div class="h-16 mt-auto">
+                            <apx-chart
+                                [series]="sparkline2.series"
+                                [chart]="sparkline2.chart"
+                                [stroke]="sparkline2.stroke"
+                                [fill]="sparkline2.fill"
+                                [colors]="sparkline2.colors"
+                                [tooltip]="sparkline2.tooltip"
+                                [grid]="sparkline2.grid"
+                                [xaxis]="sparkline2.xaxis"
+                                [yaxis]="sparkline2.yaxis"
+                                [dataLabels]="sparkline2.dataLabels"
+                                [markers]="sparkline2.markers"
+                            >
+                            </apx-chart>
+                        </div>
+                    </div>
+                    <!-- Card 3 -->
+                    <div
+                        class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col"
+                    >
+                        <div class="p-6 pb-4">
+                            <div class="text-lg font-medium text-secondary">
+                                Tiến độ bài tháng
+                                {{
+                                    evalMonthToDisplay < 10
+                                        ? "0" + evalMonthToDisplay
+                                        : evalMonthToDisplay
+                                }}
+                            </div>
+                            <div class="text-4xl font-bold mt-2">
+                                {{ progressCurrent | number }}
+                                <span
+                                    class="text-xl font-medium text-secondary ml-1"
+                                    >({{ progressPercent }}%)</span
+                                >
+                                <span class="text-2xl text-secondary ml-2"
+                                    >/ {{ progressTarget | number }}</span
+                                >
+                            </div>
+                            <div
+                                class="text-sm font-medium mt-2 flex items-center"
+                                [ngClass]="progressStatus.color"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 mr-1 text-current"
+                                    >{{ progressStatus.icon }}</mat-icon
+                                >
+                                {{ progressStatus.text }}
+                            </div>
+                        </div>
+                        <div class="h-16 mt-auto">
+                            @if (sparkline3) {
+                                <apx-chart
+                                    [series]="sparkline3.series"
+                                    [chart]="sparkline3.chart"
+                                    [stroke]="sparkline3.stroke"
+                                    [fill]="sparkline3.fill"
+                                    [colors]="sparkline3.colors"
+                                    [tooltip]="sparkline3.tooltip"
+                                    [grid]="sparkline3.grid"
+                                    [xaxis]="sparkline3.xaxis"
+                                    [yaxis]="sparkline3.yaxis"
+                                    [dataLabels]="sparkline3.dataLabels"
+                                    [markers]="sparkline3.markers"
+                                >
+                                </apx-chart>
+                            }
                         </div>
                     </div>
                 </div>
+            }
+        </div>
+        <div class="p-6 md:p-8">
+            <div class="text-2xl font-semibold tracking-tight leading-8 mb-6">
+                {{ collections?.length || 0 }}
+                {{ "app.your_collections" | transloco }}
             </div>
+
+            @if (collections && collections.length > 0) {
+                <div
+                    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+                >
+                    @for (item of collections; track item) {
+                        <div
+                            [routerLink]="['/collection']"
+                            [queryParams]="{ collectionId: item._id }"
+                            class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-green-600 rounded-xl overflow-hidden cursor-pointer"
+                        >
+                            <div class="p-6 flex flex-col flex-auto">
+                                <div
+                                    class="flex items-center justify-between mb-4"
+                                >
+                                    <div
+                                        class="text-lg font-medium tracking-tight truncate"
+                                        [title]="item.title"
+                                    >
+                                        {{ item.title }}
+                                    </div>
+                                </div>
+                                <div
+                                    class="mt-4 flex items-center justify-between text-xs text-secondary"
+                                >
+                                    <span
+                                        class="flex items-center"
+                                        [title]="
+                                            'app.last_edited_date' | transloco
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 mr-1.5"
+                                            [svgIcon]="'feather:clock'"
+                                        ></mat-icon>
+                                        {{
+                                            item.lastItemUpdatedAt ||
+                                                item.lastUpdatedAt ||
+                                                item.lastUpdated ||
+                                                item.updatedAt | timeago
+                                        }}
+                                    </span>
+                                    <span
+                                        class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium"
+                                    >
+                                        {{ item.count || 0 }}
+                                        {{ "app.records" | transloco }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
 
             <!-- Empty State -->
-            <div *ngIf="!collections || collections.length === 0" class="empty-state-container">
-                <div class="empty-state-card">
-                    <!-- Animated illustration -->
-                    <div class="empty-state-icon-wrap">
-                        <svg class="empty-state-svg" viewBox="0 0 120 120" fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <!-- Background Gradient Circle -->
-                            <circle cx="60" cy="60" r="56" fill="url(#bgGrad)" />
-
-                            <!-- Document Base -->
-                            <rect x="28" y="28" width="52" height="68" rx="6" fill="white" fill-opacity="0.15"
-                                stroke="white" stroke-opacity="0.3" stroke-width="1.5" />
-                            <!-- Header line -->
-                            <rect x="40" y="42" width="28" height="6" rx="3" fill="white" fill-opacity="0.6" />
-                            <!-- Text lines -->
-                            <rect x="40" y="56" width="20" height="4" rx="2" fill="white" fill-opacity="0.3" />
-                            <rect x="40" y="66" width="14" height="4" rx="2" fill="white" fill-opacity="0.3" />
-                            <rect x="40" y="76" width="24" height="4" rx="2" fill="white" fill-opacity="0.3" />
-
-                            <!-- Floating Media Box -->
-                            <rect x="52" y="48" width="44" height="34" rx="6" fill="white" fill-opacity="0.25"
-                                stroke="white" stroke-opacity="0.5" stroke-width="1.5" />
-                            <circle cx="65" cy="58" r="3.5" fill="white" fill-opacity="0.7" />
-                            <path d="M54 75 L63 65 L69 71 L77 61 L93 75" fill="none" stroke="white" stroke-opacity="0.7"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-
-                            <!-- Floating Add/Create Button -->
-                            <circle cx="82" cy="82" r="14" fill="white" fill-opacity="0.95" />
-                            <path d="M82 75 V89 M75 82 H89" fill="none" stroke="#059669" stroke-width="2.5"
-                                stroke-linecap="round" />
-
-                            <!-- Sparkles -->
-                            <circle cx="92" cy="34" r="3" fill="#a7f3d0" opacity="0.8" />
-                            <circle cx="22" cy="46" r="2" fill="#6ee7b7" opacity="0.6" />
-                            <circle cx="34" cy="88" r="2.5" fill="#6ee7b7" opacity="0.7" />
-                            <path d="M72 26 L73 30 L77 31 L73 32 L72 36 L71 32 L67 31 L71 30 Z" fill="white"
-                                fill-opacity="0.8" />
-
-                            <defs>
-                                <linearGradient id="bgGrad" x1="0" y1="0" x2="120" y2="120"
-                                    gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#10b981" />
-                                    <stop offset="1" stop-color="#059669" />
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                        <!-- Pulse rings -->
-                        <span class="pulse-ring pulse-ring-1"></span>
-                        <span class="pulse-ring pulse-ring-2"></span>
+            @if (!collections || collections.length === 0) {
+                <div class="empty-state-container">
+                    <div class="empty-state-card">
+                        <!-- Animated illustration -->
+                        <div class="empty-state-icon-wrap">
+                            <svg
+                                class="empty-state-svg"
+                                viewBox="0 0 120 120"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                            >
+                                <!-- Background Gradient Circle -->
+                                <circle
+                                    cx="60"
+                                    cy="60"
+                                    r="56"
+                                    fill="url(#bgGrad)"
+                                />
+                                <!-- Document Base -->
+                                <rect
+                                    x="28"
+                                    y="28"
+                                    width="52"
+                                    height="68"
+                                    rx="6"
+                                    fill="white"
+                                    fill-opacity="0.15"
+                                    stroke="white"
+                                    stroke-opacity="0.3"
+                                    stroke-width="1.5"
+                                />
+                                <!-- Header line -->
+                                <rect
+                                    x="40"
+                                    y="42"
+                                    width="28"
+                                    height="6"
+                                    rx="3"
+                                    fill="white"
+                                    fill-opacity="0.6"
+                                />
+                                <!-- Text lines -->
+                                <rect
+                                    x="40"
+                                    y="56"
+                                    width="20"
+                                    height="4"
+                                    rx="2"
+                                    fill="white"
+                                    fill-opacity="0.3"
+                                />
+                                <rect
+                                    x="40"
+                                    y="66"
+                                    width="14"
+                                    height="4"
+                                    rx="2"
+                                    fill="white"
+                                    fill-opacity="0.3"
+                                />
+                                <rect
+                                    x="40"
+                                    y="76"
+                                    width="24"
+                                    height="4"
+                                    rx="2"
+                                    fill="white"
+                                    fill-opacity="0.3"
+                                />
+                                <!-- Floating Media Box -->
+                                <rect
+                                    x="52"
+                                    y="48"
+                                    width="44"
+                                    height="34"
+                                    rx="6"
+                                    fill="white"
+                                    fill-opacity="0.25"
+                                    stroke="white"
+                                    stroke-opacity="0.5"
+                                    stroke-width="1.5"
+                                />
+                                <circle
+                                    cx="65"
+                                    cy="58"
+                                    r="3.5"
+                                    fill="white"
+                                    fill-opacity="0.7"
+                                />
+                                <path
+                                    d="M54 75 L63 65 L69 71 L77 61 L93 75"
+                                    fill="none"
+                                    stroke="white"
+                                    stroke-opacity="0.7"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                                <!-- Floating Add/Create Button -->
+                                <circle
+                                    cx="82"
+                                    cy="82"
+                                    r="14"
+                                    fill="white"
+                                    fill-opacity="0.95"
+                                />
+                                <path
+                                    d="M82 75 V89 M75 82 H89"
+                                    fill="none"
+                                    stroke="#059669"
+                                    stroke-width="2.5"
+                                    stroke-linecap="round"
+                                />
+                                <!-- Sparkles -->
+                                <circle
+                                    cx="92"
+                                    cy="34"
+                                    r="3"
+                                    fill="#a7f3d0"
+                                    opacity="0.8"
+                                />
+                                <circle
+                                    cx="22"
+                                    cy="46"
+                                    r="2"
+                                    fill="#6ee7b7"
+                                    opacity="0.6"
+                                />
+                                <circle
+                                    cx="34"
+                                    cy="88"
+                                    r="2.5"
+                                    fill="#6ee7b7"
+                                    opacity="0.7"
+                                />
+                                <path
+                                    d="M72 26 L73 30 L77 31 L73 32 L72 36 L71 32 L67 31 L71 30 Z"
+                                    fill="white"
+                                    fill-opacity="0.8"
+                                />
+                                <defs>
+                                    <linearGradient
+                                        id="bgGrad"
+                                        x1="0"
+                                        y1="0"
+                                        x2="120"
+                                        y2="120"
+                                        gradientUnits="userSpaceOnUse"
+                                    >
+                                        <stop stop-color="#10b981" />
+                                        <stop offset="1" stop-color="#059669" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <!-- Pulse rings -->
+                            <span class="pulse-ring pulse-ring-1"></span>
+                            <span class="pulse-ring pulse-ring-2"></span>
+                        </div>
+                        <h2 class="empty-state-title">
+                            {{ "app.no_episodes" | transloco }}
+                        </h2>
+                        <p class="empty-state-desc">
+                            {{ "app.your_collection_is_empty" | transloco
+                            }}<br />{{ "app.start_working_now" | transloco }}
+                        </p>
                     </div>
-
-                    <h2 class="empty-state-title">{{ 'app.no_episodes' | transloco }}</h2>
-                    <p class="empty-state-desc">{{ 'app.your_collection_is_empty' | transloco }}<br>{{ 'app.start_working_now' | transloco }}</p>
                 </div>
-            </div>
+            }
         </div>
 
         <!-- Video Projects Section -->
         <div class="p-6 md:p-8 pt-0">
             <div class="flex items-center justify-between mb-6">
-                <div class="text-2xl font-semibold tracking-tight leading-8">{{totalVideoProjects || 0}} {{ 'app.video_projects_building' | transloco }}</div>
-                <a *ngIf="totalVideoProjects > 12" [routerLink]="['/dashboard/video-projects']"
-                    class="text-md font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer">
-                    {{ 'app.view_all' | transloco }}                </a>
-            </div>
-            <div *ngIf="videoProjects && videoProjects.length > 0"
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <div *ngFor="let project of videoProjects" (click)="openVideoProject(project)"
-                    class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-blue-600 rounded-xl overflow-hidden cursor-pointer relative group">
-                    <div class="p-6 flex flex-col flex-auto">
-                        <div class="flex flex-col mb-4 relative pr-8">
-                            <div class="text-lg font-medium tracking-tight truncate" [title]="project.title">
-                                {{ project.title || ('app.new_project' | transloco) }}
-                            </div>
-                            <div class="text-[11px] text-gray-400 mt-1 font-mono truncate"
-                                [title]="'UUID: ' + project.uuid">
-                                ID: {{project.uuid}}
-                            </div>
-                            <button mat-icon-button (click)="deleteVideoProject(project, $event)"
-                                class="absolute -top-2 -right-2 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                [matTooltip]="'app.delete_script' | transloco">
-                                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
-                            </button>
-                        </div>
-                        <div class="mt-4 flex items-center justify-between text-xs text-secondary">
-                            <span class="flex items-center">
-                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:video'"></mat-icon>
-                                {{project.clips?.length || 0}} {{ 'app.scenes' | transloco }}
-                            </span>
-                            <span [ngClass]="project.statusClass"
-                                class="px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">{{project.statusLabel | transloco}}</span>
-                        </div>
-                    </div>
+                <div class="text-2xl font-semibold tracking-tight leading-8">
+                    {{ totalVideoProjects || 0 }}
+                    {{ "app.video_projects_building" | transloco }}
                 </div>
+                @if (totalVideoProjects > 12) {
+                    <a
+                        [routerLink]="['/dashboard/video-projects']"
+                        class="text-md font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                    >
+                        {{ "app.view_all" | transloco }}
+                    </a>
+                }
             </div>
+            @if (videoProjects && videoProjects.length > 0) {
+                <div
+                    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+                >
+                    @for (project of videoProjects; track project) {
+                        <div
+                            (click)="openVideoProject(project)"
+                            class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-blue-600 rounded-xl overflow-hidden cursor-pointer relative group"
+                        >
+                            <div class="p-6 flex flex-col flex-auto">
+                                <div class="flex flex-col mb-4 relative pr-8">
+                                    <div
+                                        class="text-lg font-medium tracking-tight truncate"
+                                        [title]="project.title"
+                                    >
+                                        {{
+                                            project.title ||
+                                                ("app.new_project" | transloco)
+                                        }}
+                                    </div>
+                                    <div
+                                        class="text-[11px] text-gray-400 mt-1 font-mono truncate"
+                                        [title]="'UUID: ' + project.uuid"
+                                    >
+                                        ID: {{ project.uuid }}
+                                    </div>
+                                    <button
+                                        mat-icon-button
+                                        (click)="
+                                            deleteVideoProject(project, $event)
+                                        "
+                                        class="absolute -top-2 -right-2 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                        [matTooltip]="
+                                            'app.delete_script' | transloco
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            [svgIcon]="'heroicons_outline:trash'"
+                                        ></mat-icon>
+                                    </button>
+                                </div>
+                                <div
+                                    class="mt-4 flex items-center justify-between text-xs text-secondary"
+                                >
+                                    <span class="flex items-center">
+                                        <mat-icon
+                                            class="icon-size-4 mr-1.5"
+                                            [svgIcon]="'feather:video'"
+                                        ></mat-icon>
+                                        {{ project.clips?.length || 0 }}
+                                        {{ "app.scenes" | transloco }}
+                                    </span>
+                                    <span
+                                        [ngClass]="project.statusClass"
+                                        class="px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium"
+                                        >{{
+                                            project.statusLabel | transloco
+                                        }}</span
+                                    >
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
 
-            <div *ngIf="!videoProjects || videoProjects.length === 0" class="text-gray-500 text-sm mt-2">
-                {{ 'app.no_video_script_in' | transloco }}
-            </div>
+            @if (!videoProjects || videoProjects.length === 0) {
+                <div class="text-gray-500 text-sm mt-2">
+                    {{ "app.no_video_script_in" | transloco }}
+                </div>
+            }
         </div>
     </div>
+</div>

@@ -7,12 +7,166 @@ html,
 body {
     overflow-x: hidden !important;
     max-width: 100vw;
+    font-size: 14px !important;
+    font-family: "Inter var", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
 body {
     backdrop-filter: blur(12px);
     background-color: rgba(255, 255, 255, 0.1);
     color: white;
+}
+
+body.dark {
+    background-color: #0f172a;
+    color: #ffffff;
+}
+
+/* Fuse primary color and button definitions */
+:root {
+    --fuse-primary: #0d9488;
+    --fuse-primary-500: #14b8a6;
+    --fuse-primary-600: #0d9488;
+}
+
+.theme-default {
+    --fuse-primary: #4f46e5;
+    --fuse-primary-500: #6366f1;
+    --fuse-primary-600: #4f46e5;
+}
+
+.theme-teal {
+    --fuse-primary: #0d9488;
+    --fuse-primary-500: #14b8a6;
+    --fuse-primary-600: #0d9488;
+}
+
+/* Material buttons primary / accent styling */
+.mat-mdc-unelevated-button.mat-primary,
+.mat-mdc-raised-button.mat-primary {
+    --mdc-filled-button-container-color: var(--fuse-primary, #0d9488) !important;
+    --mdc-filled-button-label-text-color: #ffffff !important;
+    --mat-button-protected-container-color: var(--fuse-primary, #0d9488) !important;
+    --mat-button-protected-label-text-color: #ffffff !important;
+    background-color: var(--fuse-primary, #0d9488) !important;
+    color: #ffffff !important;
+
+    .mat-icon {
+        color: #ffffff !important;
+    }
+}
+
+.mat-mdc-unelevated-button.mat-accent,
+.mat-mdc-raised-button.mat-accent {
+    --mdc-filled-button-container-color: var(--fuse-accent, #1e293b) !important;
+    --mdc-filled-button-label-text-color: #ffffff !important;
+    background-color: var(--fuse-accent, #1e293b) !important;
+    color: #ffffff !important;
+}
+
+.mat-mdc-button.mat-primary {
+    --mdc-text-button-label-text-color: var(--fuse-primary, #0d9488) !important;
+    color: var(--fuse-primary, #0d9488) !important;
+}
+
+.mat-mdc-outlined-button.mat-primary {
+    --mdc-outlined-button-label-text-color: var(--fuse-primary, #0d9488) !important;
+    --mdc-outlined-button-outline-color: var(--fuse-primary, #0d9488) !important;
+    color: var(--fuse-primary, #0d9488) !important;
+    border-color: var(--fuse-primary, #0d9488) !important;
+}
+
+/* FAB and Mini-FAB buttons (including eco-fab-speed-dial) */
+.mat-mdc-fab.mat-primary,
+.mat-mdc-mini-fab.mat-primary,
+eco-fab-speed-dial button[mat-fab][color="primary"],
+eco-fab-speed-dial button[mat-mini-fab][color="primary"],
+eco-fab-speed-dial .mat-mdc-fab.mat-primary,
+eco-fab-speed-dial .mat-mdc-mini-fab.mat-primary {
+    --mdc-fab-container-color: var(--fuse-primary, #0d9488) !important;
+    --mat-fab-small-container-color: var(--fuse-primary, #0d9488) !important;
+    --mat-fab-container-color: var(--fuse-primary, #0d9488) !important;
+    --mdc-fab-icon-color: #ffffff !important;
+    background-color: var(--fuse-primary, #0d9488) !important;
+    color: #ffffff !important;
+
+    .mat-icon {
+        color: #ffffff !important;
+        fill: currentColor !important;
+    }
+}
+
+.mat-mdc-fab.mat-warn,
+.mat-mdc-mini-fab.mat-warn,
+eco-fab-speed-dial button[mat-fab][color="warn"],
+eco-fab-speed-dial button[mat-mini-fab][color="warn"],
+eco-fab-speed-dial .mat-mdc-fab.mat-warn,
+eco-fab-speed-dial .mat-mdc-mini-fab.mat-warn {
+    --mdc-fab-container-color: var(--fuse-warn, #ef4444) !important;
+    --mat-fab-small-container-color: var(--fuse-warn, #ef4444) !important;
+    --mat-fab-container-color: var(--fuse-warn, #ef4444) !important;
+    background-color: var(--fuse-warn, #ef4444) !important;
+    color: #ffffff !important;
+
+    .mat-icon {
+        color: #ffffff !important;
+        fill: currentColor !important;
+    }
+}
+
+.mat-mdc-fab.mat-accent,
+.mat-mdc-mini-fab.mat-accent,
+eco-fab-speed-dial button[mat-fab][color="accent"],
+eco-fab-speed-dial button[mat-mini-fab][color="accent"] {
+    --mdc-fab-container-color: var(--fuse-accent, #1e293b) !important;
+    background-color: var(--fuse-accent, #1e293b) !important;
+    color: #ffffff !important;
+
+    .mat-icon {
+        color: #ffffff !important;
+        fill: currentColor !important;
+    }
+}
+
+/* Left sidebar border-right */
+fuse-vertical-navigation {
+    border-right: none !important;
+
+    .fuse-vertical-navigation-wrapper {
+        border-right: 1px solid var(--fuse-border, rgba(0, 0, 0, 0.08)) !important;
+        box-shadow: none !important;
+    }
+}
+
+.dark fuse-vertical-navigation,
+body.dark fuse-vertical-navigation {
+    border-right: none !important;
+
+    .fuse-vertical-navigation-wrapper {
+        border-right: 1px solid var(--fuse-border, rgba(255, 255, 255, 0.08)) !important;
+        box-shadow: none !important;
+    }
+}
+
+/* Settings & Script (n8n) sidebar border-right */
+settings mat-drawer,
+settings .mat-drawer,
+n8n mat-drawer,
+n8n .mat-drawer {
+    border-right: 1px solid var(--fuse-border, #e2e8f0) !important;
+    box-shadow: none !important;
+}
+
+.dark settings mat-drawer,
+.dark settings .mat-drawer,
+body.dark settings mat-drawer,
+body.dark settings .mat-drawer,
+.dark n8n mat-drawer,
+.dark n8n .mat-drawer,
+body.dark n8n mat-drawer,
+body.dark n8n .mat-drawer {
+    border-right: 1px solid var(--fuse-border, rgba(255, 255, 255, 0.12)) !important;
+    box-shadow: none !important;
 }
 
 /* yennq tao ra no */
@@ -2078,4 +2232,22 @@ html:has(auth-sign-in) {
             }
         }
     }
+}
+
+swiper-container {
+    height: 100%;
+    width: 100%;
+    display: block;
+
+    swiper-slide {
+        height: 100% !important;
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+fm-stream-item {
+    display: block;
+    width: 100%;
+    height: 100%;
 }

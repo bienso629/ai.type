@@ -12,7 +12,8 @@ import { MatDialog } from '@angular/material/dialog';
     styleUrls: ['./read.component.scss'],
     providers: [CrawlService],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    standalone: false
 })
 export class ReadComponent implements OnInit, OnDestroy, AfterViewInit {
     user: User;

@@ -10,82 +10,164 @@
     </div>
 </div>
 
-    <!-- Content body -->
-    <mat-dialog-content class="flex flex-col gap-2 p-0 scrollbar-hide !max-h-none"
-        style="-ms-overflow-style: none; scrollbar-width: none;">
+<!-- Content body -->
+<mat-dialog-content
+    class="flex flex-col gap-2 p-0 scrollbar-hide !max-h-none"
+    style="-ms-overflow-style: none; scrollbar-width: none"
+>
+    <!-- Yêu cầu bổ sung -->
+    <mat-form-field
+        class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+        [subscriptSizing]="'dynamic'"
+    >
+        <mat-label>{{
+            "app.auto_request_for_supplementation" | transloco
+        }}</mat-label>
+        <textarea
+            matInput
+            [(ngModel)]="userInstruction"
+            [placeholder]="
+                'app.auto_describe_additionally_what_you' | transloco
+            "
+            cdkTextareaAutosize
+            cdkAutosizeMinRows="3"
+            class="px-2 text-base leading-relaxed"
+        ></textarea>
+    </mat-form-field>
 
-        <!-- Yêu cầu bổ sung -->
-        <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <mat-label>{{ 'app.auto_request_for_supplementation' | transloco }}</mat-label>
-            <textarea matInput
-                [(ngModel)]="userInstruction"
-                [placeholder]="'app.auto_describe_additionally_what_you' | transloco"
-                cdkTextareaAutosize cdkAutosizeMinRows="3" class="px-2 text-base leading-relaxed"></textarea>
-        </mat-form-field>
+    <!-- Hình ảnh/Video tham khảo -->
+    <div class="flex flex-col mt-2">
+        <mat-label class="font-semibold text-slate-800 leading-tight">{{
+            "app.auto_character_reference_image" | transloco
+        }}</mat-label>
+        <p class="text-xs text-gray-500 mt-1 mb-0 leading-tight">
+            {{ "app.auto_upload_an_image_or_video_file" | transloco }}
+        </p>
+    </div>
 
-        <!-- Hình ảnh/Video tham khảo -->
-        <div class="flex flex-col mt-2">
-            <mat-label class="font-semibold text-slate-800 leading-tight">{{ 'app.auto_character_reference_image' | transloco }}</mat-label>
-            <p class="text-xs text-gray-500 mt-1 mb-0 leading-tight">{{ 'app.auto_upload_an_image_or_video_file' | transloco }}</p>
-        </div>
-
-        <div class="w-full relative border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden min-h-[100px]"
-            *ngIf="!imageBase64">
-            <input type="file" title="" accept="image/*,video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" (change)="onFileSelected($event)">
-            <div class="flex flex-col items-center justify-center pointer-events-none">
-                <p class="text-gray-600 font-medium text-sm mb-0.5">{{ 'app.auto_upload_reference_image_video' | transloco }}</p>
+    @if (!imageBase64) {
+        <div
+            class="w-full relative border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden min-h-[100px]"
+        >
+            <input
+                type="file"
+                title=""
+                accept="image/*,video/*"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                (change)="onFileSelected($event)"
+            />
+            <div
+                class="flex flex-col items-center justify-center pointer-events-none"
+            >
+                <p class="text-gray-600 font-medium text-sm mb-0.5">
+                    {{ "app.auto_upload_reference_image_video" | transloco }}
+                </p>
                 <p class="text-gray-400 text-xs">JPG, PNG, MP4</p>
             </div>
         </div>
+    }
 
-        <div *ngIf="imageBase64" class="relative w-full border border-gray-200 rounded-lg overflow-hidden group min-h-[120px]">
-            <ng-container *ngIf="!isVideo()">
-                <img [src]="imageBase64" class="w-full object-cover max-h-[200px]">
-            </ng-container>
-            <ng-container *ngIf="isVideo()">
-                <video [src]="getSafeUrl()" class="w-full object-cover max-h-[200px]" controls playsinline preload="metadata"></video>
-            </ng-container>
-            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button mat-icon-button class="bg-white/20 hover:bg-red-500 text-white rounded-full transition-colors" (click)="removeImage()">
+    @if (imageBase64) {
+        <div
+            class="relative w-full border border-gray-200 rounded-lg overflow-hidden group min-h-[120px]"
+        >
+            @if (!isVideo()) {
+                <img
+                    [src]="imageBase64"
+                    class="w-full object-cover max-h-[200px]"
+                />
+            }
+            @if (isVideo()) {
+                <video
+                    [src]="getSafeUrl()"
+                    class="w-full object-cover max-h-[200px]"
+                    controls
+                    playsinline
+                    preload="metadata"
+                ></video>
+            }
+            <div
+                class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+            >
+                <button
+                    mat-icon-button
+                    class="bg-white/20 hover:bg-red-500 text-white rounded-full transition-colors"
+                    (click)="removeImage()"
+                >
                     <mat-icon class="icon-size-5">delete</mat-icon>
                 </button>
             </div>
         </div>
+    }
 
-        <!-- Nút Tạo Prompt đưa xuống dưới ảnh tham chiếu -->
-        <div class="flex justify-end mt-3 mb-2">
-            <button mat-flat-button
-                    class="bg-amber-500 hover:bg-amber-600 text-white"
-                    (click)="generate()"
-                    [disabled]="isGenerating">
-                <mat-icon class="icon-size-4 text-white" *ngIf="!isGenerating">auto_fix_high</mat-icon>
-                <mat-icon class="icon-size-4 text-white animate-spin" *ngIf="isGenerating">autorenew</mat-icon>
-                <span class="ml-2 text-white font-medium">{{ isGenerating ? 'Đang tạo...' : 'Tạo chi tiết hơn cho Prompt' }}</span>
-            </button>
-        </div>
-
-        <!-- Kết quả -->
-        <div class="flex items-center justify-between mb-1 mt-1">
-            <mat-label class="font-semibold text-slate-800">
-                {{ generatedPrompt ? 'Kết quả từ AI' : 'Kết quả đã chỉnh sửa prompt cũ' }}
-            </mat-label>
-            <button *ngIf="generatedPrompt" (click)="generatedPrompt = ''" class="text-xs text-gray-400 hover:text-red-400 transition-colors">
-                {{ 'app.auto_undo' | transloco }}
-            </button>
-        </div>
-        <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <textarea matInput
-                [ngModel]="generatedPrompt || currentPrompt"
-                (ngModelChange)="generatedPrompt ? generatedPrompt = $event : currentPrompt = $event"
-                cdkTextareaAutosize cdkAutosizeMinRows="3"
-                class="px-2 text-base leading-relaxed"></textarea>
-        </mat-form-field>
-
-    </mat-dialog-content>
-
-    <!-- Footer Actions -->
-    <mat-dialog-actions align="end" class="p-0 mt-4 !mb-0 gap-2" style="margin-bottom: 0px !important;">
-        <button mat-flat-button color="primary" (click)="apply()">
-            {{ 'app.auto_apply' | transloco }}
+    <!-- Nút Tạo Prompt đưa xuống dưới ảnh tham chiếu -->
+    <div class="flex justify-end mt-3 mb-2">
+        <button
+            mat-flat-button
+            class="bg-amber-500 hover:bg-amber-600 text-white"
+            (click)="generate()"
+            [disabled]="isGenerating"
+        >
+            @if (!isGenerating) {
+                <mat-icon class="icon-size-4 text-white"
+                    >auto_fix_high</mat-icon
+                >
+            }
+            @if (isGenerating) {
+                <mat-icon class="icon-size-4 text-white animate-spin"
+                    >autorenew</mat-icon
+                >
+            }
+            <span class="ml-2 text-white font-medium">{{
+                isGenerating ? "Đang tạo..." : "Tạo chi tiết hơn cho Prompt"
+            }}</span>
         </button>
-    </mat-dialog-actions>
+    </div>
+
+    <!-- Kết quả -->
+    <div class="flex items-center justify-between mb-1 mt-1">
+        <mat-label class="font-semibold text-slate-800">
+            {{
+                generatedPrompt
+                    ? "Kết quả từ AI"
+                    : "Kết quả đã chỉnh sửa prompt cũ"
+            }}
+        </mat-label>
+        @if (generatedPrompt) {
+            <button
+                (click)="generatedPrompt = ''"
+                class="text-xs text-gray-400 hover:text-red-400 transition-colors"
+            >
+                {{ "app.auto_undo" | transloco }}
+            </button>
+        }
+    </div>
+    <mat-form-field
+        class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+        [subscriptSizing]="'dynamic'"
+    >
+        <textarea
+            matInput
+            [ngModel]="generatedPrompt || currentPrompt"
+            (ngModelChange)="
+                generatedPrompt
+                    ? (generatedPrompt = $event)
+                    : (currentPrompt = $event)
+            "
+            cdkTextareaAutosize
+            cdkAutosizeMinRows="3"
+            class="px-2 text-base leading-relaxed"
+        ></textarea>
+    </mat-form-field>
+</mat-dialog-content>
+
+<!-- Footer Actions -->
+<mat-dialog-actions
+    align="end"
+    class="p-0 mt-4 !mb-0 gap-2"
+    style="margin-bottom: 0px !important"
+>
+    <button mat-flat-button color="primary" (click)="apply()">
+        {{ "app.auto_apply" | transloco }}
+    </button>
+</mat-dialog-actions>

@@ -6,7 +6,8 @@ import {
     OnDestroy,
     OnInit,
     ViewChild,
-    ViewEncapsulation
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import { ChatGPTService } from 'app/_services/chatgpt';
 import { UserService } from 'app/core/user/user.service';
@@ -24,90 +25,134 @@ import { MatDialogRef } from '@angular/material/dialog';
 
 @Component({
     selector: 'images-data-dialog',
-    template: `<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
-    <!-- Header -->
-    <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b">
-        <div class="flex-1 min-w-0">
-            <!-- Breadcrumbs -->
-            <div class="hidden sm:flex flex-wrap items-center font-medium">
-                <div class="flex items-center whitespace-nowrap">
-                    <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+    template: `<div
+        class="absolute inset-0 flex flex-col min-w-0 overflow-hidden"
+    >
+        <!-- Header -->
+        <div
+            class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b"
+        >
+            <div class="flex-1 min-w-0">
+                <!-- Breadcrumbs -->
+                <div class="hidden sm:flex flex-wrap items-center font-medium">
+                    <div class="flex items-center whitespace-nowrap">
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
+                    </div>
+                    <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px;"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            'app.your_image_library' | transloco
+                        }}</span>
+                    </div>
                 </div>
-                <div class="flex items-center ml-1 whitespace-nowrap">
-                    <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                        [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <span class="ml-1 text-base text-secondary">{{ 'app.your_image_library' | transloco }}</span>
+                <div class="flex sm:hidden">
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base">quay lại</span>
+                    </a>
                 </div>
+                <!-- Title -->
+                <!-- <div class="mt-2">
+          <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+            cung cấp tự động tạo hình ảnh nhanh và chuẩn xác.
+          </p>
+        </div> -->
             </div>
-            <div class="flex sm:hidden">
-                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                    <mat-icon class="icon-size-4 text-secondary"
-                        [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                    <span class="ml-1 text-base">quay lại</span>
-                </a>
+
+            <!-- Actions -->
+            <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+                <button
+                    mat-icon-button
+                    matTooltip="Đóng"
+                    (click)="dialogRef.close()"
+                >
+                    <mat-icon>close</mat-icon>
+                </button>
             </div>
-            <!-- Title -->
-            <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    cung cấp tự động tạo hình ảnh nhanh và chuẩn xác.
-                </p>
-            </div> -->
         </div>
 
-        <!-- Actions -->
-        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <button mat-icon-button matTooltip="Đóng" (click)="dialogRef.close()">
-                <mat-icon>close</mat-icon>
+        <!-- Main -->
+        <div
+            class="flex-auto overflow-y-auto bg-transparent relative p-2"
+            cdkScrollable
+        >
+            <!-- CONTENT GOES HERE -->
+            <div class="flex flex-wrap w-full">
+                @for (img of imageUrls; track img) {
+                    <div
+                        class="thumb-wrap p-2 box-border relative"
+                        [ngStyle]="{
+                            flex: '0 0 ' + 100 / gridSize + '%',
+                            maxWidth: 100 / gridSize + '%',
+                        }"
+                    >
+                        @if (img.toLowerCase().endsWith('.mp4')) {
+                            <video
+                                [src]="'file:///' + img"
+                                class="thumb w-full object-cover rounded-2xl"
+                                controls
+                                muted
+                                loop
+                            ></video>
+                        } @else {
+                            <img
+                                [src]="'file:///' + img"
+                                loading="lazy"
+                                class="thumb w-full object-cover rounded-2xl"
+                            />
+                            <div class="thumb-actions">
+                                <a
+                                    mat-icon-button
+                                    (click)="insert('file:///' + img)"
+                                    class="rounded-full icon-size-6 hover:bg-white hover:bg-opacity-50"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-600"
+                                        [svgIcon]="'feather:arrow-down'"
+                                    ></mat-icon>
+                                </a>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div
+            class="flex items-center justify-between p-3 px-6 bg-gray-50 border-t shrink-0"
+        >
+            <span class="text-xs text-secondary"
+                >{{ imageUrls?.length || 0 }} mục</span
+            >
+            <button
+                mat-flat-button
+                class="bg-gray-200 text-gray-700 hover:bg-gray-300"
+                (click)="dialogRef.close()"
+            >
+                Đóng
             </button>
         </div>
-    </div>
-
-    <!-- Main -->
-    <div class="flex-auto overflow-y-auto bg-transparent relative p-2" cdkScrollable>
-        <!-- CONTENT GOES HERE -->
-        <div class="flex flex-wrap w-full">
-            <div class="thumb-wrap p-2 box-border relative"
-                *ngFor="let img of imageUrls" 
-                [ngStyle]="{
-                    flex: '0 0 ' + (100 / gridSize) + '%',
-                    maxWidth: (100 / gridSize) + '%'
-                }">
-                
-                <ng-container *ngIf="img.toLowerCase().endsWith('.mp4'); else imageTemplate">
-                    <video [src]="'file:///' + img"
-                        class="thumb w-full object-cover rounded-2xl"
-                        controls muted loop>
-                    </video>
-                </ng-container>
-
-                <ng-template #imageTemplate>
-                    <img [src]="'file:///' + img" loading="lazy"
-                        class="thumb w-full object-cover rounded-2xl" />
-
-                    <div class="thumb-actions">
-                        <a mat-icon-button (click)="insert('file:///' + img)"
-                            class="rounded-full icon-size-6 hover:bg-white hover:bg-opacity-50">
-                            <mat-icon class="icon-size-4 text-blue-600"
-                                [svgIcon]="'feather:arrow-down'"></mat-icon>
-                        </a>
-                    </div>
-                </ng-template>
-            </div>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="flex items-center justify-between p-3 px-6 bg-gray-50 border-t shrink-0">
-        <span class="text-xs text-secondary">{{ imageUrls?.length || 0 }} mục</span>
-        <button mat-flat-button class="bg-gray-200 text-gray-700 hover:bg-gray-300" (click)="dialogRef.close()">
-            Đóng
-        </button>
-    </div>
-</div>`,
+    </div>`,
     styleUrls: ['./../../ai-image/ai-image.component.scss'],
     providers: [ChatGPTService, BlogService, DomainService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
     config: AppConfig;
@@ -124,7 +169,7 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
         lg: 8,
         md: 6,
         sm: 3,
-        xs: 2
+        xs: 2,
     };
 
     gridSize = 6; // Mặc định
@@ -176,7 +221,11 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
         // 2. Tính chiều cao dòng (Row Height) để ảnh vuông
         let containerW = w;
 
-        if (this.datatable && this.datatable.element && this.datatable.element.clientWidth > 0) {
+        if (
+            this.datatable &&
+            this.datatable.element &&
+            this.datatable.element.clientWidth > 0
+        ) {
             // Nếu bảng đã hiện, lấy kích thước thật
             containerW = this.datatable.element.clientWidth;
         } else {
@@ -213,7 +262,7 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
 
     insert(img: string) {
         this.dialogRef.close({
-            img: img
+            img: img,
         });
     }
 
@@ -221,15 +270,19 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
      * Chi tiết lưu trữ
      */
     fetch() {
-        this._blogService.allFiles({
-            username: this.user.name, folder: 'thumbnails'
-        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: async (result) => {
-                if (result) this.imageUrls = result.files;
-                this.rebuildRows();
-            },
-            complete: () => { }
-        });
+        this._blogService
+            .allFiles({
+                username: this.user.name,
+                folder: 'thumbnails',
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result) this.imageUrls = result.files;
+                    this.rebuildRows();
+                },
+                complete: () => {},
+            });
     }
 
     /**
@@ -244,15 +297,15 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
         private router: Router,
         private _formBuilder: UntypedFormBuilder,
         private cd: ChangeDetectorRef,
-    ) { }
+    ) {}
 
     ngOnInit(): void {
         // Create the form
         this.imageAIForm = this._formBuilder.group({
-            chatgpt: ['']
+            chatgpt: [''],
         });
 
-            // Chỉ chạy tính toán khi Dialog đã mở xong hoàn toàn (hết animation)
+        // Chỉ chạy tính toán khi Dialog đã mở xong hoàn toàn (hết animation)
         this.dialogRef.afterOpened().subscribe(() => {
             this.detectGrid();
 
@@ -279,7 +332,7 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
-    ngAfterViewInit() { }
+    ngAfterViewInit() {}
 
     ngOnDestroy(): void {
         if (this.unsubscribeLog) this.unsubscribeLog();
@@ -292,30 +345,32 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
 
     alert(alert?: any) {
         const dialogRef = this._fuseConfirmationService.open({
-            title: (alert) ? alert.title : 'Hoàn tất!',
-            message: (alert) ? alert.message : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu. <span class="font-medium">Hãy tiếp tục với một URL mới luôn nào!</span>',
+            title: alert ? alert.title : 'Hoàn tất!',
+            message: alert
+                ? alert.message
+                : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu. <span class="font-medium">Hãy tiếp tục với một URL mới luôn nào!</span>',
             icon: {
                 show: true,
                 name: 'feather:check',
-                color: 'success'
+                color: 'success',
             },
             actions: {
                 confirm: {
                     show: true,
-                    label: (alert) ? alert.confirm : 'Khởi động lại',
-                    color: 'primary'
+                    label: alert ? alert.confirm : 'Khởi động lại',
+                    color: 'primary',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng cửa sổ'
-                }
+                    label: 'Đóng cửa sổ',
+                },
             },
-            dismissible: true
+            dismissible: true,
         });
 
         // Subscribe to afterClosed from the dialog reference
         dialogRef.afterClosed().subscribe((result) => {
-            if (result === "confirmed") {
+            if (result === 'confirmed') {
                 if (alert.cb) {
                     alert.cb();
                 }
@@ -326,24 +381,26 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference

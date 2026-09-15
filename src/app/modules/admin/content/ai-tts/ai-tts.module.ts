@@ -19,7 +19,7 @@ import { AudioGenerationComponent } from 'app/modules/admin/content/ai-tts/tools
 import { NodeEditorComponent } from 'app/modules/admin/content/ai-tts/tools/node-editor/node-editor.component';
 import { MagicPromptDialogComponent } from 'app/modules/admin/content/ai-tts/tools/node-editor/magic-prompt-dialog.component';
 import { SharedModule } from 'app/shared.module';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 
 const Routes: Route[] = [
     {

@@ -71,7 +71,7 @@ import { WordpressService } from 'app/_services/wordpress';
 import { GlobalAgentService } from 'app/_services/global-agent.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 import * as $ from 'jquery';
 import * as uuid from 'uuid';
 import * as CryptoJS from 'crypto-js';
@@ -113,6 +113,7 @@ interface JobState {
     ],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     temp: any;

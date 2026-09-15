@@ -27,14 +27,15 @@ import { GenaiService } from 'app/genai.service';
 import { marked } from 'marked';
 import { HelperService } from 'app/helper.service';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 @Component({
     selector: 'seo-links',
     templateUrl: './seo-links.component.html',
     providers: [MatDrawerContainer, CrawlService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class LinksComponent implements OnInit, OnDestroy {
     year: number = 2023;

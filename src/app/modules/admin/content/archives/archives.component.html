@@ -1,61 +1,106 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
-                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
                     </div>
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
-                    </div> -->
+          <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+          [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+          <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
+        </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">{{ 'app.your_current_work' | transloco }}</span>
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            "app.your_current_work" | transloco
+                        }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base">{{
+                            "app.back" | transloco
+                        }}</span>
                     </a>
                 </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
-                </p>
-            </div> -->
+    <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+      {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
+    </p>
+  </div> -->
         </div>
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4 gap-2">
-            <ng-select class="custom-select-ai-writer max-w-60" [placeholder]="'app.search_by_episode' | transloco" [items]="collections"
-                (clear)="onClearCollection()" (change)="onChangeCollection()" multiple="true" bindLabel="title"
-                [clearable]="true" [(ngModel)]="selectedCollections" [dropdownPosition]="'bottom'" appendTo="body">
+            <ng-select
+                class="custom-select-ai-writer max-w-60"
+                [placeholder]="'app.search_by_episode' | transloco"
+                [items]="collections"
+                (clear)="onClearCollection()"
+                (change)="onChangeCollection()"
+                multiple="true"
+                bindLabel="title"
+                [clearable]="true"
+                [(ngModel)]="selectedCollections"
+                [dropdownPosition]="'bottom'"
+                appendTo="body"
+            >
                 <ng-template ng-option-tmp let-item="item">
                     <div class="flex items-center justify-between w-full">
-                        <span class="truncate">{{item.title}}</span>
-                        <span *ngIf="item.count !== undefined" class="min-w-5 h-5 px-1 inline-flex items-center justify-center text-xs text-secondary ml-2 font-medium bg-gray-100 dark:bg-gray-800 rounded-full">{{item.count}}</span>
+                        <span class="truncate">{{ item.title }}</span>
+                        @if (item.count !== undefined) {
+                            <span
+                                class="min-w-5 h-5 px-1 inline-flex items-center justify-center text-xs text-secondary ml-2 font-medium bg-gray-100 dark:bg-gray-800 rounded-full"
+                                >{{ item.count }}</span
+                            >
+                        }
                     </div>
                 </ng-template>
                 <ng-template ng-tag-tmp let-search="searchTerm">
-                    <mat-label class="text-base">{{ 'app.search_by' | transloco }}: {{search}}</mat-label>
+                    <mat-label class="text-base"
+                        >{{ "app.search_by" | transloco }}:
+                        {{ search }}</mat-label
+                    >
                 </ng-template>
             </ng-select>
-            <mat-form-field class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix ml-2"
-                appearance="fill">
-                <input matInput (keyup.enter)="searchNode()" [(ngModel)]="keyword"
-                    [placeholder]="'app.search_current_tasks' | transloco">
-                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
+            <mat-form-field
+                class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix ml-2"
+                appearance="fill"
+            >
+                <input
+                    matInput
+                    (keyup.enter)="searchNode()"
+                    [(ngModel)]="keyword"
+                    [placeholder]="'app.search_current_tasks' | transloco"
+                />
+                <mat-icon
+                    class="icon-size-4"
+                    matPrefix
+                    [svgIcon]="'feather:search'"
+                ></mat-icon>
             </mat-form-field>
         </div>
     </div>
@@ -63,178 +108,417 @@
     <!-- Main -->
     <div class="flex-auto overflow-hidden relative w-full">
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [appScrollLock]="isLoading" [virtualization]="uuids.length === 0" #table class="material fullscreen transition-opacity duration-300 absolute inset-0"
-            [columnMode]="ColumnMode.force" [class.opacity-50]="isLoading"
-            [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
-            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" (scroll)="onTableScroll($event)" [headerHeight]="50"
-            [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows" [rowClass]="getRowClass"
-            [messages]="{emptyMessage: 'Không có dữ liệu', totalMessage: 'tác vụ'}">
+        <ngx-datatable
+            [appScrollLock]="isLoading"
+            [virtualization]="uuids.length === 0"
+            #table
+            class="material fullscreen transition-opacity duration-300 absolute inset-0"
+            [columnMode]="ColumnMode.force"
+            [class.opacity-50]="isLoading"
+            [selected]="selected"
+            [selectionType]="SelectionType.checkbox"
+            [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck"
+            (select)="onSelect($event)"
+            [externalPaging]="true"
+            [externalSorting]="true"
+            [count]="totalElements"
+            [offset]="pageNumber"
+            (page)="setPage($event)"
+            (scroll)="onTableScroll($event)"
+            [headerHeight]="50"
+            [footerHeight]="50"
+            [rowHeight]="50"
+            [scrollbarV]="true"
+            [rows]="rows"
+            [rowClass]="getRowClass"
+            [messages]="{
+                emptyMessage: 'Không có dữ liệu',
+                totalMessage: 'tác vụ',
+            }"
+        >
+            <!-- Column Templates -->
+            <ngx-datatable-column
+                [width]="30"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                [headerCheckboxable]="true"
+                [checkboxable]="displayCheck"
+            ></ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="displayCheck"></ngx-datatable-column>
-
-
-            <!-- Column Templates -->
-            <ngx-datatable-column name="{{ 'app.task_id' | transloco }}" [width]="150" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="{{ 'app.task_id' | transloco }}"
+                [width]="150"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row && row.isGroupHeader" class="flex items-center font-bold text-sm text-blue-600 dark:text-blue-400 gap-2 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-blue-500 shrink-0" svgIcon="heroicons_solid:clock"></mat-icon>
-                        <span>{{ row.groupTitle }} ({{ row.count }})</span>
-                    </div>
-                    <div *ngIf="row && !row.isGroupHeader && row.uuid" class="flex items-center justify-self-stretch">
-                        <mat-label matTooltipPosition="above" [matTooltip]="'app.continue_editing_content' | transloco"
-                            (click)="openRowArticle(row)"
-                            class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
-                            {{row.uuid}}
-                        </mat-label>
-                    </div>
-                </ng-template>
-            </ngx-datatable-column>
-
-            <!-- Column Templates -->
-            <ngx-datatable-column name="{{ 'app.title' | transloco }}" [width]="550" [sortable]="false" [canAutoResize]="true"
-                [draggable]="false" [resizeable]="true">
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
-                        <div class="flex items-center w-full gap-2 my-auto cursor-pointer" (click)="openRowArticle(row)">
-                            <mat-icon *ngIf="isRowEncrypted(row)" class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto" [svgIcon]="'feather:lock'" [matTooltip]="'Nội dung đã được mã hóa AES-256'"></mat-icon>
-                            <p class="font-normal truncate flex-1 my-auto leading-normal hover:underline" [matTooltip]="row.title">{{row.title}}</p>
+                    @if (row && row.isGroupHeader) {
+                        <div
+                            class="flex items-center font-bold text-sm text-blue-600 dark:text-blue-400 gap-2 whitespace-nowrap"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-blue-500 shrink-0"
+                                svgIcon="heroicons_solid:clock"
+                            ></mat-icon>
+                            <span>{{ row.groupTitle }} ({{ row.count }})</span>
                         </div>
-                    </ng-container>
+                    }
+                    @if (row && !row.isGroupHeader && row.uuid) {
+                        <div class="flex items-center justify-self-stretch">
+                            <mat-label
+                                matTooltipPosition="above"
+                                [matTooltip]="
+                                    'app.continue_editing_content' | transloco
+                                "
+                                (click)="openRowArticle(row)"
+                                class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800"
+                            >
+                                {{ row.uuid }}
+                            </mat-label>
+                        </div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
+            <ngx-datatable-column
+                name="{{ 'app.title' | transloco }}"
+                [width]="550"
+                [sortable]="false"
+                [canAutoResize]="true"
+                [draggable]="false"
+                [resizeable]="true"
+            >
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    @if (row && !row.isGroupHeader && row.uuid) {
+                        <div
+                            class="flex items-center w-full gap-2 my-auto cursor-pointer"
+                            (click)="openRowArticle(row)"
+                        >
+                            @if (isRowEncrypted(row)) {
+                                <mat-icon
+                                    class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto"
+                                    [svgIcon]="'feather:lock'"
+                                    [matTooltip]="'Nội dung đã được mã hóa AES-256'"
+                                ></mat-icon>
+                            }
+                            <p
+                                class="font-normal truncate flex-1 my-auto leading-normal hover:underline"
+                                [matTooltip]="row.title"
+                            >
+                                {{ row.title }}
+                            </p>
+                        </div>
+                    }
+                </ng-template>
+            </ngx-datatable-column>
 
+            <!-- Column Templates -->
 
             <!-- Column Domain -->
-            <ngx-datatable-column name="Domain" [width]="120" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="true">
+            <ngx-datatable-column
+                name="Domain"
+                [width]="120"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="true"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <span *ngIf="!row?.isGroupHeader && getDomainString(row)" class="truncate block w-full text-blue-600 cursor-pointer hover:underline" [matTooltip]="getDomainString(row)"
-                        (click)="$event.stopPropagation(); openWPPost(row)">
-                        {{ getDomainString(row) }}
-                    </span>
+                    @if (!row?.isGroupHeader && getDomainString(row)) {
+                        <span
+                            class="truncate block w-full text-blue-600 cursor-pointer hover:underline"
+                            [matTooltip]="getDomainString(row)"
+                            (click)="$event.stopPropagation(); openWPPost(row)"
+                        >
+                            {{ getDomainString(row) }}
+                        </span>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="{{ 'app.usage' | transloco }}" [width]="150" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="{{ 'app.usage' | transloco }}"
+                [width]="150"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row && !row.isGroupHeader && row.uuid" class="flex items-center justify-self-stretch">
-                        <mat-label *ngIf="row.used < 0"
-                            class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white">{{ 'app.unconfirmed_1' | transloco }}</mat-label>
-                        <mat-label *ngIf="row.used >= 0">{{row.used}} {{ 'app.times' | transloco }}</mat-label>
-                    </div>
+                    @if (row && !row.isGroupHeader && row.uuid) {
+                        <div class="flex items-center justify-self-stretch">
+                            @if (row.used < 0) {
+                                <mat-label
+                                    class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white"
+                                    >{{
+                                        "app.unconfirmed_1" | transloco
+                                    }}</mat-label
+                                >
+                            }
+                            @if (row.used >= 0) {
+                                <mat-label
+                                    >{{ row.used }}
+                                    {{ "app.times" | transloco }}</mat-label
+                                >
+                            }
+                        </div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="{{ 'app.last_modified' | transloco }}" [width]="130" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                name="{{ 'app.last_modified' | transloco }}"
+                [width]="130"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-container *ngIf="row && !row.isGroupHeader && row.uuid">
+                    @if (row && !row.isGroupHeader && row.uuid) {
                         <span class="text-base font-medium text-secondary">
                             {{ getDateGroup(row) }}
                         </span>
-                    </ng-container>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="{{ 'app.collaborators' | transloco }}" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column
+                name="{{ 'app.collaborators' | transloco }}"
+                [width]="120"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <!--Using ng-option and for loop-->
-                    <ng-select *ngIf="row && !row.isGroupHeader && row.uuid" [(ngModel)]="row.authors" [multiple]="true" [closeOnSelect]="false"
-                        [searchable]="false" appendTo="body" bindLabel="username" bindValue="username"
-                        [placeholder]="'app.invite_to_write' | transloco" class="w-full custom-select-archives">
-                        <!-- <ng-template ng-header-tmp>
-                            <button mat-flat-button>Select all</button>
-                            <button mat-flat-button>Unselect all</button>
-                        </ng-template> -->
-                        <ng-option *ngFor="let user of following_users"
-                            [value]="user.username">{{user.username}}</ng-option>
-                        <ng-template ng-footer-tmp>
-                            <button mat-flat-button class="w-full" [color]="'primary'"
-                                (click)="together(row.uuid, row.authors)">
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
-                                <span class="ml-2 text-base">{{ 'app.auto_send_an_invitation_letter' | transloco }}</span>
-                            </button>
-                        </ng-template>
-                    </ng-select>
+                    @if (row && !row.isGroupHeader && row.uuid) {
+                        <ng-select
+                            [(ngModel)]="row.authors"
+                            [multiple]="true"
+                            [closeOnSelect]="false"
+                            [searchable]="false"
+                            appendTo="body"
+                            bindLabel="username"
+                            bindValue="username"
+                            [placeholder]="'app.invite_to_write' | transloco"
+                            class="w-full custom-select-archives"
+                        >
+                            <!-- <ng-template ng-header-tmp>
+            <button mat-flat-button>Select all</button>
+            <button mat-flat-button>Unselect all</button>
+          </ng-template> -->
+                            @for (user of following_users; track user) {
+                                <ng-option [value]="user.username">{{
+                                    user.username
+                                }}</ng-option>
+                            }
+                            <ng-template ng-footer-tmp>
+                                <button
+                                    mat-flat-button
+                                    class="w-full"
+                                    [color]="'primary'"
+                                    (click)="together(row.uuid, row.authors)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:mail'"
+                                    ></mat-icon>
+                                    <span class="ml-2 text-base">{{
+                                        "app.auto_send_an_invitation_letter"
+                                            | transloco
+                                    }}</span>
+                                </button>
+                            </ng-template>
+                        </ng-select>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="" [width]="240" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column
+                name=""
+                [width]="240"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row && !row.isGroupHeader && row.uuid" class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-0 mr-0">
-                        <button *ngIf="row.has_script || row.hasScript || hasScriptProject(row)" mat-icon-button
-                            (click)="openRowScript(row)"
-                            class="transition-colors" [matTooltip]="'Xem kịch bản'">
-                            <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:feather'"></mat-icon>
-                        </button>
-
-                        <button *ngIf="row.has_video || row.hasVideo || hasVideoProject(row)" mat-icon-button
-                            (click)="openRowVideo(row)" class="transition-colors" [matTooltip]="'Kịch bản video'">
-                            <mat-icon class="icon-size-4 text-blue-500" [svgIcon]="'heroicons_outline:film'"></mat-icon>
-                        </button>
-
-                        <button mat-icon-button [routerLink]="['/amxh']"
-                            [queryParams]="{ tab: 'share', uuid: row.uuid, user: user.name }" class="transition-colors">
-                            <mat-icon class="icon-size-4 text-green-500" [svgIcon]="'feather:share-2'"></mat-icon>
-                        </button>
-                    </div>
+                    @if (row && !row.isGroupHeader && row.uuid) {
+                        <div
+                            class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-0 mr-0"
+                        >
+                            @if (
+                                row.has_script ||
+                                row.hasScript ||
+                                hasScriptProject(row)
+                            ) {
+                                <button
+                                    mat-icon-button
+                                    (click)="openRowScript(row)"
+                                    class="transition-colors"
+                                    [matTooltip]="'Xem kịch bản'"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-red-500"
+                                        [svgIcon]="'feather:feather'"
+                                    ></mat-icon>
+                                </button>
+                            }
+                            @if (
+                                row.has_video ||
+                                row.hasVideo ||
+                                hasVideoProject(row)
+                            ) {
+                                <button
+                                    mat-icon-button
+                                    (click)="openRowVideo(row)"
+                                    class="transition-colors"
+                                    [matTooltip]="'Kịch bản video'"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-500"
+                                        [svgIcon]="'heroicons_outline:film'"
+                                    ></mat-icon>
+                                </button>
+                            }
+                            <button
+                                mat-icon-button
+                                [routerLink]="['/amxh']"
+                                [queryParams]="{
+                                    tab: 'share',
+                                    uuid: row.uuid,
+                                    user: user.name,
+                                }"
+                                class="transition-colors"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-green-500"
+                                    [svgIcon]="'feather:share-2'"
+                                ></mat-icon>
+                            </button>
+                        </div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- <ngx-datatable-column name="SEO" [sortable]="false" [canAutoResize]="true"
-                [draggable]="false" [resizeable]="true">
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    {{ row.seo['words'].total }} từ, {{ row.seo['links'] }} liên kết, {{
-                    row.seo['heading']['h1']['total'] }} H1, {{
-                    row.seo['images']['total'] }} hình ảnh
-                </ng-template>
-            </ngx-datatable-column> -->
+  [draggable]="false" [resizeable]="true">
+  <ng-template let-row="row" ngx-datatable-cell-template>
+    {{ row.seo['words'].total }} từ, {{ row.seo['links'] }} liên kết, {{
+    row.seo['heading']['h1']['total'] }} H1, {{
+    row.seo['images']['total'] }} hình ảnh
+  </ng-template>
+</ngx-datatable-column> -->
 
             <!-- Column Templates -->
             <ngx-datatable-footer>
-                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
-                    let-isVisible="isVisible">
+                <ng-template
+                    ngx-datatable-footer-template
+                    let-rowCount="rowCount"
+                    let-pageSize="pageSize"
+                    let-selectedCount="selectedCount"
+                    let-curPage="curPage"
+                    let-offset="offset"
+                    let-isVisible="isVisible"
+                >
                     <div class="flex w-full items-center justify-between">
                         <div class="flex-1 min-w-0 flex items-center pl-4">
                             <!-- Nút thao tác nằm trước dòng chữ 'Đã chọn...' -->
-                            <button *ngIf="selected && selected.length > 0" mat-flat-button class="bg-red-500 text-white mr-2" (click)="deleteSelected()">
-                                <mat-icon class="icon-size-5" [svgIcon]="'feather:trash-2'"></mat-icon>
-                                <mat-label class="ml-2">{{ 'app.delete_selected' | transloco }} ({{selected.length}})</mat-label>
-                            </button>
-                            <button *ngIf="selected && selected.length > 0" mat-flat-button class="bg-blue-500 text-white mr-2" (click)="openBulkEditDialog()" [disabled]="bulkEditInProgress">
-                                <mat-icon *ngIf="!bulkEditInProgress" class="icon-size-5" [svgIcon]="'feather:edit-2'"></mat-icon>
-                                <div *ngIf="bulkEditInProgress" class="w-5 h-5 inline-flex items-center justify-center">
-                                    <mat-spinner [diameter]="20" class="text-white"></mat-spinner>
-                                </div>
-                                <mat-label class="ml-2">{{ bulkEditInProgress ? 'Đang sửa (' + bulkEditProgress + '/' + bulkEditTotal + ')' : 'Sửa (' + selected.length + ')' }}</mat-label>
-                            </button>
+                            @if (selected && selected.length > 0) {
+                                <button
+                                    mat-flat-button
+                                    class="bg-red-500 text-white mr-2"
+                                    (click)="deleteSelected()"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="'feather:trash-2'"
+                                    ></mat-icon>
+                                    <mat-label class="ml-2"
+                                        >{{
+                                            "app.delete_selected" | transloco
+                                        }}
+                                        ({{ selected.length }})</mat-label
+                                    >
+                                </button>
+                            }
+                            @if (selected && selected.length > 0) {
+                                <button
+                                    mat-flat-button
+                                    class="bg-blue-500 text-white mr-2"
+                                    (click)="openBulkEditDialog()"
+                                    [disabled]="bulkEditInProgress"
+                                >
+                                    @if (!bulkEditInProgress) {
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            [svgIcon]="'feather:edit-2'"
+                                        ></mat-icon>
+                                    }
+                                    @if (bulkEditInProgress) {
+                                        <div
+                                            class="w-5 h-5 inline-flex items-center justify-center"
+                                        >
+                                            <mat-spinner
+                                                [diameter]="20"
+                                                class="text-white"
+                                            ></mat-spinner>
+                                        </div>
+                                    }
+                                    <mat-label class="ml-2">{{
+                                        bulkEditInProgress
+                                            ? "Đang sửa (" +
+                                              bulkEditProgress +
+                                              "/" +
+                                              bulkEditTotal +
+                                              ")"
+                                            : "Sửa (" + selected.length + ")"
+                                    }}</mat-label>
+                                </button>
+                            }
 
                             <div class="page-count font-medium text-secondary">
-                                Đã chọn {{ (selectedCountReal) ? selectedCountReal.toLocaleString() : 0 }} trong {{ (realTotalCount) ?
-                                realTotalCount.toLocaleString() : 0 }} tác vụ
+                                Đã chọn
+                                {{
+                                    selectedCountReal
+                                        ? selectedCountReal.toLocaleString()
+                                        : 0
+                                }}
+                                trong
+                                {{
+                                    realTotalCount
+                                        ? realTotalCount.toLocaleString()
+                                        : 0
+                                }}
+                                tác vụ
                             </div>
                         </div>
 
                         <!-- Actions -->
                         <div class="flex shrink-0 items-center pr-4">
-                            <a [href]="downloadJsonHref" [download]="user.name + '.links.json'"
-                                *ngIf="selected.length > 0" [color]="'primary'" class="ml-0">
-                                Xuất dữ liệu
-                            </a>
+                            @if (selected.length > 0) {
+                                <a
+                                    [href]="downloadJsonHref"
+                                    [download]="user.name + '.links.json'"
+                                    [color]="'primary'"
+                                    class="ml-0"
+                                >
+                                    Xuất dữ liệu
+                                </a>
+                            }
                         </div>
                     </div>
                 </ng-template>
@@ -244,9 +528,16 @@
 </div>
 
 <ng-template #bulkEditDialog>
-    <div class="flex flex-col h-full bg-card rounded-lg overflow-hidden" style="max-width: 600px; min-width: 400px">
-        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
-            <h2 class="text-xl font-semibold m-0 text-gray-800">Sửa dàn ý hàng loạt ({{selected.length}} bài)</h2>
+    <div
+        class="flex flex-col h-full bg-card rounded-lg overflow-hidden"
+        style="max-width: 600px; min-width: 400px"
+    >
+        <div
+            class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0"
+        >
+            <h2 class="text-xl font-semibold m-0 text-gray-800">
+                Sửa dàn ý hàng loạt ({{ selected.length }} bài)
+            </h2>
             <button mat-icon-button mat-dialog-close>
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
             </button>
@@ -254,26 +545,75 @@
         <div class="p-6 overflow-y-auto">
             <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Prompt chỉnh sửa dàn ý</mat-label>
-                <textarea matInput [(ngModel)]="bulkEditPrompt" rows="4" placeholder="Nhập prompt để AI sửa dàn ý..." [disabled]="bulkEditInProgress"></textarea>
+                <textarea
+                    matInput
+                    [(ngModel)]="bulkEditPrompt"
+                    rows="4"
+                    placeholder="Nhập prompt để AI sửa dàn ý..."
+                    [disabled]="bulkEditInProgress"
+                ></textarea>
             </mat-form-field>
         </div>
-        <div class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0">
+        <div
+            class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0"
+        >
             <div class="flex items-center gap-2">
-                <button mat-icon-button color="primary" type="button" (click)="fileInput.click()" [disabled]="bulkEditInProgress" matTooltip="Chọn ảnh tham khảo">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:paperclip'"></mat-icon>
+                <button
+                    mat-icon-button
+                    color="primary"
+                    type="button"
+                    (click)="fileInput.click()"
+                    [disabled]="bulkEditInProgress"
+                    matTooltip="Chọn ảnh tham khảo"
+                >
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:paperclip'"
+                    ></mat-icon>
                 </button>
-                <input type="file" #fileInput accept="image/*" (change)="onBulkEditImageSelected($event)" class="hidden">
-                <span *ngIf="!bulkEditImageBase64" class="text-sm text-gray-400">Đính kèm ảnh</span>
-                <div *ngIf="bulkEditImageBase64" class="relative inline-block ml-1">
-                    <img [src]="bulkEditImageBase64" class="w-10 h-10 rounded object-cover shadow border">
-                    <button *ngIf="!bulkEditInProgress" type="button" class="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center p-0 shadow cursor-pointer border-0" (click)="bulkEditImageBase64 = null" matTooltip="Xóa ảnh">
-                        <mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:x'"></mat-icon>
-                    </button>
-                </div>
+                <input
+                    type="file"
+                    #fileInput
+                    accept="image/*"
+                    (change)="onBulkEditImageSelected($event)"
+                    class="hidden"
+                />
+                @if (!bulkEditImageBase64) {
+                    <span class="text-sm text-gray-400">Đính kèm ảnh</span>
+                }
+                @if (bulkEditImageBase64) {
+                    <div class="relative inline-block ml-1">
+                        <img
+                            [src]="bulkEditImageBase64"
+                            class="w-10 h-10 rounded object-cover shadow border"
+                        />
+                        @if (!bulkEditInProgress) {
+                            <button
+                                type="button"
+                                class="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center p-0 shadow cursor-pointer border-0"
+                                (click)="bulkEditImageBase64 = null"
+                                matTooltip="Xóa ảnh"
+                            >
+                                <mat-icon
+                                    class="icon-size-3 text-white"
+                                    [svgIcon]="'feather:x'"
+                                ></mat-icon>
+                            </button>
+                        }
+                    </div>
+                }
             </div>
 
-            <button mat-flat-button color="primary" [disabled]="!bulkEditPrompt && !bulkEditImageBase64" (click)="confirmBulkEdit()">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:check'"></mat-icon>
+            <button
+                mat-flat-button
+                color="primary"
+                [disabled]="!bulkEditPrompt && !bulkEditImageBase64"
+                (click)="confirmBulkEdit()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'feather:check'"
+                ></mat-icon>
                 <mat-label class="ml-2">Xác nhận</mat-label>
             </button>
         </div>

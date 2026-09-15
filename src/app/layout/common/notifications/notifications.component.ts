@@ -16,7 +16,7 @@ import { DomainService } from 'app/_services/domain';
 import { WordpressService } from 'app/_services/wordpress';
 import { GenaiService } from 'app/genai.service';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
@@ -27,7 +27,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     encapsulation: ViewEncapsulation.None,
     providers: [CrawlService, BlogService, DomainService, WordpressService],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    exportAs: 'notifications'
+    exportAs: 'notifications',
+    standalone: false
 })
 export class NotificationsComponent implements OnInit, OnDestroy {
     user: User;

@@ -1,4 +1,10 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { DomSanitizer, Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfigService } from '@fuse/services/config';
@@ -12,12 +18,14 @@ import { Subject, takeUntil } from 'rxjs';
     selector: 'export',
     templateUrl: './export.component.html',
     providers: [],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class WoocommerceExportComponent implements OnInit, OnDestroy {
     config: AppConfig;
     user: User;
-    
+
     drawerMode: 'over' | 'side' = 'side';
     drawerOpened: boolean = true;
 
@@ -28,7 +36,9 @@ export class WoocommerceExportComponent implements OnInit, OnDestroy {
 
     generateDownloadJsonUri() {
         var theJSON = JSON.stringify(this.chatgpt);
-        var uri = this.sanitizer.bypassSecurityTrustUrl("data:text/json;charset=UTF-8," + encodeURIComponent(theJSON));
+        var uri = this.sanitizer.bypassSecurityTrustUrl(
+            'data:text/json;charset=UTF-8,' + encodeURIComponent(theJSON),
+        );
         this.downloadJsonHref = uri;
     }
 
@@ -41,30 +51,30 @@ export class WoocommerceExportComponent implements OnInit, OnDestroy {
         private _fuseConfigService: FuseConfigService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
-        private sanitizer: DomSanitizer
+        private sanitizer: DomSanitizer,
     ) {
-        this.titleService.setTitle(`nhân đôi sản phẩm | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `nhân đôi sản phẩm | ai.type - công cụ tạo content`,
+        );
     }
 
     ngOnInit(): void {
-       // Subscribe to config changes
-       this._fuseConfigService.config$
-       .pipe(takeUntil(this._unsubscribeAll))
-       .subscribe((config: AppConfig) => {
-           // Store the config
-           this.config = config;
-       });
+        // Subscribe to config changes
+        this._fuseConfigService.config$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((config: AppConfig) => {
+                // Store the config
+                this.config = config;
+            });
 
-   // Subscribe to user changes
-   this._userService.user$
-       .pipe(takeUntil(this._unsubscribeAll))
-       .subscribe((user: User) => {
-           this.user = user;
-
-
-       });
+        // Subscribe to user changes
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user: User) => {
+                this.user = user;
+            });
     }
-    
+
     ngOnDestroy(): void {
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
@@ -74,24 +84,26 @@ export class WoocommerceExportComponent implements OnInit, OnDestroy {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference

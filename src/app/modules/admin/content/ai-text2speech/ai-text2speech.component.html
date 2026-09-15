@@ -2,76 +2,144 @@
     <!-- Header -->
     <div class="shrink-0 pb-2">
         <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100">
-                <mat-icon [svgIcon]="'feather:volume-2'" class="text-emerald-500 icon-size-6"></mat-icon>
+            <div
+                class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100"
+            >
+                <mat-icon
+                    [svgIcon]="'feather:volume-2'"
+                    class="text-emerald-500 icon-size-6"
+                ></mat-icon>
                 <span>Tạo giọng đọc</span>
             </div>
-            <button type="button" mat-icon-button (click)="close()" class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400">
-                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+            <button
+                type="button"
+                mat-icon-button
+                (click)="close()"
+                class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:x'"
+                ></mat-icon>
             </button>
         </div>
 
-        <p class="text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-            Chuyển đổi văn bản thành giọng đọc truyền cảm với các tùy chỉnh tốc độ, cao độ và giọng đọc đa dạng.
+        <p
+            class="text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed"
+        >
+            Chuyển đổi văn bản thành giọng đọc truyền cảm với các tùy chỉnh tốc
+            độ, cao độ và giọng đọc đa dạng.
         </p>
     </div>
 
     <!-- Form (Scrollable) -->
     <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
         <!-- Waveform Container with padding & border -->
-        <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-800">
+        <div
+            class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-800"
+        >
             <div id="waveform" class="w-full"></div>
         </div>
 
         <form [formGroup]="text2speechForm" class="w-full flex flex-col gap-4">
             <ng-container *transloco="let t">
                 <div class="flex flex-col sm:flex-row gap-4">
-                    <mat-form-field class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ t('app.voice') }}</mat-label>
-                        <mat-select [formControlName]="'voice'" required
-                            (selectionChange)="onVoiceChange($event)">
-                            <mat-option [value]="'vi-VN-NamMinhNeural'">Nam Minh (Chuẩn)</mat-option>
-                            <mat-option [value]="'vi-VN-HoaiMyNeural'">Hoài My (Truyền cảm)</mat-option>
+                    <mat-form-field
+                        class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{ t("app.voice") }}</mat-label>
+                        <mat-select
+                            [formControlName]="'voice'"
+                            required
+                            (selectionChange)="onVoiceChange($event)"
+                        >
+                            <mat-option [value]="'vi-VN-NamMinhNeural'"
+                                >Nam Minh (Chuẩn)</mat-option
+                            >
+                            <mat-option [value]="'vi-VN-HoaiMyNeural'"
+                                >Hoài My (Truyền cảm)</mat-option
+                            >
                         </mat-select>
                     </mat-form-field>
 
-                    <mat-form-field class="w-full sm:w-1/3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ t('app.speed') }}</mat-label>
+                    <mat-form-field
+                        class="w-full sm:w-1/3 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{ t("app.speed") }}</mat-label>
                         <mat-select [formControlName]="'rate'">
-                            <mat-option [value]="0.5">{{ t('app.0_5x_very_slow') }}</mat-option>
-                            <mat-option [value]="0.8">{{ t('app.0_8x_slow') }}</mat-option>
+                            <mat-option [value]="0.5">{{
+                                t("app.0_5x_very_slow")
+                            }}</mat-option>
+                            <mat-option [value]="0.8">{{
+                                t("app.0_8x_slow")
+                            }}</mat-option>
                             <mat-option [value]="0.9">0.9x</mat-option>
-                            <mat-option [value]="1.0">{{ t('app.1_0x_standard') }}</mat-option>
+                            <mat-option [value]="1.0">{{
+                                t("app.1_0x_standard")
+                            }}</mat-option>
                             <mat-option [value]="1.1">1.1x</mat-option>
-                            <mat-option [value]="1.2">{{ t('app.1_2x_slightly_fast') }}</mat-option>
-                            <mat-option [value]="1.5">{{ t('app.1_5x_very_fast') }}</mat-option>
-                            <mat-option [value]="2.0">{{ t('app.2_0x_extremely_fast') }}</mat-option>
+                            <mat-option [value]="1.2">{{
+                                t("app.1_2x_slightly_fast")
+                            }}</mat-option>
+                            <mat-option [value]="1.5">{{
+                                t("app.1_5x_very_fast")
+                            }}</mat-option>
+                            <mat-option [value]="2.0">{{
+                                t("app.2_0x_extremely_fast")
+                            }}</mat-option>
                         </mat-select>
                     </mat-form-field>
 
-                    <mat-form-field class="w-full sm:w-1/3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ t('app.pitch') }}</mat-label>
+                    <mat-form-field
+                        class="w-full sm:w-1/3 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{ t("app.pitch") }}</mat-label>
                         <mat-select [formControlName]="'pitch'">
-                            <mat-option [value]="-20">{{ t('app.20_extremely_low') }}</mat-option>
-                            <mat-option [value]="-10">{{ t('app.10_deeply_low') }}</mat-option>
-                            <mat-option [value]="-5">{{ t('app.5_lightly_low') }}</mat-option>
-                            <mat-option [value]="0">{{ t('app.0_default') }}</mat-option>
-                            <mat-option [value]="5">{{ t('app.5_lightly_high') }}</mat-option>
-                            <mat-option [value]="10">{{ t('app.10_clear') }}</mat-option>
-                            <mat-option [value]="20">{{ t('app.20_chibi_child') }}</mat-option>
+                            <mat-option [value]="-20">{{
+                                t("app.20_extremely_low")
+                            }}</mat-option>
+                            <mat-option [value]="-10">{{
+                                t("app.10_deeply_low")
+                            }}</mat-option>
+                            <mat-option [value]="-5">{{
+                                t("app.5_lightly_low")
+                            }}</mat-option>
+                            <mat-option [value]="0">{{
+                                t("app.0_default")
+                            }}</mat-option>
+                            <mat-option [value]="5">{{
+                                t("app.5_lightly_high")
+                            }}</mat-option>
+                            <mat-option [value]="10">{{
+                                t("app.10_clear")
+                            }}</mat-option>
+                            <mat-option [value]="20">{{
+                                t("app.20_chibi_child")
+                            }}</mat-option>
                         </mat-select>
                     </mat-form-field>
                 </div>
 
-                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix custom-textarea"
-                    [subscriptSizing]="'dynamic'">
-                    <mat-label>{{ t('app.text') }}</mat-label>
-                    <textarea #text rows="4" [formControlName]="'text'"
-                        [placeholder]="t('app.text_to_convert_to_audio')" required matInput
-                        cdkTextareaAutosize></textarea>
+                <mat-form-field
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix custom-textarea"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>{{ t("app.text") }}</mat-label>
+                    <textarea
+                        #text
+                        rows="4"
+                        [formControlName]="'text'"
+                        [placeholder]="t('app.text_to_convert_to_audio')"
+                        required
+                        matInput
+                        cdkTextareaAutosize
+                    ></textarea>
                 </mat-form-field>
                 <div class="text-xs text-gray-400 dark:text-gray-500 -mt-2">
-                    {{ t('app.enter_to_break_lines_for_faster_speed') }}
+                    {{ t("app.enter_to_break_lines_for_faster_speed") }}
                 </div>
             </ng-container>
         </form>
@@ -79,15 +147,50 @@
 
     <!-- Footer -->
     <div class="shrink-0 flex items-center justify-end gap-2.5 mt-6">
-        <button mat-button (click)="close()" type="button" class="text-gray-600 dark:text-gray-300 font-medium">Đóng</button>
-        <button mat-flat-button [color]="'primary'" type="button" (click)="text2speech2025()" [disabled]="isGenerating">
-            <mat-icon *ngIf="!isGenerating" class="icon-size-5" [svgIcon]="'feather:radio'"></mat-icon>
-            <mat-icon *ngIf="isGenerating" class="icon-size-5 animate-spin" [svgIcon]="'feather:loader'"></mat-icon>
-            <mat-label class="ml-2">{{ isGenerating ? 'Đang tạo...' : 'Tạo giọng đọc' }}</mat-label>
+        <button
+            mat-button
+            (click)="close()"
+            type="button"
+            class="text-gray-600 dark:text-gray-300 font-medium"
+        >
+            Đóng
         </button>
-        <button *ngIf="generatedAudioUrl" mat-flat-button type="button" (click)="insertIntoParagraph()" class="!bg-emerald-600 hover:!bg-emerald-700 !text-white font-medium">
-            <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:plus-circle'"></mat-icon>
-            <mat-label class="ml-2">Chèn</mat-label>
+        <button
+            mat-flat-button
+            [color]="'primary'"
+            type="button"
+            (click)="text2speech2025()"
+            [disabled]="isGenerating"
+        >
+            @if (!isGenerating) {
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'feather:radio'"
+                ></mat-icon>
+            }
+            @if (isGenerating) {
+                <mat-icon
+                    class="icon-size-5 animate-spin"
+                    [svgIcon]="'feather:loader'"
+                ></mat-icon>
+            }
+            <mat-label class="ml-2">{{
+                isGenerating ? "Đang tạo..." : "Tạo giọng đọc"
+            }}</mat-label>
         </button>
+        @if (generatedAudioUrl) {
+            <button
+                mat-flat-button
+                type="button"
+                (click)="insertIntoParagraph()"
+                class="!bg-emerald-600 hover:!bg-emerald-700 !text-white font-medium"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:plus-circle'"
+                ></mat-icon>
+                <mat-label class="ml-2">Chèn</mat-label>
+            </button>
+        }
     </div>
 </div>

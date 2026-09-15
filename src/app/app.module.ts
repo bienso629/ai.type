@@ -1,7 +1,7 @@
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MAT_DIALOG_DEFAULT_OPTIONS } from '@angular/material/dialog';
-import { TranslocoModule } from '@ngneat/transloco';
-import { APP_INITIALIZER, importProvidersFrom, NgModule, CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA } from '@angular/core';
+import { TranslocoModule } from '@jsverse/transloco';
+import { importProvidersFrom, NgModule, CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA, inject, provideAppInitializer } from '@angular/core';
 import { BrowserModule, DomSanitizer, Title } from '@angular/platform-browser';
 import { AppTitleService } from 'app/core/services/app-title.service';
 import { DragDropModule } from '@angular/cdk/drag-drop';
@@ -85,12 +85,10 @@ import { CustomRouteReuseStrategy } from './core/custom-route-reuse-strategy';
     providers: [
         { provide: RouteReuseStrategy, useClass: CustomRouteReuseStrategy },
         { provide: Title, useClass: AppTitleService },
-        {
-            provide: APP_INITIALIZER,
-            useFactory: initializeApp,
-            deps: [MultiAccountService],
-            multi: true
-        },
+        provideAppInitializer(() => {
+        const initializerFn = (initializeApp)(inject(MultiAccountService));
+        return initializerFn();
+      }),
         importProvidersFrom(TranslocoCoreModule),
         { provide: MAT_DIALOG_DEFAULT_OPTIONS, useValue: { maxHeight: '90vh' } },
         UserClientService,

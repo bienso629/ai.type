@@ -14,7 +14,8 @@ import { Title } from '@angular/platform-browser';
     styleUrls: ['./plugins.component.scss'],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    providers: [UserClientService]
+    providers: [UserClientService],
+    standalone: false
 })
 export class SettingsPluginsComponent implements OnInit, OnDestroy {
     plugins: any[] = [];

@@ -10,20 +10,17 @@
         "declaration": false,
         "downlevelIteration": true,
         "experimentalDecorators": true,
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
+        "strict": false,
+        "ignoreDeprecations": "6.0",
         "importHelpers": true,
         "target": "ES2022",
         "module": "ES2022",
         "useDefineForClassFields": false,
-        "lib": [
-            "ES2022",
-            "dom"
-        ],
         "paths": {
-            "stream": [
-                "./node_modules/stream-browserify"
-            ]
-        },
+            "stream": ["./node_modules/stream-browserify"],
+            "ngx-timeago/language-strings/*": ["../node_modules/ngx-timeago/language-strings/*"]
+        }
     },
     "angularCompilerOptions": {
         "enableI18nLegacyMessageIdFormat": false

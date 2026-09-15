@@ -1,4 +1,14 @@
-import { ChangeDetectorRef, Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    Input,
+    OnChanges,
+    OnDestroy,
+    OnInit,
+    SimpleChanges,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { Subject, takeUntil } from 'rxjs';
 import { FuseLoadingService } from '@fuse/services/loading';
@@ -8,7 +18,9 @@ import { FuseLoadingService } from '@fuse/services/loading';
     templateUrl: './loading-bar.component.html',
     styleUrls: ['./loading-bar.component.scss'],
     encapsulation: ViewEncapsulation.None,
-    exportAs: 'fuseLoadingBar'
+    exportAs: 'fuseLoadingBar',
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class FuseLoadingBarComponent implements OnChanges, OnInit, OnDestroy {
     @Input() autoMode: boolean = true;
@@ -22,9 +34,8 @@ export class FuseLoadingBarComponent implements OnChanges, OnInit, OnDestroy {
      */
     constructor(
         private _fuseLoadingService: FuseLoadingService,
-        private cdr: ChangeDetectorRef
-    ) {
-    }
+        private cdr: ChangeDetectorRef,
+    ) {}
 
     // -----------------------------------------------------------------------------------------------------
     // @ Lifecycle hooks
@@ -39,7 +50,9 @@ export class FuseLoadingBarComponent implements OnChanges, OnInit, OnDestroy {
         // Auto mode
         if ('autoMode' in changes) {
             // Set the auto mode in the service
-            this._fuseLoadingService.setAutoMode(coerceBooleanProperty(changes.autoMode.currentValue));
+            this._fuseLoadingService.setAutoMode(
+                coerceBooleanProperty(changes.autoMode.currentValue),
+            );
         }
     }
 
@@ -66,7 +79,6 @@ export class FuseLoadingBarComponent implements OnChanges, OnInit, OnDestroy {
                 this.show = value;
                 this.cdr.detectChanges();
             });
-
     }
 
     /**

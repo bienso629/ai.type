@@ -1,64 +1,117 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div class="hidden sm:flex flex-wrap items-center font-medium">
                 <div class="flex items-center whitespace-nowrap">
-                    <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                    <a
+                        class="text-base text-primary-500"
+                        [routerLink]="['/dashboard']"
+                        >ai.type</a
+                    >
                 </div>
                 <!-- <div class="flex items-center ml-1 whitespace-nowrap">
-                    <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <a class="ml-1 text-base text-primary-500">{{ 'app.auto_source' | transloco }}</a>
-                </div> -->
+        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+        <a class="ml-1 text-base text-primary-500">{{ 'app.auto_source' | transloco }}</a>
+      </div> -->
                 <div class="flex items-center ml-1 whitespace-nowrap">
-                    <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                        [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <span class="ml-1 text-base text-secondary">{{ 'app.data_collection_tool' | transloco }}</span>
+                    <mat-icon
+                        class="icon-size-4 text-secondary"
+                        style="margin-top: 2px"
+                        [svgIcon]="'heroicons_solid:chevron-right'"
+                    ></mat-icon>
+                    <span class="ml-1 text-base text-secondary">{{
+                        "app.data_collection_tool" | transloco
+                    }}</span>
                 </div>
             </div>
             <div class="flex sm:hidden">
-                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                    <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                    <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
+                <a
+                    class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                    [routerLink]="'./..'"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-secondary"
+                        [svgIcon]="'heroicons_solid:chevron-left'"
+                    ></mat-icon>
+                    <span class="ml-1 text-base">{{
+                        "app.back" | transloco
+                    }}</span>
                 </a>
             </div>
         </div>
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <div *ngIf="links.length > 0" class="animated-box" [@shake]="animationStates.shake.shake">
-                <div class="animated-box-content">
-                    <button mat-icon-button color="primary" (click)="crawlCompany()">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:play'"></mat-icon>
-                        <!-- <mat-label class="ml-2">{{ 'app.auto_continue_manually' | transloco }}</mat-label> -->
-                    </button>
+            @if (links.length > 0) {
+                <div
+                    class="animated-box"
+                    [@shake]="animationStates.shake.shake"
+                >
+                    <div class="animated-box-content">
+                        <button
+                            mat-icon-button
+                            color="primary"
+                            (click)="crawlCompany()"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:play'"
+                            ></mat-icon>
+                            <!-- <mat-label class="ml-2">{{ 'app.auto_continue_manually' | transloco }}</mat-label> -->
+                        </button>
+                    </div>
                 </div>
-            </div>
+            }
 
             <!-- <button (click)="crawlCompany('https://masothue.com/0110994964-cong-ty-tnhh-co-khi-manh-doan')" class="ml-2 bg-blue-600 text-white" mat-flat-button>
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                <mat-label class="ml-2">{{ 'app.auto_scan_test' | transloco }}</mat-label>
-            </button> -->
+    <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+    <mat-label class="ml-2">{{ 'app.auto_scan_test' | transloco }}</mat-label>
+  </button> -->
 
             <!-- <a mat-flat-button class="ml-2" color="primary" [href]="downloadJsonHref" download="links.json">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
-                <mat-label class="ml-2">Export/Import Links</mat-label>
-            </a> -->
+  <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
+  <mat-label class="ml-2">Export/Import Links</mat-label>
+</a> -->
 
             <div class="inline-block ml-0">
-                <button mat-icon-button color="primary" (click)="uploader.click()" matTooltipPosition="above"
-                    [matTooltip]="'app.upload_file_from_computer' | transloco">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:paperclip'"></mat-icon>
+                <button
+                    mat-icon-button
+                    color="primary"
+                    (click)="uploader.click()"
+                    matTooltipPosition="above"
+                    [matTooltip]="'app.upload_file_from_computer' | transloco"
+                >
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:paperclip'"
+                    ></mat-icon>
                 </button>
 
-                <input hidden #uploader id="file" name="file" (change)="readFile($event)" type="file" />
+                <input
+                    hidden
+                    #uploader
+                    id="file"
+                    name="file"
+                    (change)="readFile($event)"
+                    type="file"
+                />
             </div>
 
-            <button (click)="reset()" class="ml-0" matTooltipPosition="above" [matTooltip]="'app.reset_task' | transloco"
-                mat-icon-button>
-                <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+            <button
+                (click)="reset()"
+                class="ml-0"
+                matTooltipPosition="above"
+                [matTooltip]="'app.reset_task' | transloco"
+                mat-icon-button
+            >
+                <mat-icon
+                    class="icon-size-4 text-red-500"
+                    [svgIcon]="'feather:refresh-cw'"
+                ></mat-icon>
             </button>
         </div>
     </div>
@@ -68,25 +121,45 @@
         <!-- CONTENT GOES HERE -->
         <mat-drawer-container class="flex-auto h-full">
             <!-- Drawer -->
-            <mat-drawer class="w-100 bg-gray-100 border-r-0 dark:bg-transparent" [autoFocus]="false" [mode]="drawerMode"
-                [opened]="drawerOpened" #matDrawer>
+            <mat-drawer
+                class="w-100 bg-gray-100 border-r-0 dark:bg-transparent"
+                [autoFocus]="false"
+                [mode]="drawerMode"
+                [opened]="drawerOpened"
+                #matDrawer
+            >
                 <!-- Buy / Sell -->
                 <div class="flex flex-col flex-auto p-4">
                     <!-- Action -->
                     <!-- Advanced search form -->
-                    <form class="flex flex-col items-start w-full overflow-hidden dark:bg-transparent"
-                        [formGroup]="sitemapForm">
+                    <form
+                        class="flex flex-col items-start w-full overflow-hidden dark:bg-transparent"
+                        [formGroup]="sitemapForm"
+                    >
                         <div class="w-full mb-2">
                             <!-- Divider -->
-                            <div class="text-secondary text-xl">{{ 'app.scan_data' | transloco }}</div>
+                            <div class="text-secondary text-xl">
+                                {{ "app.scan_data" | transloco }}
+                            </div>
                             <div class="mt-2 mb-2 border-t"></div>
                         </div>
 
-                        <mat-accordion class="border rounded-xl w-full p-2 bg-white">
-                            <mat-expansion-panel showToggle class="mb-0" [expanded]="true">
+                        <mat-accordion
+                            class="border rounded-xl w-full p-2 bg-white"
+                        >
+                            <mat-expansion-panel
+                                showToggle
+                                class="mb-0"
+                                [expanded]="true"
+                            >
                                 <mat-expansion-panel-header>
-                                    <mat-panel-title class="font-semibold text-primary uppercase">
-                                        {{ 'app.basic_config_for_program' | transloco }}
+                                    <mat-panel-title
+                                        class="font-semibold text-primary uppercase"
+                                    >
+                                        {{
+                                            "app.basic_config_for_program"
+                                                | transloco
+                                        }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
 
@@ -94,14 +167,21 @@
                                     <!-- Địa chỉ mẹ -->
                                     <mat-form-field
                                         class="w-full mt-2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
-                                        [subscriptSizing]="'dynamic'">
-                                        <mat-label>{{ 'app.url_to_collect_data' | transloco }}</mat-label>
-                                        <textarea class="px-2" [formControlName]="'domain'"
-                                            [placeholder]="'https://type.vn'" required matInput
-                                            cdkTextareaAutosize></textarea>
+                                        [subscriptSizing]="'dynamic'"
+                                    >
+                                        <mat-label>{{
+                                            "app.url_to_collect_data"
+                                                | transloco
+                                        }}</mat-label>
+                                        <textarea
+                                            class="px-2"
+                                            [formControlName]="'domain'"
+                                            [placeholder]="'https://type.vn'"
+                                            required
+                                            matInput
+                                            cdkTextareaAutosize
+                                        ></textarea>
                                     </mat-form-field>
-
-
                                 </div>
                             </mat-expansion-panel>
                         </mat-accordion>
@@ -109,130 +189,271 @@
                         <div class="w-full mt-8 mb-2">
                             <!-- Divider -->
                             <div class="flex items-center justify-between">
-                                <div class="text-secondary text-xl">{{ 'app.advanced_config' | transloco }}</div>
-                                <button mat-icon-button color="primary" (click)="autoConfigByAI()"
-                                    [disabled]="aiLoading" matTooltipPosition="above"
-                                    matTooltip="{{ 'app.auto_config_by_ai' | transloco }}">
-                                    <mat-icon *ngIf="!aiLoading" class="icon-size-4"
-                                        svgIcon="heroicons_outline:sparkles"></mat-icon>
-                                    <mat-icon *ngIf="aiLoading" class="icon-size-4 animate-spin"
-                                        svgIcon="feather:loader"></mat-icon>
+                                <div class="text-secondary text-xl">
+                                    {{ "app.advanced_config" | transloco }}
+                                </div>
+                                <button
+                                    mat-icon-button
+                                    color="primary"
+                                    (click)="autoConfigByAI()"
+                                    [disabled]="aiLoading"
+                                    matTooltipPosition="above"
+                                    matTooltip="{{
+                                        'app.auto_config_by_ai' | transloco
+                                    }}"
+                                >
+                                    @if (!aiLoading) {
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            svgIcon="heroicons_outline:sparkles"
+                                        ></mat-icon>
+                                    }
+                                    @if (aiLoading) {
+                                        <mat-icon
+                                            class="icon-size-4 animate-spin"
+                                            svgIcon="feather:loader"
+                                        ></mat-icon>
+                                    }
                                 </button>
                             </div>
                             <div class="mt-2 mb-2 border-t"></div>
                         </div>
 
-                        <mat-accordion class="border rounded-xl p-2 bg-white flex flex-col gap-2">
-                            <mat-expansion-panel showToggle class="mb-0" [expanded]="false">
+                        <mat-accordion
+                            class="border rounded-xl p-2 bg-white flex flex-col gap-2"
+                        >
+                            <mat-expansion-panel
+                                showToggle
+                                class="mb-0"
+                                [expanded]="false"
+                            >
                                 <mat-expansion-panel-header>
-                                    <mat-panel-title class="font-semibold text-primary uppercase">
-                                        {{ 'app.data_collection_rules' | transloco }}
+                                    <mat-panel-title
+                                        class="font-semibold text-primary uppercase"
+                                    >
+                                        {{
+                                            "app.data_collection_rules"
+                                                | transloco
+                                        }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
 
                                 <div class="w-full p-3">
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
-                                        [subscriptSizing]="'dynamic'">
-                                        <mat-label>{{ 'app.data_collection_rules' | transloco }}</mat-label>
-                                        <textarea class="px-2 overflow-y-hidden" [formControlName]="'request'" required
-                                            matInput cdkTextareaAutosize></textarea>
-                                        <mat-hint>{{ 'app.note_usually_no_need_to_change_this_config' | transloco }}</mat-hint>
+                                        [subscriptSizing]="'dynamic'"
+                                    >
+                                        <mat-label>{{
+                                            "app.data_collection_rules"
+                                                | transloco
+                                        }}</mat-label>
+                                        <textarea
+                                            class="px-2 overflow-y-hidden"
+                                            [formControlName]="'request'"
+                                            required
+                                            matInput
+                                            cdkTextareaAutosize
+                                        ></textarea>
+                                        <mat-hint>{{
+                                            "app.note_usually_no_need_to_change_this_config"
+                                                | transloco
+                                        }}</mat-hint>
                                     </mat-form-field>
                                 </div>
                             </mat-expansion-panel>
 
-                            <mat-expansion-panel showToggle class="mb-0" [expanded]="false">
+                            <mat-expansion-panel
+                                showToggle
+                                class="mb-0"
+                                [expanded]="false"
+                            >
                                 <mat-expansion-panel-header>
-                                    <mat-panel-title class="font-semibold text-primary uppercase">
-                                        {{ 'app.selector_for_program' | transloco }}
+                                    <mat-panel-title
+                                        class="font-semibold text-primary uppercase"
+                                    >
+                                        {{
+                                            "app.selector_for_program"
+                                                | transloco
+                                        }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
 
                                 <div class="p-3">
                                     <!-- Lấy link trong nhóm này -->
-                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
-                                        [subscriptSizing]="'dynamic'">
-                                        <mat-label>{{ 'app.declare_root_domain' | transloco }}</mat-label>
-                                        <input [autocomplete]="'off'" [formControlName]="'root_domain'" matInput>
-                                        <mat-hint>{{ 'app.example' | transloco }} "https://masothue.com"</mat-hint>
+                                    <mat-form-field
+                                        class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'"
+                                    >
+                                        <mat-label>{{
+                                            "app.declare_root_domain"
+                                                | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [autocomplete]="'off'"
+                                            [formControlName]="'root_domain'"
+                                            matInput
+                                        />
+                                        <mat-hint
+                                            >{{
+                                                "app.example" | transloco
+                                            }}
+                                            "https://masothue.com"</mat-hint
+                                        >
                                     </mat-form-field>
 
                                     <!-- Lấy Link trong khu vực -->
-                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
-                                        [subscriptSizing]="'dynamic'">
-                                        <mat-label>{{ 'app.selector_by_class_or_1' | transloco }}</mat-label>
-                                        <input [autocomplete]="'off'" [formControlName]="'main_class'" matInput>
-                                        <mat-hint>{{ 'app.example' | transloco }} [div id="main" class="container"][a]Công ty TNHH
-                                            ABC[/a][/div]</mat-hint>
+                                    <mat-form-field
+                                        class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'"
+                                    >
+                                        <mat-label>{{
+                                            "app.selector_by_class_or_1"
+                                                | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [autocomplete]="'off'"
+                                            [formControlName]="'main_class'"
+                                            matInput
+                                        />
+                                        <mat-hint
+                                            >{{
+                                                "app.example" | transloco
+                                            }}
+                                            [div id="main"
+                                            class="container"][a]Công ty TNHH
+                                            ABC[/a][/div]</mat-hint
+                                        >
                                     </mat-form-field>
 
                                     <!-- Lấy link trong nhóm này -->
-                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
-                                        [subscriptSizing]="'dynamic'">
-                                        <mat-label>{{ 'app.selector_by_class_or' | transloco }}</mat-label>
-                                        <input [autocomplete]="'off'" [formControlName]="'next_navigation_class'"
-                                            matInput>
-                                        <mat-hint>{{ 'app.example' | transloco }} [div class="page-numbers"][a]1[/a][/div]</mat-hint>
+                                    <mat-form-field
+                                        class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'"
+                                    >
+                                        <mat-label>{{
+                                            "app.selector_by_class_or"
+                                                | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [autocomplete]="'off'"
+                                            [formControlName]="'next_navigation_class'"
+                                            matInput
+                                        />
+                                        <mat-hint
+                                            >{{
+                                                "app.example" | transloco
+                                            }}
+                                            [div
+                                            class="page-numbers"][a]1[/a][/div]</mat-hint
+                                        >
                                     </mat-form-field>
 
                                     <!-- Lấy link trong nhóm này -->
-                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
-                                        [subscriptSizing]="'dynamic'">
-                                        <mat-label>{{ 'app.if_pagination_is_shortened' | transloco }}</mat-label>
-                                        <input [autocomplete]="'off'" [formControlName]="'page_domain'" matInput>
-                                        <mat-hint>{{ 'app.auto_for_example_a_href_page_2_shor' | transloco }}</mat-hint>
+                                    <mat-form-field
+                                        class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'"
+                                    >
+                                        <mat-label>{{
+                                            "app.if_pagination_is_shortened"
+                                                | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [autocomplete]="'off'"
+                                            [formControlName]="'page_domain'"
+                                            matInput
+                                        />
+                                        <mat-hint>{{
+                                            "app.auto_for_example_a_href_page_2_shor"
+                                                | transloco
+                                        }}</mat-hint>
                                     </mat-form-field>
 
                                     <!-- Lấy Link có từ sau -->
-                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
-                                        [subscriptSizing]="'dynamic'">
-                                        <mat-label>{{ 'app.only_fetch_links_containing' | transloco }}</mat-label>
-                                        <input [autocomplete]="'off'" [formControlName]="'href_contain_str'" matInput>
-                                        <mat-hint>{{ 'app.example' | transloco }} [a href="...cong-ty..."]Công ty TNHH ABC[/a]</mat-hint>
+                                    <mat-form-field
+                                        class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'"
+                                    >
+                                        <mat-label>{{
+                                            "app.only_fetch_links_containing"
+                                                | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [autocomplete]="'off'"
+                                            [formControlName]="'href_contain_str'"
+                                            matInput
+                                        />
+                                        <mat-hint
+                                            >{{ "app.example" | transloco }} [a
+                                            href="...cong-ty..."]Công ty TNHH
+                                            ABC[/a]</mat-hint
+                                        >
                                     </mat-form-field>
 
                                     <!-- Loại bỏ Link -->
-                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
-                                        [subscriptSizing]="'dynamic'">
-                                        <mat-label>{{ 'app.remove_link_if_contains' | transloco }}</mat-label>
-                                        <input [autocomplete]="'off'" [formControlName]="'href_except_contain_str'"
-                                            matInput>
-                                        <mat-hint>{{ 'app.example' | transloco }} [a href="...abc..."]Công ty TNHH ABC[/a]</mat-hint>
+                                    <mat-form-field
+                                        class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'"
+                                    >
+                                        <mat-label>{{
+                                            "app.remove_link_if_contains"
+                                                | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [autocomplete]="'off'"
+                                            [formControlName]="'href_except_contain_str'"
+                                            matInput
+                                        />
+                                        <mat-hint
+                                            >{{ "app.example" | transloco }} [a
+                                            href="...abc..."]Công ty TNHH
+                                            ABC[/a]</mat-hint
+                                        >
                                     </mat-form-field>
                                 </div>
                             </mat-expansion-panel>
                         </mat-accordion>
 
-
-
                         <div class="w-full mt-8 mb-2">
                             <!-- Divider -->
-                            <div class="text-secondary text-xl">{{ 'app.note' | transloco }}</div>
+                            <div class="text-secondary text-xl">
+                                {{ "app.note" | transloco }}
+                            </div>
                             <div class="mt-2 mb-2 border-t"></div>
                         </div>
 
                         <div>
-                            <p class="text-base">{{ 'app.the_program_requires_you' | transloco }}</p>
+                            <p class="text-base">
+                                {{ "app.the_program_requires_you" | transloco }}
+                            </p>
                         </div>
 
                         <!-- <div class="w-full mt-8 mb-2">
-                            <div class="text-secondary text-xl">{{ 'app.auto_storage' | transloco }}</div>
-                            <div class="mt-2 mb-2 border-t"></div>
-                        </div>
+          <div class="text-secondary text-xl">{{ 'app.auto_storage' | transloco }}</div>
+          <div class="mt-2 mb-2 border-t"></div>
+        </div>
 
-                        <div class="flex flex-col items-start mt-0 mb-3">
-                            <mat-checkbox [color]="'primary'" [formControlName]="'is_auto_start'">
-                                {{ 'app.auto_automatically_generate_sitemap' | transloco }}
-                            </mat-checkbox>
-                        </div> -->
+        <div class="flex flex-col items-start mt-0 mb-3">
+          <mat-checkbox [color]="'primary'" [formControlName]="'is_auto_start'">
+            {{ 'app.auto_automatically_generate_sitemap' | transloco }}
+          </mat-checkbox>
+        </div> -->
 
                         <div class="w-full mt-8">
                             <!-- Divider -->
-                            <button class="ml-0" (click)="createSitemap();" [color]="'primary'" type="button"
-                                mat-flat-button>
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:activity'"></mat-icon>
-                                <mat-label class="ml-2">{{ 'app.start_scanning' | transloco }}</mat-label>
+                            <button
+                                class="ml-0"
+                                (click)="createSitemap()"
+                                [color]="'primary'"
+                                type="button"
+                                mat-flat-button
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'feather:activity'"
+                                ></mat-icon>
+                                <mat-label class="ml-2">{{
+                                    "app.start_scanning" | transloco
+                                }}</mat-label>
                             </button>
 
                             <!-- <div class="mt-2 mb-2 border-t"></div> -->
@@ -242,39 +463,92 @@
             </mat-drawer>
 
             <!-- Content -->
-            <mat-drawer-content class="flex flex-col min-w-0 border-t border-l bg-white overflow-hidden rounded-tl-lg">
+            <mat-drawer-content
+                class="flex flex-col min-w-0 border-t border-l bg-white overflow-hidden rounded-tl-lg"
+            >
                 <!-- Header -->
                 <div class="flex flex-col sm:flex-row flex-0 h-full bg-white">
                     <div class="flex-1 min-w-0 h-full relative overflow-hidden">
                         <!-- Kết quả -->
-                        <ngx-datatable [appScrollLock]="aiLoading" [virtualization]="true" class="material fullscreen" [rows]="links"
-                            [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
-                            [scrollbarV]="true" [scrollbarH]="false">
-                            <ngx-datatable-column name="#" [width]="50" [sortable]="false" [canAutoResize]="false"
-                                [draggable]="false" [resizeable]="false">
-                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <mat-icon class="icon-size-4" svgIcon="feather:check-square"
-                                        [color]="(row.status && row.status === 'done') ? 'primary' : 'danger'"></mat-icon>
+                        <ngx-datatable
+                            [appScrollLock]="aiLoading"
+                            [virtualization]="true"
+                            class="material fullscreen"
+                            [rows]="links"
+                            [columnMode]="ColumnMode.force"
+                            [headerHeight]="50"
+                            [footerHeight]="50"
+                            [rowHeight]="50"
+                            [scrollbarV]="true"
+                            [scrollbarH]="false"
+                        >
+                            <ngx-datatable-column
+                                name="#"
+                                [width]="50"
+                                [sortable]="false"
+                                [canAutoResize]="false"
+                                [draggable]="false"
+                                [resizeable]="false"
+                            >
+                                <ng-template
+                                    let-row="row"
+                                    let-value="value"
+                                    ngx-datatable-cell-template
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        svgIcon="feather:check-square"
+                                        [color]="
+                                            row.status && row.status === 'done'
+                                                ? 'primary'
+                                                : 'danger'
+                                        "
+                                    ></mat-icon>
                                 </ng-template>
                             </ngx-datatable-column>
 
-                            <ngx-datatable-column [name]="'app.scanned_links' | transloco" [sortable]="false" [canAutoResize]="true"
-                                [draggable]="false" [resizeable]="true">
-                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <p class="font-normal truncate hover:text-clip">{{row.url}}</p>
+                            <ngx-datatable-column
+                                [name]="'app.scanned_links' | transloco"
+                                [sortable]="false"
+                                [canAutoResize]="true"
+                                [draggable]="false"
+                                [resizeable]="true"
+                            >
+                                <ng-template
+                                    let-row="row"
+                                    let-value="value"
+                                    ngx-datatable-cell-template
+                                >
+                                    <p
+                                        class="font-normal truncate hover:text-clip"
+                                    >
+                                        {{ row.url }}
+                                    </p>
                                 </ng-template>
                             </ngx-datatable-column>
 
                             <ngx-datatable-footer>
-                                <ng-template ngx-datatable-footer-template let-rowCount="rowCount"
-                                    let-pageSize="pageSize" let-selectedCount="selectedCount" let-curPage="curPage"
-                                    let-offset="offset" let-isVisible="isVisible">
-                                    <div class="page-count" *ngIf="links.length > 0">
-                                        <a [href]="downloadJsonHref" download="links.json" [color]="'primary'"
-                                            class="ml-0">
-                                            {{ 'app.download' | transloco }}
-                                        </a>
-                                    </div>
+                                <ng-template
+                                    ngx-datatable-footer-template
+                                    let-rowCount="rowCount"
+                                    let-pageSize="pageSize"
+                                    let-selectedCount="selectedCount"
+                                    let-curPage="curPage"
+                                    let-offset="offset"
+                                    let-isVisible="isVisible"
+                                >
+                                    @if (links.length > 0) {
+                                        <div class="page-count">
+                                            <a
+                                                [href]="downloadJsonHref"
+                                                download="links.json"
+                                                [color]="'primary'"
+                                                class="ml-0"
+                                            >
+                                                {{ "app.download" | transloco }}
+                                            </a>
+                                        </div>
+                                    }
                                 </ng-template>
                             </ngx-datatable-footer>
                         </ngx-datatable>
@@ -282,13 +556,36 @@
 
                     <!-- Actions -->
                     <div class="flex shrink-0 w-120 relative border-l">
-                        <ngx-datatable [appScrollLock]="aiLoading" [virtualization]="true" class="material fullscreen"
-                            [columnMode]="ColumnMode.flex" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
-                            [scrollbarV]="true" [scrollbarH]="false" [rows]="domains">
-                            <ngx-datatable-column [name]="'app.scanned_pages' | transloco" [sortable]="false" [canAutoResize]="true"
-                                [draggable]="false" [resizeable]="true" [flexGrow]="5">
-                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <p class="font-normal truncate hover:text-clip">{{row.url}}</p>
+                        <ngx-datatable
+                            [appScrollLock]="aiLoading"
+                            [virtualization]="true"
+                            class="material fullscreen"
+                            [columnMode]="ColumnMode.flex"
+                            [headerHeight]="50"
+                            [footerHeight]="50"
+                            [rowHeight]="50"
+                            [scrollbarV]="true"
+                            [scrollbarH]="false"
+                            [rows]="domains"
+                        >
+                            <ngx-datatable-column
+                                [name]="'app.scanned_pages' | transloco"
+                                [sortable]="false"
+                                [canAutoResize]="true"
+                                [draggable]="false"
+                                [resizeable]="true"
+                                [flexGrow]="5"
+                            >
+                                <ng-template
+                                    let-row="row"
+                                    let-value="value"
+                                    ngx-datatable-cell-template
+                                >
+                                    <p
+                                        class="font-normal truncate hover:text-clip"
+                                    >
+                                        {{ row.url }}
+                                    </p>
                                 </ng-template>
                             </ngx-datatable-column>
                         </ngx-datatable>

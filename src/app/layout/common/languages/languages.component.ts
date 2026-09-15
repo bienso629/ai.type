@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { take } from 'rxjs';
-import { AvailableLangs, TranslocoService } from '@ngneat/transloco';
+import { AvailableLangs, TranslocoService } from '@jsverse/transloco';
 import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
@@ -9,7 +9,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     templateUrl: './languages.component.html',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    exportAs: 'languages'
+    exportAs: 'languages',
+    standalone: false
 })
 export class LanguagesComponent implements OnInit, OnDestroy {
     availableLangs: AvailableLangs;

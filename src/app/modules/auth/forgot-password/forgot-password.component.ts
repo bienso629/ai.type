@@ -1,5 +1,17 @@
-import { Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
-import { UntypedFormBuilder, UntypedFormGroup, NgForm, Validators } from '@angular/forms';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+import {
+    UntypedFormBuilder,
+    UntypedFormGroup,
+    NgForm,
+    Validators,
+} from '@angular/forms';
 import { finalize } from 'rxjs';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertType } from '@fuse/components/alert';
@@ -9,14 +21,16 @@ import { AuthService } from 'app/core/auth/auth.service';
     selector: 'auth-forgot-password',
     templateUrl: './forgot-password.component.html',
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations
+    animations: fuseAnimations,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AuthForgotPasswordComponent implements OnInit, OnDestroy {
     @ViewChild('forgotPasswordNgForm') forgotPasswordNgForm: NgForm;
 
     alert: { type: FuseAlertType; message: string } = {
         type: 'success',
-        message: ''
+        message: '',
     };
     forgotPasswordForm: UntypedFormGroup;
     showAlert: boolean = false;
@@ -26,10 +40,9 @@ export class AuthForgotPasswordComponent implements OnInit, OnDestroy {
      */
     constructor(
         private _authService: AuthService,
-        private _formBuilder: UntypedFormBuilder
-    ) {
-    }
-    
+        private _formBuilder: UntypedFormBuilder,
+    ) {}
+
     ngOnDestroy(): void {
         // throw new Error('Method not implemented.');
     }
@@ -44,7 +57,7 @@ export class AuthForgotPasswordComponent implements OnInit, OnDestroy {
     ngOnInit(): void {
         // Create the form
         this.forgotPasswordForm = this._formBuilder.group({
-            email: ['', [Validators.required, Validators.email]]
+            email: ['', [Validators.required, Validators.email]],
         });
     }
 
@@ -68,10 +81,10 @@ export class AuthForgotPasswordComponent implements OnInit, OnDestroy {
         this.showAlert = false;
 
         // Forgot password
-        this._authService.forgotPassword(this.forgotPasswordForm.get('email').value)
+        this._authService
+            .forgotPassword(this.forgotPasswordForm.get('email').value)
             .pipe(
                 finalize(() => {
-
                     // Re-enable the form
                     this.forgotPasswordForm.enable();
 
@@ -80,25 +93,25 @@ export class AuthForgotPasswordComponent implements OnInit, OnDestroy {
 
                     // Show the alert
                     this.showAlert = true;
-                })
+                }),
             )
             .subscribe(
                 (response) => {
-
                     // Set the alert
                     this.alert = {
                         type: 'success',
-                        message: 'Password reset sent! You\'ll receive an email if you are registered on our system.'
+                        message:
+                            "Password reset sent! You'll receive an email if you are registered on our system.",
                     };
                 },
                 (response) => {
-
                     // Set the alert
                     this.alert = {
                         type: 'error',
-                        message: 'Email does not found! Are you sure you are already a member?'
+                        message:
+                            'Email does not found! Are you sure you are already a member?',
                     };
-                }
+                },
             );
     }
 }

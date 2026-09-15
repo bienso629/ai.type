@@ -1,10 +1,12 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { TaskProgressService } from 'app/layout/common/task-progress/task-progress.service';
 
 @Component({
     selector: 'app-setting-chatbot-dialog',
-    templateUrl: './setting-chatbot-dialog.component.html'
+    templateUrl: './setting-chatbot-dialog.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class SettingChatbotDialogComponent {
     selectedDataSource: 'documents' | 'website' | 'all' = 'documents';
@@ -17,13 +19,15 @@ export class SettingChatbotDialogComponent {
     constructor(
         public dialogRef: MatDialogRef<SettingChatbotDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
-        private taskProgress: TaskProgressService
+        private taskProgress: TaskProgressService,
     ) {
         this.selectedDataSource = data.selectedDataSource || 'documents';
         this.docTypes = data.docTypes || [];
         this.selectedDocTypes = [...(data.selectedDocTypes || [])];
         this.domainOptions = data.domainOptions || [];
-        this.selectedSettingsDomains = [...(data.selectedSettingsDomains || [])];
+        this.selectedSettingsDomains = [
+            ...(data.selectedSettingsDomains || []),
+        ];
         this.customPrompt = data.customPrompt || '';
     }
 
@@ -59,7 +63,7 @@ export class SettingChatbotDialogComponent {
             selectedDataSource: this.selectedDataSource,
             selectedDocTypes: this.selectedDocTypes,
             selectedSettingsDomains: this.selectedSettingsDomains,
-            customPrompt: this.customPrompt
+            customPrompt: this.customPrompt,
         });
     }
 }

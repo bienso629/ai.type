@@ -1,6 +1,18 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation, Inject, ChangeDetectorRef } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    Inject,
+    ChangeDetectorRef,
+} from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
-import { MatDialog, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import {
+    MatDialog,
+    MAT_DIALOG_DATA,
+    MatDialogRef,
+} from '@angular/material/dialog';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfigService } from '@fuse/services/config';
@@ -11,18 +23,19 @@ import { UserService } from 'app/core/user/user.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { User } from 'app/core/user/user.types';
 import { LicenseKeyService } from 'app/_services/licensekey';
-import { DeviceUUID } from "device-uuid";
+import { DeviceUUID } from 'device-uuid';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
 import { MultiAccountService } from 'app/_services/multi-account.service';
-import { TranslocoService } from '@ngneat/transloco';
+import { TranslocoService } from '@jsverse/transloco';
 
 @Component({
     selector: 'settings-active',
     templateUrl: './active.component.html',
     providers: [LicenseKeyService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false,
 })
 export class SettingsActiveComponent implements OnInit, OnDestroy {
     activeForm: UntypedFormGroup;
@@ -40,7 +53,10 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     onDigitPaste(event: any) {
         let clipboardData = event.clipboardData;
         let pastedText = clipboardData.getData('text');
-        pastedText = pastedText.replace(/[\s~`!@#$%^&*(){}\[\];:"'<,.>?\/\\|_+=-]/g, '');
+        pastedText = pastedText.replace(
+            /[\s~`!@#$%^&*(){}\[\];:"'<,.>?\/\\|_+=-]/g,
+            '',
+        );
 
         const licensekey1 = pastedText.substring(0, 5);
         const licensekey2 = pastedText.substring(5, 10);
@@ -60,18 +76,28 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     }
 
     onDigitInput(event: any, previousElement: any, nextElement: any): void {
-        if (event.code !== 'Backspace' && nextElement !== null && event.target.value.length >= 5) {
+        if (
+            event.code !== 'Backspace' &&
+            nextElement !== null &&
+            event.target.value.length >= 5
+        ) {
             nextElement.focus();
         }
 
-        if (event.code === 'Backspace' && previousElement !== null && event.target.value.length === 0) {
+        if (
+            event.code === 'Backspace' &&
+            previousElement !== null &&
+            event.target.value.length === 0
+        ) {
             previousElement.focus();
         }
     }
 
     copy(appToken: string) {
         this.clipboard.copy(`${appToken}`);
-        this.toastr.success(this._translocoService.translate('app.copy_apptoken_success'));
+        this.toastr.success(
+            this._translocoService.translate('app.copy_apptoken_success'),
+        );
     }
 
     /**
@@ -80,36 +106,53 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     save(relaunchApp: boolean = true): void {
         // Return if the form is invalid
         if (this.activeForm.invalid) {
-            this.toastr.warning(this._translocoService.translate('app.no_license_key_active'));
+            this.toastr.warning(
+                this._translocoService.translate('app.no_license_key_active'),
+            );
             return;
         } else {
             const licensekey = `${this.activeForm.value['licensekey1'].toUpperCase()}-${this.activeForm.value['licensekey2'].toUpperCase()}-${this.activeForm.value['licensekey3'].toUpperCase()}-${this.activeForm.value['licensekey4'].toUpperCase()}-${this.activeForm.value['licensekey5'].toUpperCase()}-${this.activeForm.value['licensekey6'].toUpperCase()}`;
 
-            this._licenseKeyService.activate({
-                username: this.user.name,
-                email: this.user.email,
-                machine: {
-                    uuid: this.uuid,
-                    du: this.du
-                },
-                licensekey: licensekey
-            })
+            this._licenseKeyService
+                .activate({
+                    username: this.user.name,
+                    email: this.user.email,
+                    machine: {
+                        uuid: this.uuid,
+                        du: this.du,
+                    },
+                    licensekey: licensekey,
+                })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: async (result) => {
                         if (result && result.success && result.data) {
-                            const activeInfo = AuthUtils._generateActiveInfo(result.data, this.uuid);
+                            const activeInfo = AuthUtils._generateActiveInfo(
+                                result.data,
+                                this.uuid,
+                            );
 
                             if (activeInfo) {
-                                await this.multiAccountService.setItem('active_info', activeInfo);
-                                this.activeInfo = AuthUtils._getActiveInfo(activeInfo);
+                                await this.multiAccountService.setItem(
+                                    'active_info',
+                                    activeInfo,
+                                );
+                                this.activeInfo =
+                                    AuthUtils._getActiveInfo(activeInfo);
                                 if ((window as any).electron) {
-                                    await (window as any).electron.invoke('register-license', activeInfo);
+                                    await (window as any).electron.invoke(
+                                        'register-license',
+                                        activeInfo,
+                                    );
                                 }
                             }
                             this._cdr.detectChanges();
 
-                            this.toastr.success(this._translocoService.translate('app.activate_success'));
+                            this.toastr.success(
+                                this._translocoService.translate(
+                                    'app.activate_success',
+                                ),
+                            );
 
                             // Cần delay một chút để ghi PouchDB hoàn tất trước khi restart
                             if (relaunchApp && (window as any).electron) {
@@ -117,27 +160,38 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                                 (window as any).electron.relaunchApp();
                             }
                         } else {
-                            this.toastr.error(this._translocoService.translate('app.key_invalid'));
+                            this.toastr.error(
+                                this._translocoService.translate(
+                                    'app.key_invalid',
+                                ),
+                            );
                         }
                     },
-                    error: () => {
-                    },
-                    complete: () => {
-                    }
+                    error: () => {},
+                    complete: () => {},
                 });
         }
     }
 
     restoreLicense(): void {
-        this._licenseKeyService.restore({
-            email: this.user.email,
-            appId: 'ai.typing'
-        })
+        this._licenseKeyService
+            .restore({
+                email: this.user.email,
+                appId: 'ai.typing',
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result) => {
-                    if (result && result.success && result.data && result.data.success && result.data.licenseKey) {
-                        this.toastr.success('Khôi phục thành công! Đang kích hoạt...');
+                    if (
+                        result &&
+                        result.success &&
+                        result.data &&
+                        result.data.success &&
+                        result.data.licenseKey
+                    ) {
+                        this.toastr.success(
+                            'Khôi phục thành công! Đang kích hoạt...',
+                        );
                         // Điền vào form và tự động submit
                         const key = result.data.licenseKey.replace(/-/g, '');
                         if (key.length === 30) {
@@ -152,12 +206,16 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                             this.save();
                         }
                     } else {
-                        this.toastr.error(result?.data?.message || result?.message || 'Không tìm thấy gói đăng ký nào.');
+                        this.toastr.error(
+                            result?.data?.message ||
+                                result?.message ||
+                                'Không tìm thấy gói đăng ký nào.',
+                        );
                     }
                 },
                 error: (err) => {
                     this.toastr.error('Có lỗi xảy ra khi khôi phục.');
-                }
+                },
             });
     }
 
@@ -177,21 +235,28 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
         private _formBuilder: UntypedFormBuilder,
         private multiAccountService: MultiAccountService,
         private _translocoService: TranslocoService,
-        private _cdr: ChangeDetectorRef
+        private _cdr: ChangeDetectorRef,
     ) {
-        this.titleService.setTitle(`kích hoạt phần mềm | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `kích hoạt phần mềm | ai.type - công cụ tạo content`,
+        );
 
         const activeInfoStr = this.multiAccountService.getItem('active_info');
-        if (activeInfoStr && activeInfoStr != 'null' && activeInfoStr != 'undefined') {
+        if (
+            activeInfoStr &&
+            activeInfoStr != 'null' &&
+            activeInfoStr != 'undefined'
+        ) {
             this.activeInfo = AuthUtils._getActiveInfo(activeInfoStr);
-            
+
             // Nếu có key, kiểm tra xem nó còn bao lâu thì hết hạn
-            const expirationDate = AuthUtils._getTokenExpirationDate(activeInfoStr);
+            const expirationDate =
+                AuthUtils._getTokenExpirationDate(activeInfoStr);
             if (expirationDate) {
                 const now = new Date().valueOf();
                 const exp = expirationDate.valueOf();
                 const daysLeft = (exp - now) / (1000 * 60 * 60 * 24);
-                
+
                 // Nếu còn hơn 45 ngày thì ẩn nút, ngược lại (<= 45 ngày hoặc đã hết hạn) thì hiện
                 if (daysLeft > 45) {
                     this.showPaymentButton = false;
@@ -233,8 +298,6 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
             });
     }
 
@@ -247,24 +310,26 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference
@@ -275,19 +340,27 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
 
     openMomoPayment() {
         let formKey = '';
-        if (this.activeForm && this.activeForm.value && this.activeForm.value['licensekey1']) {
-            formKey = `${this.activeForm.value['licensekey1']}-${this.activeForm.value['licensekey2']}-${this.activeForm.value['licensekey3']}-${this.activeForm.value['licensekey4']}-${this.activeForm.value['licensekey5']}-${this.activeForm.value['licensekey6']}`.toUpperCase();
+        if (
+            this.activeForm &&
+            this.activeForm.value &&
+            this.activeForm.value['licensekey1']
+        ) {
+            formKey =
+                `${this.activeForm.value['licensekey1']}-${this.activeForm.value['licensekey2']}-${this.activeForm.value['licensekey3']}-${this.activeForm.value['licensekey4']}-${this.activeForm.value['licensekey5']}-${this.activeForm.value['licensekey6']}`.toUpperCase();
         }
-        
+
         const dialogRef = this.dialog.open(MomoQrDialog, {
-            data: { 
+            data: {
                 user: this.user,
                 apiUrl: this.config.settings.api[this.user.server],
-                licenseKey: this.activeInfo?.user?.licenseKey || this.activeInfo?.licenseKey || (formKey.length > 30 ? formKey : null),
-                isActivated: !!(this.activeInfo && this.activeInfo.user)
+                licenseKey:
+                    this.activeInfo?.user?.licenseKey ||
+                    this.activeInfo?.licenseKey ||
+                    (formKey.length > 30 ? formKey : null),
+                isActivated: !!(this.activeInfo && this.activeInfo.user),
             },
             width: '700px',
-            disableClose: false
+            disableClose: false,
         });
 
         dialogRef.afterClosed().subscribe((result: any) => {
@@ -297,17 +370,21 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             }
             if (result && result.status === 'confirmed') {
                 this.fireConfetti();
-                
+
                 const generatedKey = result.licenseKey || '...';
-                const monthsText = result.months ? `${result.months} ${this._translocoService.translate('app.months')}` : '';
-                
+                const monthsText = result.months
+                    ? `${result.months} ${this._translocoService.translate('app.months')}`
+                    : '';
+
                 // Tự động điền key vào form và thông báo
                 if (generatedKey && generatedKey.length >= 30) {
                     this.onDigitPaste({
-                        clipboardData: { getData: () => generatedKey }
+                        clipboardData: { getData: () => generatedKey },
                     });
-                    
-                    const isAlreadyActivated = !!(this.activeInfo && this.activeInfo.user);
+
+                    const isAlreadyActivated = !!(
+                        this.activeInfo && this.activeInfo.user
+                    );
                     // Tự động Active luôn cho tài khoản
                     setTimeout(() => {
                         this.save(!isAlreadyActivated);
@@ -337,30 +414,34 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                 }
 
                 this._fuseConfirmationService.open({
-                    title: this._translocoService.translate('app.payment_success_title'),
+                    title: this._translocoService.translate(
+                        'app.payment_success_title',
+                    ),
                     message: messageHtml,
                     icon: {
                         show: true,
                         name: 'heroicons_outline:check-circle',
-                        color: 'success'
+                        color: 'success',
                     },
                     actions: {
                         confirm: {
                             show: false,
-                            label: this._translocoService.translate('app.close'),
-                            color: 'primary'
+                            label: this._translocoService.translate(
+                                'app.close',
+                            ),
+                            color: 'primary',
                         },
                         cancel: {
                             show: false,
-                            label: ''
-                        }
+                            label: '',
+                        },
                     },
-                    dismissible: true
+                    dismissible: true,
                 });
             }
         });
     }
-    
+
     fireConfetti() {
         const triggerConfetti = () => {
             const canvas = document.createElement('canvas');
@@ -372,9 +453,15 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             canvas.style.zIndex = '999999';
             canvas.style.pointerEvents = 'none';
             document.body.appendChild(canvas);
-            
-            const myConfetti = (window as any).confetti.create(canvas, { resize: true });
-            myConfetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } }).then(() => {
+
+            const myConfetti = (window as any).confetti.create(canvas, {
+                resize: true,
+            });
+            myConfetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+            }).then(() => {
                 if (canvas.parentNode) {
                     canvas.parentNode.removeChild(canvas);
                 }
@@ -385,7 +472,8 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             triggerConfetti();
         } else {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
+            script.src =
+                'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
             script.onload = triggerConfetti;
             document.body.appendChild(script);
         }
@@ -399,63 +487,135 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             <!-- Header -->
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="flex items-center justify-center w-10 h-10 rounded-full text-blue-600 bg-blue-100 mr-3">
-                        <mat-icon class="text-current" [svgIcon]="'heroicons_outline:qrcode'"></mat-icon>
+                    <div
+                        class="flex items-center justify-center w-10 h-10 rounded-full text-blue-600 bg-blue-100 mr-3"
+                    >
+                        <mat-icon
+                            class="text-current"
+                            [svgIcon]="'heroicons_outline:qrcode'"
+                        ></mat-icon>
                     </div>
-                    <h2 class="m-0 text-xl font-medium">{{ 'app.bank_transfer' | transloco }}</h2>
+                    <h2 class="m-0 text-xl font-medium">
+                        {{ 'app.bank_transfer' | transloco }}
+                    </h2>
                 </div>
                 <button mat-icon-button [matDialogClose]="undefined">
-                    <mat-icon class="text-secondary" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                    <mat-icon
+                        class="text-secondary"
+                        [svgIcon]="'heroicons_outline:x'"
+                    ></mat-icon>
                 </button>
             </div>
-            
+
             <!-- Content Horizontal Layout -->
             <div class="flex flex-col sm:flex-row gap-6 mt-4">
                 <!-- Left Side -->
                 <div class="flex flex-col w-full sm:w-1/2 py-6">
-
-                    <mat-form-field class="fuse-mat-dense w-full mb-4" appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>{{ 'app.select_duration' | transloco }}</mat-label>
+                    <mat-form-field
+                        class="fuse-mat-dense w-full mb-4"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            'app.select_duration' | transloco
+                        }}</mat-label>
                         <mat-select [(value)]="selectedMonths">
-                            <mat-option [value]="1">1 {{ 'app.months' | transloco }} (145.000{{ 'app.currency' | transloco }})</mat-option>
-                            <mat-option [value]="3">3 {{ 'app.months' | transloco }} (435.000{{ 'app.currency' | transloco }})</mat-option>
-                            <mat-option [value]="6">6 {{ 'app.months' | transloco }} (870.000{{ 'app.currency' | transloco }})</mat-option>
-                            <mat-option [value]="12">1 {{ 'app.year' | transloco }} (1.740.000{{ 'app.currency' | transloco }})</mat-option>
+                            <mat-option [value]="1"
+                                >1 {{ 'app.months' | transloco }} (145.000{{
+                                    'app.currency' | transloco
+                                }})</mat-option
+                            >
+                            <mat-option [value]="3"
+                                >3 {{ 'app.months' | transloco }} (435.000{{
+                                    'app.currency' | transloco
+                                }})</mat-option
+                            >
+                            <mat-option [value]="6"
+                                >6 {{ 'app.months' | transloco }} (870.000{{
+                                    'app.currency' | transloco
+                                }})</mat-option
+                            >
+                            <mat-option [value]="12"
+                                >1 {{ 'app.year' | transloco }} (1.740.000{{
+                                    'app.currency' | transloco
+                                }})</mat-option
+                            >
                         </mat-select>
                     </mat-form-field>
 
                     <div class="text-secondary text-sm">
-                        {{ 'app.scan_qr_to_pay' | transloco }} <b>{{(selectedMonths * 145000).toLocaleString('vi-VN')}}{{ 'app.currency' | transloco }}</b>.<br/>
-                        <div class="flex flex-col items-center gap-1 mt-6 px-4 py-4 border border-dashed border-primary rounded-lg font-medium w-full">
-                            <div class="flex items-center gap-2 text-base text-red-500">
+                        {{ 'app.scan_qr_to_pay' | transloco }}
+                        <b
+                            >{{
+                                (selectedMonths * 145000).toLocaleString(
+                                    'vi-VN'
+                                )
+                            }}{{ 'app.currency' | transloco }}</b
+                        >.<br />
+                        <div
+                            class="flex flex-col items-center gap-1 mt-6 px-4 py-4 border border-dashed border-primary rounded-lg font-medium w-full"
+                        >
+                            <div
+                                class="flex items-center gap-2 text-base text-red-500"
+                            >
                                 <span>⚠️</span>
-                                <span>{{ 'app.payment_code_required' | transloco }}</span>
+                                <span>{{
+                                    'app.payment_code_required' | transloco
+                                }}</span>
                             </div>
-                            <div class="flex flex-col items-center gap-3 w-full">
-                                <b class="text-primary text-2xl tracking-wider">{{orderCode}}</b>
+                            <div
+                                class="flex flex-col items-center gap-3 w-full"
+                            >
+                                <b
+                                    class="text-primary text-2xl tracking-wider"
+                                    >{{ orderCode }}</b
+                                >
                             </div>
                         </div>
-                        <div class="text-center w-full mt-2" *ngIf="!data?.isActivated">
-                            <span class="text-secondary mr-1">hoặc</span>
-                            <a class="text-sm font-medium text-primary cursor-pointer hover:underline" [matDialogClose]="'restore'">Khôi phục gói đăng ký</a>
-                        </div>
+                        @if (!data?.isActivated) {
+                            <div class="text-center w-full mt-2">
+                                <span class="text-secondary mr-1">hoặc</span>
+                                <a
+                                    class="text-sm font-medium text-primary cursor-pointer hover:underline"
+                                    [matDialogClose]="'restore'"
+                                    >Khôi phục gói đăng ký</a
+                                >
+                            </div>
+                        }
                     </div>
                 </div>
-                
+
                 <!-- Right Side -->
-                <div class="flex flex-col items-center justify-center w-full sm:w-1/2">
-                    <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 145000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&des=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
+                <div
+                    class="flex flex-col items-center justify-center w-full sm:w-1/2"
+                >
+                    <img
+                        [src]="
+                            'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' +
+                            selectedMonths * 145000 +
+                            '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&des=' +
+                            orderCode
+                        "
+                        class="w-64 rounded"
+                        [alt]="'app.qr_code' | transloco"
+                    />
                 </div>
             </div>
 
             <!-- Footer Actions -->
             <div class="flex items-center justify-end mt-4 pt-3 border-t">
-                <button mat-flat-button class="bg-gray-100 text-gray-700 hover:bg-gray-200" [matDialogClose]="undefined">
+                <button
+                    mat-flat-button
+                    class="bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    [matDialogClose]="undefined"
+                >
                     {{ 'app.auto_cancel' | transloco }}
                 </button>
             </div>
         </div>
-    `
+    `,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class MomoQrDialog implements OnInit, OnDestroy {
     private pollInterval: any;
@@ -464,9 +624,15 @@ export class MomoQrDialog implements OnInit, OnDestroy {
 
     constructor(
         public dialogRef: MatDialogRef<MomoQrDialog>,
-        @Inject(MAT_DIALOG_DATA) public data: { user: User, apiUrl: string, licenseKey?: string, isActivated?: boolean },
+        @Inject(MAT_DIALOG_DATA)
+        public data: {
+            user: User;
+            apiUrl: string;
+            licenseKey?: string;
+            isActivated?: boolean;
+        },
         private clipboard: Clipboard,
-        private toastr: ToastrService
+        private toastr: ToastrService,
     ) {
         this.orderCode = this.generateOrderCode(this.data.user?.email || '');
     }
@@ -477,7 +643,9 @@ export class MomoQrDialog implements OnInit, OnDestroy {
     }
 
     private generateOrderCode(email: string): string {
-        const randomStr = Math.floor(100000 + Math.random() * 900000).toString();
+        const randomStr = Math.floor(
+            100000 + Math.random() * 900000,
+        ).toString();
         return 'AITYP' + randomStr;
     }
 
@@ -504,14 +672,19 @@ export class MomoQrDialog implements OnInit, OnDestroy {
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                },
             });
             const resData = await response.json();
-            
+
             if (resData && resData.success && resData.licenseKey) {
                 // Đóng popup quét QR và chuyển sang popup thông báo thành công cùng với license key
-                this.dialogRef.close({ status: 'confirmed', licenseKey: resData.licenseKey, months: resData.months, transaction: resData.transaction });
+                this.dialogRef.close({
+                    status: 'confirmed',
+                    licenseKey: resData.licenseKey,
+                    months: resData.months,
+                    transaction: resData.transaction,
+                });
             }
         } catch (error) {
             console.error('Lỗi khi kiểm tra giao dịch từ backend', error);

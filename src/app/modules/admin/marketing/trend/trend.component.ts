@@ -38,7 +38,7 @@ import { SharedService } from 'app/shared.service';
 import { BlogService } from 'app/_services/blog';
 import { UserClientService } from 'app/_services/user';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 import * as uuid from 'uuid';
 import moment from 'moment';
 import { HelperService } from 'app/helper.service';
@@ -60,6 +60,7 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     animations: fuseAnimations,
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AIFacePostComponent
     implements OnInit, OnDestroy, AfterContentChecked {

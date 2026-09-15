@@ -5,7 +5,8 @@ import {
     OnInit,
     ViewChild,
     ViewEncapsulation,
-    ElementRef
+    ElementRef,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import {
     UntypedFormBuilder,
@@ -36,6 +37,8 @@ import { TelegramSupportDialogComponent } from './dialogs/telegram-support-dialo
     providers: [UserClientService],
     encapsulation: ViewEncapsulation.None,
     animations: fuseAnimations,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     captchaStatus: boolean = false;
@@ -53,7 +56,8 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     accounts = [];
 
     @ViewChild('signInNgForm') signInNgForm: NgForm;
-    @ViewChild('nativeCaptchaCanvas') nativeCaptchaCanvas: ElementRef<HTMLCanvasElement>;
+    @ViewChild('nativeCaptchaCanvas')
+    nativeCaptchaCanvas: ElementRef<HTMLCanvasElement>;
 
     alert: { type: FuseAlertType; message: string } = {
         type: 'success',
@@ -67,7 +71,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     openTelegramDialog(): void {
         this._matDialog.open(TelegramSupportDialogComponent, {
             autoFocus: false,
-            panelClass: 'dark-theme-dialog'
+            panelClass: 'dark-theme-dialog',
         });
     }
 
@@ -160,9 +164,9 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (_) => { },
-                error: () => { },
-                complete: () => { },
+                next: async (_) => {},
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -173,16 +177,15 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
                 if (result && result.success && result.data) {
                     result.data.groups.map((g: any) => {
                         if (g.slug === 'nhóm-đã-mua-ai-type') {
-                            this.multiAccountService.setItem('members', g.members);
+                            this.multiAccountService.setItem(
+                                'members',
+                                g.members,
+                            );
                         }
 
                         g.members.map((m: any) => {
                             if (m.uid === user.id) {
-                                if (
-                                    !user.groups?.includes(
-                                        g.slug,
-                                    )
-                                ) {
+                                if (!user.groups?.includes(g.slug)) {
                                     user.groups.push(g.slug);
                                 }
                             }
@@ -191,7 +194,8 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
 
                     if (this.signInForm.value.rememberMe) {
                         // Store the access token in the local storage
-                        this._authService.accessToken = AuthUtils._generateJWTToken(user);
+                        this._authService.accessToken =
+                            AuthUtils._generateJWTToken(user);
                     }
 
                     // Store the user on the user service
@@ -228,16 +232,18 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         private _forumService: ForumService,
         private _router: Router,
         private multiAccountService: MultiAccountService,
-        private _matDialog: MatDialog
-    ) {
-    }
+        private _matDialog: MatDialog,
+    ) {}
 
     generateCaptcha(retryCount = 0) {
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const characters =
+            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         let result = '';
         const charactersLength = characters.length;
         for (let i = 0; i < 6; i++) {
-            result += characters.charAt(Math.floor(Math.random() * charactersLength));
+            result += characters.charAt(
+                Math.floor(Math.random() * charactersLength),
+            );
         }
         this.captchaCode = result;
         this.captchaStatus = null;
@@ -245,10 +251,15 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
 
         setTimeout(() => {
             let canvas = null;
-            if (this.nativeCaptchaCanvas && this.nativeCaptchaCanvas.nativeElement) {
+            if (
+                this.nativeCaptchaCanvas &&
+                this.nativeCaptchaCanvas.nativeElement
+            ) {
                 canvas = this.nativeCaptchaCanvas.nativeElement;
             } else {
-                canvas = document.getElementById('nativeCaptchaCanvas') as HTMLCanvasElement;
+                canvas = document.getElementById(
+                    'nativeCaptchaCanvas',
+                ) as HTMLCanvasElement;
             }
 
             if (canvas) {
@@ -256,15 +267,21 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#f8f9fa';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
+
                 ctx.strokeStyle = '#2F9688';
                 for (let i = 0; i < 15; i++) {
                     ctx.beginPath();
-                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                    ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.moveTo(
+                        Math.random() * canvas.width,
+                        Math.random() * canvas.height,
+                    );
+                    ctx.lineTo(
+                        Math.random() * canvas.width,
+                        Math.random() * canvas.height,
+                    );
                     ctx.stroke();
                 }
-                
+
                 ctx.font = '24px Arial';
                 ctx.fillStyle = '#222222';
                 ctx.fillText(this.captchaCode, 40, 35);
@@ -276,7 +293,10 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     validateCaptcha() {
-        if (this.captchaInput && this.captchaInput.toLowerCase() === this.captchaCode.toLowerCase()) {
+        if (
+            this.captchaInput &&
+            this.captchaInput.toLowerCase() === this.captchaCode.toLowerCase()
+        ) {
             this.captchaStatus = true;
             this.showAlert = false;
         } else {
@@ -295,11 +315,14 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             rememberMe: [true],
         });
 
-        this.multiAccountService.getAllAccounts().then(accounts => {
+        this.multiAccountService.getAllAccounts().then((accounts) => {
             if (accounts && accounts.length > 0) {
                 this.accounts = accounts.map((acc: any) => {
                     if (acc.profile && acc.profile.avatar) {
-                        acc.profile.avatar = acc.profile.avatar.replace(/&#x2F;/gi, '/');
+                        acc.profile.avatar = acc.profile.avatar.replace(
+                            /&#x2F;/gi,
+                            '/',
+                        );
                     }
                     return acc;
                 });

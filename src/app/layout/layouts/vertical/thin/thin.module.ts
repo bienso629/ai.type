@@ -1,5 +1,9 @@
 import { NgModule } from '@angular/core';
-import { HttpClientModule } from '@angular/common/http';
+import {
+    provideHttpClient,
+    withInterceptorsFromDi,
+    withXhr,
+} from '@angular/common/http';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,21 +24,19 @@ import { UserModule } from 'app/layout/common/user/user.module';
 import { SharedModule } from 'app/shared.module';
 import { ThinLayoutComponent } from 'app/layout/layouts/vertical/thin/thin.component';
 import { EcoFabSpeedDialModule } from '@ecodev/fab-speed-dial';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AiAgentFloatingButtonComponent } from 'app/shared/ai-agent-floating-button/ai-agent-floating-button.component';
 
 @NgModule({
-    declarations: [
-        ThinLayoutComponent,
-    ],
+    declarations: [ThinLayoutComponent],
+    exports: [ThinLayoutComponent],
     imports: [
         AiAgentFloatingButtonComponent,
         TranslocoModule,
         MatTooltipModule,
         MatTooltipModule,
         TranslocoModule,
-        HttpClientModule,
         RouterModule,
         MatButtonModule,
         MatDividerModule,
@@ -53,11 +55,8 @@ import { AiAgentFloatingButtonComponent } from 'app/shared/ai-agent-floating-but
         ShortcutsModule,
         UserModule,
         EcoFabSpeedDialModule,
-        SharedModule
+        SharedModule,
     ],
-    exports: [
-        ThinLayoutComponent,
-    ]
+    providers: [provideHttpClient(withXhr(), withInterceptorsFromDi())],
 })
-export class ThinLayoutModule {
-}
+export class ThinLayoutModule {}

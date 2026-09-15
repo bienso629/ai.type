@@ -1,4 +1,13 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation, TemplateRef } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    TemplateRef,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { DomSanitizer, Title } from '@angular/platform-browser';
 import { FuseConfigService } from '@fuse/services/config/config.service';
 import { UserService } from 'app/core/user/user.service';
@@ -25,7 +34,9 @@ import * as xml2js from 'xml2js';
     styleUrls: ['./sitemap.component.scss'],
     templateUrl: './sitemap.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [WP2MDService, DomainService, WordpressService, CrawlService]
+    providers: [WP2MDService, DomainService, WordpressService, CrawlService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class SitemapComponent implements OnInit, OnDestroy {
     xml: any;
@@ -35,9 +46,15 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
     @ViewChild('stepper') stepper: any;
     @ViewChild('table') table: DatatableComponent;
-    @ViewChild('domainConfigDialogTemplate') domainConfigDialogTemplate: TemplateRef<any>;
+    @ViewChild('domainConfigDialogTemplate')
+    domainConfigDialogTemplate: TemplateRef<any>;
     domainConfigDialogRef: MatDialogRef<any>;
-    configDomainData: any = { domain: '', username: '', password: '', _showPassword: false };
+    configDomainData: any = {
+        domain: '',
+        username: '',
+        password: '',
+        _showPassword: false,
+    };
 
     editing = {};
     rows = [];
@@ -58,8 +75,12 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
     compareDomainFn(d1: any, d2: any): boolean {
         if (!d1 || !d2) return d1 === d2;
-        const cleanD1 = ((typeof d1 === "string" ? d1 : d1.domain) || "").replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-        const cleanD2 = ((typeof d2 === "string" ? d2 : d2.domain) || "").replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+        const cleanD1 = ((typeof d1 === 'string' ? d1 : d1.domain) || '')
+            .replace(/^(https?:\/\/)?(www\.)?/, '')
+            .split('/')[0];
+        const cleanD2 = ((typeof d2 === 'string' ? d2 : d2.domain) || '')
+            .replace(/^(https?:\/\/)?(www\.)?/, '')
+            .split('/')[0];
         return cleanD1 === cleanD2;
     }
 
@@ -70,7 +91,10 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
     onDomainChange(event: any) {
         this.selectedDomain = event.value;
-        localStorage.setItem('sitemap_selected_domain', this.selectedDomain.domain);
+        localStorage.setItem(
+            'sitemap_selected_domain',
+            this.selectedDomain.domain,
+        );
         this.keyword = '';
         this.selectedCategory = '';
         this.categories = [];
@@ -79,7 +103,9 @@ export class SitemapComponent implements OnInit, OnDestroy {
     }
 
     onSelect({ selected }: any) {
-        this.selected = Array.isArray(selected) ? selected.filter(p => !!p && typeof p === 'object') : [];
+        this.selected = Array.isArray(selected)
+            ? selected.filter((p) => !!p && typeof p === 'object')
+            : [];
     }
 
     page: number = 1;
@@ -100,7 +126,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
         this.loadingPosts = true;
         this._fuseLoadingService.show();
         this.cd.markForCheck();
-        
+
         let hostname = '';
         try {
             hostname = new URL(this.selectedDomain.domain).hostname;
@@ -108,9 +134,11 @@ export class SitemapComponent implements OnInit, OnDestroy {
             hostname = this.selectedDomain.domain;
         }
 
-        const username = this.selectedDomain.wp_username || this.selectedDomain.username;
-        const apppass = this.selectedDomain.wp_password || this.selectedDomain.password;
-        
+        const username =
+            this.selectedDomain.wp_username || this.selectedDomain.username;
+        const apppass =
+            this.selectedDomain.wp_password || this.selectedDomain.password;
+
         const queryPayload: any = {
             domain: this.selectedDomain.domain,
             domain_id: this.selectedDomain._id,
@@ -119,74 +147,86 @@ export class SitemapComponent implements OnInit, OnDestroy {
             page: this.page,
             per_page: 20,
             username: username,
-            apppass: apppass
+            apppass: apppass,
         };
-        
+
         // Luôn luôn lấy tất cả các trạng thái bài viết (publish, draft, pending, trash)
         queryPayload.status = ['publish', 'draft', 'pending', 'trash'];
         queryPayload.context = 'edit';
-        
+
         if (this.keyword && this.keyword.trim() !== '') {
             queryPayload.keyword = this.keyword.trim();
         }
-        
+
         if (this.selectedCategory) {
             queryPayload.category = this.selectedCategory;
         }
 
-        this._wordpressService.posts(queryPayload)
-        .pipe(takeUntil(this._unsubscribeAll))
-        .subscribe({
-            next: (result: any) => {
-                this.loadingPosts = false;
-                this._fuseLoadingService.hide();
-                if (result && Array.isArray(result)) {
-                    if (result.length < 20) {
-                        this.hasMorePosts = false;
-                    }
-                    const newPosts = result.map((doc: any) => ({
-                        title: this.decodeHTMLEntities(doc.title?.rendered || doc.title || ''),
-                        link: doc.link || doc.url || '',
-                        date: doc.date || new Date().toISOString(),
-                        content: doc.content?.rendered || '',
-                        thumbnail: doc._embedded?.['wp:featuredmedia']?.[0]?.source_url || '',
-                        status: doc.status || 'publish',
-                        id: doc.id,
-                        domain: this.selectedDomain.domain,
-                        wp_username: this.selectedDomain.username,
-                        wp_password: this.selectedDomain.password
-                    }));
+        this._wordpressService
+            .posts(queryPayload)
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    this.loadingPosts = false;
+                    this._fuseLoadingService.hide();
+                    if (result && Array.isArray(result)) {
+                        if (result.length < 20) {
+                            this.hasMorePosts = false;
+                        }
+                        const newPosts = result.map((doc: any) => ({
+                            title: this.decodeHTMLEntities(
+                                doc.title?.rendered || doc.title || '',
+                            ),
+                            link: doc.link || doc.url || '',
+                            date: doc.date || new Date().toISOString(),
+                            content: doc.content?.rendered || '',
+                            thumbnail:
+                                doc._embedded?.['wp:featuredmedia']?.[0]
+                                    ?.source_url || '',
+                            status: doc.status || 'publish',
+                            id: doc.id,
+                            domain: this.selectedDomain.domain,
+                            wp_username: this.selectedDomain.username,
+                            wp_password: this.selectedDomain.password,
+                        }));
 
-                    if (reset) {
-                        this.posts = newPosts;
+                        if (reset) {
+                            this.posts = newPosts;
+                        } else {
+                            // Loại bỏ trùng lặp id khi phân trang
+                            const existingIds = new Set(
+                                this.posts.map((p) => p.id),
+                            );
+                            const uniqueNew = newPosts.filter(
+                                (p: any) => !existingIds.has(p.id),
+                            );
+                            this.posts = [...this.posts, ...uniqueNew];
+                        }
                     } else {
-                        // Loại bỏ trùng lặp id khi phân trang
-                        const existingIds = new Set(this.posts.map(p => p.id));
-                        const uniqueNew = newPosts.filter((p: any) => !existingIds.has(p.id));
-                        this.posts = [...this.posts, ...uniqueNew];
+                        this.hasMorePosts = false;
+                        if (reset) {
+                            this.posts = [];
+                        }
                     }
-                } else {
-                    this.hasMorePosts = false;
+                    this.cd.markForCheck();
+                    setTimeout(() => {
+                        if (
+                            this.table &&
+                            typeof this.table.recalculate === 'function'
+                        ) {
+                            this.table.recalculate();
+                        }
+                    }, 100);
+                },
+                error: () => {
+                    this.loadingPosts = false;
+                    this._fuseLoadingService.hide();
                     if (reset) {
                         this.posts = [];
                     }
-                }
-                this.cd.markForCheck();
-                setTimeout(() => {
-                    if (this.table && typeof this.table.recalculate === 'function') {
-                        this.table.recalculate();
-                    }
-                }, 100);
-            },
-            error: () => {
-                this.loadingPosts = false;
-                this._fuseLoadingService.hide();
-                if (reset) {
-                    this.posts = [];
-                }
-                this.cd.markForCheck();
-            }
-        });
+                    this.cd.markForCheck();
+                },
+            });
     }
 
     loadMorePosts() {
@@ -199,13 +239,26 @@ export class SitemapComponent implements OnInit, OnDestroy {
     onScroll(event: any) {
         if (!event) return;
         const dtBody = document.querySelector('.datatable-body');
-        const scrollHeight = dtBody ? dtBody.scrollHeight : (this.posts.length * 50);
+        const scrollHeight = dtBody
+            ? dtBody.scrollHeight
+            : this.posts.length * 50;
         const clientHeight = dtBody ? dtBody.clientHeight : 700;
-        const offsetY = event.offsetY !== undefined ? event.offsetY : (event.target ? event.target.scrollTop : (dtBody ? dtBody.scrollTop : 0));
-        
+        const offsetY =
+            event.offsetY !== undefined
+                ? event.offsetY
+                : event.target
+                  ? event.target.scrollTop
+                  : dtBody
+                    ? dtBody.scrollTop
+                    : 0;
+
         // Kích hoạt loadmore khi cuộn xuống gần cuối danh sách (cách đáy dưới 350px hoặc vượt qua 50% nội dung có thể cuộn)
         const maxScroll = scrollHeight - clientHeight;
-        if (offsetY > 30 && (offsetY + 350 >= maxScroll || (maxScroll > 0 && offsetY >= maxScroll * 0.5))) {
+        if (
+            offsetY > 30 &&
+            (offsetY + 350 >= maxScroll ||
+                (maxScroll > 0 && offsetY >= maxScroll * 0.5))
+        ) {
             this.loadMorePosts();
         }
     }
@@ -213,57 +266,70 @@ export class SitemapComponent implements OnInit, OnDestroy {
     fetchCategories() {
         if (!this.selectedDomain) return;
 
-        this._wordpressService.categories({
-            domain: this.selectedDomain.domain
-        })
-        .pipe(takeUntil(this._unsubscribeAll))
-        .subscribe({
-            next: (result: any) => {
-                if (result && Array.isArray(result)) {
-                    this.categories = result;
-                } else {
+        this._wordpressService
+            .categories({
+                domain: this.selectedDomain.domain,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    if (result && Array.isArray(result)) {
+                        this.categories = result;
+                    } else {
+                        this.categories = [];
+                    }
+                    this.cd.markForCheck();
+                },
+                error: () => {
                     this.categories = [];
-                }
-                this.cd.markForCheck();
-            },
-            error: () => {
-                this.categories = [];
-                this.cd.markForCheck();
-            }
-        });
+                    this.cd.markForCheck();
+                },
+            });
     }
 
     editPost(row: any) {
-        this._crawlService.archiveWpCheck({
-            wp_post_id: row.id,
-            wp_domain: row.domain,
-            username: this.user.name
-        })
-        .pipe(takeUntil(this._unsubscribeAll))
-        .subscribe({
-            next: (result: any) => {
-                if (result && result.success && result.data && result.data.uuid) {
-                    this.router.navigate(['/ai-writer', this.user.name, result.data.uuid]);
-                } else {
+        this._crawlService
+            .archiveWpCheck({
+                wp_post_id: row.id,
+                wp_domain: row.domain,
+                username: this.user.name,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    if (
+                        result &&
+                        result.success &&
+                        result.data &&
+                        result.data.uuid
+                    ) {
+                        this.router.navigate([
+                            '/ai-writer',
+                            this.user.name,
+                            result.data.uuid,
+                        ]);
+                    } else {
+                        this.router.navigate(['/ai-writer'], {
+                            state: { wpPost: row },
+                        });
+                    }
+                },
+                error: () => {
                     this.router.navigate(['/ai-writer'], {
-                        state: { wpPost: row }
+                        state: { wpPost: row },
                     });
-                }
-            },
-            error: () => {
-                this.router.navigate(['/ai-writer'], {
-                    state: { wpPost: row }
-                });
-            }
-        });
+                },
+            });
     }
 
     async publishSelectedPosts() {
         if (!this.selected || this.selected.length === 0) return;
-        
-        const validSelected = this.selected.filter(p => !!p && p.id);
-        const postsToPublish = validSelected.filter(post => post.status !== 'publish');
-        
+
+        const validSelected = this.selected.filter((p) => !!p && p.id);
+        const postsToPublish = validSelected.filter(
+            (post) => post.status !== 'publish',
+        );
+
         if (postsToPublish.length === 0) {
             this.toastr.info('Tất cả bài viết đã được publish!');
             return;
@@ -272,10 +338,12 @@ export class SitemapComponent implements OnInit, OnDestroy {
         this.loadingPosts = true;
         this.cd.detectChanges();
 
-        const username = this.selectedDomain.wp_username || this.selectedDomain.username;
-        const apppass = this.selectedDomain.wp_password || this.selectedDomain.password;
+        const username =
+            this.selectedDomain.wp_username || this.selectedDomain.username;
+        const apppass =
+            this.selectedDomain.wp_password || this.selectedDomain.password;
 
-        const publishTasks = postsToPublish.map(post => {
+        const publishTasks = postsToPublish.map((post) => {
             const dataForm = {
                 id: post.id,
                 status: 'publish',
@@ -284,7 +352,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
                 sys_username: this.selectedDomain.sys_username,
                 year: this.selectedDomain.year,
                 username: username,
-                apppass: apppass
+                apppass: apppass,
             };
             return firstValueFrom(this._wordpressService.update_post(dataForm));
         });
@@ -305,9 +373,11 @@ export class SitemapComponent implements OnInit, OnDestroy {
             });
 
             if (successfulPosts.length > 0) {
-                this.toastr.success(`Đã publish thành công ${successfulPosts.length} bài viết!`);
-                const updatedIds = successfulPosts.map(p => p.id);
-                this.posts = this.posts.map(p => {
+                this.toastr.success(
+                    `Đã publish thành công ${successfulPosts.length} bài viết!`,
+                );
+                const updatedIds = successfulPosts.map((p) => p.id);
+                this.posts = this.posts.map((p) => {
                     if (updatedIds.includes(p.id)) {
                         return { ...p, status: 'publish' };
                     }
@@ -318,10 +388,20 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
             if (failedErrors.length > 0) {
                 const firstErr = failedErrors[0];
-                if (firstErr.includes('401') || firstErr.includes('not allowed to edit') || firstErr.includes('rest_cannot_edit')) {
-                    this.toastr.error(`WordPress từ chối (401): Mật khẩu ứng dụng chưa đúng hoặc tài khoản không có quyền sửa bài viết trên domain này!`, 'Lỗi xác thực', { timeOut: 7000 });
+                if (
+                    firstErr.includes('401') ||
+                    firstErr.includes('not allowed to edit') ||
+                    firstErr.includes('rest_cannot_edit')
+                ) {
+                    this.toastr.error(
+                        `WordPress từ chối (401): Mật khẩu ứng dụng chưa đúng hoặc tài khoản không có quyền sửa bài viết trên domain này!`,
+                        'Lỗi xác thực',
+                        { timeOut: 7000 },
+                    );
                 } else {
-                    this.toastr.error(`Lỗi publish (${failedErrors.length} bài): ${firstErr}`);
+                    this.toastr.error(
+                        `Lỗi publish (${failedErrors.length} bài): ${firstErr}`,
+                    );
                 }
             }
 
@@ -330,7 +410,9 @@ export class SitemapComponent implements OnInit, OnDestroy {
             this.cd.detectChanges();
         } catch (err) {
             console.error(err);
-            this.toastr.error('Có lỗi xảy ra khi publish bài viết: ' + (err?.message || err));
+            this.toastr.error(
+                'Có lỗi xảy ra khi publish bài viết: ' + (err?.message || err),
+            );
             this.loadingPosts = false;
             this.cd.detectChanges();
         }
@@ -339,25 +421,34 @@ export class SitemapComponent implements OnInit, OnDestroy {
     get canPublish(): boolean {
         if (!this.selected || this.selected.length === 0) return false;
         // Show publish if ANY selected item is draft or pending
-        return this.selected.some(post => post && (post.status === 'draft' || post.status === 'pending'));
+        return this.selected.some(
+            (post) =>
+                post && (post.status === 'draft' || post.status === 'pending'),
+        );
     }
 
     get canUnpublish(): boolean {
         if (!this.selected || this.selected.length === 0) return false;
         // Show unpublish if ANY selected item is publish
-        return this.selected.some(post => post && post.status === 'publish');
+        return this.selected.some((post) => post && post.status === 'publish');
     }
 
     get canDelete(): boolean {
-        return this.selected && this.selected.length > 0 && this.selected.some(post => !!post);
+        return (
+            this.selected &&
+            this.selected.length > 0 &&
+            this.selected.some((post) => !!post)
+        );
     }
 
     async unpublishSelectedPosts() {
         if (!this.selected || this.selected.length === 0) return;
-        
-        const validSelected = this.selected.filter(p => !!p && p.id);
-        const postsToUnpublish = validSelected.filter(post => post.status !== 'draft');
-        
+
+        const validSelected = this.selected.filter((p) => !!p && p.id);
+        const postsToUnpublish = validSelected.filter(
+            (post) => post.status !== 'draft',
+        );
+
         if (postsToUnpublish.length === 0) {
             this.toastr.info('Tất cả bài viết đã ở trạng thái draft!');
             return;
@@ -366,10 +457,12 @@ export class SitemapComponent implements OnInit, OnDestroy {
         this.loadingPosts = true;
         this.cd.detectChanges();
 
-        const username = this.selectedDomain.wp_username || this.selectedDomain.username;
-        const apppass = this.selectedDomain.wp_password || this.selectedDomain.password;
+        const username =
+            this.selectedDomain.wp_username || this.selectedDomain.username;
+        const apppass =
+            this.selectedDomain.wp_password || this.selectedDomain.password;
 
-        const unpublishTasks = postsToUnpublish.map(post => {
+        const unpublishTasks = postsToUnpublish.map((post) => {
             const dataForm = {
                 id: post.id,
                 status: 'draft',
@@ -378,7 +471,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
                 sys_username: this.selectedDomain.sys_username,
                 year: this.selectedDomain.year,
                 username: username,
-                apppass: apppass
+                apppass: apppass,
             };
             return firstValueFrom(this._wordpressService.update_post(dataForm));
         });
@@ -399,9 +492,11 @@ export class SitemapComponent implements OnInit, OnDestroy {
             });
 
             if (successfulPosts.length > 0) {
-                this.toastr.success(`Đã unpublish thành công ${successfulPosts.length} bài viết!`);
-                const updatedIds = successfulPosts.map(p => p.id);
-                this.posts = this.posts.map(p => {
+                this.toastr.success(
+                    `Đã unpublish thành công ${successfulPosts.length} bài viết!`,
+                );
+                const updatedIds = successfulPosts.map((p) => p.id);
+                this.posts = this.posts.map((p) => {
                     if (updatedIds.includes(p.id)) {
                         return { ...p, status: 'draft' };
                     }
@@ -412,10 +507,20 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
             if (failedErrors.length > 0) {
                 const firstErr = failedErrors[0];
-                if (firstErr.includes('401') || firstErr.includes('not allowed to edit') || firstErr.includes('rest_cannot_edit')) {
-                    this.toastr.error(`WordPress từ chối (401): Mật khẩu ứng dụng chưa đúng hoặc tài khoản không có quyền sửa bài viết trên domain này!`, 'Lỗi xác thực', { timeOut: 7000 });
+                if (
+                    firstErr.includes('401') ||
+                    firstErr.includes('not allowed to edit') ||
+                    firstErr.includes('rest_cannot_edit')
+                ) {
+                    this.toastr.error(
+                        `WordPress từ chối (401): Mật khẩu ứng dụng chưa đúng hoặc tài khoản không có quyền sửa bài viết trên domain này!`,
+                        'Lỗi xác thực',
+                        { timeOut: 7000 },
+                    );
                 } else {
-                    this.toastr.error(`Lỗi unpublish (${failedErrors.length} bài): ${firstErr}`);
+                    this.toastr.error(
+                        `Lỗi unpublish (${failedErrors.length} bài): ${firstErr}`,
+                    );
                 }
             }
 
@@ -424,7 +529,10 @@ export class SitemapComponent implements OnInit, OnDestroy {
             this.cd.detectChanges();
         } catch (err) {
             console.error(err);
-            this.toastr.error('Có lỗi xảy ra khi unpublish bài viết: ' + (err?.message || err));
+            this.toastr.error(
+                'Có lỗi xảy ra khi unpublish bài viết: ' +
+                    (err?.message || err),
+            );
             this.loadingPosts = false;
             this.cd.detectChanges();
         }
@@ -432,7 +540,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
     async deleteSelectedPosts() {
         if (!this.selected || this.selected.length === 0) return;
-        
+
         const count = this.selected.length;
 
         const dialogRef = this._fuseConfirmationService.open({
@@ -441,20 +549,20 @@ export class SitemapComponent implements OnInit, OnDestroy {
             icon: {
                 show: true,
                 name: 'feather:trash-2',
-                color: 'warn'
+                color: 'warn',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Xóa ngay',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: true,
-                    label: 'Hủy'
-                }
+                    label: 'Hủy',
+                },
             },
-            dismissible: true
+            dismissible: true,
         });
 
         dialogRef.afterClosed().subscribe(async (result) => {
@@ -464,10 +572,14 @@ export class SitemapComponent implements OnInit, OnDestroy {
                 this.loadingPosts = true;
                 this.cd.detectChanges();
 
-                const username = this.selectedDomain.wp_username || this.selectedDomain.username;
-                const apppass = this.selectedDomain.wp_password || this.selectedDomain.password;
+                const username =
+                    this.selectedDomain.wp_username ||
+                    this.selectedDomain.username;
+                const apppass =
+                    this.selectedDomain.wp_password ||
+                    this.selectedDomain.password;
 
-                const deleteTasks = postsToDelete.map(post => {
+                const deleteTasks = postsToDelete.map((post) => {
                     const dataForm = {
                         id: post.id,
                         domain: this.selectedDomain.domain,
@@ -475,18 +587,24 @@ export class SitemapComponent implements OnInit, OnDestroy {
                         sys_username: this.selectedDomain.sys_username,
                         year: this.selectedDomain.year,
                         username: username,
-                        apppass: apppass
+                        apppass: apppass,
                     };
-                    return firstValueFrom(this._wordpressService.delete_post(dataForm));
+                    return firstValueFrom(
+                        this._wordpressService.delete_post(dataForm),
+                    );
                 });
 
                 try {
                     const results = await Promise.all(deleteTasks);
-                    const successCount = results.filter(r => r).length;
-                    this.toastr.success(`Đã xoá thành công ${successCount} bài viết!`);
-                    
-                    const deletedIds = postsToDelete.map(p => p.id);
-                    this.posts = this.posts.filter(p => !deletedIds.includes(p.id));
+                    const successCount = results.filter((r) => r).length;
+                    this.toastr.success(
+                        `Đã xoá thành công ${successCount} bài viết!`,
+                    );
+
+                    const deletedIds = postsToDelete.map((p) => p.id);
+                    this.posts = this.posts.filter(
+                        (p) => !deletedIds.includes(p.id),
+                    );
                     this.posts = [...this.posts]; // trigger change detection
 
                     this.selected = [];
@@ -511,7 +629,9 @@ export class SitemapComponent implements OnInit, OnDestroy {
             textarea.innerHTML = decoded;
             decoded = textarea.value;
             // Regex fallback
-            decoded = decoded.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
+            decoded = decoded.replace(/&#(\d+);/g, (match, dec) =>
+                String.fromCharCode(dec),
+            );
         }
         return decoded;
     }
@@ -548,10 +668,10 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
             if (this.xml && this.xml.rss && this.xml.rss.channel) {
                 this.rows = this.xml.rss.channel.item;
-                this.rows.map(row => {
+                this.rows.map((row) => {
                     phantho += row.link + '\n';
                     this.links.push({
-                        link: row.link
+                        link: row.link,
                     });
                 });
 
@@ -570,7 +690,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
                     this.xml.urlset.url.map((row: any) => {
                         phantho += row.loc + '\n';
                         this.links.push({
-                            link: row.loc
+                            link: row.loc,
                         });
                     });
 
@@ -582,18 +702,19 @@ export class SitemapComponent implements OnInit, OnDestroy {
                 }
             }
         };
-    }
+    };
 
     store() {
         this.rows.map((row: any) => {
             const { hostname } = new URL(row.link);
 
-            this._wp2mdService.store({
-                title: row.title,
-                hostname: hostname,
-                object: row,
-                username: this.user.name
-            })
+            this._wp2mdService
+                .store({
+                    title: row.title,
+                    hostname: hostname,
+                    object: row,
+                    username: this.user.name,
+                })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: async (result) => {
@@ -603,19 +724,20 @@ export class SitemapComponent implements OnInit, OnDestroy {
                             this.toastr.warning(`Đã tồn tại`);
                         }
                     },
-                    error: (e: any) => {
-                    },
+                    error: (e: any) => {},
                     complete: () => {
                         // lam moi lai giao dien
                         this.cd.markForCheck();
-                    }
+                    },
                 });
         });
     }
 
     generateDownloadJsonUri(links?: any) {
         var theJSON = JSON.stringify(links);
-        var uri = this.sanitizer.bypassSecurityTrustUrl("data:text/json;charset=UTF-8," + encodeURIComponent(theJSON));
+        var uri = this.sanitizer.bypassSecurityTrustUrl(
+            'data:text/json;charset=UTF-8,' + encodeURIComponent(theJSON),
+        );
         this.downloadJsonHref = uri;
     }
 
@@ -659,9 +781,11 @@ export class SitemapComponent implements OnInit, OnDestroy {
         private _fuseConfigService: FuseConfigService,
         private _crawlService: CrawlService,
         private _dialog: MatDialog,
-        private _fuseLoadingService: FuseLoadingService
+        private _fuseLoadingService: FuseLoadingService,
     ) {
-        this.titleService.setTitle(`wordpress importer | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `wordpress importer | ai.type - công cụ tạo content`,
+        );
 
         // Subscribe to config changes
         this._fuseConfigService.config$
@@ -676,8 +800,6 @@ export class SitemapComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
             });
     }
 
@@ -691,12 +813,23 @@ export class SitemapComponent implements OnInit, OnDestroy {
                 next: async (result: any) => {
                     if (result && result.success && result.data.length > 0) {
                         this.domains = result.data;
-                        
-                        const savedDomain = localStorage.getItem('sitemap_selected_domain');
+
+                        const savedDomain = localStorage.getItem(
+                            'sitemap_selected_domain',
+                        );
                         if (savedDomain) {
-                            const cleanSaved = (savedDomain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-                            const found = this.domains.find(d => (d.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0] === cleanSaved);
-                            this.selectedDomain = found ? found : this.domains[0];
+                            const cleanSaved = (savedDomain || '')
+                                .replace(/^(https?:\/\/)?(www\.)?/, '')
+                                .split('/')[0];
+                            const found = this.domains.find(
+                                (d) =>
+                                    (d.domain || '')
+                                        .replace(/^(https?:\/\/)?(www\.)?/, '')
+                                        .split('/')[0] === cleanSaved,
+                            );
+                            this.selectedDomain = found
+                                ? found
+                                : this.domains[0];
                         } else {
                             this.selectedDomain = this.domains[0];
                         }
@@ -706,8 +839,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
                         this.cd.markForCheck();
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -720,24 +853,26 @@ export class SitemapComponent implements OnInit, OnDestroy {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference
@@ -750,27 +885,36 @@ export class SitemapComponent implements OnInit, OnDestroy {
         if (!this.selectedDomain) return;
         this.configDomainData = {
             domain: this.selectedDomain.domain,
-            username: this.selectedDomain.username || this.selectedDomain.wp_username || '',
-            password: this.selectedDomain.password || this.selectedDomain.wp_password || '',
-            _showPassword: false
+            username:
+                this.selectedDomain.username ||
+                this.selectedDomain.wp_username ||
+                '',
+            password:
+                this.selectedDomain.password ||
+                this.selectedDomain.wp_password ||
+                '',
+            _showPassword: false,
         };
-        this.domainConfigDialogRef = this._dialog.open(this.domainConfigDialogTemplate, {
-            width: '480px',
-            disableClose: false
-        });
+        this.domainConfigDialogRef = this._dialog.open(
+            this.domainConfigDialogTemplate,
+            {
+                width: '480px',
+                disableClose: false,
+            },
+        );
     }
 
     async saveDomainConfig() {
         if (!this.configDomainData || !this.configDomainData.domain) return;
-        
+
         const username = (this.configDomainData.username || '').trim();
         const password = (this.configDomainData.password || '').trim();
-        
+
         const payload = {
             ...this.selectedDomain,
             domain: this.configDomainData.domain,
             username: username,
-            password: password
+            password: password,
         };
 
         const electron = (window as any).electron;
@@ -778,14 +922,18 @@ export class SitemapComponent implements OnInit, OnDestroy {
             try {
                 const res = await electron.saveLocalDomain(payload);
                 if (res && res.success) {
-                    this.toastr.success('Đã lưu cấu hình tài khoản WordPress thành công!');
+                    this.toastr.success(
+                        'Đã lưu cấu hình tài khoản WordPress thành công!',
+                    );
                     this.selectedDomain.username = username;
                     this.selectedDomain.password = password;
                     this.selectedDomain.wp_username = username;
                     this.selectedDomain.wp_password = password;
 
                     // Cập nhật lại trong danh sách domains
-                    const targetDomain = this.domains.find(d => this.compareDomainFn(d, this.selectedDomain));
+                    const targetDomain = this.domains.find((d) =>
+                        this.compareDomainFn(d, this.selectedDomain),
+                    );
                     if (targetDomain) {
                         targetDomain.username = username;
                         targetDomain.password = password;
@@ -799,7 +947,9 @@ export class SitemapComponent implements OnInit, OnDestroy {
                     this.cd.markForCheck();
                     return;
                 } else {
-                    this.toastr.error('Lỗi khi lưu: ' + (res?.error || 'Không xác định'));
+                    this.toastr.error(
+                        'Lỗi khi lưu: ' + (res?.error || 'Không xác định'),
+                    );
                 }
             } catch (err) {
                 this.toastr.error('Lỗi khi lưu: ' + (err?.message || err));
@@ -807,7 +957,9 @@ export class SitemapComponent implements OnInit, OnDestroy {
         } else {
             this._domainService.edit(payload).subscribe({
                 next: (res: any) => {
-                    this.toastr.success('Đã lưu cấu hình tài khoản WordPress thành công!');
+                    this.toastr.success(
+                        'Đã lưu cấu hình tài khoản WordPress thành công!',
+                    );
                     this.selectedDomain.username = username;
                     this.selectedDomain.password = password;
                     if (this.domainConfigDialogRef) {
@@ -816,8 +968,10 @@ export class SitemapComponent implements OnInit, OnDestroy {
                     this.cd.markForCheck();
                 },
                 error: (err) => {
-                    this.toastr.error('Lỗi khi lưu cấu hình: ' + (err?.message || err));
-                }
+                    this.toastr.error(
+                        'Lỗi khi lưu cấu hình: ' + (err?.message || err),
+                    );
+                },
             });
         }
     }

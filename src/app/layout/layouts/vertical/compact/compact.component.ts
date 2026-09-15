@@ -1,8 +1,18 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ChangeDetectorRef,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
-import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
+import {
+    FuseNavigationService,
+    FuseVerticalNavigationComponent,
+} from '@fuse/components/navigation';
 import { AnimationMode, Direction } from '@ecodev/fab-speed-dial';
 import { Navigation } from 'app/core/navigation/navigation.types';
 import { NavigationService } from 'app/core/navigation/navigation.service';
@@ -10,7 +20,9 @@ import { NavigationService } from 'app/core/navigation/navigation.service';
 @Component({
     selector: 'compact-layout',
     templateUrl: './compact.component.html',
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class CompactLayoutComponent implements OnInit, OnDestroy {
     isScreenSmall: boolean;
@@ -42,9 +54,8 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
         private _navigationService: NavigationService,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
         private _fuseNavigationService: FuseNavigationService,
-        private _changeDetectorRef: ChangeDetectorRef
-    ) {
-    }
+        private _changeDetectorRef: ChangeDetectorRef,
+    ) {}
 
     // -----------------------------------------------------------------------------------------------------
     // @ Accessors
@@ -76,7 +87,6 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
         this._fuseMediaWatcherService.onMediaChange$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe(({ matchingAliases }) => {
-
                 // Check if the screen is small
                 this.isScreenSmall = !matchingAliases.includes('md');
             });
@@ -86,7 +96,10 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
             this.isRecording = e.detail;
             this._changeDetectorRef.detectChanges();
         };
-        window.addEventListener('recording-state-changed', this._recordingStateListener);
+        window.addEventListener(
+            'recording-state-changed',
+            this._recordingStateListener,
+        );
     }
 
     /**
@@ -94,7 +107,10 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
      */
     ngOnDestroy(): void {
         // Unsubscribe from all subscriptions
-        window.removeEventListener('recording-state-changed', this._recordingStateListener);
+        window.removeEventListener(
+            'recording-state-changed',
+            this._recordingStateListener,
+        );
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
@@ -114,7 +130,10 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
      */
     toggleNavigation(name: string): void {
         // Get the navigation
-        const navigation = this._fuseNavigationService.getComponent<FuseVerticalNavigationComponent>(name);
+        const navigation =
+            this._fuseNavigationService.getComponent<FuseVerticalNavigationComponent>(
+                name,
+            );
 
         if (navigation) {
             // Toggle the opened status

@@ -1,24 +1,44 @@
 <div class="w-full">
     <!-- Form -->
     <form [formGroup]="accountForm" (ngSubmit)="save()">
-        <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false"
-            mat-align-tabs="start">
+        <mat-tab-group
+            class="border rounded-lg"
+            animationDuration="0ms"
+            mat-stretch-tabs="false"
+            mat-align-tabs="start"
+        >
             <mat-tab label="{{ 'account.tabs.personal' | transloco }}">
                 <div class="w-full">
                     <!-- Divider -->
-                    <div class="text-secondary">{{ 'account.personal.title' | transloco }}</div>
+                    <div class="text-secondary">
+                        {{ "account.personal.title" | transloco }}
+                    </div>
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
                 <div class="w-full mt-4">
                     <!-- Secret Key -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'account.personal.qr_link' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'mat_solid:qr_code_scanner'" matPrefix></mat-icon>
-                        <input [formControlName]="'linkDonate'" type="text" matInput>
+                    <mat-form-field
+                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{
+                            "account.personal.qr_link" | transloco
+                        }}</mat-label>
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'mat_solid:qr_code_scanner'"
+                            matPrefix
+                        ></mat-icon>
+                        <input
+                            [formControlName]="'linkDonate'"
+                            type="text"
+                            matInput
+                        />
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">{{ 'account.personal.qr_hint' | transloco }}</div>
+                    <div class="mt-1 text-md text-hint">
+                        {{ "account.personal.qr_hint" | transloco }}
+                    </div>
                 </div>
 
                 <!-- Divider -->
@@ -27,23 +47,37 @@
                 <div class="w-full mt-4">
                     <!-- Hoạt động -->
                     <div class="full-width-toggle mb-4">
-                        <mat-slide-toggle [formControlName]="'autosave'"
+                        <mat-slide-toggle
+                            [formControlName]="'autosave'"
                             [labelPosition]="'before'"
-                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
+                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                            [color]="'primary'"
+                        >
                             <mat-label class="toggle-label text-md">
-                                {{ 'account.personal.autosave' | transloco }}
-                                <span class="text-gray-400">{{ 'account.personal.autosave_hint' | transloco }}</span>
+                                {{ "account.personal.autosave" | transloco }}
+                                <span class="text-gray-400">{{
+                                    "account.personal.autosave_hint" | transloco
+                                }}</span>
                             </mat-label>
                         </mat-slide-toggle>
                     </div>
 
                     <div class="full-width-toggle mb-4">
-                        <mat-slide-toggle [formControlName]="'autoSaveLocal'"
+                        <mat-slide-toggle
+                            [formControlName]="'autoSaveLocal'"
                             [labelPosition]="'before'"
-                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
+                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                            [color]="'primary'"
+                        >
                             <mat-label class="toggle-label text-md">
-                                {{ 'account.personal.auto_save_local' | transloco }}
-                                <span class="text-gray-400">{{ 'account.personal.auto_save_local_hint' | transloco }}</span>
+                                {{
+                                    "account.personal.auto_save_local"
+                                        | transloco
+                                }}
+                                <span class="text-gray-400">{{
+                                    "account.personal.auto_save_local_hint"
+                                        | transloco
+                                }}</span>
                             </mat-label>
                         </mat-slide-toggle>
                     </div>
@@ -51,69 +85,140 @@
 
                 <div class="w-full mt-2 mb-4">
                     <!-- {{ 'account.personal.language' | transloco }} -->
-                    <mat-form-field class="w-50 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'account.personal.language' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'" matPrefix></mat-icon>
-                        <mat-select [formControlName]="'language'" (selectionChange)="changeLanguage($event.value)">
+                    <mat-form-field
+                        class="w-50 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{
+                            "account.personal.language" | transloco
+                        }}</mat-label>
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'feather:globe'"
+                            matPrefix
+                        ></mat-icon>
+                        <mat-select
+                            [formControlName]="'language'"
+                            (selectionChange)="changeLanguage($event.value)"
+                        >
                             <mat-select-trigger>
-                                {{ accountForm.get('language')?.value === 'en' ? ('account.personal.lang_en' | transloco) : ('account.personal.lang_vi' | transloco) }}
+                                {{
+                                    accountForm.get("language")?.value === "en"
+                                        ? ("account.personal.lang_en"
+                                          | transloco)
+                                        : ("account.personal.lang_vi"
+                                          | transloco)
+                                }}
                             </mat-select-trigger>
-                            <mat-option [value]="'vi'">{{ 'account.personal.lang_vi' | transloco }}</mat-option>
-                            <mat-option [value]="'en'">{{ 'account.personal.lang_en' | transloco }}</mat-option>
+                            <mat-option [value]="'vi'">{{
+                                "account.personal.lang_vi" | transloco
+                            }}</mat-option>
+                            <mat-option [value]="'en'">{{
+                                "account.personal.lang_en" | transloco
+                            }}</mat-option>
                         </mat-select>
                     </mat-form-field>
                 </div>
 
                 <!-- Email Admin Only -->
-                <ng-container *ngIf="user.reputation >= 100000000">
+                @if (user.reputation >= 100000000) {
                     <!-- Section -->
                     <div class="w-full mt-10">
-                        <div class="text-secondary">{{ 'account.email.title' | transloco }}</div>
+                        <div class="text-secondary">
+                            {{ "account.email.title" | transloco }}
+                        </div>
                     </div>
-
                     <!-- Divider -->
                     <div class="mt-2 mb-2 border-t"></div>
-
                     <div class="flex flex-col mt-4">
                         <div class="grid sm:grid-cols-2 gap-4">
-                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix hidden" [subscriptSizing]="'dynamic'">
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix hidden"
+                                [subscriptSizing]="'dynamic'"
+                            >
                                 <mat-label>Type.VN URL</mat-label>
-                                <input matInput [formControlName]="'emailConfig_nodebbUrl'" placeholder="https://type.vn">
+                                <input
+                                    matInput
+                                    [formControlName]="'emailConfig_nodebbUrl'"
+                                    placeholder="https://type.vn"
+                                />
                             </mat-form-field>
-
-                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.email.admin_token' | transloco }}</mat-label>
-                                <input matInput type="password" [formControlName]="'emailConfig_nodebbToken'" [placeholder]="'account.email.enter_token' | transloco">
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.email.admin_token" | transloco
+                                }}</mat-label>
+                                <input
+                                    matInput
+                                    type="password"
+                                    [formControlName]="'emailConfig_nodebbToken'"
+                                    [placeholder]="
+                                        'account.email.enter_token' | transloco
+                                    "
+                                />
                             </mat-form-field>
-                            
-                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.email.smtp_host' | transloco }}</mat-label>
-                                <input matInput [formControlName]="'emailConfig_smtpHost'">
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.email.smtp_host" | transloco
+                                }}</mat-label>
+                                <input
+                                    matInput
+                                    [formControlName]="'emailConfig_smtpHost'"
+                                />
                             </mat-form-field>
-                            
-                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.email.smtp_port' | transloco }}</mat-label>
-                                <input matInput type="number" [formControlName]="'emailConfig_smtpPort'">
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.email.smtp_port" | transloco
+                                }}</mat-label>
+                                <input
+                                    matInput
+                                    type="number"
+                                    [formControlName]="'emailConfig_smtpPort'"
+                                />
                             </mat-form-field>
-
-                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.email.smtp_email' | transloco }}</mat-label>
-                                <input matInput [formControlName]="'emailConfig_smtpUser'">
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.email.smtp_email" | transloco
+                                }}</mat-label>
+                                <input
+                                    matInput
+                                    [formControlName]="'emailConfig_smtpUser'"
+                                />
                             </mat-form-field>
-
-                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.email.smtp_password' | transloco }}</mat-label>
-                                <input matInput type="password" [formControlName]="'emailConfig_smtpPass'">
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.email.smtp_password" | transloco
+                                }}</mat-label>
+                                <input
+                                    matInput
+                                    type="password"
+                                    [formControlName]="'emailConfig_smtpPass'"
+                                />
                             </mat-form-field>
                         </div>
                     </div>
-                </ng-container>
+                }
 
                 <!-- Type-Lite Config (For All Users) -->
                 <!-- Section -->
                 <div class="w-full mt-10">
-                    <div class="text-secondary">{{ 'account.lite.title' | transloco }}</div>
+                    <div class="text-secondary">
+                        {{ "account.lite.title" | transloco }}
+                    </div>
                 </div>
 
                 <!-- Divider -->
@@ -122,18 +227,33 @@
                 <div class="flex flex-col mt-4">
                     <mat-form-field
                         class="flex-auto w-1/2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label class="">{{ 'account.lite.cookies_file' | transloco }}</mat-label>
-                        <textarea class="px-2" [formControlName]="'customCookies'"
-                            [placeholder]="'account.lite.paste_cookies' | transloco" matInput cdkTextareaAutosize
-                            cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
-                        <mat-hint>{{ 'account.lite.cookie_hint' | transloco }}</mat-hint>
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label class="">{{
+                            "account.lite.cookies_file" | transloco
+                        }}</mat-label>
+                        <textarea
+                            class="px-2"
+                            [formControlName]="'customCookies'"
+                            [placeholder]="
+                                'account.lite.paste_cookies' | transloco
+                            "
+                            matInput
+                            cdkTextareaAutosize
+                            cdkAutosizeMinRows="3"
+                            cdkAutosizeMaxRows="5"
+                        ></textarea>
+                        <mat-hint>{{
+                            "account.lite.cookie_hint" | transloco
+                        }}</mat-hint>
                     </mat-form-field>
                 </div>
 
                 <!-- Section: Search Engine & N8N -->
                 <div class="w-full mt-10">
-                    <div class="text-secondary">{{ 'account.automation.title' | transloco }}</div>
+                    <div class="text-secondary">
+                        {{ "account.automation.title" | transloco }}
+                    </div>
                 </div>
 
                 <!-- Divider -->
@@ -141,30 +261,73 @@
 
                 <div class="w-full mt-4">
                     <!-- Search API Key -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'account.automation.search_engine' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
-                        <input [formControlName]="'searchAPIKey'" [type]="showSearchAPIKey ? 'text' : 'password'"
-                            matInput>
-                        <button mat-icon-button type="button" matSuffix
-                            (click)="showSearchAPIKey = !showSearchAPIKey">
-                            <mat-icon class="icon-size-4">{{ showSearchAPIKey ? 'visibility_off' : 'visibility'
-                                }}</mat-icon>
+                    <mat-form-field
+                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{
+                            "account.automation.search_engine" | transloco
+                        }}</mat-label>
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'heroicons_solid:key'"
+                            matPrefix
+                        ></mat-icon>
+                        <input
+                            [formControlName]="'searchAPIKey'"
+                            [type]="showSearchAPIKey ? 'text' : 'password'"
+                            matInput
+                        />
+                        <button
+                            mat-icon-button
+                            type="button"
+                            matSuffix
+                            (click)="showSearchAPIKey = !showSearchAPIKey"
+                        >
+                            <mat-icon class="icon-size-4">{{
+                                showSearchAPIKey
+                                    ? "visibility_off"
+                                    : "visibility"
+                            }}</mat-icon>
                         </button>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint" [innerHTML]="'account.automation.search_api_hint_here' | transloco"></div>
+                    <div
+                        class="mt-1 text-md text-hint"
+                        [innerHTML]="
+                            'account.automation.search_api_hint_here'
+                                | transloco
+                        "
+                    ></div>
                 </div>
 
                 <div class="w-full mt-2">
                     <!-- N8N -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'account.automation.n8n' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
-                        <input [formControlName]="'n8n'" [type]="showN8N ? 'text' : 'password'" matInput>
-                        <button mat-icon-button type="button" matSuffix (click)="showN8N = !showN8N">
-                            <mat-icon class="icon-size-4">{{ showN8N ? 'visibility_off' : 'visibility' }}</mat-icon>
+                    <mat-form-field
+                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{
+                            "account.automation.n8n" | transloco
+                        }}</mat-label>
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'feather:compass'"
+                            matPrefix
+                        ></mat-icon>
+                        <input
+                            [formControlName]="'n8n'"
+                            [type]="showN8N ? 'text' : 'password'"
+                            matInput
+                        />
+                        <button
+                            mat-icon-button
+                            type="button"
+                            matSuffix
+                            (click)="showN8N = !showN8N"
+                        >
+                            <mat-icon class="icon-size-4">{{
+                                showN8N ? "visibility_off" : "visibility"
+                            }}</mat-icon>
                         </button>
                     </mat-form-field>
                 </div>
@@ -175,79 +338,187 @@
                 <!-- <div class="mt-2 mb-2 border-t"></div> -->
                 <div class="w-full">
                     <!-- Divider -->
-                    <div class="text-secondary">{{ 'account.jobs.title' | transloco }}</div>
+                    <div class="text-secondary">
+                        {{ "account.jobs.title" | transloco }}
+                    </div>
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
-                <div class="w-full mt-4" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
-                    <!-- Chatbot Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'app.integrate_simple_ai_chatbot' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'" matPrefix></mat-icon>
-                        <input [formControlName]="'chatbot'" type="text" matInput>
-                    </mat-form-field>
-                    <div class="mt-1 text-md text-hint">{{ 'app.integrate_chatbot_for_your' | transloco }} <a
-                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">{{ 'app.auto_contact' | transloco }}</a> {{ 'app.auto_receive_api' | transloco }}</div>
-                </div>
+                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                    <div class="w-full mt-4">
+                        <!-- Chatbot Api -->
+                        <mat-form-field
+                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>{{
+                                "app.integrate_simple_ai_chatbot" | transloco
+                            }}</mat-label>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:message-square'"
+                                matPrefix
+                            ></mat-icon>
+                            <input
+                                [formControlName]="'chatbot'"
+                                type="text"
+                                matInput
+                            />
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">
+                            {{ "app.integrate_chatbot_for_your" | transloco }}
+                            <a
+                                href="https://ai.type.vn/lien-he"
+                                target="_blank"
+                                class="font-semibold"
+                                >{{ "app.auto_contact" | transloco }}</a
+                            >
+                            {{ "app.auto_receive_api" | transloco }}
+                        </div>
+                    </div>
+                }
 
-                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
-                    <!-- Device Token Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'app.integrate_x_crm' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:database'" matPrefix></mat-icon>
-                        <input [formControlName]="'customer'" type="text" matInput>
-                    </mat-form-field>
-                    <div class="mt-1 text-md text-hint">{{ 'app.integrate_zalo_crm_for' | transloco }} <a
-                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">{{ 'app.auto_contact' | transloco }}</a> {{ 'app.auto_receive_api' | transloco }}</div>
-                </div>
+                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                    <div class="w-full mt-2">
+                        <!-- Device Token Api -->
+                        <mat-form-field
+                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>{{
+                                "app.integrate_x_crm" | transloco
+                            }}</mat-label>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:database'"
+                                matPrefix
+                            ></mat-icon>
+                            <input
+                                [formControlName]="'customer'"
+                                type="text"
+                                matInput
+                            />
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">
+                            {{ "app.integrate_zalo_crm_for" | transloco }}
+                            <a
+                                href="https://ai.type.vn/lien-he"
+                                target="_blank"
+                                class="font-semibold"
+                                >{{ "app.auto_contact" | transloco }}</a
+                            >
+                            {{ "app.auto_receive_api" | transloco }}
+                        </div>
+                    </div>
+                }
 
-                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
-                    <!-- Device Token Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'app.data_scraping_tool' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:link-2'" matPrefix></mat-icon>
-                        <input [formControlName]="'bigdata'" type="text" matInput>
-                    </mat-form-field>
-                    <div class="mt-1 text-md text-hint">{{ 'app.tool_to_scrape_and' | transloco }}</div>
-                </div>
+                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                    <div class="w-full mt-2">
+                        <!-- Device Token Api -->
+                        <mat-form-field
+                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>{{
+                                "app.data_scraping_tool" | transloco
+                            }}</mat-label>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:link-2'"
+                                matPrefix
+                            ></mat-icon>
+                            <input
+                                [formControlName]="'bigdata'"
+                                type="text"
+                                matInput
+                            />
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">
+                            {{ "app.tool_to_scrape_and" | transloco }}
+                        </div>
+                    </div>
+                }
 
-                <div class="w-full mt-2"
-                    *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
-                    <!-- Text2Speech Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'app.text_to_speech_conversion' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'" matPrefix></mat-icon>
-                        <input [formControlName]="'tts'" type="text" matInput>
-                    </mat-form-field>
-                    <div class="mt-1 text-md text-hint">{{ 'account.jobs.tts_hint' | transloco }}</div>
-                </div>
+                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                    <div class="w-full mt-2">
+                        <!-- Text2Speech Api -->
+                        <mat-form-field
+                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>{{
+                                "app.text_to_speech_conversion" | transloco
+                            }}</mat-label>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:mic'"
+                                matPrefix
+                            ></mat-icon>
+                            <input
+                                [formControlName]="'tts'"
+                                type="text"
+                                matInput
+                            />
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">
+                            {{ "account.jobs.tts_hint" | transloco }}
+                        </div>
+                    </div>
+                }
 
-                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
-                    <!-- Text2Speech Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'account.jobs.sst_title' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:film'" matPrefix></mat-icon>
-                        <input [formControlName]="'sst'" type="text" matInput>
-                    </mat-form-field>
-                    <div class="mt-1 text-md text-hint">{{ 'account.jobs.sst_hint' | transloco }}</div>
-                </div>
+                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                    <div class="w-full mt-2">
+                        <!-- Text2Speech Api -->
+                        <mat-form-field
+                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>{{
+                                "account.jobs.sst_title" | transloco
+                            }}</mat-label>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:film'"
+                                matPrefix
+                            ></mat-icon>
+                            <input
+                                [formControlName]="'sst'"
+                                type="text"
+                                matInput
+                            />
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">
+                            {{ "account.jobs.sst_hint" | transloco }}
+                        </div>
+                    </div>
+                }
 
-                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
-                    <!-- Text2Speech Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>{{ 'account.jobs.mxhauto_title' | transloco }}</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:target'" matPrefix></mat-icon>
-                        <input [formControlName]="'mxhauto'" type="text" matInput>
-                    </mat-form-field>
-                    <div class="mt-1 text-md text-hint">{{ 'account.jobs.mxhauto_hint' | transloco }}</div>
-                </div>
-
+                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                    <div class="w-full mt-2">
+                        <!-- Text2Speech Api -->
+                        <mat-form-field
+                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>{{
+                                "account.jobs.mxhauto_title" | transloco
+                            }}</mat-label>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:target'"
+                                matPrefix
+                            ></mat-icon>
+                            <input
+                                [formControlName]="'mxhauto'"
+                                type="text"
+                                matInput
+                            />
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">
+                            {{ "account.jobs.mxhauto_hint" | transloco }}
+                        </div>
+                    </div>
+                }
             </mat-tab>
 
             <mat-tab label="{{ 'account.tabs.ai' | transloco }}">
@@ -255,148 +526,309 @@
                 <!-- <div class="mt-2 mb-2 border-t"></div> -->
                 <div class="w-full">
                     <!-- Divider -->
-                    <div class="text-secondary">{{ 'account.ai.title' | transloco }}</div>
+                    <div class="text-secondary">
+                        {{ "account.ai.title" | transloco }}
+                    </div>
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
                 <div class="w-full mt-4">
-                    <div class="mt-2 text-md text-hint" [innerHTML]="'account.ai.gemini_billing_hint' | transloco"></div>
+                    <div
+                        class="mt-2 text-md text-hint"
+                        [innerHTML]="
+                            'account.ai.gemini_billing_hint' | transloco
+                        "
+                    ></div>
 
                     <div class="flex flex-col w-1/2 mt-2">
-                        <div *ngFor="let key of geminiKeys; let i = index" class="flex mt-2">
-                            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix mb-0"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
-                                <input [type]="geminiKeysVisibility[i] ? 'text' : 'password'" matInput [value]="key"
-                                    (input)="onGeminiKeyChange(i, $event)" [placeholder]="'account.ai.placeholder_key' | transloco">
+                        @for (key of geminiKeys; track key; let i = $index) {
+                            <div class="flex mt-2">
+                                <mat-form-field
+                                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix mb-0"
+                                    [subscriptSizing]="'dynamic'"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'heroicons_outline:key'"
+                                        matPrefix
+                                    ></mat-icon>
+                                    <input
+                                        [type]="
+                                            geminiKeysVisibility[i]
+                                                ? 'text'
+                                                : 'password'
+                                        "
+                                        matInput
+                                        [value]="key"
+                                        (input)="onGeminiKeyChange(i, $event)"
+                                        [placeholder]="
+                                            'account.ai.placeholder_key'
+                                                | transloco
+                                        "
+                                    />
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        matSuffix
+                                        (click)="toggleKeyVisibility(i)"
+                                    >
+                                        <mat-icon class="icon-size-4">{{
+                                            geminiKeysVisibility[i]
+                                                ? "visibility_off"
+                                                : "visibility"
+                                        }}</mat-icon>
+                                    </button>
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        color="warn"
+                                        matSuffix
+                                        (click)="removeGeminiKey(i)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="'heroicons_outline:trash'"
+                                        ></mat-icon>
+                                    </button>
+                                </mat-form-field>
+                            </div>
+                        }
+                    </div>
 
-                                <button mat-icon-button type="button" matSuffix (click)="toggleKeyVisibility(i)">
-                                    <mat-icon class="icon-size-4">{{ geminiKeysVisibility[i] ? 'visibility_off' :
-                                        'visibility' }}</mat-icon>
-                                </button>
-
-                                <button mat-icon-button type="button" color="warn" matSuffix
-                                    (click)="removeGeminiKey(i)">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
-                                </button>
-                            </mat-form-field>
+                    @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                        <div class="flex items-center mt-2">
+                            <!-- <mat-label class="text-secondary text-base mr-4">{{ 'app.auto_keys_of_gemini_ai_studio' | transloco }}</mat-label> -->
+                            <button
+                                mat-flat-button
+                                type="button"
+                                [color]="'primary'"
+                                (click)="addGeminiKey()"
+                            >
+                                <mat-icon
+                                    [svgIcon]="'heroicons_outline:plus'"
+                                ></mat-icon>
+                                <mat-label class="ml-2">{{
+                                    "account.ai.add_key" | transloco
+                                }}</mat-label>
+                            </button>
                         </div>
-                    </div>
-
-                    <div class="flex items-center mt-2" *ngIf="user.groups?.includes('nhóm-đã-mua-ai-type')">
-                        <!-- <mat-label class="text-secondary text-base mr-4">{{ 'app.auto_keys_of_gemini_ai_studio' | transloco }}</mat-label> -->
-                        <button mat-flat-button type="button" [color]="'primary'" (click)="addGeminiKey()">
-                            <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                            <mat-label class="ml-2">{{ 'account.ai.add_key' | transloco }}</mat-label>
-                        </button>
-                    </div>
+                    }
 
                     <div class="w-full mt-10">
-                        <div class="text-secondary">{{ 'account.ai.advanced_title' | transloco }}</div>
+                        <div class="text-secondary">
+                            {{ "account.ai.advanced_title" | transloco }}
+                        </div>
                         <div class="mt-2 mb-2 border-t"></div>
                     </div>
 
                     <div class="w-full mt-4">
                         <div class="full-width-toggle mb-4">
-                            <mat-slide-toggle [formControlName]="'enableUmodelverse'"
+                            <mat-slide-toggle
+                                [formControlName]="'enableUmodelverse'"
                                 [labelPosition]="'before'"
-                                class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
+                                class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                                [color]="'primary'"
+                            >
                                 <mat-label class="toggle-label text-md">
-                                    {{ 'account.ai.toggle_mitom' | transloco }}
-                                    <span class="text-gray-400">{{ 'account.ai.toggle_mitom_hint' | transloco }}</span>
+                                    {{ "account.ai.toggle_mitom" | transloco }}
+                                    <span class="text-gray-400">{{
+                                        "account.ai.toggle_mitom_hint"
+                                            | transloco
+                                    }}</span>
                                 </mat-label>
                             </mat-slide-toggle>
                         </div>
                     </div>
 
-                    <div class="w-full transition-opacity duration-300"
-                        [class.opacity-50]="!accountForm.get('enableUmodelverse').value"
-                        [class.pointer-events-none]="!accountForm.get('enableUmodelverse').value">
+                    <div
+                        class="w-full transition-opacity duration-300"
+                        [class.opacity-50]="
+                            !accountForm.get('enableUmodelverse').value
+                        "
+                        [class.pointer-events-none]="
+                            !accountForm.get('enableUmodelverse').value
+                        "
+                    >
                         <div class="w-full mt-4">
-                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'app.base_url_m_t' | transloco }}</mat-label>
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:link'" matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseUrl'" type="text" matInput>
+                            <mat-form-field
+                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "app.base_url_m_t" | transloco
+                                }}</mat-label>
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'feather:link'"
+                                    matPrefix
+                                ></mat-icon>
+                                <input
+                                    [formControlName]="'umodelverseUrl'"
+                                    type="text"
+                                    matInput
+                                />
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">{{ 'account.ai.mitom_url_hint' | transloco }}</div>
+                            <div class="mt-1 text-md text-hint">
+                                {{ "account.ai.mitom_url_hint" | transloco }}
+                            </div>
                         </div>
 
                         <div class="w-full mt-2">
-                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.ai.umodelverse_key' | transloco }}</mat-label>
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseKey'"
-                                    [type]="showUmodelverseKey ? 'text' : 'password'" matInput>
-                                <button mat-icon-button type="button" matSuffix
-                                    (click)="showUmodelverseKey = !showUmodelverseKey">
-                                    <mat-icon class="icon-size-4">{{ showUmodelverseKey ? 'visibility_off' :
-                                        'visibility' }}</mat-icon>
+                            <mat-form-field
+                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.ai.umodelverse_key" | transloco
+                                }}</mat-label>
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_outline:key'"
+                                    matPrefix
+                                ></mat-icon>
+                                <input
+                                    [formControlName]="'umodelverseKey'"
+                                    [type]="
+                                        showUmodelverseKey ? 'text' : 'password'
+                                    "
+                                    matInput
+                                />
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    matSuffix
+                                    (click)="
+                                        showUmodelverseKey = !showUmodelverseKey
+                                    "
+                                >
+                                    <mat-icon class="icon-size-4">{{
+                                        showUmodelverseKey
+                                            ? "visibility_off"
+                                            : "visibility"
+                                    }}</mat-icon>
                                 </button>
                             </mat-form-field>
                         </div>
                     </div>
 
-                    <div class="w-full transition-opacity duration-300"
-                        [class.opacity-50]="!accountForm.get('enableUmodelverse').value"
-                        [class.pointer-events-none]="!accountForm.get('enableUmodelverse').value">
+                    <div
+                        class="w-full transition-opacity duration-300"
+                        [class.opacity-50]="
+                            !accountForm.get('enableUmodelverse').value
+                        "
+                        [class.pointer-events-none]="
+                            !accountForm.get('enableUmodelverse').value
+                        "
+                    >
                         <div class="w-full mt-2">
-                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.ai.text_model' | transloco }}</mat-label>
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'"
-                                    matPrefix></mat-icon>
-                                <input type="text" matInput [formControlName]="'umodelverseChatModel'"
+                            <mat-form-field
+                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.ai.text_model" | transloco
+                                }}</mat-label>
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_outline:chat-alt-2'"
+                                    matPrefix
+                                ></mat-icon>
+                                <input
+                                    type="text"
+                                    matInput
+                                    [formControlName]="'umodelverseChatModel'"
                                     [matAutocomplete]="autoChat"
-                                    placeholder="Tìm kiếm model Text (VD: gpt-4o, deepseek-v3, kimi...)">
+                                    placeholder="Tìm kiếm model Text (VD: gpt-4o, deepseek-v3, kimi...)"
+                                />
                                 <mat-autocomplete #autoChat="matAutocomplete">
-                                    <mat-option *ngFor="let model of filteredChatModels$ | async" [value]="model">
-                                        {{model}}
-                                    </mat-option>
+                                    @for (
+                                        model of filteredChatModels$ | async;
+                                        track model
+                                    ) {
+                                        <mat-option [value]="model">
+                                            {{ model }}
+                                        </mat-option>
+                                    }
                                 </mat-autocomplete>
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">{{ 'account.ai.text_model_hint' | transloco }}</div>
+                            <div class="mt-1 text-md text-hint">
+                                {{ "account.ai.text_model_hint" | transloco }}
+                            </div>
                         </div>
 
                         <div class="w-full mt-2">
-                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.ai.image_model' | transloco }}</mat-label>
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'"
-                                    matPrefix></mat-icon>
-                                <input type="text" matInput [formControlName]="'umodelverseImageModel'"
+                            <mat-form-field
+                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.ai.image_model" | transloco
+                                }}</mat-label>
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_outline:photograph'"
+                                    matPrefix
+                                ></mat-icon>
+                                <input
+                                    type="text"
+                                    matInput
+                                    [formControlName]="'umodelverseImageModel'"
                                     [matAutocomplete]="autoImage"
-                                    placeholder="Tìm kiếm model Tạo Ảnh (VD: flux, seedream, qwen-image...)">
+                                    placeholder="Tìm kiếm model Tạo Ảnh (VD: flux, seedream, qwen-image...)"
+                                />
                                 <mat-autocomplete #autoImage="matAutocomplete">
-                                    <mat-option *ngFor="let model of filteredImageModels$ | async" [value]="model">
-                                        {{model}}
-                                    </mat-option>
+                                    @for (
+                                        model of filteredImageModels$ | async;
+                                        track model
+                                    ) {
+                                        <mat-option [value]="model">
+                                            {{ model }}
+                                        </mat-option>
+                                    }
                                 </mat-autocomplete>
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">{{ 'account.ai.image_model_hint' | transloco }}</div>
+                            <div class="mt-1 text-md text-hint">
+                                {{ "account.ai.image_model_hint" | transloco }}
+                            </div>
                         </div>
 
                         <div class="w-full mt-2">
-                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-label>{{ 'account.ai.video_model' | transloco }}</mat-label>
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'"
-                                    matPrefix></mat-icon>
-                                <input type="text" matInput [formControlName]="'umodelverseVideoModel'"
+                            <mat-form-field
+                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>{{
+                                    "account.ai.video_model" | transloco
+                                }}</mat-label>
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_outline:video-camera'"
+                                    matPrefix
+                                ></mat-icon>
+                                <input
+                                    type="text"
+                                    matInput
+                                    [formControlName]="'umodelverseVideoModel'"
                                     [matAutocomplete]="autoVideo"
-                                    placeholder="Tìm kiếm model Tạo Video (VD: kling-v3, wan2.7-i2v...)">
+                                    placeholder="Tìm kiếm model Tạo Video (VD: kling-v3, wan2.7-i2v...)"
+                                />
                                 <mat-autocomplete #autoVideo="matAutocomplete">
-                                    <mat-option *ngFor="let model of filteredVideoModels$ | async" [value]="model">
-                                        {{model}}
-                                    </mat-option>
+                                    @for (
+                                        model of filteredVideoModels$ | async;
+                                        track model
+                                    ) {
+                                        <mat-option [value]="model">
+                                            {{ model }}
+                                        </mat-option>
+                                    }
                                 </mat-autocomplete>
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">{{ 'account.ai.video_model_hint' | transloco }}</div>
+                            <div class="mt-1 text-md text-hint">
+                                {{ "account.ai.video_model_hint" | transloco }}
+                            </div>
                         </div>
                     </div>
                 </div>
-
             </mat-tab>
 
             <!-- Tab Backup -->
@@ -405,24 +837,58 @@
                     <!-- Backup Card -->
                     <div class="flex flex-col">
                         <div class="flex items-center space-x-3">
-                            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:cloud-download'"></mat-icon>
+                            <div
+                                class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                            >
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [svgIcon]="'heroicons_outline:cloud-download'"
+                                ></mat-icon>
                             </div>
                             <div>
-                                <h3 class="text-lg font-semibold">{{ 'account.backup_restore.backup_title' | transloco }}</h3>
+                                <h3 class="text-lg font-semibold">
+                                    {{
+                                        "account.backup_restore.backup_title"
+                                            | transloco
+                                    }}
+                                </h3>
                             </div>
                         </div>
 
                         <p class="mt-3 text-secondary text-sm leading-relaxed">
-                            {{ 'account.backup_restore.backup_desc' | transloco }}
+                            {{
+                                "account.backup_restore.backup_desc" | transloco
+                            }}
                         </p>
 
-                        <div class="mt-auto pt-6 flex items-center justify-between">
-                            <span class="text-xs text-hint">Documents/ai.type/data/backup</span>
-                            <button mat-flat-button [color]="'primary'" type="button" (click)="backupDatabase()" [disabled]="isBackingUp">
-                                <mat-progress-spinner *ngIf="isBackingUp" [diameter]="18" [mode]="'indeterminate'"></mat-progress-spinner>
-                                <mat-icon *ngIf="!isBackingUp" [svgIcon]="'heroicons_outline:cloud-download'"></mat-icon>
-                                <mat-label class="ml-2">{{ 'account.backup_restore.backup_btn' | transloco }}</mat-label>
+                        <div
+                            class="mt-auto pt-6 flex items-center justify-between"
+                        >
+                            <span class="text-xs text-hint"
+                                >Documents/ai.type/data/backup</span
+                            >
+                            <button
+                                mat-flat-button
+                                [color]="'primary'"
+                                type="button"
+                                (click)="backupDatabase()"
+                                [disabled]="isBackingUp"
+                            >
+                                @if (isBackingUp) {
+                                    <mat-progress-spinner
+                                        [diameter]="18"
+                                        [mode]="'indeterminate'"
+                                    ></mat-progress-spinner>
+                                }
+                                @if (!isBackingUp) {
+                                    <mat-icon
+                                        [svgIcon]="'heroicons_outline:cloud-download'"
+                                    ></mat-icon>
+                                }
+                                <mat-label class="ml-2">{{
+                                    "account.backup_restore.backup_btn"
+                                        | transloco
+                                }}</mat-label>
                             </button>
                         </div>
                     </div>
@@ -432,8 +898,17 @@
 
         <!-- Actions -->
         <div class="flex items-center justify-end mt-10">
-            <mat-label class="mr-2 text-sm text-gray-500">{{ 'account.save_hint' | transloco }}</mat-label>
-            <button class="ml-2" mat-flat-button type="submit" [color]="'primary'">{{ 'account.save_btn' | transloco }}</button>
+            <mat-label class="mr-2 text-sm text-gray-500">{{
+                "account.save_hint" | transloco
+            }}</mat-label>
+            <button
+                class="ml-2"
+                mat-flat-button
+                type="submit"
+                [color]="'primary'"
+            >
+                {{ "account.save_btn" | transloco }}
+            </button>
         </div>
     </form>
 </div>

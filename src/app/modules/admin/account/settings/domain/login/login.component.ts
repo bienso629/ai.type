@@ -4,10 +4,11 @@ import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { Subject } from 'rxjs';
 
 @Component({
-  selector: 'settings-domain-login',
-  templateUrl: './login.component.html',
-  encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'settings-domain-login',
+    templateUrl: './login.component.html',
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsDomainLoginComponent implements OnInit, OnDestroy {
   loginForm: UntypedFormGroup;

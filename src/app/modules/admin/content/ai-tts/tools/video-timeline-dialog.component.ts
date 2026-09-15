@@ -1,4 +1,5 @@
-import { TranslocoModule } from '@ngneat/transloco';
+import { CommonModule, DecimalPipe } from '@angular/common';
+import { TranslocoModule } from '@jsverse/transloco';
 import {
     Component,
     OnInit,
@@ -11,7 +12,8 @@ import {
     OnDestroy,
     TemplateRef,
     AfterViewInit,
-    Optional
+    Optional,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { GoogleGenAI } from '@google/genai';
@@ -23,7 +25,7 @@ import {
 } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import WaveSurfer from 'wavesurfer.js';
@@ -37,7 +39,10 @@ import {
     CdkDragDrop,
     moveItemInArray,
 } from '@angular/cdk/drag-drop';
-import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
+import {
+    ScrollingModule,
+    CdkVirtualScrollViewport,
+} from '@angular/cdk/scrolling';
 
 import { AddSceneComponent } from './add-scene.component';
 import { DirectorModeComponent } from './director-mode.component';
@@ -71,10 +76,10 @@ export interface VideoFrameTemplate {
     bgVideoUrl?: string;
     description?: string;
     quad: {
-        topLeft: { x: number, y: number };
-        topRight: { x: number, y: number };
-        bottomRight: { x: number, y: number };
-        bottomLeft: { x: number, y: number };
+        topLeft: { x: number; y: number };
+        topRight: { x: number; y: number };
+        bottomRight: { x: number; y: number };
+        bottomLeft: { x: number; y: number };
     };
     canvasWidth: number;
     canvasHeight: number;
@@ -82,11 +87,11 @@ export interface VideoFrameTemplate {
 
 @Component({
     selector: 'app-video-timeline-dialog',
-    standalone: true,
     templateUrl: 'video-timeline-dialog.component.html',
     imports: [
-        TranslocoModule,
         CommonModule,
+        DecimalPipe,
+        TranslocoModule,
         FormsModule,
         MatDialogModule,
         MatButtonModule,
@@ -97,80 +102,86 @@ export interface VideoFrameTemplate {
         MatProgressSpinnerModule,
         MatTooltipModule,
         MatMenuModule,
-        MatDividerModule
+        MatDividerModule,
     ],
-    styles: [`
-        input[type=range].volume-slider {
-            -webkit-appearance: none;
-            appearance: none;
-            background: #27272a;
-            height: 6px;
-            border-radius: 9999px;
-            border: 0 !important;
-            outline: none !important;
-            box-shadow: none !important;
-            cursor: pointer;
-        }
-        input[type=range].volume-slider:focus {
-            outline: none !important;
-            border: 0 !important;
-            box-shadow: none !important;
-        }
-        input[type=range].volume-slider::-webkit-slider-runnable-track {
-            -webkit-appearance: none;
-            border: 0 !important;
-            outline: none !important;
-            box-shadow: none !important;
-            background: transparent;
-            height: 6px;
-        }
-        input[type=range].volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #a855f7;
-            border: 0 !important;
-            outline: none !important;
-            box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
-            cursor: pointer;
-            margin-top: -4px;
-        }
-        input[type=range].volume-slider::-moz-range-track {
-            border: 0 !important;
-            outline: none !important;
-            background: transparent;
-            height: 6px;
-        }
-        input[type=range].volume-slider::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #a855f7;
-            border: 0 !important;
-            outline: none !important;
-            box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
-            cursor: pointer;
-        }
-        select {
-            padding-right: 28px !important;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
-            background-position: right 6px center !important;
-            background-repeat: no-repeat !important;
-            background-size: 16px 16px !important;
-            -webkit-appearance: none !important;
-            -moz-appearance: none !important;
-            appearance: none !important;
-        }
-        select option, select optgroup {
-            background-color: #171821;
-            color: #e5e7eb;
-        }
-    `],
-    schemas: [CUSTOM_ELEMENTS_SCHEMA]
+    styles: [
+        `
+            input[type='range'].volume-slider {
+                -webkit-appearance: none;
+                appearance: none;
+                background: #27272a;
+                height: 6px;
+                border-radius: 9999px;
+                border: 0 !important;
+                outline: none !important;
+                box-shadow: none !important;
+                cursor: pointer;
+            }
+            input[type='range'].volume-slider:focus {
+                outline: none !important;
+                border: 0 !important;
+                box-shadow: none !important;
+            }
+            input[type='range'].volume-slider::-webkit-slider-runnable-track {
+                -webkit-appearance: none;
+                border: 0 !important;
+                outline: none !important;
+                box-shadow: none !important;
+                background: transparent;
+                height: 6px;
+            }
+            input[type='range'].volume-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: #a855f7;
+                border: 0 !important;
+                outline: none !important;
+                box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
+                cursor: pointer;
+                margin-top: -4px;
+            }
+            input[type='range'].volume-slider::-moz-range-track {
+                border: 0 !important;
+                outline: none !important;
+                background: transparent;
+                height: 6px;
+            }
+            input[type='range'].volume-slider::-moz-range-thumb {
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: #a855f7;
+                border: 0 !important;
+                outline: none !important;
+                box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
+                cursor: pointer;
+            }
+            select {
+                padding-right: 28px !important;
+                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+                background-position: right 6px center !important;
+                background-repeat: no-repeat !important;
+                background-size: 16px 16px !important;
+                -webkit-appearance: none !important;
+                -moz-appearance: none !important;
+                appearance: none !important;
+            }
+            select option,
+            select optgroup {
+                background-color: #171821;
+                color: #e5e7eb;
+            }
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterViewInit {
+export class VideoTimelineDialogComponent
+    implements OnInit, OnDestroy, AfterViewInit
+{
     private saveTimeout: any = null;
     private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
 
@@ -189,9 +200,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             maskPath: '',
             thumbPath: '',
             description: 'Phát video toàn màn hình gốc không lồng khung mockup',
-            quad: { topLeft: { x: 0, y: 0 }, topRight: { x: 1920, y: 0 }, bottomRight: { x: 1920, y: 1080 }, bottomLeft: { x: 0, y: 1080 } },
+            quad: {
+                topLeft: { x: 0, y: 0 },
+                topRight: { x: 1920, y: 0 },
+                bottomRight: { x: 1920, y: 1080 },
+                bottomLeft: { x: 0, y: 1080 },
+            },
             canvasWidth: 1920,
-            canvasHeight: 1080
+            canvasHeight: 1080,
         },
         {
             id: 'tiktok_frame_1',
@@ -201,15 +217,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             bgPath: 'src/assets/video_frames/tiktok_frame_bg.jpg',
             maskPath: 'src/assets/video_frames/tiktok_frame_mask.png',
             thumbPath: 'src/assets/video_frames/tiktok_frame_thumb.jpg',
-            description: 'Khung bàn làm việc Gaming PC 3D nghiêng TikTok 9:16 chuẩn nghệ thuật',
+            description:
+                'Khung bàn làm việc Gaming PC 3D nghiêng TikTok 9:16 chuẩn nghệ thuật',
             quad: {
                 topLeft: { x: 380.7, y: 1261.2 },
                 topRight: { x: 1964.0, y: 1378.5 },
                 bottomRight: { x: 1958.0, y: 2275.0 },
-                bottomLeft: { x: 395.7, y: 2376.3 }
+                bottomLeft: { x: 395.7, y: 2376.3 },
             },
             canvasWidth: 2286,
-            canvasHeight: 4096
+            canvasHeight: 4096,
         },
         {
             id: 'tiktok_frame_2',
@@ -219,15 +236,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             bgPath: 'src/assets/video_frames/tiktok_frame_2_bg.jpg',
             maskPath: 'src/assets/video_frames/tiktok_frame_2_mask.png',
             thumbPath: 'src/assets/video_frames/tiktok_frame_2_thumb.jpg',
-            description: 'Khung Mockup No.2 TikTok 9:16 sang trọng, phối cảnh chuẩn nét',
+            description:
+                'Khung Mockup No.2 TikTok 9:16 sang trọng, phối cảnh chuẩn nét',
             quad: {
                 topLeft: { x: 493.0, y: 421.0 },
                 topRight: { x: 1794.0, y: 421.0 },
                 bottomRight: { x: 1794.0, y: 2589.0 },
-                bottomLeft: { x: 505.4, y: 2597.0 }
+                bottomLeft: { x: 505.4, y: 2597.0 },
             },
             canvasWidth: 2286,
-            canvasHeight: 4096
+            canvasHeight: 4096,
         },
         {
             id: 'youtube_frame_3',
@@ -237,15 +255,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             bgPath: 'src/assets/video_frames/youtube_frame_3_bg.jpg',
             maskPath: 'src/assets/video_frames/youtube_frame_3_mask.png',
             thumbPath: 'src/assets/video_frames/youtube_frame_3_thumb.jpg',
-            description: 'Khung TV phòng khách gia đình YouTube 16:9 siêu nét, không gian ấm cúng',
+            description:
+                'Khung TV phòng khách gia đình YouTube 16:9 siêu nét, không gian ấm cúng',
             quad: {
                 topLeft: { x: 1128.0, y: 532.0 },
                 topRight: { x: 2970.0, y: 532.0 },
                 bottomRight: { x: 2970.0, y: 1581.0 },
-                bottomLeft: { x: 1135.5, y: 1588.0 }
+                bottomLeft: { x: 1135.5, y: 1588.0 },
             },
             canvasWidth: 4096,
-            canvasHeight: 2286
+            canvasHeight: 2286,
         },
         {
             id: 'tiktok_frame_4',
@@ -255,15 +274,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             bgPath: 'src/assets/video_frames/tiktok_frame_4_bg.jpg',
             maskPath: 'src/assets/video_frames/tiktok_frame_4_mask.png',
             thumbPath: 'src/assets/video_frames/tiktok_frame_4_thumb.jpg',
-            description: 'Khung Mockup No.4 TikTok 9:16 phối cảnh 3D nghiêng hiện đại',
+            description:
+                'Khung Mockup No.4 TikTok 9:16 phối cảnh 3D nghiêng hiện đại',
             quad: {
                 topLeft: { x: 819.0, y: 1012.5 },
                 topRight: { x: 1670.5, y: 879.5 },
                 bottomRight: { x: 1660.5, y: 2632.5 },
-                bottomLeft: { x: 828.0, y: 2546.0 }
+                bottomLeft: { x: 828.0, y: 2546.0 },
             },
             canvasWidth: 2286,
-            canvasHeight: 4096
+            canvasHeight: 4096,
         },
         {
             id: 'tiktok_frame_5',
@@ -273,15 +293,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             bgPath: 'src/assets/video_frames/tiktok_frame_5_bg.jpg',
             maskPath: 'src/assets/video_frames/tiktok_frame_5_mask.png',
             thumbPath: 'src/assets/video_frames/tiktok_frame_5_thumb.jpg',
-            description: 'Khung Mockup No.5 TikTok 9:16 góc nghiêng nghệ thuật, phối cảnh độc đáo',
+            description:
+                'Khung Mockup No.5 TikTok 9:16 góc nghiêng nghệ thuật, phối cảnh độc đáo',
             quad: {
                 topLeft: { x: 135.0, y: 901.5 },
                 topRight: { x: 2234.5, y: 679.0 },
                 bottomRight: { x: 2158.5, y: 2329.5 },
-                bottomLeft: { x: 200.5, y: 2059.0 }
+                bottomLeft: { x: 200.5, y: 2059.0 },
             },
             canvasWidth: 2286,
-            canvasHeight: 4096
+            canvasHeight: 4096,
         },
         {
             id: 'tiktok_frame_6',
@@ -291,15 +312,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             bgPath: 'src/assets/video_frames/tiktok_frame_6_bg.jpg',
             maskPath: 'src/assets/video_frames/tiktok_frame_6_mask.png',
             thumbPath: 'src/assets/video_frames/tiktok_frame_6_thumb.jpg',
-            description: 'Khung Mockup No.6 TikTok 9:16 phối cảnh chuẩn nét từ Group 7',
+            description:
+                'Khung Mockup No.6 TikTok 9:16 phối cảnh chuẩn nét từ Group 7',
             quad: {
                 topLeft: { x: 589.5, y: 640.5 },
                 topRight: { x: 1613.0, y: 640.5 },
                 bottomRight: { x: 1613.0, y: 2410.5 },
-                bottomLeft: { x: 575.5, y: 2410.5 }
+                bottomLeft: { x: 575.5, y: 2410.5 },
             },
             canvasWidth: 2286,
-            canvasHeight: 4096
+            canvasHeight: 4096,
         },
         {
             id: 'tiktok_frame_7',
@@ -309,15 +331,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             bgPath: 'src/assets/video_frames/tiktok_frame_7_bg.jpg',
             maskPath: 'src/assets/video_frames/tiktok_frame_7_mask.png',
             thumbPath: 'src/assets/video_frames/tiktok_frame_7_thumb.jpg',
-            description: 'Khung Mockup No.7 TikTok 9:16 góc nghiêng nghệ thuật từ Group 7.1',
+            description:
+                'Khung Mockup No.7 TikTok 9:16 góc nghiêng nghệ thuật từ Group 7.1',
             quad: {
                 topLeft: { x: 502.0, y: 779.5 },
                 topRight: { x: 1296.5, y: 910.0 },
                 bottomRight: { x: 1284.5, y: 2269.0 },
-                bottomLeft: { x: 472.5, y: 2216.5 }
+                bottomLeft: { x: 472.5, y: 2216.5 },
             },
             canvasWidth: 2286,
-            canvasHeight: 4096
+            canvasHeight: 4096,
         },
         {
             id: 'tiktok_frame_8',
@@ -327,16 +350,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             bgPath: 'src/assets/video_frames/tiktok_frame_8_bg.jpg',
             maskPath: 'src/assets/video_frames/tiktok_frame_8_mask.png',
             thumbPath: 'src/assets/video_frames/tiktok_frame_8_thumb.jpg',
-            description: 'Khung Mockup No.8 TikTok 9:16 phối cảnh góc nghiêng từ Group 8',
+            description:
+                'Khung Mockup No.8 TikTok 9:16 phối cảnh góc nghiêng từ Group 8',
             quad: {
                 topLeft: { x: 819.0, y: 1214.5 },
                 topRight: { x: 2146.0, y: 990.0 },
                 bottomRight: { x: 2142.0, y: 2187.5 },
-                bottomLeft: { x: 820.0, y: 2048.5 }
+                bottomLeft: { x: 820.0, y: 2048.5 },
             },
             canvasWidth: 2286,
-            canvasHeight: 4096
-        }
+            canvasHeight: 4096,
+        },
     ];
 
     selectedFrame: VideoFrameTemplate | null = null;
@@ -347,8 +371,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     get currentSelectedVideo(): any {
         if (this.activeVideo) return this.activeVideo;
-        if (this.selectedContextData?.video) return this.selectedContextData.video;
-        if (this.activeItem && (this.activeItem.videoUrl || this.getItemType(this.activeItem) === 'video')) {
+        if (this.selectedContextData?.video)
+            return this.selectedContextData.video;
+        if (
+            this.activeItem &&
+            (this.activeItem.videoUrl ||
+                this.getItemType(this.activeItem) === 'video')
+        ) {
             return this.activeItem;
         }
         return this.getCurrentVisibleVideo();
@@ -358,11 +387,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (this.frameFilterRatio === 'all') {
             return this.AVAILABLE_FRAMES;
         }
-        return this.AVAILABLE_FRAMES.filter(frame => frame.id === 'none' || frame.aspectRatio === this.frameFilterRatio);
+        return this.AVAILABLE_FRAMES.filter(
+            (frame) =>
+                frame.id === 'none' ||
+                frame.aspectRatio === this.frameFilterRatio,
+        );
     }
 
     getEffectiveAspectRatio(): string {
-        if (this.selectedFrame && this.selectedFrame.id !== 'none' && this.selectedFrame.aspectRatio) {
+        if (
+            this.selectedFrame &&
+            this.selectedFrame.id !== 'none' &&
+            this.selectedFrame.aspectRatio
+        ) {
             return this.selectedFrame.aspectRatio;
         }
         return this.projectData?.aspectRatio || '16:9';
@@ -379,16 +416,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             try {
                 if (electron && electron.readFileBase64) {
                     if (frame.thumbPath && !frame.thumbDataUrl) {
-                        const thumbRes = await electron.readFileBase64(frame.thumbPath);
-                        if (thumbRes && thumbRes.dataUrl) frame.thumbDataUrl = thumbRes.dataUrl;
+                        const thumbRes = await electron.readFileBase64(
+                            frame.thumbPath,
+                        );
+                        if (thumbRes && thumbRes.dataUrl)
+                            frame.thumbDataUrl = thumbRes.dataUrl;
                     }
                     if (frame.bgPath && !frame.bgDataUrl) {
-                        const bgRes = await electron.readFileBase64(frame.bgPath);
-                        if (bgRes && bgRes.dataUrl) frame.bgDataUrl = bgRes.dataUrl;
+                        const bgRes = await electron.readFileBase64(
+                            frame.bgPath,
+                        );
+                        if (bgRes && bgRes.dataUrl)
+                            frame.bgDataUrl = bgRes.dataUrl;
                     }
                 }
             } catch (err) {
-                console.warn('[loadFrameAssets] Lỗi tải asset cho frame:', frame.id, err);
+                console.warn(
+                    '[loadFrameAssets] Lỗi tải asset cho frame:',
+                    frame.id,
+                    err,
+                );
             }
         }
         this.cd.detectChanges();
@@ -408,7 +455,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     async selectFrame(frame: VideoFrameTemplate) {
         const targetVideo = this.currentSelectedVideo;
         if (!targetVideo) {
-            this.toastr.warning('Vui lòng chọn 1 video trên Timeline trước khi chọn khung!');
+            this.toastr.warning(
+                'Vui lòng chọn 1 video trên Timeline trước khi chọn khung!',
+            );
             this.isFrameModalOpen = false;
             return;
         }
@@ -425,7 +474,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 await this.loadFrameAssets();
             }
             this.updateMockupVideoStyle();
-            this.toastr.success(`Đã áp dụng khung [${frame.name}] cho video đang chọn!`);
+            this.toastr.success(
+                `Đã áp dụng khung [${frame.name}] cho video đang chọn!`,
+            );
         }
 
         this.saveData();
@@ -433,7 +484,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
-    getHomographyMatrix3D(src: [number, number][], dst: [number, number][]): number[] {
+    getHomographyMatrix3D(
+        src: [number, number][],
+        dst: [number, number][],
+    ): number[] {
         const A: number[][] = [];
         const B: number[] = [];
         for (let i = 0; i < 4; i++) {
@@ -465,10 +519,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             h[i] = (B[i] - sum) / A[i][i];
         }
         return [
-            h[0], h[3], 0, h[6],
-            h[1], h[4], 0, h[7],
-            0,    0,    1, 0,
-            h[2], h[5], 0, 1
+            h[0],
+            h[3],
+            0,
+            h[6],
+            h[1],
+            h[4],
+            0,
+            h[7],
+            0,
+            0,
+            1,
+            0,
+            h[2],
+            h[5],
+            0,
+            1,
         ];
     }
 
@@ -479,36 +545,76 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const canvasW = this.selectedFrame.canvasWidth || 2286;
         const canvasH = this.selectedFrame.canvasHeight || 4096;
 
-        const frameW = (containerEl && containerEl.clientWidth > 0) ? containerEl.clientWidth : (this.selectedFrame.aspectRatio === '16:9' ? 640 : 360);
-        const frameH = (containerEl && containerEl.clientHeight > 0) ? containerEl.clientHeight : (this.selectedFrame.aspectRatio === '16:9' ? 360 : 645);
+        const frameW =
+            containerEl && containerEl.clientWidth > 0
+                ? containerEl.clientWidth
+                : this.selectedFrame.aspectRatio === '16:9'
+                  ? 640
+                  : 360;
+        const frameH =
+            containerEl && containerEl.clientHeight > 0
+                ? containerEl.clientHeight
+                : this.selectedFrame.aspectRatio === '16:9'
+                  ? 360
+                  : 645;
 
         // Tính kích thước tự nhiên thực tế của vùng Mockup Quad
-        const topEdge = Math.hypot(q.topRight.x - q.topLeft.x, q.topRight.y - q.topLeft.y);
-        const bottomEdge = Math.hypot(q.bottomRight.x - q.bottomLeft.x, q.bottomRight.y - q.bottomLeft.y);
-        const leftEdge = Math.hypot(q.bottomLeft.x - q.topLeft.x, q.bottomLeft.y - q.topLeft.y);
-        const rightEdge = Math.hypot(q.bottomRight.x - q.topRight.x, q.bottomRight.y - q.topRight.y);
+        const topEdge = Math.hypot(
+            q.topRight.x - q.topLeft.x,
+            q.topRight.y - q.topLeft.y,
+        );
+        const bottomEdge = Math.hypot(
+            q.bottomRight.x - q.bottomLeft.x,
+            q.bottomRight.y - q.bottomLeft.y,
+        );
+        const leftEdge = Math.hypot(
+            q.bottomLeft.x - q.topLeft.x,
+            q.bottomLeft.y - q.topLeft.y,
+        );
+        const rightEdge = Math.hypot(
+            q.bottomRight.x - q.topRight.x,
+            q.bottomRight.y - q.topRight.y,
+        );
 
-        const screenVirtualW = Math.max(100, Math.round((topEdge + bottomEdge) / 2));
-        const screenVirtualH = Math.max(100, Math.round((leftEdge + rightEdge) / 2));
+        const screenVirtualW = Math.max(
+            100,
+            Math.round((topEdge + bottomEdge) / 2),
+        );
+        const screenVirtualH = Math.max(
+            100,
+            Math.round((leftEdge + rightEdge) / 2),
+        );
 
         const src: [number, number][] = [
             [0, 0],
             [screenVirtualW, 0],
             [screenVirtualW, screenVirtualH],
-            [0, screenVirtualH]
+            [0, screenVirtualH],
         ];
 
         // Mở rộng 4 góc ra 4px theo tỷ lệ canvas để phủ khít viền màn hình (scale 4px)
         const scale4 = 4;
         const dst: [number, number][] = [
-            [(q.topLeft.x - scale4) / canvasW * frameW, (q.topLeft.y - scale4) / canvasH * frameH],
-            [(q.topRight.x + scale4) / canvasW * frameW, (q.topRight.y - scale4) / canvasH * frameH],
-            [(q.bottomRight.x + scale4) / canvasW * frameW, (q.bottomRight.y + scale4) / canvasH * frameH],
-            [(q.bottomLeft.x - scale4) / canvasW * frameW, (q.bottomLeft.y + scale4) / canvasH * frameH]
+            [
+                ((q.topLeft.x - scale4) / canvasW) * frameW,
+                ((q.topLeft.y - scale4) / canvasH) * frameH,
+            ],
+            [
+                ((q.topRight.x + scale4) / canvasW) * frameW,
+                ((q.topRight.y - scale4) / canvasH) * frameH,
+            ],
+            [
+                ((q.bottomRight.x + scale4) / canvasW) * frameW,
+                ((q.bottomRight.y + scale4) / canvasH) * frameH,
+            ],
+            [
+                ((q.bottomLeft.x - scale4) / canvasW) * frameW,
+                ((q.bottomLeft.y + scale4) / canvasH) * frameH,
+            ],
         ];
 
         const m = this.getHomographyMatrix3D(src, dst);
-        const matrixStr = `matrix3d(${m.map(v => Number(v.toFixed(8))).join(', ')})`;
+        const matrixStr = `matrix3d(${m.map((v) => Number(v.toFixed(8))).join(', ')})`;
 
         return {
             position: 'absolute',
@@ -524,7 +630,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             'align-items': 'center',
             'justify-content': 'center',
             'background-color': '#000000',
-            overflow: 'hidden'
+            overflow: 'hidden',
         };
     }
 
@@ -545,8 +651,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
-    getMockupBoundingBox(): { x: number, y: number, width: number, height: number } {
-        if (!this.selectedFrame) return { x: 0, y: 0, width: 1920, height: 1080 };
+    getMockupBoundingBox(): {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    } {
+        if (!this.selectedFrame)
+            return { x: 0, y: 0, width: 1920, height: 1080 };
         const q = this.selectedFrame.quad;
         const minX = Math.min(q.topLeft.x, q.bottomLeft.x);
         const minY = Math.min(q.topLeft.y, q.topRight.y);
@@ -556,7 +668,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             x: minX,
             y: minY,
             width: Math.max(1, maxX - minX),
-            height: Math.max(1, maxY - minY)
+            height: Math.max(1, maxY - minY),
         };
     }
 
@@ -564,12 +676,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (!rawPath) return '';
         let p = String(rawPath).trim();
         if (p.startsWith('media://')) p = decodeURIComponent(p.substring(8));
-        else if (p.startsWith('file://')) p = decodeURIComponent(p.substring(7));
+        else if (p.startsWith('file://'))
+            p = decodeURIComponent(p.substring(7));
         if (p.match(/^\/[a-zA-Z]:[\\/]/)) p = p.substring(1);
-        if (p.startsWith('http://localhost') || p.startsWith('http://127.0.0.1')) {
+        if (
+            p.startsWith('http://localhost') ||
+            p.startsWith('http://127.0.0.1')
+        ) {
             try {
                 const parsed = new URL(p);
-                const rawFile = parsed.searchParams.get('file') || parsed.searchParams.get('path');
+                const rawFile =
+                    parsed.searchParams.get('file') ||
+                    parsed.searchParams.get('path');
                 if (rawFile) p = rawFile;
             } catch (e) {}
         }
@@ -591,7 +709,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (scene.videos) {
                     for (const v of scene.videos) {
                         if (v.disabled) continue;
-                        const rawVUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl || v.dataUrl || v._raw?.videoUrl || v._raw?.url || v._raw?.src || v._raw?.path || v.imageUrl;
+                        const rawVUrl =
+                            v.videoUrl ||
+                            v.url ||
+                            v.src ||
+                            v.path ||
+                            v.videoPath ||
+                            v.file ||
+                            v.sourceUrl ||
+                            v.dataUrl ||
+                            v._raw?.videoUrl ||
+                            v._raw?.url ||
+                            v._raw?.src ||
+                            v._raw?.path ||
+                            v.imageUrl;
                         const p = this.cleanPathForExport(rawVUrl);
                         if (!p) continue;
                         const tIdx = Number(v.trackIndex) || 0;
@@ -608,7 +739,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 startTime: sTime,
                                 duration: dur,
                                 trimStart: trimS,
-                                trackIndex: 0
+                                trackIndex: 0,
                             });
                         } else {
                             overlayClips.push({
@@ -617,19 +748,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 startTime: sTime,
                                 duration: dur,
                                 trimStart: trimS,
-                                trackIndex: tIdx
+                                trackIndex: tIdx,
                             });
                         }
 
                         // Nếu video này có âm thanh và chưa bị mute hoặc chưa bị tách thành extracted audio
-                        const isMuted = v.muted || this.hasExtractedAudio(scene, v);
+                        const isMuted =
+                            v.muted || this.hasExtractedAudio(scene, v);
                         if (!isMuted) {
                             audioClips.push({
                                 path: p,
                                 startTime: sTime,
                                 duration: dur,
                                 trimStart: trimS,
-                                volume: 1
+                                volume: 1,
                             });
                         }
                     }
@@ -639,7 +771,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (scene.images) {
                     for (const img of scene.images) {
                         if (img.disabled) continue;
-                        const imgUrl = img.imageUrl || img.url || img.src || img.controlImageUrl || img.imagePath || img.path || img.dataUrl || img._raw?.imageUrl || img._raw?.url || img._raw?.src;
+                        const imgUrl =
+                            img.imageUrl ||
+                            img.url ||
+                            img.src ||
+                            img.controlImageUrl ||
+                            img.imagePath ||
+                            img.path ||
+                            img.dataUrl ||
+                            img._raw?.imageUrl ||
+                            img._raw?.url ||
+                            img._raw?.src;
                         const p = this.cleanPathForExport(imgUrl);
                         if (!p) continue;
                         const sTime = Number(img.startTime) || 0;
@@ -649,7 +791,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             path: p,
                             startTime: sTime,
                             duration: dur,
-                            trackIndex: 99
+                            trackIndex: 99,
                         });
                     }
                 }
@@ -658,28 +800,64 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (scene.subtitles) {
                     for (const sub of scene.subtitles) {
                         if (sub.disabled) continue;
-                        const matchingExt = scene.extractedAudios ? (scene.extractedAudios.find((a: any) => 
-                            (sub.audioId && a.id && sub.audioId === a.id) ||
-                            (Math.abs((Number(a.startTime) || 0) - (Number(sub.startTime) || 0)) < 0.25)
-                        )) : null;
+                        const matchingExt = scene.extractedAudios
+                            ? scene.extractedAudios.find(
+                                  (a: any) =>
+                                      (sub.audioId &&
+                                          a.id &&
+                                          sub.audioId === a.id) ||
+                                      Math.abs(
+                                          (Number(a.startTime) || 0) -
+                                              (Number(sub.startTime) || 0),
+                                      ) < 0.25,
+                              )
+                            : null;
 
-                        let original = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || matchingExt?.originalText || '';
-                        let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || matchingExt?.vietnameseText || '';
+                        let original =
+                            sub.originalText ||
+                            (sub.translations &&
+                                (sub.translations['original'] ||
+                                    sub.translations['en'])) ||
+                            matchingExt?.originalText ||
+                            '';
+                        let vietnamese =
+                            sub.vietnameseText ||
+                            (sub.translations && sub.translations['vi']) ||
+                            matchingExt?.vietnameseText ||
+                            '';
 
-                        if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) {
+                        if (
+                            !vietnamese &&
+                            sub.text &&
+                            this.isLikelyVietnamese(sub.text)
+                        ) {
                             vietnamese = sub.text;
                         }
-                        if (!original && sub.text && !this.isLikelyVietnamese(sub.text)) {
+                        if (
+                            !original &&
+                            sub.text &&
+                            !this.isLikelyVietnamese(sub.text)
+                        ) {
                             original = sub.text;
                         }
 
                         let primary = '';
                         let secondary = '';
-                        if (original && vietnamese && original.trim().toLowerCase() !== vietnamese.trim().toLowerCase()) {
+                        if (
+                            original &&
+                            vietnamese &&
+                            original.trim().toLowerCase() !==
+                                vietnamese.trim().toLowerCase()
+                        ) {
                             primary = original.trim();
                             secondary = vietnamese.trim();
                         } else {
-                            primary = (sub.text || original || vietnamese || '').trim();
+                            primary = (
+                                sub.text ||
+                                original ||
+                                vietnamese ||
+                                ''
+                            ).trim();
                         }
 
                         if (primary || secondary) {
@@ -688,8 +866,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 duration: Number(sub.duration) || 3,
                                 primaryText: primary,
                                 secondaryText: secondary,
-                                fontFamily: sub.fontFamily || this.currentSubtitleFont,
-                                fontSize: sub.fontSize || this.currentSubtitleFontSize
+                                fontFamily:
+                                    sub.fontFamily || this.currentSubtitleFont,
+                                fontSize:
+                                    sub.fontSize ||
+                                    this.currentSubtitleFontSize,
                             });
                         }
 
@@ -702,7 +883,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                     startTime: Number(sub.startTime) || 0,
                                     duration: Number(sub.duration) || 3,
                                     trimStart: 0,
-                                    volume: 1
+                                    volume: 1,
                                 });
                             }
                         }
@@ -719,8 +900,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 duration: Number(txt.duration) || 3,
                                 primaryText: textStr,
                                 secondaryText: '',
-                                fontFamily: txt.fontFamily || this.currentSubtitleFont,
-                                fontSize: txt.fontSize || this.currentSubtitleFontSize
+                                fontFamily:
+                                    txt.fontFamily || this.currentSubtitleFont,
+                                fontSize:
+                                    txt.fontSize ||
+                                    this.currentSubtitleFontSize,
                             });
                         }
                     }
@@ -731,15 +915,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     for (const audio of scene.extractedAudios) {
                         const isMuted = this.isAudioMuted(audio, scene);
                         if (isMuted) continue;
-                        const ap = this.cleanPathForExport(audio.audioUrl || audio.path || audio.url);
+                        const ap = this.cleanPathForExport(
+                            audio.audioUrl || audio.path || audio.url,
+                        );
                         if (ap) {
-                            const vol = audio.volume !== undefined ? Math.max(0, audio.volume / 100) : 1;
+                            const vol =
+                                audio.volume !== undefined
+                                    ? Math.max(0, audio.volume / 100)
+                                    : 1;
                             audioClips.push({
                                 path: ap,
                                 startTime: Number(audio.startTime) || 0,
                                 duration: Number(audio.duration) || 5,
                                 trimStart: Number(audio.trimStart) || 0,
-                                volume: vol
+                                volume: vol,
                             });
                         }
                     }
@@ -758,7 +947,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             baseClips,
             overlayClips,
             allSubs,
-            audioClips
+            audioClips,
         };
     }
 
@@ -767,30 +956,48 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const targetFrame = targetVideo?.frame || this.selectedFrame;
 
         if (!targetVideo) {
-            this.toastr.warning('Vui lòng chọn 1 video trên Timeline để xuất khung!');
+            this.toastr.warning(
+                'Vui lòng chọn 1 video trên Timeline để xuất khung!',
+            );
             return;
         }
 
         if (!targetFrame || targetFrame.id === 'none') {
-            this.toastr.warning('Video đang chọn chưa được cài đặt khung Mockup Frame nào!');
+            this.toastr.warning(
+                'Video đang chọn chưa được cài đặt khung Mockup Frame nào!',
+            );
             return;
         }
 
         const electron = (window as any).electron;
         if (!electron || !electron.renderVideoWithFrame) {
-            this.toastr.error('Môi trường Electron chưa hỗ trợ render video with frame!');
+            this.toastr.error(
+                'Môi trường Electron chưa hỗ trợ render video with frame!',
+            );
             return;
         }
 
         // Thu thập file video nguồn của chính video đang chọn
-        const rawVideoUrl = targetVideo.videoUrl || targetVideo.url || targetVideo.src || targetVideo.path || targetVideo.videoPath || targetVideo.file || targetVideo.sourceUrl || targetVideo.dataUrl || targetVideo._raw?.videoUrl || targetVideo.imageUrl;
+        const rawVideoUrl =
+            targetVideo.videoUrl ||
+            targetVideo.url ||
+            targetVideo.src ||
+            targetVideo.path ||
+            targetVideo.videoPath ||
+            targetVideo.file ||
+            targetVideo.sourceUrl ||
+            targetVideo.dataUrl ||
+            targetVideo._raw?.videoUrl ||
+            targetVideo.imageUrl;
         let cleanVideoPath = this.cleanPathForExport(rawVideoUrl);
         if (!cleanVideoPath && this.previewVideoUrl) {
             cleanVideoPath = this.cleanPathForExport(this.previewVideoUrl);
         }
 
         if (!cleanVideoPath) {
-            this.toastr.error('Chưa tìm thấy file video nguồn của video đang chọn để ghép vào khung!');
+            this.toastr.error(
+                'Chưa tìm thấy file video nguồn của video đang chọn để ghép vào khung!',
+            );
             return;
         }
 
@@ -800,14 +1007,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const vTrimStart = Number(targetVideo.trimStart) || 0;
 
         // Clip nền duy nhất: chính video đang chọn
-        const baseClips: any[] = [{
-            type: 'video',
-            path: cleanVideoPath,
-            startTime: 0,
-            duration: vDur,
-            trimStart: vTrimStart,
-            trackIndex: 0
-        }];
+        const baseClips: any[] = [
+            {
+                type: 'video',
+                path: cleanVideoPath,
+                startTime: 0,
+                duration: vDur,
+                trimStart: vTrimStart,
+                trackIndex: 0,
+            },
+        ];
 
         // Lấy các overlay, subtitles và audio clips thuộc khoảng thời gian [vStart, vEnd] và offset về mốc 0
         const overlayClips: any[] = [];
@@ -822,7 +1031,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 startTime: 0,
                 duration: vDur,
                 trimStart: vTrimStart,
-                volume: 1
+                volume: 1,
             });
         }
 
@@ -840,13 +1049,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const eTime = sTime + dur;
 
                         if (sTime < vEnd && eTime > vStart) {
-                            const oUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl || v.dataUrl || v._raw?.videoUrl;
+                            const oUrl =
+                                v.videoUrl ||
+                                v.url ||
+                                v.src ||
+                                v.path ||
+                                v.videoPath ||
+                                v.file ||
+                                v.sourceUrl ||
+                                v.dataUrl ||
+                                v._raw?.videoUrl;
                             const p = this.cleanPathForExport(oUrl);
                             if (p) {
                                 const relStart = Math.max(0, sTime - vStart);
                                 const clipOffset = Math.max(0, vStart - sTime);
-                                const clipTrim = (Number(v.trimStart) || 0) + clipOffset;
-                                const clipDur = Math.min(dur - clipOffset, vDur - relStart);
+                                const clipTrim =
+                                    (Number(v.trimStart) || 0) + clipOffset;
+                                const clipDur = Math.min(
+                                    dur - clipOffset,
+                                    vDur - relStart,
+                                );
 
                                 if (clipDur > 0.1) {
                                     overlayClips.push({
@@ -855,7 +1077,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                         startTime: relStart,
                                         duration: clipDur,
                                         trimStart: clipTrim,
-                                        trackIndex: tIdx
+                                        trackIndex: tIdx,
                                     });
                                 }
                             }
@@ -872,18 +1094,29 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const eTime = sTime + dur;
 
                         if (sTime < vEnd && eTime > vStart) {
-                            const imgUrl = img.imageUrl || img.url || img.src || img.controlImageUrl || img.imagePath || img.path || img.dataUrl || img._raw?.imageUrl;
+                            const imgUrl =
+                                img.imageUrl ||
+                                img.url ||
+                                img.src ||
+                                img.controlImageUrl ||
+                                img.imagePath ||
+                                img.path ||
+                                img.dataUrl ||
+                                img._raw?.imageUrl;
                             const p = this.cleanPathForExport(imgUrl);
                             if (p) {
                                 const relStart = Math.max(0, sTime - vStart);
-                                const clipDur = Math.min(dur - Math.max(0, vStart - sTime), vDur - relStart);
+                                const clipDur = Math.min(
+                                    dur - Math.max(0, vStart - sTime),
+                                    vDur - relStart,
+                                );
                                 if (clipDur > 0.1) {
                                     overlayClips.push({
                                         type: 'image',
                                         path: p,
                                         startTime: relStart,
                                         duration: clipDur,
-                                        trackIndex: 99
+                                        trackIndex: 99,
                                     });
                                 }
                             }
@@ -900,52 +1133,93 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const eTime = sTime + dur;
 
                         if (sTime < vEnd && eTime > vStart) {
-                            let original = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || '';
-                            let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || '';
+                            let original =
+                                sub.originalText ||
+                                (sub.translations &&
+                                    (sub.translations['original'] ||
+                                        sub.translations['en'])) ||
+                                '';
+                            let vietnamese =
+                                sub.vietnameseText ||
+                                (sub.translations && sub.translations['vi']) ||
+                                '';
 
-                            if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) {
+                            if (
+                                !vietnamese &&
+                                sub.text &&
+                                this.isLikelyVietnamese(sub.text)
+                            ) {
                                 vietnamese = sub.text;
                             }
-                            if (!original && sub.text && !this.isLikelyVietnamese(sub.text)) {
+                            if (
+                                !original &&
+                                sub.text &&
+                                !this.isLikelyVietnamese(sub.text)
+                            ) {
                                 original = sub.text;
                             }
 
                             let primary = '';
                             let secondary = '';
-                            if (original && vietnamese && original.trim().toLowerCase() !== vietnamese.trim().toLowerCase()) {
+                            if (
+                                original &&
+                                vietnamese &&
+                                original.trim().toLowerCase() !==
+                                    vietnamese.trim().toLowerCase()
+                            ) {
                                 primary = original.trim();
                                 secondary = vietnamese.trim();
                             } else {
-                                primary = (sub.text || original || vietnamese || '').trim();
+                                primary = (
+                                    sub.text ||
+                                    original ||
+                                    vietnamese ||
+                                    ''
+                                ).trim();
                             }
 
                             if (primary || secondary) {
                                 const relStart = Math.max(0, sTime - vStart);
-                                const clipDur = Math.min(dur - Math.max(0, vStart - sTime), vDur - relStart);
+                                const clipDur = Math.min(
+                                    dur - Math.max(0, vStart - sTime),
+                                    vDur - relStart,
+                                );
                                 if (clipDur > 0.1) {
                                     allSubs.push({
                                         startTime: relStart,
                                         duration: clipDur,
                                         primaryText: primary,
                                         secondaryText: secondary,
-                                        fontFamily: sub.fontFamily || this.currentSubtitleFont,
-                                        fontSize: sub.fontSize || this.currentSubtitleFontSize
+                                        fontFamily:
+                                            sub.fontFamily ||
+                                            this.currentSubtitleFont,
+                                        fontSize:
+                                            sub.fontSize ||
+                                            this.currentSubtitleFontSize,
                                     });
                                 }
                             }
 
                             if (sub.audioUrl) {
-                                const ap = this.cleanPathForExport(sub.audioUrl);
+                                const ap = this.cleanPathForExport(
+                                    sub.audioUrl,
+                                );
                                 if (ap) {
-                                    const relStart = Math.max(0, sTime - vStart);
-                                    const clipDur = Math.min(dur - Math.max(0, vStart - sTime), vDur - relStart);
+                                    const relStart = Math.max(
+                                        0,
+                                        sTime - vStart,
+                                    );
+                                    const clipDur = Math.min(
+                                        dur - Math.max(0, vStart - sTime),
+                                        vDur - relStart,
+                                    );
                                     if (clipDur > 0.1) {
                                         audioClips.push({
                                             path: ap,
                                             startTime: relStart,
                                             duration: clipDur,
                                             trimStart: 0,
-                                            volume: 1
+                                            volume: 1,
                                         });
                                     }
                                 }
@@ -964,13 +1238,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const eTime = sTime + dur;
 
                         if (sTime < vEnd && eTime > vStart) {
-                            const ap = this.cleanPathForExport(audio.audioUrl || audio.path || audio.url);
+                            const ap = this.cleanPathForExport(
+                                audio.audioUrl || audio.path || audio.url,
+                            );
                             if (ap) {
                                 const relStart = Math.max(0, sTime - vStart);
                                 const clipOffset = Math.max(0, vStart - sTime);
-                                const clipTrim = (Number(audio.trimStart) || 0) + clipOffset;
-                                const clipDur = Math.min(dur - clipOffset, vDur - relStart);
-                                const vol = audio.volume !== undefined ? Math.max(0, audio.volume / 100) : 1;
+                                const clipTrim =
+                                    (Number(audio.trimStart) || 0) + clipOffset;
+                                const clipDur = Math.min(
+                                    dur - clipOffset,
+                                    vDur - relStart,
+                                );
+                                const vol =
+                                    audio.volume !== undefined
+                                        ? Math.max(0, audio.volume / 100)
+                                        : 1;
 
                                 if (clipDur > 0.1) {
                                     audioClips.push({
@@ -978,7 +1261,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                         startTime: relStart,
                                         duration: clipDur,
                                         trimStart: clipTrim,
-                                        volume: vol
+                                        volume: vol,
                                     });
                                 }
                             }
@@ -993,8 +1276,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         allSubs.sort((a, b) => a.startTime - b.startTime);
         audioClips.sort((a, b) => a.startTime - b.startTime);
 
-        const frameBgPath = targetFrame.bgPath || `src/assets/video_frames/tiktok_frame_bg.jpg`;
-        const frameMaskPath = targetFrame.maskPath || `src/assets/video_frames/tiktok_frame_mask.png`;
+        const frameBgPath =
+            targetFrame.bgPath || `src/assets/video_frames/tiktok_frame_bg.jpg`;
+        const frameMaskPath =
+            targetFrame.maskPath ||
+            `src/assets/video_frames/tiktok_frame_mask.png`;
 
         const outDir = `/home/yenai/Downloads/AI.TYPING/${this.data?.uuid || 'exports'}`;
         const targetVideoName = targetVideo.id || `video_${Math.round(vStart)}`;
@@ -1002,9 +1288,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         this.isExportingFrameVideo = true;
         this.cd.detectChanges();
-        this.toastr.info(`Đang xuất khung cho video đã chọn (${vDur.toFixed(1)}s, khung: ${targetFrame.name})...`, 'Đang render');
+        this.toastr.info(
+            `Đang xuất khung cho video đã chọn (${vDur.toFixed(1)}s, khung: ${targetFrame.name})...`,
+            'Đang render',
+        );
 
-        let cleanBgVideoPath = targetFrame.bgVideoUrl ? this.cleanPathForExport(targetFrame.bgVideoUrl) : '';
+        let cleanBgVideoPath = targetFrame.bgVideoUrl
+            ? this.cleanPathForExport(targetFrame.bgVideoUrl)
+            : '';
 
         try {
             const res = await electron.renderVideoWithFrame({
@@ -1024,12 +1315,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 subtitleBottom: this.currentSubtitleBottom,
                 subtitleFontSize: this.currentSubtitleFontSize,
                 subtitleFontFamily: this.currentSubtitleFont,
-                previewHeight: this.mockupFrameContainer?.nativeElement?.clientHeight || this.mainVideoPlayer?.nativeElement?.clientHeight || 570,
-                previewWidth: this.mockupFrameContainer?.nativeElement?.clientWidth || this.mainVideoPlayer?.nativeElement?.clientWidth || 320
+                previewHeight:
+                    this.mockupFrameContainer?.nativeElement?.clientHeight ||
+                    this.mainVideoPlayer?.nativeElement?.clientHeight ||
+                    570,
+                previewWidth:
+                    this.mockupFrameContainer?.nativeElement?.clientWidth ||
+                    this.mainVideoPlayer?.nativeElement?.clientWidth ||
+                    320,
             });
 
             if (res && res.success) {
-                this.toastr.success(`Đã xuất video lồng khung thành công: ${outputPath}`, 'Hoàn tất');
+                this.toastr.success(
+                    `Đã xuất video lồng khung thành công: ${outputPath}`,
+                    'Hoàn tất',
+                );
                 if (electron.selectLocalFile) {
                     electron.selectLocalFile(outputPath);
                 }
@@ -1053,31 +1353,54 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         // 2. Nếu là video bình thường -> Xuất video gốc và BẮN THẲNG SUBTITLES lên video
         const electron = (window as any).electron;
-        if (!electron || (!electron.renderVideoWithSubtitles && !electron.renderVideoWithFrame)) {
-            this.toastr.warning('Chức năng xuất video phụ đề chỉ hỗ trợ trên ứng dụng Electron Desktop!');
+        if (
+            !electron ||
+            (!electron.renderVideoWithSubtitles &&
+                !electron.renderVideoWithFrame)
+        ) {
+            this.toastr.warning(
+                'Chức năng xuất video phụ đề chỉ hỗ trợ trên ứng dụng Electron Desktop!',
+            );
             return;
         }
 
         const timelineData = this.collectTimelineExportData();
-        const { totalDuration, baseClips, overlayClips, allSubs, audioClips } = timelineData;
+        const { totalDuration, baseClips, overlayClips, allSubs, audioClips } =
+            timelineData;
 
-        let cleanVideoPath = baseClips.length > 0 ? baseClips[0].path : (overlayClips.length > 0 ? overlayClips[0].path : '');
+        let cleanVideoPath =
+            baseClips.length > 0
+                ? baseClips[0].path
+                : overlayClips.length > 0
+                  ? overlayClips[0].path
+                  : '';
         if (!cleanVideoPath && this.previewVideoUrl) {
             cleanVideoPath = this.cleanPathForExport(this.previewVideoUrl);
         }
 
-        if (!cleanVideoPath && baseClips.length === 0 && overlayClips.length === 0) {
-            this.toastr.error('Không tìm thấy file video hoặc hình ảnh nguồn để xuất!');
+        if (
+            !cleanVideoPath &&
+            baseClips.length === 0 &&
+            overlayClips.length === 0
+        ) {
+            this.toastr.error(
+                'Không tìm thấy file video hoặc hình ảnh nguồn để xuất!',
+            );
             return;
         }
 
         const outDir = `/home/yenai/Downloads/AI.TYPING/${this.data?.uuid || 'exports'}`;
-        const safeTitle = (this.projectData?.title || 'video').replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF]/g, '_').substring(0, 50);
+        const safeTitle = (this.projectData?.title || 'video')
+            .replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF]/g, '_')
+            .substring(0, 50);
         const outputPath = `${outDir}/${safeTitle}_hardsub_${Date.now()}.mp4`;
 
         this.isExportingFrameVideo = true;
         this.cd.detectChanges();
-        this.toastr.info(`Đang xuất video gộp đầy đủ (Thời lượng: ${totalDuration.toFixed(1)}s, ${baseClips.length} clip gốc, ${overlayClips.length} lớp overlay, ${audioClips.length} track âm thanh, ${allSubs.length} phụ đề)...`, 'Đang xử lý');
+        this.toastr.info(
+            `Đang xuất video gộp đầy đủ (Thời lượng: ${totalDuration.toFixed(1)}s, ${baseClips.length} clip gốc, ${overlayClips.length} lớp overlay, ${audioClips.length} track âm thanh, ${allSubs.length} phụ đề)...`,
+            'Đang xử lý',
+        );
 
         try {
             const res = await electron.renderVideoWithSubtitles({
@@ -1091,12 +1414,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 subtitleBottom: this.currentSubtitleBottom,
                 subtitleFontSize: this.currentSubtitleFontSize,
                 subtitleFontFamily: this.currentSubtitleFont,
-                previewHeight: this.mainVideoPlayer?.nativeElement?.clientHeight || 450,
-                previewWidth: this.mainVideoPlayer?.nativeElement?.clientWidth || 800
+                previewHeight:
+                    this.mainVideoPlayer?.nativeElement?.clientHeight || 450,
+                previewWidth:
+                    this.mainVideoPlayer?.nativeElement?.clientWidth || 800,
             });
 
             if (res && res.success) {
-                this.toastr.success(`Đã xuất video thành công: ${outputPath}`, 'Hoàn tất');
+                this.toastr.success(
+                    `Đã xuất video thành công: ${outputPath}`,
+                    'Hoàn tất',
+                );
                 if (electron.selectLocalFile) {
                     electron.selectLocalFile(outputPath);
                 }
@@ -1180,18 +1508,34 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     rulerTicks: number[] = Array.from({ length: 50 }, (_, i) => i);
     trackIndices: number[] = [0];
     timelineTotalWidth: number = 5000;
-    currentSubtitleInfo: { primaryText: string, secondaryText?: string, fontFamily?: string, fontSize?: number, bottom?: number } | null = null;
+    currentSubtitleInfo: {
+        primaryText: string;
+        secondaryText?: string;
+        fontFamily?: string;
+        fontSize?: number;
+        bottom?: number;
+    } | null = null;
     filteredMediaItems: any[] = [];
     mockupVideoStyle: { [key: string]: string } = {};
 
     updateRulerTicks() {
-        const count = Math.max(50, Math.ceil(this.timelineTotalWidth / (10 * this.pixelsPerSecond)) + 5);
+        const count = Math.max(
+            50,
+            Math.ceil(this.timelineTotalWidth / (10 * this.pixelsPerSecond)) +
+                5,
+        );
         if (this.rulerTicks.length !== count) {
             this.rulerTicks = Array.from({ length: count }, (_, i) => i);
         }
-        if (this.trackIndices.length !== this.trackCount || (this.trackCount > 1 && this.trackIndices[0] === 0)) {
+        if (
+            this.trackIndices.length !== this.trackCount ||
+            (this.trackCount > 1 && this.trackIndices[0] === 0)
+        ) {
             // Hiển thị Track cao hơn ở trên (Track 2 nằm trên Track 1)
-            this.trackIndices = Array.from({ length: this.trackCount }, (_, i) => this.trackCount - 1 - i);
+            this.trackIndices = Array.from(
+                { length: this.trackCount },
+                (_, i) => this.trackCount - 1 - i,
+            );
         }
     }
 
@@ -1235,7 +1579,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
         }
-        this.timelineTotalWidth = Math.max(5000, Math.ceil((maxTime + 30) * this.pixelsPerSecond + 300));
+        this.timelineTotalWidth = Math.max(
+            5000,
+            Math.ceil((maxTime + 30) * this.pixelsPerSecond + 300),
+        );
         this.updateRulerTicks();
     }
 
@@ -1256,29 +1603,50 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     // --- Transform & Interactive Resize / Scale Controls ---
     isTransformDragging = false;
-    transformDragTarget: 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | 'box' | null = null;
+    transformDragTarget:
+        | 'tl'
+        | 'tr'
+        | 'bl'
+        | 'br'
+        | 't'
+        | 'b'
+        | 'l'
+        | 'r'
+        | 'box'
+        | null = null;
     transformStartMouse = { x: 0, y: 0 };
-    transformStartBounds = { x: 0, y: 0, width: 100, height: 100, scale: 1, textBottom: 20, fontSize: 24 };
+    transformStartBounds = {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        scale: 1,
+        textBottom: 20,
+        fontSize: 24,
+    };
     transformContainerRect: DOMRect | null = null;
 
     get hasAnyExtractedAudio(): boolean {
         if (!this.projectData || !this.projectData.scenes) return false;
-        return this.projectData.scenes.some((scene: any) => 
-            scene.extractedAudios && scene.extractedAudios.length > 0
+        return this.projectData.scenes.some(
+            (scene: any) =>
+                scene.extractedAudios && scene.extractedAudios.length > 0,
         );
     }
 
     get hasAnySubtitle(): boolean {
         if (!this.projectData || !this.projectData.scenes) return false;
-        return this.projectData.scenes.some((scene: any) => 
-            scene.subtitles && scene.subtitles.some((sub: any) => sub.audioUrl)
+        return this.projectData.scenes.some(
+            (scene: any) =>
+                scene.subtitles &&
+                scene.subtitles.some((sub: any) => sub.audioUrl),
         );
     }
 
     get hasAnyTextTrack(): boolean {
         if (!this.projectData || !this.projectData.scenes) return false;
-        return this.projectData.scenes.some((scene: any) => 
-            scene.subtitles && scene.subtitles.length > 0
+        return this.projectData.scenes.some(
+            (scene: any) => scene.subtitles && scene.subtitles.length > 0,
         );
     }
 
@@ -1293,47 +1661,106 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (sub.disabled) continue;
                     const start = sub.startTime || 0;
                     const end = start + (sub.duration || 3);
-                    if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
-                        const matchingExt = scene.extractedAudios ? (scene.extractedAudios.find((a: any) => 
-                            (sub.audioId && a.id && sub.audioId === a.id) ||
-                            (Math.abs((Number(a.startTime) || 0) - (Number(sub.startTime) || 0)) < 0.25)
-                        )) : null;
+                    if (
+                        this.currentTimelineTime >= start &&
+                        this.currentTimelineTime < end
+                    ) {
+                        const matchingExt = scene.extractedAudios
+                            ? scene.extractedAudios.find(
+                                  (a: any) =>
+                                      (sub.audioId &&
+                                          a.id &&
+                                          sub.audioId === a.id) ||
+                                      Math.abs(
+                                          (Number(a.startTime) || 0) -
+                                              (Number(sub.startTime) || 0),
+                                      ) < 0.25,
+                              )
+                            : null;
 
-                        let original = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || matchingExt?.originalText || '';
-                        let vietnamese = sub.vietnameseText || (sub.translations && sub.translations['vi']) || matchingExt?.vietnameseText || '';
+                        let original =
+                            sub.originalText ||
+                            (sub.translations &&
+                                (sub.translations['original'] ||
+                                    sub.translations['en'])) ||
+                            matchingExt?.originalText ||
+                            '';
+                        let vietnamese =
+                            sub.vietnameseText ||
+                            (sub.translations && sub.translations['vi']) ||
+                            matchingExt?.vietnameseText ||
+                            '';
 
-                        if (this.currentSubtitleLang === 'vi' && sub.text && this.isLikelyVietnamese(sub.text)) {
+                        if (
+                            this.currentSubtitleLang === 'vi' &&
+                            sub.text &&
+                            this.isLikelyVietnamese(sub.text)
+                        ) {
                             vietnamese = sub.text;
-                        } else if ((this.currentSubtitleLang === 'original' || this.currentSubtitleLang === 'en') && sub.text && !this.isLikelyVietnamese(sub.text)) {
+                        } else if (
+                            (this.currentSubtitleLang === 'original' ||
+                                this.currentSubtitleLang === 'en') &&
+                            sub.text &&
+                            !this.isLikelyVietnamese(sub.text)
+                        ) {
                             original = sub.text;
                         }
 
-                        if (!vietnamese && sub.text && this.isLikelyVietnamese(sub.text)) {
+                        if (
+                            !vietnamese &&
+                            sub.text &&
+                            this.isLikelyVietnamese(sub.text)
+                        ) {
                             vietnamese = sub.text;
                         }
-                        if (!original && sub.text && !this.isLikelyVietnamese(sub.text)) {
+                        if (
+                            !original &&
+                            sub.text &&
+                            !this.isLikelyVietnamese(sub.text)
+                        ) {
                             original = sub.text;
                         }
 
                         // Nếu có cả câu gốc và câu tiếng Việt khác nhau -> hiển thị song ngữ 2 dòng
-                        if (original && vietnamese && original.trim().toLowerCase() !== vietnamese.trim().toLowerCase()) {
+                        if (
+                            original &&
+                            vietnamese &&
+                            original.trim().toLowerCase() !==
+                                vietnamese.trim().toLowerCase()
+                        ) {
                             this.currentSubtitleInfo = {
                                 primaryText: original.trim(),
                                 secondaryText: vietnamese.trim(),
-                                fontFamily: sub.fontFamily || this.currentSubtitleFont,
-                                fontSize: sub.fontSize || this.currentSubtitleFontSize,
-                                bottom: sub.bottom !== undefined ? sub.bottom : this.currentSubtitleBottom
+                                fontFamily:
+                                    sub.fontFamily || this.currentSubtitleFont,
+                                fontSize:
+                                    sub.fontSize ||
+                                    this.currentSubtitleFontSize,
+                                bottom:
+                                    sub.bottom !== undefined
+                                        ? sub.bottom
+                                        : this.currentSubtitleBottom,
                             };
                             return;
                         }
 
-                        const mainText = sub.text || original || vietnamese || '';
-                        this.currentSubtitleInfo = mainText ? { 
-                            primaryText: mainText,
-                            fontFamily: sub.fontFamily || this.currentSubtitleFont,
-                            fontSize: sub.fontSize || this.currentSubtitleFontSize,
-                            bottom: sub.bottom !== undefined ? sub.bottom : this.currentSubtitleBottom
-                        } : null;
+                        const mainText =
+                            sub.text || original || vietnamese || '';
+                        this.currentSubtitleInfo = mainText
+                            ? {
+                                  primaryText: mainText,
+                                  fontFamily:
+                                      sub.fontFamily ||
+                                      this.currentSubtitleFont,
+                                  fontSize:
+                                      sub.fontSize ||
+                                      this.currentSubtitleFontSize,
+                                  bottom:
+                                      sub.bottom !== undefined
+                                          ? sub.bottom
+                                          : this.currentSubtitleBottom,
+                              }
+                            : null;
                         return;
                     }
                 }
@@ -1344,14 +1771,23 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (txt.disabled) continue;
                     const start = txt.startTime || 0;
                     const end = start + (txt.duration || 3);
-                    if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
+                    if (
+                        this.currentTimelineTime >= start &&
+                        this.currentTimelineTime < end
+                    ) {
                         const mainText = txt.text || '';
                         if (mainText) {
                             this.currentSubtitleInfo = {
                                 primaryText: mainText,
-                                fontFamily: txt.fontFamily || this.currentSubtitleFont,
-                                fontSize: txt.fontSize || this.currentSubtitleFontSize,
-                                bottom: txt.bottom !== undefined ? txt.bottom : this.currentSubtitleBottom
+                                fontFamily:
+                                    txt.fontFamily || this.currentSubtitleFont,
+                                fontSize:
+                                    txt.fontSize ||
+                                    this.currentSubtitleFontSize,
+                                bottom:
+                                    txt.bottom !== undefined
+                                        ? txt.bottom
+                                        : this.currentSubtitleBottom,
                             };
                             return;
                         }
@@ -1392,7 +1828,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     get currentSubtitleText(): string | null {
         const info = this.currentSubtitleInfo;
         if (!info) return null;
-        return info.secondaryText ? `${info.primaryText}\n${info.secondaryText}` : info.primaryText;
+        return info.secondaryText
+            ? `${info.primaryText}\n${info.secondaryText}`
+            : info.primaryText;
     }
 
     currentTimelineTime: number = 0;
@@ -1403,20 +1841,32 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     activeAudio: any = null;
 
     // Khai báo ViewChild để truy cập video tag trong template
-    @ViewChild('mockupFrameContainer') mockupFrameContainer?: ElementRef<HTMLDivElement>;
-    @ViewChild('mainVideoPlayer') mainVideoPlayer?: ElementRef<HTMLVideoElement>;
-    @ViewChild('mainImagePlayer') mainImagePlayer?: ElementRef<HTMLImageElement>;
-    @ViewChild('overlayImagePlayer') overlayImagePlayer?: ElementRef<HTMLImageElement>;
-    @ViewChild('overlayVideoPlayer') overlayVideoPlayer?: ElementRef<HTMLVideoElement>;
-    @ViewChild('mainAudioPlayer') mainAudioPlayer?: ElementRef<HTMLAudioElement>;
+    @ViewChild('mockupFrameContainer')
+    mockupFrameContainer?: ElementRef<HTMLDivElement>;
+    @ViewChild('mainVideoPlayer')
+    mainVideoPlayer?: ElementRef<HTMLVideoElement>;
+    @ViewChild('mainImagePlayer')
+    mainImagePlayer?: ElementRef<HTMLImageElement>;
+    @ViewChild('overlayImagePlayer')
+    overlayImagePlayer?: ElementRef<HTMLImageElement>;
+    @ViewChild('overlayVideoPlayer')
+    overlayVideoPlayer?: ElementRef<HTMLVideoElement>;
+    @ViewChild('mainAudioPlayer')
+    mainAudioPlayer?: ElementRef<HTMLAudioElement>;
     @ViewChild('playheadNeedle') playheadNeedle?: ElementRef<HTMLDivElement>;
-    @ViewChild('imageContextMenuTrigger', { read: MatMenuTrigger }) imageContextMenuTrigger?: MatMenuTrigger;
-    @ViewChild('videoContextMenuTrigger', { read: MatMenuTrigger }) videoContextMenuTrigger?: MatMenuTrigger;
-    @ViewChild('gridPreviewContextMenuTrigger', { read: MatMenuTrigger }) gridPreviewContextMenuTrigger?: MatMenuTrigger;
-    @ViewChild('audioContextMenuTrigger', { read: MatMenuTrigger }) audioContextMenuTrigger?: MatMenuTrigger;
-    @ViewChild('textContextMenuTrigger', { read: MatMenuTrigger }) textContextMenuTrigger?: MatMenuTrigger;
-    @ViewChild('customTextContextMenuTrigger', { read: MatMenuTrigger }) customTextContextMenuTrigger?: MatMenuTrigger;
-    
+    @ViewChild('imageContextMenuTrigger', { read: MatMenuTrigger })
+    imageContextMenuTrigger?: MatMenuTrigger;
+    @ViewChild('videoContextMenuTrigger', { read: MatMenuTrigger })
+    videoContextMenuTrigger?: MatMenuTrigger;
+    @ViewChild('gridPreviewContextMenuTrigger', { read: MatMenuTrigger })
+    gridPreviewContextMenuTrigger?: MatMenuTrigger;
+    @ViewChild('audioContextMenuTrigger', { read: MatMenuTrigger })
+    audioContextMenuTrigger?: MatMenuTrigger;
+    @ViewChild('textContextMenuTrigger', { read: MatMenuTrigger })
+    textContextMenuTrigger?: MatMenuTrigger;
+    @ViewChild('customTextContextMenuTrigger', { read: MatMenuTrigger })
+    customTextContextMenuTrigger?: MatMenuTrigger;
+
     contextMenuPosition = { x: 0, y: 0 };
     selectedContextData: any = null;
 
@@ -1434,7 +1884,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
         // Bỏ qua nếu bấm vào: sticky header, button, resize scrubber/trim, video move drag
-        if (target.closest('.sticky') || target.closest('button') || target.closest('.cursor-ew-resize') || target.closest('.cursor-move')) {
+        if (
+            target.closest('.sticky') ||
+            target.closest('button') ||
+            target.closest('.cursor-ew-resize') ||
+            target.closest('.cursor-move')
+        ) {
             return;
         }
 
@@ -1447,14 +1902,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.isMarqueeSelecting = true;
         this.marqueeStartPos = {
             x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+            y: e.clientY - rect.top,
         };
         this.marqueeBox = {
             left: this.marqueeStartPos.x,
             top: this.marqueeStartPos.y,
             width: 0,
             height: 0,
-            visible: false
+            visible: false,
         };
 
         if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
@@ -1492,7 +1947,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 top,
                 width,
                 height,
-                visible: true
+                visible: true,
             };
 
             // Tính toán khoảng thời gian (trục X)
@@ -1505,11 +1960,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const selTop = top;
             const selBottom = top + height;
 
-            const imagesTrackEl = document.getElementById('timeline-track-images');
-            const videoTrackEl = document.getElementById('timeline-track-video');
-            const subsTrackEl = document.getElementById('timeline-track-subtitles');
-            const textsTrackEl = document.getElementById('timeline-track-texts');
-            const audioTrackEl = document.getElementById('timeline-track-audio');
+            const imagesTrackEl = document.getElementById(
+                'timeline-track-images',
+            );
+            const videoTrackEl = document.getElementById(
+                'timeline-track-video',
+            );
+            const subsTrackEl = document.getElementById(
+                'timeline-track-subtitles',
+            );
+            const textsTrackEl = document.getElementById(
+                'timeline-track-texts',
+            );
+            const audioTrackEl = document.getElementById(
+                'timeline-track-audio',
+            );
 
             let selectImages = false;
             let selectVideo = false;
@@ -1521,14 +1986,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const tr = imagesTrackEl.getBoundingClientRect();
                 const trackTop = tr.top - rect.top;
                 const trackBottom = tr.bottom - rect.top;
-                if (selBottom >= trackTop && selTop <= trackBottom) selectImages = true;
+                if (selBottom >= trackTop && selTop <= trackBottom)
+                    selectImages = true;
             }
 
             if (videoTrackEl) {
                 const tr = videoTrackEl.getBoundingClientRect();
                 const trackTop = tr.top - rect.top;
                 const trackBottom = tr.bottom - rect.top;
-                if (selBottom >= trackTop && selTop <= trackBottom) selectVideo = true;
+                if (selBottom >= trackTop && selTop <= trackBottom)
+                    selectVideo = true;
             } else {
                 if (selBottom >= 28 && selTop <= 124) selectVideo = true;
             }
@@ -1537,7 +2004,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const tr = subsTrackEl.getBoundingClientRect();
                 const trackTop = tr.top - rect.top;
                 const trackBottom = tr.bottom - rect.top;
-                if (selBottom >= trackTop && selTop <= trackBottom) selectSubs = true;
+                if (selBottom >= trackTop && selTop <= trackBottom)
+                    selectSubs = true;
             } else {
                 if (selBottom >= 124 && selTop <= 180) selectSubs = true;
             }
@@ -1546,14 +2014,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const tr = textsTrackEl.getBoundingClientRect();
                 const trackTop = tr.top - rect.top;
                 const trackBottom = tr.bottom - rect.top;
-                if (selBottom >= trackTop && selTop <= trackBottom) selectTexts = true;
+                if (selBottom >= trackTop && selTop <= trackBottom)
+                    selectTexts = true;
             }
 
             if (audioTrackEl) {
                 const tr = audioTrackEl.getBoundingClientRect();
                 const trackTop = tr.top - rect.top;
                 const trackBottom = tr.bottom - rect.top;
-                if (selBottom >= trackTop && selTop <= trackBottom) selectAudio = true;
+                if (selBottom >= trackTop && selTop <= trackBottom)
+                    selectAudio = true;
             } else {
                 if (selBottom >= 180 && selTop <= 280) selectAudio = true;
             }
@@ -1672,7 +2142,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         if (totalCount > 0) {
-            this.toastr.info(`Đã chọn toàn bộ ${totalCount} đối tượng trên Timeline! Nhấn Delete / Backspace để xoá.`);
+            this.toastr.info(
+                `Đã chọn toàn bộ ${totalCount} đối tượng trên Timeline! Nhấn Delete / Backspace để xoá.`,
+            );
             this.cd.detectChanges();
         }
     }
@@ -1688,7 +2160,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         if (this.projectData && this.projectData.scenes) {
-            for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+            for (
+                let sceneIdx = 0;
+                sceneIdx < this.projectData.scenes.length;
+                sceneIdx++
+            ) {
                 const scene = this.projectData.scenes[sceneIdx];
 
                 if (scene.images) {
@@ -1698,8 +2174,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             this.addMediaItemToPool('image', img);
                         }
                     });
-                    scene.images = scene.images.filter((img: any) => !this.selectedItems.has(img));
-                    count += (beforeLen - scene.images.length);
+                    scene.images = scene.images.filter(
+                        (img: any) => !this.selectedItems.has(img),
+                    );
+                    count += beforeLen - scene.images.length;
                 }
 
                 if (scene.videos) {
@@ -1709,20 +2187,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             this.addMediaItemToPool('video', v);
                         }
                     });
-                    scene.videos = scene.videos.filter((v: any) => !this.selectedItems.has(v));
-                    count += (beforeLen - scene.videos.length);
+                    scene.videos = scene.videos.filter(
+                        (v: any) => !this.selectedItems.has(v),
+                    );
+                    count += beforeLen - scene.videos.length;
                 }
 
                 if (scene.subtitles) {
                     const beforeLen = scene.subtitles.length;
-                    scene.subtitles = scene.subtitles.filter((s: any) => !this.selectedItems.has(s));
-                    count += (beforeLen - scene.subtitles.length);
+                    scene.subtitles = scene.subtitles.filter(
+                        (s: any) => !this.selectedItems.has(s),
+                    );
+                    count += beforeLen - scene.subtitles.length;
                 }
 
                 if (scene.texts) {
                     const beforeLen = scene.texts.length;
-                    scene.texts = scene.texts.filter((t: any) => !this.selectedItems.has(t));
-                    count += (beforeLen - scene.texts.length);
+                    scene.texts = scene.texts.filter(
+                        (t: any) => !this.selectedItems.has(t),
+                    );
+                    count += beforeLen - scene.texts.length;
                 }
 
                 if (scene.extractedAudios) {
@@ -1732,8 +2216,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             this.addMediaItemToPool('audio', a);
                         }
                     });
-                    scene.extractedAudios = scene.extractedAudios.filter((a: any) => !this.selectedItems.has(a));
-                    count += (beforeLen - scene.extractedAudios.length);
+                    scene.extractedAudios = scene.extractedAudios.filter(
+                        (a: any) => !this.selectedItems.has(a),
+                    );
+                    count += beforeLen - scene.extractedAudios.length;
                 }
             }
         }
@@ -1754,8 +2240,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.currentTimelineTime = 0;
 
         // Nếu không còn bất kỳ video hay hình ảnh nào trong toàn bộ dự án -> tắt mockup frame
-        const hasRemainingMedia = this.projectData?.scenes?.some((s: any) => 
-            (s.videos && s.videos.length > 0) || (s.images && s.images.length > 0)
+        const hasRemainingMedia = this.projectData?.scenes?.some(
+            (s: any) =>
+                (s.videos && s.videos.length > 0) ||
+                (s.images && s.images.length > 0),
         );
         if (!hasRemainingMedia) {
             this.selectedFrame = null;
@@ -1786,7 +2274,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             let foundSceneIdx = -1;
             let foundVIdx = -1;
             if (this.projectData?.scenes) {
-                for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                for (
+                    let sIdx = 0;
+                    sIdx < this.projectData.scenes.length;
+                    sIdx++
+                ) {
                     const scene = this.projectData.scenes[sIdx];
                     if (scene.videos) {
                         const vIdx = scene.videos.indexOf(this.activeVideo);
@@ -1799,13 +2291,28 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
             }
-            this.onGridPreviewContextMenu(event, this.activeVideo, foundScene, foundSceneIdx, foundVIdx, 'video');
-        } else if (this.activeItem && this.activeItem.imageUrl && !this.activeItem.videoUrl) {
+            this.onGridPreviewContextMenu(
+                event,
+                this.activeVideo,
+                foundScene,
+                foundSceneIdx,
+                foundVIdx,
+                'video',
+            );
+        } else if (
+            this.activeItem &&
+            this.activeItem.imageUrl &&
+            !this.activeItem.videoUrl
+        ) {
             let foundScene = null;
             let foundSceneIdx = -1;
             let foundImgIdx = -1;
             if (this.projectData?.scenes) {
-                for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                for (
+                    let sIdx = 0;
+                    sIdx < this.projectData.scenes.length;
+                    sIdx++
+                ) {
                     const scene = this.projectData.scenes[sIdx];
                     if (scene.images) {
                         const imgIdx = scene.images.indexOf(this.activeItem);
@@ -1818,7 +2325,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
             }
-            this.onGridPreviewContextMenu(event, this.activeItem, foundScene, foundSceneIdx, foundImgIdx, 'image');
+            this.onGridPreviewContextMenu(
+                event,
+                this.activeItem,
+                foundScene,
+                foundSceneIdx,
+                foundImgIdx,
+                'image',
+            );
         } else {
             // Tìm video tại mốc thời gian hiện tại
             let currentVideo = null;
@@ -1828,7 +2342,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const cTime = this.currentTimelineTime || 0;
 
             if (this.projectData?.scenes) {
-                for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                for (
+                    let sIdx = 0;
+                    sIdx < this.projectData.scenes.length;
+                    sIdx++
+                ) {
                     const scene = this.projectData.scenes[sIdx];
                     if (scene.videos) {
                         for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
@@ -1849,16 +2367,40 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             if (currentVideo) {
-                this.onGridPreviewContextMenu(event, currentVideo, currentScene, currentSceneIdx, currentVIdx, 'video');
-            } else if (this.projectData?.scenes?.length && this.projectData.scenes[0]?.videos?.length) {
+                this.onGridPreviewContextMenu(
+                    event,
+                    currentVideo,
+                    currentScene,
+                    currentSceneIdx,
+                    currentVIdx,
+                    'video',
+                );
+            } else if (
+                this.projectData?.scenes?.length &&
+                this.projectData.scenes[0]?.videos?.length
+            ) {
                 const firstScene = this.projectData.scenes[0];
                 const firstVideo = firstScene.videos[0];
-                this.onGridPreviewContextMenu(event, firstVideo, firstScene, 0, 0, 'video');
+                this.onGridPreviewContextMenu(
+                    event,
+                    firstVideo,
+                    firstScene,
+                    0,
+                    0,
+                    'video',
+                );
             }
         }
     }
 
-    onGridPreviewContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, itemIdx: number, type: 'video' | 'image' = 'video') {
+    onGridPreviewContextMenu(
+        event: MouseEvent,
+        item: any,
+        scene: any,
+        sceneIdx: number,
+        itemIdx: number,
+        type: 'video' | 'image' = 'video',
+    ) {
         event.preventDefault();
         event.stopPropagation();
         if (item && !this.selectedItems.has(item)) {
@@ -1870,9 +2412,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
         }
         if (type === 'video') {
-            this.selectedContextData = { video: item, scene, sceneIdx, vIdx: itemIdx, type: 'video' };
+            this.selectedContextData = {
+                video: item,
+                scene,
+                sceneIdx,
+                vIdx: itemIdx,
+                type: 'video',
+            };
         } else {
-            this.selectedContextData = { item, scene, sceneIdx, imgIdx: itemIdx, type: 'image' };
+            this.selectedContextData = {
+                item,
+                scene,
+                sceneIdx,
+                imgIdx: itemIdx,
+                type: 'image',
+            };
         }
         this.contextMenuPosition = { x: event.clientX, y: event.clientY };
         this.cd.detectChanges();
@@ -1881,7 +2435,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    onVideoContextMenu(event: MouseEvent, video: any, scene: any, sceneIdx: number, vIdx: number) {
+    onVideoContextMenu(
+        event: MouseEvent,
+        video: any,
+        scene: any,
+        sceneIdx: number,
+        vIdx: number,
+    ) {
         event.preventDefault();
         event.stopPropagation();
         if (!this.selectedItems.has(video)) {
@@ -1894,7 +2454,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (this.selectedFrame && !this.selectedFrame.bgDataUrl) {
             this.loadFrameAssets();
         }
-        this.selectedContextData = { video, scene, sceneIdx, vIdx, type: 'video' };
+        this.selectedContextData = {
+            video,
+            scene,
+            sceneIdx,
+            vIdx,
+            type: 'video',
+        };
         this.contextMenuPosition = { x: event.clientX, y: event.clientY };
         this.cd.detectChanges();
         if (this.videoContextMenuTrigger) {
@@ -1902,7 +2468,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    onAudioContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, itemIdx: number, type: 'sub' | 'extracted') {
+    onAudioContextMenu(
+        event: MouseEvent,
+        item: any,
+        scene: any,
+        sceneIdx: number,
+        itemIdx: number,
+        type: 'sub' | 'extracted',
+    ) {
         event.preventDefault();
         event.stopPropagation();
         if (!this.selectedItems.has(item)) {
@@ -1916,7 +2489,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             sceneIdx,
             subIdx: type === 'sub' ? itemIdx : undefined,
             aIdx: type === 'extracted' ? itemIdx : undefined,
-            type
+            type,
         };
         this.contextMenuPosition = { x: event.clientX, y: event.clientY };
         this.cd.detectChanges();
@@ -1925,11 +2498,23 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    onTextContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, subIdx: number) {
+    onTextContextMenu(
+        event: MouseEvent,
+        item: any,
+        scene: any,
+        sceneIdx: number,
+        subIdx: number,
+    ) {
         this.onSubtitleContextMenu(event, item, scene, sceneIdx, subIdx);
     }
 
-    onSubtitleContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, subIdx: number) {
+    onSubtitleContextMenu(
+        event: MouseEvent,
+        item: any,
+        scene: any,
+        sceneIdx: number,
+        subIdx: number,
+    ) {
         event.preventDefault();
         event.stopPropagation();
         if (!this.selectedItems.has(item)) {
@@ -1942,7 +2527,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             scene,
             sceneIdx,
             subIdx,
-            type: 'text'
+            type: 'text',
         };
         this.contextMenuPosition = { x: event.clientX, y: event.clientY };
         this.cd.detectChanges();
@@ -1951,7 +2536,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    onImageContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, imgIdx: number) {
+    onImageContextMenu(
+        event: MouseEvent,
+        item: any,
+        scene: any,
+        sceneIdx: number,
+        imgIdx: number,
+    ) {
         event.preventDefault();
         event.stopPropagation();
         if (!this.selectedItems.has(item)) {
@@ -1964,7 +2555,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             scene,
             sceneIdx,
             imgIdx,
-            type: 'image'
+            type: 'image',
         };
         this.contextMenuPosition = { x: event.clientX, y: event.clientY };
         this.cd.detectChanges();
@@ -1977,7 +2568,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (!item) return '';
         if (typeof item === 'string') {
             const clean = item.split('?')[0].split('#')[0];
-            const name = clean.substring(clean.lastIndexOf('/') + 1) || clean.substring(clean.lastIndexOf('\\') + 1);
+            const name =
+                clean.substring(clean.lastIndexOf('/') + 1) ||
+                clean.substring(clean.lastIndexOf('\\') + 1);
             try {
                 return decodeURIComponent(name) || item;
             } catch (e) {
@@ -1985,12 +2578,30 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
         }
         const raw = item._raw || item;
-        const candidateUrl = item.videoUrl || item.imageUrl || item.audioUrl || item.src || item.url || item.path || item.fileName || item.name ||
-            raw.videoUrl || raw.imageUrl || raw.audioUrl || raw.src || raw.url || raw.path || raw.fileName || raw.name || raw.controlImageUrl;
+        const candidateUrl =
+            item.videoUrl ||
+            item.imageUrl ||
+            item.audioUrl ||
+            item.src ||
+            item.url ||
+            item.path ||
+            item.fileName ||
+            item.name ||
+            raw.videoUrl ||
+            raw.imageUrl ||
+            raw.audioUrl ||
+            raw.src ||
+            raw.url ||
+            raw.path ||
+            raw.fileName ||
+            raw.name ||
+            raw.controlImageUrl;
 
         if (candidateUrl && typeof candidateUrl === 'string') {
             const clean = candidateUrl.split('?')[0].split('#')[0];
-            const name = clean.substring(clean.lastIndexOf('/') + 1) || clean.substring(clean.lastIndexOf('\\') + 1);
+            const name =
+                clean.substring(clean.lastIndexOf('/') + 1) ||
+                clean.substring(clean.lastIndexOf('\\') + 1);
             if (name && name.trim()) {
                 try {
                     return decodeURIComponent(name.trim());
@@ -2016,7 +2627,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         return 'Tập tin media';
     }
 
-    onCustomTextContextMenu(event: MouseEvent, item: any, scene: any, sceneIdx: number, textIdx: number) {
+    onCustomTextContextMenu(
+        event: MouseEvent,
+        item: any,
+        scene: any,
+        sceneIdx: number,
+        textIdx: number,
+    ) {
         event.preventDefault();
         event.stopPropagation();
         if (!this.selectedItems.has(item)) {
@@ -2029,7 +2646,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             scene,
             sceneIdx,
             textIdx,
-            type: 'customText'
+            type: 'customText',
         };
         this.contextMenuPosition = { x: event.clientX, y: event.clientY };
         this.cd.detectChanges();
@@ -2051,7 +2668,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     openEditCustomTextDialog(txt: any) {
         if (!txt) return;
         const currentContent = txt.text || '';
-        const newText = prompt('Chỉnh sửa nội dung văn bản (Track Text):', currentContent);
+        const newText = prompt(
+            'Chỉnh sửa nội dung văn bản (Track Text):',
+            currentContent,
+        );
         if (newText !== null) {
             txt.text = newText.trim();
             this.updateActiveSubtitleInfo();
@@ -2074,16 +2694,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 subtitles: [],
                 texts: [],
                 videos: [],
-                prompt: ''
+                prompt: '',
             });
         }
-        const text = (typeof customText === 'string' && customText.trim()) ? customText.trim() : 'Đoạn phụ đề mới';
+        const text =
+            typeof customText === 'string' && customText.trim()
+                ? customText.trim()
+                : 'Đoạn phụ đề mới';
 
         let targetScene = this.projectData.scenes[0];
         for (const sc of this.projectData.scenes) {
             const scStart = Number(sc.startTime) || 0;
             const scEnd = scStart + (Number(sc.duration) || 5);
-            if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+            if (
+                this.currentTimelineTime >= scStart &&
+                this.currentTimelineTime < scEnd
+            ) {
                 targetScene = sc;
                 break;
             }
@@ -2101,7 +2727,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             fontFamily: this.currentSubtitleFont || 'Inter',
             bottom: this.currentSubtitleBottom || 40,
             x: 0,
-            y: 0
+            y: 0,
         };
         targetScene.subtitles.push(newItem);
 
@@ -2123,16 +2749,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 subtitles: [],
                 texts: [],
                 videos: [],
-                prompt: ''
+                prompt: '',
             });
         }
-        const text = (typeof customText === 'string' && customText.trim()) ? customText.trim() : 'Văn bản mới';
+        const text =
+            typeof customText === 'string' && customText.trim()
+                ? customText.trim()
+                : 'Văn bản mới';
 
         let targetScene = this.projectData.scenes[0];
         for (const sc of this.projectData.scenes) {
             const scStart = Number(sc.startTime) || 0;
             const scEnd = scStart + (Number(sc.duration) || 5);
-            if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+            if (
+                this.currentTimelineTime >= scStart &&
+                this.currentTimelineTime < scEnd
+            ) {
                 targetScene = sc;
                 break;
             }
@@ -2150,7 +2782,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             fontFamily: this.currentSubtitleFont || 'Inter',
             bottom: this.currentSubtitleBottom || 40,
             x: 0,
-            y: 0
+            y: 0,
         };
         targetScene.texts.push(newItem);
 
@@ -2170,7 +2802,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         this.alert({
             title: 'Xóa đoạn Text',
-            message: 'Bạn có chắc chắn muốn xóa đoạn Text này khỏi Track Text không?',
+            message:
+                'Bạn có chắc chắn muốn xóa đoạn Text này khỏi Track Text không?',
             confirm: 'Xóa',
             cb: () => {
                 scene.texts.splice(textIdx, 1);
@@ -2181,7 +2814,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.saveData();
                 this.toastr.warning('Đã xóa đoạn text!');
                 this.cd.detectChanges();
-            }
+            },
         });
     }
 
@@ -2194,12 +2827,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 texts: [],
                 videos: [],
                 images: [],
-                prompt: ''
+                prompt: '',
             });
         }
 
         const electronApi = (window as any).electron;
-        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+        if (
+            electronApi &&
+            electronApi.getPathForFile &&
+            electronApi.selectLocalFile
+        ) {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
@@ -2216,8 +2853,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.toastr.info('Đang xử lý hình ảnh, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
-                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                const localFilePath = await electronApi.selectLocalFile(
+                    originalPath,
+                    customDir,
+                );
+                const finalPath = localFilePath.startsWith('file://')
+                    ? localFilePath
+                    : `file://${localFilePath.replace(/\\/g, '/')}`;
 
                 const firstScene = this.projectData.scenes[0];
                 if (!firstScene.images) firstScene.images = [];
@@ -2231,10 +2873,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const newItem = {
                     id: Date.now(),
                     imageUrl: finalPath,
-                    title: file.name || ('Hình ảnh ' + (firstScene.images.length + 1)),
+                    title:
+                        file.name ||
+                        'Hình ảnh ' + (firstScene.images.length + 1),
                     startTime: maxStart,
                     duration: 5,
-                    type: 'image'
+                    type: 'image',
                 };
                 firstScene.images.push(newItem);
 
@@ -2251,7 +2895,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             return;
         }
 
-        const imgUrl = prompt('Nhập đường dẫn hình ảnh (URL hoặc đường dẫn file):');
+        const imgUrl = prompt(
+            'Nhập đường dẫn hình ảnh (URL hoặc đường dẫn file):',
+        );
         if (!imgUrl || !imgUrl.trim()) return;
 
         const firstScene = this.projectData.scenes[0];
@@ -2264,7 +2910,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             title: 'Hình ảnh ' + (firstScene.images.length + 1),
             startTime: startTime,
             duration: 5,
-            type: 'image'
+            type: 'image',
         };
         firstScene.images.push(newItem);
 
@@ -2284,14 +2930,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         this.alert({
             title: 'Xóa Hình ảnh',
-            message: 'Bạn có chắc chắn muốn xóa hình ảnh này khỏi Track Hình ảnh không?',
+            message:
+                'Bạn có chắc chắn muốn xóa hình ảnh này khỏi Track Hình ảnh không?',
             confirm: 'Xóa',
             cb: () => {
                 scene.images.splice(imgIdx, 1);
                 this.selectedItems.clear();
                 this.activeItem = null;
-                const hasRemainingMedia = this.projectData?.scenes?.some((s: any) => 
-                    (s.videos && s.videos.length > 0) || (s.images && s.images.length > 0)
+                const hasRemainingMedia = this.projectData?.scenes?.some(
+                    (s: any) =>
+                        (s.videos && s.videos.length > 0) ||
+                        (s.images && s.images.length > 0),
                 );
                 if (!hasRemainingMedia) {
                     this.selectedFrame = null;
@@ -2300,7 +2949,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.saveData();
                 this.toastr.warning('Đã xóa hình ảnh!');
                 this.cd.detectChanges();
-            }
+            },
         });
     }
 
@@ -2311,14 +2960,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     addNextImageAfter(img: any, sceneIdx: number, imgIdx: number) {
-        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        const targetScene =
+            this.projectData?.scenes?.[sceneIdx] ||
+            this.projectData?.scenes?.[0];
         if (!targetScene) return;
         if (!targetScene.images) targetScene.images = [];
 
         const nextStartTime = (img?.startTime || 0) + (img?.duration || 5);
         const electronApi = (window as any).electron;
 
-        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+        if (
+            electronApi &&
+            electronApi.getPathForFile &&
+            electronApi.selectLocalFile
+        ) {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
@@ -2335,16 +2990,23 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.toastr.info('Đang xử lý hình ảnh, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
-                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                const localFilePath = await electronApi.selectLocalFile(
+                    originalPath,
+                    customDir,
+                );
+                const finalPath = localFilePath.startsWith('file://')
+                    ? localFilePath
+                    : `file://${localFilePath.replace(/\\/g, '/')}`;
 
                 const newItem = {
                     id: Date.now(),
                     imageUrl: finalPath,
-                    title: file.name || ('Hình ảnh ' + (targetScene.images.length + 1)),
+                    title:
+                        file.name ||
+                        'Hình ảnh ' + (targetScene.images.length + 1),
                     startTime: nextStartTime,
                     duration: 5,
-                    type: 'image'
+                    type: 'image',
                 };
                 targetScene.images.splice(imgIdx + 1, 0, newItem);
 
@@ -2361,7 +3023,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             return;
         }
 
-        const imgUrl = prompt('Nhập đường dẫn hình ảnh tiếp theo (URL hoặc file):');
+        const imgUrl = prompt(
+            'Nhập đường dẫn hình ảnh tiếp theo (URL hoặc file):',
+        );
         if (!imgUrl || !imgUrl.trim()) return;
 
         const newItem = {
@@ -2370,7 +3034,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             title: 'Hình ảnh ' + (targetScene.images.length + 1),
             startTime: nextStartTime,
             duration: 5,
-            type: 'image'
+            type: 'image',
         };
         targetScene.images.splice(imgIdx + 1, 0, newItem);
 
@@ -2385,14 +3049,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     addNextVideoAfter(video: any, sceneIdx: number, vIdx: number) {
-        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        const targetScene =
+            this.projectData?.scenes?.[sceneIdx] ||
+            this.projectData?.scenes?.[0];
         if (!targetScene) return;
         if (!targetScene.videos) targetScene.videos = [];
 
         const nextStartTime = (video?.startTime || 0) + (video?.duration || 5);
         const electronApi = (window as any).electron;
 
-        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+        if (
+            electronApi &&
+            electronApi.getPathForFile &&
+            electronApi.selectLocalFile
+        ) {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'video/*,image/*';
@@ -2409,13 +3079,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.toastr.info('Đang xử lý media, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
-                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                const localFilePath = await electronApi.selectLocalFile(
+                    originalPath,
+                    customDir,
+                );
+                const finalPath = localFilePath.startsWith('file://')
+                    ? localFilePath
+                    : `file://${localFilePath.replace(/\\/g, '/')}`;
 
                 let realDur = 5;
                 if (electronApi.getMediaDuration) {
                     try {
-                        const durRes = await electronApi.getMediaDuration(finalPath);
+                        const durRes =
+                            await electronApi.getMediaDuration(finalPath);
                         if (durRes && durRes.success && durRes.duration > 0) {
                             realDur = Math.round(durRes.duration * 10) / 10;
                         }
@@ -2431,7 +3107,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     maxDuration: realDur,
                     videoUrl: isImage ? null : finalPath,
                     imageUrl: isImage ? finalPath : null,
-                    isCompleted: true
+                    isCompleted: true,
                 };
 
                 targetScene.videos.splice(vIdx + 1, 0, newVideo);
@@ -2448,16 +3124,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.normalizeData();
                 this.saveData(true);
                 this.cd.detectChanges();
-                this.toastr.success('Đã thêm Video/Media tiếp theo vào timeline!');
+                this.toastr.success(
+                    'Đã thêm Video/Media tiếp theo vào timeline!',
+                );
             };
             input.click();
             return;
         }
 
-        const onlineUrl = prompt('Nhập đường dẫn Video hoặc Ảnh tiếp theo (URL online hoặc file):');
+        const onlineUrl = prompt(
+            'Nhập đường dẫn Video hoặc Ảnh tiếp theo (URL online hoặc file):',
+        );
         if (!onlineUrl || !onlineUrl.trim()) return;
 
-        const isImg = /\.(jpg|jpeg|png|webp|gif|bmp)(\?.*)?$/i.test(onlineUrl.trim());
+        const isImg = /\.(jpg|jpeg|png|webp|gif|bmp)(\?.*)?$/i.test(
+            onlineUrl.trim(),
+        );
         const newVideo: any = {
             id: `video_${Date.now()}`,
             prompt: '',
@@ -2466,7 +3148,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             maxDuration: 5,
             videoUrl: isImg ? null : onlineUrl.trim(),
             imageUrl: isImg ? onlineUrl.trim() : null,
-            isCompleted: true
+            isCompleted: true,
         };
 
         targetScene.videos.splice(vIdx + 1, 0, newVideo);
@@ -2487,7 +3169,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     addNextSubtitleAfter(sub: any, sceneIdx: number, sIdx: number) {
-        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        const targetScene =
+            this.projectData?.scenes?.[sceneIdx] ||
+            this.projectData?.scenes?.[0];
         if (!targetScene) return;
         if (!targetScene.subtitles) targetScene.subtitles = [];
 
@@ -2500,7 +3184,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             text: text.trim(),
             startTime: nextStartTime,
             duration: 3,
-            type: 'subtitle'
+            type: 'subtitle',
         };
         targetScene.subtitles.splice(sIdx + 1, 0, newItem);
 
@@ -2514,7 +3198,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     addNextTextAfter(txt: any, sceneIdx: number, tIdx: number) {
-        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        const targetScene =
+            this.projectData?.scenes?.[sceneIdx] ||
+            this.projectData?.scenes?.[0];
         if (!targetScene) return;
         if (!targetScene.texts) targetScene.texts = [];
 
@@ -2527,7 +3213,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             text: text.trim(),
             startTime: nextStartTime,
             duration: 3,
-            type: 'customText'
+            type: 'customText',
         };
         targetScene.texts.splice(tIdx + 1, 0, newItem);
 
@@ -2540,14 +3226,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     addNextAudioAfter(audio: any, sceneIdx: number, aIdx: number) {
-        const targetScene = this.projectData?.scenes?.[sceneIdx] || this.projectData?.scenes?.[0];
+        const targetScene =
+            this.projectData?.scenes?.[sceneIdx] ||
+            this.projectData?.scenes?.[0];
         if (!targetScene) return;
         if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
 
         const nextStartTime = (audio?.startTime || 0) + (audio?.duration || 5);
         const electronApi = (window as any).electron;
 
-        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+        if (
+            electronApi &&
+            electronApi.getPathForFile &&
+            electronApi.selectLocalFile
+        ) {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'audio/*';
@@ -2564,13 +3256,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.toastr.info('Đang xử lý file âm thanh, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
-                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                const localFilePath = await electronApi.selectLocalFile(
+                    originalPath,
+                    customDir,
+                );
+                const finalPath = localFilePath.startsWith('file://')
+                    ? localFilePath
+                    : `file://${localFilePath.replace(/\\/g, '/')}`;
 
                 let realDur = 5;
                 if (electronApi.getMediaDuration) {
                     try {
-                        const durRes = await electronApi.getMediaDuration(finalPath);
+                        const durRes =
+                            await electronApi.getMediaDuration(finalPath);
                         if (durRes && durRes.success && durRes.duration > 0) {
                             realDur = Math.round(durRes.duration * 10) / 10;
                         }
@@ -2583,7 +3281,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     text: file.name || 'Âm thanh tải lên',
                     startTime: nextStartTime,
                     duration: realDur,
-                    maxDuration: realDur
+                    maxDuration: realDur,
                 };
 
                 targetScene.extractedAudios.splice(aIdx + 1, 0, newAudio);
@@ -2592,13 +3290,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.updateRulerTicks();
                 this.saveData(true);
                 this.cd.detectChanges();
-                this.toastr.success('Đã thêm File âm thanh tiếp theo vào timeline!');
+                this.toastr.success(
+                    'Đã thêm File âm thanh tiếp theo vào timeline!',
+                );
             };
             input.click();
             return;
         }
 
-        const audioUrl = prompt('Nhập đường dẫn File âm thanh tiếp theo (URL hoặc file):');
+        const audioUrl = prompt(
+            'Nhập đường dẫn File âm thanh tiếp theo (URL hoặc file):',
+        );
         if (!audioUrl || !audioUrl.trim()) return;
 
         const newAudio: any = {
@@ -2607,7 +3309,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             text: 'Âm thanh tải lên',
             startTime: nextStartTime,
             duration: 5,
-            maxDuration: 5
+            maxDuration: 5,
         };
 
         targetScene.extractedAudios.splice(aIdx + 1, 0, newAudio);
@@ -2629,12 +3331,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 texts: [],
                 videos: [],
                 images: [],
-                prompt: ''
+                prompt: '',
             });
         }
 
         const raw = item._raw || item;
-        const targetSceneIdx = item.sceneIdx !== undefined && item.sceneIdx >= 0 && item.sceneIdx < this.projectData.scenes.length ? item.sceneIdx : 0;
+        const targetSceneIdx =
+            item.sceneIdx !== undefined &&
+            item.sceneIdx >= 0 &&
+            item.sceneIdx < this.projectData.scenes.length
+                ? item.sceneIdx
+                : 0;
         const targetScene = this.projectData.scenes[targetSceneIdx];
 
         if (item.type === 'video') {
@@ -2645,15 +3352,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const end = (v.startTime || 0) + (v.duration || 5);
                 if (end > maxEnd) maxEnd = end;
             });
-            const vIdx = item.vIdx !== undefined && item.vIdx >= 0 ? item.vIdx : targetScene.videos.length - 1;
-            const insertIndex = vIdx >= 0 ? vIdx + 1 : targetScene.videos.length;
+            const vIdx =
+                item.vIdx !== undefined && item.vIdx >= 0
+                    ? item.vIdx
+                    : targetScene.videos.length - 1;
+            const insertIndex =
+                vIdx >= 0 ? vIdx + 1 : targetScene.videos.length;
 
             const cloned: any = {
                 ...raw,
                 id: `video_${Date.now()}`,
                 startTime: maxEnd,
                 duration: raw.duration || 5,
-                maxDuration: raw.maxDuration || raw.duration || 5
+                maxDuration: raw.maxDuration || raw.duration || 5,
             };
             targetScene.videos.splice(insertIndex, 0, cloned);
             this.setActiveItem(cloned);
@@ -2669,7 +3380,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.normalizeData();
             this.saveData(true);
             this.cd.detectChanges();
-            this.toastr.success('Đã thêm Video xuống timeline tiếp tục kế bên!');
+            this.toastr.success(
+                'Đã thêm Video xuống timeline tiếp tục kế bên!',
+            );
         } else if (item.type === 'image') {
             if (!targetScene.images) targetScene.images = [];
             let maxEnd = 0;
@@ -2677,14 +3390,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const end = (img.startTime || 0) + (img.duration || 5);
                 if (end > maxEnd) maxEnd = end;
             });
-            const imgIdx = item.imgIdx !== undefined && item.imgIdx >= 0 ? item.imgIdx : targetScene.images.length - 1;
-            const insertIndex = imgIdx >= 0 ? imgIdx + 1 : targetScene.images.length;
+            const imgIdx =
+                item.imgIdx !== undefined && item.imgIdx >= 0
+                    ? item.imgIdx
+                    : targetScene.images.length - 1;
+            const insertIndex =
+                imgIdx >= 0 ? imgIdx + 1 : targetScene.images.length;
 
             const cloned: any = {
                 ...raw,
                 id: Date.now(),
                 startTime: maxEnd,
-                duration: raw.duration || 5
+                duration: raw.duration || 5,
             };
             targetScene.images.splice(insertIndex, 0, cloned);
             this.setActiveItem(cloned);
@@ -2694,7 +3411,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.updateRulerTicks();
             this.saveData(true);
             this.cd.detectChanges();
-            this.toastr.success('Đã thêm Hình ảnh xuống timeline tiếp tục kế bên!');
+            this.toastr.success(
+                'Đã thêm Hình ảnh xuống timeline tiếp tục kế bên!',
+            );
         } else if (item.type === 'audio' || item.type === 'extractedAudio') {
             if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
             let maxEnd = 0;
@@ -2702,15 +3421,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const end = (a.startTime || 0) + (a.duration || 5);
                 if (end > maxEnd) maxEnd = end;
             });
-            const aIdx = item.aIdx !== undefined && item.aIdx >= 0 ? item.aIdx : targetScene.extractedAudios.length - 1;
-            const insertIndex = aIdx >= 0 ? aIdx + 1 : targetScene.extractedAudios.length;
+            const aIdx =
+                item.aIdx !== undefined && item.aIdx >= 0
+                    ? item.aIdx
+                    : targetScene.extractedAudios.length - 1;
+            const insertIndex =
+                aIdx >= 0 ? aIdx + 1 : targetScene.extractedAudios.length;
 
             const cloned: any = {
                 ...raw,
                 id: `audio_${Date.now()}`,
                 startTime: maxEnd,
                 duration: raw.duration || 5,
-                maxDuration: raw.maxDuration || raw.duration || 5
+                maxDuration: raw.maxDuration || raw.duration || 5,
             };
             targetScene.extractedAudios.splice(insertIndex, 0, cloned);
             this.setActiveItem(cloned);
@@ -2718,7 +3441,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.updateRulerTicks();
             this.saveData(true);
             this.cd.detectChanges();
-            this.toastr.success('Đã thêm Audio xuống timeline tiếp tục kế bên!');
+            this.toastr.success(
+                'Đã thêm Audio xuống timeline tiếp tục kế bên!',
+            );
         } else if (item.type === 'subtitle') {
             if (!targetScene.subtitles) targetScene.subtitles = [];
             let maxEnd = 0;
@@ -2726,14 +3451,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const end = (s.startTime || 0) + (s.duration || 3);
                 if (end > maxEnd) maxEnd = end;
             });
-            const subIdx = item.subIdx !== undefined && item.subIdx >= 0 ? item.subIdx : targetScene.subtitles.length - 1;
-            const insertIndex = subIdx >= 0 ? subIdx + 1 : targetScene.subtitles.length;
+            const subIdx =
+                item.subIdx !== undefined && item.subIdx >= 0
+                    ? item.subIdx
+                    : targetScene.subtitles.length - 1;
+            const insertIndex =
+                subIdx >= 0 ? subIdx + 1 : targetScene.subtitles.length;
 
             const cloned: any = {
                 ...raw,
                 id: Date.now(),
                 startTime: maxEnd,
-                duration: raw.duration || 3
+                duration: raw.duration || 3,
             };
             targetScene.subtitles.splice(insertIndex, 0, cloned);
             this.setActiveItem(cloned);
@@ -2742,7 +3471,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.updateActiveSubtitleInfo();
             this.saveData();
             this.cd.detectChanges();
-            this.toastr.success('Đã thêm Phụ đề xuống timeline tiếp tục kế bên!');
+            this.toastr.success(
+                'Đã thêm Phụ đề xuống timeline tiếp tục kế bên!',
+            );
         } else if (item.type === 'customText') {
             if (!targetScene.texts) targetScene.texts = [];
             let maxEnd = 0;
@@ -2750,14 +3481,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const end = (t.startTime || 0) + (t.duration || 3);
                 if (end > maxEnd) maxEnd = end;
             });
-            const textIdx = item.textIdx !== undefined && item.textIdx >= 0 ? item.textIdx : targetScene.texts.length - 1;
-            const insertIndex = textIdx >= 0 ? textIdx + 1 : targetScene.texts.length;
+            const textIdx =
+                item.textIdx !== undefined && item.textIdx >= 0
+                    ? item.textIdx
+                    : targetScene.texts.length - 1;
+            const insertIndex =
+                textIdx >= 0 ? textIdx + 1 : targetScene.texts.length;
 
             const cloned: any = {
                 ...raw,
                 id: Date.now(),
                 startTime: maxEnd,
-                duration: raw.duration || 3
+                duration: raw.duration || 3,
             };
             targetScene.texts.splice(insertIndex, 0, cloned);
             this.setActiveItem(cloned);
@@ -2779,12 +3514,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 videos: [],
                 images: [],
                 extractedAudios: [],
-                prompt: ''
+                prompt: '',
             });
         }
 
         const electronApi = (window as any).electron;
-        if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+        if (
+            electronApi &&
+            electronApi.getPathForFile &&
+            electronApi.selectLocalFile
+        ) {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'audio/*';
@@ -2801,13 +3540,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.toastr.info('Đang xử lý file âm thanh, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
-                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                const localFilePath = await electronApi.selectLocalFile(
+                    originalPath,
+                    customDir,
+                );
+                const finalPath = localFilePath.startsWith('file://')
+                    ? localFilePath
+                    : `file://${localFilePath.replace(/\\/g, '/')}`;
 
                 let realDur = 5;
                 if (electronApi.getMediaDuration) {
                     try {
-                        const durRes = await electronApi.getMediaDuration(finalPath);
+                        const durRes =
+                            await electronApi.getMediaDuration(finalPath);
                         if (durRes && durRes.success && durRes.duration > 0) {
                             realDur = Math.round(durRes.duration * 10) / 10;
                         }
@@ -2819,12 +3564,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 for (const sc of this.projectData.scenes) {
                     const scStart = Number(sc.startTime) || 0;
                     const scEnd = scStart + (Number(sc.duration) || 5);
-                    if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+                    if (
+                        this.currentTimelineTime >= scStart &&
+                        this.currentTimelineTime < scEnd
+                    ) {
                         targetScene = sc;
                         break;
                     }
                 }
-                if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
+                if (!targetScene.extractedAudios)
+                    targetScene.extractedAudios = [];
 
                 const startTime = this.currentTimelineTime || 0;
                 const newAudio: any = {
@@ -2833,7 +3582,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     text: file.name || 'Âm thanh tải lên',
                     startTime: startTime,
                     duration: realDur,
-                    maxDuration: realDur
+                    maxDuration: realDur,
                 };
 
                 targetScene.extractedAudios.push(newAudio);
@@ -2842,20 +3591,27 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.updateRulerTicks();
                 this.saveData(true);
                 this.cd.detectChanges();
-                this.toastr.success('Đã thêm file âm thanh vào track âm thanh!');
+                this.toastr.success(
+                    'Đã thêm file âm thanh vào track âm thanh!',
+                );
             };
             input.click();
             return;
         }
 
-        const audioUrl = prompt('Nhập đường dẫn File âm thanh (URL hoặc file):');
+        const audioUrl = prompt(
+            'Nhập đường dẫn File âm thanh (URL hoặc file):',
+        );
         if (!audioUrl || !audioUrl.trim()) return;
 
         let targetScene = this.projectData.scenes[0];
         for (const sc of this.projectData.scenes) {
             const scStart = Number(sc.startTime) || 0;
             const scEnd = scStart + (Number(sc.duration) || 5);
-            if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+            if (
+                this.currentTimelineTime >= scStart &&
+                this.currentTimelineTime < scEnd
+            ) {
                 targetScene = sc;
                 break;
             }
@@ -2869,7 +3625,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             text: 'Âm thanh tải lên',
             startTime: startTime,
             duration: 5,
-            maxDuration: 5
+            maxDuration: 5,
         };
 
         targetScene.extractedAudios.push(newAudio);
@@ -2892,38 +3648,51 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 standaloneTTSNode: {
                     data: {
                         text: '',
-                        audioUrl: null
-                    }
-                }
-            }
+                        audioUrl: null,
+                    },
+                },
+            },
         });
 
         dialogRef.afterClosed().subscribe(async (res) => {
             if (!res || res.action !== 'start') return;
-            const textToSpeak = dialogRef.componentInstance?.data?.standaloneTTSNode?.data?.text;
+            const textToSpeak =
+                dialogRef.componentInstance?.data?.standaloneTTSNode?.data
+                    ?.text;
             if (!textToSpeak || !textToSpeak.trim()) {
-                this.toastr.warning('Vui lòng nhập nội dung văn bản để tạo giọng đọc.');
+                this.toastr.warning(
+                    'Vui lòng nhập nội dung văn bản để tạo giọng đọc.',
+                );
                 return;
             }
 
-            await this.generateVoiceAndInsertToTimeline(textToSpeak.trim(), res);
+            await this.generateVoiceAndInsertToTimeline(
+                textToSpeak.trim(),
+                res,
+            );
         });
     }
 
     async generateVoiceAndInsertToTimeline(text: string, config: any) {
         const electronApi = (window as any).electron;
         if (!electronApi || !electronApi.invoke) {
-            this.toastr.error('Cần chạy trên App Desktop (Electron) để tạo giọng nói.');
+            this.toastr.error(
+                'Cần chạy trên App Desktop (Electron) để tạo giọng nói.',
+            );
             return;
         }
 
         this.toastr.info('Đang tạo giọng đọc AI TTS...', 'Hệ thống');
 
-        const username = this.projectData?.username || this.data?.username || 'anonymous';
+        const username =
+            this.projectData?.username || this.data?.username || 'anonymous';
         const uuid = this.projectData?.uuid || this.data?.uuid || 'default';
         const subPath = `${username}/${uuid}`;
         const prefix = Date.now().toString().slice(-4);
-        const slug = (text.substring(0, 40) || 'voice').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+        const slug = (text.substring(0, 40) || 'voice')
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '-')
+            .replace(/-+/g, '-');
 
         const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
         const isEdgeVoice = edgeVoices.includes(config.selectedVoice);
@@ -2942,16 +3711,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 };
                 res = await electronApi.invoke('tts-generate', payload);
             } else {
-                const isTTSTypeVoice = config.selectedVoice?.endsWith('tts.type.vn');
-                const isAusyncVoice = config.selectedVoice?.endsWith('ausynclab.io');
+                const isTTSTypeVoice =
+                    config.selectedVoice?.endsWith('tts.type.vn');
+                const isAusyncVoice =
+                    config.selectedVoice?.endsWith('ausynclab.io');
 
                 if (isTTSTypeVoice) {
-                    const voice_id = config.selectedVoice.replace('-tts.type.vn', '');
+                    const voice_id = config.selectedVoice.replace(
+                        '-tts.type.vn',
+                        '',
+                    );
                     const niceFilename = `${prefix}_${slug}`;
-                    const voice = (config.myvoices || []).find((v: any) => String(v.id) === String(voice_id));
+                    const voice = (config.myvoices || []).find(
+                        (v: any) => String(v.id) === String(voice_id),
+                    );
                     let safeText = text;
                     if (safeText.length < 150) {
-                        safeText = safeText.replace(/[.!?\n]+/g, ', ').replace(/,\s*$/, '').trim();
+                        safeText = safeText
+                            .replace(/[.!?\n]+/g, ', ')
+                            .replace(/,\s*$/, '')
+                            .trim();
                     }
                     const payload = {
                         text: safeText,
@@ -2964,11 +3743,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         filename: niceFilename,
                         username: subPath,
                     };
-                    res = await electronApi.invoke('tts-type-generate', payload);
+                    res = await electronApi.invoke(
+                        'tts-type-generate',
+                        payload,
+                    );
                 } else if (isAusyncVoice) {
-                    const voice_id = config.selectedVoice.replace('-ausynclab.io', '');
+                    const voice_id = config.selectedVoice.replace(
+                        '-ausynclab.io',
+                        '',
+                    );
                     const niceFilename = `${prefix}_${slug}_ausync`;
-                    const voice = (config.myvoices || []).find((v: any) => String(v.id) === String(voice_id));
+                    const voice = (config.myvoices || []).find(
+                        (v: any) => String(v.id) === String(voice_id),
+                    );
                     const payload = {
                         text: text,
                         voice_id: voice_id,
@@ -2977,7 +3764,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         filename: niceFilename,
                         username: subPath,
                     };
-                    res = await electronApi.invoke('tts-ausync-generate', payload);
+                    res = await electronApi.invoke(
+                        'tts-ausync-generate',
+                        payload,
+                    );
                 } else {
                     // Mặc định fallback Edge TTS nếu không khớp
                     const niceFilename = `${prefix}_${slug}`;
@@ -2987,7 +3777,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         rate: 1.0,
                         pitch: 0,
                         filename: niceFilename,
-                        username: subPath
+                        username: subPath,
                     });
                 }
             }
@@ -2995,12 +3785,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (res && res.success !== false && !res.error) {
                 const rawPath = res.filePath || res.url || res.result;
                 if (!rawPath) {
-                    this.toastr.error('Tạo audio thành công nhưng không tìm thấy file kết quả.');
+                    this.toastr.error(
+                        'Tạo audio thành công nhưng không tìm thấy file kết quả.',
+                    );
                     return;
                 }
 
                 let finalAudioUrl = rawPath;
-                if (!rawPath.startsWith('http://') && !rawPath.startsWith('https://') && !rawPath.startsWith('file://') && !rawPath.startsWith('media://')) {
+                if (
+                    !rawPath.startsWith('http://') &&
+                    !rawPath.startsWith('https://') &&
+                    !rawPath.startsWith('file://') &&
+                    !rawPath.startsWith('media://')
+                ) {
                     finalAudioUrl = `file://${rawPath}`;
                 }
 
@@ -3008,7 +3805,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 let realDur = 5;
                 if (electronApi.getMediaDuration) {
                     try {
-                        const durRes = await electronApi.getMediaDuration(finalAudioUrl);
+                        const durRes =
+                            await electronApi.getMediaDuration(finalAudioUrl);
                         if (durRes && durRes.success && durRes.duration > 0) {
                             realDur = Math.round(durRes.duration * 10) / 10;
                         }
@@ -3016,7 +3814,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
 
                 if (!this.projectData) this.projectData = { scenes: [] };
-                if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+                if (
+                    !this.projectData.scenes ||
+                    this.projectData.scenes.length === 0
+                ) {
                     this.projectData.scenes.push({
                         id: `scene_${Date.now()}`,
                         subtitles: [],
@@ -3024,7 +3825,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         videos: [],
                         images: [],
                         extractedAudios: [],
-                        prompt: ''
+                        prompt: '',
                     });
                 }
 
@@ -3033,21 +3834,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 for (const sc of this.projectData.scenes) {
                     const scStart = Number(sc.startTime) || 0;
                     const scEnd = scStart + (Number(sc.duration) || 5);
-                    if (this.currentTimelineTime >= scStart && this.currentTimelineTime < scEnd) {
+                    if (
+                        this.currentTimelineTime >= scStart &&
+                        this.currentTimelineTime < scEnd
+                    ) {
                         targetScene = sc;
                         break;
                     }
                 }
-                if (!targetScene.extractedAudios) targetScene.extractedAudios = [];
+                if (!targetScene.extractedAudios)
+                    targetScene.extractedAudios = [];
 
                 const startTime = this.currentTimelineTime || 0;
                 const newAudio: any = {
                     id: `audio_${Date.now()}`,
                     audioUrl: finalAudioUrl,
-                    text: text.length > 30 ? (text.substring(0, 30) + '...') : text,
+                    text:
+                        text.length > 30 ? text.substring(0, 30) + '...' : text,
                     startTime: startTime,
                     duration: realDur,
-                    maxDuration: realDur
+                    maxDuration: realDur,
                 };
 
                 targetScene.extractedAudios.push(newAudio);
@@ -3056,9 +3862,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.updateRulerTicks();
                 this.saveData(true);
                 this.cd.detectChanges();
-                this.toastr.success('Đã tạo giọng đọc và chèn vào Track Âm thanh thành công!');
+                this.toastr.success(
+                    'Đã tạo giọng đọc và chèn vào Track Âm thanh thành công!',
+                );
             } else {
-                this.toastr.error('Lỗi khi tạo giọng nói: ' + (res?.error || 'Không thành công'));
+                this.toastr.error(
+                    'Lỗi khi tạo giọng nói: ' +
+                        (res?.error || 'Không thành công'),
+                );
             }
         } catch (err: any) {
             console.error('Lỗi tạo giọng nói TTS:', err);
@@ -3080,7 +3891,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         const pool = this.projectData.mediaLibraryPool;
         const targetId = item.id;
-        const targetKey = (item.videoUrl || item.imageUrl || item.controlImageUrl || item.audioUrl || item.url || item.src || item.text || item.id || '').trim();
+        const targetKey = (
+            item.videoUrl ||
+            item.imageUrl ||
+            item.controlImageUrl ||
+            item.audioUrl ||
+            item.url ||
+            item.src ||
+            item.text ||
+            item.id ||
+            ''
+        ).trim();
 
         if (targetKey) {
             pool.deletedKeys.push(targetKey);
@@ -3090,15 +3911,29 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         if (item.type === 'video') {
-            pool.videos = (pool.videos || []).filter((v: any) => v.id !== targetId && (v.videoUrl || v.id) !== targetKey);
+            pool.videos = (pool.videos || []).filter(
+                (v: any) =>
+                    v.id !== targetId && (v.videoUrl || v.id) !== targetKey,
+            );
         } else if (item.type === 'image') {
-            pool.images = (pool.images || []).filter((img: any) => img.id !== targetId && (img.imageUrl || img.id) !== targetKey);
+            pool.images = (pool.images || []).filter(
+                (img: any) =>
+                    img.id !== targetId &&
+                    (img.imageUrl || img.id) !== targetKey,
+            );
         } else if (item.type === 'audio' || item.type === 'extractedAudio') {
-            pool.audios = (pool.audios || []).filter((a: any) => a.id !== targetId && (a.audioUrl || a.id) !== targetKey);
+            pool.audios = (pool.audios || []).filter(
+                (a: any) =>
+                    a.id !== targetId && (a.audioUrl || a.id) !== targetKey,
+            );
         } else if (item.type === 'subtitle') {
-            pool.subtitles = (pool.subtitles || []).filter((s: any) => s.id !== targetId && (s.text || s.id) !== targetKey);
+            pool.subtitles = (pool.subtitles || []).filter(
+                (s: any) => s.id !== targetId && (s.text || s.id) !== targetKey,
+            );
         } else if (item.type === 'customText') {
-            pool.texts = (pool.texts || []).filter((t: any) => t.id !== targetId && (t.text || t.id) !== targetKey);
+            pool.texts = (pool.texts || []).filter(
+                (t: any) => t.id !== targetId && (t.text || t.id) !== targetKey,
+            );
         }
 
         this.saveData(true);
@@ -3128,7 +3963,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    onReferenceImageSelectedOut(event: any, video: any, sceneIdx: number, tIdx: number) {
+    onReferenceImageSelectedOut(
+        event: any,
+        video: any,
+        sceneIdx: number,
+        tIdx: number,
+    ) {
         const file = event.target.files[0];
         if (file) {
             video.aiReferenceImageLocalUrl = URL.createObjectURL(file);
@@ -3171,31 +4011,37 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         for (const scene of this.projectData.scenes) {
             if (scene.videos) {
                 for (const v of scene.videos) {
-                    const end = (Number(v.startTime) || 0) + (Number(v.duration) || 5);
+                    const end =
+                        (Number(v.startTime) || 0) + (Number(v.duration) || 5);
                     if (end > maxTime) maxTime = end;
                 }
             }
             if (scene.images) {
                 for (const img of scene.images) {
-                    const end = (Number(img.startTime) || 0) + (Number(img.duration) || 5);
+                    const end =
+                        (Number(img.startTime) || 0) +
+                        (Number(img.duration) || 5);
                     if (end > maxTime) maxTime = end;
                 }
             }
             if (scene.subtitles) {
                 for (const s of scene.subtitles) {
-                    const end = (Number(s.startTime) || 0) + (Number(s.duration) || 5);
+                    const end =
+                        (Number(s.startTime) || 0) + (Number(s.duration) || 5);
                     if (end > maxTime) maxTime = end;
                 }
             }
             if (scene.texts) {
                 for (const t of scene.texts) {
-                    const end = (Number(t.startTime) || 0) + (Number(t.duration) || 5);
+                    const end =
+                        (Number(t.startTime) || 0) + (Number(t.duration) || 5);
                     if (end > maxTime) maxTime = end;
                 }
             }
             if (scene.extractedAudios) {
                 for (const a of scene.extractedAudios) {
-                    const end = (Number(a.startTime) || 0) + (Number(a.duration) || 5);
+                    const end =
+                        (Number(a.startTime) || 0) + (Number(a.duration) || 5);
                     if (end > maxTime) maxTime = end;
                 }
             }
@@ -3262,12 +4108,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             if (v.disabled) continue;
                             const s = Number(v.startTime) || 0;
                             const e = s + (Number(v.duration) || 5);
-                            if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
+                            if (
+                                this.currentTimelineTime >= s &&
+                                this.currentTimelineTime < e
+                            ) {
                                 const tIdx = Number(v.trackIndex) || 0;
                                 if (tIdx === 0) {
-                                    if (!currentPlayingVideo) currentPlayingVideo = v;
+                                    if (!currentPlayingVideo)
+                                        currentPlayingVideo = v;
                                 } else {
-                                    if (!currentPlayingOverlayVideo || tIdx >= (Number(currentPlayingOverlayVideo.trackIndex) || 0)) {
+                                    if (
+                                        !currentPlayingOverlayVideo ||
+                                        tIdx >=
+                                            (Number(
+                                                currentPlayingOverlayVideo.trackIndex,
+                                            ) || 0)
+                                    ) {
                                         currentPlayingOverlayVideo = v;
                                     }
                                 }
@@ -3279,7 +4135,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             if (img.disabled) continue;
                             const s = Number(img.startTime) || 0;
                             const e = s + (Number(img.duration) || 5);
-                            if (this.currentTimelineTime >= s && this.currentTimelineTime < e) {
+                            if (
+                                this.currentTimelineTime >= s &&
+                                this.currentTimelineTime < e
+                            ) {
                                 currentPlayingImage = img;
                                 break;
                             }
@@ -3289,40 +4148,109 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             // Video Track 0 là video nền nằm trong màn hình Frame/Base player, Video Track 1+ là Overlay nằm đè lên trên frame
-            const activeOverlayUrl = currentPlayingImage ? (currentPlayingImage.imageUrl || currentPlayingImage.url || currentPlayingImage.src || currentPlayingImage.controlImageUrl || currentPlayingImage.imagePath || currentPlayingImage.path || currentPlayingImage.dataUrl || currentPlayingImage._raw?.imageUrl || currentPlayingImage._raw?.url || null) : null;
-            const activeOverlayVidUrl = currentPlayingOverlayVideo ? (currentPlayingOverlayVideo.videoUrl || currentPlayingOverlayVideo.url || currentPlayingOverlayVideo.src || currentPlayingOverlayVideo.path || currentPlayingOverlayVideo.dataUrl || currentPlayingOverlayVideo._raw?.videoUrl || currentPlayingOverlayVideo._raw?.url || null) : null;
-            const activeMainVidUrl = currentPlayingVideo ? (currentPlayingVideo.videoUrl || currentPlayingVideo.url || currentPlayingVideo.src || currentPlayingVideo.path || currentPlayingVideo.dataUrl || currentPlayingVideo._raw?.videoUrl || currentPlayingVideo._raw?.url || null) : null;
+            const activeOverlayUrl = currentPlayingImage
+                ? currentPlayingImage.imageUrl ||
+                  currentPlayingImage.url ||
+                  currentPlayingImage.src ||
+                  currentPlayingImage.controlImageUrl ||
+                  currentPlayingImage.imagePath ||
+                  currentPlayingImage.path ||
+                  currentPlayingImage.dataUrl ||
+                  currentPlayingImage._raw?.imageUrl ||
+                  currentPlayingImage._raw?.url ||
+                  null
+                : null;
+            const activeOverlayVidUrl = currentPlayingOverlayVideo
+                ? currentPlayingOverlayVideo.videoUrl ||
+                  currentPlayingOverlayVideo.url ||
+                  currentPlayingOverlayVideo.src ||
+                  currentPlayingOverlayVideo.path ||
+                  currentPlayingOverlayVideo.dataUrl ||
+                  currentPlayingOverlayVideo._raw?.videoUrl ||
+                  currentPlayingOverlayVideo._raw?.url ||
+                  null
+                : null;
+            const activeMainVidUrl = currentPlayingVideo
+                ? currentPlayingVideo.videoUrl ||
+                  currentPlayingVideo.url ||
+                  currentPlayingVideo.src ||
+                  currentPlayingVideo.path ||
+                  currentPlayingVideo.dataUrl ||
+                  currentPlayingVideo._raw?.videoUrl ||
+                  currentPlayingVideo._raw?.url ||
+                  null
+                : null;
 
-            if (currentPlayingVideo !== this.activeVideo || currentPlayingOverlayVideo !== this.activeOverlayVideo || this.previewVideoUrl !== activeMainVidUrl || this.previewOverlayImageUrl !== activeOverlayUrl || this.previewOverlayVideoUrl !== activeOverlayVidUrl) {
-                const overlayClipChanged = currentPlayingOverlayVideo !== this.activeOverlayVideo || this.previewOverlayVideoUrl !== activeOverlayVidUrl;
-                const mainClipChanged = currentPlayingVideo !== this.activeVideo || this.previewVideoUrl !== activeMainVidUrl;
+            if (
+                currentPlayingVideo !== this.activeVideo ||
+                currentPlayingOverlayVideo !== this.activeOverlayVideo ||
+                this.previewVideoUrl !== activeMainVidUrl ||
+                this.previewOverlayImageUrl !== activeOverlayUrl ||
+                this.previewOverlayVideoUrl !== activeOverlayVidUrl
+            ) {
+                const overlayClipChanged =
+                    currentPlayingOverlayVideo !== this.activeOverlayVideo ||
+                    this.previewOverlayVideoUrl !== activeOverlayVidUrl;
+                const mainClipChanged =
+                    currentPlayingVideo !== this.activeVideo ||
+                    this.previewVideoUrl !== activeMainVidUrl;
                 this.updateTimelineSync(overlayClipChanged || mainClipChanged);
                 sceneChanged = true;
             } else {
                 // Giữ video chính luôn đồng bộ thời gian với timeline
                 if (this.mainVideoPlayer?.nativeElement && this.activeVideo) {
                     const vidEl = this.mainVideoPlayer.nativeElement;
-                    const expectedTime = Math.max(0, this.currentTimelineTime - (Number(this.activeVideo.startTime) || 0) + (Number(this.activeVideo.trimStart) || 0));
-                    if ((vidEl.ended || Math.abs(vidEl.currentTime - expectedTime) > 0.35) && vidEl.readyState >= 1) {
+                    const expectedTime = Math.max(
+                        0,
+                        this.currentTimelineTime -
+                            (Number(this.activeVideo.startTime) || 0) +
+                            (Number(this.activeVideo.trimStart) || 0),
+                    );
+                    if (
+                        (vidEl.ended ||
+                            Math.abs(vidEl.currentTime - expectedTime) >
+                                0.35) &&
+                        vidEl.readyState >= 1
+                    ) {
                         if (!vidEl.seeking) {
                             vidEl.currentTime = expectedTime;
                         }
                     }
-                    if (this.isPlayingTimeline && (vidEl.paused || vidEl.ended)) {
+                    if (
+                        this.isPlayingTimeline &&
+                        (vidEl.paused || vidEl.ended)
+                    ) {
                         vidEl.play().catch(() => {});
                     }
                 }
 
                 // Đồng bộ playback của overlay video player
-                if (this.overlayVideoPlayer?.nativeElement && this.activeOverlayVideo && this.previewOverlayVideoUrl) {
+                if (
+                    this.overlayVideoPlayer?.nativeElement &&
+                    this.activeOverlayVideo &&
+                    this.previewOverlayVideoUrl
+                ) {
                     const oVidEl = this.overlayVideoPlayer.nativeElement;
-                    const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (Number(this.activeOverlayVideo.startTime) || 0) + (Number(this.activeOverlayVideo.trimStart) || 0));
-                    if ((oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.35) && oVidEl.readyState >= 1) {
+                    const expectedOverlayTime = Math.max(
+                        0,
+                        this.currentTimelineTime -
+                            (Number(this.activeOverlayVideo.startTime) || 0) +
+                            (Number(this.activeOverlayVideo.trimStart) || 0),
+                    );
+                    if (
+                        (oVidEl.ended ||
+                            Math.abs(oVidEl.currentTime - expectedOverlayTime) >
+                                0.35) &&
+                        oVidEl.readyState >= 1
+                    ) {
                         if (!oVidEl.seeking) {
                             oVidEl.currentTime = expectedOverlayTime;
                         }
                     }
-                    if (this.isPlayingTimeline && (oVidEl.paused || oVidEl.ended)) {
+                    if (
+                        this.isPlayingTimeline &&
+                        (oVidEl.paused || oVidEl.ended)
+                    ) {
                         oVidEl.play().catch(() => {});
                     } else if (!this.isPlayingTimeline && !oVidEl.paused) {
                         oVidEl.pause();
@@ -3334,7 +4262,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.syncAudioWithTimeline();
 
             // Chạy change detection 10 lần/giây thay vì 60 lần/giây để tiết kiệm 95% CPU
-            if (sceneChanged || (timestamp - lastCdTimestamp > 100)) {
+            if (sceneChanged || timestamp - lastCdTimestamp > 100) {
                 lastCdTimestamp = timestamp;
                 this.updateActiveSubtitleInfo();
                 this.cd.detectChanges();
@@ -3375,26 +4303,41 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     syncAudioWithTimeline() {
         if (!this.projectData || !this.projectData.scenes) return;
 
-        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+        for (
+            let sceneIdx = 0;
+            sceneIdx < this.projectData.scenes.length;
+            sceneIdx++
+        ) {
             const scene = this.projectData.scenes[sceneIdx];
 
             // 1. Đồng bộ Track Subtitles
             if (scene.subtitles) {
                 for (let sIdx = 0; sIdx < scene.subtitles.length; sIdx++) {
                     const sub = scene.subtitles[sIdx];
-                    const ws = this.wavesurfers[`waveform-sub-${sceneIdx}-${sIdx}`];
+                    const ws =
+                        this.wavesurfers[`waveform-sub-${sceneIdx}-${sIdx}`];
                     if (ws) {
                         const start = sub.startTime || 0;
                         const end = start + (sub.duration || 5);
-                        const isPlayingNow = !sub.disabled && this.currentTimelineTime >= start && this.currentTimelineTime < end;
+                        const isPlayingNow =
+                            !sub.disabled &&
+                            this.currentTimelineTime >= start &&
+                            this.currentTimelineTime < end;
 
                         if (isPlayingNow) {
-                            const expectedTime = Math.max(0, this.currentTimelineTime - start);
+                            const expectedTime = Math.max(
+                                0,
+                                this.currentTimelineTime - start,
+                            );
                             if (this.isPlayingTimeline) {
                                 if (!ws.isPlaying()) {
                                     ws.setTime(expectedTime);
                                     ws.play().catch(() => {});
-                                } else if (Math.abs(ws.getCurrentTime() - expectedTime) > 0.4) {
+                                } else if (
+                                    Math.abs(
+                                        ws.getCurrentTime() - expectedTime,
+                                    ) > 0.4
+                                ) {
                                     ws.setTime(expectedTime);
                                 }
                             } else {
@@ -3410,24 +4353,43 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             // 2. Đồng bộ Track Extracted Audios (Âm thanh bóc tách / Audio segments)
             if (scene.extractedAudios) {
-                for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                for (
+                    let aIdx = 0;
+                    aIdx < scene.extractedAudios.length;
+                    aIdx++
+                ) {
                     const audio = scene.extractedAudios[aIdx];
                     const ws = this.wavesurfers[`waveform-${sceneIdx}-${aIdx}`];
                     if (ws) {
                         const start = audio.startTime || 0;
                         const end = start + (audio.duration || 5);
                         const isMuted = this.isAudioMuted(audio, scene);
-                        const isPlayingNow = !isMuted && this.currentTimelineTime >= start && this.currentTimelineTime < end;
+                        const isPlayingNow =
+                            !isMuted &&
+                            this.currentTimelineTime >= start &&
+                            this.currentTimelineTime < end;
 
                         if (isPlayingNow) {
-                            const expectedTime = Math.max(0, this.currentTimelineTime - start);
-                            const vol = audio.volume !== undefined ? Math.max(0, audio.volume / 100) : 1;
-                            try { ws.setVolume(vol); } catch (e) {}
+                            const expectedTime = Math.max(
+                                0,
+                                this.currentTimelineTime - start,
+                            );
+                            const vol =
+                                audio.volume !== undefined
+                                    ? Math.max(0, audio.volume / 100)
+                                    : 1;
+                            try {
+                                ws.setVolume(vol);
+                            } catch (e) {}
                             if (this.isPlayingTimeline) {
                                 if (!ws.isPlaying()) {
                                     ws.setTime(expectedTime);
                                     ws.play().catch(() => {});
-                                } else if (Math.abs(ws.getCurrentTime() - expectedTime) > 0.4) {
+                                } else if (
+                                    Math.abs(
+                                        ws.getCurrentTime() - expectedTime,
+                                    ) > 0.4
+                                ) {
                                     ws.setTime(expectedTime);
                                 }
                             } else {
@@ -3459,7 +4421,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (v.disabled) continue;
                     const start = Number(v.startTime) || 0;
                     const end = start + (Number(v.duration) || 5);
-                    if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
+                    if (
+                        this.currentTimelineTime >= start &&
+                        this.currentTimelineTime < end
+                    ) {
                         const tIdx = Number(v.trackIndex) || 0;
                         if (tIdx === 0) {
                             if (!foundVideo) {
@@ -3467,7 +4432,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 foundScene = scene;
                             }
                         } else {
-                            if (!foundOverlayVideo || tIdx >= (Number(foundOverlayVideo.trackIndex) || 0)) {
+                            if (
+                                !foundOverlayVideo ||
+                                tIdx >=
+                                    (Number(foundOverlayVideo.trackIndex) || 0)
+                            ) {
                                 foundOverlayVideo = v;
                                 foundOverlayScene = scene;
                             }
@@ -3481,7 +4450,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (img.disabled) continue;
                     const start = Number(img.startTime) || 0;
                     const end = start + (Number(img.duration) || 5);
-                    if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
+                    if (
+                        this.currentTimelineTime >= start &&
+                        this.currentTimelineTime < end
+                    ) {
                         foundImage = img;
                         break;
                     }
@@ -3490,29 +4462,79 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         // Cập nhật URL ảnh Overlay từ Track Images
-        const targetOverlayImageUrl = foundImage ? (foundImage.imageUrl || foundImage.url || foundImage.src || foundImage.controlImageUrl || foundImage.imagePath || foundImage.path || foundImage.dataUrl || foundImage._raw?.imageUrl || foundImage._raw?.url || null) : null;
+        const targetOverlayImageUrl = foundImage
+            ? foundImage.imageUrl ||
+              foundImage.url ||
+              foundImage.src ||
+              foundImage.controlImageUrl ||
+              foundImage.imagePath ||
+              foundImage.path ||
+              foundImage.dataUrl ||
+              foundImage._raw?.imageUrl ||
+              foundImage._raw?.url ||
+              null
+            : null;
         this.previewOverlayImageUrl = targetOverlayImageUrl;
         this.activeImage = foundImage;
 
         // Cập nhật Video Overlay từ Track Video 1+ (Hỗ trợ Transparent Video WebM/Alpha) - Luôn nằm đè lên trên frame
-        const targetOverlayVideoUrl = foundOverlayVideo ? (foundOverlayVideo.videoUrl || foundOverlayVideo.url || foundOverlayVideo.src || foundOverlayVideo.path || foundOverlayVideo.dataUrl || foundOverlayVideo._raw?.videoUrl || foundOverlayVideo._raw?.url || null) : null;
+        const targetOverlayVideoUrl = foundOverlayVideo
+            ? foundOverlayVideo.videoUrl ||
+              foundOverlayVideo.url ||
+              foundOverlayVideo.src ||
+              foundOverlayVideo.path ||
+              foundOverlayVideo.dataUrl ||
+              foundOverlayVideo._raw?.videoUrl ||
+              foundOverlayVideo._raw?.url ||
+              null
+            : null;
         const prevOverlayVideo = this.activeOverlayVideo;
-        const isOverlayVideoChanged = (this.previewOverlayVideoUrl !== targetOverlayVideoUrl) || (this.activeOverlayVideo !== foundOverlayVideo);
+        const isOverlayVideoChanged =
+            this.previewOverlayVideoUrl !== targetOverlayVideoUrl ||
+            this.activeOverlayVideo !== foundOverlayVideo;
         this.activeOverlayVideo = foundOverlayVideo;
         this.previewOverlayVideoUrl = targetOverlayVideoUrl;
 
         // Kiểm tra xem clip video này đã có phân đoạn âm thanh rời (extracted audio) chưa
-        const isVideoCoveredByExtractedAudio = foundVideo && foundScene && this.hasExtractedAudio(foundScene, foundVideo);
-        const shouldMuteVideoEl = foundVideo ? (foundVideo.muted || isVideoCoveredByExtractedAudio) : true;
+        const isVideoCoveredByExtractedAudio =
+            foundVideo &&
+            foundScene &&
+            this.hasExtractedAudio(foundScene, foundVideo);
+        const shouldMuteVideoEl = foundVideo
+            ? foundVideo.muted || isVideoCoveredByExtractedAudio
+            : true;
 
         // Handle Main Video
-        const targetVideoUrl = foundVideo ? (foundVideo.videoUrl || foundVideo.url || foundVideo.src || foundVideo.path || foundVideo.dataUrl || foundVideo._raw?.videoUrl || foundVideo._raw?.url || null) : null;
-        const targetImageUrl = foundVideo ? (foundVideo.imageUrl || foundVideo.url || foundVideo.src || foundVideo._raw?.imageUrl || null) : null;
+        const targetVideoUrl = foundVideo
+            ? foundVideo.videoUrl ||
+              foundVideo.url ||
+              foundVideo.src ||
+              foundVideo.path ||
+              foundVideo.dataUrl ||
+              foundVideo._raw?.videoUrl ||
+              foundVideo._raw?.url ||
+              null
+            : null;
+        const targetImageUrl = foundVideo
+            ? foundVideo.imageUrl ||
+              foundVideo.url ||
+              foundVideo.src ||
+              foundVideo._raw?.imageUrl ||
+              null
+            : null;
 
-        if (this.previewVideoUrl !== targetVideoUrl || this.previewImageUrl !== (targetImageUrl || (targetVideoUrl ? null : targetOverlayImageUrl)) || foundVideo !== this.activeVideo) {
+        if (
+            this.previewVideoUrl !== targetVideoUrl ||
+            this.previewImageUrl !==
+                (targetImageUrl ||
+                    (targetVideoUrl ? null : targetOverlayImageUrl)) ||
+            foundVideo !== this.activeVideo
+        ) {
             this.activeVideo = foundVideo;
             this.previewVideoUrl = targetVideoUrl;
-            this.previewImageUrl = targetImageUrl || (targetVideoUrl ? null : targetOverlayImageUrl);
+            this.previewImageUrl =
+                targetImageUrl ||
+                (targetVideoUrl ? null : targetOverlayImageUrl);
             this.selectedFrame = foundVideo?.frame || null;
             if (this.selectedFrame && !this.selectedFrame.bgDataUrl) {
                 this.loadFrameAssets();
@@ -3520,14 +4542,27 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             if (foundVideo && targetVideoUrl) {
                 setTimeout(() => {
-                    if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement && this.previewVideoUrl) {
+                    if (
+                        this.mainVideoPlayer &&
+                        this.mainVideoPlayer.nativeElement &&
+                        this.previewVideoUrl
+                    ) {
                         const vidEl = this.mainVideoPlayer.nativeElement;
                         if (vidEl.readyState >= 1) {
-                            vidEl.currentTime = Math.max(0, this.currentTimelineTime - (Number(foundVideo.startTime) || 0) + (Number(foundVideo.trimStart) || 0));
+                            vidEl.currentTime = Math.max(
+                                0,
+                                this.currentTimelineTime -
+                                    (Number(foundVideo.startTime) || 0) +
+                                    (Number(foundVideo.trimStart) || 0),
+                            );
                         }
                         vidEl.muted = shouldMuteVideoEl;
                         if (this.isPlayingTimeline) {
-                            vidEl.play().catch(e => console.error("Error playing video:", e));
+                            vidEl
+                                .play()
+                                .catch((e) =>
+                                    console.error('Error playing video:', e),
+                                );
                         } else {
                             vidEl.pause();
                         }
@@ -3539,16 +4574,28 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const vidEl = this.mainVideoPlayer.nativeElement;
                 vidEl.muted = shouldMuteVideoEl;
 
-                const expectedTime = Math.max(0, this.currentTimelineTime - (Number(this.activeVideo.startTime) || 0) + (Number(this.activeVideo.trimStart) || 0));
+                const expectedTime = Math.max(
+                    0,
+                    this.currentTimelineTime -
+                        (Number(this.activeVideo.startTime) || 0) +
+                        (Number(this.activeVideo.trimStart) || 0),
+                );
 
-                if ((forceSeek || vidEl.ended || Math.abs(vidEl.currentTime - expectedTime) > 0.3) && vidEl.readyState >= 1) {
+                if (
+                    (forceSeek ||
+                        vidEl.ended ||
+                        Math.abs(vidEl.currentTime - expectedTime) > 0.3) &&
+                    vidEl.readyState >= 1
+                ) {
                     if (!vidEl.seeking) {
                         vidEl.currentTime = expectedTime;
                     }
                 }
 
                 if (this.isPlayingTimeline && (vidEl.paused || vidEl.ended)) {
-                    vidEl.play().catch(e => console.error("Error playing video:", e));
+                    vidEl
+                        .play()
+                        .catch((e) => console.error('Error playing video:', e));
                 } else if (!this.isPlayingTimeline && !vidEl.paused) {
                     vidEl.pause();
                 }
@@ -3558,23 +4605,52 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         // Handle Overlay Video Player Sync
         if (this.activeOverlayVideo && this.previewOverlayVideoUrl) {
             setTimeout(() => {
-                if (this.overlayVideoPlayer && this.overlayVideoPlayer.nativeElement && this.previewOverlayVideoUrl) {
+                if (
+                    this.overlayVideoPlayer &&
+                    this.overlayVideoPlayer.nativeElement &&
+                    this.previewOverlayVideoUrl
+                ) {
                     const oVidEl = this.overlayVideoPlayer.nativeElement;
-                    const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (Number(this.activeOverlayVideo.startTime) || 0) + (Number(this.activeOverlayVideo.trimStart) || 0));
-                    if ((forceSeek || isOverlayVideoChanged || oVidEl.ended || Math.abs(oVidEl.currentTime - expectedOverlayTime) > 0.3) && oVidEl.readyState >= 1) {
+                    const expectedOverlayTime = Math.max(
+                        0,
+                        this.currentTimelineTime -
+                            (Number(this.activeOverlayVideo.startTime) || 0) +
+                            (Number(this.activeOverlayVideo.trimStart) || 0),
+                    );
+                    if (
+                        (forceSeek ||
+                            isOverlayVideoChanged ||
+                            oVidEl.ended ||
+                            Math.abs(oVidEl.currentTime - expectedOverlayTime) >
+                                0.3) &&
+                        oVidEl.readyState >= 1
+                    ) {
                         if (!oVidEl.seeking) {
                             oVidEl.currentTime = expectedOverlayTime;
                         }
                     }
                     oVidEl.muted = this.activeOverlayVideo.muted ?? true;
-                    if (this.isPlayingTimeline && (oVidEl.paused || oVidEl.ended)) {
-                        oVidEl.play().catch(e => console.error("Error playing overlay video:", e));
+                    if (
+                        this.isPlayingTimeline &&
+                        (oVidEl.paused || oVidEl.ended)
+                    ) {
+                        oVidEl
+                            .play()
+                            .catch((e) =>
+                                console.error(
+                                    'Error playing overlay video:',
+                                    e,
+                                ),
+                            );
                     } else if (!this.isPlayingTimeline && !oVidEl.paused) {
                         oVidEl.pause();
                     }
                 }
             }, 0);
-        } else if (this.overlayVideoPlayer && this.overlayVideoPlayer.nativeElement) {
+        } else if (
+            this.overlayVideoPlayer &&
+            this.overlayVideoPlayer.nativeElement
+        ) {
             this.overlayVideoPlayer.nativeElement.pause();
         }
 
@@ -3582,7 +4658,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.syncAudioWithTimeline();
     }
 
-    playWaveform(type: 'sub' | 'extracted', sceneIdx: number, idx: number, item?: any) {
+    playWaveform(
+        type: 'sub' | 'extracted',
+        sceneIdx: number,
+        idx: number,
+        item?: any,
+    ) {
         // Pause all wavesurfers first
         for (const key in this.wavesurfers) {
             if (this.wavesurfers[key].isPlaying()) {
@@ -3599,12 +4680,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 ws.play();
                 return;
             } catch (e) {
-                console.warn('WaveSurfer play error, falling back to direct Audio:', e);
+                console.warn(
+                    'WaveSurfer play error, falling back to direct Audio:',
+                    e,
+                );
             }
         }
 
         // Direct audio playback fallback
-        const audioUrl = item?.audioUrl || (type === 'extracted' ? this.projectData?.scenes?.[sceneIdx]?.extractedAudios?.[idx]?.audioUrl : this.projectData?.scenes?.[sceneIdx]?.subtitles?.[idx]?.audioUrl);
+        const audioUrl =
+            item?.audioUrl ||
+            (type === 'extracted'
+                ? this.projectData?.scenes?.[sceneIdx]?.extractedAudios?.[idx]
+                      ?.audioUrl
+                : this.projectData?.scenes?.[sceneIdx]?.subtitles?.[idx]
+                      ?.audioUrl);
         if (audioUrl) {
             this.playDirectAudio(audioUrl);
         }
@@ -3613,7 +4703,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     async playDirectAudio(audioUrl: string) {
         if (!audioUrl) return;
         if (this.previewSnippetAudio) {
-            try { this.previewSnippetAudio.pause(); } catch (e) {}
+            try {
+                this.previewSnippetAudio.pause();
+            } catch (e) {}
             this.previewSnippetAudio = null;
         }
         try {
@@ -3621,10 +4713,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.previewSnippetAudio = new Audio(rawUrl);
             await this.previewSnippetAudio.play();
         } catch (e) {
-            console.warn('Direct audio play error with raw URL, trying fallback:', e);
+            console.warn(
+                'Direct audio play error with raw URL, trying fallback:',
+                e,
+            );
             const playUrl = this.getAudioPlayUrl(audioUrl);
             this.previewSnippetAudio = new Audio(playUrl);
-            this.previewSnippetAudio.play().catch(e2 => console.error('Fallback Audio failed:', e2));
+            this.previewSnippetAudio
+                .play()
+                .catch((e2) => console.error('Fallback Audio failed:', e2));
         }
     }
 
@@ -3665,7 +4762,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             return;
         }
         if (event.deltaY !== 0) {
-            const container = document.getElementById('timeline-scroll-container');
+            const container = document.getElementById(
+                'timeline-scroll-container',
+            );
             if (container) {
                 container.scrollLeft += event.deltaY;
                 event.preventDefault();
@@ -3687,7 +4786,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     onScrubberMouseMove = (e: MouseEvent) => {
         if (!this.isDraggingScrubber) return;
         this.seekTimelineToMouse(e);
-    }
+    };
 
     onScrubberMouseUp = (e: MouseEvent) => {
         if (!this.isDraggingScrubber) return;
@@ -3697,10 +4796,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (this.wasPlayingBeforeDrag) {
             this.playTimeline(); // Resume playing if it was playing before
         }
-    }
+    };
 
     seekTimelineToMouse(e: MouseEvent) {
-        const contentContainer = document.getElementById('timeline-content-inner');
+        const contentContainer = document.getElementById(
+            'timeline-content-inner',
+        );
         if (!contentContainer) return;
 
         const rect = contentContainer.getBoundingClientRect();
@@ -3718,7 +4819,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     // Tính toán số Track hiển thị (Track 1, Track 2,...)
     get trackCount(): number {
-        return Math.max(1, this.projectData?.trackCount || this.customTrackCount || 1);
+        return Math.max(
+            1,
+            this.projectData?.trackCount || this.customTrackCount || 1,
+        );
     }
 
     customTrackCount: number = 1;
@@ -3770,7 +4874,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             for (const scene of this.projectData.scenes) {
                 if (scene.videos && Array.isArray(scene.videos)) {
                     for (const v of scene.videos) {
-                        if (v !== video && (Number(v.trackIndex) || 0) === targetIdx) {
+                        if (
+                            v !== video &&
+                            (Number(v.trackIndex) || 0) === targetIdx
+                        ) {
                             targetTrackVideos.push(v);
                         }
                     }
@@ -3780,7 +4887,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         // Tính thời điểm kết thúc lớn nhất của các video trên track đích
         let maxTargetEnd = 0;
-        targetTrackVideos.forEach(v => {
+        targetTrackVideos.forEach((v) => {
             const end = (Number(v.startTime) || 0) + (Number(v.duration) || 5);
             if (end > maxTargetEnd) maxTargetEnd = end;
         });
@@ -3793,7 +4900,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             video.startTime = maxTargetEnd;
         } else {
             // Nếu track đích chưa có video nào, giữ nguyên startTime hoặc gán 0 nếu startTime không hợp lệ
-            if (video.startTime === undefined || video.startTime === null || isNaN(Number(video.startTime))) {
+            if (
+                video.startTime === undefined ||
+                video.startTime === null ||
+                isNaN(Number(video.startTime))
+            ) {
                 video.startTime = 0;
             } else {
                 video.startTime = Number(video.startTime);
@@ -3810,7 +4921,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.updateFilteredMediaItems();
         this.saveData(true);
         this.cd.detectChanges();
-        this.toastr.success(`Đã chuyển video sang Track ${targetIdx + 1} thành công!`);
+        this.toastr.success(
+            `Đã chuyển video sang Track ${targetIdx + 1} thành công!`,
+        );
     }
 
     selectedTargetTrackIdx: number = 0;
@@ -3833,19 +4946,28 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         let currentTime = 0;
         for (const scene of this.projectData.scenes) {
-            const oldSceneStart = scene.videos && scene.videos.length > 0 ? (scene.videos[0].startTime || 0) : currentTime;
+            const oldSceneStart =
+                scene.videos && scene.videos.length > 0
+                    ? scene.videos[0].startTime || 0
+                    : currentTime;
             const sceneDelta = currentTime - oldSceneStart;
 
             if (scene.videos && scene.videos.length > 0) {
                 for (let i = 0; i < scene.videos.length; i++) {
                     const v = scene.videos[i];
                     if (v) {
-                        v.startTime = (v.startTime !== undefined && v.startTime !== null) ? v.startTime + sceneDelta : currentTime;
-                        currentTime = Math.max(currentTime, (v.startTime || 0) + (v.duration || 5));
+                        v.startTime =
+                            v.startTime !== undefined && v.startTime !== null
+                                ? v.startTime + sceneDelta
+                                : currentTime;
+                        currentTime = Math.max(
+                            currentTime,
+                            (v.startTime || 0) + (v.duration || 5),
+                        );
                     }
                 }
             } else {
-                currentTime += (scene.forcedDuration || 5);
+                currentTime += scene.forcedDuration || 5;
             }
 
             if (scene.images) {
@@ -3896,13 +5018,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         for (const scene of this.projectData.scenes) {
             // Dọn dẹp các [Âm thanh gốc] cũ vô tình bị lưu vào subtitles
             if (scene.subtitles) {
-                const legacyExtracted = scene.subtitles.filter((sub: any) => sub.text === '[Âm thanh gốc]');
+                const legacyExtracted = scene.subtitles.filter(
+                    (sub: any) => sub.text === '[Âm thanh gốc]',
+                );
                 if (legacyExtracted.length > 0) {
                     if (!scene.extractedAudios) scene.extractedAudios = [];
                     // Di chuyển chúng sang mảng extractedAudios
                     scene.extractedAudios.push(...legacyExtracted);
                     // Loại bỏ khỏi subtitles
-                    scene.subtitles = scene.subtitles.filter((sub: any) => sub.text !== '[Âm thanh gốc]');
+                    scene.subtitles = scene.subtitles.filter(
+                        (sub: any) => sub.text !== '[Âm thanh gốc]',
+                    );
                 }
             }
         }
@@ -3911,13 +5037,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         for (const scene of this.projectData.scenes) {
             if (scene.subtitles && Array.isArray(scene.subtitles)) {
                 // Sắp xếp tăng dần theo mốc thời gian
-                const sortedSubs = [...scene.subtitles].sort((a: any, b: any) => (Number(a.startTime) || 0) - (Number(b.startTime) || 0));
+                const sortedSubs = [...scene.subtitles].sort(
+                    (a: any, b: any) =>
+                        (Number(a.startTime) || 0) - (Number(b.startTime) || 0),
+                );
                 const validSubs: any[] = [];
                 let lastSubEnd = 0;
 
                 for (const sub of sortedSubs) {
-                    let sStart = Math.max(0, Math.round((Number(sub.startTime) || 0) * 100) / 100);
-                    let sDur = Math.max(0.2, Math.round((Number(sub.duration) || 2) * 100) / 100);
+                    let sStart = Math.max(
+                        0,
+                        Math.round((Number(sub.startTime) || 0) * 100) / 100,
+                    );
+                    let sDur = Math.max(
+                        0.2,
+                        Math.round((Number(sub.duration) || 2) * 100) / 100,
+                    );
 
                     // Nếu start nằm trước lastSubEnd (bị lấn/đè bởi block trước)
                     if (sStart < lastSubEnd) {
@@ -3926,7 +5061,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             continue;
                         }
                         // Điều chỉnh start và duration để tiếp giáp ngay sau block trước
-                        sDur = Math.round((sStart + sDur - lastSubEnd) * 100) / 100;
+                        sDur =
+                            Math.round((sStart + sDur - lastSubEnd) * 100) /
+                            100;
                         sStart = lastSubEnd;
                         if (sDur < 0.2) continue;
                     }
@@ -3941,19 +5078,30 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             if (scene.extractedAudios && Array.isArray(scene.extractedAudios)) {
                 // Sắp xếp tăng dần theo mốc thời gian
-                const sortedAudios = [...scene.extractedAudios].sort((a: any, b: any) => (Number(a.startTime) || 0) - (Number(b.startTime) || 0));
+                const sortedAudios = [...scene.extractedAudios].sort(
+                    (a: any, b: any) =>
+                        (Number(a.startTime) || 0) - (Number(b.startTime) || 0),
+                );
                 const validAudios: any[] = [];
                 let lastAudEnd = 0;
 
                 for (const aud of sortedAudios) {
-                    let aStart = Math.max(0, Math.round((Number(aud.startTime) || 0) * 100) / 100);
-                    let aDur = Math.max(0.2, Math.round((Number(aud.duration) || 2) * 100) / 100);
+                    let aStart = Math.max(
+                        0,
+                        Math.round((Number(aud.startTime) || 0) * 100) / 100,
+                    );
+                    let aDur = Math.max(
+                        0.2,
+                        Math.round((Number(aud.duration) || 2) * 100) / 100,
+                    );
 
                     if (aStart < lastAudEnd) {
                         if (aStart + aDur <= lastAudEnd + 0.1) {
                             continue;
                         }
-                        aDur = Math.round((aStart + aDur - lastAudEnd) * 100) / 100;
+                        aDur =
+                            Math.round((aStart + aDur - lastAudEnd) * 100) /
+                            100;
                         aStart = lastAudEnd;
                         if (aDur < 0.2) continue;
                     }
@@ -3980,65 +5128,96 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             for (const video of scene.videos) {
                 // Ensure duration is a valid number
-                let dur = typeof video.duration === 'number' ? video.duration : parseFloat(String(video.duration).replace('s', ''));
+                let dur =
+                    typeof video.duration === 'number'
+                        ? video.duration
+                        : parseFloat(String(video.duration).replace('s', ''));
                 if (isNaN(dur) || dur <= 0) {
                     dur = 5;
                 }
                 video.duration = dur;
-                if (video.maxDuration === undefined && (video.videoUrl || video.audioUrl)) {
+                if (
+                    video.maxDuration === undefined &&
+                    (video.videoUrl || video.audioUrl)
+                ) {
                     video.maxDuration = video.duration;
                 }
 
                 // Ensure startTime is a valid number
-                if (video.startTime === undefined || isNaN(video.startTime) || video.startTime === null) {
+                if (
+                    video.startTime === undefined ||
+                    isNaN(video.startTime) ||
+                    video.startTime === null
+                ) {
                     video.startTime = currentTime;
                 } else {
                     // Try parsing if it's a string somehow
                     let start = parseFloat(String(video.startTime));
-                    if (isNaN(start) || start > 100000 || !isFinite(start)) start = currentTime;
+                    if (isNaN(start) || start > 100000 || !isFinite(start))
+                        start = currentTime;
                     if (start < 0) start = 0; // Prevent negative start
                     video.startTime = start;
                 }
 
-                if (!isFinite(video.duration) || video.duration > 100000) video.duration = 5;
+                if (!isFinite(video.duration) || video.duration > 100000)
+                    video.duration = 5;
 
-                currentTime = Math.max(currentTime, video.startTime + video.duration);
+                currentTime = Math.max(
+                    currentTime,
+                    video.startTime + video.duration,
+                );
             }
 
             // Gán startTime cho các phần tử audio/subtitle/text độc lập với video nếu chưa có
             if (scene.subtitles) {
-                const sceneVideoStart = (scene.videos && scene.videos.length > 0 && scene.videos[0].startTime !== undefined) 
-                    ? Number(scene.videos[0].startTime) 
-                    : currentTime;
+                const sceneVideoStart =
+                    scene.videos &&
+                    scene.videos.length > 0 &&
+                    scene.videos[0].startTime !== undefined
+                        ? Number(scene.videos[0].startTime)
+                        : currentTime;
                 let sceneSubTime = sceneVideoStart;
 
                 for (const sub of scene.subtitles) {
                     let subDur = sub.duration;
                     if (!subDur || isNaN(subDur) || subDur <= 0) {
-                        subDur = Math.max(1, (sub.text ? sub.text.trim().split(/\s+/).length / 4 : 2));
+                        subDur = Math.max(
+                            1,
+                            sub.text
+                                ? sub.text.trim().split(/\s+/).length / 4
+                                : 2,
+                        );
                         sub.duration = subDur;
                     }
                     if (sub.maxDuration === undefined && sub.audioUrl) {
                         sub.maxDuration = sub.duration;
                     }
-                    
-                    if (sub.startTime === undefined || isNaN(sub.startTime) || sub.startTime === null) {
+
+                    if (
+                        sub.startTime === undefined ||
+                        isNaN(sub.startTime) ||
+                        sub.startTime === null
+                    ) {
                         sub.startTime = sceneSubTime;
                     } else {
                         let start = parseFloat(String(sub.startTime));
-                        if (isNaN(start) || start > 100000 || !isFinite(start)) start = sceneSubTime;
+                        if (isNaN(start) || start > 100000 || !isFinite(start))
+                            start = sceneSubTime;
                         if (start < 0) start = 0;
                         sub.startTime = start;
                     }
-                    
+
                     sceneSubTime = sub.startTime + subDur;
                 }
             }
 
             if (scene.images) {
-                const sceneVideoStart = (scene.videos && scene.videos.length > 0 && scene.videos[0].startTime !== undefined) 
-                    ? Number(scene.videos[0].startTime) 
-                    : currentTime;
+                const sceneVideoStart =
+                    scene.videos &&
+                    scene.videos.length > 0 &&
+                    scene.videos[0].startTime !== undefined
+                        ? Number(scene.videos[0].startTime)
+                        : currentTime;
                 let sceneImgTime = sceneVideoStart;
 
                 for (const img of scene.images) {
@@ -4047,11 +5226,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         imgDur = 5;
                         img.duration = imgDur;
                     }
-                    if (img.startTime === undefined || isNaN(img.startTime) || img.startTime === null) {
+                    if (
+                        img.startTime === undefined ||
+                        isNaN(img.startTime) ||
+                        img.startTime === null
+                    ) {
                         img.startTime = sceneImgTime;
                     } else {
                         let start = parseFloat(String(img.startTime));
-                        if (isNaN(start) || start > 100000 || !isFinite(start)) start = sceneImgTime;
+                        if (isNaN(start) || start > 100000 || !isFinite(start))
+                            start = sceneImgTime;
                         if (start < 0) start = 0;
                         img.startTime = start;
                     }
@@ -4060,22 +5244,35 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             if (scene.texts) {
-                const sceneVideoStart = (scene.videos && scene.videos.length > 0 && scene.videos[0].startTime !== undefined) 
-                    ? Number(scene.videos[0].startTime) 
-                    : currentTime;
+                const sceneVideoStart =
+                    scene.videos &&
+                    scene.videos.length > 0 &&
+                    scene.videos[0].startTime !== undefined
+                        ? Number(scene.videos[0].startTime)
+                        : currentTime;
                 let sceneTxtTime = sceneVideoStart;
 
                 for (const txt of scene.texts) {
                     let txtDur = txt.duration;
                     if (!txtDur || isNaN(txtDur) || txtDur <= 0) {
-                        txtDur = Math.max(1, (txt.text ? txt.text.trim().split(/\s+/).length / 4 : 3));
+                        txtDur = Math.max(
+                            1,
+                            txt.text
+                                ? txt.text.trim().split(/\s+/).length / 4
+                                : 3,
+                        );
                         txt.duration = txtDur;
                     }
-                    if (txt.startTime === undefined || isNaN(txt.startTime) || txt.startTime === null) {
+                    if (
+                        txt.startTime === undefined ||
+                        isNaN(txt.startTime) ||
+                        txt.startTime === null
+                    ) {
                         txt.startTime = sceneTxtTime;
                     } else {
                         let start = parseFloat(String(txt.startTime));
-                        if (isNaN(start) || start > 100000 || !isFinite(start)) start = sceneTxtTime;
+                        if (isNaN(start) || start > 100000 || !isFinite(start))
+                            start = sceneTxtTime;
                         if (start < 0) start = 0;
                         txt.startTime = start;
                     }
@@ -4108,14 +5305,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     getAudioPlayUrl(playUrl: string): string {
         if (!playUrl) return '';
         if (playUrl.startsWith('file://')) {
-            const mediaDir = this.projectData?.mediaDir || this.data?.mediaDir || '';
+            const mediaDir =
+                this.projectData?.mediaDir || this.data?.mediaDir || '';
             let projectUuid = this.projectData?.uuid || this.data?.uuid;
             if (!projectUuid) {
                 const parts = window.location.href.split('/');
                 projectUuid = parts[parts.length - 1];
             }
             let originalPath = playUrl.replace(/^file:\/\//i, '').split('?')[0];
-            if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+            if (
+                !/^[a-zA-Z]:/.test(originalPath) &&
+                !originalPath.startsWith('/')
+            ) {
                 originalPath = '/' + originalPath;
             }
             return `mediacors://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
@@ -4131,11 +5332,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         return (this.getRawMediaUrl(rawPath) as string) || rawPath;
     }
 
-    async loadAudioToWaveSurfer(ws: WaveSurfer, audioUrl: string): Promise<boolean> {
+    async loadAudioToWaveSurfer(
+        ws: WaveSurfer,
+        audioUrl: string,
+    ): Promise<boolean> {
         if (!ws || !audioUrl) return false;
         const clean = audioUrl.toLowerCase().split('?')[0].split('#')[0];
         // Tuyệt đối không nạp file video lớn (mp4, mkv, avi, webm, ...) vào WebAudio decode của WaveSurfer
-        if (clean.endsWith('.mp4') || clean.endsWith('.mkv') || clean.endsWith('.avi') || clean.endsWith('.mov') || clean.endsWith('.webm') || clean.endsWith('.flv')) {
+        if (
+            clean.endsWith('.mp4') ||
+            clean.endsWith('.mkv') ||
+            clean.endsWith('.avi') ||
+            clean.endsWith('.mov') ||
+            clean.endsWith('.webm') ||
+            clean.endsWith('.flv')
+        ) {
             return false;
         }
         try {
@@ -4166,10 +5377,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         let pendingCount = 0;
 
         // Create new ones for extractedAudios (only if missing)
-        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+        for (
+            let sceneIdx = 0;
+            sceneIdx < this.projectData.scenes.length;
+            sceneIdx++
+        ) {
             const scene = this.projectData.scenes[sceneIdx];
             if (scene.extractedAudios) {
-                for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                for (
+                    let aIdx = 0;
+                    aIdx < scene.extractedAudios.length;
+                    aIdx++
+                ) {
                     const audio = scene.extractedAudios[aIdx];
                     const containerId = `waveform-${sceneIdx}-${aIdx}`;
                     if (this.wavesurfers[containerId]) continue; // Đã khởi tạo rồi, giữ nguyên không phá huỷ
@@ -4184,13 +5403,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 progressColor: '#818cf8',
                                 height: 40,
                                 barWidth: 2,
-                                interact: false
+                                interact: false,
                             });
-                            
+
                             this.loadAudioToWaveSurfer(ws, audio.audioUrl);
                             this.wavesurfers[containerId] = ws;
                         } catch (e) {
-                            console.error('[WaveSurfer] Error initializing', containerId, e);
+                            console.error(
+                                '[WaveSurfer] Error initializing',
+                                containerId,
+                                e,
+                            );
                         }
                     } else if (audio.audioUrl) {
                         pendingCount++;
@@ -4215,13 +5438,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 progressColor: '#818cf8',
                                 height: 40,
                                 barWidth: 2,
-                                interact: false
+                                interact: false,
                             });
-                            
+
                             this.loadAudioToWaveSurfer(ws, sub.audioUrl);
                             this.wavesurfers[containerId] = ws;
                         } catch (e) {
-                            console.error('[WaveSurfer Sub] Error initializing', containerId, e);
+                            console.error(
+                                '[WaveSurfer Sub] Error initializing',
+                                containerId,
+                                e,
+                            );
                         }
                     } else if (sub.audioUrl) {
                         pendingCount++;
@@ -4231,7 +5458,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         // Nếu container chưa render xong trong DOM, thử lại tối đa 3 lần
-        if (pendingCount > 0 && !this._isRetryingWaveSurfers && this._waveSurferRetryCount < 3) {
+        if (
+            pendingCount > 0 &&
+            !this._isRetryingWaveSurfers &&
+            this._waveSurferRetryCount < 3
+        ) {
             this._isRetryingWaveSurfers = true;
             this._waveSurferRetryCount++;
             setTimeout(() => {
@@ -4266,11 +5497,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.dragInitialStarts.clear();
         if (this.projectData?.scenes) {
             for (const s of this.projectData.scenes) {
-                if (s.images) s.images.forEach((img: any) => this.dragInitialStarts.set(img, img.startTime || 0));
-                if (s.videos) s.videos.forEach((v: any) => this.dragInitialStarts.set(v, v.startTime || 0));
-                if (s.subtitles) s.subtitles.forEach((sub: any) => this.dragInitialStarts.set(sub, sub.startTime || 0));
-                if (s.texts) s.texts.forEach((txt: any) => this.dragInitialStarts.set(txt, txt.startTime || 0));
-                if (s.extractedAudios) s.extractedAudios.forEach((ext: any) => this.dragInitialStarts.set(ext, ext.startTime || 0));
+                if (s.images)
+                    s.images.forEach((img: any) =>
+                        this.dragInitialStarts.set(img, img.startTime || 0),
+                    );
+                if (s.videos)
+                    s.videos.forEach((v: any) =>
+                        this.dragInitialStarts.set(v, v.startTime || 0),
+                    );
+                if (s.subtitles)
+                    s.subtitles.forEach((sub: any) =>
+                        this.dragInitialStarts.set(sub, sub.startTime || 0),
+                    );
+                if (s.texts)
+                    s.texts.forEach((txt: any) =>
+                        this.dragInitialStarts.set(txt, txt.startTime || 0),
+                    );
+                if (s.extractedAudios)
+                    s.extractedAudios.forEach((ext: any) =>
+                        this.dragInitialStarts.set(ext, ext.startTime || 0),
+                    );
             }
         }
 
@@ -4305,7 +5551,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const snapPoints: number[] = [0];
 
         // Điểm snap quan trọng: Đầu đọc Playhead
-        if (this.currentTimelineTime !== undefined && this.currentTimelineTime !== null && this.currentTimelineTime >= 0) {
+        if (
+            this.currentTimelineTime !== undefined &&
+            this.currentTimelineTime !== null &&
+            this.currentTimelineTime >= 0
+        ) {
             snapPoints.push(this.currentTimelineTime);
         }
 
@@ -4316,7 +5566,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
                         const v = scene.videos[vIdx];
                         if (v === this.draggingVideo) continue;
-                        if (vIdx === this.dragVideoIdx && sIdx > this.dragSceneIdx && this.dragType === 'move') continue;
+                        if (
+                            vIdx === this.dragVideoIdx &&
+                            sIdx > this.dragSceneIdx &&
+                            this.dragType === 'move'
+                        )
+                            continue;
 
                         if (v.startTime !== undefined) {
                             snapPoints.push(v.startTime);
@@ -4329,7 +5584,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         if (img === this.draggingVideo) continue;
                         if (img.startTime !== undefined) {
                             snapPoints.push(img.startTime);
-                            snapPoints.push(img.startTime + (img.duration || 0));
+                            snapPoints.push(
+                                img.startTime + (img.duration || 0),
+                            );
                         }
                     }
                 }
@@ -4338,7 +5595,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         if (sub === this.draggingVideo) continue;
                         if (sub.startTime !== undefined) {
                             snapPoints.push(sub.startTime);
-                            snapPoints.push(sub.startTime + (sub.duration || 0));
+                            snapPoints.push(
+                                sub.startTime + (sub.duration || 0),
+                            );
                         }
                     }
                 }
@@ -4347,7 +5606,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         if (txt === this.draggingVideo) continue;
                         if (txt.startTime !== undefined) {
                             snapPoints.push(txt.startTime);
-                            snapPoints.push(txt.startTime + (txt.duration || 0));
+                            snapPoints.push(
+                                txt.startTime + (txt.duration || 0),
+                            );
                         }
                     }
                 }
@@ -4356,7 +5617,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         if (ext === this.draggingVideo) continue;
                         if (ext.startTime !== undefined) {
                             snapPoints.push(ext.startTime);
-                            snapPoints.push(ext.startTime + (ext.duration || 0));
+                            snapPoints.push(
+                                ext.startTime + (ext.duration || 0),
+                            );
                         }
                     }
                 }
@@ -4395,42 +5658,68 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (scene) {
                     if (scene.subtitles) {
                         scene.subtitles.forEach((sub: any) => {
-                            sub.startTime = (this.dragInitialStarts.get(sub) || 0) + totalDelta;
+                            sub.startTime =
+                                (this.dragInitialStarts.get(sub) || 0) +
+                                totalDelta;
                         });
                     }
                     if (scene.extractedAudios) {
                         scene.extractedAudios.forEach((ext: any) => {
-                            ext.startTime = (this.dragInitialStarts.get(ext) || 0) + totalDelta;
+                            ext.startTime =
+                                (this.dragInitialStarts.get(ext) || 0) +
+                                totalDelta;
                         });
                     }
                 }
 
                 // Chỉ sort và packTimeline khi đang kéo video track 0 của scene chính
                 this.projectData.scenes.sort((a, b) => {
-                    const startA = (a.videos && a.videos.length > 0) ? (a.videos[0].startTime || 0) : 0;
-                    const startB = (b.videos && b.videos.length > 0) ? (b.videos[0].startTime || 0) : 0;
+                    const startA =
+                        a.videos && a.videos.length > 0
+                            ? a.videos[0].startTime || 0
+                            : 0;
+                    const startB =
+                        b.videos && b.videos.length > 0
+                            ? b.videos[0].startTime || 0
+                            : 0;
                     return startA - startB;
                 });
 
-                const newIdx = this.projectData.scenes.findIndex(s => s.videos && s.videos[0] === this.draggingVideo);
+                const newIdx = this.projectData.scenes.findIndex(
+                    (s) => s.videos && s.videos[0] === this.draggingVideo,
+                );
                 if (newIdx >= 0) this.dragSceneIdx = newIdx;
 
                 this.packTimeline(false);
 
                 const sceneAfter = this.projectData.scenes[this.dragSceneIdx];
-                if (sceneAfter && sceneAfter.videos && sceneAfter.videos.length > 0) {
+                if (
+                    sceneAfter &&
+                    sceneAfter.videos &&
+                    sceneAfter.videos.length > 0
+                ) {
                     const packedStart = sceneAfter.videos[0].startTime || 0;
                     const restoreDelta = targetVisualStart - packedStart;
 
                     sceneAfter.videos[0].startTime = targetVisualStart;
                     for (let i = 1; i < sceneAfter.videos.length; i++) {
-                        sceneAfter.videos[i].startTime = (sceneAfter.videos[i].startTime || 0) + restoreDelta;
+                        sceneAfter.videos[i].startTime =
+                            (sceneAfter.videos[i].startTime || 0) +
+                            restoreDelta;
                     }
                     if (sceneAfter.subtitles) {
-                        sceneAfter.subtitles.forEach((sub: any) => sub.startTime = (sub.startTime || 0) + restoreDelta);
+                        sceneAfter.subtitles.forEach(
+                            (sub: any) =>
+                                (sub.startTime =
+                                    (sub.startTime || 0) + restoreDelta),
+                        );
                     }
                     if (sceneAfter.extractedAudios) {
-                        sceneAfter.extractedAudios.forEach((ext: any) => ext.startTime = (ext.startTime || 0) + restoreDelta);
+                        sceneAfter.extractedAudios.forEach(
+                            (ext: any) =>
+                                (ext.startTime =
+                                    (ext.startTime || 0) + restoreDelta),
+                        );
                     }
                 }
             } else {
@@ -4453,14 +5742,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             if (bestSnapStart !== newStart) {
-                newDuration = this.dragStartLeft + this.dragStartWidth - bestSnapStart;
+                newDuration =
+                    this.dragStartLeft + this.dragStartWidth - bestSnapStart;
                 newStart = bestSnapStart;
             }
 
             const minDuration = 0.2;
             if (newDuration < minDuration) {
                 newDuration = minDuration;
-                newStart = this.dragStartLeft + this.dragStartWidth - minDuration;
+                newStart =
+                    this.dragStartLeft + this.dragStartWidth - minDuration;
             }
 
             // Cap at maxDuration if media
@@ -4470,7 +5761,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             } else if (!maxAllowable) {
                 maxAllowable = this.dragStartWidth;
             } else {
-                maxAllowable = maxAllowable - (this.draggingVideo.trimStart || 0);
+                maxAllowable =
+                    maxAllowable - (this.draggingVideo.trimStart || 0);
             }
 
             // Limit how far left we can drag (can't go below trimStart = 0 if media)
@@ -4483,11 +5775,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     newStart = this.dragStartLeft - this.dragStartTrim;
                     newDuration = this.dragStartWidth + this.dragStartTrim;
                 }
-                
+
                 if (newDuration < minDuration) {
                     newDuration = minDuration;
-                    newStart = this.dragStartLeft + this.dragStartWidth - minDuration;
-                    newTrimStart = this.dragStartTrim + (this.dragStartWidth - minDuration);
+                    newStart =
+                        this.dragStartLeft + this.dragStartWidth - minDuration;
+                    newTrimStart =
+                        this.dragStartTrim +
+                        (this.dragStartWidth - minDuration);
                 }
 
                 if (newStart < 0) {
@@ -4503,7 +5798,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     newDuration = this.dragStartLeft + this.dragStartWidth;
                 }
             }
-            
+
             this.draggingVideo.startTime = Math.max(0, newStart);
             this.draggingVideo.duration = Math.max(minDuration, newDuration);
         } else if (this.dragType === 'right') {
@@ -4535,7 +5830,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             } else if (!maxAllowable) {
                 maxAllowable = this.dragStartWidth;
             } else {
-                maxAllowable = maxAllowable - (this.draggingVideo.trimStart || 0);
+                maxAllowable =
+                    maxAllowable - (this.draggingVideo.trimStart || 0);
             }
             if (newDuration > maxAllowable) {
                 newDuration = maxAllowable;
@@ -4547,21 +5843,25 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.activeSnapTime = currentActiveSnap;
 
         // Logic cập nhật audio theo dragType left/right (nếu là video chính track 0)
-        if (this.dragType !== 'move' && this.dragVideoIdx === 0 && this.projectData?.scenes) {
+        if (
+            this.dragType !== 'move' &&
+            this.dragVideoIdx === 0 &&
+            this.projectData?.scenes
+        ) {
             for (const scene of this.projectData.scenes) {
                 if (scene.videos && scene.videos[0] === this.draggingVideo) {
                     let subTime = this.draggingVideo.startTime || 0;
                     if (scene.subtitles) {
                         for (const sub of scene.subtitles) {
                             sub.startTime = subTime;
-                            subTime += (sub.duration || 0);
+                            subTime += sub.duration || 0;
                         }
                     }
                     let extTime = this.draggingVideo.startTime || 0;
                     if (scene.extractedAudios) {
                         for (const ext of scene.extractedAudios) {
                             ext.startTime = extTime;
-                            extTime += (ext.duration || 0);
+                            extTime += ext.duration || 0;
                         }
                     }
                     break;
@@ -4570,15 +5870,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         this.updateLines();
-    }
+    };
 
     onTimelineMouseUp = () => {
         if (this.draggingVideo) {
-            if (this.dragType === 'move' && this.dragVideoIdx === 0 && this.projectData && this.projectData.scenes) {
+            if (
+                this.dragType === 'move' &&
+                this.dragVideoIdx === 0 &&
+                this.projectData &&
+                this.projectData.scenes
+            ) {
                 // Chỉ sắp xếp lại mảng scenes và packTimeline khi di chuyển video chính track 0
                 this.projectData.scenes.sort((a, b) => {
-                    const startA = (a.videos && a.videos.length > 0) ? (a.videos[0].startTime || 0) : 0;
-                    const startB = (b.videos && b.videos.length > 0) ? (b.videos[0].startTime || 0) : 0;
+                    const startA =
+                        a.videos && a.videos.length > 0
+                            ? a.videos[0].startTime || 0
+                            : 0;
+                    const startB =
+                        b.videos && b.videos.length > 0
+                            ? b.videos[0].startTime || 0
+                            : 0;
                     return startA - startB;
                 });
                 this.packTimeline();
@@ -4590,7 +5901,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.activeSnapTime = null;
         document.removeEventListener('mousemove', this.onTimelineMouseMove);
         document.removeEventListener('mouseup', this.onTimelineMouseUp);
-    }
+    };
     // ----------------------------
 
     linkingSourceVideo: any = null;
@@ -4602,20 +5913,28 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     currentMouseX: number = 0;
     currentMouseY: number = 0;
 
-    onDragLinkStart(e: MouseEvent, video: any, sceneIdx: number, vIdx: number) {}
-    onDragLinkMove = (e: MouseEvent) => {}
-    onDragLinkEnd = (e: MouseEvent) => {}
+    onDragLinkStart(
+        e: MouseEvent,
+        video: any,
+        sceneIdx: number,
+        vIdx: number,
+    ) {}
+    onDragLinkMove = (e: MouseEvent) => {};
+    onDragLinkEnd = (e: MouseEvent) => {};
     cancelLinking() {}
-
 
     private getGeminiKey(): string | null {
         const settings = this.multiAccountService.getItem('settings');
         let secretKey;
         try {
-            secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
-        } catch { }
+            secretKey = settings.secretKey
+                ? settings.secretKey.split(';')
+                : undefined;
+        } catch {}
 
-        const keys = secretKey.map((k: string) => k.trim()).filter((k: string) => k);
+        const keys = secretKey
+            .map((k: string) => k.trim())
+            .filter((k: string) => k);
         if (keys.length === 0) return null;
 
         return keys[Math.floor(Math.random() * keys.length)];
@@ -4629,7 +5948,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             // 1. Nếu đã là Data URI base64
-            if (url.startsWith('data:image/') || url.startsWith('data:video/')) {
+            if (
+                url.startsWith('data:image/') ||
+                url.startsWith('data:video/')
+            ) {
                 const parts = url.split(',');
                 if (parts.length > 1) {
                     resolve(parts[1]);
@@ -4641,26 +5963,36 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const electron = (window as any).electron;
             if (electron) {
                 try {
-                    let pathCandidate = url.replace(/^file:\/\//i, '').replace(/^unsafe:/i, '');
+                    let pathCandidate = url
+                        .replace(/^file:\/\//i, '')
+                        .replace(/^unsafe:/i, '');
                     if (pathCandidate.startsWith('media://SMART_FIND/')) {
                         const urlObj = new URL(pathCandidate);
-                        pathCandidate = urlObj.searchParams.get('path') || pathCandidate;
+                        pathCandidate =
+                            urlObj.searchParams.get('path') || pathCandidate;
                     }
                     if (electron.readFileBase64) {
-                        const fileRes = await electron.readFileBase64(pathCandidate);
+                        const fileRes =
+                            await electron.readFileBase64(pathCandidate);
                         if (fileRes && fileRes.success && fileRes.base64) {
                             resolve(fileRes.base64);
                             return;
                         }
                     } else if (electron.invoke) {
-                        const fileRes = await electron.invoke('read-file-base64', { filePath: pathCandidate });
+                        const fileRes = await electron.invoke(
+                            'read-file-base64',
+                            { filePath: pathCandidate },
+                        );
                         if (fileRes && fileRes.success && fileRes.base64) {
                             resolve(fileRes.base64);
                             return;
                         }
                     }
                 } catch (electronErr) {
-                    console.warn('[getBase64FromImageUrl] Thử đọc qua Electron IPC thất bại, thử các cách tiếp theo...', electronErr);
+                    console.warn(
+                        '[getBase64FromImageUrl] Thử đọc qua Electron IPC thất bại, thử các cách tiếp theo...',
+                        electronErr,
+                    );
                 }
             }
 
@@ -4670,19 +6002,33 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (finalUrl.includes('assets/')) {
                 const assetIdx = finalUrl.indexOf('assets/');
                 finalUrl = finalUrl.substring(assetIdx); // lấy từ assets/...
-            } else if (!finalUrl.startsWith('http') && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:') && !finalUrl.startsWith('media://')) {
+            } else if (
+                !finalUrl.startsWith('http') &&
+                !finalUrl.startsWith('data:') &&
+                !finalUrl.startsWith('blob:') &&
+                !finalUrl.startsWith('media://')
+            ) {
                 finalUrl = finalUrl.replace(/^unsafe:/, '');
                 let originalPath = finalUrl.split('?')[0];
                 originalPath = originalPath.replace(/^file:\/\//i, '');
-                if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+                if (
+                    !/^[a-zA-Z]:/.test(originalPath) &&
+                    !originalPath.startsWith('/')
+                ) {
                     originalPath = '/' + originalPath;
                 }
-                const mediaDir = ''; 
+                const mediaDir = '';
                 finalUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=default`;
             }
 
             try {
-                if (finalUrl.startsWith('media://') || finalUrl.startsWith('blob:') || finalUrl.startsWith('data:video/') || finalUrl.startsWith('assets/') || finalUrl.startsWith('http')) {
+                if (
+                    finalUrl.startsWith('media://') ||
+                    finalUrl.startsWith('blob:') ||
+                    finalUrl.startsWith('data:video/') ||
+                    finalUrl.startsWith('assets/') ||
+                    finalUrl.startsWith('http')
+                ) {
                     const res = await fetch(finalUrl);
                     if (res.ok) {
                         const blob = await res.blob();
@@ -4697,7 +6043,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
             } catch (e) {
-                console.warn('Fetch fallback failed, trying Image element...', e);
+                console.warn(
+                    'Fetch fallback failed, trying Image element...',
+                    e,
+                );
             }
 
             const img = new Image();
@@ -4706,13 +6055,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const canvas = document.createElement('canvas');
                 let targetW = img.width;
                 let targetH = img.height;
-                
+
                 if (targetW < 512 || targetH < 512) {
                     const scale = Math.max(512 / targetW, 512 / targetH);
                     targetW = Math.round(targetW * scale);
                     targetH = Math.round(targetH * scale);
                 }
-                
+
                 if (targetW > 1536 || targetH > 1536) {
                     const scale = Math.min(1536 / targetW, 1536 / targetH);
                     targetW = Math.round(targetW * scale);
@@ -4724,7 +6073,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 let finalW = targetW;
                 let finalH = targetH;
                 const ratio = targetW / targetH;
-                
+
                 if (ratio > 2) {
                     // Quá rộng -> thêm viền trên dưới
                     finalH = Math.round(targetW / 2);
@@ -4740,7 +6089,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     // Lót nền trắng để tránh bị đen do ảnh PNG trong suốt chuyển sang JPEG
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, finalW, finalH);
-                    
+
                     // Vẽ ảnh vào giữa canvas
                     const offsetX = (finalW - targetW) / 2;
                     const offsetY = (finalH - targetH) / 2;
@@ -4748,9 +6097,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
 
                 const dataURL = canvas.toDataURL('image/jpeg', 0.85);
-                resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
+                resolve(
+                    dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ''),
+                );
             };
-            img.onerror = error => reject(error);
+            img.onerror = (error) => reject(error);
             img.src = finalUrl;
         });
     }
@@ -4768,28 +6119,40 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
 
         try {
-            this.toastr.info(`Đang tự động vẽ Storyboard cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}...`, 'Hệ thống');
+            this.toastr.info(
+                `Đang tự động vẽ Storyboard cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}...`,
+                'Hệ thống',
+            );
 
             let promptText = video.imagePrompt || video.prompt || '';
-            promptText = promptText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
+            promptText = promptText
+                .replace(/\[Character '[^']+': [^\]]+\]/g, '')
+                .trim();
 
-            const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
+            const master = this.projectData?.masterPrompt
+                ? this.projectData.masterPrompt.trim()
+                : '';
             if (master) {
                 promptText = master + '\n\n' + promptText;
             }
-            const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
+            const noSplitScreenConstraint =
+                '\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]';
 
-            let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
+            let requestParts: any[] = [
+                { text: promptText + noSplitScreenConstraint },
+            ];
 
             // Gắn thêm ảnh tham khảo do người dùng tải lên (nếu có từ nút Tải ảnh mẫu)
             if (video.aiReferenceImageLocalUrl) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(video.aiReferenceImageLocalUrl);
+                    const base64Data = await this.getBase64FromImageUrl(
+                        video.aiReferenceImageLocalUrl,
+                    );
                     requestParts.push({
                         inlineData: {
                             data: base64Data,
-                            mimeType: 'image/png'
-                        }
+                            mimeType: 'image/png',
+                        },
                     });
                     video.aiReferenceImageLocalUrl = null; // consume it
                 } catch (e) {
@@ -4802,19 +6165,31 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (this.projectData?.characters) {
                 for (const char of this.projectData.characters) {
                     const charName = char.name || char.role;
-                    if (charName && video.prompt.includes(`[Character '${charName}'`)) {
-                        const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
+                    if (
+                        charName &&
+                        video.prompt.includes(`[Character '${charName}'`)
+                    ) {
+                        const imgUrl =
+                            char.avatarUrl ||
+                            (char.avatarUrls && char.avatarUrls.length > 0
+                                ? char.avatarUrls[0]
+                                : null);
                         if (imgUrl) {
                             try {
-                                const base64Data = await this.getBase64FromImageUrl(imgUrl);
+                                const base64Data =
+                                    await this.getBase64FromImageUrl(imgUrl);
                                 requestParts.push({
                                     inlineData: {
                                         data: base64Data,
-                                        mimeType: 'image/png'
-                                    }
+                                        mimeType: 'image/png',
+                                    },
                                 });
                             } catch (e) {
-                                console.error('Không thể đọc ảnh reference cho', char.name, e);
+                                console.error(
+                                    'Không thể đọc ảnh reference cho',
+                                    char.name,
+                                    e,
+                                );
                             }
                         }
                     }
@@ -4826,8 +6201,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     aspectRatio: this.projectData?.aspectRatio || '16:9',
-                    responseModalities: ['IMAGE']
-                } as any
+                    responseModalities: ['IMAGE'],
+                } as any,
             });
 
             let base64Data = null;
@@ -4845,7 +6220,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const result = await electron.saveBase64({
                     base64: base64Data,
                     fileName: fileName,
-                    customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
+                    customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`,
                 });
 
                 if (result && result.success) {
@@ -4853,7 +6228,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     video.imageUrl = finalPath;
                     this.saveData();
                     this.cd.detectChanges();
-                    this.toastr.success(`Đã tự động tạo ảnh Storyboard cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}!`);
+                    this.toastr.success(
+                        `Đã tự động tạo ảnh Storyboard cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}!`,
+                    );
                 }
             }
         } catch (error) {
@@ -4877,7 +6254,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (file) {
             const electron = (window as any).electron;
             if (!electron || !electron.getPathForFile) {
-                this.toastr.error('Tính năng này yêu cầu môi trường Desktop (Electron) để thao tác.');
+                this.toastr.error(
+                    'Tính năng này yêu cầu môi trường Desktop (Electron) để thao tác.',
+                );
                 return;
             }
             try {
@@ -4888,17 +6267,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electron.selectLocalFile(originalPath, customDir);
-                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                const localFilePath = await electron.selectLocalFile(
+                    originalPath,
+                    customDir,
+                );
+                const finalPath = localFilePath.startsWith('file://')
+                    ? localFilePath
+                    : `file://${localFilePath.replace(/\\/g, '/')}`;
 
                 video.videoUrl = finalPath;
                 video.imageUrl = null;
-                
+
                 const videoObj = document.createElement('video');
                 videoObj.src = this.getRawMediaUrl(video.videoUrl) as string;
                 videoObj.addEventListener('loadedmetadata', () => {
                     if (videoObj.duration && !isNaN(videoObj.duration)) {
-                        video.duration = parseFloat(videoObj.duration.toFixed(1));
+                        video.duration = parseFloat(
+                            videoObj.duration.toFixed(1),
+                        );
                         video.maxDuration = video.duration;
                         this.saveData();
                         this.cd.detectChanges();
@@ -4915,12 +6301,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    async autoGenerateVideo(scene: any, video: any, sceneIdx: number, vIdx: number, isMagic: boolean = false) {
+    async autoGenerateVideo(
+        scene: any,
+        video: any,
+        sceneIdx: number,
+        vIdx: number,
+        isMagic: boolean = false,
+    ) {
         if (!video.prompt) {
-            this.toastr.warning('Vui lòng nhập prompt phân cảnh trước khi tạo video!');
+            this.toastr.warning(
+                'Vui lòng nhập prompt phân cảnh trước khi tạo video!',
+            );
             return;
         }
-        
+
         if (isMagic && video.duration > 10) {
             video.duration = 10;
         }
@@ -4935,11 +6329,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
 
         try {
-            this.toastr.info(`Đang tự động tạo Video cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}...`, 'Hệ thống', { timeOut: 5000 });
+            this.toastr.info(
+                `Đang tự động tạo Video cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}...`,
+                'Hệ thống',
+                { timeOut: 5000 },
+            );
             let base64 = '';
 
             const isProxy = this._genaiService.isUModelverseEnabled();
-            
+
             let referenceImages: any[] = [];
             // Gắn thêm ảnh tham chiếu Frame / Storyboard làm reference
             const refImg = video.aiReferenceImageLocalUrl || video.imageUrl;
@@ -4947,42 +6345,67 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 try {
                     const base64Data = await this.getBase64FromImageUrl(refImg);
                     referenceImages.push({
-                        image: { imageBytes: base64Data, mimeType: 'image/jpeg' },
-                        referenceType: 'START_FRAME'
+                        image: {
+                            imageBytes: base64Data,
+                            mimeType: 'image/jpeg',
+                        },
+                        referenceType: 'START_FRAME',
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh Storyboard/Frame làm reference cho video:', e);
+                    console.error(
+                        'Không thể đọc ảnh Storyboard/Frame làm reference cho video:',
+                        e,
+                    );
                 }
             }
 
             // [NEW] Gắn thêm ảnh cuối từ video liên kết (nếu có)
             if (video.linkedTo) {
-                const targetScene = this.projectData?.scenes?.[video.linkedTo.sceneIndex];
-                const targetVideo = targetScene?.videos?.[video.linkedTo.videoIndex];
+                const targetScene =
+                    this.projectData?.scenes?.[video.linkedTo.sceneIndex];
+                const targetVideo =
+                    targetScene?.videos?.[video.linkedTo.videoIndex];
                 if (targetVideo && targetVideo.imageUrl) {
                     try {
-                        const base64DataEnd = await this.getBase64FromImageUrl(targetVideo.imageUrl);
+                        const base64DataEnd = await this.getBase64FromImageUrl(
+                            targetVideo.imageUrl,
+                        );
                         referenceImages.push({
-                            image: { imageBytes: base64DataEnd, mimeType: 'image/jpeg' },
-                            referenceType: 'END_FRAME'
+                            image: {
+                                imageBytes: base64DataEnd,
+                                mimeType: 'image/jpeg',
+                            },
+                            referenceType: 'END_FRAME',
                         });
                     } catch (e) {
-                        console.error('Không thể đọc ảnh đích làm reference cho video:', e);
+                        console.error(
+                            'Không thể đọc ảnh đích làm reference cho video:',
+                            e,
+                        );
                     }
                 }
             }
 
             // Gắn thêm ảnh Khung xương/Bố cục (ControlNet / Pose reference)
-            let controlImg = video.controlImageUrl || this.projectData?.masterControlImageUrl;
+            let controlImg =
+                video.controlImageUrl ||
+                this.projectData?.masterControlImageUrl;
             if (controlImg) {
                 try {
-                    const base64DataControl = await this.getBase64FromImageUrl(controlImg);
+                    const base64DataControl =
+                        await this.getBase64FromImageUrl(controlImg);
                     referenceImages.push({
-                        image: { imageBytes: base64DataControl, mimeType: 'image/jpeg' },
-                        referenceType: 'CONTROL_IMAGE'
+                        image: {
+                            imageBytes: base64DataControl,
+                            mimeType: 'image/jpeg',
+                        },
+                        referenceType: 'CONTROL_IMAGE',
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh Khung xương/Bố cục làm reference cho video:', e);
+                    console.error(
+                        'Không thể đọc ảnh Khung xương/Bố cục làm reference cho video:',
+                        e,
+                    );
                 }
             }
 
@@ -4990,14 +6413,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (isMagic && video.videoUrl) {
                 try {
                     let finalVideoUrl = video.videoUrl;
-                    
+
                     // Kling v3 Motion Control chỉ hỗ trợ tối đa 10s, cắt nếu vượt quá
-                    const originalDuration = parseFloat(video.maxDuration) || 999;
+                    const originalDuration =
+                        parseFloat(video.maxDuration) || 999;
                     let targetDuration = parseFloat(video.duration);
-                    if (isNaN(targetDuration) || targetDuration > 10) targetDuration = 10;
-                    
+                    if (isNaN(targetDuration) || targetDuration > 10)
+                        targetDuration = 10;
+
                     let needsTrim = false;
-                    if ((video.trimStart && video.trimStart > 0) || originalDuration > 10) {
+                    if (
+                        (video.trimStart && video.trimStart > 0) ||
+                        originalDuration > 10
+                    ) {
                         needsTrim = true;
                     } else if (originalDuration > targetDuration + 0.1) {
                         needsTrim = true;
@@ -5007,23 +6435,42 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const electron = (window as any).electron;
                         if (electron && electron.invoke) {
                             try {
-                                this.toastr.info(`Đang tự động cắt video tham chiếu xuống ${targetDuration}s...`);
-                                const trimRes = await electron.invoke('trim-video', {
-                                    videoUrl: video.videoUrl,
-                                    trimStart: video.trimStart || 0,
-                                    duration: targetDuration
-                                });
+                                this.toastr.info(
+                                    `Đang tự động cắt video tham chiếu xuống ${targetDuration}s...`,
+                                );
+                                const trimRes = await electron.invoke(
+                                    'trim-video',
+                                    {
+                                        videoUrl: video.videoUrl,
+                                        trimStart: video.trimStart || 0,
+                                        duration: targetDuration,
+                                    },
+                                );
                                 if (trimRes && trimRes.success) {
-                                    finalVideoUrl = trimRes.path.replace(/\\/g, '/');
+                                    finalVideoUrl = trimRes.path.replace(
+                                        /\\/g,
+                                        '/',
+                                    );
                                 } else {
-                                    console.warn('Lỗi cắt video:', trimRes?.error);
-                                    this.toastr.error('Lỗi khi cắt video: ' + trimRes?.error);
-                                    throw new Error('Không thể cắt video tham chiếu xuống dưới 10s.');
+                                    console.warn(
+                                        'Lỗi cắt video:',
+                                        trimRes?.error,
+                                    );
+                                    this.toastr.error(
+                                        'Lỗi khi cắt video: ' + trimRes?.error,
+                                    );
+                                    throw new Error(
+                                        'Không thể cắt video tham chiếu xuống dưới 10s.',
+                                    );
                                 }
                             } catch (e) {
                                 console.error('Lỗi gọi cắt video:', e);
-                                this.toastr.error('Ứng dụng Electron không phản hồi khi gọi lệnh cắt video.');
-                                throw new Error('Không thể gọi lệnh cắt video qua Electron.');
+                                this.toastr.error(
+                                    'Ứng dụng Electron không phản hồi khi gọi lệnh cắt video.',
+                                );
+                                throw new Error(
+                                    'Không thể gọi lệnh cắt video qua Electron.',
+                                );
                             }
                         }
                     }
@@ -5031,36 +6478,57 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     // Luôn luôn upload lên CDN nếu file là local
                     if (!finalVideoUrl.startsWith('http')) {
                         try {
-                            this.toastr.info(`Đang tải video lên hệ thống CDN...`);
-                            const base64Video = await this.getBase64FromImageUrl(finalVideoUrl);
-                            const cdnUrl = await this._genaiService.uploadBase64ToCdn(`data:video/mp4;base64,${base64Video}`, `reference_video_${Date.now()}.mp4`);
+                            this.toastr.info(
+                                `Đang tải video lên hệ thống CDN...`,
+                            );
+                            const base64Video =
+                                await this.getBase64FromImageUrl(finalVideoUrl);
+                            const cdnUrl =
+                                await this._genaiService.uploadBase64ToCdn(
+                                    `data:video/mp4;base64,${base64Video}`,
+                                    `reference_video_${Date.now()}.mp4`,
+                                );
                             if (cdnUrl) {
                                 video.videoUrl = cdnUrl; // Cập nhật lại UI luôn
                                 finalVideoUrl = cdnUrl;
                             }
                         } catch (uploadErr) {
                             console.error('Lỗi upload video:', uploadErr);
-                            this.toastr.warning('Không thể upload video, sẽ dùng file local.');
+                            this.toastr.warning(
+                                'Không thể upload video, sẽ dùng file local.',
+                            );
                         }
                     }
 
-                    // Nếu là URL local hoặc có file, ta có thể phải tải về để lấy base64. 
+                    // Nếu là URL local hoặc có file, ta có thể phải tải về để lấy base64.
                     // Tạm thời nếu là URL http thì có thể truyền trực tiếp hoặc phải getBase64.
                     if (finalVideoUrl.startsWith('http')) {
                         referenceImages.push({
-                            image: { imageBytes: finalVideoUrl, mimeType: 'video/mp4' },
-                            referenceType: 'REFERENCE_VIDEO'
+                            image: {
+                                imageBytes: finalVideoUrl,
+                                mimeType: 'video/mp4',
+                            },
+                            referenceType: 'REFERENCE_VIDEO',
                         });
                     } else {
-                        const base64Video = await this.getBase64FromImageUrl(finalVideoUrl);
+                        const base64Video =
+                            await this.getBase64FromImageUrl(finalVideoUrl);
                         referenceImages.push({
-                            image: { imageBytes: base64Video, mimeType: 'video/mp4' },
-                            referenceType: 'REFERENCE_VIDEO'
+                            image: {
+                                imageBytes: base64Video,
+                                mimeType: 'video/mp4',
+                            },
+                            referenceType: 'REFERENCE_VIDEO',
                         });
                     }
                 } catch (e) {
-                    console.error('Không thể đọc video hiện tại làm reference cho Kling:', e);
-                    this.toastr.warning('Lỗi khi nạp video tham chiếu. Sẽ tiếp tục không có video.');
+                    console.error(
+                        'Không thể đọc video hiện tại làm reference cho Kling:',
+                        e,
+                    );
+                    this.toastr.warning(
+                        'Lỗi khi nạp video tham chiếu. Sẽ tiếp tục không có video.',
+                    );
                 }
             }
 
@@ -5069,18 +6537,33 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (this.projectData?.characters) {
                 for (const char of this.projectData.characters) {
                     const charName = char.name || char.role;
-                    if (charName && video.prompt.includes(`[Character '${charName}'`)) {
-                        const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
+                    if (
+                        charName &&
+                        video.prompt.includes(`[Character '${charName}'`)
+                    ) {
+                        const imgUrl =
+                            char.avatarUrl ||
+                            (char.avatarUrls && char.avatarUrls.length > 0
+                                ? char.avatarUrls[0]
+                                : null);
                         if (imgUrl) {
                             try {
-                                const base64Data = await this.getBase64FromImageUrl(imgUrl);
+                                const base64Data =
+                                    await this.getBase64FromImageUrl(imgUrl);
                                 referenceImages.push({
-                                    image: { imageBytes: base64Data, mimeType: 'image/jpeg' },
-                                    referenceType: 'ASSET'
+                                    image: {
+                                        imageBytes: base64Data,
+                                        mimeType: 'image/jpeg',
+                                    },
+                                    referenceType: 'ASSET',
                                 });
                                 hasCharacterRef = true;
                             } catch (e) {
-                                console.error('Không thể đọc ảnh reference cho video:', char.name, e);
+                                console.error(
+                                    'Không thể đọc ảnh reference cho video:',
+                                    char.name,
+                                    e,
+                                );
                             }
                         }
                     }
@@ -5088,9 +6571,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             let promptText = video.prompt || '';
-            const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
+            const master = this.projectData?.masterPrompt
+                ? this.projectData.masterPrompt.trim()
+                : '';
             let basePrompt = master ? `${master}\n\n${promptText}` : promptText;
-            
+
             let mandatoryTags = '';
             if (video.duration) {
                 mandatoryTags += `\n[MANDATORY: Generate video with exact duration of ${video.duration} seconds]`;
@@ -5098,7 +6583,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             if (referenceImages && referenceImages.length > 0) {
                 mandatoryTags += `\n[MANDATORY: Strictly follow layout, skeleton & character references 100%. No hallucinations or extra details.]`;
-                const hasControlImage = referenceImages.some(img => img.referenceType === 'CONTROL_IMAGE');
+                const hasControlImage = referenceImages.some(
+                    (img) => img.referenceType === 'CONTROL_IMAGE',
+                );
                 if (hasControlImage) {
                     mandatoryTags += `\n[CRITICAL INSTRUCTION: The attached reference image is a SKETCH/StoryBoard layout. DO NOT render the video in a sketch, drawing, or wireframe style. Use the image ONLY for pose, composition, and framing. The final video MUST be highly photorealistic and cinematic according to the prompt.]`;
                 }
@@ -5108,75 +6595,107 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             let byteLength = new TextEncoder().encode(finalPrompt).length;
 
             if (byteLength > 2500 && isProxy) {
-                this.toastr.warning(`Đoạn video có tổng độ dài prompt (${byteLength} bytes) vượt quá 2500 của hệ thống. Đã bỏ qua đoạn này.`);
+                this.toastr.warning(
+                    `Đoạn video có tổng độ dài prompt (${byteLength} bytes) vượt quá 2500 của hệ thống. Đã bỏ qua đoạn này.`,
+                );
                 return;
             }
-            const effectiveAspectRatio = video.aspectRatio || (this.selectedFrame && this.selectedFrame.id !== 'none' ? this.selectedFrame.aspectRatio : null) || this.projectData?.aspectRatio || '16:9';
+            const effectiveAspectRatio =
+                video.aspectRatio ||
+                (this.selectedFrame && this.selectedFrame.id !== 'none'
+                    ? this.selectedFrame.aspectRatio
+                    : null) ||
+                this.projectData?.aspectRatio ||
+                '16:9';
             if (isProxy || isMagic) {
-                const modelName = isMagic ? 'kling-v3-motion-control' : (this._genaiService.umodelverseVideoModel || undefined);
+                const modelName = isMagic
+                    ? 'kling-v3-motion-control'
+                    : this._genaiService.umodelverseVideoModel || undefined;
                 base64 = await this._genaiService.generateVideoUModelverse(
                     finalPrompt,
                     effectiveAspectRatio,
                     referenceImages,
                     video.duration,
                     undefined,
-                    modelName
+                    modelName,
                 );
             } else {
                 const apiKey = this.getGeminiKey();
                 if (!apiKey) {
-                    this.toastr.error('Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.');
+                    this.toastr.error(
+                        'Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.',
+                    );
                     return;
                 }
 
-                const ai = this._genaiService.googleAi || new GoogleGenAI({ apiKey: apiKey });
+                const ai =
+                    this._genaiService.googleAi ||
+                    new GoogleGenAI({ apiKey: apiKey });
                 let operation: any;
                 const videoConfig: any = {};
                 if (this.projectData?.aspectRatio) {
                     videoConfig.aspectRatio = this.projectData.aspectRatio;
                 }
                 if (referenceImages.length > 0) {
-                    videoConfig.referenceImages = referenceImages.slice(0, 3).map(img => {
-                        return {
-                            ...img,
-                            referenceType: 'ASSET'
-                        };
-                    });
+                    videoConfig.referenceImages = referenceImages
+                        .slice(0, 3)
+                        .map((img) => {
+                            return {
+                                ...img,
+                                referenceType: 'ASSET',
+                            };
+                        });
                 }
 
                 operation = await ai.models.generateVideos({
                     model: 'veo-3.1-generate-preview',
                     prompt: finalPrompt,
-                    config: videoConfig
+                    config: videoConfig,
                 });
 
                 let pollCount = 0;
-                const MAX_POLLS = 60; 
+                const MAX_POLLS = 60;
 
                 while (!operation.done) {
-                    if (pollCount >= MAX_POLLS) throw new Error('Quá thời gian chờ tạo video (10 phút).');
-                    await new Promise(resolve => setTimeout(resolve, 10000));
-                    operation = await ai.operations.getVideosOperation({ operation: operation });
+                    if (pollCount >= MAX_POLLS)
+                        throw new Error(
+                            'Quá thời gian chờ tạo video (10 phút).',
+                        );
+                    await new Promise((resolve) => setTimeout(resolve, 10000));
+                    operation = await ai.operations.getVideosOperation({
+                        operation: operation,
+                    });
                     pollCount++;
                 }
 
-                if (!operation.response || !operation.response.generatedVideos || operation.response.generatedVideos.length === 0) {
+                if (
+                    !operation.response ||
+                    !operation.response.generatedVideos ||
+                    operation.response.generatedVideos.length === 0
+                ) {
                     throw new Error('Không nhận được video từ AI.');
                 }
 
-                const videoUri = operation.response.generatedVideos[0].video.uri;
+                const videoUri =
+                    operation.response.generatedVideos[0].video.uri;
                 if (!videoUri) throw new Error('Không tìm thấy URI tải video.');
 
                 this.toastr.info('Đang tải video về máy...', 'Hệ thống');
-                const res = await fetch(videoUri, { headers: { "x-goog-api-key": apiKey } });
-                if (!res.ok) throw new Error('Không thể tải file video từ Google.');
+                const res = await fetch(videoUri, {
+                    headers: { 'x-goog-api-key': apiKey },
+                });
+                if (!res.ok)
+                    throw new Error('Không thể tải file video từ Google.');
 
                 const buffer = await res.arrayBuffer();
                 const bytes = new Uint8Array(buffer);
                 const len = bytes.byteLength;
                 const chunkSize = 8192;
                 for (let i = 0; i < len; i += chunkSize) {
-                    base64 += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+                    base64 += String.fromCharCode.apply(
+                        null,
+                        Array.from(bytes.subarray(i, i + chunkSize)),
+                    );
                 }
                 base64 = btoa(base64);
             }
@@ -5185,7 +6704,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const result = await electron.saveBase64({
                 base64: base64,
                 fileName: fileName,
-                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
+                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`,
             });
 
             if (result && result.success) {
@@ -5193,7 +6712,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 video.videoUrl = finalPath;
                 this.saveData();
                 this.cd.detectChanges();
-                this.toastr.success(`Đã tự động tạo Video cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}!`);
+                this.toastr.success(
+                    `Đã tự động tạo Video cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}!`,
+                );
             } else {
                 throw new Error(result.error || 'Lỗi lưu file video.');
             }
@@ -5218,7 +6739,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     msg = parsed.error.message;
                 }
             }
-        } catch { }
+        } catch {}
 
         if (
             msg.includes('trace_id') ||
@@ -5229,7 +6750,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             return msg;
         }
 
-        if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+        if (
+            msg.includes('429') ||
+            msg.toLowerCase().includes('quota') ||
+            msg.includes('RESOURCE_EXHAUSTED')
+        ) {
             return 'Tài khoản API Key đã hết hạn mức (Quota Exceeded) hoặc bị giới hạn tốc độ. Vui lòng thiết lập thẻ thanh toán trên Google AI Studio hoặc thử lại sau.';
         }
         if (msg.includes('400') || msg.includes('INVALID_ARGUMENT')) {
@@ -5245,29 +6770,48 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         return msg;
     }
 
-    completeLinking(targetVideo: any, targetSceneIdx: number, targetVIdx: number) {}
+    completeLinking(
+        targetVideo: any,
+        targetSceneIdx: number,
+        targetVIdx: number,
+    ) {}
     removeLink(video: any) {}
     scrollToLinkedVideo(linkedTo: any) {}
-    hasIncomingLink(sceneIdx: number, vIdx: number): boolean { return false; }
+    hasIncomingLink(sceneIdx: number, vIdx: number): boolean {
+        return false;
+    }
 
     @HostListener('document:keydown', ['$event'])
     onKeydownHandler(event: KeyboardEvent) {
         const target = event.target as HTMLElement;
-        const isEditingInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+        const isEditingInput =
+            target &&
+            (target.tagName === 'INPUT' ||
+                target.tagName === 'TEXTAREA' ||
+                target.isContentEditable);
 
         if (event.key === 'Escape') {
             if (this.linkingSourceVideo) {
                 this.cancelLinking();
                 this.toastr.info('Đã hủy tạo liên kết.');
             }
-        } else if ((event.ctrlKey || event.metaKey) && (event.key === 'a' || event.key === 'A')) {
+        } else if (
+            (event.ctrlKey || event.metaKey) &&
+            (event.key === 'a' || event.key === 'A')
+        ) {
             if (isEditingInput) return;
             event.preventDefault();
             this.selectAllItems();
-        } else if ((event.ctrlKey || event.metaKey) && (event.key === 's' || event.key === 'S')) {
+        } else if (
+            (event.ctrlKey || event.metaKey) &&
+            (event.key === 's' || event.key === 'S')
+        ) {
             event.preventDefault();
             this.userManualSave();
-        } else if ((event.ctrlKey || event.metaKey) && (event.key === 'b' || event.key === 'B' || event.code === 'KeyB')) {
+        } else if (
+            (event.ctrlKey || event.metaKey) &&
+            (event.key === 'b' || event.key === 'B' || event.code === 'KeyB')
+        ) {
             if (isEditingInput) return;
             event.preventDefault();
             this.splitVideoAtPlayhead();
@@ -5279,25 +6823,46 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (isEditingInput) return;
             event.preventDefault();
             this.deleteSelectedItems();
-        } else if (!event.ctrlKey && !event.metaKey && !event.altKey && !isEditingInput) {
+        } else if (
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.altKey &&
+            !isEditingInput
+        ) {
             if (event.key === 'c' || event.key === 'C') {
                 event.preventDefault();
                 this.splitVideoAtPlayhead();
             } else if (event.key === 'ArrowLeft') {
                 event.preventDefault();
                 const step = event.shiftKey ? 1.0 : 0.2;
-                this.seekTimelineTo(Math.max(0, this.currentTimelineTime - step));
+                this.seekTimelineTo(
+                    Math.max(0, this.currentTimelineTime - step),
+                );
             } else if (event.key === 'ArrowRight') {
                 event.preventDefault();
                 const step = event.shiftKey ? 1.0 : 0.2;
-                this.seekTimelineTo(Math.min(this.getMaxTimelineTime(), this.currentTimelineTime + step));
+                this.seekTimelineTo(
+                    Math.min(
+                        this.getMaxTimelineTime(),
+                        this.currentTimelineTime + step,
+                    ),
+                );
             }
         }
     }
 
-    splitVideoAtPlayhead(targetVideo?: any, targetSceneIdx?: number, targetVIdx?: number) {
+    splitVideoAtPlayhead(
+        targetVideo?: any,
+        targetSceneIdx?: number,
+        targetVIdx?: number,
+    ) {
         const time = this.currentTimelineTime;
-        let vidToSplit = targetVideo || (this.activeItem && (this.activeItem.videoUrl || this.activeItem.videoId) ? this.activeItem : null);
+        let vidToSplit =
+            targetVideo ||
+            (this.activeItem &&
+            (this.activeItem.videoUrl || this.activeItem.videoId)
+                ? this.activeItem
+                : null);
 
         // Nếu chưa chọn video cụ thể, tìm video đang nằm trực tiếp dưới kim phát Playhead
         if (!vidToSplit && this.projectData?.scenes) {
@@ -5315,64 +6880,89 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (vidToSplit) break;
             }
         }
-        
-        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+
+        for (
+            let sceneIdx = 0;
+            sceneIdx < this.projectData.scenes.length;
+            sceneIdx++
+        ) {
             const scene = this.projectData.scenes[sceneIdx];
             if (!scene.videos) continue;
-            
+
             for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
                 const video = scene.videos[vIdx];
-                if (vidToSplit && video !== vidToSplit && video.id !== vidToSplit.id) continue;
+                if (
+                    vidToSplit &&
+                    video !== vidToSplit &&
+                    video.id !== vidToSplit.id
+                )
+                    continue;
 
                 const start = video.startTime || 0;
                 const duration = video.duration || 0;
                 const end = start + duration;
-                
+
                 let splitPointInSecs = time - start;
-                if (splitPointInSecs <= 0.2 || splitPointInSecs >= duration - 0.2) {
+                if (
+                    splitPointInSecs <= 0.2 ||
+                    splitPointInSecs >= duration - 0.2
+                ) {
                     splitPointInSecs = duration / 2;
                 }
 
                 if (duration > 0.4) {
-                    const firstDur = Math.max(0.2, Math.round(splitPointInSecs * 100) / 100);
-                    const secondDur = Math.max(0.2, Math.round((duration - splitPointInSecs) * 100) / 100);
+                    const firstDur = Math.max(
+                        0.2,
+                        Math.round(splitPointInSecs * 100) / 100,
+                    );
+                    const secondDur = Math.max(
+                        0.2,
+                        Math.round((duration - splitPointInSecs) * 100) / 100,
+                    );
 
                     // Clone video
                     const newVideo = JSON.parse(JSON.stringify(video));
-                    
+
                     // Modify old
                     video.duration = firstDur;
-                    
+
                     // Modify new
                     newVideo.id = Date.now() + Math.random();
-                    newVideo.videoId = 'vid_' + Math.random().toString(36).substr(2, 9);
-                    newVideo.trimStart = Math.round(((newVideo.trimStart || 0) + firstDur) * 100) / 100;
+                    newVideo.videoId =
+                        'vid_' + Math.random().toString(36).substr(2, 9);
+                    newVideo.trimStart =
+                        Math.round(
+                            ((newVideo.trimStart || 0) + firstDur) * 100,
+                        ) / 100;
                     newVideo.duration = secondDur;
-                    newVideo.startTime = Math.round((start + firstDur) * 100) / 100;
+                    newVideo.startTime =
+                        Math.round((start + firstDur) * 100) / 100;
                     newVideo.imageUrl = null;
                     newVideo.controlImageUrl = null;
-                    
+
                     // Insert
                     scene.videos.splice(vIdx + 1, 0, newVideo);
-                    
+
                     this.normalizeData();
                     this.saveData(true);
                     this.updateTimelineTotalWidth();
                     this.updateFilteredMediaItems();
-                    this.toastr.success('Đã tách đoạn video (Ctrl + B) thành công.');
-                    
+                    this.toastr.success(
+                        'Đã tách đoạn video (Ctrl + B) thành công.',
+                    );
+
                     // Focus new video
                     setTimeout(() => {
                         this.setActiveItem(newVideo);
                         this.cd.detectChanges();
                         this.updateLines();
                     });
-                    
+
                     return; // Done
                 }
             }
         }
-        
+
         this.toastr.warning('Không tìm thấy đoạn video nào phù hợp để tách.');
     }
 
@@ -5387,11 +6977,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         let cutTime = this.currentTimelineTime;
         if (cutTime <= start + 0.3 || cutTime >= end - 0.3) {
-            cutTime = start + (duration / 2);
+            cutTime = start + duration / 2;
         }
 
-        const firstDuration = Math.max(0.2, Math.round((cutTime - start) * 100) / 100);
-        const secondDuration = Math.max(0.2, Math.round((end - cutTime) * 100) / 100);
+        const firstDuration = Math.max(
+            0.2,
+            Math.round((cutTime - start) * 100) / 100,
+        );
+        const secondDuration = Math.max(
+            0.2,
+            Math.round((end - cutTime) * 100) / 100,
+        );
 
         audio.duration = firstDuration;
 
@@ -5399,10 +6995,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             ...audio,
             id: Date.now() + Math.random(),
             startTime: Math.round(cutTime * 100) / 100,
-            duration: secondDuration
+            duration: secondDuration,
         };
 
-        const targetIdx = (aIdx !== undefined && aIdx >= 0) ? aIdx + 1 : scene.extractedAudios.indexOf(audio) + 1;
+        const targetIdx =
+            aIdx !== undefined && aIdx >= 0
+                ? aIdx + 1
+                : scene.extractedAudios.indexOf(audio) + 1;
         scene.extractedAudios.splice(targetIdx, 0, newAudio);
 
         this.normalizeData();
@@ -5415,12 +7014,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.toastr.success('Đã tách phân đoạn âm thanh thành công!');
     }
 
-    @HostListener('window:resize', ['$event'])
+    @HostListener('window:resize')
     onWindowResize() {
         this.updateLines();
     }
 
-    svgLines: { path: string, color: string }[] = [];
+    svgLines: { path: string; color: string }[] = [];
     private lastLinesStr = '';
     private animationFrameId: any;
     isSvgReady = false;
@@ -5433,8 +7032,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     get scrollContainer() {
         return {
             elementRef: {
-                nativeElement: document.getElementById('timeline-scroll-container')
-            }
+                nativeElement: document.getElementById(
+                    'timeline-scroll-container',
+                ),
+            },
         };
     }
 
@@ -5450,10 +7051,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 onSave: (newData: any) => {
                     this.projectData = newData;
                     this.saveData();
-                }
-            }
+                },
+            },
         });
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result) {
                 this.projectData = result;
                 this.saveData();
@@ -5489,15 +7090,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     startDragging(e: MouseEvent) {
         if ((e.target as HTMLElement).closest('.cdk-drag-handle')) return;
         this.isMouseDown = true;
-        this.startX = e.pageX - this.scrollContainer.elementRef.nativeElement.offsetLeft;
-        this.scrollLeftStart = this.scrollContainer.elementRef.nativeElement.scrollLeft;
+        this.startX =
+            e.pageX - this.scrollContainer.elementRef.nativeElement.offsetLeft;
+        this.scrollLeftStart =
+            this.scrollContainer.elementRef.nativeElement.scrollLeft;
     }
 
     stopDragging() {
         this.isMouseDown = false;
     }
-
-
 
     getGlobalIndex(sceneIdx: number, subIdx: number): number {
         if (!this.projectData || !this.projectData.scenes) return 0;
@@ -5515,9 +7116,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const electron = (window as any).electron;
             const originalPath = electron.getPathForFile(file);
             const localPath = await electron.selectLocalFile(originalPath);
-            sub.audioUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
+            sub.audioUrl = localPath.startsWith('file://')
+                ? localPath
+                : `file://${localPath}`;
 
-            const audioObj = new Audio(this.getRawMediaUrl(sub.audioUrl) as string);
+            const audioObj = new Audio(
+                this.getRawMediaUrl(sub.audioUrl) as string,
+            );
             audioObj.addEventListener('loadedmetadata', () => {
                 sub.duration = audioObj.duration;
                 sub.maxDuration = sub.duration;
@@ -5557,7 +7162,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const index = scene.subtitles.indexOf(sub);
             if (index !== -1) {
                 scene.subtitles.splice(index, 1);
-                this.toastr.warning('Đã xóa câu thoại do nội dung bị bỏ trống.');
+                this.toastr.warning(
+                    'Đã xóa câu thoại do nội dung bị bỏ trống.',
+                );
                 this.saveData();
             }
             return;
@@ -5568,7 +7175,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         sub.isEditing = false;
 
         if (sub.audioUrl && sub.text !== sub.tempText) {
-            this.toastr.info('Bạn vừa sửa lời thoại. Hãy cẩn thận vì file âm thanh cũ có thể không còn khớp nữa nhé!', 'Lưu ý');
+            this.toastr.info(
+                'Bạn vừa sửa lời thoại. Hãy cẩn thận vì file âm thanh cũ có thể không còn khớp nữa nhé!',
+                'Lưu ý',
+            );
         } else {
             this.toastr.success('Đã cập nhật câu thoại!');
         }
@@ -5584,15 +7194,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     async generateImage(scene: any, video: any, index: number) {
         // Lấy Master Prompt từ dữ liệu tổng của Project
-        const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
+        const master = this.projectData?.masterPrompt
+            ? this.projectData.masterPrompt.trim()
+            : '';
 
         // Tự động nối Master Prompt vào Scene Prompt để copy
         const scenePrompt = video.prompt || scene.prompt;
-        const finalPrompt = master ? `${master}\n\n${scenePrompt}` : scenePrompt;
+        const finalPrompt = master
+            ? `${master}\n\n${scenePrompt}`
+            : scenePrompt;
 
         // Copy vào Clipboard
         this.clipboard.copy(finalPrompt);
-        this.toastr.info(`Đã copy Master Prompt + Scene #${index + 1} vào khay nhớ tạm!`, 'Thành công');
+        this.toastr.info(
+            `Đã copy Master Prompt + Scene #${index + 1} vào khay nhớ tạm!`,
+            'Thành công',
+        );
 
         // 4. Lưu lại scene để nếu có ảnh download về thì tự động gán vào
         this.activeDownloadScene = video;
@@ -5605,11 +7222,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         // Nối Master Prompt vào để nhân vật cũng giữ đúng phong cách (VD: hoạt hình 3D)
-        const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
-        const finalPrompt = master ? `${master}\n\n${char.prompt}` : char.prompt;
+        const master = this.projectData?.masterPrompt
+            ? this.projectData.masterPrompt.trim()
+            : '';
+        const finalPrompt = master
+            ? `${master}\n\n${char.prompt}`
+            : char.prompt;
 
         this.clipboard.copy(finalPrompt);
-        this.toastr.success(`Đã copy Master Prompt + Nhân vật: ${char.name || char.role}`, 'Thành công');
+        this.toastr.success(
+            `Đã copy Master Prompt + Nhân vật: ${char.name || char.role}`,
+            'Thành công',
+        );
     }
 
     addCharacterToMasterPrompt(char: any) {
@@ -5619,23 +7243,37 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         if (!this.projectData) this.projectData = {};
-        const currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
+        const currentPrompt = this.projectData.masterPrompt
+            ? this.projectData.masterPrompt.trim()
+            : '';
 
         if (currentPrompt) {
             if (currentPrompt.includes(char.prompt)) {
                 this.toastr.info('Nhân vật này đã có trong Master Prompt rồi.');
                 return;
             }
-            this.projectData.masterPrompt = currentPrompt + (currentPrompt.endsWith(',') || currentPrompt.endsWith('.') ? ' ' : '. ') + char.prompt;
+            this.projectData.masterPrompt =
+                currentPrompt +
+                (currentPrompt.endsWith(',') || currentPrompt.endsWith('.')
+                    ? ' '
+                    : '. ') +
+                char.prompt;
         } else {
             this.projectData.masterPrompt = char.prompt;
         }
 
         this.saveData();
-        this.toastr.success(`Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`);
+        this.toastr.success(
+            `Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`,
+        );
     }
 
-    async selectVideoForFrameEdit(scene: any, video: any, index: number, vIdx: number = -1): Promise<void> {
+    async selectVideoForFrameEdit(
+        scene: any,
+        video: any,
+        index: number,
+        vIdx: number = -1,
+    ): Promise<void> {
         if (!video) {
             this.toastr.warning('Không tìm thấy thông tin video cần xử lý!');
             return;
@@ -5649,26 +7287,42 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (!this.selectedFrame.bgDataUrl) {
                 await this.loadFrameAssets();
             }
-            const bgImage = this.selectedFrame.bgDataUrl || this.selectedFrame.bgPath;
+            const bgImage =
+                this.selectedFrame.bgDataUrl || this.selectedFrame.bgPath;
             if (bgImage) {
                 video.aiReferenceImageLocalUrl = bgImage;
             }
         }
 
         // 2. Kích hoạt video sang cột Inspector bên phải
-        this.selectedContextData = { scene, video, sceneIdx: index, vIdx, type: 'video' };
+        this.selectedContextData = {
+            scene,
+            video,
+            sceneIdx: index,
+            vIdx,
+            type: 'video',
+        };
         this.setActiveItem(video);
 
         // Lưu trạng thái dữ liệu
         this.saveData();
         this.cd.detectChanges();
 
-        this.toastr.success('Đã chọn video và gắn ảnh nền Frame! Bạn có thể chỉnh sửa prompt và bấm Tạo Video AI bên phải.');
+        this.toastr.success(
+            'Đã chọn video và gắn ảnh nền Frame! Bạn có thể chỉnh sửa prompt và bấm Tạo Video AI bên phải.',
+        );
     }
 
-    async replaceFrameBackgroundWithVideo(scene: any, video: any, index: number, vIdx: number = -1): Promise<void> {
+    async replaceFrameBackgroundWithVideo(
+        scene: any,
+        video: any,
+        index: number,
+        vIdx: number = -1,
+    ): Promise<void> {
         if (!this.selectedFrame || this.selectedFrame.id === 'none') {
-            this.toastr.warning('Vui lòng chọn một Frame trước khi thay nền bằng video!');
+            this.toastr.warning(
+                'Vui lòng chọn một Frame trước khi thay nền bằng video!',
+            );
             return;
         }
 
@@ -5681,16 +7335,30 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (!file) return;
 
             try {
-                this.toastr.info('Đang nạp video làm nền cho khung...', 'Hệ thống');
+                this.toastr.info(
+                    'Đang nạp video làm nền cho khung...',
+                    'Hệ thống',
+                );
                 let finalVideoPath = '';
 
-                if (electronApi && electronApi.getPathForFile && electronApi.selectLocalFile) {
+                if (
+                    electronApi &&
+                    electronApi.getPathForFile &&
+                    electronApi.selectLocalFile
+                ) {
                     const originalPath = electronApi.getPathForFile(file);
                     if (originalPath) {
                         const uuid = this.projectData?.uuid || this.data?.uuid;
-                        const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                        const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
-                        finalVideoPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                        const customDir = uuid
+                            ? `tts/admin/${uuid}`
+                            : undefined;
+                        const localFilePath = await electronApi.selectLocalFile(
+                            originalPath,
+                            customDir,
+                        );
+                        finalVideoPath = localFilePath.startsWith('file://')
+                            ? localFilePath
+                            : `file://${localFilePath.replace(/\\/g, '/')}`;
                     }
                 }
 
@@ -5701,10 +7369,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.selectedFrame.bgVideoUrl = finalVideoPath;
                 this.saveData();
                 this.cd.detectChanges();
-                this.toastr.success('Đã thay thế ảnh nền khung bằng video thành công!', 'Thành công');
+                this.toastr.success(
+                    'Đã thay thế ảnh nền khung bằng video thành công!',
+                    'Thành công',
+                );
             } catch (err) {
-                console.error('[replaceFrameBackgroundWithVideo] Lỗi nạp video nền:', err);
-                this.toastr.error('Không thể thay video nền khung: ' + (err as any)?.message);
+                console.error(
+                    '[replaceFrameBackgroundWithVideo] Lỗi nạp video nền:',
+                    err,
+                );
+                this.toastr.error(
+                    'Không thể thay video nền khung: ' + (err as any)?.message,
+                );
             }
         };
         input.click();
@@ -5742,7 +7418,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         event.target.value = '';
     }
 
-    openEditScenePromptDialog(scene: any, video: any, index: number, vIdx: number = -1) {
+    openEditScenePromptDialog(
+        scene: any,
+        video: any,
+        index: number,
+        vIdx: number = -1,
+    ) {
         this.pauseTimeline(); // Dừng timeline để tập trung edit prompt
 
         let previousVideoUrl: string | null = null;
@@ -5751,7 +7432,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         } else if (index > 0 && this.projectData?.scenes?.[index - 1]) {
             const prevScene = this.projectData.scenes[index - 1];
             if (prevScene.videos && prevScene.videos.length > 0) {
-                previousVideoUrl = prevScene.videos[prevScene.videos.length - 1].videoUrl || null;
+                previousVideoUrl =
+                    prevScene.videos[prevScene.videos.length - 1].videoUrl ||
+                    null;
             } else if (prevScene.videoUrl) {
                 previousVideoUrl = prevScene.videoUrl;
             }
@@ -5767,35 +7450,46 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 characters: this.projectData?.characters || [],
                 projectAspectRatio: this.projectData?.aspectRatio || '16:9',
                 masterPrompt: this.projectData?.masterPrompt || '',
-                masterControlImageUrl: this.projectData?.masterControlImageUrl || '',
+                masterControlImageUrl:
+                    this.projectData?.masterControlImageUrl || '',
                 globalContext: this.projectData?.globalContext || null,
                 mediaDir: this.projectData?.mediaDir || '',
                 uuid: this.projectData?.uuid || this.data?.uuid,
                 username: this.projectData?.username || this.data?.username,
-                frame: (this.selectedFrame && this.selectedFrame.id !== 'none') ? { ...this.selectedFrame } : null
+                frame:
+                    this.selectedFrame && this.selectedFrame.id !== 'none'
+                        ? { ...this.selectedFrame }
+                        : null,
             },
             width: '75vw',
             maxWidth: '90vw',
             maxHeight: '90vh',
-            disableClose: true
+            disableClose: true,
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result) {
                 if (!this.projectData || !this.projectData.scenes) return;
                 if (index >= 0 && index < this.projectData.scenes.length) {
                     video.prompt = result.prompt;
                     video.imageUrl = result.imageUrl;
-                    if (result.imagePrompt !== undefined) video.imagePrompt = result.imagePrompt;
-                    if (result.videoUrl !== undefined) video.videoUrl = result.videoUrl;
-                    if (result.aspectRatio !== undefined) video.aspectRatio = result.aspectRatio;
+                    if (result.imagePrompt !== undefined)
+                        video.imagePrompt = result.imagePrompt;
+                    if (result.videoUrl !== undefined)
+                        video.videoUrl = result.videoUrl;
+                    if (result.aspectRatio !== undefined)
+                        video.aspectRatio = result.aspectRatio;
                     if (result.duration !== undefined) {
                         video.duration = result.duration;
                         video.maxDuration = result.duration;
                     }
-                    if (result.usePreviousSceneFrame !== undefined) video.usePreviousSceneFrame = result.usePreviousSceneFrame;
-                    if (result.controlImageUrl !== undefined) video.controlImageUrl = result.controlImageUrl;
-                    if (result.trimStart !== undefined) video.trimStart = result.trimStart;
+                    if (result.usePreviousSceneFrame !== undefined)
+                        video.usePreviousSceneFrame =
+                            result.usePreviousSceneFrame;
+                    if (result.controlImageUrl !== undefined)
+                        video.controlImageUrl = result.controlImageUrl;
+                    if (result.trimStart !== undefined)
+                        video.trimStart = result.trimStart;
                     this.saveData();
                     this.cd.detectChanges();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
@@ -5804,9 +7498,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         });
     }
 
-    openCropVideoDialog(video: any, scene: any, sceneIdx: number, vIdx: number = -1): void {
+    openCropVideoDialog(
+        video: any,
+        scene: any,
+        sceneIdx: number,
+        vIdx: number = -1,
+    ): void {
         if (!video || !video.videoUrl) {
-            this.toastr.warning('Vui lòng chọn video có file phát để cắt khung hình!');
+            this.toastr.warning(
+                'Vui lòng chọn video có file phát để cắt khung hình!',
+            );
             return;
         }
 
@@ -5815,13 +7516,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 video,
                 scene,
                 sceneIdx,
-                vIdx
+                vIdx,
             },
             width: '85vw',
             maxWidth: '1200px',
             maxHeight: '90vh',
             panelClass: 'dark-theme-dialog',
-            disableClose: true
+            disableClose: true,
         });
 
         dialogRef.afterClosed().subscribe((result) => {
@@ -5854,15 +7555,32 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             for (const scene of this.projectData.scenes) {
                 if (scene.subtitles) {
                     for (const sub of scene.subtitles) {
-                        if (!sub.disabled && (sub.text || sub.originalText || sub.vietnameseText)) {
+                        if (
+                            !sub.disabled &&
+                            (sub.text || sub.originalText || sub.vietnameseText)
+                        ) {
                             allSubtitles.push({
                                 id: sub.id,
-                                text: (sub.text || sub.originalText || sub.vietnameseText || '').trim(),
-                                originalText: sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['en'])) || '',
-                                vietnameseText: sub.vietnameseText || (sub.translations && sub.translations['vi']) || '',
+                                text: (
+                                    sub.text ||
+                                    sub.originalText ||
+                                    sub.vietnameseText ||
+                                    ''
+                                ).trim(),
+                                originalText:
+                                    sub.originalText ||
+                                    (sub.translations &&
+                                        (sub.translations['original'] ||
+                                            sub.translations['en'])) ||
+                                    '',
+                                vietnameseText:
+                                    sub.vietnameseText ||
+                                    (sub.translations &&
+                                        sub.translations['vi']) ||
+                                    '',
                                 translations: sub.translations || {},
                                 startTime: sub.startTime || 0,
-                                duration: sub.duration || 3
+                                duration: sub.duration || 3,
                             });
                         }
                     }
@@ -5876,15 +7594,23 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         let sourceUrl: string | null = null;
 
         if (this.projectData) {
-            sourceUrl = this.projectData.sourceUrl || this.projectData.originalUrl || this.projectData.url || null;
+            sourceUrl =
+                this.projectData.sourceUrl ||
+                this.projectData.originalUrl ||
+                this.projectData.url ||
+                null;
             if (this.projectData.scenes) {
                 for (const scene of this.projectData.scenes) {
                     if (scene.videos && scene.videos.length > 0) {
-                        const firstVid = scene.videos.find((v: any) => v.videoUrl || v.sourceUrl);
+                        const firstVid = scene.videos.find(
+                            (v: any) => v.videoUrl || v.sourceUrl,
+                        );
                         if (firstVid) {
                             videoUrl = firstVid.videoUrl || null;
-                            if (firstVid.sourceUrl) sourceUrl = firstVid.sourceUrl;
-                            if (firstVid.originalUrl) sourceUrl = firstVid.originalUrl;
+                            if (firstVid.sourceUrl)
+                                sourceUrl = firstVid.sourceUrl;
+                            if (firstVid.originalUrl)
+                                sourceUrl = firstVid.originalUrl;
                             break;
                         }
                     }
@@ -5898,10 +7624,28 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         // 3. Tra cứu ngược từ downloadCache hoặc uuidMap để tìm URL Facebook / YouTube gốc
         if (!sourceUrl || !sourceUrl.startsWith('http')) {
-            const downloadCache = this.multiAccountService.getItem('ai_type_video_download_cache') || {};
+            const downloadCache =
+                this.multiAccountService.getItem(
+                    'ai_type_video_download_cache',
+                ) || {};
             for (const [origUrl, cachedPath] of Object.entries(downloadCache)) {
-                if (origUrl.startsWith('http') && typeof cachedPath === 'string') {
-                    if (videoUrl && (cachedPath === videoUrl || videoUrl.includes(cachedPath.replace(/^file:\/\//, '')) || (cachedPath.includes('video_') && videoUrl.includes(cachedPath.substring(cachedPath.indexOf('video_')))))) {
+                if (
+                    origUrl.startsWith('http') &&
+                    typeof cachedPath === 'string'
+                ) {
+                    if (
+                        videoUrl &&
+                        (cachedPath === videoUrl ||
+                            videoUrl.includes(
+                                cachedPath.replace(/^file:\/\//, ''),
+                            ) ||
+                            (cachedPath.includes('video_') &&
+                                videoUrl.includes(
+                                    cachedPath.substring(
+                                        cachedPath.indexOf('video_'),
+                                    ),
+                                )))
+                    ) {
                         sourceUrl = origUrl;
                         break;
                     }
@@ -5916,20 +7660,30 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     const allKeys = Object.keys(localStorage || {});
                     for (const k of allKeys) {
                         if (k.startsWith('ai_type_video_uuid_map')) {
-                            const uMap = this.multiAccountService.getItem(k) || {};
+                            const uMap =
+                                this.multiAccountService.getItem(k) || {};
                             for (const [origUrl, uId] of Object.entries(uMap)) {
-                                if (uId === currentUuid && origUrl.startsWith('http')) {
+                                if (
+                                    uId === currentUuid &&
+                                    origUrl.startsWith('http')
+                                ) {
                                     sourceUrl = origUrl;
                                     break;
                                 }
                             }
                         }
                     }
-                } catch (e) { }
+                } catch (e) {}
             }
         }
 
-        if (videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) && !videoUrl.includes('localhost') && !videoUrl.includes('127.0.0.1')) {
+        if (
+            videoUrl &&
+            (videoUrl.startsWith('http://') ||
+                videoUrl.startsWith('https://')) &&
+            !videoUrl.includes('localhost') &&
+            !videoUrl.includes('127.0.0.1')
+        ) {
             sourceUrl = videoUrl;
         }
 
@@ -5940,12 +7694,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             maxHeight: '820px',
             panelClass: ['dark-broadcast-dialog', 'dialog-no-padding'],
             data: {
-                title: this.projectData?.title || this.projectData?.extraPrompt || 'Phát sóng video',
+                title:
+                    this.projectData?.title ||
+                    this.projectData?.extraPrompt ||
+                    'Phát sóng video',
                 videoUrl: videoUrl || undefined,
                 sourceUrl: sourceUrl || undefined,
                 subtitles: allSubtitles,
-                projectData: this.projectData
-            }
+                projectData: this.projectData,
+            },
         });
     }
 
@@ -5969,7 +7726,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             confirm: 'Tiếp tục Production',
             cb: () => {
                 this.goBack();
-                this.router.navigate(['/livestream', this.projectData.uuid || 'unknown_project']);
+                this.router.navigate([
+                    '/livestream',
+                    this.projectData.uuid || 'unknown_project',
+                ]);
             },
             cc: () => {
                 this.toastr.info('Hủy tiến trình tạo Audio.');
@@ -5983,17 +7743,27 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             return;
         }
 
-        if (!silent) this.toastr.info('Đang rà soát và cập nhật thời lượng các file audio...', 'Hệ thống');
+        if (!silent)
+            this.toastr.info(
+                'Đang rà soát và cập nhật thời lượng các file audio...',
+                'Hệ thống',
+            );
 
         if (!(window as any).electron) {
-            this.toastr.warning('Tính năng scan file chỉ hoạt động trên App Desktop.');
+            this.toastr.warning(
+                'Tính năng scan file chỉ hoạt động trên App Desktop.',
+            );
         }
 
         const projectSubPath = `${this.data.username || 'anonymous'}/${this.data.uuid || 'default'}`;
         const promises: Promise<void>[] = [];
         let updatedCount = 0;
 
-        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+        for (
+            let sceneIdx = 0;
+            sceneIdx < this.projectData.scenes.length;
+            sceneIdx++
+        ) {
             const scene = this.projectData.scenes[sceneIdx];
             if (!scene.subtitles) continue;
 
@@ -6001,7 +7771,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const sub = scene.subtitles[subIdx];
 
                 // Nếu chưa có audioUrl, thử tìm kiếm dưới local
-                if (!sub.audioUrl && sub.text && sub.text.trim() !== '' && (window as any).electron) {
+                if (
+                    !sub.audioUrl &&
+                    sub.text &&
+                    sub.text.trim() !== '' &&
+                    (window as any).electron
+                ) {
                     const globalIndex = this.getGlobalIndex(sceneIdx, subIdx);
                     const prefix = globalIndex.toString().padStart(3, '0');
                     const shortText = sub.text.substring(0, 50);
@@ -6011,28 +7786,37 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         `${prefix}_${slug}.mp3`,
                         `${prefix}_${slug}.wav`,
                         `${prefix}_${slug}_ausync.mp3`,
-                        `${prefix}_${slug}_ausync.wav`
+                        `${prefix}_${slug}_ausync.wav`,
                     ];
 
                     for (const fname of possibleFilenames) {
                         try {
                             const payload = {
                                 username: projectSubPath,
-                                filename: fname
+                                filename: fname,
                             };
-                            const result = await (window as any).electron.invoke('check-local-file-exists', payload);
+                            const result = await (
+                                window as any
+                            ).electron.invoke(
+                                'check-local-file-exists',
+                                payload,
+                            );
 
                             if (result && result.exists) {
-                                sub.audioUrl = result.path.startsWith('file://') ? result.path : `file://${result.path}`;
+                                sub.audioUrl = result.path.startsWith('file://')
+                                    ? result.path
+                                    : `file://${result.path}`;
                                 break;
                             }
-                        } catch (e) { }
+                        } catch (e) {}
                     }
                 }
 
                 if (sub.audioUrl) {
                     const p = new Promise<void>((resolve) => {
-                        const audioObj = new Audio(this.getRawMediaUrl(sub.audioUrl) as string);
+                        const audioObj = new Audio(
+                            this.getRawMediaUrl(sub.audioUrl) as string,
+                        );
                         audioObj.addEventListener('loadedmetadata', () => {
                             sub.duration = audioObj.duration;
                             sub.maxDuration = sub.duration;
@@ -6040,7 +7824,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             resolve();
                         });
                         audioObj.addEventListener('error', () => {
-                            console.error('Không thể load audio:', sub.audioUrl);
+                            console.error(
+                                'Không thể load audio:',
+                                sub.audioUrl,
+                            );
                             // Xóa URL nếu file không tồn tại
                             sub.audioUrl = null;
                             sub.duration = 0;
@@ -6055,9 +7842,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (promises.length > 0) {
             await Promise.all(promises);
             this.saveData();
-            if (!silent) this.toastr.success(`Đã quét và cập nhật thời lượng cho ${updatedCount} file audio thành công!`);
+            if (!silent)
+                this.toastr.success(
+                    `Đã quét và cập nhật thời lượng cho ${updatedCount} file audio thành công!`,
+                );
         } else {
-            if (!silent) this.toastr.warning('Không tìm thấy file audio nào để rà soát.');
+            if (!silent)
+                this.toastr.warning(
+                    'Không tìm thấy file audio nào để rà soát.',
+                );
             this.saveData();
         }
     }
@@ -6094,7 +7887,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         try {
             const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
-            await this.multiAccountService.setItem(storageKey, this.projectData);
+            await this.multiAccountService.setItem(
+                storageKey,
+                this.projectData,
+            );
             await this.multiAccountService.forceSave();
             this.hasUnsavedChanges = false;
             this.cd.detectChanges();
@@ -6134,22 +7930,36 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const originalPath = electron.getPathForFile(file);
 
                 if (!originalPath) {
-                    this.toastr.error('Không thể xác nhận đường dẫn file tải về.');
+                    this.toastr.error(
+                        'Không thể xác nhận đường dẫn file tải về.',
+                    );
                     return;
                 }
 
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electron.selectLocalFile(originalPath, customDir);
-                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                const localFilePath = await electron.selectLocalFile(
+                    originalPath,
+                    customDir,
+                );
+                const finalPath = localFilePath.startsWith('file://')
+                    ? localFilePath
+                    : `file://${localFilePath.replace(/\\/g, '/')}`;
 
-                if (file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|avi|mov)$/i)) {
+                if (
+                    file.type.startsWith('video/') ||
+                    file.name.match(/\.(mp4|webm|avi|mov)$/i)
+                ) {
                     video.videoUrl = finalPath;
                     const videoObj = document.createElement('video');
-                    videoObj.src = this.getRawMediaUrl(video.videoUrl) as string;
+                    videoObj.src = this.getRawMediaUrl(
+                        video.videoUrl,
+                    ) as string;
                     videoObj.addEventListener('loadedmetadata', () => {
                         if (videoObj.duration && !isNaN(videoObj.duration)) {
-                            video.duration = parseFloat(videoObj.duration.toFixed(1));
+                            video.duration = parseFloat(
+                                videoObj.duration.toFixed(1),
+                            );
                             video.maxDuration = video.duration;
                         }
                     });
@@ -6172,7 +7982,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     async addNewMediaBlock(type: 'video' | 'image' | 'audio') {
         const electronApi = (window as any).electron;
         if (!electronApi || !electronApi.getPathForFile) {
-            this.toastr.error('Lỗi cấu hình. Tính năng này chỉ dùng trên App Desktop.');
+            this.toastr.error(
+                'Lỗi cấu hình. Tính năng này chỉ dùng trên App Desktop.',
+            );
             return;
         }
 
@@ -6200,24 +8012,33 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             const uuid = this.projectData?.uuid || this.data?.uuid;
             const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-            const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
-            const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+            const localFilePath = await electronApi.selectLocalFile(
+                originalPath,
+                customDir,
+            );
+            const finalPath = localFilePath.startsWith('file://')
+                ? localFilePath
+                : `file://${localFilePath.replace(/\\/g, '/')}`;
             this.unmarkDeletedKey(finalPath);
             this.unmarkDeletedKey(originalPath);
             this.unmarkDeletedKey(localFilePath);
 
             if (!this.projectData) this.projectData = { scenes: [] };
-            if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+            if (
+                !this.projectData.scenes ||
+                this.projectData.scenes.length === 0
+            ) {
                 this.projectData.scenes.push({
                     id: `scene_${Date.now()}`,
                     subtitles: [],
                     videos: [],
-                    prompt: ''
+                    prompt: '',
                 });
             }
 
             // Mặc định ném vào scene cuối cùng
-            const scene = this.projectData.scenes[this.projectData.scenes.length - 1];
+            const scene =
+                this.projectData.scenes[this.projectData.scenes.length - 1];
 
             if (type === 'image') {
                 if (!scene.images) scene.images = [];
@@ -6230,10 +8051,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const newImage: any = {
                     id: Date.now(),
                     imageUrl: finalPath,
-                    title: file.name || ('Hình ảnh ' + (scene.images.length + 1)),
+                    title: file.name || 'Hình ảnh ' + (scene.images.length + 1),
                     startTime: maxStart,
                     duration: 5,
-                    type: 'image'
+                    type: 'image',
                 };
 
                 scene.images.push(newImage);
@@ -6260,7 +8081,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 let realDur = 5;
                 if (electronApi.getMediaDuration) {
                     try {
-                        const durRes = await electronApi.getMediaDuration(finalPath);
+                        const durRes =
+                            await electronApi.getMediaDuration(finalPath);
                         if (durRes && durRes.success && durRes.duration > 0) {
                             realDur = Math.round(durRes.duration * 10) / 10;
                         }
@@ -6275,7 +8097,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     maxDuration: realDur,
                     videoUrl: finalPath,
                     trackIndex: this.selectedTargetTrackIdx || 0,
-                    isCompleted: true
+                    isCompleted: true,
                 };
 
                 scene.videos.push(newVideo);
@@ -6303,14 +8125,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     startTime: maxStart,
                     duration: 5,
                     maxDuration: 5,
-                    audioUrl: finalPath
+                    audioUrl: finalPath,
                 };
-                
+
                 const audioObj = document.createElement('audio');
                 audioObj.src = this.getRawMediaUrl(finalPath) as string;
                 audioObj.addEventListener('loadedmetadata', () => {
                     if (audioObj.duration && !isNaN(audioObj.duration)) {
-                        newSub.duration = parseFloat(audioObj.duration.toFixed(1));
+                        newSub.duration = parseFloat(
+                            audioObj.duration.toFixed(1),
+                        );
                         newSub.maxDuration = newSub.duration;
                         this.saveData(true);
                         this.cd.detectChanges();
@@ -6330,38 +8154,56 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     async addOnlineVideoBlock() {
-        const url = prompt('Nhập link video Online (Facebook Reel/Video, YouTube, TikTok...):');
+        const url = prompt(
+            'Nhập link video Online (Facebook Reel/Video, YouTube, TikTok...):',
+        );
         if (!url || !url.trim()) return;
 
         const electronApi = (window as any).electron;
         if (!electronApi) {
-            this.toastr.error('Tính năng lấy luồng Online yêu cầu chạy trên ứng dụng Desktop.');
+            this.toastr.error(
+                'Tính năng lấy luồng Online yêu cầu chạy trên ứng dụng Desktop.',
+            );
             return;
         }
 
-        this.toastr.info('Đang phân tích link và trích xuất luồng video trực tiếp...', 'Vui lòng đợi', { timeOut: 10000 });
+        this.toastr.info(
+            'Đang phân tích link và trích xuất luồng video trực tiếp...',
+            'Vui lòng đợi',
+            { timeOut: 10000 },
+        );
 
         try {
-            const res = electronApi.extractOnlineVideoStream 
+            const res = electronApi.extractOnlineVideoStream
                 ? await electronApi.extractOnlineVideoStream(url.trim())
-                : await electronApi.invoke('extract-online-video-stream', url.trim());
+                : await electronApi.invoke(
+                      'extract-online-video-stream',
+                      url.trim(),
+                  );
 
             if (!res || !res.success || !res.streamUrl) {
-                this.toastr.error(res?.error || 'Không thể trích xuất luồng video từ link này.');
+                this.toastr.error(
+                    res?.error ||
+                        'Không thể trích xuất luồng video từ link này.',
+                );
                 return;
             }
 
             if (!this.projectData) this.projectData = { scenes: [] };
-            if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+            if (
+                !this.projectData.scenes ||
+                this.projectData.scenes.length === 0
+            ) {
                 this.projectData.scenes.push({
                     id: `scene_${Date.now()}`,
                     subtitles: [],
                     videos: [],
-                    prompt: ''
+                    prompt: '',
                 });
             }
 
-            const scene = this.projectData.scenes[this.projectData.scenes.length - 1];
+            const scene =
+                this.projectData.scenes[this.projectData.scenes.length - 1];
             if (!scene.videos) scene.videos = [];
 
             let maxStart = 0;
@@ -6380,7 +8222,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 sourceUrl: url.trim(),
                 trackIndex: this.selectedTargetTrackIdx || 0,
                 isOnlineStream: true,
-                isCompleted: true
+                isCompleted: true,
             };
 
             this.unmarkDeletedKey(res.streamUrl);
@@ -6395,14 +8237,23 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.cd.detectChanges();
             this.updateLines();
 
-            this.toastr.success(`Đã kết nối video Online: "${res.title || 'Video'}" (${res.duration}s)!`, 'Thành công');
+            this.toastr.success(
+                `Đã kết nối video Online: "${res.title || 'Video'}" (${res.duration}s)!`,
+                'Thành công',
+            );
         } catch (e: any) {
             this.toastr.error('Lỗi: ' + (e.message || e));
         }
     }
 
-    parseSrtContent(srtText: string): Array<{ text: string, startTime: number, duration: number }> {
-        const results: Array<{ text: string, startTime: number, duration: number }> = [];
+    parseSrtContent(
+        srtText: string,
+    ): Array<{ text: string; startTime: number; duration: number }> {
+        const results: Array<{
+            text: string;
+            startTime: number;
+            duration: number;
+        }> = [];
         if (!srtText) return results;
 
         const normalized = srtText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -6416,11 +8267,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const secParts = parts[2].split(/[,\.]/);
             const seconds = parseFloat(secParts[0]) || 0;
             const ms = parseFloat(secParts[1] || '0') || 0;
-            return hours * 3600 + minutes * 60 + seconds + (ms / 1000);
+            return hours * 3600 + minutes * 60 + seconds + ms / 1000;
         };
 
         for (const block of blocks) {
-            const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+            const lines = block
+                .trim()
+                .split('\n')
+                .map((l) => l.trim())
+                .filter(Boolean);
             if (lines.length < 2) continue;
 
             let timeLineIndex = -1;
@@ -6439,16 +8294,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             const startSec = parseTimestampToSeconds(startStr);
             const endSec = parseTimestampToSeconds(endStr);
-            const duration = Math.max(0.1, parseFloat((endSec - startSec).toFixed(2)));
+            const duration = Math.max(
+                0.1,
+                parseFloat((endSec - startSec).toFixed(2)),
+            );
 
             const textLines = lines.slice(timeLineIndex + 1);
-            const text = textLines.join(' ').replace(/<[^>]*>/g, '').trim();
+            const text = textLines
+                .join(' ')
+                .replace(/<[^>]*>/g, '')
+                .trim();
 
             if (text) {
                 results.push({
                     text,
                     startTime: parseFloat(startSec.toFixed(2)),
-                    duration
+                    duration,
                 });
             }
         }
@@ -6469,17 +8330,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const content = event.target.result;
                 const parsedSubs = this.parseSrtContent(content);
                 if (!parsedSubs || parsedSubs.length === 0) {
-                    this.toastr.error('Không tìm thấy nội dung phụ đề hợp lệ trong file SRT.');
+                    this.toastr.error(
+                        'Không tìm thấy nội dung phụ đề hợp lệ trong file SRT.',
+                    );
                     return;
                 }
 
                 if (!this.projectData) this.projectData = { scenes: [] };
-                if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+                if (
+                    !this.projectData.scenes ||
+                    this.projectData.scenes.length === 0
+                ) {
                     this.projectData.scenes.push({
                         id: `scene_${Date.now()}`,
                         subtitles: [],
                         videos: [],
-                        prompt: ''
+                        prompt: '',
                     });
                 }
 
@@ -6491,14 +8357,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     text: sub.text,
                     startTime: sub.startTime,
                     duration: sub.duration,
-                    maxDuration: sub.duration
+                    maxDuration: sub.duration,
                 }));
 
                 scene.subtitles = newItems;
                 this.saveData(true);
                 this.cd.detectChanges();
                 this.updateLines();
-                this.toastr.success(`Đã nạp thành công ${newItems.length} câu phụ đề từ file SRT!`, 'Thành công');
+                this.toastr.success(
+                    `Đã nạp thành công ${newItems.length} câu phụ đề từ file SRT!`,
+                    'Thành công',
+                );
             };
             reader.readAsText(file, 'utf-8');
         };
@@ -6514,9 +8383,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
-    async splitVideoScenesAI(video: any, scene: any, sceneIdx: number, vIdx: number) {
+    async splitVideoScenesAI(
+        video: any,
+        scene: any,
+        sceneIdx: number,
+        vIdx: number,
+    ) {
         if (!video || !video.videoUrl) {
-            this.toastr.warning('Không tìm thấy đường dẫn video để phân tích phân cảnh.');
+            this.toastr.warning(
+                'Không tìm thấy đường dẫn video để phân tích phân cảnh.',
+            );
             return;
         }
 
@@ -6528,10 +8404,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         video.isAnalyzingScenes = true;
         this.isProcessing = true;
-        this.processingStatusTitle = 'Đang phân tích phân cảnh video bằng AI...';
-        this.processingStatusMessage = 'Hệ thống đang trích xuất khung hình và gọi AI để nhận diện các chuyển cảnh (shots / scenes)...';
+        this.processingStatusTitle =
+            'Đang phân tích phân cảnh video bằng AI...';
+        this.processingStatusMessage =
+            'Hệ thống đang trích xuất khung hình và gọi AI để nhận diện các chuyển cảnh (shots / scenes)...';
         this.cd.detectChanges();
-        this.toastr.info('Đang trích xuất khung hình video để AI phân tích phân cảnh...', 'AI đang xử lý', { timeOut: 8000 });
+        this.toastr.info(
+            'Đang trích xuất khung hình video để AI phân tích phân cảnh...',
+            'AI đang xử lý',
+            { timeOut: 8000 },
+        );
 
         try {
             let originalPath = video.videoUrl;
@@ -6546,29 +8428,51 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             const clipTrimStart = Number(video.trimStart) || 0;
             const clipDuration = Number(video.duration) || 10;
-            const videoStart = (video.startTime !== undefined && video.startTime !== null && !isNaN(video.startTime)) ? Number(video.startTime) : 0;
-            const originalMaxDuration = Number(video.maxDuration) || clipDuration;
+            const videoStart =
+                video.startTime !== undefined &&
+                video.startTime !== null &&
+                !isNaN(video.startTime)
+                    ? Number(video.startTime)
+                    : 0;
+            const originalMaxDuration =
+                Number(video.maxDuration) || clipDuration;
 
             // 1. Trích xuất frames và mốc thời gian từ FFmpeg
-            const extractRes = await electron.invoke('detect-video-scenes-and-frames', {
-                videoPath: originalPath,
-                startTime: clipTrimStart,
-                duration: clipDuration
-            });
+            const extractRes = await electron.invoke(
+                'detect-video-scenes-and-frames',
+                {
+                    videoPath: originalPath,
+                    startTime: clipTrimStart,
+                    duration: clipDuration,
+                },
+            );
 
-            if (!extractRes || !extractRes.success || !extractRes.frames || extractRes.frames.length === 0) {
+            if (
+                !extractRes ||
+                !extractRes.success ||
+                !extractRes.frames ||
+                extractRes.frames.length === 0
+            ) {
                 throw new Error('Không trích xuất được khung hình từ video');
             }
 
             const frames = extractRes.frames || [];
-            const actualDuration = Number(extractRes.totalDuration) || clipDuration;
+            const actualDuration =
+                Number(extractRes.totalDuration) || clipDuration;
             const naturalScenes: any[] = extractRes.scenes || [];
 
-            this.toastr.info(`Đã phát hiện ${naturalScenes.length} phân cảnh tự nhiên. Đang gửi cho Gemini AI phân tích nội dung và góc quay...`, 'AI Vision', { timeOut: 10000 });
+            this.toastr.info(
+                `Đã phát hiện ${naturalScenes.length} phân cảnh tự nhiên. Đang gửi cho Gemini AI phân tích nội dung và góc quay...`,
+                'AI Vision',
+                { timeOut: 10000 },
+            );
 
             // 2. Chuẩn bị ảnh gửi Gemini AI để sinh Prompt cho từng phân cảnh tự nhiên
             const maxFramesToSend = Math.min(24, frames.length);
-            const step = Math.max(1, Math.floor(frames.length / maxFramesToSend));
+            const step = Math.max(
+                1,
+                Math.floor(frames.length / maxFramesToSend),
+            );
             const selectedFrames: any[] = [];
             for (let i = 0; i < frames.length; i += step) {
                 selectedFrames.push(frames[i]);
@@ -6599,8 +8503,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     parts.push({
                         inlineData: {
                             mimeType: 'image/jpeg',
-                            data: f.base64
-                        }
+                            data: f.base64,
+                        },
                     });
                 }
             }
@@ -6617,19 +8521,31 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                         responseMimeType: 'application/json',
                         skipTTS: true,
                         maxTurns: 1,
-                        systemInstruction: 'Bạn là chuyên gia phân tích thị giác video. Hãy mô tả điện ảnh cho từng khung hình phân cảnh được cung cấp.'
-                    } as any
+                        systemInstruction:
+                            'Bạn là chuyên gia phân tích thị giác video. Hãy mô tả điện ảnh cho từng khung hình phân cảnh được cung cấp.',
+                    } as any,
                 });
 
                 let rawText = '';
                 if (typeof response === 'string') rawText = response;
-                else if ((response as any)?.text) rawText = typeof (response as any).text === 'function' ? (response as any).text() : (response as any).text;
-                else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    rawText = (response as any).candidates[0].content.parts[0].text;
+                else if ((response as any)?.text)
+                    rawText =
+                        typeof (response as any).text === 'function'
+                            ? (response as any).text()
+                            : (response as any).text;
+                else if (
+                    (response as any)?.candidates?.[0]?.content?.parts?.[0]
+                        ?.text
+                ) {
+                    rawText = (response as any).candidates[0].content.parts[0]
+                        .text;
                 }
 
                 console.log('[SplitVideoScenesAI] Phản hồi AI:', rawText);
-                const cleanText = (rawText || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+                const cleanText = (rawText || '')
+                    .replace(/```json/gi, '')
+                    .replace(/```/g, '')
+                    .trim();
                 let parsed: any = null;
                 try {
                     parsed = JSON.parse(cleanText);
@@ -6637,7 +8553,11 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     const sArr = cleanText.indexOf('[');
                     const eArr = cleanText.lastIndexOf(']');
                     if (sArr >= 0 && eArr > sArr) {
-                        try { parsed = JSON.parse(cleanText.substring(sArr, eArr + 1)); } catch (e2) {}
+                        try {
+                            parsed = JSON.parse(
+                                cleanText.substring(sArr, eArr + 1),
+                            );
+                        } catch (e2) {}
                     }
                 }
                 if (Array.isArray(parsed)) {
@@ -6648,29 +8568,51 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
             }
 
             // Gán mô tả AI vào từng phân cảnh tự nhiên
-            let detectedScenes: Array<{ startTime: number, endTime: number, prompt: string, cameraMovement?: string, keyframeIndex?: number }> = [];
+            let detectedScenes: Array<{
+                startTime: number;
+                endTime: number;
+                prompt: string;
+                cameraMovement?: string;
+                keyframeIndex?: number;
+            }> = [];
 
             if (naturalScenes.length > 0) {
                 detectedScenes = naturalScenes.map((sc, i) => {
                     // Tìm mô tả AI gần nhất
-                    const desc = aiDescriptions.find(d => d.index === i) || aiDescriptions[Math.min(aiDescriptions.length - 1, Math.floor((i / naturalScenes.length) * aiDescriptions.length))];
+                    const desc =
+                        aiDescriptions.find((d) => d.index === i) ||
+                        aiDescriptions[
+                            Math.min(
+                                aiDescriptions.length - 1,
+                                Math.floor(
+                                    (i / naturalScenes.length) *
+                                        aiDescriptions.length,
+                                ),
+                            )
+                        ];
                     return {
                         startTime: sc.startTime,
                         endTime: sc.endTime,
-                        prompt: desc?.prompt ? String(desc.prompt).trim() : `Phân cảnh ${i + 1}: ${video.prompt || 'Đoạn video gốc'} (${sc.startTime}s - ${sc.endTime}s)`,
-                        cameraMovement: desc?.cameraMovement ? String(desc.cameraMovement).trim() : 'Cinematic shot',
-                        keyframeIndex: i
+                        prompt: desc?.prompt
+                            ? String(desc.prompt).trim()
+                            : `Phân cảnh ${i + 1}: ${video.prompt || 'Đoạn video gốc'} (${sc.startTime}s - ${sc.endTime}s)`,
+                        cameraMovement: desc?.cameraMovement
+                            ? String(desc.cameraMovement).trim()
+                            : 'Cinematic shot',
+                        keyframeIndex: i,
                     };
                 });
             } else {
                 // Fallback nếu không có naturalScenes
-                detectedScenes = [{
-                    startTime: 0,
-                    endTime: actualDuration,
-                    prompt: video.prompt || 'Phân cảnh gốc',
-                    cameraMovement: 'Cinematic shot',
-                    keyframeIndex: 0
-                }];
+                detectedScenes = [
+                    {
+                        startTime: 0,
+                        endTime: actualDuration,
+                        prompt: video.prompt || 'Phân cảnh gốc',
+                        cameraMovement: 'Cinematic shot',
+                        keyframeIndex: 0,
+                    },
+                ];
             }
 
             // Sắp xếp và đảm bảo nối liền mạch
@@ -6681,32 +8623,56 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                 detectedScenes[i + 1].startTime = detectedScenes[i].endTime;
             }
 
-            this.processingStatusMessage = 'AI đã phân tích xong. FFmpeg đang cắt video thành các clip phân cảnh riêng biệt kèm âm thanh...';
+            this.processingStatusMessage =
+                'AI đã phân tích xong. FFmpeg đang cắt video thành các clip phân cảnh riêng biệt kèm âm thanh...';
             this.cd.detectChanges();
 
             let splitClipsRes: any = null;
             try {
-                splitClipsRes = await electron.invoke('split-video-clips-ffmpeg', {
-                    videoPath: originalPath,
-                    scenes: detectedScenes
-                });
-                console.log('[SplitVideoScenesAI] Cắt video thành công:', splitClipsRes);
+                splitClipsRes = await electron.invoke(
+                    'split-video-clips-ffmpeg',
+                    {
+                        videoPath: originalPath,
+                        scenes: detectedScenes,
+                    },
+                );
+                console.log(
+                    '[SplitVideoScenesAI] Cắt video thành công:',
+                    splitClipsRes,
+                );
             } catch (cutErr) {
-                console.warn('[SplitVideoScenesAI] Cắt video bằng FFmpeg thất bại, dùng clip tham chiếu:', cutErr);
+                console.warn(
+                    '[SplitVideoScenesAI] Cắt video bằng FFmpeg thất bại, dùng clip tham chiếu:',
+                    cutErr,
+                );
             }
 
             // 3. Tạo các khối video blocks mới
             const newVideoBlocks: any[] = [];
             for (let i = 0; i < detectedScenes.length; i++) {
                 const sc = detectedScenes[i];
-                const scDur = Math.max(0.3, Math.round((sc.endTime - sc.startTime) * 100) / 100);
-                const scStart = Math.round((videoStart + sc.startTime) * 100) / 100;
+                const scDur = Math.max(
+                    0.3,
+                    Math.round((sc.endTime - sc.startTime) * 100) / 100,
+                );
+                const scStart =
+                    Math.round((videoStart + sc.startTime) * 100) / 100;
                 const clipObj = splitClipsRes?.clips?.[i];
 
                 // Chọn ảnh thumbnail
-                let chosenThumbUrl = clipObj?.imageUrl || video.imageUrl || null;
+                let chosenThumbUrl =
+                    clipObj?.imageUrl || video.imageUrl || null;
                 if (!chosenThumbUrl) {
-                    const targetFrame = frames[sc.keyframeIndex ?? 0] || frames[Math.min(frames.length - 1, Math.floor((i / detectedScenes.length) * frames.length))];
+                    const targetFrame =
+                        frames[sc.keyframeIndex ?? 0] ||
+                        frames[
+                            Math.min(
+                                frames.length - 1,
+                                Math.floor(
+                                    (i / detectedScenes.length) * frames.length,
+                                ),
+                            )
+                        ];
                     if (targetFrame && targetFrame.url) {
                         chosenThumbUrl = targetFrame.url;
                     }
@@ -6720,18 +8686,28 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     cameraMovement: sc.cameraMovement || '',
                     startTime: scStart,
                     duration: clipObj ? clipObj.duration : scDur,
-                    maxDuration: clipObj ? clipObj.duration : originalMaxDuration,
-                    trimStart: clipObj ? 0 : Math.round((clipTrimStart + sc.startTime) * 100) / 100,
-                    trimEnd: clipObj ? clipObj.duration : Math.round((clipTrimStart + sc.endTime) * 100) / 100,
+                    maxDuration: clipObj
+                        ? clipObj.duration
+                        : originalMaxDuration,
+                    trimStart: clipObj
+                        ? 0
+                        : Math.round((clipTrimStart + sc.startTime) * 100) /
+                          100,
+                    trimEnd: clipObj
+                        ? clipObj.duration
+                        : Math.round((clipTrimStart + sc.endTime) * 100) / 100,
                     muted: video.muted || false,
                     isAiSplitScene: true,
-                    sceneIndex: i + 1
+                    sceneIndex: i + 1,
                 });
             }
 
             // 4. Thay thế video clip cũ bằng danh sách các video clip phân cảnh mới
             if (scene && scene.videos && Array.isArray(scene.videos)) {
-                const targetIdx = (vIdx !== undefined && vIdx >= 0) ? vIdx : scene.videos.indexOf(video);
+                const targetIdx =
+                    vIdx !== undefined && vIdx >= 0
+                        ? vIdx
+                        : scene.videos.indexOf(video);
                 if (targetIdx >= 0) {
                     scene.videos.splice(targetIdx, 1, ...newVideoBlocks);
                 } else {
@@ -6750,10 +8726,16 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                 this.cd.detectChanges();
             }, 200);
 
-            this.toastr.success(`AI đã phân tích và chia video thành ${newVideoBlocks.length} phân cảnh chi tiết!`, 'Bóc tách phân cảnh thành công', { timeOut: 7000 });
+            this.toastr.success(
+                `AI đã phân tích và chia video thành ${newVideoBlocks.length} phân cảnh chi tiết!`,
+                'Bóc tách phân cảnh thành công',
+                { timeOut: 7000 },
+            );
         } catch (err: any) {
             console.error('[SplitVideoScenesAI] Lỗi:', err);
-            this.toastr.error('Lỗi khi bóc tách phân cảnh video: ' + (err?.message || err));
+            this.toastr.error(
+                'Lỗi khi bóc tách phân cảnh video: ' + (err?.message || err),
+            );
         } finally {
             video.isAnalyzingScenes = false;
             this.isProcessing = false;
@@ -6766,12 +8748,15 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
     magicKlingV3(video: any, scene: any, sceneIdx: number, vIdx: number) {
         const dialogRef = this.dialog.open(MagicKlingPromptDialogComponent, {
             width: '680px',
-            data: { prompt: video.prompt || '', attachmentUrl: video.aiReferenceImageLocalUrl || null }
+            data: {
+                prompt: video.prompt || '',
+                attachmentUrl: video.aiReferenceImageLocalUrl || null,
+            },
         });
 
         dialogRef.afterClosed().subscribe(async (result) => {
             if (!result || result.prompt === undefined) return; // User cancelled
-            
+
             // Update the prompt
             video.prompt = result.prompt.trim();
             if (result.attachmentUrl) {
@@ -6779,44 +8764,76 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
             } else {
                 video.aiReferenceImageLocalUrl = null;
             }
-            
+
             // Mock AI processing
             await this.processMagicKlingV3(video, scene, sceneIdx, vIdx);
         });
     }
 
-    async processMagicKlingV3(video: any, scene: any, sceneIdx: number, vIdx: number) {
+    async processMagicKlingV3(
+        video: any,
+        scene: any,
+        sceneIdx: number,
+        vIdx: number,
+    ) {
         const electronApi = (window as any).electron;
         if (!electronApi || !video.videoUrl) return;
 
-        this.toastr.info('Hệ thống đang trích xuất frame để gửi cho AI...', 'Đang xử lý');
-        
+        this.toastr.info(
+            'Hệ thống đang trích xuất frame để gửi cho AI...',
+            'Đang xử lý',
+        );
+
         try {
-            const extractPayload = { 
-                videoPath: video.videoUrl, 
+            const extractPayload = {
+                videoPath: video.videoUrl,
                 startTime: video.trimStart || 0,
-                duration: video.duration 
+                duration: video.duration,
             };
-            const extractResult = await electronApi.invoke('extract-video-frames', extractPayload);
-            
-            if (extractResult && extractResult.success && extractResult.paths.length > 0) {
+            const extractResult = await electronApi.invoke(
+                'extract-video-frames',
+                extractPayload,
+            );
+
+            if (
+                extractResult &&
+                extractResult.success &&
+                extractResult.paths.length > 0
+            ) {
                 const fps = extractResult.fps || 1;
-                const firstFramePath = extractResult.paths[0].replace('file://', '');
-                const dirPath = firstFramePath.substring(0, Math.max(firstFramePath.lastIndexOf('/'), firstFramePath.lastIndexOf('\\')));
-                
-                this.toastr.info(`Đã trích xuất ${extractResult.paths.length} frame. Đang gửi cho Hệ thống AI (3 Tầng) xử lý từng frame một...`, 'Đang xử lý', { timeOut: 5000 });
-                
+                const firstFramePath = extractResult.paths[0].replace(
+                    'file://',
+                    '',
+                );
+                const dirPath = firstFramePath.substring(
+                    0,
+                    Math.max(
+                        firstFramePath.lastIndexOf('/'),
+                        firstFramePath.lastIndexOf('\\'),
+                    ),
+                );
+
+                this.toastr.info(
+                    `Đã trích xuất ${extractResult.paths.length} frame. Đang gửi cho Hệ thống AI (3 Tầng) xử lý từng frame một...`,
+                    'Đang xử lý',
+                    { timeOut: 5000 },
+                );
+
                 // Chuẩn bị ảnh tham khảo (Reference Image)
                 let referenceBase64 = null;
                 if (video.aiReferenceImageLocalUrl) {
                     try {
-                        referenceBase64 = await this.getBase64FromImageUrl(video.aiReferenceImageLocalUrl);
+                        referenceBase64 = await this.getBase64FromImageUrl(
+                            video.aiReferenceImageLocalUrl,
+                        );
                     } catch (e) {
-                        console.error("Lỗi đọc ảnh reference:", e);
+                        console.error('Lỗi đọc ảnh reference:', e);
                     }
                 }
-                
-                const prompt = video.prompt || "Thực hiện face swap hoặc thay đổi chi tiết như yêu cầu.";
+
+                const prompt =
+                    video.prompt ||
+                    'Thực hiện face swap hoặc thay đổi chi tiết như yêu cầu.';
                 let successCount = 0;
 
                 // Xử lý từng frame bằng AI 3 Tầng thông qua GenaiService
@@ -6824,95 +8841,127 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     for (let i = 0; i < extractResult.paths.length; i++) {
                         try {
                             const pathStr = extractResult.paths[i];
-                            const frameBase64 = await this.getBase64FromImageUrl(pathStr.startsWith('file://') ? pathStr : 'file://' + pathStr);
-                            
+                            const frameBase64 =
+                                await this.getBase64FromImageUrl(
+                                    pathStr.startsWith('file://')
+                                        ? pathStr
+                                        : 'file://' + pathStr,
+                                );
+
                             const parts: any[] = [{ text: prompt }];
-                            
+
                             // 1. Ảnh frame gốc cần sửa (LUÔN ĐỨNG TRƯỚC ĐỂ LÀM BASE IMAGE TRONG IMAGE-TO-IMAGE)
                             parts.push({
                                 inlineData: {
                                     mimeType: 'image/jpeg',
-                                    data: frameBase64
-                                }
+                                    data: frameBase64,
+                                },
                             });
-                            
+
                             // 2. Ảnh tham khảo (Control Image / Face)
                             if (referenceBase64) {
                                 parts.push({
                                     inlineData: {
                                         mimeType: 'image/png',
-                                        data: referenceBase64
-                                    }
+                                        data: referenceBase64,
+                                    },
                                 });
                             }
-                            
+
                             // Gọi Tầng AI cao nhất đang được cấu hình
-                            const response = await this._genaiService.generateContent({
-                                model: 'gemini-3.6-flash', // Tự động fallback trong service
-                                contents: [{ role: 'user', parts: parts }],
-                                config: {
-                                    responseModalities: ['IMAGE']
-                                } as any
-                            });
-                            
+                            const response =
+                                await this._genaiService.generateContent({
+                                    model: 'gemini-3.6-flash', // Tự động fallback trong service
+                                    contents: [{ role: 'user', parts: parts }],
+                                    config: {
+                                        responseModalities: ['IMAGE'],
+                                    } as any,
+                                });
+
                             let editedBase64 = null;
-                            if (response.candidates && response.candidates.length > 0) {
-                                for (const part of response.candidates[0].content.parts) {
+                            if (
+                                response.candidates &&
+                                response.candidates.length > 0
+                            ) {
+                                for (const part of response.candidates[0]
+                                    .content.parts) {
                                     if (part.inlineData) {
                                         editedBase64 = part.inlineData.data;
                                         break;
                                     }
                                 }
                             }
-                            
+
                             if (editedBase64) {
-                                await electronApi.invoke('overwrite-file-base64', {
-                                    filePath: pathStr,
-                                    base64: editedBase64
-                                });
+                                await electronApi.invoke(
+                                    'overwrite-file-base64',
+                                    {
+                                        filePath: pathStr,
+                                        base64: editedBase64,
+                                    },
+                                );
                                 successCount++;
                                 if (i % 5 === 0) {
-                                    this.toastr.info(`Đã AI hóa xong frame ${i + 1}/${extractResult.paths.length}...`);
+                                    this.toastr.info(
+                                        `Đã AI hóa xong frame ${i + 1}/${extractResult.paths.length}...`,
+                                    );
                                 }
                             } else {
-                                console.warn(`AI không trả về ảnh cho frame ${i + 1}`);
+                                console.warn(
+                                    `AI không trả về ảnh cho frame ${i + 1}`,
+                                );
                             }
                         } catch (frameErr: any) {
-                            console.error(`Lỗi xử lý frame ${i + 1}:`, frameErr);
+                            console.error(
+                                `Lỗi xử lý frame ${i + 1}:`,
+                                frameErr,
+                            );
                         }
                     }
                 } else {
-                    this.toastr.warning("Hệ thống AI không khả dụng. Bỏ qua chỉnh sửa.");
+                    this.toastr.warning(
+                        'Hệ thống AI không khả dụng. Bỏ qua chỉnh sửa.',
+                    );
                 }
-                
-                this.toastr.info(`Đã AI hóa thành công ${successCount}/${extractResult.paths.length} frames. Đang gộp lại thành video...`);
-                
+
+                this.toastr.info(
+                    `Đã AI hóa thành công ${successCount}/${extractResult.paths.length} frames. Đang gộp lại thành video...`,
+                );
+
                 const mergePayload = { dirPath, fps };
-                const mergeResult = await electronApi.invoke('merge-frames-to-video', mergePayload);
-                
+                const mergeResult = await electronApi.invoke(
+                    'merge-frames-to-video',
+                    mergePayload,
+                );
+
                 if (mergeResult && mergeResult.success) {
                     let finalUrl = mergeResult.videoPath;
                     if (!finalUrl.startsWith('file://')) {
                         finalUrl = `file://${finalUrl.replace(/\\/g, '/')}`;
                     }
-                    
+
                     // Cập nhật video block
                     video.videoUrl = finalUrl;
                     video.magicKlingApplied = true;
                     video.trimStart = 0;
                     video.trimEnd = undefined;
                     video.maxDuration = undefined;
-                    
+
                     this.normalizeData();
                     this.saveData(true);
                     this.cd.detectChanges();
                     setTimeout(() => this.updateLines(), 200);
-                    
-                    this.toastr.success('Hoàn tất! Video đã được AI (3 Tầng) tái tạo xong!');
+
+                    this.toastr.success(
+                        'Hoàn tất! Video đã được AI (3 Tầng) tái tạo xong!',
+                    );
                 }
             } else {
-                console.error("extractResult:", extractResult);
-                this.toastr.error('Không thể trích xuất khung hình. Chi tiết: ' + JSON.stringify(extractResult));
+                console.error('extractResult:', extractResult);
+                this.toastr.error(
+                    'Không thể trích xuất khung hình. Chi tiết: ' +
+                        JSON.stringify(extractResult),
+                );
             }
         } catch (err: any) {
             console.error('Lỗi quy trình Magic Kling:', err);
@@ -6922,7 +8971,13 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
 
     isImageType(url: string): boolean {
         const imageExtensions = [
-            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg',
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'bmp',
+            'webp',
+            'svg',
         ];
         let cleanUrl = url.replace('file://', '').replace('media://', '');
         const fileExtension = cleanUrl.split('.').pop()?.toLowerCase();
@@ -6941,14 +8996,21 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
             prompt: '',
             imageUrl: null,
             type: type,
-            videos: [{
-                id: 1,
-                prompt: '',
-                imageUrl: null,
-                duration: 5,
-                maxDuration: 5,
-                referenceType: type === 'first_frame' ? 'START_FRAME' : (type === 'last_frame' ? 'END_FRAME' : undefined)
-            }]
+            videos: [
+                {
+                    id: 1,
+                    prompt: '',
+                    imageUrl: null,
+                    duration: 5,
+                    maxDuration: 5,
+                    referenceType:
+                        type === 'first_frame'
+                            ? 'START_FRAME'
+                            : type === 'last_frame'
+                              ? 'END_FRAME'
+                              : undefined,
+                },
+            ],
         };
 
         if (insertAfterIndex !== undefined && insertAfterIndex >= 0) {
@@ -6956,7 +9018,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         } else {
             this.projectData.scenes.push(newScene);
         }
-        
+
         this.saveData();
         this.cd.detectChanges();
     }
@@ -6972,7 +9034,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                 prompt: '',
                 characters: this.projectData?.characters || [],
                 masterPrompt: this.projectData?.masterPrompt || '',
-                availableClips: this.allClips
+                availableClips: this.allClips,
             },
         });
 
@@ -6985,8 +9047,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                         text: clip.description,
                         duration: clip.duration || 0,
                         maxDuration: clip.duration || 0,
-                        audioUrl: clip.localFilePath ? `file://${clip.localFilePath.replace(/\\/g, '/')}` : null
-                    }
+                        audioUrl: clip.localFilePath
+                            ? `file://${clip.localFilePath.replace(/\\/g, '/')}`
+                            : null,
+                    },
                 ];
 
                 const totalDuration = clip.duration || 8;
@@ -6996,29 +9060,42 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                     subtitles: formattedSubtitles,
                     prompt: result.prompt.trim(),
                     imageUrl: null,
-                    videos: [{
-                        id: 1,
-                        prompt: result.prompt.trim(),
-                        imageUrl: null,
-                        duration: totalDuration,
-                        maxDuration: totalDuration
-                    }]
+                    videos: [
+                        {
+                            id: 1,
+                            prompt: result.prompt.trim(),
+                            imageUrl: null,
+                            duration: totalDuration,
+                            maxDuration: totalDuration,
+                        },
+                    ],
                 };
 
                 if (!this.projectData) this.projectData = { scenes: [] };
                 if (!this.projectData.scenes) this.projectData.scenes = [];
 
                 let targetIndex = this.projectData.scenes.length;
-                
-                if (insertAfterIndex !== undefined && insertAfterIndex !== null) {
+
+                if (
+                    insertAfterIndex !== undefined &&
+                    insertAfterIndex !== null
+                ) {
                     targetIndex = insertAfterIndex + 1;
                 } else if (this.activeItem) {
                     // activeItem is the raw video/audio object, find its scene index
-                    for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                    for (
+                        let sIdx = 0;
+                        sIdx < this.projectData.scenes.length;
+                        sIdx++
+                    ) {
                         const s = this.projectData.scenes[sIdx];
-                        if ((s.videos && s.videos.includes(this.activeItem)) ||
-                            (s.subtitles && s.subtitles.includes(this.activeItem)) ||
-                            (s.extractedAudios && s.extractedAudios.includes(this.activeItem))) {
+                        if (
+                            (s.videos && s.videos.includes(this.activeItem)) ||
+                            (s.subtitles &&
+                                s.subtitles.includes(this.activeItem)) ||
+                            (s.extractedAudios &&
+                                s.extractedAudios.includes(this.activeItem))
+                        ) {
                             targetIndex = sIdx + 1; // Insert AFTER the scene containing the active item
                             break;
                         }
@@ -7038,7 +9115,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                 // Tự động focus vào video mới tạo
                 setTimeout(() => {
                     this.setActiveItem(newScene.videos[0]);
-                    this.currentTimelineTime = (newScene.videos[0] as any).startTime || 0;
+                    this.currentTimelineTime =
+                        (newScene.videos[0] as any).startTime || 0;
                     this.updateTimelineSync();
                     this.cd.detectChanges();
                 }, 100);
@@ -7046,9 +9124,14 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
 
                 setTimeout(() => {
                     const el = this.scrollContainer.elementRef.nativeElement;
-                    const startX = ((newScene.videos[0] as any).startTime || 0) * this.pixelsPerSecond;
+                    const startX =
+                        ((newScene.videos[0] as any).startTime || 0) *
+                        this.pixelsPerSecond;
                     // Chỉ scroll nếu điểm bắt đầu nằm ngoài màn hình
-                    if (startX < el.scrollLeft || startX > el.scrollLeft + el.clientWidth) {
+                    if (
+                        startX < el.scrollLeft ||
+                        startX > el.scrollLeft + el.clientWidth
+                    ) {
                         el.scrollLeft = Math.max(0, startX - 100); // 100px padding
                     }
                     this.updateLines();
@@ -7060,14 +9143,25 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
     isAudioMuted(audio: any, scene?: any): boolean {
         if (!audio) return false;
         if (audio.muted || audio.disabled) return true;
-        const parentScene = scene || (this.projectData?.scenes ? this.projectData.scenes.find((s: any) => s.extractedAudios && s.extractedAudios.includes(audio)) : null);
+        const parentScene =
+            scene ||
+            (this.projectData?.scenes
+                ? this.projectData.scenes.find(
+                      (s: any) =>
+                          s.extractedAudios &&
+                          s.extractedAudios.includes(audio),
+                  )
+                : null);
         if (parentScene && parentScene.videos) {
             const start = audio.startTime || 0;
             const end = start + (audio.duration || 5);
             const cov = parentScene.videos.find((v: any) => {
                 const vStart = v.startTime || 0;
                 const vEnd = vStart + (v.duration || 5);
-                return (start >= vStart - 0.05 && start < vEnd) || (end > vStart && end <= vEnd + 0.05);
+                return (
+                    (start >= vStart - 0.05 && start < vEnd) ||
+                    (end > vStart && end <= vEnd + 0.05)
+                );
             });
             if (cov && (cov.muted || cov.disabled)) return true;
         }
@@ -7083,11 +9177,18 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
 
         if (this.projectData?.scenes) {
             for (const scene of this.projectData.scenes) {
-                if (scene.videos && scene.videos.includes(video) && scene.extractedAudios) {
+                if (
+                    scene.videos &&
+                    scene.videos.includes(video) &&
+                    scene.extractedAudios
+                ) {
                     for (const audio of scene.extractedAudios) {
                         const aStart = audio.startTime || 0;
                         const aEnd = aStart + (audio.duration || 5);
-                        if ((aStart >= vStart - 0.05 && aStart < vEnd) || (aEnd > vStart && aEnd <= vEnd + 0.05)) {
+                        if (
+                            (aStart >= vStart - 0.05 && aStart < vEnd) ||
+                            (aEnd > vStart && aEnd <= vEnd + 0.05)
+                        ) {
                             audio.muted = video.muted;
                         }
                     }
@@ -7107,7 +9208,11 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         this.updateTimelineSync(true);
         this.saveData();
         this.cd.detectChanges();
-        this.toastr.info(video.muted ? 'Đã tắt âm thanh video và âm thanh gốc.' : 'Đã bật lại âm thanh video và âm thanh gốc.');
+        this.toastr.info(
+            video.muted
+                ? 'Đã tắt âm thanh video và âm thanh gốc.'
+                : 'Đã bật lại âm thanh video và âm thanh gốc.',
+        );
     }
 
     toggleVideoDisabled(video: any) {
@@ -7119,11 +9224,18 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
 
         if (this.projectData?.scenes) {
             for (const scene of this.projectData.scenes) {
-                if (scene.videos && scene.videos.includes(video) && scene.extractedAudios) {
+                if (
+                    scene.videos &&
+                    scene.videos.includes(video) &&
+                    scene.extractedAudios
+                ) {
                     for (const audio of scene.extractedAudios) {
                         const aStart = audio.startTime || 0;
                         const aEnd = aStart + (audio.duration || 5);
-                        if ((aStart >= vStart - 0.05 && aStart < vEnd) || (aEnd > vStart && aEnd <= vEnd + 0.05)) {
+                        if (
+                            (aStart >= vStart - 0.05 && aStart < vEnd) ||
+                            (aEnd > vStart && aEnd <= vEnd + 0.05)
+                        ) {
                             audio.disabled = video.disabled;
                         }
                     }
@@ -7142,13 +9254,22 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         this.updateTimelineSync(true);
         this.saveData();
         this.cd.detectChanges();
-        this.toastr.info(video.disabled ? 'Đã tạm tắt video và âm thanh gốc.' : 'Đã bật lại video và âm thanh gốc.');
+        this.toastr.info(
+            video.disabled
+                ? 'Đã tạm tắt video và âm thanh gốc.'
+                : 'Đã bật lại video và âm thanh gốc.',
+        );
     }
 
     async extractAudio(video?: any, sceneIdx?: number) {
-        const targetVideo = video || this.selectedContextData?.video || this.currentSelectedVideo;
+        const targetVideo =
+            video ||
+            this.selectedContextData?.video ||
+            this.currentSelectedVideo;
         if (!targetVideo) {
-            this.toastr.warning('Vui lòng chọn 1 video trên Timeline để tạo phụ đề.');
+            this.toastr.warning(
+                'Vui lòng chọn 1 video trên Timeline để tạo phụ đề.',
+            );
             return;
         }
         if (!targetVideo.videoUrl) {
@@ -7157,7 +9278,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         }
 
         let targetSceneIdx = sceneIdx;
-        let scene = (targetSceneIdx !== undefined && targetSceneIdx !== null) ? this.projectData?.scenes?.[targetSceneIdx] : null;
+        let scene =
+            targetSceneIdx !== undefined && targetSceneIdx !== null
+                ? this.projectData?.scenes?.[targetSceneIdx]
+                : null;
         if (!scene) {
             const ctx = this.findVideoContext(targetVideo);
             if (ctx) {
@@ -7174,18 +9298,24 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
 
         const electron = (window as any).electron;
         if (!electron || !electron.extractAudio || !electron.getPathForFile) {
-            this.toastr.error('Tính năng tách audio không khả dụng (Electron error).');
+            this.toastr.error(
+                'Tính năng tách audio không khả dụng (Electron error).',
+            );
             return;
         }
 
         videoItem.isExtractingAudio = true;
         this.isExtractingAudio = true;
         this.processingStatusTitle = 'Đang bóc tách âm thanh AI...';
-        this.processingStatusMessage = 'AI đang lắng nghe và nhận diện câu thoại khớp theo thời lượng video...';
+        this.processingStatusMessage =
+            'AI đang lắng nghe và nhận diện câu thoại khớp theo thời lượng video...';
         this.cd.detectChanges();
 
         try {
-            this.toastr.info('Đang trích xuất âm thanh gốc từ video...', 'Đang xử lý');
+            this.toastr.info(
+                'Đang trích xuất âm thanh gốc từ video...',
+                'Đang xử lý',
+            );
             let originalPath = videoItem.videoUrl;
             if (originalPath.startsWith('media://')) {
                 originalPath = decodeURIComponent(originalPath.substring(8));
@@ -7195,32 +9325,59 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
             if (originalPath.match(/^\/[a-zA-Z]:[\\/]/)) {
                 originalPath = originalPath.substring(1);
             }
-            
+
             // 1. Tách audio tổng khớp chính xác thời lượng và trim của video clip
             const clipDuration = Number(video.duration) || 5;
             const clipTrimStart = Number(video.trimStart) || 0;
             const extractRes = await electron.extractAudio({
                 videoPath: originalPath,
                 startTime: clipTrimStart,
-                duration: clipDuration
+                duration: clipDuration,
             });
 
-            const extractedAudioPath = typeof extractRes === 'string' ? extractRes : extractRes.audioPath;
-            const exactAudioDur = (typeof extractRes === 'object' && extractRes.duration > 0) ? Number(extractRes.duration) : clipDuration;
-            const actualDuration = exactAudioDur > 0 ? Math.round(exactAudioDur * 100) / 100 : clipDuration;
+            const extractedAudioPath =
+                typeof extractRes === 'string'
+                    ? extractRes
+                    : extractRes.audioPath;
+            const exactAudioDur =
+                typeof extractRes === 'object' && extractRes.duration > 0
+                    ? Number(extractRes.duration)
+                    : clipDuration;
+            const actualDuration =
+                exactAudioDur > 0
+                    ? Math.round(exactAudioDur * 100) / 100
+                    : clipDuration;
             video.duration = actualDuration;
-            if (video.maxDuration === undefined || video.maxDuration < actualDuration) {
+            if (
+                video.maxDuration === undefined ||
+                video.maxDuration < actualDuration
+            ) {
                 video.maxDuration = actualDuration;
             }
 
-            this.toastr.info('Đang gửi âm thanh cho AI để nhận diện lời thoại & ngắt câu...', 'AI đang xử lý', { timeOut: 10000 });
+            this.toastr.info(
+                'Đang gửi âm thanh cho AI để nhận diện lời thoại & ngắt câu...',
+                'AI đang xử lý',
+                { timeOut: 10000 },
+            );
 
-            let segments: Array<{ text: string, vietnameseText?: string, startTime: number, endTime?: number, duration?: number }> = [];
+            let segments: Array<{
+                text: string;
+                vietnameseText?: string;
+                startTime: number;
+                endTime?: number;
+                duration?: number;
+            }> = [];
 
             try {
-                const base64Res = await electron.invoke('read-file-base64', { filePath: extractedAudioPath });
+                const base64Res = await electron.invoke('read-file-base64', {
+                    filePath: extractedAudioPath,
+                });
                 if (!base64Res || !base64Res.success || !base64Res.base64) {
-                    throw new Error('Không đọc được file âm thanh: ' + (base64Res?.error || 'Lỗi đọc file'));
+                    throw new Error(
+                        'Không đọc được file âm thanh: ' +
+                            (base64Res?.error || 'Lỗi đọc file'),
+                    );
                 }
 
                 const prompt = `Bạn là chuyên gia phân tích âm thanh, nhận diện giọng nói và bóc tách phụ đề đa ngôn ngữ hàng đầu thế giới.
@@ -7290,11 +9447,11 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                 {
                                     inlineData: {
                                         mimeType: 'audio/mp3',
-                                        data: base64Res.base64
-                                    }
-                                }
-                            ]
-                        }
+                                        data: base64Res.base64,
+                                    },
+                                },
+                            ],
+                        },
                     ],
                     config: {
                         maxOutputTokens: 8192,
@@ -7302,17 +9459,25 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         responseMimeType: 'application/json',
                         skipTTS: true,
                         maxTurns: 1,
-                        systemInstruction: 'Bạn là chuyên gia nhận diện âm thanh và bóc tách phụ đề video. Hãy phân tích audio và trả về DUY NHẤT mảng JSON theo format yêu cầu.'
-                    } as any
+                        systemInstruction:
+                            'Bạn là chuyên gia nhận diện âm thanh và bóc tách phụ đề video. Hãy phân tích audio và trả về DUY NHẤT mảng JSON theo format yêu cầu.',
+                    } as any,
                 });
 
                 let rawText = '';
                 if (typeof response === 'string') {
                     rawText = response;
                 } else if ((response as any)?.text) {
-                    rawText = typeof (response as any).text === 'function' ? (response as any).text() : (response as any).text;
-                } else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    rawText = (response as any).candidates[0].content.parts[0].text;
+                    rawText =
+                        typeof (response as any).text === 'function'
+                            ? (response as any).text()
+                            : (response as any).text;
+                } else if (
+                    (response as any)?.candidates?.[0]?.content?.parts?.[0]
+                        ?.text
+                ) {
+                    rawText = (response as any).candidates[0].content.parts[0]
+                        .text;
                 } else if ((response as any)?.choices?.[0]?.message?.content) {
                     rawText = (response as any).choices[0].message.content;
                 }
@@ -7325,8 +9490,15 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
 
                 const cleanSegmentText = (txt: string): string => {
                     let t = String(txt || '').trim();
-                    if (/^"?(?:text|content|sentence|subtitle|dialogue|vietnameseText|viText|translation)"?\s*:\s*/i.test(t)) {
-                        t = t.replace(/^"?(?:text|content|sentence|subtitle|dialogue|vietnameseText|viText|translation)"?\s*:\s*/i, '');
+                    if (
+                        /^"?(?:text|content|sentence|subtitle|dialogue|vietnameseText|viText|translation)"?\s*:\s*/i.test(
+                            t,
+                        )
+                    ) {
+                        t = t.replace(
+                            /^"?(?:text|content|sentence|subtitle|dialogue|vietnameseText|viText|translation)"?\s*:\s*/i,
+                            '',
+                        );
                     }
                     t = t.replace(/^["'\s]+|["',\s]+$/g, '').trim();
                     return t;
@@ -7341,7 +9513,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     const endArr = cleanText.lastIndexOf(']');
                     if (startArr >= 0 && endArr > startArr) {
                         try {
-                            parsed = JSON.parse(cleanText.substring(startArr, endArr + 1));
+                            parsed = JSON.parse(
+                                cleanText.substring(startArr, endArr + 1),
+                            );
                         } catch (e2) {}
                     }
                     if (!parsed) {
@@ -7349,7 +9523,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         const endObj = cleanText.lastIndexOf('}');
                         if (startObj >= 0 && endObj > startObj) {
                             try {
-                                parsed = JSON.parse(cleanText.substring(startObj, endObj + 1));
+                                parsed = JSON.parse(
+                                    cleanText.substring(startObj, endObj + 1),
+                                );
                             } catch (e3) {}
                         }
                     }
@@ -7360,7 +9536,16 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     if (Array.isArray(parsed)) {
                         list = parsed;
                     } else if (typeof parsed === 'object') {
-                        for (const key of ['segments', 'subtitles', 'data', 'result', 'results', 'items', 'dialogues', 'lines']) {
+                        for (const key of [
+                            'segments',
+                            'subtitles',
+                            'data',
+                            'result',
+                            'results',
+                            'items',
+                            'dialogues',
+                            'lines',
+                        ]) {
                             if (Array.isArray(parsed[key])) {
                                 list = parsed[key];
                                 break;
@@ -7377,35 +9562,86 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     }
 
                     if (list.length > 0) {
-                        segments = list.map((item: any) => {
-                            let text = cleanSegmentText(item.text || item.content || item.sentence || item.subtitle || item.transcript || item.dialogue || '');
-                            let viText = cleanSegmentText(item.vietnameseText || item.viText || item.translation || item.vietnamese || item.vi || text);
-                            if (!viText) viText = text;
-                            if (!text || text.length <= 1) {
-                                return null;
-                            }
-                            const start = Math.max(0, Math.min(actualDuration - 0.2, Number(item.startTime ?? item.start ?? item.start_time ?? item.from) || 0));
-                            let end = Number(item.endTime ?? item.end ?? item.end_time ?? item.to);
-                            if (isNaN(end) || end <= start) {
-                                const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-                                end = Math.min(actualDuration, start + Math.max(1.2, wordCount * 0.45));
-                            }
-                            end = Math.min(actualDuration, Math.max(start + 0.3, end));
+                        segments = list
+                            .map((item: any) => {
+                                let text = cleanSegmentText(
+                                    item.text ||
+                                        item.content ||
+                                        item.sentence ||
+                                        item.subtitle ||
+                                        item.transcript ||
+                                        item.dialogue ||
+                                        '',
+                                );
+                                let viText = cleanSegmentText(
+                                    item.vietnameseText ||
+                                        item.viText ||
+                                        item.translation ||
+                                        item.vietnamese ||
+                                        item.vi ||
+                                        text,
+                                );
+                                if (!viText) viText = text;
+                                if (!text || text.length <= 1) {
+                                    return null;
+                                }
+                                const start = Math.max(
+                                    0,
+                                    Math.min(
+                                        actualDuration - 0.2,
+                                        Number(
+                                            item.startTime ??
+                                                item.start ??
+                                                item.start_time ??
+                                                item.from,
+                                        ) || 0,
+                                    ),
+                                );
+                                let end = Number(
+                                    item.endTime ??
+                                        item.end ??
+                                        item.end_time ??
+                                        item.to,
+                                );
+                                if (isNaN(end) || end <= start) {
+                                    const wordCount = text
+                                        .split(/\s+/)
+                                        .filter((w) => w.length > 0).length;
+                                    end = Math.min(
+                                        actualDuration,
+                                        start + Math.max(1.2, wordCount * 0.45),
+                                    );
+                                }
+                                end = Math.min(
+                                    actualDuration,
+                                    Math.max(start + 0.3, end),
+                                );
 
-                            return {
-                                text: text,
-                                vietnameseText: viText,
-                                startTime: Math.round(start * 100) / 100,
-                                endTime: Math.round(end * 100) / 100,
-                                duration: Math.round((end - start) * 100) / 100
-                            };
-                        }).filter((s: any) => s !== null && s.text.length > 1 && s.startTime < actualDuration);
+                                return {
+                                    text: text,
+                                    vietnameseText: viText,
+                                    startTime: Math.round(start * 100) / 100,
+                                    endTime: Math.round(end * 100) / 100,
+                                    duration:
+                                        Math.round((end - start) * 100) / 100,
+                                };
+                            })
+                            .filter(
+                                (s: any) =>
+                                    s !== null &&
+                                    s.text.length > 1 &&
+                                    s.startTime < actualDuration,
+                            );
                     }
                 }
 
                 // 1.5. Trích xuất từng object JSON { ... } bằng Regex nếu JSON tổng bị lỗi
-                if ((!segments || segments.length === 0) && cleanText.length > 0) {
-                    const objPattern = /\{[^{}]*"(?:text|content|sentence|subtitle|dialogue)"\s*:[^{}]*\}/g;
+                if (
+                    (!segments || segments.length === 0) &&
+                    cleanText.length > 0
+                ) {
+                    const objPattern =
+                        /\{[^{}]*"(?:text|content|sentence|subtitle|dialogue)"\s*:[^{}]*\}/g;
                     const matches = cleanText.match(objPattern);
                     if (matches && matches.length > 0) {
                         const parsedItems: any[] = [];
@@ -7413,55 +9649,139 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             try {
                                 parsedItems.push(JSON.parse(m));
                             } catch (e) {
-                                const tMatch = m.match(/"(?:text|content|sentence|subtitle|dialogue)"\s*:\s*"([^"]+)"/i);
-                                const viMatch = m.match(/"(?:vietnameseText|viText|translation|vietnamese)"\s*:\s*"([^"]+)"/i);
-                                const sMatch = m.match(/"(?:startTime|start|start_time|from)"\s*:\s*([\d.]+)/i);
-                                const eMatch = m.match(/"(?:endTime|end|end_time|to)"\s*:\s*([\d.]+)/i);
+                                const tMatch = m.match(
+                                    /"(?:text|content|sentence|subtitle|dialogue)"\s*:\s*"([^"]+)"/i,
+                                );
+                                const viMatch = m.match(
+                                    /"(?:vietnameseText|viText|translation|vietnamese)"\s*:\s*"([^"]+)"/i,
+                                );
+                                const sMatch = m.match(
+                                    /"(?:startTime|start|start_time|from)"\s*:\s*([\d.]+)/i,
+                                );
+                                const eMatch = m.match(
+                                    /"(?:endTime|end|end_time|to)"\s*:\s*([\d.]+)/i,
+                                );
                                 if (tMatch && sMatch) {
                                     parsedItems.push({
                                         text: tMatch[1],
-                                        vietnameseText: viMatch ? viMatch[1] : tMatch[1],
+                                        vietnameseText: viMatch
+                                            ? viMatch[1]
+                                            : tMatch[1],
                                         startTime: parseFloat(sMatch[1]),
-                                        endTime: eMatch ? parseFloat(eMatch[1]) : undefined
+                                        endTime: eMatch
+                                            ? parseFloat(eMatch[1])
+                                            : undefined,
                                     });
                                 }
                             }
                         }
                         if (parsedItems.length > 0) {
-                            segments = parsedItems.map((item: any) => {
-                                let text = cleanSegmentText(item.text || item.content || item.sentence || item.subtitle || item.transcript || item.dialogue || '');
-                                let viText = cleanSegmentText(item.vietnameseText || item.viText || item.translation || item.vietnamese || item.vi || text);
-                                if (!viText) viText = text;
-                                if (!text || text.length <= 1) return null;
-                                const start = Math.max(0, Math.min(actualDuration - 0.2, Number(item.startTime ?? item.start ?? item.start_time ?? item.from) || 0));
-                                let end = Number(item.endTime ?? item.end ?? item.end_time ?? item.to);
-                                if (isNaN(end) || end <= start) {
-                                    const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-                                    end = Math.min(actualDuration, start + Math.max(1.2, wordCount * 0.45));
-                                }
-                                end = Math.min(actualDuration, Math.max(start + 0.3, end));
-                                return {
-                                    text: text,
-                                    vietnameseText: viText,
-                                    startTime: Math.round(start * 100) / 100,
-                                    endTime: Math.round(end * 100) / 100,
-                                    duration: Math.round((end - start) * 100) / 100
-                                };
-                            }).filter((s: any) => s !== null && s.text.length > 1 && s.startTime < actualDuration);
+                            segments = parsedItems
+                                .map((item: any) => {
+                                    let text = cleanSegmentText(
+                                        item.text ||
+                                            item.content ||
+                                            item.sentence ||
+                                            item.subtitle ||
+                                            item.transcript ||
+                                            item.dialogue ||
+                                            '',
+                                    );
+                                    let viText = cleanSegmentText(
+                                        item.vietnameseText ||
+                                            item.viText ||
+                                            item.translation ||
+                                            item.vietnamese ||
+                                            item.vi ||
+                                            text,
+                                    );
+                                    if (!viText) viText = text;
+                                    if (!text || text.length <= 1) return null;
+                                    const start = Math.max(
+                                        0,
+                                        Math.min(
+                                            actualDuration - 0.2,
+                                            Number(
+                                                item.startTime ??
+                                                    item.start ??
+                                                    item.start_time ??
+                                                    item.from,
+                                            ) || 0,
+                                        ),
+                                    );
+                                    let end = Number(
+                                        item.endTime ??
+                                            item.end ??
+                                            item.end_time ??
+                                            item.to,
+                                    );
+                                    if (isNaN(end) || end <= start) {
+                                        const wordCount = text
+                                            .split(/\s+/)
+                                            .filter((w) => w.length > 0).length;
+                                        end = Math.min(
+                                            actualDuration,
+                                            start +
+                                                Math.max(1.2, wordCount * 0.45),
+                                        );
+                                    }
+                                    end = Math.min(
+                                        actualDuration,
+                                        Math.max(start + 0.3, end),
+                                    );
+                                    return {
+                                        text: text,
+                                        vietnameseText: viText,
+                                        startTime:
+                                            Math.round(start * 100) / 100,
+                                        endTime: Math.round(end * 100) / 100,
+                                        duration:
+                                            Math.round((end - start) * 100) /
+                                            100,
+                                    };
+                                })
+                                .filter(
+                                    (s: any) =>
+                                        s !== null &&
+                                        s.text.length > 1 &&
+                                        s.startTime < actualDuration,
+                                );
                         }
                     }
                 }
 
                 // 2. Fallback: Parse theo dòng timestamp / SRT / regex
-                if ((!segments || segments.length === 0) && cleanText.length > 0) {
-                    const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                    const timeRegex = /(?:(\d{1,2}):)?(\d{1,2}):(\d{2}(?:\.\d+)?)\s*(?:-->|-|đến|to)\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2}(?:\.\d+)?)/i;
-                    const secRegex = /(?:\[|\()?\s*(\d+(?:\.\d+)?)\s*s?\s*(?:-->|-|đến|to)\s*(\d+(?:\.\d+)?)\s*s?\s*(?:\]|\))?/i;
-                    const parseToSec = (h: string, m: string, s: string): number => (Number(h || 0) * 3600) + (Number(m || 0) * 60) + Number(s || 0);
+                if (
+                    (!segments || segments.length === 0) &&
+                    cleanText.length > 0
+                ) {
+                    const lines = cleanText
+                        .split('\n')
+                        .map((l) => l.trim())
+                        .filter((l) => l.length > 0);
+                    const timeRegex =
+                        /(?:(\d{1,2}):)?(\d{1,2}):(\d{2}(?:\.\d+)?)\s*(?:-->|-|đến|to)\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2}(?:\.\d+)?)/i;
+                    const secRegex =
+                        /(?:\[|\()?\s*(\d+(?:\.\d+)?)\s*s?\s*(?:-->|-|đến|to)\s*(\d+(?:\.\d+)?)\s*s?\s*(?:\]|\))?/i;
+                    const parseToSec = (
+                        h: string,
+                        m: string,
+                        s: string,
+                    ): number =>
+                        Number(h || 0) * 3600 +
+                        Number(m || 0) * 60 +
+                        Number(s || 0);
 
                     for (let i = 0; i < lines.length; i++) {
                         const line = lines[i];
-                        if (line.includes('"startTime"') || line.includes('"endTime"') || line.startsWith('{') || line.startsWith('}') || line.startsWith('[') || line.startsWith(']')) {
+                        if (
+                            line.includes('"startTime"') ||
+                            line.includes('"endTime"') ||
+                            line.startsWith('{') ||
+                            line.startsWith('}') ||
+                            line.startsWith('[') ||
+                            line.startsWith(']')
+                        ) {
                             continue;
                         }
                         let startSec: number | null = null;
@@ -7470,10 +9790,25 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
 
                         const matchTime = line.match(timeRegex);
                         if (matchTime) {
-                            startSec = parseToSec(matchTime[1], matchTime[2], matchTime[3]);
-                            endSec = parseToSec(matchTime[4], matchTime[5], matchTime[6]);
-                            lineText = line.replace(timeRegex, '').replace(/^[:\-\s]+/, '').trim();
-                            if (!lineText && i + 1 < lines.length && !lines[i + 1].match(timeRegex)) {
+                            startSec = parseToSec(
+                                matchTime[1],
+                                matchTime[2],
+                                matchTime[3],
+                            );
+                            endSec = parseToSec(
+                                matchTime[4],
+                                matchTime[5],
+                                matchTime[6],
+                            );
+                            lineText = line
+                                .replace(timeRegex, '')
+                                .replace(/^[:\-\s]+/, '')
+                                .trim();
+                            if (
+                                !lineText &&
+                                i + 1 < lines.length &&
+                                !lines[i + 1].match(timeRegex)
+                            ) {
                                 lineText = lines[++i];
                             }
                         } else {
@@ -7481,48 +9816,90 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             if (matchSec) {
                                 startSec = Number(matchSec[1]);
                                 endSec = Number(matchSec[2]);
-                                lineText = line.replace(secRegex, '').replace(/^[:\-\s]+/, '').trim();
+                                lineText = line
+                                    .replace(secRegex, '')
+                                    .replace(/^[:\-\s]+/, '')
+                                    .trim();
                             }
                         }
 
                         lineText = cleanSegmentText(lineText);
-                        if (startSec !== null && endSec !== null && lineText && lineText.length > 1) {
-                            startSec = Math.max(0, Math.min(actualDuration - 0.2, startSec));
+                        if (
+                            startSec !== null &&
+                            endSec !== null &&
+                            lineText &&
+                            lineText.length > 1
+                        ) {
+                            startSec = Math.max(
+                                0,
+                                Math.min(actualDuration - 0.2, startSec),
+                            );
                             if (endSec <= startSec) {
-                                const wordCount = lineText.split(/\s+/).filter(w => w.length > 0).length;
-                                endSec = Math.min(actualDuration, startSec + Math.max(1.2, wordCount * 0.45));
+                                const wordCount = lineText
+                                    .split(/\s+/)
+                                    .filter((w) => w.length > 0).length;
+                                endSec = Math.min(
+                                    actualDuration,
+                                    startSec + Math.max(1.2, wordCount * 0.45),
+                                );
                             }
-                            endSec = Math.min(actualDuration, Math.max(startSec + 0.3, endSec));
+                            endSec = Math.min(
+                                actualDuration,
+                                Math.max(startSec + 0.3, endSec),
+                            );
                             segments.push({
                                 text: lineText,
                                 vietnameseText: lineText,
                                 startTime: Math.round(startSec * 100) / 100,
                                 endTime: Math.round(endSec * 100) / 100,
-                                duration: Math.round((endSec - startSec) * 100) / 100
+                                duration:
+                                    Math.round((endSec - startSec) * 100) / 100,
                             });
                         }
                     }
                 }
 
                 // 3. Fallback: Parse theo câu văn bản thông thường nếu AI trả về văn bản tự do
-                if ((!segments || segments.length === 0) && cleanText.length > 5) {
+                if (
+                    (!segments || segments.length === 0) &&
+                    cleanText.length > 5
+                ) {
                     const sentences = cleanText
                         .split(/(?<=[.?!…\n])\s+/)
-                        .map(s => cleanSegmentText(s))
-                        .filter(s => s.length > 1 && !s.startsWith('{') && !s.startsWith('[') && !s.includes('"startTime"') && !s.includes('"endTime"'));
-                    
+                        .map((s) => cleanSegmentText(s))
+                        .filter(
+                            (s) =>
+                                s.length > 1 &&
+                                !s.startsWith('{') &&
+                                !s.startsWith('[') &&
+                                !s.includes('"startTime"') &&
+                                !s.includes('"endTime"'),
+                        );
+
                     if (sentences.length > 0) {
-                        const totalChars = sentences.reduce((acc, s) => acc + s.length, 0) || 1;
+                        const totalChars =
+                            sentences.reduce((acc, s) => acc + s.length, 0) ||
+                            1;
                         let curTime = 0;
                         for (const sent of sentences) {
-                            const sentDur = Math.max(1.5, Math.min(6.0, (sent.length / totalChars) * actualDuration));
-                            const end = Math.min(actualDuration, curTime + sentDur);
+                            const sentDur = Math.max(
+                                1.5,
+                                Math.min(
+                                    6.0,
+                                    (sent.length / totalChars) * actualDuration,
+                                ),
+                            );
+                            const end = Math.min(
+                                actualDuration,
+                                curTime + sentDur,
+                            );
                             segments.push({
                                 text: sent,
                                 vietnameseText: sent,
                                 startTime: Math.round(curTime * 100) / 100,
                                 endTime: Math.round(end * 100) / 100,
-                                duration: Math.round((end - curTime) * 100) / 100
+                                duration:
+                                    Math.round((end - curTime) * 100) / 100,
                             });
                             curTime = end;
                             if (curTime >= actualDuration) break;
@@ -7531,24 +9908,44 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 }
             } catch (aiErr: any) {
                 console.error('Lỗi khi gọi AI nhận diện âm thanh:', aiErr);
-                this.toastr.warning(`Lỗi AI nhận diện âm thanh: ${aiErr?.message || aiErr}. Hệ thống sẽ sử dụng toàn bộ dải âm thanh gốc.`, 'Dùng âm thanh gốc', { timeOut: 8000 });
+                this.toastr.warning(
+                    `Lỗi AI nhận diện âm thanh: ${aiErr?.message || aiErr}. Hệ thống sẽ sử dụng toàn bộ dải âm thanh gốc.`,
+                    'Dùng âm thanh gốc',
+                    { timeOut: 8000 },
+                );
                 segments = [];
             }
 
             if (!segments || segments.length === 0) {
-                console.warn('[ExtractAudio] Không có segments chi tiết, chuyển sang fallback âm thanh tổng.');
+                console.warn(
+                    '[ExtractAudio] Không có segments chi tiết, chuyển sang fallback âm thanh tổng.',
+                );
             }
 
             // Chuẩn hoá và Lấp đầy 100% dòng thời gian để bảo toàn toàn bộ âm thanh của video (Track 3)
-            const fullCoverageSegments: Array<{ text: string, vietnameseText?: string, startTime: number, endTime?: number, duration: number }> = [];
+            const fullCoverageSegments: Array<{
+                text: string;
+                vietnameseText?: string;
+                startTime: number;
+                endTime?: number;
+                duration: number;
+            }> = [];
             if (segments && segments.length > 0) {
-                const splitRawSegmentsByPunctuation = (rawList: any[]): any[] => {
+                const splitRawSegmentsByPunctuation = (
+                    rawList: any[],
+                ): any[] => {
                     const output: any[] = [];
                     for (const seg of rawList) {
                         const text = String(seg.text || '').trim();
-                        const viText = String(seg.vietnameseText || seg.viText || text).trim();
+                        const viText = String(
+                            seg.vietnameseText || seg.viText || text,
+                        ).trim();
                         const start = Math.max(0, Number(seg.startTime) || 0);
-                        const end = Math.max(start + 0.3, Number(seg.endTime) || (start + (Number(seg.duration) || 2)));
+                        const end = Math.max(
+                            start + 0.3,
+                            Number(seg.endTime) ||
+                                start + (Number(seg.duration) || 2),
+                        );
                         const totalDur = end - start;
 
                         // Nếu là nhãn âm thanh hệ thống (ví dụ: [Nhạc nền], [Tiếng nổ]), không ngắt
@@ -7558,20 +9955,31 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                 vietnameseText: viText,
                                 startTime: Math.round(start * 100) / 100,
                                 endTime: Math.round(end * 100) / 100,
-                                duration: Math.round(totalDur * 100) / 100
+                                duration: Math.round(totalDur * 100) / 100,
                             });
                             continue;
                         }
 
                         // 1. Tách theo dấu kết câu trước: chấm (.), hỏi (?), than (!), ba chấm (…), xuống dòng (\n)
-                        let parts = text.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                        let parts = text
+                            .split(/(?<=[.?!…\n])\s+/)
+                            .map((p) => p.trim())
+                            .filter((p) => p.length > 0);
 
                         // 2. Nếu một phần vẫn còn dài (> 32 ký tự hoặc > 6 từ) và có dấu phẩy/chấm phẩy/hai chấm/gạch ngang -> tách tiếp theo vế câu
                         const refinedParts: string[] = [];
                         for (const p of parts) {
-                            const pWords = p.split(/\s+/).filter(w => w.length > 0);
-                            if ((p.length > 32 || pWords.length > 6) && /[,;:—–]/.test(p)) {
-                                const subParts = p.split(/(?<=[,;:—–])\s+/).map(sp => sp.trim()).filter(sp => sp.length > 0);
+                            const pWords = p
+                                .split(/\s+/)
+                                .filter((w) => w.length > 0);
+                            if (
+                                (p.length > 32 || pWords.length > 6) &&
+                                /[,;:—–]/.test(p)
+                            ) {
+                                const subParts = p
+                                    .split(/(?<=[,;:—–])\s+/)
+                                    .map((sp) => sp.trim())
+                                    .filter((sp) => sp.length > 0);
                                 refinedParts.push(...subParts);
                             } else {
                                 refinedParts.push(p);
@@ -7585,7 +9993,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                 vietnameseText: viText,
                                 startTime: Math.round(start * 100) / 100,
                                 endTime: Math.round(end * 100) / 100,
-                                duration: Math.round(totalDur * 100) / 100
+                                duration: Math.round(totalDur * 100) / 100,
                             });
                             continue;
                         }
@@ -7593,12 +10001,25 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         // Tách câu tiếng Việt tương ứng
                         let viParts: string[] = [];
                         if (viText && viText !== text) {
-                            viParts = viText.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                            viParts = viText
+                                .split(/(?<=[.?!…\n])\s+/)
+                                .map((p) => p.trim())
+                                .filter((p) => p.length > 0);
                             const refinedVi: string[] = [];
                             for (const vp of viParts) {
-                                const vpWords = vp.split(/\s+/).filter(w => w.length > 0);
-                                if ((vp.length > 32 || vpWords.length > 6) && /[,;:—–]/.test(vp)) {
-                                    refinedVi.push(...vp.split(/(?<=[,;:—–])\s+/).map(sp => sp.trim()).filter(sp => sp.length > 0));
+                                const vpWords = vp
+                                    .split(/\s+/)
+                                    .filter((w) => w.length > 0);
+                                if (
+                                    (vp.length > 32 || vpWords.length > 6) &&
+                                    /[,;:—–]/.test(vp)
+                                ) {
+                                    refinedVi.push(
+                                        ...vp
+                                            .split(/(?<=[,;:—–])\s+/)
+                                            .map((sp) => sp.trim())
+                                            .filter((sp) => sp.length > 0),
+                                    );
                                 } else {
                                     refinedVi.push(vp);
                                 }
@@ -7606,40 +10027,83 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             viParts = refinedVi;
 
                             if (viParts.length !== parts.length) {
-                                const viWords = viText.split(/\s+/).filter(w => w.length > 0);
+                                const viWords = viText
+                                    .split(/\s+/)
+                                    .filter((w) => w.length > 0);
                                 const totalWords = viWords.length;
                                 viParts = [];
                                 let viWordCursor = 0;
-                                const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+                                const totalChars =
+                                    parts.reduce(
+                                        (acc, p) => acc + p.length,
+                                        0,
+                                    ) || 1;
                                 for (let i = 0; i < parts.length; i++) {
                                     if (i === parts.length - 1) {
-                                        viParts.push(viWords.slice(viWordCursor).join(' '));
+                                        viParts.push(
+                                            viWords
+                                                .slice(viWordCursor)
+                                                .join(' '),
+                                        );
                                     } else {
-                                        const chunkCount = Math.max(1, Math.round(totalWords * (parts[i].length / totalChars)));
-                                        viParts.push(viWords.slice(viWordCursor, viWordCursor + chunkCount).join(' '));
+                                        const chunkCount = Math.max(
+                                            1,
+                                            Math.round(
+                                                totalWords *
+                                                    (parts[i].length /
+                                                        totalChars),
+                                            ),
+                                        );
+                                        viParts.push(
+                                            viWords
+                                                .slice(
+                                                    viWordCursor,
+                                                    viWordCursor + chunkCount,
+                                                )
+                                                .join(' '),
+                                        );
                                         viWordCursor += chunkCount;
                                     }
                                 }
                             }
                         }
 
-                        const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+                        const totalChars =
+                            parts.reduce((acc, p) => acc + p.length, 0) || 1;
                         let curTime = start;
 
                         for (let i = 0; i < parts.length; i++) {
                             const pText = parts[i];
-                            const pVi = viParts[i] || (this.isLikelyVietnamese(pText) ? pText : '');
-                            const pDur = (i === parts.length - 1)
-                                ? Math.max(0.3, Math.round((end - curTime) * 100) / 100)
-                                : Math.max(0.3, Math.round((totalDur * (pText.length / totalChars)) * 100) / 100);
-                            const pEnd = Math.min(end, Math.round((curTime + pDur) * 100) / 100);
+                            const pVi =
+                                viParts[i] ||
+                                (this.isLikelyVietnamese(pText) ? pText : '');
+                            const pDur =
+                                i === parts.length - 1
+                                    ? Math.max(
+                                          0.3,
+                                          Math.round((end - curTime) * 100) /
+                                              100,
+                                      )
+                                    : Math.max(
+                                          0.3,
+                                          Math.round(
+                                              totalDur *
+                                                  (pText.length / totalChars) *
+                                                  100,
+                                          ) / 100,
+                                      );
+                            const pEnd = Math.min(
+                                end,
+                                Math.round((curTime + pDur) * 100) / 100,
+                            );
 
                             output.push({
                                 text: pText,
                                 vietnameseText: pVi,
                                 startTime: Math.round(curTime * 100) / 100,
                                 endTime: pEnd,
-                                duration: Math.round((pEnd - curTime) * 100) / 100
+                                duration:
+                                    Math.round((pEnd - curTime) * 100) / 100,
                             });
 
                             curTime = pEnd;
@@ -7649,31 +10113,52 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 };
 
                 const validRaw = splitRawSegmentsByPunctuation(segments)
-                    .map(seg => {
-                        const sStart = Math.max(0, Math.min(actualDuration, Number(seg.startTime) || 0));
-                        const sEnd = Math.max(sStart + 0.3, Math.min(actualDuration, Number(seg.endTime) || (sStart + 2)));
+                    .map((seg) => {
+                        const sStart = Math.max(
+                            0,
+                            Math.min(
+                                actualDuration,
+                                Number(seg.startTime) || 0,
+                            ),
+                        );
+                        const sEnd = Math.max(
+                            sStart + 0.3,
+                            Math.min(
+                                actualDuration,
+                                Number(seg.endTime) || sStart + 2,
+                            ),
+                        );
                         return {
                             text: String(seg.text || '').trim(),
-                            vietnameseText: String((seg as any).vietnameseText || seg.text || '').trim(),
+                            vietnameseText: String(
+                                (seg as any).vietnameseText || seg.text || '',
+                            ).trim(),
                             startTime: Math.round(sStart * 100) / 100,
                             endTime: Math.round(sEnd * 100) / 100,
-                            duration: Math.round((sEnd - sStart) * 100) / 100
+                            duration: Math.round((sEnd - sStart) * 100) / 100,
                         };
                     })
-                    .filter(seg => seg.text && seg.text.length > 0 && seg.duration > 0.2)
+                    .filter(
+                        (seg) =>
+                            seg.text &&
+                            seg.text.length > 0 &&
+                            seg.duration > 0.2,
+                    )
                     .sort((a, b) => a.startTime - b.startTime);
 
                 let currentCursor = 0;
                 for (const seg of validRaw) {
                     // Nếu có khoảng trống phía trước (> 0.15s), tự động chèn phân đoạn âm thanh [Nhạc nền] để không bị mất tiếng
                     if (seg.startTime - currentCursor > 0.15) {
-                        const gapDur = Math.round((seg.startTime - currentCursor) * 100) / 100;
+                        const gapDur =
+                            Math.round((seg.startTime - currentCursor) * 100) /
+                            100;
                         fullCoverageSegments.push({
                             text: '[Nhạc nền]',
                             vietnameseText: '[Nhạc nền]',
                             startTime: Math.round(currentCursor * 100) / 100,
                             endTime: Math.round(seg.startTime * 100) / 100,
-                            duration: gapDur
+                            duration: gapDur,
                         });
                     }
 
@@ -7683,28 +10168,40 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
 
                 // Nếu còn khoảng trống ở cuối đến hết video (> 0.15s)
                 if (actualDuration - currentCursor > 0.15) {
-                    const gapDur = Math.round((actualDuration - currentCursor) * 100) / 100;
+                    const gapDur =
+                        Math.round((actualDuration - currentCursor) * 100) /
+                        100;
                     fullCoverageSegments.push({
                         text: '[Nhạc nền]',
                         vietnameseText: '[Nhạc nền]',
                         startTime: Math.round(currentCursor * 100) / 100,
                         endTime: Math.round(actualDuration * 100) / 100,
-                        duration: gapDur
+                        duration: gapDur,
                     });
                 }
                 segments = fullCoverageSegments;
             }
 
             // 3. Cắt audio thành từng file audio segment bằng FFmpeg & sinh file .SRT (gốc + tiếng Việt)
-            this.toastr.info('Đang cắt từng đoạn audio câu thoại & sinh file phụ đề SRT...', 'Đang xử lý');
+            this.toastr.info(
+                'Đang cắt từng đoạn audio câu thoại & sinh file phụ đề SRT...',
+                'Đang xử lý',
+            );
             const splitResults = await electron.splitAudioSegments({
                 audioPath: extractedAudioPath,
-                segments: segments
+                segments: segments,
             });
 
             // 4. Cắt tỉa và thay thế chính xác các audio / subtitles cũ trong phạm vi [videoStart, videoEnd], bảo toàn toàn bộ âm thanh của các clip khác
-            const videoStart = (video.startTime !== undefined && video.startTime !== null && !isNaN(video.startTime)) ? Number(video.startTime) : 0;
-            const videoEnd = videoStart + Math.max(actualDuration, Number(video.duration) || 0);
+            const videoStart =
+                video.startTime !== undefined &&
+                video.startTime !== null &&
+                !isNaN(video.startTime)
+                    ? Number(video.startTime)
+                    : 0;
+            const videoEnd =
+                videoStart +
+                Math.max(actualDuration, Number(video.duration) || 0);
 
             const sliceTrackItems = (items: any[]) => {
                 const newItems: any[] = [];
@@ -7714,26 +10211,44 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     const iEnd = iStart + iDur;
 
                     // Không dính đến khoảng [videoStart, videoEnd] -> Giữ nguyên
-                    if (iEnd <= videoStart + 0.05 || iStart >= videoEnd - 0.05) {
+                    if (
+                        iEnd <= videoStart + 0.05 ||
+                        iStart >= videoEnd - 0.05
+                    ) {
                         newItems.push(item);
                     } else if (iStart < videoStart && iEnd > videoEnd) {
                         // Trùm qua toàn bộ clip -> Tách thành 2 mảnh (trước và sau)
-                        const pieceBefore = { ...item, duration: Math.max(0.2, Math.round((videoStart - iStart) * 100) / 100) };
+                        const pieceBefore = {
+                            ...item,
+                            duration: Math.max(
+                                0.2,
+                                Math.round((videoStart - iStart) * 100) / 100,
+                            ),
+                        };
                         const pieceAfter = {
                             ...item,
                             id: Date.now() + Math.random(),
                             startTime: Math.round(videoEnd * 100) / 100,
-                            duration: Math.max(0.2, Math.round((iEnd - videoEnd) * 100) / 100)
+                            duration: Math.max(
+                                0.2,
+                                Math.round((iEnd - videoEnd) * 100) / 100,
+                            ),
                         };
                         newItems.push(pieceBefore, pieceAfter);
                     } else if (iStart < videoStart && iEnd > videoStart) {
                         // Cắt phần đuôi bị lấn sang clip này
-                        item.duration = Math.max(0.2, Math.round((videoStart - iStart) * 100) / 100);
+                        item.duration = Math.max(
+                            0.2,
+                            Math.round((videoStart - iStart) * 100) / 100,
+                        );
                         newItems.push(item);
                     } else if (iStart < videoEnd && iEnd > videoEnd) {
                         // Cắt phần đầu bị lấn trong clip này
                         item.startTime = Math.round(videoEnd * 100) / 100;
-                        item.duration = Math.max(0.2, Math.round((iEnd - videoEnd) * 100) / 100);
+                        item.duration = Math.max(
+                            0.2,
+                            Math.round((iEnd - videoEnd) * 100) / 100,
+                        );
                         newItems.push(item);
                     }
                 }
@@ -7743,7 +10258,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             if (this.projectData?.scenes) {
                 for (const sc of this.projectData.scenes) {
                     if (sc.extractedAudios) {
-                        sc.extractedAudios = sliceTrackItems(sc.extractedAudios);
+                        sc.extractedAudios = sliceTrackItems(
+                            sc.extractedAudios,
+                        );
                     }
                     if (sc.subtitles) {
                         sc.subtitles = sliceTrackItems(sc.subtitles);
@@ -7770,10 +10287,30 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             if (splitResults && splitResults.length > 0) {
                 splitResults.forEach((res: any, idx: number) => {
                     const segUrl = `media://${res.audioPath.replace(/\\/g, '/')}`;
-                    const segStart = Math.round((videoStart + Number(res.startTime)) * 100) / 100;
-                    const segDur = Math.max(0.3, Math.round((Number(res.duration) || (Number(res.endTime) - Number(res.startTime)) || 2) * 100) / 100);
-                    const segOrigText = String(res.originalText || (segments[idx] as any)?.originalText || res.text || (segments[idx] as any)?.text || '').trim() || `Phần ${idx + 1}`;
-                    const segViText = String(res.vietnameseText || (segments[idx] as any)?.vietnameseText || segOrigText).trim();
+                    const segStart =
+                        Math.round((videoStart + Number(res.startTime)) * 100) /
+                        100;
+                    const segDur = Math.max(
+                        0.3,
+                        Math.round(
+                            (Number(res.duration) ||
+                                Number(res.endTime) - Number(res.startTime) ||
+                                2) * 100,
+                        ) / 100,
+                    );
+                    const segOrigText =
+                        String(
+                            res.originalText ||
+                                (segments[idx] as any)?.originalText ||
+                                res.text ||
+                                (segments[idx] as any)?.text ||
+                                '',
+                        ).trim() || `Phần ${idx + 1}`;
+                    const segViText = String(
+                        res.vietnameseText ||
+                            (segments[idx] as any)?.vietnameseText ||
+                            segOrigText,
+                    ).trim();
 
                     if (segStart < videoEnd + 0.05 && segDur > 0.2) {
                         const itemCommonId = Date.now() + idx;
@@ -7786,11 +10323,14 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             audioUrl: segUrl,
                             startTime: segStart,
                             duration: segDur,
-                            maxDuration: segDur
+                            maxDuration: segDur,
                         });
 
                         // 2. Thêm vào Track Subtitles (Bảo đảm đầy đủ 1-1 tất cả các phân đoạn như audio)
-                        const subText = (this.currentSubtitleLang === 'vi') ? (segViText || segOrigText) : (segOrigText || segViText);
+                        const subText =
+                            this.currentSubtitleLang === 'vi'
+                                ? segViText || segOrigText
+                                : segOrigText || segViText;
                         scene.subtitles.push({
                             id: itemCommonId + 100000,
                             audioId: itemCommonId,
@@ -7798,12 +10338,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             originalText: segOrigText,
                             vietnameseText: segViText,
                             translations: {
-                                'vi': segViText,
-                                'original': segOrigText,
-                                'en': segOrigText
+                                vi: segViText,
+                                original: segOrigText,
+                                en: segOrigText,
                             },
                             startTime: segStart,
-                            duration: segDur
+                            duration: segDur,
                         });
                     }
                 });
@@ -7815,7 +10355,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     audioUrl: audioUrl,
                     startTime: videoStart,
                     duration: clipDuration,
-                    maxDuration: clipDuration
+                    maxDuration: clipDuration,
                 });
             }
 
@@ -7829,7 +10369,11 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             this.updateTimelineSync(true);
             this.cleanupOrphanedWaveSurfers();
 
-            this.toastr.success(`Đã trích xuất âm thanh AI & tự động tạo mới phụ đề Tiếng Việt (.srt) thành công!`, 'Hoàn tất', { timeOut: 6000 });
+            this.toastr.success(
+                `Đã trích xuất âm thanh AI & tự động tạo mới phụ đề Tiếng Việt (.srt) thành công!`,
+                'Hoàn tất',
+                { timeOut: 6000 },
+            );
             this.saveData(true);
             this.cd.detectChanges();
             setTimeout(() => {
@@ -7853,18 +10397,25 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
 
     hasExtractedAudio(scene: any, video: any): boolean {
         if (!scene || !scene.extractedAudios || !video) return false;
-        return scene.extractedAudios.some((a: any) => 
-            a.startTime >= (video.startTime || 0) && a.startTime < (video.startTime || 0) + (video.duration || 5)
+        return scene.extractedAudios.some(
+            (a: any) =>
+                a.startTime >= (video.startTime || 0) &&
+                a.startTime < (video.startTime || 0) + (video.duration || 5),
         );
     }
 
-    findSubtitleSceneAndIndex(sub: any): { scene: any, sceneIdx: number, subIdx: number } | null {
+    findSubtitleSceneAndIndex(
+        sub: any,
+    ): { scene: any; sceneIdx: number; subIdx: number } | null {
         if (!sub || !this.projectData?.scenes) return null;
         const target = sub._raw || sub;
         for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
             const scene = this.projectData.scenes[sIdx];
             if (scene.subtitles && Array.isArray(scene.subtitles)) {
-                const idx = scene.subtitles.findIndex((s: any) => s === target || (target.id && s.id === target.id));
+                const idx = scene.subtitles.findIndex(
+                    (s: any) =>
+                        s === target || (target.id && s.id === target.id),
+                );
                 if (idx !== -1) {
                     return { scene, sceneIdx: sIdx, subIdx: idx };
                 }
@@ -7873,43 +10424,70 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         return null;
     }
 
-    splitTextAndTranslations(sub: any, splitRatio: number, customPart1Text?: string, customPart2Text?: string) {
+    splitTextAndTranslations(
+        sub: any,
+        splitRatio: number,
+        customPart1Text?: string,
+        customPart2Text?: string,
+    ) {
         const text = String(sub.text || '').trim();
         let part1Text = customPart1Text;
         let part2Text = customPart2Text;
 
         if (part1Text === undefined || part2Text === undefined) {
-            const words = text.split(/\s+/).filter(w => w.length > 0);
+            const words = text.split(/\s+/).filter((w) => w.length > 0);
             if (words.length > 1) {
-                const midIndex = Math.max(1, Math.min(words.length - 1, Math.round(words.length * splitRatio)));
+                const midIndex = Math.max(
+                    1,
+                    Math.min(
+                        words.length - 1,
+                        Math.round(words.length * splitRatio),
+                    ),
+                );
                 part1Text = words.slice(0, midIndex).join(' ');
                 part2Text = words.slice(midIndex).join(' ');
             } else {
-                const midChar = Math.max(1, Math.round(text.length * splitRatio));
+                const midChar = Math.max(
+                    1,
+                    Math.round(text.length * splitRatio),
+                );
                 part1Text = text.substring(0, midChar);
                 part2Text = text.substring(midChar);
             }
         }
 
-        const splitSecondary = (secText: string): { part1: string, part2: string } => {
+        const splitSecondary = (
+            secText: string,
+        ): { part1: string; part2: string } => {
             const clean = String(secText || '').trim();
             if (!clean) return { part1: '', part2: '' };
             if (clean === text) return { part1: part1Text!, part2: part2Text! };
 
             const endsWithPunct = /[.?!;:\n]$/.test(part1Text!.trim());
             if (endsWithPunct) {
-                const punctMatch = clean.match(/^([\s\S]+?[.?!;:\n])\s+([\s\S]+)$/);
+                const punctMatch = clean.match(
+                    /^([\s\S]+?[.?!;:\n])\s+([\s\S]+)$/,
+                );
                 if (punctMatch && punctMatch[1] && punctMatch[2]) {
-                    return { part1: punctMatch[1].trim(), part2: punctMatch[2].trim() };
+                    return {
+                        part1: punctMatch[1].trim(),
+                        part2: punctMatch[2].trim(),
+                    };
                 }
             }
 
-            const secWords = clean.split(/\s+/).filter(w => w.length > 0);
+            const secWords = clean.split(/\s+/).filter((w) => w.length > 0);
             if (secWords.length > 1) {
-                const midSec = Math.max(1, Math.min(secWords.length - 1, Math.round(secWords.length * splitRatio)));
+                const midSec = Math.max(
+                    1,
+                    Math.min(
+                        secWords.length - 1,
+                        Math.round(secWords.length * splitRatio),
+                    ),
+                );
                 return {
                     part1: secWords.slice(0, midSec).join(' '),
-                    part2: secWords.slice(midSec).join(' ')
+                    part2: secWords.slice(midSec).join(' '),
                 };
             }
             return { part1: clean, part2: '' };
@@ -7931,16 +10509,37 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         return {
             part1Text: (part1Text || '').trim(),
             part2Text: (part2Text || '').trim(),
-            viPart1: viSplit.part1 || (this.isLikelyVietnamese(part1Text || '') ? (part1Text || '').trim() : ''),
-            viPart2: viSplit.part2 || (this.isLikelyVietnamese(part2Text || '') ? (part2Text || '').trim() : ''),
-            origPart1: origSplit.part1 || (!this.isLikelyVietnamese(part1Text || '') ? (part1Text || '').trim() : ''),
-            origPart2: origSplit.part2 || (!this.isLikelyVietnamese(part2Text || '') ? (part2Text || '').trim() : ''),
+            viPart1:
+                viSplit.part1 ||
+                (this.isLikelyVietnamese(part1Text || '')
+                    ? (part1Text || '').trim()
+                    : ''),
+            viPart2:
+                viSplit.part2 ||
+                (this.isLikelyVietnamese(part2Text || '')
+                    ? (part2Text || '').trim()
+                    : ''),
+            origPart1:
+                origSplit.part1 ||
+                (!this.isLikelyVietnamese(part1Text || '')
+                    ? (part1Text || '').trim()
+                    : ''),
+            origPart2:
+                origSplit.part2 ||
+                (!this.isLikelyVietnamese(part2Text || '')
+                    ? (part2Text || '').trim()
+                    : ''),
             trans1,
-            trans2
+            trans2,
         };
     }
 
-    splitSubtitleItem(sub: any, sceneIdx?: number, sIdx?: number, customCutTime?: number) {
+    splitSubtitleItem(
+        sub: any,
+        sceneIdx?: number,
+        sIdx?: number,
+        customCutTime?: number,
+    ) {
         if (!sub) sub = this.activeItem;
         if (!sub) return;
 
@@ -7954,13 +10553,22 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const duration = Number(targetSub.duration) || 3;
         const end = start + duration;
 
-        let cutTime = customCutTime !== undefined ? customCutTime : this.currentTimelineTime;
+        let cutTime =
+            customCutTime !== undefined
+                ? customCutTime
+                : this.currentTimelineTime;
         if (cutTime <= start + 0.2 || cutTime >= end - 0.2) {
-            cutTime = start + (duration / 2);
+            cutTime = start + duration / 2;
         }
 
-        const firstDuration = Math.max(0.2, Math.round((cutTime - start) * 100) / 100);
-        const secondDuration = Math.max(0.2, Math.round((end - cutTime) * 100) / 100);
+        const firstDuration = Math.max(
+            0.2,
+            Math.round((cutTime - start) * 100) / 100,
+        );
+        const secondDuration = Math.max(
+            0.2,
+            Math.round((end - cutTime) * 100) / 100,
+        );
         const ratio = Math.max(0.1, Math.min(0.9, firstDuration / duration));
 
         const splitData = this.splitTextAndTranslations(targetSub, ratio);
@@ -7979,7 +10587,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             text: splitData.part2Text,
             vietnameseText: splitData.viPart2,
             originalText: splitData.origPart2,
-            translations: splitData.trans2
+            translations: splitData.trans2,
         };
 
         scene.subtitles.splice(targetIdx + 1, 0, newSub);
@@ -8014,7 +10622,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             if (punctIdx > 0 && punctIdx < text.length - 1) {
                 cursorPos = punctIdx + 1;
             } else {
-                const words = text.split(/\s+/).filter(w => w.length > 0);
+                const words = text.split(/\s+/).filter((w) => w.length > 0);
                 if (words.length > 1) {
                     const mid = Math.ceil(words.length / 2);
                     const p1 = words.slice(0, mid).join(' ');
@@ -8029,7 +10637,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const p2 = text.substring(cursorPos).trim();
 
         if (!p1 || !p2) {
-            this.toastr.warning('Vui lòng đặt con trỏ vào giữa ô văn bản để tách.');
+            this.toastr.warning(
+                'Vui lòng đặt con trỏ vào giữa ô văn bản để tách.',
+            );
             return;
         }
 
@@ -8042,7 +10652,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const start = Number(targetSub.startTime) || 0;
         const cutTime = Math.round((start + d1) * 100) / 100;
 
-        const splitData = this.splitTextAndTranslations(targetSub, ratio, p1, p2);
+        const splitData = this.splitTextAndTranslations(
+            targetSub,
+            ratio,
+            p1,
+            p2,
+        );
 
         targetSub.duration = d1;
         targetSub.text = splitData.part1Text;
@@ -8058,7 +10673,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             text: splitData.part2Text,
             vietnameseText: splitData.viPart2,
             originalText: splitData.origPart2,
-            translations: splitData.trans2
+            translations: splitData.trans2,
         };
 
         loc.scene.subtitles.splice(loc.subIdx + 1, 0, newSub);
@@ -8068,14 +10683,21 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.updateActiveSubtitleInfo();
         this.updateFilteredMediaItems();
         this.cd.detectChanges();
-        this.toastr.success(`Đã tách phụ đề thành 2 đoạn: "${p1.length > 20 ? p1.substring(0, 20) + '...' : p1}" (${d1}s) và "${p2.length > 20 ? p2.substring(0, 20) + '...' : p2}" (${d2}s)!`);
+        this.toastr.success(
+            `Đã tách phụ đề thành 2 đoạn: "${p1.length > 20 ? p1.substring(0, 20) + '...' : p1}" (${d1}s) và "${p2.length > 20 ? p2.substring(0, 20) + '...' : p2}" (${d2}s)!`,
+        );
     }
 
     splitActiveSubtitleAtPlayhead() {
         if (!this.activeItem) return;
         const loc = this.findSubtitleSceneAndIndex(this.activeItem);
         if (!loc) return;
-        this.splitSubtitleItem(this.activeItem, loc.sceneIdx, loc.subIdx, this.currentTimelineTime);
+        this.splitSubtitleItem(
+            this.activeItem,
+            loc.sceneIdx,
+            loc.subIdx,
+            this.currentTimelineTime,
+        );
     }
 
     splitActiveSubtitleInHalf(targetSub?: any) {
@@ -8084,7 +10706,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const loc = this.findSubtitleSceneAndIndex(sub);
         if (!loc) return;
         const target = loc.scene.subtitles[loc.subIdx];
-        const cutTime = (Number(target.startTime) || 0) + ((Number(target.duration) || 3) / 2);
+        const cutTime =
+            (Number(target.startTime) || 0) +
+            (Number(target.duration) || 3) / 2;
         this.splitSubtitleItem(target, loc.sceneIdx, loc.subIdx, cutTime);
     }
 
@@ -8099,17 +10723,23 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const duration = Number(target.duration) || 3;
         const startTime = Number(target.startTime) || 0;
 
-        let parts = text.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+        let parts = text
+            .split(/(?<=[.?!…\n])\s+/)
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0);
         if (parts.length <= 1) {
-            parts = text.split(/(?<=[,;:—–])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+            parts = text
+                .split(/(?<=[,;:—–])\s+/)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 0);
         }
         if (parts.length <= 1) {
-            const words = text.split(/\s+/).filter(w => w.length > 0);
+            const words = text.split(/\s+/).filter((w) => w.length > 0);
             if (words.length >= 6) {
                 const mid = Math.ceil(words.length / 2);
                 parts = [
                     words.slice(0, mid).join(' '),
-                    words.slice(mid).join(' ')
+                    words.slice(mid).join(' '),
                 ];
             }
         }
@@ -8122,22 +10752,38 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         let viParts: string[] = [];
         if (target.vietnameseText && target.vietnameseText.trim() !== text) {
             const viText = target.vietnameseText.trim();
-            viParts = viText.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+            viParts = viText
+                .split(/(?<=[.?!…\n])\s+/)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 0);
             if (viParts.length !== parts.length) {
-                viParts = viText.split(/(?<=[,;:—–])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                viParts = viText
+                    .split(/(?<=[,;:—–])\s+/)
+                    .map((p) => p.trim())
+                    .filter((p) => p.length > 0);
             }
             if (viParts.length !== parts.length) {
-                const viWords = viText.split(/\s+/).filter(w => w.length > 0);
+                const viWords = viText.split(/\s+/).filter((w) => w.length > 0);
                 const totalWords = viWords.length;
                 viParts = [];
                 let viWordCursor = 0;
-                const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+                const totalChars =
+                    parts.reduce((acc, p) => acc + p.length, 0) || 1;
                 for (let i = 0; i < parts.length; i++) {
                     if (i === parts.length - 1) {
                         viParts.push(viWords.slice(viWordCursor).join(' '));
                     } else {
-                        const chunkCount = Math.max(1, Math.round(totalWords * (parts[i].length / totalChars)));
-                        viParts.push(viWords.slice(viWordCursor, viWordCursor + chunkCount).join(' '));
+                        const chunkCount = Math.max(
+                            1,
+                            Math.round(
+                                totalWords * (parts[i].length / totalChars),
+                            ),
+                        );
+                        viParts.push(
+                            viWords
+                                .slice(viWordCursor, viWordCursor + chunkCount)
+                                .join(' '),
+                        );
                         viWordCursor += chunkCount;
                     }
                 }
@@ -8150,10 +10796,21 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
 
         for (let i = 0; i < parts.length; i++) {
             const pText = parts[i];
-            const pViText = viParts[i] || (this.isLikelyVietnamese(pText) ? pText : '');
-            const pDur = (i === parts.length - 1)
-                ? Math.max(0.3, Math.round((startTime + duration - curTime) * 100) / 100)
-                : Math.max(0.3, Math.round(duration * (pText.length / totalChars) * 100) / 100);
+            const pViText =
+                viParts[i] || (this.isLikelyVietnamese(pText) ? pText : '');
+            const pDur =
+                i === parts.length - 1
+                    ? Math.max(
+                          0.3,
+                          Math.round((startTime + duration - curTime) * 100) /
+                              100,
+                      )
+                    : Math.max(
+                          0.3,
+                          Math.round(
+                              duration * (pText.length / totalChars) * 100,
+                          ) / 100,
+                      );
 
             newSubs.push({
                 ...target,
@@ -8164,10 +10821,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 vietnameseText: pViText,
                 originalText: !this.isLikelyVietnamese(pText) ? pText : '',
                 translations: {
-                    'vi': pViText,
-                    'original': !this.isLikelyVietnamese(pText) ? pText : pText,
-                    'en': !this.isLikelyVietnamese(pText) ? pText : ''
-                }
+                    vi: pViText,
+                    original: !this.isLikelyVietnamese(pText) ? pText : pText,
+                    en: !this.isLikelyVietnamese(pText) ? pText : '',
+                },
             });
 
             curTime += pDur;
@@ -8181,7 +10838,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.updateActiveSubtitleInfo();
         this.updateFilteredMediaItems();
         this.cd.detectChanges();
-        this.toastr.success(`Đã tự động tách phụ đề thành ${newSubs.length} phân đoạn ngắn gọn!`);
+        this.toastr.success(
+            `Đã tự động tách phụ đề thành ${newSubs.length} phân đoạn ngắn gọn!`,
+        );
     }
 
     autoSplitAllLongSubtitles(scope: 'all' | 'selected' = 'all') {
@@ -8195,50 +10854,96 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             const newSubList: any[] = [];
             for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
                 const sub = scene.subtitles[subIdx];
-                if (scope === 'selected' && !this.selectedItems.has(sub) && this.activeItem !== sub) {
+                if (
+                    scope === 'selected' &&
+                    !this.selectedItems.has(sub) &&
+                    this.activeItem !== sub
+                ) {
                     newSubList.push(sub);
                     continue;
                 }
 
                 const text = String(sub.text || '').trim();
-                const words = text.split(/\s+/).filter(w => w.length > 0);
+                const words = text.split(/\s+/).filter((w) => w.length > 0);
                 const hasMultipleSentences = /(?<=[.?!…\n])\s+/.test(text);
-                const isLong = text.length > 35 || words.length > 8 || hasMultipleSentences;
+                const isLong =
+                    text.length > 35 ||
+                    words.length > 8 ||
+                    hasMultipleSentences;
 
                 if (isLong && (Number(sub.duration) || 0) >= 1.5) {
-                    let parts = text.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                    let parts = text
+                        .split(/(?<=[.?!…\n])\s+/)
+                        .map((p) => p.trim())
+                        .filter((p) => p.length > 0);
                     if (parts.length <= 1) {
-                        parts = text.split(/(?<=[,;:—–])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                        parts = text
+                            .split(/(?<=[,;:—–])\s+/)
+                            .map((p) => p.trim())
+                            .filter((p) => p.length > 0);
                     }
                     if (parts.length <= 1 && words.length >= 8) {
                         const mid = Math.ceil(words.length / 2);
-                        parts = [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+                        parts = [
+                            words.slice(0, mid).join(' '),
+                            words.slice(mid).join(' '),
+                        ];
                     }
 
                     if (parts.length > 1) {
                         splitCount++;
                         const duration = Number(sub.duration) || 3;
                         const startTime = Number(sub.startTime) || 0;
-                        const totalChars = parts.reduce((acc, p) => acc + p.length, 0) || 1;
+                        const totalChars =
+                            parts.reduce((acc, p) => acc + p.length, 0) || 1;
 
                         let viParts: string[] = [];
-                        if (sub.vietnameseText && sub.vietnameseText.trim() !== text) {
+                        if (
+                            sub.vietnameseText &&
+                            sub.vietnameseText.trim() !== text
+                        ) {
                             const viText = sub.vietnameseText.trim();
-                            viParts = viText.split(/(?<=[.?!…\n])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                            viParts = viText
+                                .split(/(?<=[.?!…\n])\s+/)
+                                .map((p) => p.trim())
+                                .filter((p) => p.length > 0);
                             if (viParts.length !== parts.length) {
-                                viParts = viText.split(/(?<=[,;:—–])\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                                viParts = viText
+                                    .split(/(?<=[,;:—–])\s+/)
+                                    .map((p) => p.trim())
+                                    .filter((p) => p.length > 0);
                             }
                             if (viParts.length !== parts.length) {
-                                const viWords = viText.split(/\s+/).filter(w => w.length > 0);
+                                const viWords = viText
+                                    .split(/\s+/)
+                                    .filter((w) => w.length > 0);
                                 const totalWords = viWords.length;
                                 viParts = [];
                                 let viWordCursor = 0;
                                 for (let i = 0; i < parts.length; i++) {
                                     if (i === parts.length - 1) {
-                                        viParts.push(viWords.slice(viWordCursor).join(' '));
+                                        viParts.push(
+                                            viWords
+                                                .slice(viWordCursor)
+                                                .join(' '),
+                                        );
                                     } else {
-                                        const chunkCount = Math.max(1, Math.round(totalWords * (parts[i].length / totalChars)));
-                                        viParts.push(viWords.slice(viWordCursor, viWordCursor + chunkCount).join(' '));
+                                        const chunkCount = Math.max(
+                                            1,
+                                            Math.round(
+                                                totalWords *
+                                                    (parts[i].length /
+                                                        totalChars),
+                                            ),
+                                        );
+                                        viParts.push(
+                                            viWords
+                                                .slice(
+                                                    viWordCursor,
+                                                    viWordCursor + chunkCount,
+                                                )
+                                                .join(' '),
+                                        );
                                         viWordCursor += chunkCount;
                                     }
                                 }
@@ -8248,10 +10953,26 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                         let curTime = startTime;
                         for (let i = 0; i < parts.length; i++) {
                             const pText = parts[i];
-                            const pViText = viParts[i] || (this.isLikelyVietnamese(pText) ? pText : '');
-                            const pDur = (i === parts.length - 1)
-                                ? Math.max(0.3, Math.round((startTime + duration - curTime) * 100) / 100)
-                                : Math.max(0.3, Math.round(duration * (pText.length / totalChars) * 100) / 100);
+                            const pViText =
+                                viParts[i] ||
+                                (this.isLikelyVietnamese(pText) ? pText : '');
+                            const pDur =
+                                i === parts.length - 1
+                                    ? Math.max(
+                                          0.3,
+                                          Math.round(
+                                              (startTime + duration - curTime) *
+                                                  100,
+                                          ) / 100,
+                                      )
+                                    : Math.max(
+                                          0.3,
+                                          Math.round(
+                                              duration *
+                                                  (pText.length / totalChars) *
+                                                  100,
+                                          ) / 100,
+                                      );
 
                             newSubList.push({
                                 ...sub,
@@ -8260,12 +10981,18 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                 duration: pDur,
                                 text: pText,
                                 vietnameseText: pViText,
-                                originalText: !this.isLikelyVietnamese(pText) ? pText : '',
+                                originalText: !this.isLikelyVietnamese(pText)
+                                    ? pText
+                                    : '',
                                 translations: {
-                                    'vi': pViText,
-                                    'original': !this.isLikelyVietnamese(pText) ? pText : pText,
-                                    'en': !this.isLikelyVietnamese(pText) ? pText : ''
-                                }
+                                    vi: pViText,
+                                    original: !this.isLikelyVietnamese(pText)
+                                        ? pText
+                                        : pText,
+                                    en: !this.isLikelyVietnamese(pText)
+                                        ? pText
+                                        : '',
+                                },
                             });
                             curTime += pDur;
                         }
@@ -8283,7 +11010,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             this.updateActiveSubtitleInfo();
             this.updateFilteredMediaItems();
             this.cd.detectChanges();
-            this.toastr.success(`Đã tự động tách ${splitCount} câu phụ đề dài thành các phân đoạn ngắn!`);
+            this.toastr.success(
+                `Đã tự động tách ${splitCount} câu phụ đề dài thành các phân đoạn ngắn!`,
+            );
         } else {
             this.toastr.info('Không có phân đoạn phụ đề nào quá dài cần tách.');
         }
@@ -8305,7 +11034,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             allSubs.push({
                                 text: sub.text.trim(),
                                 startTime: Number(sub.startTime) || 0,
-                                duration: Number(sub.duration) || 2
+                                duration: Number(sub.duration) || 2,
                             });
                         }
                     }
@@ -8318,17 +11047,26 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             return;
         }
 
-        const videoPath = this.activeVideo?.videoUrl || this.projectData?.scenes?.[0]?.videos?.[0]?.videoUrl || 'project_subtitles';
+        const videoPath =
+            this.activeVideo?.videoUrl ||
+            this.projectData?.scenes?.[0]?.videos?.[0]?.videoUrl ||
+            'project_subtitles';
         const result = await electron.exportSubtitles({
             videoPath: videoPath,
             subtitles: allSubs,
-            filename: `subtitles_${this.data.uuid || Date.now()}`
+            filename: `subtitles_${this.data.uuid || Date.now()}`,
         });
 
         if (result && result.success) {
-            this.toastr.success(`Đã xuất phụ đề: ${result.srtPath}`, 'Thành công', { timeOut: 6000 });
+            this.toastr.success(
+                `Đã xuất phụ đề: ${result.srtPath}`,
+                'Thành công',
+                { timeOut: 6000 },
+            );
         } else {
-            this.toastr.error('Lỗi khi xuất file phụ đề: ' + (result?.error || ''));
+            this.toastr.error(
+                'Lỗi khi xuất file phụ đề: ' + (result?.error || ''),
+            );
         }
     }
 
@@ -8342,7 +11080,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 if (this.selectedItems.has(item)) {
                     this.selectedItems.delete(item);
                     if (this.activeItem === item) {
-                        this.activeItem = this.selectedItems.size > 0 ? Array.from(this.selectedItems)[0] : null;
+                        this.activeItem =
+                            this.selectedItems.size > 0
+                                ? Array.from(this.selectedItems)[0]
+                                : null;
                     }
                 } else {
                     this.selectedItems.add(item);
@@ -8388,7 +11129,13 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             if (itemType === 'video') {
                 const ctx = this.findVideoContext(item);
                 if (ctx) {
-                    this.selectedContextData = { video: item, scene: ctx.scene, sceneIdx: ctx.sceneIdx, vIdx: ctx.vIdx, type: 'video' };
+                    this.selectedContextData = {
+                        video: item,
+                        scene: ctx.scene,
+                        sceneIdx: ctx.sceneIdx,
+                        vIdx: ctx.vIdx,
+                        type: 'video',
+                    };
                 }
                 if (item.frame !== undefined) {
                     this.selectedFrame = item.frame || null;
@@ -8404,7 +11151,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         }
     }
 
-    findVideoContext(videoItem: any): { scene: any, sceneIdx: number, vIdx: number } | null {
+    findVideoContext(
+        videoItem: any,
+    ): { scene: any; sceneIdx: number; vIdx: number } | null {
         if (!videoItem || !this.projectData?.scenes) return null;
         for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
             const scene = this.projectData.scenes[sIdx];
@@ -8427,7 +11176,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         } else if (sceneIdx > 0 && this.projectData?.scenes?.[sceneIdx - 1]) {
             const prevScene = this.projectData.scenes[sceneIdx - 1];
             if (prevScene.videos && prevScene.videos.length > 0) {
-                return prevScene.videos[prevScene.videos.length - 1].videoUrl || null;
+                return (
+                    prevScene.videos[prevScene.videos.length - 1].videoUrl ||
+                    null
+                );
             } else if (prevScene.videoUrl) {
                 return prevScene.videoUrl;
             }
@@ -8439,8 +11191,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         if (!videoItem || !char) return false;
         const charName = char.name || char.role || '';
         if (!charName) return false;
-        const prompt = (videoItem.prompt || '') + ' ' + (videoItem.imagePrompt || '');
-        return prompt.includes(`[Character '${charName}'`) || prompt.includes(`[Character '${charName}':`);
+        const prompt =
+            (videoItem.prompt || '') + ' ' + (videoItem.imagePrompt || '');
+        return (
+            prompt.includes(`[Character '${charName}'`) ||
+            prompt.includes(`[Character '${charName}':`)
+        );
     }
 
     toggleReferenceCharForVideo(videoItem: any, char: any) {
@@ -8454,13 +11210,21 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
 
         let p = videoItem.prompt || '';
         if (p.includes(charToken)) {
-            const escapedName = charName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp(`\\s*\\[Character '${escapedName}'[\\s\\S]*?\\]`, 'g');
+            const escapedName = charName.replace(
+                /[-\/\\^$*+?.()|[\]{}]/g,
+                '\\$&',
+            );
+            const regex = new RegExp(
+                `\\s*\\[Character '${escapedName}'[\\s\\S]*?\\]`,
+                'g',
+            );
             videoItem.prompt = p.replace(regex, '').trim();
             this.toastr.info(`Đã gỡ nhân vật ${charName} khỏi prompt video.`);
         } else {
             videoItem.prompt = p ? `${fullCharTag}\n\n${p}` : fullCharTag;
-            this.toastr.success(`Đã thêm nhân vật ${charName} vào prompt video.`);
+            this.toastr.success(
+                `Đã thêm nhân vật ${charName} vào prompt video.`,
+            );
         }
         this.markDirty();
         this.cd.detectChanges();
@@ -8490,7 +11254,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             if (sub.duration) {
                 subDuration = sub.duration;
             } else if (sub.text) {
-                subDuration = Math.max(1, sub.text.trim().split(/\s+/).length / 4);
+                subDuration = Math.max(
+                    1,
+                    sub.text.trim().split(/\s+/).length / 4,
+                );
             }
 
             const subStartTime = currentSubTime;
@@ -8500,16 +11267,27 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 if (sub.text) {
                     const textStr = sub.text.trim();
                     const words = textStr.split(/\s+/);
-                    if (subStartTime >= partStartTime && subEndTime <= partEndTime) {
+                    if (
+                        subStartTime >= partStartTime &&
+                        subEndTime <= partEndTime
+                    ) {
                         dialogueWords.push(...words);
                     } else {
-                        const overlapStart = Math.max(0, partStartTime - subStartTime);
-                        const overlapEnd = Math.min(subDuration, partEndTime - subStartTime);
+                        const overlapStart = Math.max(
+                            0,
+                            partStartTime - subStartTime,
+                        );
+                        const overlapEnd = Math.min(
+                            subDuration,
+                            partEndTime - subStartTime,
+                        );
                         const startRatio = overlapStart / subDuration;
                         const endRatio = overlapEnd / subDuration;
                         let startIndex = Math.round(startRatio * words.length);
                         let endIndex = Math.round(endRatio * words.length);
-                        dialogueWords.push(...words.slice(startIndex, endIndex));
+                        dialogueWords.push(
+                            ...words.slice(startIndex, endIndex),
+                        );
                     }
                 }
             }
@@ -8524,7 +11302,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         let dialogue = this.getDialogueForVideo(videoItem);
         if (!dialogue) {
             dialogue = 'Nhập lời thoại của bạn vào đây...';
-            this.toastr.info('Không tìm thấy lời thoại trong cảnh, đã chèn mẫu lời thoại.');
+            this.toastr.info(
+                'Không tìm thấy lời thoại trong cảnh, đã chèn mẫu lời thoại.',
+            );
         }
 
         const dialogText = `[Speaker says: "${dialogue}"]`;
@@ -8553,36 +11333,61 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 videoPrompt: videoItem.videoPrompt || '',
                 targetName: 'Apply to Scene Prompt',
                 controlImageUrl: videoItem.controlImageUrl || null,
-                aspectRatio: this.projectData?.aspectRatio || '16:9'
-            }
+                aspectRatio: this.projectData?.aspectRatio || '16:9',
+            },
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
-                let promptResult = typeof result === 'string' ? result : result.prompt;
-                if (typeof result !== 'string' && result.controlImageUrl !== undefined) {
+                let promptResult =
+                    typeof result === 'string' ? result : result.prompt;
+                if (
+                    typeof result !== 'string' &&
+                    result.controlImageUrl !== undefined
+                ) {
                     videoItem.controlImageUrl = result.controlImageUrl;
                 }
 
-                let currentPrompt = videoItem.prompt ? videoItem.prompt.trim() : '';
-                currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                let currentPrompt = videoItem.prompt
+                    ? videoItem.prompt.trim()
+                    : '';
+                currentPrompt = currentPrompt
+                    .replace(/\[(?:Director|Cinematography):.*?\]/g, '')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
 
                 if (currentPrompt) {
-                    videoItem.prompt = '[Cinematography: ' + promptResult + ']\n\n' + currentPrompt;
+                    videoItem.prompt =
+                        '[Cinematography: ' +
+                        promptResult +
+                        ']\n\n' +
+                        currentPrompt;
                 } else {
                     videoItem.prompt = '[Cinematography: ' + promptResult + ']';
                 }
 
                 if (videoItem.imagePrompt !== undefined) {
-                    let curImgPrompt = videoItem.imagePrompt ? videoItem.imagePrompt.trim() : '';
-                    curImgPrompt = curImgPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
-                    videoItem.imagePrompt = curImgPrompt ? '[Cinematography: ' + promptResult + ']\n\n' + curImgPrompt : '[Cinematography: ' + promptResult + ']';
+                    let curImgPrompt = videoItem.imagePrompt
+                        ? videoItem.imagePrompt.trim()
+                        : '';
+                    curImgPrompt = curImgPrompt
+                        .replace(/\[(?:Director|Cinematography):.*?\]/g, '')
+                        .replace(/\n{3,}/g, '\n\n')
+                        .trim();
+                    videoItem.imagePrompt = curImgPrompt
+                        ? '[Cinematography: ' +
+                          promptResult +
+                          ']\n\n' +
+                          curImgPrompt
+                        : '[Cinematography: ' + promptResult + ']';
                 }
 
                 this.markDirty();
                 this.saveData();
                 this.cd.detectChanges();
-                this.toastr.success('Đã áp dụng thông số Director Mode cho Video!');
+                this.toastr.success(
+                    'Đã áp dụng thông số Director Mode cho Video!',
+                );
             }
         });
     }
@@ -8597,11 +11402,14 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 const reader = new FileReader();
                 reader.onload = async (e: any) => {
                     const base64 = e.target.result;
-                    const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
+                    const cleanBase64 = base64.replace(
+                        /^data:image\/\w+;base64,/,
+                        '',
+                    );
                     const saveRes = await electron.saveBase64({
                         base64Data: cleanBase64,
                         filename: `video_thumb_${Date.now()}.png`,
-                        subDir: this.projectData?.mediaDir || 'video_assets'
+                        subDir: this.projectData?.mediaDir || 'video_assets',
                     });
                     if (saveRes && saveRes.success) {
                         videoItem.imageUrl = 'file://' + saveRes.path;
@@ -8645,7 +11453,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         if (this.inspectorWaveSurfer) {
             try {
                 this.inspectorWaveSurfer.destroy();
-            } catch (e) { }
+            } catch (e) {}
             this.inspectorWaveSurfer = null;
             this.isInspectorAudioPlaying = false;
         }
@@ -8656,9 +11464,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         if (!audioUrl) return;
 
         setTimeout(() => {
-            const container = document.getElementById('inspector-waveform-audio-container')
-                || document.getElementById('inspector-waveform-sub-container')
-                || document.getElementById('inspector-waveform-container');
+            const container =
+                document.getElementById('inspector-waveform-audio-container') ||
+                document.getElementById('inspector-waveform-sub-container') ||
+                document.getElementById('inspector-waveform-container');
             if (!container) return;
 
             try {
@@ -8672,7 +11481,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     barWidth: 2,
                     barGap: 2,
                     barRadius: 2,
-                    interact: true
+                    interact: true,
                 });
 
                 this.loadAudioToWaveSurfer(ws, audioUrl);
@@ -8753,15 +11562,21 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 audios: [],
                 subtitles: [],
                 texts: [],
-                deletedKeys: []
+                deletedKeys: [],
             };
         }
-        if (!this.projectData.mediaLibraryPool.videos) this.projectData.mediaLibraryPool.videos = [];
-        if (!this.projectData.mediaLibraryPool.images) this.projectData.mediaLibraryPool.images = [];
-        if (!this.projectData.mediaLibraryPool.audios) this.projectData.mediaLibraryPool.audios = [];
-        if (!this.projectData.mediaLibraryPool.subtitles) this.projectData.mediaLibraryPool.subtitles = [];
-        if (!this.projectData.mediaLibraryPool.texts) this.projectData.mediaLibraryPool.texts = [];
-        if (!this.projectData.mediaLibraryPool.deletedKeys) this.projectData.mediaLibraryPool.deletedKeys = [];
+        if (!this.projectData.mediaLibraryPool.videos)
+            this.projectData.mediaLibraryPool.videos = [];
+        if (!this.projectData.mediaLibraryPool.images)
+            this.projectData.mediaLibraryPool.images = [];
+        if (!this.projectData.mediaLibraryPool.audios)
+            this.projectData.mediaLibraryPool.audios = [];
+        if (!this.projectData.mediaLibraryPool.subtitles)
+            this.projectData.mediaLibraryPool.subtitles = [];
+        if (!this.projectData.mediaLibraryPool.texts)
+            this.projectData.mediaLibraryPool.texts = [];
+        if (!this.projectData.mediaLibraryPool.deletedKeys)
+            this.projectData.mediaLibraryPool.deletedKeys = [];
     }
 
     unmarkDeletedKey(keyOrIdOrUrl: string | any) {
@@ -8773,25 +11588,49 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         let searchKeys: string[] = [];
         if (typeof keyOrIdOrUrl === 'string') {
             searchKeys.push(keyOrIdOrUrl.trim());
-            searchKeys.push(keyOrIdOrUrl.replace(/^file:\/\//i, '').replace(/^media:\/\//i, '').trim());
+            searchKeys.push(
+                keyOrIdOrUrl
+                    .replace(/^file:\/\//i, '')
+                    .replace(/^media:\/\//i, '')
+                    .trim(),
+            );
         } else if (typeof keyOrIdOrUrl === 'object') {
             const id = keyOrIdOrUrl.id;
-            const url = keyOrIdOrUrl.videoUrl || keyOrIdOrUrl.imageUrl || keyOrIdOrUrl.controlImageUrl || keyOrIdOrUrl.audioUrl || keyOrIdOrUrl.url || keyOrIdOrUrl.src;
+            const url =
+                keyOrIdOrUrl.videoUrl ||
+                keyOrIdOrUrl.imageUrl ||
+                keyOrIdOrUrl.controlImageUrl ||
+                keyOrIdOrUrl.audioUrl ||
+                keyOrIdOrUrl.url ||
+                keyOrIdOrUrl.src;
             if (id) {
                 searchKeys.push(String(id).trim());
                 searchKeys.push(`id_${id}`.trim());
             }
             if (url) {
                 searchKeys.push(String(url).trim());
-                searchKeys.push(String(url).replace(/^file:\/\//i, '').replace(/^media:\/\//i, '').trim());
+                searchKeys.push(
+                    String(url)
+                        .replace(/^file:\/\//i, '')
+                        .replace(/^media:\/\//i, '')
+                        .trim(),
+                );
             }
         }
 
-        this.projectData.mediaLibraryPool.deletedKeys = delList.filter((k: string) => {
-            if (!k) return false;
-            const cleanK = String(k).trim();
-            return !searchKeys.some(sk => sk && (sk === cleanK || sk.endsWith(cleanK) || cleanK.endsWith(sk)));
-        });
+        this.projectData.mediaLibraryPool.deletedKeys = delList.filter(
+            (k: string) => {
+                if (!k) return false;
+                const cleanK = String(k).trim();
+                return !searchKeys.some(
+                    (sk) =>
+                        sk &&
+                        (sk === cleanK ||
+                            sk.endsWith(cleanK) ||
+                            cleanK.endsWith(sk)),
+                );
+            },
+        );
     }
 
     addMediaItemToPool(type: 'video' | 'image' | 'audio', item: any) {
@@ -8800,64 +11639,120 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const pool = this.projectData.mediaLibraryPool;
         if (type === 'video') {
             if (!pool.videos) pool.videos = [];
-            const vUrl = item.videoUrl || item.url || item.src || item.path || item.videoPath || item.file || item.sourceUrl;
-            const vImg = item.imageUrl || item.controlImageUrl || item.thumbUrl || item.poster;
-            const key = (item.id ? `id_${item.id}` : (vUrl || vImg || '')).trim();
+            const vUrl =
+                item.videoUrl ||
+                item.url ||
+                item.src ||
+                item.path ||
+                item.videoPath ||
+                item.file ||
+                item.sourceUrl;
+            const vImg =
+                item.imageUrl ||
+                item.controlImageUrl ||
+                item.thumbUrl ||
+                item.poster;
+            const key = (item.id ? `id_${item.id}` : vUrl || vImg || '').trim();
             const exists = pool.videos.some((v: any) => {
-                const existingUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl;
-                const existingKey = (v.id ? `id_${v.id}` : (existingUrl || '')).trim();
-                return (v.id && item.id && v.id === item.id) || (vUrl && existingUrl && vUrl === existingUrl) || (key && existingKey && key === existingKey);
+                const existingUrl =
+                    v.videoUrl ||
+                    v.url ||
+                    v.src ||
+                    v.path ||
+                    v.videoPath ||
+                    v.file ||
+                    v.sourceUrl;
+                const existingKey = (
+                    v.id ? `id_${v.id}` : existingUrl || ''
+                ).trim();
+                return (
+                    (v.id && item.id && v.id === item.id) ||
+                    (vUrl && existingUrl && vUrl === existingUrl) ||
+                    (key && existingKey && key === existingKey)
+                );
             });
             if (!exists && (vUrl || vImg || item.id)) {
                 pool.videos.push({
-                    id: item.id || `pool_v_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    id:
+                        item.id ||
+                        `pool_v_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                     prompt: item.prompt || '',
                     videoUrl: vUrl || null,
                     imageUrl: vImg || null,
                     controlImageUrl: item.controlImageUrl || null,
-                    duration: Number(item.duration) || Number(item.maxDuration) || 5,
-                    maxDuration: Number(item.maxDuration) || Number(item.duration) || 5,
-                    type: 'video'
+                    duration:
+                        Number(item.duration) || Number(item.maxDuration) || 5,
+                    maxDuration:
+                        Number(item.maxDuration) || Number(item.duration) || 5,
+                    type: 'video',
                 });
             }
         } else if (type === 'image') {
             if (!pool.images) pool.images = [];
-            const imgUrl = item.imageUrl || item.controlImageUrl || item.url || item.src || item.path || item.imagePath;
-            const key = (item.id ? `id_${item.id}` : (imgUrl || '')).trim();
+            const imgUrl =
+                item.imageUrl ||
+                item.controlImageUrl ||
+                item.url ||
+                item.src ||
+                item.path ||
+                item.imagePath;
+            const key = (item.id ? `id_${item.id}` : imgUrl || '').trim();
             const exists = pool.images.some((img: any) => {
-                const existingUrl = img.imageUrl || img.controlImageUrl || img.url || img.src || img.path || img.imagePath;
-                const existingKey = (img.id ? `id_${img.id}` : (existingUrl || '')).trim();
-                return (img.id && item.id && img.id === item.id) || (imgUrl && existingUrl && imgUrl === existingUrl) || (key && existingKey && key === existingKey);
+                const existingUrl =
+                    img.imageUrl ||
+                    img.controlImageUrl ||
+                    img.url ||
+                    img.src ||
+                    img.path ||
+                    img.imagePath;
+                const existingKey = (
+                    img.id ? `id_${img.id}` : existingUrl || ''
+                ).trim();
+                return (
+                    (img.id && item.id && img.id === item.id) ||
+                    (imgUrl && existingUrl && imgUrl === existingUrl) ||
+                    (key && existingKey && key === existingKey)
+                );
             });
             if (!exists && (imgUrl || item.id)) {
                 pool.images.push({
-                    id: item.id || `pool_img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    id:
+                        item.id ||
+                        `pool_img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                     title: item.title || item.prompt || 'Hình ảnh',
                     prompt: item.prompt || item.title || '',
                     imageUrl: imgUrl || null,
                     controlImageUrl: item.controlImageUrl || null,
                     duration: Number(item.duration) || 5,
                     maxDuration: Number(item.maxDuration) || 5,
-                    type: 'image'
+                    type: 'image',
                 });
             }
         } else if (type === 'audio') {
             if (!pool.audios) pool.audios = [];
             const audUrl = item.audioUrl || item.url || item.src;
-            const key = (item.id ? `id_${item.id}` : (audUrl || '')).trim();
+            const key = (item.id ? `id_${item.id}` : audUrl || '').trim();
             const exists = pool.audios.some((a: any) => {
                 const existingUrl = a.audioUrl || a.url || a.src;
-                const existingKey = (a.id ? `id_${a.id}` : (existingUrl || '')).trim();
-                return (a.id && item.id && a.id === item.id) || (audUrl && existingUrl && audUrl === existingUrl) || (key && existingKey && key === existingKey);
+                const existingKey = (
+                    a.id ? `id_${a.id}` : existingUrl || ''
+                ).trim();
+                return (
+                    (a.id && item.id && a.id === item.id) ||
+                    (audUrl && existingUrl && audUrl === existingUrl) ||
+                    (key && existingKey && key === existingKey)
+                );
             });
             if (!exists && (audUrl || item.id)) {
                 pool.audios.push({
-                    id: item.id || `pool_aud_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    id:
+                        item.id ||
+                        `pool_aud_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                     text: item.text || item.title || 'Âm thanh',
                     audioUrl: audUrl || null,
                     duration: Number(item.duration) || 5,
                     maxDuration: Number(item.maxDuration) || 5,
-                    type: item.type || 'extractedAudio'
+                    type: item.type || 'extractedAudio',
                 });
             }
         }
@@ -8867,7 +11762,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
+        const deletedKeys = new Set<string>(
+            this.projectData.mediaLibraryPool?.deletedKeys || [],
+        );
 
         // 1. Quét trực tiếp từ tất cả các Scene trên Timeline (nếu đang ở trên timeline thì ưu tiên hiển thị)
         if (this.projectData?.scenes) {
@@ -8876,11 +11773,27 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 if (scene.videos && Array.isArray(scene.videos)) {
                     for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
                         const v = scene.videos[vIdx];
-                        const vUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl;
-                        const vImg = v.imageUrl || v.controlImageUrl || v.thumbUrl || v.poster;
+                        const vUrl =
+                            v.videoUrl ||
+                            v.url ||
+                            v.src ||
+                            v.path ||
+                            v.videoPath ||
+                            v.file ||
+                            v.sourceUrl;
+                        const vImg =
+                            v.imageUrl ||
+                            v.controlImageUrl ||
+                            v.thumbUrl ||
+                            v.poster;
                         const vTrim = Number(v.trimStart) || 0;
-                        const vDur = Number(v.duration) || Number(v.maxDuration) || 5;
-                        const key = (v.id ? `id_${v.id}` : `${vUrl}_trim_${vTrim}_dur_${vDur}_${sIdx}_${vIdx}`).trim();
+                        const vDur =
+                            Number(v.duration) || Number(v.maxDuration) || 5;
+                        const key = (
+                            v.id
+                                ? `id_${v.id}`
+                                : `${vUrl}_trim_${vTrim}_dur_${vDur}_${sIdx}_${vIdx}`
+                        ).trim();
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             list.push({
@@ -8892,12 +11805,15 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                 duration: vDur,
                                 maxDuration: Number(v.maxDuration) || vDur,
                                 trimStart: vTrim,
-                                startTime: v.startTime !== undefined ? Number(v.startTime) : 0,
+                                startTime:
+                                    v.startTime !== undefined
+                                        ? Number(v.startTime)
+                                        : 0,
                                 trackIndex: v.trackIndex || 0,
                                 sceneIdx: sIdx,
                                 vIdx: vIdx,
                                 _raw: v,
-                                type: 'video'
+                                type: 'video',
                             });
                         }
                     }
@@ -8908,20 +11824,38 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         // 2. Quét thêm từ mediaLibraryPool đã lưu (chỉ lọc deletedKeys cho các item lưu trong kho pool)
         if (this.projectData?.mediaLibraryPool?.videos) {
             for (const v of this.projectData.mediaLibraryPool.videos) {
-                const vUrl = v.videoUrl || v.url || v.src || v.path || v.videoPath || v.file || v.sourceUrl;
-                const vImg = v.imageUrl || v.controlImageUrl || v.thumbUrl || v.poster;
-                const key = (v.id ? `id_${v.id}` : (vUrl || vImg || '')).trim();
-                if (!key || seenKeys.has(key) || (vUrl && seenKeys.has(String(vUrl).trim())) || deletedKeys.has(key) || (v.id && deletedKeys.has(String(v.id))) || (vUrl && deletedKeys.has(String(vUrl).trim()))) continue;
+                const vUrl =
+                    v.videoUrl ||
+                    v.url ||
+                    v.src ||
+                    v.path ||
+                    v.videoPath ||
+                    v.file ||
+                    v.sourceUrl;
+                const vImg =
+                    v.imageUrl || v.controlImageUrl || v.thumbUrl || v.poster;
+                const key = (v.id ? `id_${v.id}` : vUrl || vImg || '').trim();
+                if (
+                    !key ||
+                    seenKeys.has(key) ||
+                    (vUrl && seenKeys.has(String(vUrl).trim())) ||
+                    deletedKeys.has(key) ||
+                    (v.id && deletedKeys.has(String(v.id))) ||
+                    (vUrl && deletedKeys.has(String(vUrl).trim()))
+                )
+                    continue;
                 seenKeys.add(key);
                 list.push({
                     ...v,
                     videoUrl: vUrl || null,
                     imageUrl: vImg || null,
                     duration: Number(v.duration) || Number(v.maxDuration) || 5,
-                    maxDuration: Number(v.maxDuration) || Number(v.duration) || 5,
-                    startTime: v.startTime !== undefined ? Number(v.startTime) : 0,
+                    maxDuration:
+                        Number(v.maxDuration) || Number(v.duration) || 5,
+                    startTime:
+                        v.startTime !== undefined ? Number(v.startTime) : 0,
                     _raw: v,
-                    type: 'video'
+                    type: 'video',
                 });
             }
         }
@@ -8933,33 +11867,55 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
+        const deletedKeys = new Set<string>(
+            this.projectData.mediaLibraryPool?.deletedKeys || [],
+        );
 
         // 1. Quét trực tiếp từ tất cả các Scene trên Timeline
         if (this.projectData?.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
                 if (scene.images && Array.isArray(scene.images)) {
-                    for (let imgIdx = 0; imgIdx < scene.images.length; imgIdx++) {
+                    for (
+                        let imgIdx = 0;
+                        imgIdx < scene.images.length;
+                        imgIdx++
+                    ) {
                         const img = scene.images[imgIdx];
-                        const imgUrl = img.imageUrl || img.controlImageUrl || img.url || img.src || img.path || img.imagePath;
-                        const key = (img.id ? `id_${img.id}` : (imgUrl || `scene_${sIdx}_image_${imgIdx}`)).trim();
+                        const imgUrl =
+                            img.imageUrl ||
+                            img.controlImageUrl ||
+                            img.url ||
+                            img.src ||
+                            img.path ||
+                            img.imagePath;
+                        const key = (
+                            img.id
+                                ? `id_${img.id}`
+                                : imgUrl || `scene_${sIdx}_image_${imgIdx}`
+                        ).trim();
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             if (imgUrl) seenKeys.add(String(imgUrl).trim());
                             list.push({
                                 id: img.id || `image_tl_${sIdx}_${imgIdx}`,
-                                title: img.title || img.prompt || ('Hình ảnh ' + (imgIdx + 1)),
+                                title:
+                                    img.title ||
+                                    img.prompt ||
+                                    'Hình ảnh ' + (imgIdx + 1),
                                 prompt: img.prompt || img.title || '',
                                 imageUrl: imgUrl || null,
                                 controlImageUrl: img.controlImageUrl || null,
                                 duration: Number(img.duration) || 5,
                                 maxDuration: Number(img.maxDuration) || 5,
-                                startTime: img.startTime !== undefined ? Number(img.startTime) : 0,
+                                startTime:
+                                    img.startTime !== undefined
+                                        ? Number(img.startTime)
+                                        : 0,
                                 sceneIdx: sIdx,
                                 imgIdx: imgIdx,
                                 _raw: img,
-                                type: 'image'
+                                type: 'image',
                             });
                         }
                     }
@@ -8970,9 +11926,23 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         // 2. Quét thêm từ mediaLibraryPool đã lưu
         if (this.projectData?.mediaLibraryPool?.images) {
             for (const img of this.projectData.mediaLibraryPool.images) {
-                const imgUrl = img.imageUrl || img.controlImageUrl || img.url || img.src || img.path || img.imagePath;
-                const key = (img.id ? `id_${img.id}` : (imgUrl || '')).trim();
-                if (!key || seenKeys.has(key) || (imgUrl && seenKeys.has(String(imgUrl).trim())) || deletedKeys.has(key) || (img.id && deletedKeys.has(String(img.id))) || (imgUrl && deletedKeys.has(String(imgUrl).trim()))) continue;
+                const imgUrl =
+                    img.imageUrl ||
+                    img.controlImageUrl ||
+                    img.url ||
+                    img.src ||
+                    img.path ||
+                    img.imagePath;
+                const key = (img.id ? `id_${img.id}` : imgUrl || '').trim();
+                if (
+                    !key ||
+                    seenKeys.has(key) ||
+                    (imgUrl && seenKeys.has(String(imgUrl).trim())) ||
+                    deletedKeys.has(key) ||
+                    (img.id && deletedKeys.has(String(img.id))) ||
+                    (imgUrl && deletedKeys.has(String(imgUrl).trim()))
+                )
+                    continue;
                 seenKeys.add(key);
                 list.push({
                     ...img,
@@ -8981,7 +11951,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     maxDuration: Number(img.maxDuration) || 5,
                     _raw: img,
                     type: 'image',
-                    title: img.title || img.prompt || 'Hình ảnh'
+                    title: img.title || img.prompt || 'Hình ảnh',
                 });
             }
         }
@@ -8993,63 +11963,92 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool.deletedKeys || []);
+        const deletedKeys = new Set<string>(
+            this.projectData.mediaLibraryPool.deletedKeys || [],
+        );
 
         // 1. Quét từ timeline trước (các item đang hiện diện trên timeline luôn được hiển thị)
         if (this.projectData.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
                 if (scene.extractedAudios) {
-                    for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                    for (
+                        let aIdx = 0;
+                        aIdx < scene.extractedAudios.length;
+                        aIdx++
+                    ) {
                         const aud = scene.extractedAudios[aIdx];
-                        const key = (aud.audioUrl || aud.url || aud.id || `ext_${sIdx}_${aIdx}`).trim();
+                        const key = (
+                            aud.audioUrl ||
+                            aud.url ||
+                            aud.id ||
+                            `ext_${sIdx}_${aIdx}`
+                        ).trim();
                         if (!key) continue;
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
-                            if (aud.audioUrl) seenKeys.add(String(aud.audioUrl).trim());
+                            if (aud.audioUrl)
+                                seenKeys.add(String(aud.audioUrl).trim());
                             const poolItem = {
-                                id: aud.id || `audio_pool_${Date.now()}_${aIdx}`,
+                                id:
+                                    aud.id ||
+                                    `audio_pool_${Date.now()}_${aIdx}`,
                                 audioUrl: aud.audioUrl || aud.url || null,
-                                text: aud.text || ('Âm thanh #' + (aIdx + 1)),
+                                text: aud.text || 'Âm thanh #' + (aIdx + 1),
                                 duration: aud.duration || 5,
                                 maxDuration: aud.maxDuration || 5,
                                 sceneIdx: sIdx,
                                 aIdx: aIdx,
                                 type: 'extractedAudio',
-                                title: aud.text || ('Âm thanh #' + (aIdx + 1))
+                                title: aud.text || 'Âm thanh #' + (aIdx + 1),
                             };
                             list.push({
                                 ...poolItem,
                                 _raw: aud,
-                                type: 'extractedAudio'
+                                type: 'extractedAudio',
                             });
                         }
                     }
                 }
                 if (scene.subtitles) {
-                    for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                    for (
+                        let subIdx = 0;
+                        subIdx < scene.subtitles.length;
+                        subIdx++
+                    ) {
                         const sub = scene.subtitles[subIdx];
                         if (sub.audioUrl) {
-                            const key = (sub.audioUrl || sub.id || `sub_${sIdx}_${subIdx}`).trim();
+                            const key = (
+                                sub.audioUrl ||
+                                sub.id ||
+                                `sub_${sIdx}_${subIdx}`
+                            ).trim();
                             if (!key) continue;
                             if (!seenKeys.has(key)) {
                                 seenKeys.add(key);
-                                if (sub.audioUrl) seenKeys.add(String(sub.audioUrl).trim());
+                                if (sub.audioUrl)
+                                    seenKeys.add(String(sub.audioUrl).trim());
                                 const poolItem = {
-                                    id: sub.id || `audio_sub_${Date.now()}_${subIdx}`,
+                                    id:
+                                        sub.id ||
+                                        `audio_sub_${Date.now()}_${subIdx}`,
                                     audioUrl: sub.audioUrl,
-                                    text: sub.text || ('Audio #' + (subIdx + 1)),
+                                    text: sub.text || 'Audio #' + (subIdx + 1),
                                     duration: sub.duration || 5,
                                     maxDuration: sub.maxDuration || 5,
                                     sceneIdx: sIdx,
                                     subIdx: subIdx,
                                     type: 'audio',
-                                    title: sub.text ? (sub.text.length > 25 ? sub.text.substring(0, 25) + '...' : sub.text) : ('Audio #' + (subIdx + 1))
+                                    title: sub.text
+                                        ? sub.text.length > 25
+                                            ? sub.text.substring(0, 25) + '...'
+                                            : sub.text
+                                        : 'Audio #' + (subIdx + 1),
                                 };
                                 list.push({
                                     ...poolItem,
                                     _raw: sub,
-                                    type: 'audio'
+                                    type: 'audio',
                                 });
                             }
                         }
@@ -9061,13 +12060,20 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         // 2. Quét từ pool đã lưu (chỉ lọc deletedKeys cho các item lưu trong pool)
         for (const aud of this.projectData.mediaLibraryPool.audios) {
             const key = (aud.audioUrl || aud.url || aud.id || '').trim();
-            if (!key || seenKeys.has(key) || (aud.audioUrl && seenKeys.has(String(aud.audioUrl).trim())) || deletedKeys.has(key) || (aud.id && deletedKeys.has(String(aud.id)))) continue;
+            if (
+                !key ||
+                seenKeys.has(key) ||
+                (aud.audioUrl && seenKeys.has(String(aud.audioUrl).trim())) ||
+                deletedKeys.has(key) ||
+                (aud.id && deletedKeys.has(String(aud.id)))
+            )
+                continue;
             seenKeys.add(key);
             list.push({
                 ...aud,
                 _raw: aud,
                 type: aud.type || 'extractedAudio',
-                title: aud.text || aud.title || 'Âm thanh'
+                title: aud.text || aud.title || 'Âm thanh',
             });
         }
 
@@ -9078,16 +12084,24 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
+        const deletedKeys = new Set<string>(
+            this.projectData.mediaLibraryPool?.deletedKeys || [],
+        );
 
         // 1. Quét từ timeline trước (hiển thị trực tiếp các phụ đề đang có trên timeline)
         if (this.projectData?.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
                 if (scene.subtitles) {
-                    for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                    for (
+                        let subIdx = 0;
+                        subIdx < scene.subtitles.length;
+                        subIdx++
+                    ) {
                         const sub = scene.subtitles[subIdx];
-                        const key = (sub.id ? `id_${sub.id}` : `sub_tl_${sIdx}_${subIdx}`).trim();
+                        const key = (
+                            sub.id ? `id_${sub.id}` : `sub_tl_${sIdx}_${subIdx}`
+                        ).trim();
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             list.push({
@@ -9096,12 +12110,18 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                                 vietnameseText: sub.vietnameseText || '',
                                 originalText: sub.originalText || '',
                                 duration: Number(sub.duration) || 3,
-                                maxDuration: Number(sub.maxDuration) || Number(sub.duration) || 3,
-                                startTime: sub.startTime !== undefined ? Number(sub.startTime) : 0,
+                                maxDuration:
+                                    Number(sub.maxDuration) ||
+                                    Number(sub.duration) ||
+                                    3,
+                                startTime:
+                                    sub.startTime !== undefined
+                                        ? Number(sub.startTime)
+                                        : 0,
                                 sceneIdx: sIdx,
                                 subIdx: subIdx,
                                 _raw: sub,
-                                type: 'subtitle'
+                                type: 'subtitle',
                             });
                         }
                     }
@@ -9112,13 +12132,19 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         // 2. Quét từ pool đã lưu (chỉ lấy những item chưa có trên timeline và không bị xóa)
         if (this.projectData?.mediaLibraryPool?.subtitles) {
             for (const sub of this.projectData.mediaLibraryPool.subtitles) {
-                const key = (sub.id ? `id_${sub.id}` : (sub.text || '')).trim();
-                if (!key || seenKeys.has(key) || deletedKeys.has(key) || (sub.id && deletedKeys.has(String(sub.id)))) continue;
+                const key = (sub.id ? `id_${sub.id}` : sub.text || '').trim();
+                if (
+                    !key ||
+                    seenKeys.has(key) ||
+                    deletedKeys.has(key) ||
+                    (sub.id && deletedKeys.has(String(sub.id)))
+                )
+                    continue;
                 seenKeys.add(key);
                 list.push({
                     ...sub,
                     _raw: sub,
-                    type: 'subtitle'
+                    type: 'subtitle',
                 });
             }
         }
@@ -9129,28 +12155,44 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         this.ensureMediaLibraryPool();
         const list: any[] = [];
         const seenKeys = new Set<string>();
-        const deletedKeys = new Set<string>(this.projectData.mediaLibraryPool?.deletedKeys || []);
+        const deletedKeys = new Set<string>(
+            this.projectData.mediaLibraryPool?.deletedKeys || [],
+        );
 
         // 1. Quét từ timeline trước (hiển thị trực tiếp các text đang có trên timeline)
         if (this.projectData?.scenes) {
             for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                 const scene = this.projectData.scenes[sIdx];
                 if (scene.texts) {
-                    for (let textIdx = 0; textIdx < scene.texts.length; textIdx++) {
+                    for (
+                        let textIdx = 0;
+                        textIdx < scene.texts.length;
+                        textIdx++
+                    ) {
                         const txt = scene.texts[textIdx];
-                        const key = (txt.id ? `id_${txt.id}` : `text_tl_${sIdx}_${textIdx}`).trim();
+                        const key = (
+                            txt.id
+                                ? `id_${txt.id}`
+                                : `text_tl_${sIdx}_${textIdx}`
+                        ).trim();
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);
                             list.push({
                                 id: txt.id || `text_tl_${sIdx}_${textIdx}`,
                                 text: txt.text || '',
                                 duration: Number(txt.duration) || 3,
-                                maxDuration: Number(txt.maxDuration) || Number(txt.duration) || 3,
-                                startTime: txt.startTime !== undefined ? Number(txt.startTime) : 0,
+                                maxDuration:
+                                    Number(txt.maxDuration) ||
+                                    Number(txt.duration) ||
+                                    3,
+                                startTime:
+                                    txt.startTime !== undefined
+                                        ? Number(txt.startTime)
+                                        : 0,
                                 sceneIdx: sIdx,
                                 textIdx: textIdx,
                                 _raw: txt,
-                                type: 'customText'
+                                type: 'customText',
                             });
                         }
                     }
@@ -9161,13 +12203,19 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         // 2. Quét từ pool đã lưu (chỉ lấy những item chưa có trên timeline và không bị xóa)
         if (this.projectData?.mediaLibraryPool?.texts) {
             for (const txt of this.projectData.mediaLibraryPool.texts) {
-                const key = (txt.id ? `id_${txt.id}` : (txt.text || '')).trim();
-                if (!key || seenKeys.has(key) || deletedKeys.has(key) || (txt.id && deletedKeys.has(String(txt.id)))) continue;
+                const key = (txt.id ? `id_${txt.id}` : txt.text || '').trim();
+                if (
+                    !key ||
+                    seenKeys.has(key) ||
+                    deletedKeys.has(key) ||
+                    (txt.id && deletedKeys.has(String(txt.id)))
+                )
+                    continue;
                 seenKeys.add(key);
                 list.push({
                     ...txt,
                     _raw: txt,
-                    type: 'customText'
+                    type: 'customText',
                 });
             }
         }
@@ -9177,7 +12225,11 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
     currentSubtitleLang: string = 'original';
     isTranslatingSubtitles: boolean = false;
 
-    readonly SUBTITLE_LANGUAGES: Array<{ code: string, label: string, icon: string }> = [
+    readonly SUBTITLE_LANGUAGES: Array<{
+        code: string;
+        label: string;
+        icon: string;
+    }> = [
         { code: 'original', label: 'Ngôn ngữ gốc (Transcript)', icon: '🌐' },
         { code: 'vi', label: 'Tiếng Việt', icon: '🇻🇳' },
         { code: 'en', label: 'Tiếng Anh (English)', icon: '🇬🇧' },
@@ -9187,7 +12239,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         { code: 'fr', label: 'Tiếng Pháp (Français)', icon: '🇫🇷' },
         { code: 'es', label: 'Tiếng Tây Ban Nha (Español)', icon: '🇪🇸' },
         { code: 'de', label: 'Tiếng Đức (Deutsch)', icon: '🇩🇪' },
-        { code: 'th', label: 'Tiếng Thái (ไทย)', icon: '🇹🇭' }
+        { code: 'th', label: 'Tiếng Thái (ไทย)', icon: '🇹🇭' },
     ];
 
     trackByLangCode(index: number, item: any): string {
@@ -9195,17 +12247,35 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
     }
 
     getSubtitleLangBadge(): string {
-        if (!this.currentSubtitleLang || this.currentSubtitleLang === 'original') return 'OG';
+        if (
+            !this.currentSubtitleLang ||
+            this.currentSubtitleLang === 'original'
+        )
+            return 'OG';
         return this.currentSubtitleLang.substring(0, 2).toUpperCase();
     }
 
     isLikelyVietnamese(text: string): boolean {
         if (!text) return false;
-        return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(text);
+        return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
+            text,
+        );
     }
 
-    getAvailableSubtitleLanguages(): Array<{ code: string, label: string, count: number, isCurrent: boolean, icon: string }> {
-        const list: Array<{ code: string, label: string, count: number, isCurrent: boolean, icon: string }> = [];
+    getAvailableSubtitleLanguages(): Array<{
+        code: string;
+        label: string;
+        count: number;
+        isCurrent: boolean;
+        icon: string;
+    }> {
+        const list: Array<{
+            code: string;
+            label: string;
+            count: number;
+            isCurrent: boolean;
+            icon: string;
+        }> = [];
         const allSubs = this.getAllProjectSubtitles();
         const totalCount = allSubs.length;
 
@@ -9215,7 +12285,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 label: lang.label,
                 count: totalCount,
                 isCurrent: this.currentSubtitleLang === lang.code,
-                icon: lang.icon
+                icon: lang.icon,
             });
         }
 
@@ -9229,7 +12299,10 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
             const res = await electron.invoke('read-file-base64', { filePath });
             if (res && res.success && res.base64) {
                 const binString = atob(res.base64);
-                const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0)!);
+                const bytes = Uint8Array.from(
+                    binString,
+                    (m) => m.codePointAt(0)!,
+                );
                 return new TextDecoder().decode(bytes);
             }
         } catch (e) {
@@ -9239,7 +12312,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
     }
 
     async loadSubtitlesFromDiskFiles(): Promise<boolean> {
-        console.log('[loadSubtitlesFromDiskFiles] Bắt đầu tìm kiếm file audio & phụ đề từ đĩa...');
+        console.log(
+            '[loadSubtitlesFromDiskFiles] Bắt đầu tìm kiếm file audio & phụ đề từ đĩa...',
+        );
         const electron = (window as any).electron;
         if (!electron || !electron.invoke) return false;
 
@@ -9248,12 +12323,18 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const extractDirFromUrl = (rawUrl: string) => {
             if (!rawUrl) return;
             let clean = rawUrl;
-            if (clean.startsWith('media://')) clean = decodeURIComponent(clean.substring(8));
-            else if (clean.startsWith('file://')) clean = decodeURIComponent(clean.substring(7));
-            else if (clean.startsWith('mediacors://')) clean = decodeURIComponent(clean.substring(12));
+            if (clean.startsWith('media://'))
+                clean = decodeURIComponent(clean.substring(8));
+            else if (clean.startsWith('file://'))
+                clean = decodeURIComponent(clean.substring(7));
+            else if (clean.startsWith('mediacors://'))
+                clean = decodeURIComponent(clean.substring(12));
             if (clean.match(/^\/[a-zA-Z]:[\\/]/)) clean = clean.substring(1);
 
-            const lastSlash = Math.max(clean.lastIndexOf('/'), clean.lastIndexOf('\\'));
+            const lastSlash = Math.max(
+                clean.lastIndexOf('/'),
+                clean.lastIndexOf('\\'),
+            );
             if (lastSlash >= 0) {
                 candidateDirs.add(clean.substring(0, lastSlash));
             }
@@ -9279,40 +12360,68 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         const projectUuid = this.projectData?.uuid || this.data?.uuid;
         if (projectUuid) {
             candidateDirs.add(`/home/yenai/Downloads/AI.TYPING/${projectUuid}`);
-            candidateDirs.add(`/home/yenai/Downloads/AI.TYPING/video_${projectUuid}`);
+            candidateDirs.add(
+                `/home/yenai/Downloads/AI.TYPING/video_${projectUuid}`,
+            );
         }
 
-        console.log('[loadSubtitlesFromDiskFiles] Candidate directories:', Array.from(candidateDirs));
+        console.log(
+            '[loadSubtitlesFromDiskFiles] Candidate directories:',
+            Array.from(candidateDirs),
+        );
 
         let scanResult: any = null;
         for (const dir of candidateDirs) {
             try {
-                const res = await electron.invoke('scan-subtitles-in-project', { dir });
-                if (res && res.success && (res.originalContent || (res.audioSegments && res.audioSegments.length > 0))) {
+                const res = await electron.invoke('scan-subtitles-in-project', {
+                    dir,
+                });
+                if (
+                    res &&
+                    res.success &&
+                    (res.originalContent ||
+                        (res.audioSegments && res.audioSegments.length > 0))
+                ) {
                     scanResult = res;
-                    console.log('[loadSubtitlesFromDiskFiles] TÌM THẤY DỮ LIỆU TẠI THƯ MỤC:', dir, res);
+                    console.log(
+                        '[loadSubtitlesFromDiskFiles] TÌM THẤY DỮ LIỆU TẠI THƯ MỤC:',
+                        dir,
+                        res,
+                    );
                     break;
                 }
             } catch (e) {}
         }
 
         if (!scanResult) {
-            console.log('[loadSubtitlesFromDiskFiles] Không tìm thấy dữ liệu trên đĩa.');
+            console.log(
+                '[loadSubtitlesFromDiskFiles] Không tìm thấy dữ liệu trên đĩa.',
+            );
             return false;
         }
 
-        const origSubs = scanResult.originalContent ? this.parseSrtContent(scanResult.originalContent) : [];
-        const viSubs = scanResult.viContent ? this.parseSrtContent(scanResult.viContent) : [];
+        const origSubs = scanResult.originalContent
+            ? this.parseSrtContent(scanResult.originalContent)
+            : [];
+        const viSubs = scanResult.viContent
+            ? this.parseSrtContent(scanResult.viContent)
+            : [];
         const audioSegs: any[] = scanResult.audioSegments || [];
         const mainAudio = scanResult.mainAudio;
 
-        console.log(`[loadSubtitlesFromDiskFiles] Đọc được: ${origSubs.length} câu SRT gốc, ${viSubs.length} câu tiếng Việt, ${audioSegs.length} file audio mp3`);
+        console.log(
+            `[loadSubtitlesFromDiskFiles] Đọc được: ${origSubs.length} câu SRT gốc, ${viSubs.length} câu tiếng Việt, ${audioSegs.length} file audio mp3`,
+        );
 
         if (this.projectData?.scenes && this.projectData.scenes.length > 0) {
             const firstScene = this.projectData.scenes[0];
 
             // Nếu scene.extractedAudios bị rỗng hoặc thiếu files, tái tạo lại toàn bộ từ các file đã cắt trên đĩa
-            if (!firstScene.extractedAudios || firstScene.extractedAudios.length === 0 || firstScene.extractedAudios.length < audioSegs.length) {
+            if (
+                !firstScene.extractedAudios ||
+                firstScene.extractedAudios.length === 0 ||
+                firstScene.extractedAudios.length < audioSegs.length
+            ) {
                 const restoredAudios: any[] = [];
                 const restoredSubs: any[] = [];
 
@@ -9320,10 +12429,15 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 for (let i = 0; i < count; i++) {
                     const srt: any = origSubs[i] || {};
                     const viSrt: any = viSubs[i] || {};
-                    const segFile = audioSegs[i] || audioSegs.find((a: any) => a.index === i) || (mainAudio ? mainAudio : null);
+                    const segFile =
+                        audioSegs[i] ||
+                        audioSegs.find((a: any) => a.index === i) ||
+                        (mainAudio ? mainAudio : null);
                     const segUrl = segFile ? segFile.url : null;
-                    const segStart = srt.startTime !== undefined ? srt.startTime : (i * 2);
-                    const segDur = srt.duration !== undefined ? srt.duration : 2;
+                    const segStart =
+                        srt.startTime !== undefined ? srt.startTime : i * 2;
+                    const segDur =
+                        srt.duration !== undefined ? srt.duration : 2;
                     const segOrigText = srt.text || `Phần ${i + 1}`;
                     const segViText = viSrt.text || segOrigText;
 
@@ -9336,22 +12450,26 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             audioUrl: segUrl,
                             startTime: segStart,
                             duration: segDur,
-                            maxDuration: segDur
+                            maxDuration: segDur,
                         });
                     }
 
                     restoredSubs.push({
                         id: Date.now() + 1000 + i,
-                        text: this.currentSubtitleLang === 'original' || this.currentSubtitleLang === 'en' ? segOrigText : segViText,
+                        text:
+                            this.currentSubtitleLang === 'original' ||
+                            this.currentSubtitleLang === 'en'
+                                ? segOrigText
+                                : segViText,
                         originalText: segOrigText,
                         vietnameseText: segViText,
                         translations: {
-                            'vi': segViText,
-                            'original': segOrigText,
-                            'en': segOrigText
+                            vi: segViText,
+                            original: segOrigText,
+                            en: segOrigText,
                         },
                         startTime: segStart,
-                        duration: segDur
+                        duration: segDur,
                     });
                 }
 
@@ -9362,13 +12480,15 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     firstScene.subtitles = restoredSubs;
                 }
                 if (firstScene.videos) {
-                    firstScene.videos.forEach((v: any) => v.muted = true);
+                    firstScene.videos.forEach((v: any) => (v.muted = true));
                 }
             } else {
                 // Đã có extractedAudios, chỉ cần đồng bộ lại đường dẫn audioUrl và text
                 for (let i = 0; i < firstScene.extractedAudios.length; i++) {
                     const a = firstScene.extractedAudios[i];
-                    const segFile = audioSegs[i] || audioSegs.find((s: any) => s.index === i);
+                    const segFile =
+                        audioSegs[i] ||
+                        audioSegs.find((s: any) => s.index === i);
                     if (segFile && segFile.url) {
                         a.audioUrl = segFile.url;
                     }
@@ -9416,7 +12536,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         if (!this.projectData?.scenes) return;
 
         for (const scene of this.projectData.scenes) {
-            if (!scene.extractedAudios || scene.extractedAudios.length === 0) continue;
+            if (!scene.extractedAudios || scene.extractedAudios.length === 0)
+                continue;
             if (!scene.subtitles) scene.subtitles = [];
 
             // 1. Tự động bổ sung các phân đoạn subtitle còn thiếu nếu extractedAudios có mà subtitles chưa có (đầy đủ 100% như audio)
@@ -9426,63 +12547,100 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 const aOrig = String(aud.originalText || aud.text || '').trim();
                 const aVi = String(aud.vietnameseText || aud.text || '').trim();
 
-                const existingSub = scene.subtitles.find((s: any) => 
-                    (s.audioId && aud.id && s.audioId === aud.id) ||
-                    (s.id && aud.id && (s.id === aud.id || s.id === aud.id + 100000 || s.id === aud.id + 1000)) ||
-                    (Math.abs((Number(s.startTime) || 0) - aStart) < 0.25)
+                const existingSub = scene.subtitles.find(
+                    (s: any) =>
+                        (s.audioId && aud.id && s.audioId === aud.id) ||
+                        (s.id &&
+                            aud.id &&
+                            (s.id === aud.id ||
+                                s.id === aud.id + 100000 ||
+                                s.id === aud.id + 1000)) ||
+                        Math.abs((Number(s.startTime) || 0) - aStart) < 0.25,
                 );
 
                 if (!existingSub && (aOrig || aVi)) {
-                    const subText = this.currentSubtitleLang === 'vi' ? (aVi || aOrig) : (aOrig || aVi);
+                    const subText =
+                        this.currentSubtitleLang === 'vi'
+                            ? aVi || aOrig
+                            : aOrig || aVi;
                     scene.subtitles.push({
-                        id: (aud.id ? aud.id + 100000 : Date.now() + Math.random()),
+                        id: aud.id
+                            ? aud.id + 100000
+                            : Date.now() + Math.random(),
                         audioId: aud.id,
                         text: subText,
                         originalText: aOrig,
                         vietnameseText: aVi,
                         translations: {
-                            'vi': aVi,
-                            'original': aOrig,
-                            'en': aOrig
+                            vi: aVi,
+                            original: aOrig,
+                            en: aOrig,
                         },
                         startTime: aStart,
-                        duration: aDur
+                        duration: aDur,
                     });
                 }
             }
 
             // Sắp xếp lại subtitles theo timeline
-            scene.subtitles.sort((a: any, b: any) => (Number(a.startTime) || 0) - (Number(b.startTime) || 0));
+            scene.subtitles.sort(
+                (a: any, b: any) =>
+                    (Number(a.startTime) || 0) - (Number(b.startTime) || 0),
+            );
 
             // 2. Đồng bộ hoá chính xác từng subtitle với audio tương ứng (KHÔNG dùng index mảng bừa bãi)
             for (let i = 0; i < scene.subtitles.length; i++) {
                 const sub = scene.subtitles[i];
                 const subStart = Number(sub.startTime) || 0;
-                const matchingAudio = scene.extractedAudios.find((a: any) => 
-                    (sub.audioId && a.id && sub.audioId === a.id) ||
-                    (sub.id && a.id && (a.id === sub.id || a.id === sub.id - 100000 || a.id === sub.id - 1000)) ||
-                    (Math.abs((Number(a.startTime) || 0) - subStart) < 0.25) ||
-                    (subStart >= (Number(a.startTime) || 0) - 0.05 && subStart < (Number(a.startTime) || 0) + (Number(a.duration) || 0))
+                const matchingAudio = scene.extractedAudios.find(
+                    (a: any) =>
+                        (sub.audioId && a.id && sub.audioId === a.id) ||
+                        (sub.id &&
+                            a.id &&
+                            (a.id === sub.id ||
+                                a.id === sub.id - 100000 ||
+                                a.id === sub.id - 1000)) ||
+                        Math.abs((Number(a.startTime) || 0) - subStart) <
+                            0.25 ||
+                        (subStart >= (Number(a.startTime) || 0) - 0.05 &&
+                            subStart <
+                                (Number(a.startTime) || 0) +
+                                    (Number(a.duration) || 0)),
                 );
 
                 if (matchingAudio) {
-                    if (matchingAudio.originalText && matchingAudio.originalText !== '[Âm thanh gốc]') {
+                    if (
+                        matchingAudio.originalText &&
+                        matchingAudio.originalText !== '[Âm thanh gốc]'
+                    ) {
                         sub.originalText = matchingAudio.originalText;
-                    } else if (matchingAudio.text && matchingAudio.text !== '[Âm thanh gốc]' && !this.isLikelyVietnamese(matchingAudio.text)) {
+                    } else if (
+                        matchingAudio.text &&
+                        matchingAudio.text !== '[Âm thanh gốc]' &&
+                        !this.isLikelyVietnamese(matchingAudio.text)
+                    ) {
                         sub.originalText = matchingAudio.text;
                     }
 
-                    if (matchingAudio.vietnameseText && matchingAudio.vietnameseText !== '[Âm thanh gốc]') {
+                    if (
+                        matchingAudio.vietnameseText &&
+                        matchingAudio.vietnameseText !== '[Âm thanh gốc]'
+                    ) {
                         sub.vietnameseText = matchingAudio.vietnameseText;
                     }
                 }
 
-                if (!sub.vietnameseText && sub.text && this.isLikelyVietnamese(sub.text)) {
+                if (
+                    !sub.vietnameseText &&
+                    sub.text &&
+                    this.isLikelyVietnamese(sub.text)
+                ) {
                     sub.vietnameseText = sub.text;
                 }
 
                 if (!sub.translations) sub.translations = {};
-                if (sub.vietnameseText) sub.translations['vi'] = sub.vietnameseText;
+                if (sub.vietnameseText)
+                    sub.translations['vi'] = sub.vietnameseText;
                 if (sub.originalText) {
                     sub.translations['original'] = sub.originalText;
                     if (!this.isLikelyVietnamese(sub.originalText)) {
@@ -9502,14 +12660,29 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
             const scene = this.projectData.scenes[sIdx];
             if (scene.subtitles) {
-                for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                for (
+                    let subIdx = 0;
+                    subIdx < scene.subtitles.length;
+                    subIdx++
+                ) {
                     const sub = scene.subtitles[subIdx];
 
                     if (langCode === 'vi') {
-                        const vi = sub.vietnameseText || (sub.translations && sub.translations['vi']);
+                        const vi =
+                            sub.vietnameseText ||
+                            (sub.translations && sub.translations['vi']);
                         if (vi) sub.text = vi;
-                    } else if (langCode === 'original' || langCode === 'en' || langCode === 'zh') {
-                        const orig = sub.originalText || (sub.translations && (sub.translations['original'] || sub.translations['zh'] || sub.translations['en']));
+                    } else if (
+                        langCode === 'original' ||
+                        langCode === 'en' ||
+                        langCode === 'zh'
+                    ) {
+                        const orig =
+                            sub.originalText ||
+                            (sub.translations &&
+                                (sub.translations['original'] ||
+                                    sub.translations['zh'] ||
+                                    sub.translations['en']));
                         if (orig) sub.text = orig;
                     } else if (sub.translations && sub.translations[langCode]) {
                         sub.text = sub.translations[langCode];
@@ -9540,7 +12713,9 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         // 3. Áp dụng ngôn ngữ hiển thị
         this.applySubtitleLanguage(langCode);
 
-        const targetLangObj = this.SUBTITLE_LANGUAGES.find(l => l.code === langCode);
+        const targetLangObj = this.SUBTITLE_LANGUAGES.find(
+            (l) => l.code === langCode,
+        );
         const targetLangName = targetLangObj ? targetLangObj.label : langCode;
 
         // 4. Nếu là ngôn ngữ khác chưa dịch -> Dùng AI dịch
@@ -9554,16 +12729,25 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 }
             }
 
-            const alreadyTranslated = allSubs.every(s => s.translations && s.translations[langCode] && s.translations[langCode].trim().length > 0);
+            const alreadyTranslated = allSubs.every(
+                (s) =>
+                    s.translations &&
+                    s.translations[langCode] &&
+                    s.translations[langCode].trim().length > 0,
+            );
             if (!alreadyTranslated) {
                 try {
                     this.isTranslatingSubtitles = true;
                     this.cd.detectChanges();
-                    this.toastr.info(`AI đang dịch ${allSubs.length} đoạn phụ đề sang ${targetLangName}...`, 'Đang dịch AI');
+                    this.toastr.info(
+                        `AI đang dịch ${allSubs.length} đoạn phụ đề sang ${targetLangName}...`,
+                        'Đang dịch AI',
+                    );
 
                     const subsToTranslate = allSubs.map((s, idx) => ({
                         index: idx,
-                        text: s.vietnameseText || s.originalText || s.text || ''
+                        text:
+                            s.vietnameseText || s.originalText || s.text || '',
                     }));
 
                     const prompt = `Translate the following list of video subtitles to ${targetLangName} (${langCode}).
@@ -9575,32 +12759,54 @@ Rules:
 Subtitles list:
 ${JSON.stringify(subsToTranslate, null, 2)}`;
 
-                    const response: any = await this._genaiService.generateContent({
-                        model: 'gemini-2.5-flash',
-                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                        config: {
-                            temperature: 0.1,
-                            responseMimeType: 'application/json',
-                            skipTTS: true,
-                            bypassAiAgent: true,
-                            bypassModelOverride: true
-                        } as any
-                    });
+                    const response: any =
+                        await this._genaiService.generateContent({
+                            model: 'gemini-2.5-flash',
+                            contents: [
+                                { role: 'user', parts: [{ text: prompt }] },
+                            ],
+                            config: {
+                                temperature: 0.1,
+                                responseMimeType: 'application/json',
+                                skipTTS: true,
+                                bypassAiAgent: true,
+                                bypassModelOverride: true,
+                            } as any,
+                        });
 
                     let rawText = '';
                     if (typeof response === 'string') rawText = response;
-                    else if ((response as any)?.text) rawText = typeof (response as any).text === 'function' ? (response as any).text() : (response as any).text;
-                    else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                        rawText = (response as any).candidates[0].content.parts[0].text;
+                    else if ((response as any)?.text)
+                        rawText =
+                            typeof (response as any).text === 'function'
+                                ? (response as any).text()
+                                : (response as any).text;
+                    else if (
+                        (response as any)?.candidates?.[0]?.content?.parts?.[0]
+                            ?.text
+                    ) {
+                        rawText = (response as any).candidates[0].content
+                            .parts[0].text;
                     }
 
-                    const cleanText = (rawText || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+                    const cleanText = (rawText || '')
+                        .replace(/```json/gi, '')
+                        .replace(/```/g, '')
+                        .trim();
                     let parsedItems: any[] = [];
                     try {
                         const parsed = JSON.parse(cleanText);
                         if (Array.isArray(parsed)) parsedItems = parsed;
                         else if (parsed && typeof parsed === 'object') {
-                            for (const key of ['translations', 'subtitles', 'data', 'result', 'results', 'items', 'list']) {
+                            for (const key of [
+                                'translations',
+                                'subtitles',
+                                'data',
+                                'result',
+                                'results',
+                                'items',
+                                'list',
+                            ]) {
                                 if (Array.isArray(parsed[key])) {
                                     parsedItems = parsed[key];
                                     break;
@@ -9612,11 +12818,21 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     if (parsedItems.length > 0) {
                         for (let i = 0; i < parsedItems.length; i++) {
                             const item = parsedItems[i];
-                            const idx = item.index !== undefined ? Number(item.index) : i;
-                            const transText = String(item.translatedText || item.translation || item.text || item.content || '').trim();
+                            const idx =
+                                item.index !== undefined
+                                    ? Number(item.index)
+                                    : i;
+                            const transText = String(
+                                item.translatedText ||
+                                    item.translation ||
+                                    item.text ||
+                                    item.content ||
+                                    '',
+                            ).trim();
                             if (allSubs[idx] && transText) {
                                 const targetSub = allSubs[idx];
-                                if (!targetSub.translations) targetSub.translations = {};
+                                if (!targetSub.translations)
+                                    targetSub.translations = {};
                                 targetSub.translations[langCode] = transText;
                                 targetSub.text = transText;
                             }
@@ -9624,9 +12840,14 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     }
 
                     this.applySubtitleLanguage(langCode);
-                    this.toastr.success(`Đã dịch và chuyển phụ đề sang: ${targetLangName}!`);
+                    this.toastr.success(
+                        `Đã dịch và chuyển phụ đề sang: ${targetLangName}!`,
+                    );
                 } catch (err: any) {
-                    console.error('[SwitchSubtitleLanguage] Lỗi dịch phụ đề AI:', err);
+                    console.error(
+                        '[SwitchSubtitleLanguage] Lỗi dịch phụ đề AI:',
+                        err,
+                    );
                     this.applySubtitleLanguage(langCode);
                 } finally {
                     this.isTranslatingSubtitles = false;
@@ -9636,7 +12857,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             }
         }
 
-        this.toastr.success(`Đã chuyển hiển thị phụ đề sang: ${targetLangName}`);
+        this.toastr.success(
+            `Đã chuyển hiển thị phụ đề sang: ${targetLangName}`,
+        );
     }
 
     setMediaFilterTab(tab: 'image' | 'video' | 'audio' | 'text') {
@@ -9657,16 +12880,23 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         } else if (this.mediaFilterTab === 'audio') {
             items = this.getAllProjectAudios();
         } else if (this.mediaFilterTab === 'text') {
-            items = this.getAllProjectSubtitles().concat(this.getAllProjectTexts());
+            items = this.getAllProjectSubtitles().concat(
+                this.getAllProjectTexts(),
+            );
         }
 
         if (this.mediaSearchText && this.mediaSearchText.trim()) {
             const q = this.mediaSearchText.trim().toLowerCase();
-            items = items.filter(it => {
-                const textMatch = it.text && String(it.text).toLowerCase().includes(q);
-                const promptMatch = it.prompt && String(it.prompt).toLowerCase().includes(q);
-                const titleMatch = it.title && String(it.title).toLowerCase().includes(q);
-                const fileMatch = this.getMediaFileName(it).toLowerCase().includes(q);
+            items = items.filter((it) => {
+                const textMatch =
+                    it.text && String(it.text).toLowerCase().includes(q);
+                const promptMatch =
+                    it.prompt && String(it.prompt).toLowerCase().includes(q);
+                const titleMatch =
+                    it.title && String(it.title).toLowerCase().includes(q);
+                const fileMatch = this.getMediaFileName(it)
+                    .toLowerCase()
+                    .includes(q);
                 return textMatch || promptMatch || titleMatch || fileMatch;
             });
         }
@@ -9681,7 +12911,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     trackByMediaItem(index: number, item: any): string {
         if (!item) return String(index);
         const raw = item._raw || item;
-        const id = raw.id || `${item.type}_${item.sceneIdx ?? 0}_${item.vIdx ?? item.subIdx ?? item.textIdx ?? item.aIdx ?? index}`;
+        const id =
+            raw.id ||
+            `${item.type}_${item.sceneIdx ?? 0}_${item.vIdx ?? item.subIdx ?? item.textIdx ?? item.aIdx ?? index}`;
         return `${item.type}_${id}`;
     }
 
@@ -9716,7 +12948,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
         this.previewSnippetAudio = new Audio(rawUrl as string);
         this.playingAudioSnippetUrl = url;
-        this.previewSnippetAudio.play().catch(() => { });
+        this.previewSnippetAudio.play().catch(() => {});
         this.previewSnippetAudio.onended = () => {
             this.playingAudioSnippetUrl = null;
             this.previewSnippetAudio = null;
@@ -9733,7 +12965,11 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 }
             }
         }
-        if (audios.length === 0 && this.activeItem && this.getItemType(this.activeItem) === 'audio') {
+        if (
+            audios.length === 0 &&
+            this.activeItem &&
+            this.getItemType(this.activeItem) === 'audio'
+        ) {
             audios.push(this.activeItem);
         }
         return audios;
@@ -9760,7 +12996,11 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 }
             }
         }
-        if (subs.length === 0 && this.activeItem && this.getItemType(this.activeItem) === 'text') {
+        if (
+            subs.length === 0 &&
+            this.activeItem &&
+            this.getItemType(this.activeItem) === 'text'
+        ) {
             subs.push(this.activeItem);
         }
         return subs;
@@ -9787,7 +13027,11 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 }
             }
         }
-        if (vids.length === 0 && this.activeItem && this.getItemType(this.activeItem) === 'video') {
+        if (
+            vids.length === 0 &&
+            this.activeItem &&
+            this.getItemType(this.activeItem) === 'video'
+        ) {
             vids.push(this.activeItem);
         }
         return vids;
@@ -9825,13 +13069,17 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         { label: 'Roboto', value: 'Roboto' },
         { label: 'Inter', value: 'Inter' },
         { label: 'Oswald (Đậm cá tính)', value: 'Oswald' },
-        { label: 'Playfair Display (Serif sang trọng)', value: 'Playfair Display' },
+        {
+            label: 'Playfair Display (Serif sang trọng)',
+            value: 'Playfair Display',
+        },
         { label: 'DejaVu Sans (Chuẩn Video/ASS)', value: 'DejaVu Sans' },
         { label: 'Arial', value: 'Arial' },
-        { label: 'Courier New (Monospace)', value: 'Courier New' }
+        { label: 'Courier New (Monospace)', value: 'Courier New' },
     ];
 
-    systemFontList: { label: string; value: string; folderName?: string }[] = [];
+    systemFontList: { label: string; value: string; folderName?: string }[] =
+        [];
 
     async loadSystemFonts(): Promise<void> {
         try {
@@ -9848,7 +13096,11 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 }
             }
 
-            const sysFonts: { label: string; value: string; folderName?: string }[] = [];
+            const sysFonts: {
+                label: string;
+                value: string;
+                folderName?: string;
+            }[] = [];
             for (const group of groups) {
                 if (!group.fonts) continue;
                 for (const item of group.fonts) {
@@ -9856,7 +13108,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     sysFonts.push({
                         label: item.fontName,
                         value: item.fontName,
-                        folderName: group.folderName
+                        folderName: group.folderName,
                     });
 
                     // Đăng ký @font-face vào document head để hiển thị trực tiếp
@@ -9867,10 +13119,13 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             styleEl.id = styleId;
                             let format = 'truetype';
                             if (item.extension === '.otf') format = 'opentype';
-                            else if (item.extension === '.woff') format = 'woff';
-                            else if (item.extension === '.woff2') format = 'woff2';
+                            else if (item.extension === '.woff')
+                                format = 'woff';
+                            else if (item.extension === '.woff2')
+                                format = 'woff2';
 
-                            styleEl.appendChild(document.createTextNode(`
+                            styleEl.appendChild(
+                                document.createTextNode(`
                                 @font-face {
                                     font-family: '${item.fontName}';
                                     src: url('${item.dataUrl}') format('${format}');
@@ -9878,7 +13133,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                                     font-style: normal;
                                     font-display: swap;
                                 }
-                            `));
+                            `),
+                            );
                             document.head.appendChild(styleEl);
                         }
                     }
@@ -9892,7 +13148,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     }
 
     get currentSubtitleFont(): string {
-        if (this.projectData && this.projectData.subtitleFontFamily) return this.projectData.subtitleFontFamily;
+        if (this.projectData && this.projectData.subtitleFontFamily)
+            return this.projectData.subtitleFontFamily;
         const subs = this.getSelectedSubtitles();
         if (subs.length > 0 && subs[0].fontFamily) return subs[0].fontFamily;
         return 'sans-serif';
@@ -9934,7 +13191,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     }
 
     get currentSubtitleFontSize(): number {
-        if (this.projectData && this.projectData.subtitleFontSize) return this.projectData.subtitleFontSize;
+        if (this.projectData && this.projectData.subtitleFontSize)
+            return this.projectData.subtitleFontSize;
         const subs = this.getSelectedSubtitles();
         if (subs.length > 0 && subs[0].fontSize) return subs[0].fontSize;
         return 24;
@@ -9988,17 +13246,25 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     onSubtitleFontSizeBlur(event: any) {
         const val = event.target.value;
         const num = Number(val);
-        const clamped = isNaN(num) || !val ? (this.currentSubtitleFontSize || 24) : Math.max(12, Math.min(72, num));
+        const clamped =
+            isNaN(num) || !val
+                ? this.currentSubtitleFontSize || 24
+                : Math.max(12, Math.min(72, num));
         event.target.value = clamped;
         this.setSubtitleFontSize(clamped, true);
     }
 
     get currentSubtitleBottom(): number {
-        if (this.projectData && this.projectData.subtitleBottom !== undefined && this.projectData.subtitleBottom !== null) {
+        if (
+            this.projectData &&
+            this.projectData.subtitleBottom !== undefined &&
+            this.projectData.subtitleBottom !== null
+        ) {
             return this.projectData.subtitleBottom;
         }
         const subs = this.getSelectedSubtitles();
-        if (subs.length > 0 && subs[0].bottom !== undefined) return subs[0].bottom;
+        if (subs.length > 0 && subs[0].bottom !== undefined)
+            return subs[0].bottom;
         return 20;
     }
 
@@ -10050,7 +13316,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     onSubtitleBottomBlur(event: any) {
         const val = event.target.value;
         const num = Number(val);
-        const clamped = isNaN(num) || !val ? (this.currentSubtitleBottom || 20) : Math.max(0, Math.min(1000, num));
+        const clamped =
+            isNaN(num) || !val
+                ? this.currentSubtitleBottom || 20
+                : Math.max(0, Math.min(1000, num));
         event.target.value = clamped;
         this.setSubtitleBottom(clamped, true);
     }
@@ -10067,7 +13336,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     onIndividualSubFontSizeBlur(sub: any, event: any) {
         const val = event.target.value;
         const num = Number(val);
-        const clamped = isNaN(num) || !val ? (this.currentSubtitleFontSize || 24) : Math.max(12, Math.min(72, num));
+        const clamped =
+            isNaN(num) || !val
+                ? this.currentSubtitleFontSize || 24
+                : Math.max(12, Math.min(72, num));
         sub.fontSize = clamped;
         event.target.value = clamped;
         this.markDirty();
@@ -10089,7 +13361,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             }
         }
         this.markDirty();
-        this.toastr.success(`Đã áp dụng Font và Cỡ chữ cho toàn bộ ${count} phụ đề trong dự án!`);
+        this.toastr.success(
+            `Đã áp dụng Font và Cỡ chữ cho toàn bộ ${count} phụ đề trong dự án!`,
+        );
         this.cd.detectChanges();
     }
 
@@ -10120,15 +13394,28 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
         // Cập nhật real-time âm lượng cho các Wavesurfer đang phát
         if (this.projectData && this.projectData.scenes) {
-            for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+            for (
+                let sceneIdx = 0;
+                sceneIdx < this.projectData.scenes.length;
+                sceneIdx++
+            ) {
                 const scene = this.projectData.scenes[sceneIdx];
                 if (scene.extractedAudios) {
-                    for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                    for (
+                        let aIdx = 0;
+                        aIdx < scene.extractedAudios.length;
+                        aIdx++
+                    ) {
                         const audio = scene.extractedAudios[aIdx];
                         if (audios.includes(audio)) {
-                            const ws = this.wavesurfers[`waveform-${sceneIdx}-${aIdx}`];
+                            const ws =
+                                this.wavesurfers[
+                                    `waveform-${sceneIdx}-${aIdx}`
+                                ];
                             if (ws) {
-                                try { ws.setVolume(numVal / 100); } catch (e) {}
+                                try {
+                                    ws.setVolume(numVal / 100);
+                                } catch (e) {}
                             }
                         }
                     }
@@ -10137,7 +13424,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         }
 
         if (this.inspectorWaveSurfer) {
-            try { this.inspectorWaveSurfer.setVolume(numVal / 100); } catch (e) {}
+            try {
+                this.inspectorWaveSurfer.setVolume(numVal / 100);
+            } catch (e) {}
         }
 
         this.markDirty();
@@ -10147,7 +13436,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     onAudioVolumeBlur(event: any) {
         const val = event.target.value;
         const num = Number(val);
-        const clamped = isNaN(num) || !val ? 100 : Math.max(0, Math.min(200, num));
+        const clamped =
+            isNaN(num) || !val ? 100 : Math.max(0, Math.min(200, num));
         event.target.value = clamped;
         this.setAudioVolume(clamped, true);
     }
@@ -10156,10 +13446,16 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         if (!item) return 'unknown';
 
         // 1. Explicit type tag
-        if (item.type === 'extractedAudio' || item.type === 'audio') return 'audio';
+        if (item.type === 'extractedAudio' || item.type === 'audio')
+            return 'audio';
         if (item.type === 'video') return 'video';
         if (item.type === 'image') return 'image';
-        if (item.type === 'subtitle' || item.type === 'text' || item.type === 'customText') return 'text';
+        if (
+            item.type === 'subtitle' ||
+            item.type === 'text' ||
+            item.type === 'customText'
+        )
+            return 'text';
 
         // 2. Direct membership in projectData scenes
         if (this.projectData && this.projectData.scenes) {
@@ -10167,7 +13463,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 if (scene.images && scene.images.includes(item)) {
                     return 'image';
                 }
-                if (scene.extractedAudios && scene.extractedAudios.includes(item)) {
+                if (
+                    scene.extractedAudios &&
+                    scene.extractedAudios.includes(item)
+                ) {
                     return 'audio';
                 }
                 if (scene.videos && scene.videos.includes(item)) {
@@ -10183,14 +13482,22 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         }
 
         // 3. Extracted Audio markers
-        if (item.isExtractedAudio || item.text === '[Âm thanh gốc]') return 'audio';
+        if (item.isExtractedAudio || item.text === '[Âm thanh gốc]')
+            return 'audio';
 
         // 4. Video & Image markers
         if (item.imageUrl && !item.videoUrl) return 'image';
-        if (item.videoUrl || (item.prompt !== undefined && !item.audioUrl)) return 'video';
+        if (item.videoUrl || (item.prompt !== undefined && !item.audioUrl))
+            return 'video';
 
         // 5. Audio vs Subtitle
-        if (item.audioUrl && (item.text === undefined || item.text === '[Âm thanh gốc]' || !item.text)) return 'audio';
+        if (
+            item.audioUrl &&
+            (item.text === undefined ||
+                item.text === '[Âm thanh gốc]' ||
+                !item.text)
+        )
+            return 'audio';
         if (item.text !== undefined) return 'text';
         if (item.audioUrl) return 'audio';
 
@@ -10226,18 +13533,26 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         const dialogRef = this._fuseConfirmationService.open({
             title: `Xoá ${typeTitle}?`,
             message: `Bạn có chắc chắn muốn xoá ${typeLabel} khỏi dự án không? Thao tác này không thể hoàn tác.`,
-            icon: { show: true, name: 'heroicons_outline:trash', color: 'warn' },
+            icon: {
+                show: true,
+                name: 'heroicons_outline:trash',
+                color: 'warn',
+            },
             actions: {
                 confirm: { show: true, label: 'Xoá ngay', color: 'warn' },
-                cancel: { show: true, label: 'Huỷ bỏ' }
-            }
+                cancel: { show: true, label: 'Huỷ bỏ' },
+            },
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result !== 'confirmed') return;
 
             if (this.projectData && this.projectData.scenes) {
-                for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                for (
+                    let sIdx = 0;
+                    sIdx < this.projectData.scenes.length;
+                    sIdx++
+                ) {
                     const scene = this.projectData.scenes[sIdx];
                     if (type === 'text' && scene.subtitles) {
                         const idx = scene.subtitles.indexOf(item);
@@ -10259,7 +13574,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             const audio = scene.extractedAudios[idx];
                             this.addMediaItemToPool('audio', audio);
                             if (scene.videos) {
-                                const video = scene.videos.find((v: any) => v.startTime === audio.startTime);
+                                const video = scene.videos.find(
+                                    (v: any) => v.startTime === audio.startTime,
+                                );
                                 if (video) video.muted = false;
                             }
                             scene.extractedAudios.splice(idx, 1);
@@ -10281,24 +13598,39 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             const shiftAmount = deletedVideo.duration || 0;
 
                             let passedDeleted = false;
-                            for (let s = 0; s < this.projectData.scenes.length; s++) {
+                            for (
+                                let s = 0;
+                                s < this.projectData.scenes.length;
+                                s++
+                            ) {
                                 const currentScene = this.projectData.scenes[s];
                                 if (!currentScene.videos) continue;
                                 if (s > sIdx) passedDeleted = true;
-                                for (let v = 0; v < currentScene.videos.length; v++) {
+                                for (
+                                    let v = 0;
+                                    v < currentScene.videos.length;
+                                    v++
+                                ) {
                                     const vid = currentScene.videos[v];
-                                    if (s === sIdx && v > idx) passedDeleted = true;
+                                    if (s === sIdx && v > idx)
+                                        passedDeleted = true;
                                     if (passedDeleted) {
-                                        vid.startTime = Math.max(0, (vid.startTime || 0) - shiftAmount);
+                                        vid.startTime = Math.max(
+                                            0,
+                                            (vid.startTime || 0) - shiftAmount,
+                                        );
                                     }
                                 }
                             }
                             scene.videos.splice(idx, 1);
                             this.activeItem = null;
                             this.activeVideo = null;
-                            const hasRemainingMedia = this.projectData?.scenes?.some((s: any) => 
-                                (s.videos && s.videos.length > 0) || (s.images && s.images.length > 0)
-                            );
+                            const hasRemainingMedia =
+                                this.projectData?.scenes?.some(
+                                    (s: any) =>
+                                        (s.videos && s.videos.length > 0) ||
+                                        (s.images && s.images.length > 0),
+                                );
                             if (!hasRemainingMedia) {
                                 this.selectedFrame = null;
                             }
@@ -10332,7 +13664,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 this.saveData();
                 this.toastr.warning(`Đã xóa audio!`);
                 setTimeout(() => this.initWaveSurfers(), 500);
-            }
+            },
         });
     }
 
@@ -10348,7 +13680,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 const audio = scene.extractedAudios[aIdx];
                 this.addMediaItemToPool('audio', audio);
                 if (scene.videos) {
-                    const video = scene.videos.find((v: any) => v.startTime === audio.startTime);
+                    const video = scene.videos.find(
+                        (v: any) => v.startTime === audio.startTime,
+                    );
                     if (video) video.muted = false;
                 }
                 scene.extractedAudios.splice(aIdx, 1);
@@ -10358,13 +13692,13 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 this.saveData();
                 this.toastr.warning(`Đã xóa âm thanh!`);
                 setTimeout(() => this.initWaveSurfers(), 500);
-            }
+            },
         });
     }
 
     async trimVideo(video: any, event: Event) {
         event.stopPropagation();
-        
+
         const duration = video.duration || 5;
         const trimStart = video.trimStart || 0;
         const maxDur = video.maxDuration || duration;
@@ -10387,13 +13721,13 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             cc: async () => {
                 // Chỉ xuất file
                 await this.executeTrim(video, false);
-            }
+            },
         });
     }
 
     async executeTrim(video: any, replaceTimeline: boolean) {
         if (!video.videoUrl) return;
-        
+
         video.isGeneratingVideo = true;
         this.cd.detectChanges();
 
@@ -10402,7 +13736,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             const payload = {
                 videoUrl: video.videoUrl,
                 trimStart: video.trimStart || 0,
-                duration: video.duration || 5
+                duration: video.duration || 5,
             };
 
             const result = await electron.invoke('trim-video', payload);
@@ -10435,7 +13769,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         const trimStart = video.trimStart || 0;
         const duration = video.duration || 0;
         const maxDuration = video.maxDuration || duration;
-        
+
         return trimStart > 0 || duration < maxDuration;
     }
 
@@ -10467,7 +13801,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                         }
 
                         if (passedDeleted && vid.startTime !== undefined) {
-                            vid.startTime = Math.max(0, vid.startTime - shiftAmount);
+                            vid.startTime = Math.max(
+                                0,
+                                vid.startTime - shiftAmount,
+                            );
                         }
                     }
                 }
@@ -10482,8 +13819,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
                 this.activeItem = null;
                 this.activeVideo = null;
-                const hasRemainingMedia = this.projectData?.scenes?.some((s: any) => 
-                    (s.videos && s.videos.length > 0) || (s.images && s.images.length > 0)
+                const hasRemainingMedia = this.projectData?.scenes?.some(
+                    (s: any) =>
+                        (s.videos && s.videos.length > 0) ||
+                        (s.images && s.images.length > 0),
                 );
                 if (!hasRemainingMedia) {
                     this.selectedFrame = null;
@@ -10503,38 +13842,54 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             maxWidth: '95vw',
             maxHeight: '90vh',
             panelClass: 'dark-theme-dialog',
-            data: { 
-                prompt: this.projectData?.masterPrompt || '', 
+            data: {
+                prompt: this.projectData?.masterPrompt || '',
                 targetName: 'Apply to Master Prompt',
                 globalContext: this.projectData?.globalContext || null,
-                aspectRatio: this.projectData?.aspectRatio || '16:9'
-            }
+                aspectRatio: this.projectData?.aspectRatio || '16:9',
+            },
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
-                let promptResult = typeof result === 'string' ? result : result.prompt;
-                
+                let promptResult =
+                    typeof result === 'string' ? result : result.prompt;
+
                 if (!this.projectData) this.projectData = {};
-                let currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
-                currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                let currentPrompt = this.projectData.masterPrompt
+                    ? this.projectData.masterPrompt.trim()
+                    : '';
+                currentPrompt = currentPrompt
+                    .replace(/\[(?:Director|Cinematography):.*?\]/g, '')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
 
                 if (currentPrompt) {
-                    this.projectData.masterPrompt = '[Cinematography: ' + promptResult + ']\n\n' + currentPrompt;
+                    this.projectData.masterPrompt =
+                        '[Cinematography: ' +
+                        promptResult +
+                        ']\n\n' +
+                        currentPrompt;
                 } else {
-                    this.projectData.masterPrompt = '[Cinematography: ' + promptResult + ']';
+                    this.projectData.masterPrompt =
+                        '[Cinematography: ' + promptResult + ']';
                 }
-                
+
                 if (typeof result !== 'string' && result.controlImageUrl) {
-                    this.projectData.masterControlImageUrl = result.controlImageUrl;
+                    this.projectData.masterControlImageUrl =
+                        result.controlImageUrl;
                 }
 
                 if (typeof result !== 'string' && result.globalContext) {
-                    this.projectData.globalContext = { ...result.globalContext };
+                    this.projectData.globalContext = {
+                        ...result.globalContext,
+                    };
                 }
-                
+
                 this.saveData();
-                this.toastr.success('Đã áp dụng các thông số Director Mode vào Master Prompt!');
+                this.toastr.success(
+                    'Đã áp dụng các thông số Director Mode vào Master Prompt!',
+                );
             }
         });
     }
@@ -10545,7 +13900,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             return `${scene.forcedDuration}s`;
         }
 
-        if (!scene || !scene.subtitles || scene.subtitles.length === 0) return '0s';
+        if (!scene || !scene.subtitles || scene.subtitles.length === 0)
+            return '0s';
 
         let totalSeconds = 0;
 
@@ -10582,8 +13938,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
         private sanitizer: DomSanitizer,
-        @Optional() @Inject(MAT_DIALOG_DATA) public dialogData: any
-    ) { 
+        @Optional() @Inject(MAT_DIALOG_DATA) public dialogData: any,
+    ) {
         this.data = this.dialogData || {};
         if (!this.data.uuid) {
             this.data.uuid = this.route.snapshot.paramMap.get('uuid');
@@ -10606,7 +13962,15 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             cleanUrl = cleanUrl.substring(0, hashIndex);
         }
 
-        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:') || cleanUrl.startsWith('media://') || cleanUrl.startsWith('mediacors://') || cleanUrl.startsWith('assets/')) {
+        if (
+            cleanUrl.startsWith('http://') ||
+            cleanUrl.startsWith('https://') ||
+            cleanUrl.startsWith('data:') ||
+            cleanUrl.startsWith('blob:') ||
+            cleanUrl.startsWith('media://') ||
+            cleanUrl.startsWith('mediacors://') ||
+            cleanUrl.startsWith('assets/')
+        ) {
             cleanUrl = cleanUrl + hash;
         } else if (cleanUrl.startsWith('src/assets/')) {
             cleanUrl = cleanUrl.substring(4) + hash;
@@ -10614,9 +13978,12 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
             let originalPath = cleanUrl.split('?')[0];
             originalPath = originalPath.replace(/^file:\/{2,3}/i, '');
-            
+
             // Fix for Linux/Mac: if it doesn't look like a Windows drive letter, ensure it starts with /
-            if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+            if (
+                !/^[a-zA-Z]:/.test(originalPath) &&
+                !originalPath.startsWith('/')
+            ) {
                 originalPath = '/' + originalPath;
             }
 
@@ -10628,14 +13995,14 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     getSafeUrl(url: string | null): SafeUrl | string | null {
         if (!url) return url;
         if (typeof url !== 'string') return url;
-        
+
         if (this.safeUrlCache[url]) {
             return this.safeUrlCache[url];
         }
-        
+
         const rawUrl = this.getRawMediaUrl(url);
         if (!rawUrl) return url;
-        
+
         const safeUrl = this.sanitizer.bypassSecurityTrustUrl(rawUrl);
         this.safeUrlCache[url] = safeUrl;
         return safeUrl;
@@ -10668,7 +14035,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.router.navigate(['../'], { relativeTo: this.route });
     }
 
-    async captureVideoThumbnail(videoUrl: string, seekTime = 0.5): Promise<string> {
+    async captureVideoThumbnail(
+        videoUrl: string,
+        seekTime = 0.5,
+    ): Promise<string> {
         return new Promise((resolve) => {
             try {
                 const rawUrl = this.getRawMediaUrl(videoUrl);
@@ -10687,7 +14057,11 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     if (resolved) return;
                     resolved = true;
                     clearTimeout(timeout);
-                    try { video.removeAttribute('src'); video.load(); video.remove(); } catch (e) {}
+                    try {
+                        video.removeAttribute('src');
+                        video.load();
+                        video.remove();
+                    } catch (e) {}
                     resolve(result);
                 };
 
@@ -10696,23 +14070,42 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 }, 4000);
 
                 video.onloadeddata = () => {
-                    video.currentTime = Math.min(seekTime, (video.duration && video.duration > 1) ? seekTime : 0.1);
+                    video.currentTime = Math.min(
+                        seekTime,
+                        video.duration && video.duration > 1 ? seekTime : 0.1,
+                    );
                 };
 
                 video.onseeked = () => {
                     try {
                         const canvas = document.createElement('canvas');
                         canvas.width = Math.min(video.videoWidth || 640, 640);
-                        canvas.height = Math.round(canvas.width * (video.videoHeight || 360) / (video.videoWidth || 640)) || 360;
+                        canvas.height =
+                            Math.round(
+                                (canvas.width * (video.videoHeight || 360)) /
+                                    (video.videoWidth || 640),
+                            ) || 360;
                         const ctx = canvas.getContext('2d');
                         if (ctx) {
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                            ctx.drawImage(
+                                video,
+                                0,
+                                0,
+                                canvas.width,
+                                canvas.height,
+                            );
+                            const dataUrl = canvas.toDataURL(
+                                'image/jpeg',
+                                0.85,
+                            );
                             finish(dataUrl);
                             return;
                         }
                     } catch (e) {
-                        console.warn('[captureVideoThumbnail] Canvas error:', e);
+                        console.warn(
+                            '[captureVideoThumbnail] Canvas error:',
+                            e,
+                        );
                     }
                     finish('');
                 };
@@ -10733,8 +14126,14 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         for (const scene of this.projectData.scenes) {
             if (scene.videos) {
                 for (const video of scene.videos) {
-                    if (video.videoUrl && !video.imageUrl && !video.controlImageUrl) {
-                        const thumb = await this.captureVideoThumbnail(video.videoUrl);
+                    if (
+                        video.videoUrl &&
+                        !video.imageUrl &&
+                        !video.controlImageUrl
+                    ) {
+                        const thumb = await this.captureVideoThumbnail(
+                            video.videoUrl,
+                        );
                         if (thumb) {
                             video.imageUrl = thumb;
                             anyGenerated = true;
@@ -10774,13 +14173,21 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 const done = (dur: number) => {
                     if (finished) return;
                     finished = true;
-                    try { vid.removeAttribute('src'); vid.load(); vid.remove(); } catch (e) {}
+                    try {
+                        vid.removeAttribute('src');
+                        vid.load();
+                        vid.remove();
+                    } catch (e) {}
                     resolve(dur);
                 };
                 const timer = setTimeout(() => done(0), 3000);
                 vid.onloadedmetadata = () => {
                     clearTimeout(timer);
-                    if (vid.duration && !isNaN(vid.duration) && vid.duration > 0) {
+                    if (
+                        vid.duration &&
+                        !isNaN(vid.duration) &&
+                        vid.duration > 0
+                    ) {
                         done(Math.round(vid.duration * 10) / 10);
                     } else {
                         done(0);
@@ -10806,15 +14213,32 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     for (const vid of scene.videos) {
                         if (vid.videoUrl) {
                             try {
-                                const realDur = await this.getMediaDurationAsync(vid.videoUrl);
+                                const realDur =
+                                    await this.getMediaDurationAsync(
+                                        vid.videoUrl,
+                                    );
                                 if (realDur > 0) {
-                                    if (Math.abs((vid.maxDuration || 0) - realDur) > 0.05) {
+                                    if (
+                                        Math.abs(
+                                            (vid.maxDuration || 0) - realDur,
+                                        ) > 0.05
+                                    ) {
                                         vid.maxDuration = realDur;
                                         changed = true;
                                     }
                                     // Chỉ cập nhật duration nếu video này CHƯA từng bị cắt (trimStart === 0 và duration bằng maxDuration ban đầu)
-                                    const isTrimmed = (vid.trimStart && vid.trimStart > 0) || (vid.duration && vid.maxDuration && vid.duration < (vid.maxDuration - 0.2));
-                                    if (!isTrimmed && Math.abs((vid.duration || 0) - realDur) > 0.05) {
+                                    const isTrimmed =
+                                        (vid.trimStart && vid.trimStart > 0) ||
+                                        (vid.duration &&
+                                            vid.maxDuration &&
+                                            vid.duration <
+                                                vid.maxDuration - 0.2);
+                                    if (
+                                        !isTrimmed &&
+                                        Math.abs(
+                                            (vid.duration || 0) - realDur,
+                                        ) > 0.05
+                                    ) {
                                         vid.duration = realDur;
                                         changed = true;
                                     }
@@ -10830,14 +14254,26 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             for (const vid of this.projectData.mediaLibraryPool.videos) {
                 if (vid.videoUrl) {
                     try {
-                        const realDur = await this.getMediaDurationAsync(vid.videoUrl);
+                        const realDur = await this.getMediaDurationAsync(
+                            vid.videoUrl,
+                        );
                         if (realDur > 0) {
-                            if (Math.abs((vid.maxDuration || 0) - realDur) > 0.05) {
+                            if (
+                                Math.abs((vid.maxDuration || 0) - realDur) >
+                                0.05
+                            ) {
                                 vid.maxDuration = realDur;
                                 changed = true;
                             }
-                            const isTrimmed = (vid.trimStart && vid.trimStart > 0) || (vid.duration && vid.maxDuration && vid.duration < (vid.maxDuration - 0.2));
-                            if (!isTrimmed && Math.abs((vid.duration || 0) - realDur) > 0.05) {
+                            const isTrimmed =
+                                (vid.trimStart && vid.trimStart > 0) ||
+                                (vid.duration &&
+                                    vid.maxDuration &&
+                                    vid.duration < vid.maxDuration - 0.2);
+                            if (
+                                !isTrimmed &&
+                                Math.abs((vid.duration || 0) - realDur) > 0.05
+                            ) {
                                 vid.duration = realDur;
                                 changed = true;
                             }
@@ -10871,7 +14307,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
             // Nếu scene đã có phụ đề và audio rồi và không force -> bỏ qua
             const hasSubs = scene.subtitles && scene.subtitles.length > 0;
-            const hasAudio = scene.extractedAudios && scene.extractedAudios.length > 0;
+            const hasAudio =
+                scene.extractedAudios && scene.extractedAudios.length > 0;
             if (!force && (hasSubs || hasAudio)) continue;
 
             let originalPath = video.videoUrl;
@@ -10885,7 +14322,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             }
 
             try {
-                const res = await electron.invoke('scan-companion-video-assets', { videoPath: originalPath });
+                const res = await electron.invoke(
+                    'scan-companion-video-assets',
+                    { videoPath: originalPath },
+                );
                 if (res && res.success && res.hasCompanion) {
                     if (!scene.subtitles) scene.subtitles = [];
                     if (!scene.extractedAudios) scene.extractedAudios = [];
@@ -10903,7 +14343,11 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                         parsedOrigSubs = this.parseSrtContent(rawOrig);
                     }
 
-                    if (parsedViSubs.length === 0 && parsedOrigSubs.length === 0 && res.srtContent) {
+                    if (
+                        parsedViSubs.length === 0 &&
+                        parsedOrigSubs.length === 0 &&
+                        res.srtContent
+                    ) {
                         const parsed = this.parseSrtContent(res.srtContent);
                         if (parsed.length > 0) {
                             if (this.isLikelyVietnamese(parsed[0].text)) {
@@ -10914,7 +14358,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                         }
                     }
 
-                    const count = Math.max(parsedViSubs.length, parsedOrigSubs.length);
+                    const count = Math.max(
+                        parsedViSubs.length,
+                        parsedOrigSubs.length,
+                    );
                     const videoStart = Number(video.startTime) || 0;
                     const audioSegs = res.audioSegments || [];
 
@@ -10927,14 +14374,36 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             const viSub = parsedViSubs[idx];
                             const baseSeg = origSub || viSub;
 
-                            const origText = origSub?.text || (baseSeg && !this.isLikelyVietnamese(baseSeg.text) ? baseSeg.text : '');
-                            const viText = viSub?.text || (baseSeg && this.isLikelyVietnamese(baseSeg.text) ? baseSeg.text : '');
-                            const segStart = Math.round((videoStart + Number(baseSeg.startTime)) * 100) / 100;
-                            const segDur = Math.max(0.3, Math.round(Number(baseSeg.duration) * 100) / 100);
+                            const origText =
+                                origSub?.text ||
+                                (baseSeg &&
+                                !this.isLikelyVietnamese(baseSeg.text)
+                                    ? baseSeg.text
+                                    : '');
+                            const viText =
+                                viSub?.text ||
+                                (baseSeg &&
+                                this.isLikelyVietnamese(baseSeg.text)
+                                    ? baseSeg.text
+                                    : '');
+                            const segStart =
+                                Math.round(
+                                    (videoStart + Number(baseSeg.startTime)) *
+                                        100,
+                                ) / 100;
+                            const segDur = Math.max(
+                                0.3,
+                                Math.round(Number(baseSeg.duration) * 100) /
+                                    100,
+                            );
 
                             // Match audio segment
-                            const matchingAudio = audioSegs.find((a: any) => a.index === idx) || audioSegs[idx];
-                            const audioUrl = matchingAudio ? matchingAudio.audioUrl : (res.fullAudioUrl || null);
+                            const matchingAudio =
+                                audioSegs.find((a: any) => a.index === idx) ||
+                                audioSegs[idx];
+                            const audioUrl = matchingAudio
+                                ? matchingAudio.audioUrl
+                                : res.fullAudioUrl || null;
 
                             if (audioUrl) {
                                 newAudios.push({
@@ -10945,11 +14414,14 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                                     audioUrl: audioUrl,
                                     startTime: segStart,
                                     duration: segDur,
-                                    maxDuration: segDur
+                                    maxDuration: segDur,
                                 });
                             }
 
-                            const currentText = this.currentSubtitleLang === 'vi' ? (viText || origText) : (origText || viText);
+                            const currentText =
+                                this.currentSubtitleLang === 'vi'
+                                    ? viText || origText
+                                    : origText || viText;
                             newSubs.push({
                                 id: Date.now() + 100000 + idx,
                                 audioId: Date.now() + idx,
@@ -10957,34 +14429,40 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                                 originalText: origText || viText,
                                 vietnameseText: viText || origText,
                                 translations: {
-                                    'vi': viText || origText,
-                                    'original': origText || viText,
-                                    'en': origText || viText
+                                    vi: viText || origText,
+                                    original: origText || viText,
+                                    en: origText || viText,
                                 },
                                 startTime: segStart,
-                                duration: segDur
+                                duration: segDur,
                             });
                         }
 
                         if (newSubs.length > 0 || newAudios.length > 0) {
                             if (!hasSubs || force) scene.subtitles = newSubs;
-                            if (!hasAudio || force) scene.extractedAudios = newAudios;
+                            if (!hasAudio || force)
+                                scene.extractedAudios = newAudios;
                             anyLoaded = true;
                         }
                     } else if (res.fullAudioUrl && (!hasAudio || force)) {
-                        scene.extractedAudios = [{
-                            id: Date.now(),
-                            text: '[Âm thanh gốc]',
-                            audioUrl: res.fullAudioUrl,
-                            startTime: videoStart,
-                            duration: Number(video.duration) || 5,
-                            maxDuration: Number(video.duration) || 5
-                        }];
+                        scene.extractedAudios = [
+                            {
+                                id: Date.now(),
+                                text: '[Âm thanh gốc]',
+                                audioUrl: res.fullAudioUrl,
+                                startTime: videoStart,
+                                duration: Number(video.duration) || 5,
+                                maxDuration: Number(video.duration) || 5,
+                            },
+                        ];
                         anyLoaded = true;
                     }
                 }
             } catch (err) {
-                console.error('[AutoScanCompanionAssets] Error scanning assets:', err);
+                console.error(
+                    '[AutoScanCompanionAssets] Error scanning assets:',
+                    err,
+                );
             }
         }
 
@@ -10998,18 +14476,33 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 this.initWaveSurfers();
                 this.updateLines();
             }, 300);
-            this.toastr.success('Đã tự động quét và nạp phụ đề & âm thanh có sẵn từ thư mục video!', 'Tự động đồng bộ', { timeOut: 5000 });
+            this.toastr.success(
+                'Đã tự động quét và nạp phụ đề & âm thanh có sẵn từ thư mục video!',
+                'Tự động đồng bộ',
+                { timeOut: 5000 },
+            );
         }
     }
 
     onVideoLoadedMetadata(event: Event) {
         const vidEl = event.target as HTMLVideoElement;
-        if (!vidEl || !vidEl.duration || !isFinite(vidEl.duration) || vidEl.duration <= 0) return;
+        if (
+            !vidEl ||
+            !vidEl.duration ||
+            !isFinite(vidEl.duration) ||
+            vidEl.duration <= 0
+        )
+            return;
         const realDuration = Math.round(vidEl.duration * 10) / 10;
 
         let changed = false;
         if (this.activeVideo) {
-            if (this.activeVideo.duration !== realDuration && (this.activeVideo.duration === 5 || !this.activeVideo.maxDuration || this.activeVideo.duration <= 0)) {
+            if (
+                this.activeVideo.duration !== realDuration &&
+                (this.activeVideo.duration === 5 ||
+                    !this.activeVideo.maxDuration ||
+                    this.activeVideo.duration <= 0)
+            ) {
                 this.activeVideo.duration = realDuration;
                 this.activeVideo.maxDuration = realDuration;
                 changed = true;
@@ -11019,8 +14512,17 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             for (const scene of this.projectData.scenes) {
                 if (scene.videos) {
                     for (const vid of scene.videos) {
-                        if (vid.videoUrl === this.previewVideoUrl || (scene.videos.length === 1 && this.projectData.scenes.length === 1)) {
-                            if (vid.duration !== realDuration && (vid.duration === 5 || !vid.maxDuration || vid.duration <= 0)) {
+                        if (
+                            vid.videoUrl === this.previewVideoUrl ||
+                            (scene.videos.length === 1 &&
+                                this.projectData.scenes.length === 1)
+                        ) {
+                            if (
+                                vid.duration !== realDuration &&
+                                (vid.duration === 5 ||
+                                    !vid.maxDuration ||
+                                    vid.duration <= 0)
+                            ) {
                                 vid.duration = realDuration;
                                 vid.maxDuration = realDuration;
                                 changed = true;
@@ -11039,12 +14541,23 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
     onOverlayVideoLoadedMetadata(event: Event) {
         const vidEl = event.target as HTMLVideoElement;
-        if (!vidEl || !vidEl.duration || !isFinite(vidEl.duration) || vidEl.duration <= 0) return;
+        if (
+            !vidEl ||
+            !vidEl.duration ||
+            !isFinite(vidEl.duration) ||
+            vidEl.duration <= 0
+        )
+            return;
         const realDuration = Math.round(vidEl.duration * 10) / 10;
 
         let changed = false;
         if (this.activeOverlayVideo) {
-            if (this.activeOverlayVideo.duration !== realDuration && (this.activeOverlayVideo.duration === 5 || !this.activeOverlayVideo.maxDuration || this.activeOverlayVideo.duration <= 0)) {
+            if (
+                this.activeOverlayVideo.duration !== realDuration &&
+                (this.activeOverlayVideo.duration === 5 ||
+                    !this.activeOverlayVideo.maxDuration ||
+                    this.activeOverlayVideo.duration <= 0)
+            ) {
                 this.activeOverlayVideo.duration = realDuration;
                 this.activeOverlayVideo.maxDuration = realDuration;
                 changed = true;
@@ -11055,7 +14568,12 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 if (scene.videos) {
                     for (const vid of scene.videos) {
                         if (vid.videoUrl === this.previewOverlayVideoUrl) {
-                            if (vid.duration !== realDuration && (vid.duration === 5 || !vid.maxDuration || vid.duration <= 0)) {
+                            if (
+                                vid.duration !== realDuration &&
+                                (vid.duration === 5 ||
+                                    !vid.maxDuration ||
+                                    vid.duration <= 0)
+                            ) {
                                 vid.duration = realDuration;
                                 vid.maxDuration = realDuration;
                                 changed = true;
@@ -11068,11 +14586,23 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
         // Seek ngay về đúng vị trí thời gian của overlay video
         if (this.activeOverlayVideo) {
-            const expectedOverlayTime = Math.max(0, this.currentTimelineTime - (Number(this.activeOverlayVideo.startTime) || 0) + (Number(this.activeOverlayVideo.trimStart) || 0));
+            const expectedOverlayTime = Math.max(
+                0,
+                this.currentTimelineTime -
+                    (Number(this.activeOverlayVideo.startTime) || 0) +
+                    (Number(this.activeOverlayVideo.trimStart) || 0),
+            );
             vidEl.currentTime = expectedOverlayTime;
             vidEl.muted = this.activeOverlayVideo.muted ?? true;
             if (this.isPlayingTimeline) {
-                vidEl.play().catch(e => console.error("Error playing overlay video on metadata loaded:", e));
+                vidEl
+                    .play()
+                    .catch((e) =>
+                        console.error(
+                            'Error playing overlay video on metadata loaded:',
+                            e,
+                        ),
+                    );
             } else {
                 vidEl.pause();
             }
@@ -11092,14 +14622,20 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         if (!this.data.username) {
             this.data.username = this.route.snapshot.paramMap.get('name');
         }
-        if (!this.data.uuid) { this.goBack(); return; }
+        if (!this.data.uuid) {
+            this.goBack();
+            return;
+        }
 
         this.loadFrameAssets();
         this.loadSystemFonts();
         this.isSvgReady = false;
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         const readyKey = `ai_type_video_ready_data_${this.data.uuid}`;
-        this.projectData = this.data?.projectData || this.multiAccountService.getItem(readyKey) || this.multiAccountService.getItem(storageKey);
+        this.projectData =
+            this.data?.projectData ||
+            this.multiAccountService.getItem(readyKey) ||
+            this.multiAccountService.getItem(storageKey);
 
         const audioStorageKey = `ai_type_audio_merger_data_${this.data.uuid}`;
         const audioData = this.multiAccountService.getItem(audioStorageKey);
@@ -11119,23 +14655,33 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                     });
                 }
 
-                if (!scene.videos && (scene.prompt || scene.imageUrl || scene.videoUrl)) {
+                if (
+                    !scene.videos &&
+                    (scene.prompt || scene.imageUrl || scene.videoUrl)
+                ) {
                     let defaultDuration = scene.forcedDuration || 5;
                     if (!scene.forcedDuration && scene.subtitles) {
                         let totalSecs = 0;
                         for (const sub of scene.subtitles) {
                             if (sub.duration) totalSecs += sub.duration;
-                            else if (sub.text) totalSecs += Math.max(1, sub.text.trim().split(/\s+/).length / 4);
+                            else if (sub.text)
+                                totalSecs += Math.max(
+                                    1,
+                                    sub.text.trim().split(/\s+/).length / 4,
+                                );
                         }
-                        if (totalSecs > 0) defaultDuration = Math.round(totalSecs);
+                        if (totalSecs > 0)
+                            defaultDuration = Math.round(totalSecs);
                     }
-                    scene.videos = [{
-                        id: 1,
-                        prompt: scene.prompt || '',
-                        imageUrl: scene.imageUrl || null,
-                        videoUrl: scene.videoUrl || null,
-                        duration: defaultDuration
-                    }];
+                    scene.videos = [
+                        {
+                            id: 1,
+                            prompt: scene.prompt || '',
+                            imageUrl: scene.imageUrl || null,
+                            videoUrl: scene.videoUrl || null,
+                            duration: defaultDuration,
+                        },
+                    ];
                 } else if (!scene.videos) {
                     scene.videos = [];
                 }
@@ -11150,13 +14696,20 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.syncSubtitlesWithExtractedAudios();
         const allSubs = this.getAllProjectSubtitles();
         if (allSubs.length > 0) {
-            const viCount = allSubs.filter(s => this.isLikelyVietnamese(s.text)).length;
-            this.currentSubtitleLang = (viCount > allSubs.length / 2) ? 'vi' : 'original';
+            const viCount = allSubs.filter((s) =>
+                this.isLikelyVietnamese(s.text),
+            ).length;
+            this.currentSubtitleLang =
+                viCount > allSubs.length / 2 ? 'vi' : 'original';
         }
         this.updateFilteredMediaItems();
 
         // Select the first video by default
-        if (this.projectData && this.projectData.scenes && this.projectData.scenes.length > 0) {
+        if (
+            this.projectData &&
+            this.projectData.scenes &&
+            this.projectData.scenes.length > 0
+        ) {
             const firstScene = this.projectData.scenes[0];
             if (firstScene.videos && firstScene.videos.length > 0) {
                 const firstVideo = firstScene.videos[0];
@@ -11173,11 +14726,18 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 if (this.activeDownloadScene && res && res.file) {
                     const localPath = res.file;
                     // Gắn URL hình ảnh
-                    this.activeDownloadScene.imageUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
+                    this.activeDownloadScene.imageUrl = localPath.startsWith(
+                        'file://',
+                    )
+                        ? localPath
+                        : `file://${localPath}`;
 
                     // Lưu lại và báo thành công
                     this.saveData();
-                    this.toastr.success(`Đã gán ảnh vừa tải ảnh vào Phân cảnh!`, "Tải ảnh thành công!");
+                    this.toastr.success(
+                        `Đã gán ảnh vừa tải ảnh vào Phân cảnh!`,
+                        'Tải ảnh thành công!',
+                    );
 
                     // Xóa scene đang được chọn để tránh gắn nhầm cho các lần tải sau
                     // và ngăn chặn lỗi hiển thị nhiều thông báo do event listener bị trùng lặp
@@ -11245,9 +14805,17 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             message: alert
                 ? alert.message
                 : 'Bạn có chắc chắn muốn thực hiện thao tác này?',
-            icon: { show: true, name: alert?.icon || 'heroicons_outline:exclamation-triangle', color: alert?.color || 'warn' },
+            icon: {
+                show: true,
+                name: alert?.icon || 'heroicons_outline:exclamation-triangle',
+                color: alert?.color || 'warn',
+            },
             actions: {
-                confirm: { show: true, label: alert ? alert.confirm : 'Xác nhận', color: alert?.color || 'warn' },
+                confirm: {
+                    show: true,
+                    label: alert ? alert.confirm : 'Xác nhận',
+                    color: alert?.color || 'warn',
+                },
                 cancel: { show: true, label: alert ? alert.cancel : 'Huỷ bỏ' },
             },
             dismissible: true,
@@ -11285,14 +14853,22 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
     }
 
     getCurrentVisibleVideo(): any {
-        if (this.activeItem && (this.activeItem.videoUrl || this.getItemType(this.activeItem) === 'video')) {
+        if (
+            this.activeItem &&
+            (this.activeItem.videoUrl ||
+                this.getItemType(this.activeItem) === 'video')
+        ) {
             return this.activeItem;
         }
         return this.activeVideo;
     }
 
     getCurrentVisibleImage(): any {
-        if (this.activeItem && (this.activeItem.imageUrl || this.getItemType(this.activeItem) === 'image')) {
+        if (
+            this.activeItem &&
+            (this.activeItem.imageUrl ||
+                this.getItemType(this.activeItem) === 'image')
+        ) {
             return this.activeItem;
         }
         return this.activeImage;
@@ -11300,7 +14876,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
     getActiveItemRenderBounds(containerEl?: HTMLElement): any {
         const item = this.getTransformableItem();
-        if (!item || !containerEl) return { left: '0px', top: '0px', width: '100%', height: '100%' };
+        if (!item || !containerEl)
+            return { left: '0px', top: '0px', width: '100%', height: '100%' };
 
         const contW = containerEl.clientWidth || 400;
         const contH = containerEl.clientHeight || 300;
@@ -11312,7 +14889,12 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         const oIEl = this.overlayImagePlayer?.nativeElement;
 
         if (this.getItemType(item) === 'video') {
-            if (oVEl && oVEl.videoWidth > 0 && oVEl.videoHeight > 0 && this.activeOverlayVideo === item) {
+            if (
+                oVEl &&
+                oVEl.videoWidth > 0 &&
+                oVEl.videoHeight > 0 &&
+                this.activeOverlayVideo === item
+            ) {
                 aspect = oVEl.videoWidth / oVEl.videoHeight;
             } else if (vEl && vEl.videoWidth > 0 && vEl.videoHeight > 0) {
                 aspect = vEl.videoWidth / vEl.videoHeight;
@@ -11330,7 +14912,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         } else if (item.width && item.height && item.height > 0) {
             aspect = Number(item.width) / Number(item.height);
         } else {
-            aspect = this.getEffectiveAspectRatio() === '9:16' ? 9 / 16 : 16 / 9;
+            aspect =
+                this.getEffectiveAspectRatio() === '9:16' ? 9 / 16 : 16 / 9;
         }
 
         const contAspect = contW / contH;
@@ -11353,7 +14936,10 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             offsetTop = 0;
         }
 
-        const scale = item.scale !== undefined && item.scale !== null ? Number(item.scale) : 1;
+        const scale =
+            item.scale !== undefined && item.scale !== null
+                ? Number(item.scale)
+                : 1;
         const x = item.x !== undefined && item.x !== null ? Number(item.x) : 0;
         const y = item.y !== undefined && item.y !== null ? Number(item.y) : 0;
 
@@ -11363,24 +14949,34 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             width: `${Math.round(renderW)}px`,
             height: `${Math.round(renderH)}px`,
             transform: `translate(${x}px, ${y}px) scale(${scale})`,
-            transformOrigin: 'center center'
+            transformOrigin: 'center center',
         };
     }
 
     getTransformStyle(item: any): any {
         if (!item) return {};
-        const scale = item.scale !== undefined && item.scale !== null ? Number(item.scale) : 1;
+        const scale =
+            item.scale !== undefined && item.scale !== null
+                ? Number(item.scale)
+                : 1;
         const x = item.x !== undefined && item.x !== null ? Number(item.x) : 0;
         const y = item.y !== undefined && item.y !== null ? Number(item.y) : 0;
-        const opacity = item.opacity !== undefined && item.opacity !== null ? Number(item.opacity) : 1;
+        const opacity =
+            item.opacity !== undefined && item.opacity !== null
+                ? Number(item.opacity)
+                : 1;
         return {
             transform: `translate(${x}px, ${y}px) scale(${scale})`,
             transformOrigin: 'center center',
-            opacity: opacity
+            opacity: opacity,
         };
     }
 
-    onTransformHandleStart(e: MouseEvent, target: 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | 'box', containerEl: HTMLElement): void {
+    onTransformHandleStart(
+        e: MouseEvent,
+        target: 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | 'box',
+        containerEl: HTMLElement,
+    ): void {
         e.preventDefault();
         e.stopPropagation();
 
@@ -11391,15 +14987,32 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.transformDragTarget = target;
         this.transformStartMouse = { x: e.clientX, y: e.clientY };
 
-        const curScale = item.scale !== undefined && item.scale !== null ? Number(item.scale) : 1;
-        const curX = item.x !== undefined && item.x !== null ? Number(item.x) : 0;
-        const curY = item.y !== undefined && item.y !== null ? Number(item.y) : 0;
-        const curBottom = item.bottom !== undefined && item.bottom !== null ? Number(item.bottom) : this.currentSubtitleBottom;
-        const curFontSize = item.fontSize !== undefined && item.fontSize !== null ? Number(item.fontSize) : this.currentSubtitleFontSize;
+        const curScale =
+            item.scale !== undefined && item.scale !== null
+                ? Number(item.scale)
+                : 1;
+        const curX =
+            item.x !== undefined && item.x !== null ? Number(item.x) : 0;
+        const curY =
+            item.y !== undefined && item.y !== null ? Number(item.y) : 0;
+        const curBottom =
+            item.bottom !== undefined && item.bottom !== null
+                ? Number(item.bottom)
+                : this.currentSubtitleBottom;
+        const curFontSize =
+            item.fontSize !== undefined && item.fontSize !== null
+                ? Number(item.fontSize)
+                : this.currentSubtitleFontSize;
 
-        this.transformContainerRect = containerEl ? containerEl.getBoundingClientRect() : null;
-        const boxW = this.transformContainerRect ? this.transformContainerRect.width : 400;
-        const boxH = this.transformContainerRect ? this.transformContainerRect.height : 300;
+        this.transformContainerRect = containerEl
+            ? containerEl.getBoundingClientRect()
+            : null;
+        const boxW = this.transformContainerRect
+            ? this.transformContainerRect.width
+            : 400;
+        const boxH = this.transformContainerRect
+            ? this.transformContainerRect.height
+            : 300;
 
         this.transformStartBounds = {
             x: curX,
@@ -11408,7 +15021,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             height: boxH,
             scale: curScale,
             textBottom: curBottom,
-            fontSize: curFontSize
+            fontSize: curFontSize,
         };
     }
 
@@ -11433,27 +15046,59 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
             let deltaFactor = 0;
             if (this.transformDragTarget === 'br') {
-                deltaFactor = (dx / contW + dy / contH);
+                deltaFactor = dx / contW + dy / contH;
             } else if (this.transformDragTarget === 'tl') {
-                deltaFactor = (-dx / contW - dy / contH);
+                deltaFactor = -dx / contW - dy / contH;
             } else if (this.transformDragTarget === 'tr') {
-                deltaFactor = (dx / contW - dy / contH);
+                deltaFactor = dx / contW - dy / contH;
             } else if (this.transformDragTarget === 'bl') {
-                deltaFactor = (-dx / contW + dy / contH);
-            } else if (this.transformDragTarget === 'r' || this.transformDragTarget === 'b') {
-                deltaFactor = (this.transformDragTarget === 'r' ? dx / contW : dy / contH) * 2;
-            } else if (this.transformDragTarget === 'l' || this.transformDragTarget === 't') {
-                deltaFactor = (this.transformDragTarget === 'l' ? -dx / contW : -dy / contH) * 2;
+                deltaFactor = -dx / contW + dy / contH;
+            } else if (
+                this.transformDragTarget === 'r' ||
+                this.transformDragTarget === 'b'
+            ) {
+                deltaFactor =
+                    (this.transformDragTarget === 'r'
+                        ? dx / contW
+                        : dy / contH) * 2;
+            } else if (
+                this.transformDragTarget === 'l' ||
+                this.transformDragTarget === 't'
+            ) {
+                deltaFactor =
+                    (this.transformDragTarget === 'l'
+                        ? -dx / contW
+                        : -dy / contH) * 2;
             }
 
             if (itemType === 'text') {
                 // Thay đổi cỡ chữ cho text / phụ đề
-                const newSize = Math.max(12, Math.min(72, Math.round(this.transformStartBounds.fontSize * (1 + deltaFactor))));
+                const newSize = Math.max(
+                    12,
+                    Math.min(
+                        72,
+                        Math.round(
+                            this.transformStartBounds.fontSize *
+                                (1 + deltaFactor),
+                        ),
+                    ),
+                );
                 item.fontSize = newSize;
                 this.setSubtitleFontSize(newSize, false);
             } else {
                 // Thay đổi tỷ lệ phóng to thu nhỏ (Scale)
-                const newScale = Math.max(0.1, Math.min(4.0, Number((this.transformStartBounds.scale * (1 + deltaFactor)).toFixed(2))));
+                const newScale = Math.max(
+                    0.1,
+                    Math.min(
+                        4.0,
+                        Number(
+                            (
+                                this.transformStartBounds.scale *
+                                (1 + deltaFactor)
+                            ).toFixed(2),
+                        ),
+                    ),
+                );
                 item.scale = newScale;
             }
         }
@@ -11494,40 +15139,98 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
 @Component({
     selector: 'app-magic-kling-prompt-dialog',
-    standalone: true,
-    imports: [CommonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, FormsModule, MatIconModule],
+    imports: [
+        MatDialogModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatButtonModule,
+        FormsModule,
+        MatIconModule,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <div class="flex items-center justify-between mb-4">
-            <div class="text-2xl font-bold text-gray-800 tracking-tight">Tách cảnh và chỉnh sửa</div>
+            <div class="text-2xl font-bold text-gray-800 tracking-tight">
+                Tách cảnh và chỉnh sửa
+            </div>
             <button mat-icon-button (click)="dialogRef.close()" type="button">
                 <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
             </button>
         </div>
 
         <div mat-dialog-content class="mt-4 p-0 overflow-hidden">
-            <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0" [subscriptSizing]="'dynamic'">
-                <textarea class="px-2" [(ngModel)]="prompt" rows="4" [placeholder]="'Nhập prompt yêu cầu chỉnh sửa cho đoạn video này (VD: cinematic lighting, snow...)'" type="text" required matInput cdkTextareaAutosize></textarea>
+            <mat-form-field
+                class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0"
+                [subscriptSizing]="'dynamic'"
+            >
+                <textarea
+                    class="px-2"
+                    [(ngModel)]="prompt"
+                    rows="4"
+                    [placeholder]="'Nhập prompt yêu cầu chỉnh sửa cho đoạn video này (VD: cinematic lighting, snow...)'"
+                    type="text"
+                    required
+                    matInput
+                    cdkTextareaAutosize
+                ></textarea>
             </mat-form-field>
 
             <div class="flex flex-col gap-3 mt-4">
                 <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">File đính kèm (Ảnh / Video tham khảo)</span>
-                    <button mat-icon-button color="primary" matTooltip="Tải lên" (click)="fileInput.click()">
-                        <mat-icon [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
+                    <span class="text-sm text-gray-600"
+                        >File đính kèm (Ảnh / Video tham khảo)</span
+                    >
+                    <button
+                        mat-icon-button
+                        color="primary"
+                        matTooltip="Tải lên"
+                        (click)="fileInput.click()"
+                    >
+                        <mat-icon
+                            [svgIcon]="'heroicons_outline:paper-clip'"
+                        ></mat-icon>
                     </button>
-                    <input type="file" #fileInput class="hidden" accept="image/*,video/*" (change)="onFileSelected($event)">
+                    <input
+                        type="file"
+                        #fileInput
+                        class="hidden"
+                        accept="image/*,video/*"
+                        (change)="onFileSelected($event)"
+                    />
                 </div>
 
-                <div *ngIf="attachedFileUrl" class="relative flex items-center justify-center w-full h-48 border border-gray-300 rounded overflow-hidden mt-2 bg-gray-50 group transition-all">
-                    <img *ngIf="isImage" [src]="attachedFileUrl" class="h-full w-full object-contain" />
-                    <video *ngIf="!isImage" [src]="attachedFileUrl" class="h-full w-full object-contain" controls></video>
-                    
-                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                        <button mat-mini-fab color="warn" class="pointer-events-auto shadow-lg" (click)="removeAttachment()" matTooltip="Xóa file này">
-                            <mat-icon>delete</mat-icon>
-                        </button>
+                @if (attachedFileUrl) {
+                    <div
+                        class="relative flex items-center justify-center w-full h-48 border border-gray-300 rounded overflow-hidden mt-2 bg-gray-50 group transition-all"
+                    >
+                        @if (isImage) {
+                            <img
+                                [src]="attachedFileUrl"
+                                class="h-full w-full object-contain"
+                            />
+                        }
+                        @if (!isImage) {
+                            <video
+                                [src]="attachedFileUrl"
+                                class="h-full w-full object-contain"
+                                controls
+                            ></video>
+                        }
+                        <div
+                            class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none"
+                        >
+                            <button
+                                mat-mini-fab
+                                color="warn"
+                                class="pointer-events-auto shadow-lg"
+                                (click)="removeAttachment()"
+                                matTooltip="Xóa file này"
+                            >
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
                     </div>
-                </div>
+                }
             </div>
         </div>
 
@@ -11536,7 +15239,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 Xác nhận
             </button>
         </div>
-    `
+    `,
 })
 export class MagicKlingPromptDialogComponent {
     prompt: string = '';
@@ -11546,32 +15249,46 @@ export class MagicKlingPromptDialogComponent {
 
     constructor(
         public dialogRef: MatDialogRef<MagicKlingPromptDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: { prompt: string, attachmentUrl?: string },
+        @Inject(MAT_DIALOG_DATA)
+        public data: { prompt: string; attachmentUrl?: string },
         private sanitizer: DomSanitizer,
-        private toastr: ToastrService
+        private toastr: ToastrService,
     ) {
         this.prompt = data.prompt || '';
         if (data.attachmentUrl) {
             this.attachedFilePath = data.attachmentUrl;
-            this.isImage = !!data.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) || !data.attachmentUrl.match(/\.(mp4|webm|avi|mov)$/i);
-            this.attachedFileUrl = this.sanitizer.bypassSecurityTrustUrl(data.attachmentUrl);
+            this.isImage =
+                !!data.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                !data.attachmentUrl.match(/\.(mp4|webm|avi|mov)$/i);
+            this.attachedFileUrl = this.sanitizer.bypassSecurityTrustUrl(
+                data.attachmentUrl,
+            );
         }
     }
 
     async onFileSelected(event: any) {
         const file = event.target.files[0];
         if (!file) return;
-        
+
         const electronApi = (window as any).electron;
         if (electronApi && electronApi.getPathForFile) {
             const originalPath = electronApi.getPathForFile(file);
             if (originalPath) {
                 try {
-                    const localFilePath = await electronApi.selectLocalFile(originalPath, 'tts/admin/attachments');
-                    const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+                    const localFilePath = await electronApi.selectLocalFile(
+                        originalPath,
+                        'tts/admin/attachments',
+                    );
+                    const finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath.replace(/\\/g, '/')}`;
                     this.attachedFilePath = finalPath;
-                    this.isImage = !!(file.type.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i));
-                    this.attachedFileUrl = this.sanitizer.bypassSecurityTrustUrl(finalPath);
+                    this.isImage = !!(
+                        file.type.startsWith('image/') ||
+                        file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                    );
+                    this.attachedFileUrl =
+                        this.sanitizer.bypassSecurityTrustUrl(finalPath);
                 } catch (e: any) {
                     this.toastr.error('Lỗi khi đính kèm file: ' + e.message);
                 }
@@ -11593,7 +15310,7 @@ export class MagicKlingPromptDialogComponent {
     submit() {
         this.dialogRef.close({
             prompt: this.prompt,
-            attachmentUrl: this.attachedFilePath
+            attachmentUrl: this.attachedFilePath,
         });
     }
 }

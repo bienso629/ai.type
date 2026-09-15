@@ -2,91 +2,228 @@
     <!-- Header -->
     <div class="shrink-0 pb-2">
         <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100">
-                <mat-icon [svgIcon]="'feather:settings'" class="text-primary-500 icon-size-6"></mat-icon>
-                <span>{{ 'app.chatbot_settings' | transloco }}</span>
+            <div
+                class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100"
+            >
+                <mat-icon
+                    [svgIcon]="'feather:settings'"
+                    class="text-primary-500 icon-size-6"
+                ></mat-icon>
+                <span>{{ "app.chatbot_settings" | transloco }}</span>
             </div>
-            <button type="button" mat-icon-button (click)="onClose()" class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400">
-                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+            <button
+                type="button"
+                mat-icon-button
+                (click)="onClose()"
+                class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:x'"
+                ></mat-icon>
             </button>
         </div>
 
-        <p class="text-base text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
-            Cấu hình nguồn dữ liệu học và các thiết lập phản hồi cho Trợ lý Chatbot AI.
+        <p
+            class="text-base text-gray-600 dark:text-gray-400 mb-4 leading-relaxed"
+        >
+            Cấu hình nguồn dữ liệu học và các thiết lập phản hồi cho Trợ lý
+            Chatbot AI.
         </p>
     </div>
 
     <!-- Form (Scrollable) -->
     <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
-
         <!-- Nguồn dữ liệu trả lời -->
         <div class="flex flex-col gap-2">
-            <div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ 'app.answer_data_source' | transloco }}</div>
+            <div
+                class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+            >
+                {{ "app.answer_data_source" | transloco }}
+            </div>
             <div class="grid grid-cols-3 gap-3">
-                <label class="flex items-center gap-2.5 p-3 border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer transition-colors"
-                    [ngClass]="selectedDataSource === 'documents' ? 'border-primary bg-primary-50/50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium' : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'">
-                    <input type="radio" name="dataSource" value="documents" [(ngModel)]="selectedDataSource" class="text-primary focus:ring-primary" />
+                <label
+                    class="flex items-center gap-2.5 p-3 border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer transition-colors"
+                    [ngClass]="
+                        selectedDataSource === 'documents'
+                            ? 'border-primary bg-primary-50/50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'
+                    "
+                >
+                    <input
+                        type="radio"
+                        name="dataSource"
+                        value="documents"
+                        [(ngModel)]="selectedDataSource"
+                        class="text-primary focus:ring-primary"
+                    />
                     <span class="text-sm">Tài liệu</span>
                 </label>
-                <label class="flex items-center gap-2.5 p-3 border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer transition-colors"
-                    [ngClass]="selectedDataSource === 'website' ? 'border-primary bg-primary-50/50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium' : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'">
-                    <input type="radio" name="dataSource" value="website" [(ngModel)]="selectedDataSource" class="text-primary focus:ring-primary" />
+                <label
+                    class="flex items-center gap-2.5 p-3 border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer transition-colors"
+                    [ngClass]="
+                        selectedDataSource === 'website'
+                            ? 'border-primary bg-primary-50/50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'
+                    "
+                >
+                    <input
+                        type="radio"
+                        name="dataSource"
+                        value="website"
+                        [(ngModel)]="selectedDataSource"
+                        class="text-primary focus:ring-primary"
+                    />
                     <span class="text-sm">Website</span>
                 </label>
-                <label class="flex items-center gap-2.5 p-3 border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer transition-colors"
-                    [ngClass]="selectedDataSource === 'all' ? 'border-primary bg-primary-50/50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium' : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'">
-                    <input type="radio" name="dataSource" value="all" [(ngModel)]="selectedDataSource" class="text-primary focus:ring-primary" />
+                <label
+                    class="flex items-center gap-2.5 p-3 border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer transition-colors"
+                    [ngClass]="
+                        selectedDataSource === 'all'
+                            ? 'border-primary bg-primary-50/50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'
+                    "
+                >
+                    <input
+                        type="radio"
+                        name="dataSource"
+                        value="all"
+                        [(ngModel)]="selectedDataSource"
+                        class="text-primary focus:ring-primary"
+                    />
                     <span class="text-sm">Tất cả</span>
                 </label>
             </div>
         </div>
 
         <!-- Chọn loại tài liệu có thể học -->
-        <div class="flex flex-col gap-2" *ngIf="selectedDataSource === 'documents' || selectedDataSource === 'all'">
-            <div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ 'app.select_document_type_can' | transloco }}</div>
-            <div class="grid grid-cols-2 gap-2.5 p-2 border border-gray-200 dark:border-gray-700 rounded-md">
-                <label *ngFor="let type of docTypes"
-                    class="flex items-center gap-2.5 p-2 rounded-md cursor-pointer transition-colors"
-                    [ngClass]="selectedDocTypes.includes(type.value) ? 'bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 font-medium' : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'">
-                    <input type="checkbox" [checked]="selectedDocTypes.includes(type.value)"
-                        (change)="toggleDocType(type.value)" class="rounded text-primary focus:ring-primary" />
-                    <span class="text-sm truncate">{{ type.label }}</span>
-                </label>
+        @if (
+            selectedDataSource === "documents" || selectedDataSource === "all"
+        ) {
+            <div class="flex flex-col gap-2">
+                <div
+                    class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                >
+                    {{ "app.select_document_type_can" | transloco }}
+                </div>
+                <div
+                    class="grid grid-cols-2 gap-2.5 p-2 border border-gray-200 dark:border-gray-700 rounded-md"
+                >
+                    @for (type of docTypes; track type) {
+                        <label
+                            class="flex items-center gap-2.5 p-2 rounded-md cursor-pointer transition-colors"
+                            [ngClass]="
+                                selectedDocTypes.includes(type.value)
+                                    ? 'bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 font-medium'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'
+                            "
+                        >
+                            <input
+                                type="checkbox"
+                                [checked]="
+                                    selectedDocTypes.includes(type.value)
+                                "
+                                (change)="toggleDocType(type.value)"
+                                class="rounded text-primary focus:ring-primary"
+                            />
+                            <span class="text-sm truncate">{{
+                                type.label
+                            }}</span>
+                        </label>
+                    }
+                </div>
             </div>
-        </div>
+        }
 
         <!-- Chọn website có thể học -->
-        <div class="flex flex-col gap-2" *ngIf="selectedDataSource === 'website' || selectedDataSource === 'all'">
-            <div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ 'app.select_website_can_select' | transloco }}</div>
-            <div *ngIf="!domainOptions || domainOptions.length === 0" class="text-sm text-red-500 italic p-2.5 bg-red-50 dark:bg-red-950/30 rounded-md">
-                {{ 'app.you_have_no_domains' | transloco }}
+        @if (selectedDataSource === "website" || selectedDataSource === "all") {
+            <div class="flex flex-col gap-2">
+                <div
+                    class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                >
+                    {{ "app.select_website_can_select" | transloco }}
+                </div>
+                @if (!domainOptions || domainOptions.length === 0) {
+                    <div
+                        class="text-sm text-red-500 italic p-2.5 bg-red-50 dark:bg-red-950/30 rounded-md"
+                    >
+                        {{ "app.you_have_no_domains" | transloco }}
+                    </div>
+                }
+                @if (domainOptions && domainOptions.length > 0) {
+                    <div
+                        class="grid grid-cols-2 gap-2.5 p-2 border border-gray-200 dark:border-gray-700 rounded-md"
+                    >
+                        @for (d of domainOptions; track d) {
+                            <label
+                                class="flex items-center gap-2.5 p-2 rounded-md cursor-pointer transition-colors"
+                                [ngClass]="
+                                    selectedSettingsDomains.includes(d.domain)
+                                        ? 'bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 font-medium'
+                                        : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'
+                                "
+                            >
+                                <input
+                                    type="checkbox"
+                                    [checked]="
+                                        selectedSettingsDomains.includes(
+                                            d.domain
+                                        )
+                                    "
+                                    (change)="toggleSettingsDomain(d.domain)"
+                                    class="rounded text-primary focus:ring-primary"
+                                />
+                                <span
+                                    class="text-sm truncate"
+                                    [title]="d.domain"
+                                    >{{ normalizeDomainUrl(d.domain) }}</span
+                                >
+                            </label>
+                        }
+                    </div>
+                }
             </div>
-            <div class="grid grid-cols-2 gap-2.5 p-2 border border-gray-200 dark:border-gray-700 rounded-md" *ngIf="domainOptions && domainOptions.length > 0">
-                <label *ngFor="let d of domainOptions"
-                    class="flex items-center gap-2.5 p-2 rounded-md cursor-pointer transition-colors"
-                    [ngClass]="selectedSettingsDomains.includes(d.domain) ? 'bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 font-medium' : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'">
-                    <input type="checkbox" [checked]="selectedSettingsDomains.includes(d.domain)"
-                        (change)="toggleSettingsDomain(d.domain)" class="rounded text-primary focus:ring-primary" />
-                    <span class="text-sm truncate" [title]="d.domain">{{ normalizeDomainUrl(d.domain) }}</span>
-                </label>
-            </div>
-        </div>
+        }
 
         <!-- Prompt bổ sung cho AI -->
-        <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix custom-textarea" [subscriptSizing]="'dynamic'">
-            <mat-label>{{ 'app.additional_prompt_for_ai' | transloco }}</mat-label>
-            <textarea matInput rows="3" [(ngModel)]="customPrompt" [placeholder]="'app.auto_enter_your_additional_request' | transloco"></textarea>
+        <mat-form-field
+            class="w-full fuse-mat-dense fuse-mat-emphasized-affix custom-textarea"
+            [subscriptSizing]="'dynamic'"
+        >
+            <mat-label>{{
+                "app.additional_prompt_for_ai" | transloco
+            }}</mat-label>
+            <textarea
+                matInput
+                rows="3"
+                [(ngModel)]="customPrompt"
+                [placeholder]="
+                    'app.auto_enter_your_additional_request' | transloco
+                "
+            ></textarea>
         </mat-form-field>
-        <p class="text-xs text-gray-400 -mt-2 mb-1">{{ 'app.auto_for_example_give_a_short_answe' | transloco }}</p>
-
+        <p class="text-xs text-gray-400 -mt-2 mb-1">
+            {{ "app.auto_for_example_give_a_short_answe" | transloco }}
+        </p>
     </div>
 
     <!-- Footer -->
     <div class="shrink-0 flex items-center justify-end gap-3 mt-6">
-        <button mat-button (click)="onClose()" class="text-gray-600 dark:text-gray-300 font-medium">Hủy</button>
+        <button
+            mat-button
+            (click)="onClose()"
+            class="text-gray-600 dark:text-gray-300 font-medium"
+        >
+            Hủy
+        </button>
         <button mat-flat-button [color]="'primary'" (click)="onConfirm()">
-            <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:check'"></mat-icon>
-            <mat-label class="ml-2">{{ 'app.save_configuration' | transloco }}</mat-label>
+            <mat-icon
+                class="icon-size-5"
+                [svgIcon]="'heroicons_outline:check'"
+            ></mat-icon>
+            <mat-label class="ml-2">{{
+                "app.save_configuration" | transloco
+            }}</mat-label>
         </button>
     </div>
 </div>

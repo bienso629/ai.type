@@ -1,4 +1,12 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { FuseConfigService } from '@fuse/services/config/config.service';
 import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
@@ -17,7 +25,9 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     selector: 'scanvideolinkform',
     templateUrl: './scan.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [YoutubeService, LogService]
+    providers: [YoutubeService, LogService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
     user: User;
@@ -72,35 +82,42 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
      * lấy tất cả link facebook
      */
     getLinks() {
-        this._logService.fetch({
-            username: this.user.name,
-            keyword: 'youtube.com',
-            page: {
-                pageNumber: 0,
-                size: 100,
-                totalElements: 0,
-                totalPages: 0
-            },
-        })
+        this._logService
+            .fetch({
+                username: this.user.name,
+                keyword: 'youtube.com',
+                page: {
+                    pageNumber: 0,
+                    size: 100,
+                    totalElements: 0,
+                    totalPages: 0,
+                },
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result && result.success && result.data && result.data.length > 0) {
+                    if (
+                        result &&
+                        result.success &&
+                        result.data &&
+                        result.data.length > 0
+                    ) {
                         this.links = result.data;
-                        this.channel = this.links[0]?.link || 'https://youtube.com';
+                        this.channel =
+                            this.links[0]?.link || 'https://youtube.com';
                     }
                 },
                 error: () => {
                     this.toastr.warning(`Không tải dữ liệu về.`);
                 },
-                complete: () => {
-                }
+                complete: () => {},
             });
     }
 
     start() {
         if (this.channel && !this.tiktoker) {
-            this._youtubeService.channelid(this.channel)
+            this._youtubeService
+                .channelid(this.channel)
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: (channelid) => {
@@ -114,7 +131,7 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                     error: (e: any) => {
                         this.toastr.warning(`Lỗi quét dữ liệu.`);
                     },
-                    complete: () => { }
+                    complete: () => {},
                 });
         } else if (this.tiktoker) {
             // this._youtubeService.tiktokCrawler(this.tiktoker)
@@ -131,12 +148,14 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
 
             // GỌI ELECTRON CRAWL TIKTOK
             this.items = []; // Xóa danh sách cũ trước khi bắt đầu quét mới
-            this.toastr.info('Vui lòng giải Captcha nếu có để bắt đầu tự động cuộn.');
+            this.toastr.info(
+                'Vui lòng giải Captcha nếu có để bắt đầu tự động cuộn.',
+            );
 
             (window as any).electron.tools({
                 command: 'tiktok-crawl',
                 tiktoker: this.tiktoker,
-                uniqueID: Date.now().toString()
+                uniqueID: Date.now().toString(),
             });
         } else {
             this.toastr.warning(`Không có kênh nào để quét.`);
@@ -144,13 +163,13 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
     }
 
     updateTable(videos: any[]) {
-        const newBatch = videos.map(v => ({
+        const newBatch = videos.map((v) => ({
             id: { kind: 'tiktoker', videoId: v.url },
             snippet: {
                 title: v.title,
-                thumbnails: { high: { url: v.thumbnail } }
+                thumbnails: { high: { url: v.thumbnail } },
             },
-            url: v.url
+            url: v.url,
         }));
         console.log('newBatch:', newBatch);
         this.items = [...this.items, ...newBatch];
@@ -158,7 +177,8 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
     }
 
     crawling(channelid: string, pageToken: string) {
-        this._youtubeService.crawler(channelid, 50, pageToken)
+        this._youtubeService
+            .crawler(channelid, 50, pageToken)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (links) => {
@@ -183,12 +203,13 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
     getLinksTiktoker() {
-        this._youtubeService.getLinksTiktoker(this.tiktoker)
+        this._youtubeService
+            .getLinksTiktoker(this.tiktoker)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (links) => {
@@ -200,17 +221,17 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                                 id: {
                                     kind: 'tiktoker',
                                     videoId: item.url,
-                                    playlistId: ''
+                                    playlistId: '',
                                 },
                                 snippet: {
                                     title: item.video,
                                     thumbnails: {
                                         high: {
-                                            url: `file://${item.thumbnail}`
-                                        }
+                                            url: `file://${item.thumbnail}`,
+                                        },
                                     },
                                 },
-                                url: item.url
+                                url: item.url,
                             });
                         });
                     }
@@ -227,33 +248,38 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
     share() {
         this.videos = [];
 
-        Promise.all(this.selected.map(item => {
-            switch (item.id.kind) {
-                case 'youtube#video':
-                    this.videos.push(item.id.videoId);
-                    break;
-                default:
-                    break;
-            }
-        }));
+        Promise.all(
+            this.selected.map((item) => {
+                switch (item.id.kind) {
+                    case 'youtube#video':
+                        this.videos.push(item.id.videoId);
+                        break;
+                    default:
+                        break;
+                }
+            }),
+        );
 
-        this._youtubeService.youtube2Archive({
-            username: this.user.name,
-            content: {
-                playlist: [{
-                    youtube: this.videos
-                }]
-            },
-            title: '',
-            url: ''
-        })
+        this._youtubeService
+            .youtube2Archive({
+                username: this.user.name,
+                content: {
+                    playlist: [
+                        {
+                            youtube: this.videos,
+                        },
+                    ],
+                },
+                title: '',
+                url: '',
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
@@ -263,12 +289,11 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                         this.toastr.error('Lỗi trong quá trình chuyển.');
                     }
                 },
-                error: (e: any) => {
-                },
+                error: (e: any) => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -280,10 +305,14 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
         this.videos = [];
         switch (item.id.kind) {
             case 'youtube#video':
-                this.videos.push(`https://www.youtube.com/watch?v=${item.id.videoId}`);
+                this.videos.push(
+                    `https://www.youtube.com/watch?v=${item.id.videoId}`,
+                );
                 break;
             case 'youtube#playlist':
-                this.videos.push(`https://www.youtube.com/playlist?list=${item.id.playlistId}`);
+                this.videos.push(
+                    `https://www.youtube.com/playlist?list=${item.id.playlistId}`,
+                );
                 break;
             case 'tiktoker':
                 this.videos.push(`${item.id.videoId}`);
@@ -292,14 +321,15 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                 break;
         }
 
-        this._youtubeService.download({
-            URLS: this.videos,
-            quality: this.quality,
-            username: this.user.name,
-            subtitle: false,
-            thumbnail: false,
-            mode: this.mode
-        })
+        this._youtubeService
+            .download({
+                URLS: this.videos,
+                quality: this.quality,
+                username: this.user.name,
+                subtitle: false,
+                thumbnail: false,
+                mode: this.mode,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (results) => {
@@ -312,7 +342,7 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                 error: (e: any) => {
                     this.toastr.warning(`Không tải được video này.`);
                 },
-                complete: () => { }
+                complete: () => {},
             });
     }
 
@@ -322,37 +352,46 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
         // const ai = new GoogleGenAI({ apiKey: settings['secretKey'] });
         const response = await this._genaiService.generateContent({
             model: 'gemini-3.6-flash',
-            contents: [{ role: 'user', parts: [{ text: 'Why is the sky blue?' }] }],
+            contents: [
+                { role: 'user', parts: [{ text: 'Why is the sky blue?' }] },
+            ],
         });
     }
 
     download() {
         this.videos = [];
-        Promise.all(this.selected.map(item => {
-            // let channelTitle = item.snippet.channelTitle;
-            switch (item.id.kind) {
-                case 'youtube#video':
-                    this.videos.push(`https://www.youtube.com/watch?v=${item.id.videoId}`);
-                    break;
-                case 'youtube#playlist':
-                    this.videos.push(`https://www.youtube.com/playlist?list=${item.id.playlistId}`);
-                    break;
-                case 'tiktoker':
-                    this.videos.push(`${item.id.videoId}`);
-                    break;
-                default:
-                    break;
-            }
-        }));
+        Promise.all(
+            this.selected.map((item) => {
+                // let channelTitle = item.snippet.channelTitle;
+                switch (item.id.kind) {
+                    case 'youtube#video':
+                        this.videos.push(
+                            `https://www.youtube.com/watch?v=${item.id.videoId}`,
+                        );
+                        break;
+                    case 'youtube#playlist':
+                        this.videos.push(
+                            `https://www.youtube.com/playlist?list=${item.id.playlistId}`,
+                        );
+                        break;
+                    case 'tiktoker':
+                        this.videos.push(`${item.id.videoId}`);
+                        break;
+                    default:
+                        break;
+                }
+            }),
+        );
 
         if (this.videos.length > 0) {
-            this._youtubeService.download({
-                URLS: this.videos,
-                quality: this.quality,
-                username: this.user.name,
-                subtitle: true,
-                thumbnail: true
-            })
+            this._youtubeService
+                .download({
+                    URLS: this.videos,
+                    quality: this.quality,
+                    username: this.user.name,
+                    subtitle: true,
+                    thumbnail: true,
+                })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: (results) => {
@@ -365,7 +404,7 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                     error: (e: any) => {
                         this.toastr.warning(`Không tải được video này.`);
                     },
-                    complete: () => { }
+                    complete: () => {},
                 });
         }
     }
@@ -381,7 +420,7 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
     ) {
         // Subscribe to user changes
         this._userService.user$
@@ -405,7 +444,10 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
         if ((window as any).electron) {
             // Lắng nghe tất cả response từ Electron
             (window as any).electron.onToolsResponse((data: any) => {
-                console.log('--- DEBUG: Dữ liệu từ Electron nhận được: ---', data); // THÊM DÒNG NÀY
+                console.log(
+                    '--- DEBUG: Dữ liệu từ Electron nhận được: ---',
+                    data,
+                ); // THÊM DÒNG NÀY
 
                 if (data.action === 'tiktok-crawl-stream') {
                     this.updateTable(data.videos);

@@ -1,21 +1,38 @@
-import { AfterContentInit, AfterViewInit, Component, Inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+    AfterContentInit,
+    AfterViewInit,
+    Component,
+    Inject,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
-import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
+import {
+    FuseNavigationService,
+    FuseVerticalNavigationComponent,
+} from '@fuse/components/navigation';
 import { Navigation } from 'app/core/navigation/navigation.types';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { AnimationMode, Direction } from '@ecodev/fab-speed-dial';
 
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { HelpComponent } from 'app/modules/microsites/help/help.component';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import {
+    MAT_DIALOG_DATA,
+    MatDialog,
+    MatDialogRef,
+    MatDialogModule,
+} from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { NgIf } from '@angular/common';
+
 import { ToastrService } from 'ngx-toastr';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ChangeDetectorRef } from '@angular/core';
@@ -25,46 +42,94 @@ import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserClientService } from 'app/_services/user';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
     selector: 'app-bug-report-dialog',
-    standalone: true,
-    imports: [TranslocoModule, MatTooltipModule, MatTooltipModule, TranslocoModule, FormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatDialogModule, MatIconModule, NgIf],
+    imports: [
+        TranslocoModule,
+        MatTooltipModule,
+        MatTooltipModule,
+        TranslocoModule,
+        FormsModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatButtonModule,
+        MatDialogModule,
+        MatIconModule,
+    ],
     template: `
-        <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-            <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:mail'"></mat-icon>
+        <div
+            class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch"
+        >
+            <mat-icon
+                class="self-center mr-2 icon-size-5"
+                [svgIcon]="'feather:mail'"
+            ></mat-icon>
             <mat-label class="self-center">Góp ý báo lỗi</mat-label>
         </div>
 
         <div mat-dialog-content class="mt-4 p-0">
-            <p class="text-blue-500 font-semibold mb-4 text-sm">Mô tả lỗi hoặc góp ý của bạn. Trình duyệt sẽ mở ứng dụng mail mặc định để gửi.</p>
-            <div *ngIf="data.screenshotPath" class="mb-4 text-xs text-blue-600 bg-blue-50 p-2 rounded break-all">
-                Ảnh chụp màn hình đã lưu tại: {{ data.screenshotPath }}. Vui lòng đính kèm file này vào email nếu cần.
-            </div>
-            
-            <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+            <p class="text-blue-500 font-semibold mb-4 text-sm">
+                Mô tả lỗi hoặc góp ý của bạn. Trình duyệt sẽ mở ứng dụng mail
+                mặc định để gửi.
+            </p>
+            @if (data.screenshotPath) {
+                <div
+                    class="mb-4 text-xs text-blue-600 bg-blue-50 p-2 rounded break-all"
+                >
+                    Ảnh chụp màn hình đã lưu tại: {{ data.screenshotPath }}. Vui
+                    lòng đính kèm file này vào email nếu cần.
+                </div>
+            }
+
+            <mat-form-field
+                class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'"
+            >
                 <mat-label>Tiêu đề</mat-label>
-                <input matInput [(ngModel)]="subject" placeholder="Nhập tiêu đề">
+                <input
+                    matInput
+                    [(ngModel)]="subject"
+                    placeholder="Nhập tiêu đề"
+                />
             </mat-form-field>
-            
-            <mat-form-field class="w-full mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+
+            <mat-form-field
+                class="w-full mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'"
+            >
                 <mat-label>Nội dung</mat-label>
-                <textarea class="max-h-60 min-h-20 px-2" matInput [(ngModel)]="content" placeholder="Nhập nội dung báo lỗi..."></textarea>
+                <textarea
+                    class="max-h-60 min-h-20 px-2"
+                    matInput
+                    [(ngModel)]="content"
+                    placeholder="Nhập nội dung báo lỗi..."
+                ></textarea>
             </mat-form-field>
         </div>
 
         <div mat-dialog-actions class="p-0 mt-4 flex justify-end gap-2">
             <button mat-button mat-dialog-close>Đóng cửa sổ</button>
-            <button mat-flat-button color="primary" (click)="sendEmail()" [disabled]="isSending">
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="sendEmail()"
+                [disabled]="isSending"
+            >
                 {{ isSending ? 'Đang gửi...' : 'Gửi Email' }}
             </button>
         </div>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [
-        `.custom-textarea .mat-mdc-text-field-wrapper { padding-top: 0 !important; }`
-    ]
+        `
+            .custom-textarea .mat-mdc-text-field-wrapper {
+                padding-top: 0 !important;
+            }
+        `,
+    ],
 })
 export class BugReportDialogComponent {
     subject: string = '';
@@ -74,7 +139,7 @@ export class BugReportDialogComponent {
     constructor(
         public dialogRef: MatDialogRef<BugReportDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
-        private toastr: ToastrService
+        private toastr: ToastrService,
     ) {}
 
     async sendEmail() {
@@ -99,7 +164,7 @@ export class BugReportDialogComponent {
             smtpHost: settings.emailConfig_smtpHost || 'smtp.gmail.com',
             smtpPort: parseInt(settings.emailConfig_smtpPort || '587', 10),
             smtpUser: settings.emailConfig_smtpUser || '',
-            smtpPass: settings.emailConfig_smtpPass || ''
+            smtpPass: settings.emailConfig_smtpPass || '',
         };
 
         if (!emailConfig.smtpUser || !emailConfig.smtpPass) {
@@ -109,23 +174,37 @@ export class BugReportDialogComponent {
         }
 
         try {
-            if ((window as any).electronAPI && (window as any).electronAPI.sendMassEmails) {
-                const result = await (window as any).electronAPI.sendMassEmails({
-                    senderName: this.data.user?.name || 'User Báo Lỗi',
-                    subject: '[Báo Lỗi] ' + this.subject,
-                    htmlContent: fullContent,
-                    users: [{ email: 'typevn@gmail.com', username: 'Ban Quản Trị' }],
-                    config: emailConfig
-                });
+            if (
+                (window as any).electronAPI &&
+                (window as any).electronAPI.sendMassEmails
+            ) {
+                const result = await (window as any).electronAPI.sendMassEmails(
+                    {
+                        senderName: this.data.user?.name || 'User Báo Lỗi',
+                        subject: '[Báo Lỗi] ' + this.subject,
+                        htmlContent: fullContent,
+                        users: [
+                            {
+                                email: 'typevn@gmail.com',
+                                username: 'Ban Quản Trị',
+                            },
+                        ],
+                        config: emailConfig,
+                    },
+                );
 
                 if (result && result.success) {
                     this.toastr.success('Gửi báo lỗi thành công!');
                     this.dialogRef.close();
                 } else {
-                    this.toastr.error('Lỗi khi gửi báo lỗi: ' + (result?.error || 'Unknown'));
+                    this.toastr.error(
+                        'Lỗi khi gửi báo lỗi: ' + (result?.error || 'Unknown'),
+                    );
                 }
             } else {
-                this.toastr.error('Môi trường không hỗ trợ gửi email trực tiếp.');
+                this.toastr.error(
+                    'Môi trường không hỗ trợ gửi email trực tiếp.',
+                );
             }
         } catch (error) {
             this.toastr.error('Lỗi kết nối: ' + (error as any).message);
@@ -139,9 +218,13 @@ export class BugReportDialogComponent {
     selector: 'thin-layout',
     templateUrl: './thin.component.html',
     providers: [UserClientService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
-export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, AfterContentInit {
+export class ThinLayoutComponent
+    implements OnInit, OnDestroy, AfterViewInit, AfterContentInit
+{
     fileName: string;
     isRecording: boolean = false;
     appVersion: string = '1.0.0';
@@ -185,7 +268,7 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
 
     get enableUmodelverse(): boolean {
         const settings = this.multiAccountService.getItem('settings');
-        return settings ? (settings.enableUmodelverse === true) : false;
+        return settings ? settings.enableUmodelverse === true : false;
     }
 
     set enableUmodelverse(value: boolean) {
@@ -196,24 +279,30 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
 
     toggleUmodelverse(): void {
         this.enableUmodelverse = !this.enableUmodelverse;
-        
+
         // Cập nhật trạng thái lên máy chủ để không bị mất khi F5
         if (this.user) {
             let settings = this.multiAccountService.getItem('settings') || {};
             const editor = this.multiAccountService.getItem('editor');
-            const following_users = this.multiAccountService.getItem('following_users');
+            const following_users =
+                this.multiAccountService.getItem('following_users');
 
-            this._userClientService.updateProfile({
-                profile: {
-                    settings: settings,
-                    active_info: this.multiAccountService.getItem('active_info'),
-                    editor: (editor && editor != 'undefined') ? editor : {},
-                    following_users: (following_users && following_users != 'undefined') ? following_users : [],
-                },
-                username: this.user.name
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe();
+            this._userClientService
+                .updateProfile({
+                    profile: {
+                        settings: settings,
+                        active_info:
+                            this.multiAccountService.getItem('active_info'),
+                        editor: editor && editor != 'undefined' ? editor : {},
+                        following_users:
+                            following_users && following_users != 'undefined'
+                                ? following_users
+                                : [],
+                    },
+                    username: this.user.name,
+                })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe();
         }
     }
 
@@ -225,7 +314,6 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
         window.dispatchEvent(new Event('start-recording'));
     }
 
-
     /**
      * Toggle navigation
      *
@@ -233,7 +321,10 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
      */
     toggleNavigation(name: string): void {
         // Get the navigation
-        const navigation = this._fuseNavigationService.getComponent<FuseVerticalNavigationComponent>(name);
+        const navigation =
+            this._fuseNavigationService.getComponent<FuseVerticalNavigationComponent>(
+                name,
+            );
 
         if (navigation) {
             // Toggle the opened status
@@ -248,7 +339,7 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
         this.dialog.open(HelpComponent, {
             width: '1000px',
             maxWidth: '95vw',
-            height: '90vh'
+            height: '90vh',
         });
     }
 
@@ -259,7 +350,7 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
             backdropClass: 'custom-dialog-backdrop',
             data: { url: 'http://localhost:12345' },
             panelClass: 'custom-dialog',
-            disableClose: false
+            disableClose: false,
         });
     }
 
@@ -271,7 +362,7 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
             // console.log('aaa', e.target.files[0]);
             // window.open('/assets/type-lite-macos', null);
         }
-    }
+    };
 
     /**
      * Constructor
@@ -286,20 +377,20 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
         private _changeDetectorRef: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
         private _userService: UserService,
-        private _userClientService: UserClientService
-    ) { 
+        private _userClientService: UserClientService,
+    ) {
         const activeInfo = this.multiAccountService.getItem('active_info');
         if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
             this.activeInfo = AuthUtils._getActiveInfo(activeInfo);
         }
     }
 
-    ngAfterViewInit(): void { }
+    ngAfterViewInit(): void {}
 
     // -----------------------------------------------------------------------------------------------------
     // @ Lifecycle hooks
     // -----------------------------------------------------------------------------------------------------
-    ngAfterContentInit(): void { }
+    ngAfterContentInit(): void {}
 
     /**
      * On init
@@ -322,7 +413,10 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
             this.isRecording = event.detail;
             this._changeDetectorRef.detectChanges();
         };
-        window.addEventListener('recording-state-changed', this._recordingStateListener);
+        window.addEventListener(
+            'recording-state-changed',
+            this._recordingStateListener,
+        );
 
         // Subscribe to navigation data
         this._navigationService.navigation$
@@ -344,7 +438,10 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
      * On destroy
      */
     ngOnDestroy(): void {
-        window.removeEventListener('recording-state-changed', this._recordingStateListener);
+        window.removeEventListener(
+            'recording-state-changed',
+            this._recordingStateListener,
+        );
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
@@ -353,32 +450,34 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đi kích hoạt',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Dùng chùa'
-                }
+                    label: 'Dùng chùa',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference
         dialogRef.afterClosed().subscribe((_) => {
             this.router.navigate(['/settings'], {
                 queryParams: {
-                    'tab': 'active'
-                }
+                    tab: 'active',
+                },
             });
         });
     }
@@ -387,30 +486,39 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
 @Component({
     selector: 'app-popup',
     standalone: true,
-    template: `<div cdkDrag class="popup-wrapper"><iframe [src]="safeUrl" class="iframe-content"></iframe></div>`,
-    styles: [`.popup-wrapper {
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-    }
+    template: `<div cdkDrag class="popup-wrapper">
+        <iframe [src]="safeUrl" class="iframe-content"></iframe>
+    </div>`,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [
+        `
+            .popup-wrapper {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+            }
 
-    .iframe-content {
-        width: 100%;
-        height: 100%;
-        border: none;
-        overflow: hidden;
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-    }`]
+            .iframe-content {
+                width: 100%;
+                height: 100%;
+                border: none;
+                overflow: hidden;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+            }
+        `,
+    ],
 })
 export class PopupComponent {
     safeUrl!: SafeResourceUrl;
 
-    constructor(@Inject(MAT_DIALOG_DATA) public data: any, private sanitizer: DomSanitizer) {
+    constructor(
+        @Inject(MAT_DIALOG_DATA) public data: any,
+        private sanitizer: DomSanitizer,
+    ) {
         this.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(data.url);
     }
 }
-

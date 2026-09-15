@@ -1,110 +1,207 @@
-<div class="relative left-1/2 -translate-x-1/2 sm:my-6 shadow-none rounded-none sm:border-8 border-opacity-60 bg-white w-full min-w-0 max-w-200"
-	*ngIf="details">
-	<!-- Header -->
-	<div
-		class="flex flex-col sm:flex-row flex-0 border-b sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10">
-		<div class="flex-1 min-w-0">
-			<!-- Breadcrumbs -->
-			<div>
-				<div class="hidden sm:flex flex-wrap items-center font-medium">
-					<div class="flex items-center whitespace-nowrap">
-						<a [routerLink]="['/']" class="text-base text-primary-500">typing</a>
-					</div>
-					<div class="flex items-center ml-1 whitespace-nowrap">
-						<mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-							[svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-						<a [routerLink]="['/archives', name]" class="ml-1 text-base text-primary-500">{{name}}</a>
-					</div>
-					<div class="flex items-center ml-1 whitespace-nowrap">
-						<mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-							[svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-						<span class="ml-1 text-base text-secondary">{{uuid}}</span>
-					</div>
-				</div>
-				<div class="flex sm:hidden">
-					<a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./../..'">
-						<mat-icon class="icon-size-4 text-secondary"
-							[svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-						<span class="ml-1 text-base">quay lại</span>
-					</a>
-				</div>
-			</div>
-
-			<!-- Title -->
-			<div class="mt-2">
-				<h1 class="tracking-tight leading-7 text-base font-normal text-gray-400 sm:leading-10 truncate tw">
-					{{details.title | removeHTML}}</h1>
-			</div>
-		</div>
-
-		<!-- Actions -->
-		<div class="flex flex-row shrink-0 items-center mt-2 sm:mt-0 sm:ml-4">
-			<a class="ml-0" [title]="'app.auto_open_source' | transloco" mat-icon-button (click)="fontSize(1)">
-				<mat-icon class="icon-size-4 text-gray-400" [svgIcon]="'feather:plus'"></mat-icon>
-			</a>
-
-			<a class="ml-1" [title]="'app.auto_open_source' | transloco" mat-icon-button (click)="fontSize(-1)">
-				<mat-icon class="icon-size-4 text-gray-400" [svgIcon]="'feather:minus'"></mat-icon>
-			</a>
-		</div>
-	</div>
-
-	<!-- Main -->
-	<div class="flex-auto overflow-y-auto" cdkScrollable>
-		<div class="px-4 sm:px-10 py-6 w-full overflow-hidden">
-			<ng-container *ngFor="let item of details.done; let i = index">
-				<ng-container *ngIf="item | isObject; else elseIsObject">
-					{{ item | json }}
-				</ng-container>
-				<ng-template #elseIsObject>
-					<div class="mb-4" [innerHTML]="item | renderTrustHTML"
-						[ngStyle]="{'font-size': fontsize + 'px', 'line-height': (fontsize + 10) + 'px'}"></div>
-				</ng-template>
-			</ng-container>
-		</div>
-	</div>
-
-	<!-- Footer -->
-	<div
-		class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 border-t relative">
-		<!-- Actions -->
-		<div class="flex flex-row items-center justify-center">
-			<a class="ml-0" [title]="'app.auto_open_source' | transloco" mat-icon-button href="https://www.facebook.com/manguonmo"
-				target="_blank">
-				<mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:thumbs-up'"></mat-icon>
-			</a>
-
-			<a class="ml-2" [title]="'app.auto_open_source' | transloco" mat-icon-button href="https://www.facebook.com/manguonmo"
-				target="_blank">
-				<mat-icon class="icon-size-4 text-red-300" [svgIcon]="'feather:thumbs-down'"></mat-icon>
-			</a>
-		</div>
-
-		<div class="flex">
-			<div class="flex flex-col sm:flex-row items-center justify-center text-center sm:text-start w-full">
-				<div class="font-normal text-center sm:text-start text-base text-secondary">
-					{{ 'app.auto_limited_liability_company' | transloco }} <a class="mx-1" href="https://type.vn"
-						[title]="'app.auto_ai_software_for_creating_profe' | transloco">TYPING</a>
-					&copy;
-					2019-{{currentYear}}
-				</div>
-
-				<div class="flex-1 shrink-0 sm:ml-2 items-end">
-					<a class="ml-2" [title]="'app.auto_open_source' | transloco" mat-icon-button href="https://www.facebook.com/manguonmo"
-						target="_blank">
-						<mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'mat_solid:facebook'"></mat-icon>
-					</a>
-
-					<a mat-icon-button color="warn" [title]="'app.auto_learning_programming' | transloco" href="https://www.youtube.com/@manguonmo"
-						target="_blank">
-						<mat-icon class="icon-size-4" [svgIcon]="'feather:youtube'"></mat-icon>
-					</a>
-
-					<a [title]="'app.auto_technology_course' | transloco" mat-icon-button href="https://buy.type.vn" target="_blank">
-						<mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:shopping-cart'"></mat-icon>
-					</a>
-				</div>
-			</div>
-		</div>
-	</div>
-</div>
+@if (details) {
+    <div
+        class="relative left-1/2 -translate-x-1/2 sm:my-6 shadow-none rounded-none sm:border-8 border-opacity-60 bg-white w-full min-w-0 max-w-200"
+    >
+        <!-- Header -->
+        <div
+            class="flex flex-col sm:flex-row flex-0 border-b sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10"
+        >
+            <div class="flex-1 min-w-0">
+                <!-- Breadcrumbs -->
+                <div>
+                    <div
+                        class="hidden sm:flex flex-wrap items-center font-medium"
+                    >
+                        <div class="flex items-center whitespace-nowrap">
+                            <a
+                                [routerLink]="['/']"
+                                class="text-base text-primary-500"
+                                >typing</a
+                            >
+                        </div>
+                        <div class="flex items-center ml-1 whitespace-nowrap">
+                            <mat-icon
+                                class="icon-size-4 text-secondary"
+                                style="margin-top: 2px"
+                                [svgIcon]="'heroicons_solid:chevron-right'"
+                            ></mat-icon>
+                            <a
+                                [routerLink]="['/archives', name]"
+                                class="ml-1 text-base text-primary-500"
+                                >{{ name }}</a
+                            >
+                        </div>
+                        <div class="flex items-center ml-1 whitespace-nowrap">
+                            <mat-icon
+                                class="icon-size-4 text-secondary"
+                                style="margin-top: 2px"
+                                [svgIcon]="'heroicons_solid:chevron-right'"
+                            ></mat-icon>
+                            <span class="ml-1 text-base text-secondary">{{
+                                uuid
+                            }}</span>
+                        </div>
+                    </div>
+                    <div class="flex sm:hidden">
+                        <a
+                            class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                            [routerLink]="'./../..'"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-secondary"
+                                [svgIcon]="'heroicons_solid:chevron-left'"
+                            ></mat-icon>
+                            <span class="ml-1 text-base">quay lại</span>
+                        </a>
+                    </div>
+                </div>
+                <!-- Title -->
+                <div class="mt-2">
+                    <h1
+                        class="tracking-tight leading-7 text-base font-normal text-gray-400 sm:leading-10 truncate tw"
+                    >
+                        {{ details.title | removeHTML }}
+                    </h1>
+                </div>
+            </div>
+            <!-- Actions -->
+            <div
+                class="flex flex-row shrink-0 items-center mt-2 sm:mt-0 sm:ml-4"
+            >
+                <a
+                    class="ml-0"
+                    [title]="'app.auto_open_source' | transloco"
+                    mat-icon-button
+                    (click)="fontSize(1)"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-gray-400"
+                        [svgIcon]="'feather:plus'"
+                    ></mat-icon>
+                </a>
+                <a
+                    class="ml-1"
+                    [title]="'app.auto_open_source' | transloco"
+                    mat-icon-button
+                    (click)="fontSize(-1)"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-gray-400"
+                        [svgIcon]="'feather:minus'"
+                    ></mat-icon>
+                </a>
+            </div>
+        </div>
+        <!-- Main -->
+        <div class="flex-auto overflow-y-auto" cdkScrollable>
+            <div class="px-4 sm:px-10 py-6 w-full overflow-hidden">
+                @for (item of details.done; track item; let i = $index) {
+                    @if (item | isObject) {
+                        {{ item | json }}
+                    } @else {
+                        <div
+                            class="mb-4"
+                            [innerHTML]="item | renderTrustHTML"
+                            [ngStyle]="{
+                                'font-size': fontsize + 'px',
+                                'line-height': fontsize + 10 + 'px',
+                            }"
+                        ></div>
+                    }
+                }
+            </div>
+        </div>
+        <!-- Footer -->
+        <div
+            class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 border-t relative"
+        >
+            <!-- Actions -->
+            <div class="flex flex-row items-center justify-center">
+                <a
+                    class="ml-0"
+                    [title]="'app.auto_open_source' | transloco"
+                    mat-icon-button
+                    href="https://www.facebook.com/manguonmo"
+                    target="_blank"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-green-600"
+                        [svgIcon]="'feather:thumbs-up'"
+                    ></mat-icon>
+                </a>
+                <a
+                    class="ml-2"
+                    [title]="'app.auto_open_source' | transloco"
+                    mat-icon-button
+                    href="https://www.facebook.com/manguonmo"
+                    target="_blank"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-red-300"
+                        [svgIcon]="'feather:thumbs-down'"
+                    ></mat-icon>
+                </a>
+            </div>
+            <div class="flex">
+                <div
+                    class="flex flex-col sm:flex-row items-center justify-center text-center sm:text-start w-full"
+                >
+                    <div
+                        class="font-normal text-center sm:text-start text-base text-secondary"
+                    >
+                        {{ "app.auto_limited_liability_company" | transloco }}
+                        <a
+                            class="mx-1"
+                            href="https://type.vn"
+                            [title]="
+                                'app.auto_ai_software_for_creating_profe'
+                                    | transloco
+                            "
+                            >TYPING</a
+                        >
+                        &copy; 2019-{{ currentYear }}
+                    </div>
+                    <div class="flex-1 shrink-0 sm:ml-2 items-end">
+                        <a
+                            class="ml-2"
+                            [title]="'app.auto_open_source' | transloco"
+                            mat-icon-button
+                            href="https://www.facebook.com/manguonmo"
+                            target="_blank"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-blue-700"
+                                [svgIcon]="'mat_solid:facebook'"
+                            ></mat-icon>
+                        </a>
+                        <a
+                            mat-icon-button
+                            color="warn"
+                            [title]="
+                                'app.auto_learning_programming' | transloco
+                            "
+                            href="https://www.youtube.com/@manguonmo"
+                            target="_blank"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:youtube'"
+                            ></mat-icon>
+                        </a>
+                        <a
+                            [title]="'app.auto_technology_course' | transloco"
+                            mat-icon-button
+                            href="https://buy.type.vn"
+                            target="_blank"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-blue-700"
+                                [svgIcon]="'feather:shopping-cart'"
+                            ></mat-icon>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

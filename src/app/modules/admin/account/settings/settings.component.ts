@@ -16,7 +16,8 @@ import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/co
     templateUrl: './settings.component.html',
     styleUrls: ['./settings.component.scss'],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsComponent implements OnInit, OnDestroy {
     config: AppConfig;

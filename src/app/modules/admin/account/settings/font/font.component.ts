@@ -25,7 +25,8 @@ export interface AppFontGroup {
     templateUrl: './font.component.html',
     styleUrls: ['./font.component.scss'],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsFontComponent implements OnInit, OnDestroy {
     fontGroups: AppFontGroup[] = [];

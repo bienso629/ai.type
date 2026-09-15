@@ -35,7 +35,8 @@ import { GenaiService } from 'app/genai.service';
     providers: [ChatbotService, DomainService, LogService],
     styleUrls: ['./chatbot.component.scss'],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class ChatBotComponent implements OnInit, OnDestroy {
     config: AppConfig;

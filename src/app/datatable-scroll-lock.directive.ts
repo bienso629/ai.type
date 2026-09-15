@@ -1,7 +1,8 @@
 import { Directive, ElementRef, HostListener, Input, DoCheck } from '@angular/core';
 
 @Directive({
-    selector: 'ngx-datatable[appScrollLock]'
+    selector: 'ngx-datatable[appScrollLock]',
+    standalone: false
 })
 export class DatatableScrollLockDirective implements DoCheck {
     private scrollerElement: HTMLElement;

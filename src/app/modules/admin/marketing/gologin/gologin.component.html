@@ -1,101 +1,183 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent">
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
-                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
                     </div>
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">chicken mmo</a>
-                    </div> -->
+          <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+          [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+          <a class="ml-1 text-base text-primary-500">chicken mmo</a>
+        </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">{{ 'app.simulate_browser_environment' | transloco }}</span>
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            "app.simulate_browser_environment" | transloco
+                        }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base">{{
+                            "app.back" | transloco
+                        }}</span>
                     </a>
                 </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    {{ 'app.auto_create_and_manage_multiple_bro' | transloco }}
-                </p>
-            </div> -->
+    <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+      {{ 'app.auto_create_and_manage_multiple_bro' | transloco }}
+    </p>
+  </div> -->
         </div>
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <a mat-icon-button class="ml-0" [color]="'primary'" [matMenuTriggerFor]="token" matTooltipPosition="above" [matTooltip]="'app.add_new_profile' | transloco">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:plus'"></mat-icon>
+            <a
+                mat-icon-button
+                class="ml-0"
+                [color]="'primary'"
+                [matMenuTriggerFor]="token"
+                matTooltipPosition="above"
+                [matTooltip]="'app.add_new_profile' | transloco"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:plus'"
+                ></mat-icon>
             </a>
 
             <mat-menu #token="matMenu" class="min-w-100 custom-gologin-menu">
                 <div class="overflow-hidden rounded-2xl w-full bg-card">
                     <!-- Header -->
-                    <div class="flex p-6 py-2 shrink-0 items-center bg-card text-current text-lg leading-10 resize-none border-b">
-                        {{ 'app.your_new_token' | transloco }}
+                    <div
+                        class="flex p-6 py-2 shrink-0 items-center bg-card text-current text-lg leading-10 resize-none border-b"
+                    >
+                        {{ "app.your_new_token" | transloco }}
                     </div>
 
                     <!-- Content -->
-                    <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto bg-card">
-                        <mat-form-field class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                            <input matInput (keyup.enter)="addToken($event)" [placeholder]="'app.enter_token_and_enter' | transloco" (click)="$event.stopPropagation()">
-                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:corner-down-left'"></mat-icon>
+                    <div
+                        class="px-6 p-6 pb-4 relative flex flex-col flex-auto bg-card"
+                    >
+                        <mat-form-field
+                            class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                            appearance="fill"
+                        >
+                            <input
+                                matInput
+                                (keyup.enter)="addToken($event)"
+                                [placeholder]="
+                                    'app.enter_token_and_enter' | transloco
+                                "
+                                (click)="$event.stopPropagation()"
+                            />
+                            <mat-icon
+                                class="icon-size-4"
+                                matPrefix
+                                [svgIcon]="'feather:corner-down-left'"
+                            ></mat-icon>
                         </mat-form-field>
                     </div>
                 </div>
             </mat-menu>
 
             <!-- <a mat-icon-button (click)="openDialog()" [color]="'primary'" class="ml-0" matTooltipPosition="above"
-                [matTooltip]="'Danh sách chạy tự động'">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon>
-            </a> -->
+  [matTooltip]="'Danh sách chạy tự động'">
+  <mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon>
+</a> -->
 
             <!-- <a mat-icon-button class="ml-0" [matMenuTriggerFor]="search" matTooltipPosition="above"
-                [matTooltip]="'Tìm kiếm profiles'">
-                <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:search'"></mat-icon>
+[matTooltip]="'Tìm kiếm profiles'">
+<mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:search'"></mat-icon>
+</a>
+
+<mat-menu #search="matMenu">
+  <mat-form-field class="px-2 w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+    appearance="fill">
+    <input matInput (keyup.enter)="updateFilter($event)" [placeholder]="'Tìm theo tên'"
+      (click)="$event.stopPropagation()">
+    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:type'"></mat-icon>
+  </mat-form-field>
+</mat-menu> -->
+
+            <a
+                mat-icon-button
+                [color]="'primary'"
+                class="ml-1"
+                matTooltipPosition="above"
+                [matTooltip]="'app.run_profiles' | transloco"
+                [disabled]="selected.length === 0"
+                [matMenuTriggerFor]="searchMenu"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:play'"
+                ></mat-icon>
             </a>
 
-            <mat-menu #search="matMenu">
-                <mat-form-field class="px-2 w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
-                    appearance="fill">
-                    <input matInput (keyup.enter)="updateFilter($event)" [placeholder]="'Tìm theo tên'"
-                        (click)="$event.stopPropagation()">
-                    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:type'"></mat-icon>
-                </mat-form-field>
-            </mat-menu> -->
-
-            <a mat-icon-button [color]="'primary'" class="ml-1" matTooltipPosition="above" [matTooltip]="'app.run_profiles' | transloco" [disabled]="selected.length === 0"
-                [matMenuTriggerFor]="searchMenu">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:play'"></mat-icon>
-            </a>
-
-            <mat-menu #searchMenu="matMenu" class="min-w-80 custom-gologin-menu">
+            <mat-menu
+                #searchMenu="matMenu"
+                class="min-w-80 custom-gologin-menu"
+            >
                 <div class="overflow-hidden rounded-2xl w-full bg-card">
                     <!-- Header -->
-                    <div class="flex p-6 py-2 shrink-0 items-center bg-card text-current text-lg leading-10 resize-none border-b">
-                        {{ 'app.select_1_domain_to' | transloco }}
+                    <div
+                        class="flex p-6 py-2 shrink-0 items-center bg-card text-current text-lg leading-10 resize-none border-b"
+                    >
+                        {{ "app.select_1_domain_to" | transloco }}
                     </div>
 
                     <!-- Content -->
-                    <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto bg-card">
-                        <mat-form-field class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                            <input [placeholder]="'app.select_1_domain' | transloco" (keyup.enter)="updateLink($event)" aria-label="Number" matInput [(ngModel)]="link" [matAutocomplete]="auto">
-                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
+                    <div
+                        class="px-6 p-6 pb-4 relative flex flex-col flex-auto bg-card"
+                    >
+                        <mat-form-field
+                            class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                        >
+                            <input
+                                [placeholder]="
+                                    'app.select_1_domain' | transloco
+                                "
+                                (keyup.enter)="updateLink($event)"
+                                aria-label="Number"
+                                matInput
+                                [(ngModel)]="link"
+                                [matAutocomplete]="auto"
+                            />
+                            <mat-icon
+                                class="icon-size-4"
+                                matPrefix
+                                [svgIcon]="'feather:link'"
+                            ></mat-icon>
                             <mat-autocomplete #auto="matAutocomplete">
-                                <mat-option *ngFor="let item of domains" [value]="item.domain">
-                                    {{ cleanDomain(item.domain) }}
-                                </mat-option>
+                                @for (item of domains; track item) {
+                                    <mat-option [value]="item.domain">
+                                        {{ cleanDomain(item.domain) }}
+                                    </mat-option>
+                                }
                             </mat-autocomplete>
                         </mat-form-field>
                     </div>
@@ -103,21 +185,43 @@
             </mat-menu>
 
             <!-- <a mat-icon-button [color]="'primary'" class="" matTooltipPosition="above"
-                [matTooltip]="'Xem Youtube được tiền'" [disabled]="selected.length === 0" (click)="playYoutube()">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:video'"></mat-icon>
-            </a> -->
+[matTooltip]="'Xem Youtube được tiền'" [disabled]="selected.length === 0" (click)="playYoutube()">
+<mat-icon class="icon-size-4" [svgIcon]="'feather:video'"></mat-icon>
+</a> -->
 
             <!-- <a mat-icon-button class="ml-0" matTooltipPosition="above" [matTooltip]="'Cùng Like nào'"
-                [disabled]="selected.length === 0">
-                <mat-icon class="icon-size-4 text-blue-800" [svgIcon]="'feather:thumbs-up'"></mat-icon>
-            </a> -->
+[disabled]="selected.length === 0">
+<mat-icon class="icon-size-4 text-blue-800" [svgIcon]="'feather:thumbs-up'"></mat-icon>
+</a> -->
 
-            <a mat-icon-button [color]="'warn'" class="ml-1" matTooltipPosition="above" [matTooltip]="'app.hard_stop' | transloco" [disabled]="selected.length === 0" (click)="stopAll()">
-                <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:slash'"></mat-icon>
+            <a
+                mat-icon-button
+                [color]="'warn'"
+                class="ml-1"
+                matTooltipPosition="above"
+                [matTooltip]="'app.hard_stop' | transloco"
+                [disabled]="selected.length === 0"
+                (click)="stopAll()"
+            >
+                <mat-icon
+                    class="icon-size-4 text-green-600"
+                    [svgIcon]="'feather:slash'"
+                ></mat-icon>
             </a>
 
-            <a mat-icon-button [color]="'warn'" class="ml-1 text-red-600 hover:text-red-700" matTooltipPosition="above" [matTooltip]="'Xóa hẳn profiles đã chọn'" [disabled]="selected.length === 0" (click)="deleteProfiles()">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+            <a
+                mat-icon-button
+                [color]="'warn'"
+                class="ml-1 text-red-600 hover:text-red-700"
+                matTooltipPosition="above"
+                [matTooltip]="'Xóa hẳn profiles đã chọn'"
+                [disabled]="selected.length === 0"
+                (click)="deleteProfiles()"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:trash-2'"
+                ></mat-icon>
             </a>
         </div>
     </div>
@@ -125,99 +229,255 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
-            [reorderable]="false" [scrollbarV]="true" [scrollbarH]="false" [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-            [displayCheck]="displayCheck" (select)="onSelect($event)" [rows]="data">
+        <ngx-datatable
+            [virtualization]="true"
+            #table
+            class="material fullscreen"
+            [columnMode]="ColumnMode.force"
+            [headerHeight]="50"
+            [footerHeight]="50"
+            [rowHeight]="50"
+            [reorderable]="false"
+            [scrollbarV]="true"
+            [scrollbarH]="false"
+            [selected]="selected"
+            [selectionType]="SelectionType.checkbox"
+            [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck"
+            (select)="onSelect($event)"
+            [rows]="data"
+        >
             <!-- Column Templates -->
-            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
-                [checkboxable]="true"></ngx-datatable-column>
+            <ngx-datatable-column
+                [width]="30"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                [headerCheckboxable]="true"
+                [checkboxable]="true"
+            ></ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="{{ 'app.profile_name' | transloco }}" [width]="300" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
-                    <p class="font-normal truncate hover:text-clip flex items-center justify-self-stretch">
-                        <mat-label class="h-7 leading-7 items-center px-3 rounded-full text-base bg-green-500 text-white">{{row.name}}</mat-label>
-                        <mat-icon class="icon-size-4 ml-2" [svgIcon]="'feather:info'" matTooltipPosition="right" [matTooltip]="'app.check_this_profile_for_me' | transloco"></mat-icon>
+            <ngx-datatable-column
+                name="{{ 'app.profile_name' | transloco }}"
+                [width]="300"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
+                <ng-template
+                    let-row="row"
+                    let-rowIndex="rowIndex"
+                    ngx-datatable-cell-template
+                >
+                    <p
+                        class="font-normal truncate hover:text-clip flex items-center justify-self-stretch"
+                    >
+                        <mat-label
+                            class="h-7 leading-7 items-center px-3 rounded-full text-base bg-green-500 text-white"
+                            >{{ row.name }}</mat-label
+                        >
+                        <mat-icon
+                            class="icon-size-4 ml-2"
+                            [svgIcon]="'feather:info'"
+                            matTooltipPosition="right"
+                            [matTooltip]="
+                                'app.check_this_profile_for_me' | transloco
+                            "
+                        ></mat-icon>
                     </p>
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="Profile ID" [width]="250">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                name="Profile ID"
+                [width]="250"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="text-base">
-                        {{row.id}}
+                        {{ row.id }}
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="{{ 'app.keyword' | transloco }}" [width]="150">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                name="{{ 'app.keyword' | transloco }}"
+                [width]="150"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <!-- <a mat-icon-button matTooltipPosition="above" matTooltip="Share nhanh Facebook">
-                        <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:share-2'"></mat-icon>
-                    </a> -->
+        <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:share-2'"></mat-icon>
+      </a> -->
 
                     <!-- <a mat-icon-button class="ml-2" matTooltipPosition="above" [matTooltip]="'app.auto_like_walk' | transloco">
-                        <mat-icon class="icon-size-4 text-blue-800" [svgIcon]="'feather:thumbs-up'"></mat-icon>
-                    </a> -->
+      <mat-icon class="icon-size-4 text-blue-800" [svgIcon]="'feather:thumbs-up'"></mat-icon>
+    </a> -->
 
-                    <a mat-icon-button class="ml-0" [matMenuTriggerFor]="search" matTooltipPosition="above" [matTooltip]="'app.increase_keyword_quality' | transloco">
-                        <mat-icon class="icon-size-5 text-blue-600" [svgIcon]="'mat_outline:moving'"></mat-icon>
+                    <a
+                        mat-icon-button
+                        class="ml-0"
+                        [matMenuTriggerFor]="search"
+                        matTooltipPosition="above"
+                        [matTooltip]="
+                            'app.increase_keyword_quality' | transloco
+                        "
+                    >
+                        <mat-icon
+                            class="icon-size-5 text-blue-600"
+                            [svgIcon]="'mat_outline:moving'"
+                        ></mat-icon>
                     </a>
 
                     <mat-menu #search="matMenu" class="min-w-100">
-                        <mat-form-field class="p-6 w-full fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                            <mat-label>{{ 'app.enter_keyword_to_increase_clicks' | transloco }}</mat-label>
-                            <input matInput (keyup.enter)="googleClick(row, $event)" [placeholder]="'app.example_buy_cheap_laptop' | transloco" (click)="$event.stopPropagation()">
-                            <mat-hint>{{ 'app.this_action_may_bring_risks_to_your_keyword' | transloco }}</mat-hint>
-                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:key'"></mat-icon>
+                        <mat-form-field
+                            class="p-6 w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            appearance="fill"
+                        >
+                            <mat-label>{{
+                                "app.enter_keyword_to_increase_clicks"
+                                    | transloco
+                            }}</mat-label>
+                            <input
+                                matInput
+                                (keyup.enter)="googleClick(row, $event)"
+                                [placeholder]="
+                                    'app.example_buy_cheap_laptop' | transloco
+                                "
+                                (click)="$event.stopPropagation()"
+                            />
+                            <mat-hint>{{
+                                "app.this_action_may_bring_risks_to_your_keyword"
+                                    | transloco
+                            }}</mat-hint>
+                            <mat-icon
+                                class="icon-size-4"
+                                matPrefix
+                                [svgIcon]="'feather:key'"
+                            ></mat-icon>
                         </mat-form-field>
                     </mat-menu>
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="Proxy" [width]="130">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                name="Proxy"
+                [width]="130"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-self-stretch">
-                        <mat-label [ngClass]="(row.proxyEnabled) ? 'text-green-500 hover:text-green-600' : 'text-gray-300 hover:text-gray-700'" class="text-base"
-                            matTooltipPosition="above" [matTooltip]="row.proxyRegion">
-                            {{(row.proxyEnabled) ? ('app.turned_on' | transloco) : ('app.turned_off' | transloco)}}
+                        <mat-label
+                            [ngClass]="
+                                row.proxyEnabled
+                                    ? 'text-green-500 hover:text-green-600'
+                                    : 'text-gray-300 hover:text-gray-700'
+                            "
+                            class="text-base"
+                            matTooltipPosition="above"
+                            [matTooltip]="row.proxyRegion"
+                        >
+                            {{
+                                row.proxyEnabled
+                                    ? ("app.turned_on" | transloco)
+                                    : ("app.turned_off" | transloco)
+                            }}
                         </mat-label>
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="{{ 'app.status' | transloco }}" [width]="130">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                name="{{ 'app.status' | transloco }}"
+                [width]="130"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-self-stretch">
-                        <mat-label *ngIf="row.status === 'running'" (click)="stopProfile(row)" [ngClass]="'text-green-600 cursor-pointer hover:text-green-700'" class="text-base">
-                            {{ 'app.running' | transloco }}
-                        </mat-label>
+                        @if (row.status === "running") {
+                            <mat-label
+                                (click)="stopProfile(row)"
+                                [ngClass]="'text-green-600 cursor-pointer hover:text-green-700'"
+                                class="text-base"
+                            >
+                                {{ "app.running" | transloco }}
+                            </mat-label>
+                        }
 
-                        <mat-label *ngIf="row.status === 'stoped'" [ngClass]="'text-gray-300 hover:text-gray-700'" class="text-base">
-                            Đã tắt
-                        </mat-label>
+                        @if (row.status === "stoped") {
+                            <mat-label
+                                [ngClass]="'text-gray-300 hover:text-gray-700'"
+                                class="text-base"
+                            >
+                                Đã tắt
+                            </mat-label>
+                        }
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true" name="{{ 'app.tag' | transloco }}">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="true"
+                [draggable]="false"
+                [resizeable]="true"
+                name="{{ 'app.tag' | transloco }}"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-select [clearable]="false" [readonly]="true" [multiple]="true" bindLabel="title" [items]="row.tags" [(ngModel)]="row.tags" [placeholder]="'app.no_tags' | transloco"
-                        class="w-full min-w-50 max-w-60 custom-select-archives">
+                    <ng-select
+                        [clearable]="false"
+                        [readonly]="true"
+                        [multiple]="true"
+                        bindLabel="title"
+                        [items]="row.tags"
+                        [(ngModel)]="row.tags"
+                        [placeholder]="'app.no_tags' | transloco"
+                        class="w-full min-w-50 max-w-60 custom-select-archives"
+                    >
                     </ng-select>
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Thao tác xóa -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="Thao tác" [width]="90">
+            <ngx-datatable-column
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                name="Thao tác"
+                [width]="90"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <button mat-icon-button (click)="deleteSingleProfile(row)" [matTooltip]="'Xóa hẳn profile'" class="text-red-500 hover:text-red-700">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                    <button
+                        mat-icon-button
+                        (click)="deleteSingleProfile(row)"
+                        [matTooltip]="'Xóa hẳn profile'"
+                        class="text-red-500 hover:text-red-700"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'feather:trash-2'"
+                        ></mat-icon>
                     </button>
                 </ng-template>
             </ngx-datatable-column>

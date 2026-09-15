@@ -1,9 +1,16 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import {
+    Component,
+    Inject,
+    OnInit,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 @Component({
     selector: 'app-index-domains-dialog',
-    templateUrl: './index-domains-dialog.component.html'
+    templateUrl: './index-domains-dialog.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class IndexDomainsDialogComponent implements OnInit {
     domainOptions: any[] = [];
@@ -12,7 +19,7 @@ export class IndexDomainsDialogComponent implements OnInit {
 
     constructor(
         public dialogRef: MatDialogRef<IndexDomainsDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any
+        @Inject(MAT_DIALOG_DATA) public data: any,
     ) {
         this.domainOptions = data.domainOptions || [];
         this.selectedDomain = data.selectedDomain || null;
@@ -47,7 +54,7 @@ export class IndexDomainsDialogComponent implements OnInit {
     onConfirm(): void {
         this.dialogRef.close({
             selectedDomain: this.selectedDomain,
-            sitemapsText: this.sitemapsText
+            sitemapsText: this.sitemapsText,
         });
     }
 }

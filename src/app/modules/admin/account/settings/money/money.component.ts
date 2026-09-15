@@ -6,7 +6,8 @@ import { Title } from '@angular/platform-browser';
     selector: 'settings-money',
     templateUrl: './money.component.html',
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsMoneyComponent implements OnInit {
     planBillingForm: UntypedFormGroup;

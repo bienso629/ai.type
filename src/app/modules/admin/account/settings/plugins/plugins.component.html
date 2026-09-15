@@ -1,131 +1,297 @@
 <div class="w-full">
-    <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false"
-        mat-align-tabs="start">
-        
+    <mat-tab-group
+        class="border rounded-lg"
+        animationDuration="0ms"
+        mat-stretch-tabs="false"
+        mat-align-tabs="start"
+    >
         <!-- Tab 1: Colab GPU -->
         <mat-tab label="Colab GPU">
             <div class="w-full text-base text-secondary mt-1 mb-4">
-                Tự động hóa kết nối Google Colab GPU, bóc tách MinerU và thực thi tác vụ AI
+                Tự động hóa kết nối Google Colab GPU, bóc tách MinerU và thực
+                thi tác vụ AI
             </div>
 
             <div class="w-full mt-4">
                 <!-- Kích hoạt Colab GPU -->
                 <div class="full-width-toggle mb-4">
-                    <mat-slide-toggle [checked]="getPlugin('colab_agent')?.enabled"
+                    <mat-slide-toggle
+                        [checked]="
+                            $safeNavigationMigration(
+                                getPlugin('colab_agent')?.enabled
+                            )
+                        "
                         [labelPosition]="'before'"
-                        (change)="togglePlugin(getPlugin('colab_agent'), $event)"
-                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
+                        (change)="
+                            togglePlugin(getPlugin('colab_agent'), $event)
+                        "
+                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                        [color]="'primary'"
+                    >
                         <mat-label class="toggle-label text-base">
                             <div>Kích hoạt Colab GPU Agent</div>
-                            <div class="text-sm text-gray-400 font-normal mt-0.5">Tự động kết nối và điều khiển máy ảo GPU Colab khi phân tích tài liệu (PDF, MinerU)</div>
+                            <div
+                                class="text-sm text-gray-400 font-normal mt-0.5"
+                            >
+                                Tự động kết nối và điều khiển máy ảo GPU Colab
+                                khi phân tích tài liệu (PDF, MinerU)
+                            </div>
                         </mat-label>
                     </mat-slide-toggle>
                 </div>
             </div>
 
             <!-- Trạng thái chưa đăng nhập Google -->
-            <div *ngIf="!isColabLoggedIn" class="w-1/2 mt-4 p-4 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-800">
-                <div class="flex items-center gap-2 mb-2 text-amber-800 dark:text-amber-200 text-base font-medium">
-                    <mat-icon class="icon-size-4 text-amber-600" [svgIcon]="'feather:key'"></mat-icon>
-                    <span>Cần liên kết tài khoản Google (1 lần duy nhất)</span>
-                </div>
-                <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-3">
-                    Đăng nhập tài khoản Google để ứng dụng có quyền tự động cấp phát và điều khiển GPU miễn phí từ Colab.
-                </p>
-                
-                <div *ngIf="!isColabAuthenticating">
-                    <button mat-flat-button color="primary" (click)="loginGoogleColab()">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:log-in'"></mat-icon>
-                        <span class="ml-2 text-base">Đăng nhập Google Colab</span>
-                    </button>
-                </div>
-
-                <!-- Khung nhập mã xác thực khi vừa mở trình duyệt -->
-                <div *ngIf="isColabAuthenticating" class="mt-3 pt-3">
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2.5">
-                        Đã mở trang cấp quyền trên trình duyệt. Sau khi bấm <strong>"Cho phép" (Allow)</strong>, Google sẽ hiển thị một dòng mã (dạng <code>4/0A...</code>). Bạn chỉ cần <strong>Copy mã đó</strong> hoặc dán vào ô dưới:
-                    </p>
-                    <div class="flex items-center gap-2">
-                        <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
-                            <input matInput [(ngModel)]="colabAuthCode" placeholder="Dán mã xác thực (4/0A...) vào đây..." (keyup.enter)="submitColabAuthCode()">
-                        </mat-form-field>
-                        <button mat-flat-button color="primary" (click)="submitColabAuthCode()" [disabled]="!colabAuthCode">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
-                            <span class="ml-2 text-base">Xác nhận</span>
-                        </button>
-                        <button mat-stroked-button (click)="loginGoogleColab()" matTooltip="Mở lại trang đăng nhập">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:external-link'"></mat-icon>
-                        </button>
-                        <button mat-button (click)="isColabAuthenticating = false" class="text-base">
-                            Hủy
-                        </button>
+            @if (!isColabLoggedIn) {
+                <div
+                    class="w-1/2 mt-4 p-4 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-800"
+                >
+                    <div
+                        class="flex items-center gap-2 mb-2 text-amber-800 dark:text-amber-200 text-base font-medium"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-amber-600"
+                            [svgIcon]="'feather:key'"
+                        ></mat-icon>
+                        <span
+                            >Cần liên kết tài khoản Google (1 lần duy
+                            nhất)</span
+                        >
                     </div>
+                    <p
+                        class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-3"
+                    >
+                        Đăng nhập tài khoản Google để ứng dụng có quyền tự động
+                        cấp phát và điều khiển GPU miễn phí từ Colab.
+                    </p>
+                    @if (!isColabAuthenticating) {
+                        <div>
+                            <button
+                                mat-flat-button
+                                color="primary"
+                                (click)="loginGoogleColab()"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'feather:log-in'"
+                                ></mat-icon>
+                                <span class="ml-2 text-base"
+                                    >Đăng nhập Google Colab</span
+                                >
+                            </button>
+                        </div>
+                    }
+                    <!-- Khung nhập mã xác thực khi vừa mở trình duyệt -->
+                    @if (isColabAuthenticating) {
+                        <div class="mt-3 pt-3">
+                            <p
+                                class="text-sm text-gray-500 dark:text-gray-400 mb-2.5"
+                            >
+                                Đã mở trang cấp quyền trên trình duyệt. Sau khi
+                                bấm <strong>"Cho phép" (Allow)</strong>, Google
+                                sẽ hiển thị một dòng mã (dạng
+                                <code>4/0A...</code>). Bạn chỉ cần
+                                <strong>Copy mã đó</strong> hoặc dán vào ô dưới:
+                            </p>
+                            <div class="flex items-center gap-2">
+                                <mat-form-field
+                                    class="flex-auto fuse-mat-dense"
+                                    [subscriptSizing]="'dynamic'"
+                                >
+                                    <input
+                                        matInput
+                                        [(ngModel)]="colabAuthCode"
+                                        placeholder="Dán mã xác thực (4/0A...) vào đây..."
+                                        (keyup.enter)="submitColabAuthCode()"
+                                    />
+                                </mat-form-field>
+                                <button
+                                    mat-flat-button
+                                    color="primary"
+                                    (click)="submitColabAuthCode()"
+                                    [disabled]="!colabAuthCode"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:check'"
+                                    ></mat-icon>
+                                    <span class="ml-2 text-base">Xác nhận</span>
+                                </button>
+                                <button
+                                    mat-stroked-button
+                                    (click)="loginGoogleColab()"
+                                    matTooltip="Mở lại trang đăng nhập"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:external-link'"
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    mat-button
+                                    (click)="isColabAuthenticating = false"
+                                    class="text-base"
+                                >
+                                    Hủy
+                                </button>
+                            </div>
+                        </div>
+                    }
                 </div>
-            </div>
+            }
 
             <!-- Nút hành động Khởi chạy / Dừng GPU -->
-            <div *ngIf="isColabLoggedIn" class="flex items-center gap-3 mt-4">
-                <button *ngIf="!colabStatus.is_connected" mat-flat-button color="primary" (click)="startColabGpuCli()" [disabled]="isColabStarting">
-                    <mat-icon class="icon-size-4" [class.animate-spin]="isColabStarting" [svgIcon]="'feather:play'"></mat-icon>
-                    <span class="ml-2 text-base">{{ isColabStarting ? 'Đang khởi tạo...' : 'Khởi chạy GPU T4' }}</span>
-                </button>
-                <button *ngIf="colabStatus.is_connected" mat-flat-button class="!bg-amber-500 hover:!bg-amber-600 !text-white" (click)="stopColabGpuCli()">
-                    <mat-icon class="icon-size-4 !text-white" [svgIcon]="'feather:square'"></mat-icon>
-                    <span class="ml-2 text-base">Dừng GPU</span>
-                </button>
-                <button *ngIf="colabStatus.is_connected" mat-stroked-button (click)="restartColabRuntime()" matTooltip="Khởi động lại tiến trình server trên Colab">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:rotate-cw'"></mat-icon>
-                    <span class="ml-2 text-base">Khởi động lại Runtime</span>
-                </button>
-            </div>
+            @if (isColabLoggedIn) {
+                <div class="flex items-center gap-3 mt-4">
+                    @if (!colabStatus.is_connected) {
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            (click)="startColabGpuCli()"
+                            [disabled]="isColabStarting"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [class.animate-spin]="isColabStarting"
+                                [svgIcon]="'feather:play'"
+                            ></mat-icon>
+                            <span class="ml-2 text-base">{{
+                                isColabStarting
+                                    ? "Đang khởi tạo..."
+                                    : "Khởi chạy GPU T4"
+                            }}</span>
+                        </button>
+                    }
+                    @if (colabStatus.is_connected) {
+                        <button
+                            mat-flat-button
+                            class="!bg-amber-500 hover:!bg-amber-600 !text-white"
+                            (click)="stopColabGpuCli()"
+                        >
+                            <mat-icon
+                                class="icon-size-4 !text-white"
+                                [svgIcon]="'feather:square'"
+                            ></mat-icon>
+                            <span class="ml-2 text-base">Dừng GPU</span>
+                        </button>
+                    }
+                    @if (colabStatus.is_connected) {
+                        <button
+                            mat-stroked-button
+                            (click)="restartColabRuntime()"
+                            matTooltip="Khởi động lại tiến trình server trên Colab"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:rotate-cw'"
+                            ></mat-icon>
+                            <span class="ml-2 text-base"
+                                >Khởi động lại Runtime</span
+                            >
+                        </button>
+                    }
+                </div>
+            }
 
             <!-- Trạng thái GPU (ở dưới cùng, không border, rounded, bg, padding) -->
-            <div *ngIf="isColabLoggedIn" class="w-full mt-6">
-                <div class="flex items-center gap-2">
-                    <span class="text-base font-medium text-slate-700 dark:text-slate-300">Trạng thái GPU:</span>
-                    <span *ngIf="colabStatus.is_connected" class="inline-flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                        <span>Đã kết nối GPU</span>
-                    </span>
-                    <span *ngIf="!colabStatus.is_connected" class="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
-                        <span class="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
-                        <span>Đang chờ lệnh khởi chạy</span>
-                    </span>
+            @if (isColabLoggedIn) {
+                <div class="w-full mt-6">
+                    <div class="flex items-center gap-2">
+                        <span
+                            class="text-base font-medium text-slate-700 dark:text-slate-300"
+                            >Trạng thái GPU:</span
+                        >
+                        @if (colabStatus.is_connected) {
+                            <span
+                                class="inline-flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400"
+                            >
+                                <span
+                                    class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"
+                                ></span>
+                                <span>Đã kết nối GPU</span>
+                            </span>
+                        }
+                        @if (!colabStatus.is_connected) {
+                            <span
+                                class="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400"
+                            >
+                                <span
+                                    class="w-2 h-2 rounded-full bg-slate-400 shrink-0"
+                                ></span>
+                                <span>Đang chờ lệnh khởi chạy</span>
+                            </span>
+                        }
+                    </div>
+                    @if (colabStatus.is_connected && colabStatus.gpu) {
+                        <div class="text-sm text-gray-400 mt-1">
+                            Thiết bị:
+                            <strong
+                                class="text-slate-700 dark:text-slate-300"
+                                >{{ colabStatus.gpu }}</strong
+                            >
+                        </div>
+                    }
+                    @if (!colabStatus.is_connected) {
+                        <div class="text-sm text-gray-400 mt-1">
+                            Tài khoản Google đã liên kết. Bấm
+                            <strong>Khởi chạy GPU T4</strong> để app tự động
+                            kích hoạt máy ảo dưới nền.
+                        </div>
+                    }
                 </div>
-                <div *ngIf="colabStatus.is_connected && colabStatus.gpu" class="text-sm text-gray-400 mt-1">
-                    Thiết bị: <strong class="text-slate-700 dark:text-slate-300">{{ colabStatus.gpu }}</strong>
-                </div>
-                <div *ngIf="!colabStatus.is_connected" class="text-sm text-gray-400 mt-1">
-                    Tài khoản Google đã liên kết. Bấm <strong>Khởi chạy GPU T4</strong> để app tự động kích hoạt máy ảo dưới nền.
-                </div>
-            </div>
+            }
 
             <div class="w-full flex items-center justify-between mt-8">
-                <div class="text-sm text-gray-400">Phiên bản Plugin: v{{ getPlugin('colab_agent')?.version }}</div>
-                <div *ngIf="getPlugin('colab_agent')?.installed">
-                    <button mat-icon-button color="warn" (click)="uninstallPlugin(getPlugin('colab_agent'))" matTooltip="Gỡ cài đặt Plugin">
-                        <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:trash-2'"></mat-icon>
-                    </button>
+                <div class="text-sm text-gray-400">
+                    Phiên bản Plugin: v{{ getPlugin("colab_agent")?.version }}
                 </div>
+                @if (getPlugin("colab_agent")?.installed) {
+                    <div>
+                        <button
+                            mat-icon-button
+                            color="warn"
+                            (click)="uninstallPlugin(getPlugin('colab_agent'))"
+                            matTooltip="Gỡ cài đặt Plugin"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-red-500"
+                                [svgIcon]="'feather:trash-2'"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                }
             </div>
         </mat-tab>
 
         <!-- Tab 2: AI Agent -->
         <mat-tab label="AI Agent">
             <div class="w-full text-base text-secondary mt-1 mb-4">
-                Hỗ trợ viết kịch bản phim, sinh nội dung và tự động hóa tác vụ AI
+                Hỗ trợ viết kịch bản phim, sinh nội dung và tự động hóa tác vụ
+                AI
             </div>
 
             <div class="w-full mt-4">
                 <!-- Kích hoạt AI Agent -->
                 <div class="full-width-toggle mb-4">
-                    <mat-slide-toggle [checked]="getPlugin('ai_agent')?.enabled"
+                    <mat-slide-toggle
+                        [checked]="
+                            $safeNavigationMigration(
+                                getPlugin('ai_agent')?.enabled
+                            )
+                        "
                         [labelPosition]="'before'"
                         (change)="togglePlugin(getPlugin('ai_agent'), $event)"
-                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
+                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                        [color]="'primary'"
+                    >
                         <mat-label class="toggle-label text-base">
                             <div>Kích hoạt AI Agent System</div>
-                            <div class="text-sm text-gray-400 font-normal mt-0.5">Bật hệ thống AI Agent hỗ trợ viết kịch bản và kết nối điều khiển qua Mobile App</div>
+                            <div
+                                class="text-sm text-gray-400 font-normal mt-0.5"
+                            >
+                                Bật hệ thống AI Agent hỗ trợ viết kịch bản và
+                                kết nối điều khiển qua Mobile App
+                            </div>
                         </mat-label>
                     </mat-slide-toggle>
                 </div>
@@ -133,83 +299,198 @@
 
             <div class="w-full mt-4">
                 <!-- Secret Key -->
-                <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                    [subscriptSizing]="'dynamic'">
+                <mat-form-field
+                    class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
                     <mat-label>Secret API Key (Mobile App)</mat-label>
-                    <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
-                    <input [(ngModel)]="aiAgentApiKey" [type]="showAiAgentKey ? 'text' : 'password'" matInput placeholder="Nhập mã bảo mật">
-                    <button mat-icon-button type="button" matSuffix (click)="showAiAgentKey = !showAiAgentKey">
-                        <mat-icon class="icon-size-4">{{ showAiAgentKey ? 'visibility_off' : 'visibility' }}</mat-icon>
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'heroicons_outline:key'"
+                        matPrefix
+                    ></mat-icon>
+                    <input
+                        [(ngModel)]="aiAgentApiKey"
+                        [type]="showAiAgentKey ? 'text' : 'password'"
+                        matInput
+                        placeholder="Nhập mã bảo mật"
+                    />
+                    <button
+                        mat-icon-button
+                        type="button"
+                        matSuffix
+                        (click)="showAiAgentKey = !showAiAgentKey"
+                    >
+                        <mat-icon class="icon-size-4">{{
+                            showAiAgentKey ? "visibility_off" : "visibility"
+                        }}</mat-icon>
                     </button>
                 </mat-form-field>
-                <div class="mt-1 text-sm text-gray-400">Sử dụng key này trên Mobile App để bảo mật kết nối với AI Agent.</div>
+                <div class="mt-1 text-sm text-gray-400">
+                    Sử dụng key này trên Mobile App để bảo mật kết nối với AI
+                    Agent.
+                </div>
             </div>
 
             <div class="w-full flex gap-4 mt-4">
                 <!-- Model -->
-                <mat-form-field class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix"
-                    [subscriptSizing]="'dynamic'">
+                <mat-form-field
+                    class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
                     <mat-label>Model mặc định (Tốc độ & Chất lượng)</mat-label>
-                    <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chip'" matPrefix></mat-icon>
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'heroicons_outline:chip'"
+                        matPrefix
+                    ></mat-icon>
                     <mat-select [(ngModel)]="aiAgentModel">
                         <mat-optgroup label="Tadu Cloud AI Agent">
-                            <mat-option value="glm-5.3">GLM-5.3 (Mới nhất, thông minh & siêu nhanh)</mat-option>
+                            <mat-option value="glm-5.3"
+                                >GLM-5.3 (Mới nhất, thông minh & siêu
+                                nhanh)</mat-option
+                            >
                             <mat-option value="glm-5">GLM-5</mat-option>
-                            <mat-option value="glm-4-plus">GLM-4 Plus</mat-option>
+                            <mat-option value="glm-4-plus"
+                                >GLM-4 Plus</mat-option
+                            >
                         </mat-optgroup>
                         <mat-optgroup label="Gemini (Google)">
-                            <mat-option value="gemini-3.7-flash-low">Gemini 3.7 Flash - Low (Khuyên dùng, rất nhanh)</mat-option>
-                            <mat-option value="gemini-3.7-flash-medium">Gemini 3.7 Flash - Medium (Cân bằng, chất lượng)</mat-option>
-                            <mat-option value="gemini-3.7-flash-high">Gemini 3.7 Flash - High (Tư duy sâu)</mat-option>
-                            <mat-option value="gemini-3.6-flash-low">Gemini 3.6 Flash - Low (Nhanh)</mat-option>
-                            <mat-option value="gemini-3.6-flash-medium">Gemini 3.6 Flash - Medium (Cân bằng, chất lượng)</mat-option>
-                            <mat-option value="gemini-3.6-flash-high">Gemini 3.6 Flash - High (Tư duy sâu)</mat-option>
-                            <mat-option value="gemini-3.5-pro">Gemini 3.5 Pro (Cũ, chậm, chất lượng cao)</mat-option>
-                            <mat-option value="gemini-3.1-pro">Gemini 3.1 Pro (Cũ, chất lượng ổn định)</mat-option>
+                            <mat-option value="gemini-3.7-flash-low"
+                                >Gemini 3.7 Flash - Low (Khuyên dùng, rất
+                                nhanh)</mat-option
+                            >
+                            <mat-option value="gemini-3.7-flash-medium"
+                                >Gemini 3.7 Flash - Medium (Cân bằng, chất
+                                lượng)</mat-option
+                            >
+                            <mat-option value="gemini-3.7-flash-high"
+                                >Gemini 3.7 Flash - High (Tư duy
+                                sâu)</mat-option
+                            >
+                            <mat-option value="gemini-3.6-flash-low"
+                                >Gemini 3.6 Flash - Low (Nhanh)</mat-option
+                            >
+                            <mat-option value="gemini-3.6-flash-medium"
+                                >Gemini 3.6 Flash - Medium (Cân bằng, chất
+                                lượng)</mat-option
+                            >
+                            <mat-option value="gemini-3.6-flash-high"
+                                >Gemini 3.6 Flash - High (Tư duy
+                                sâu)</mat-option
+                            >
+                            <mat-option value="gemini-3.5-pro"
+                                >Gemini 3.5 Pro (Cũ, chậm, chất lượng
+                                cao)</mat-option
+                            >
+                            <mat-option value="gemini-3.1-pro"
+                                >Gemini 3.1 Pro (Cũ, chất lượng ổn
+                                định)</mat-option
+                            >
                         </mat-optgroup>
                         <mat-optgroup label="Claude (Anthropic)">
-                            <mat-option value="fable">Claude Fable 5 (Mạnh nhất, sáng tạo cao)</mat-option>
-                            <mat-option value="opus">Claude Opus 5 (Chất lượng cao, suy luận sâu)</mat-option>
-                            <mat-option value="sonnet">Claude Sonnet 5 (Cân bằng tốc độ & chất lượng)</mat-option>
-                            <mat-option value="haiku">Claude Haiku 4.5 (Nhanh, tiết kiệm)</mat-option>
+                            <mat-option value="fable"
+                                >Claude Fable 5 (Mạnh nhất, sáng tạo
+                                cao)</mat-option
+                            >
+                            <mat-option value="opus"
+                                >Claude Opus 5 (Chất lượng cao, suy luận
+                                sâu)</mat-option
+                            >
+                            <mat-option value="sonnet"
+                                >Claude Sonnet 5 (Cân bằng tốc độ & chất
+                                lượng)</mat-option
+                            >
+                            <mat-option value="haiku"
+                                >Claude Haiku 4.5 (Nhanh, tiết kiệm)</mat-option
+                            >
                         </mat-optgroup>
                     </mat-select>
                 </mat-form-field>
 
                 <!-- Max Turns -->
-                <mat-form-field class="w-1/4 fuse-mat-dense fuse-mat-emphasized-affix"
-                    [subscriptSizing]="'dynamic'">
+                <mat-form-field
+                    class="w-1/4 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
                     <mat-label>Max Turns (Lượt lặp tối đa)</mat-label>
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:rotate-cw'" matPrefix></mat-icon>
-                    <input matInput type="number" [(ngModel)]="aiAgentMaxTurns" min="1" max="100" placeholder="25">
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:rotate-cw'"
+                        matPrefix
+                    ></mat-icon>
+                    <input
+                        matInput
+                        type="number"
+                        [(ngModel)]="aiAgentMaxTurns"
+                        min="1"
+                        max="100"
+                        placeholder="25"
+                    />
                 </mat-form-field>
             </div>
-            <div class="mt-1 text-sm text-gray-400">Lựa chọn mô hình AI và số lượt vòng lặp công cụ (Tool Calls / Max Turns) tối đa cho mỗi lượt của Agent (mặc định 25).</div>
+            <div class="mt-1 text-sm text-gray-400">
+                Lựa chọn mô hình AI và số lượt vòng lặp công cụ (Tool Calls /
+                Max Turns) tối đa cho mỗi lượt của Agent (mặc định 25).
+            </div>
 
             <div class="w-full mt-4">
                 <!-- Custom Prompt -->
-                <mat-form-field class="w-1/2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
-                    [subscriptSizing]="'dynamic'">
-                    <mat-label>Custom Prompt (Ép AI Agent ưu tiên xử lý)</mat-label>
-                    <textarea class="px-2" matInput [(ngModel)]="aiAgentPrompt" placeholder="Ví dụ: Chỉ trả lời bằng tiếng Việt, luôn sử dụng format JSON..." cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
-                    <mat-hint class="text-sm text-gray-400">Chỉ định prompt tiền xử lý hoặc hướng dẫn bắt buộc cho AI Agent.</mat-hint>
+                <mat-form-field
+                    class="w-1/2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label
+                        >Custom Prompt (Ép AI Agent ưu tiên xử lý)</mat-label
+                    >
+                    <textarea
+                        class="px-2"
+                        matInput
+                        [(ngModel)]="aiAgentPrompt"
+                        placeholder="Ví dụ: Chỉ trả lời bằng tiếng Việt, luôn sử dụng format JSON..."
+                        cdkTextareaAutosize
+                        cdkAutosizeMinRows="3"
+                        cdkAutosizeMaxRows="5"
+                    ></textarea>
+                    <mat-hint class="text-sm text-gray-400"
+                        >Chỉ định prompt tiền xử lý hoặc hướng dẫn bắt buộc cho
+                        AI Agent.</mat-hint
+                    >
                 </mat-form-field>
             </div>
 
             <div class="w-full flex gap-4 mt-6">
-                <mat-form-field class="w-1/3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                <mat-form-field
+                    class="w-1/3 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
                     <mat-label>Giọng nói (TTS)</mat-label>
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'" matPrefix></mat-icon>
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'feather:mic'"
+                        matPrefix
+                    ></mat-icon>
                     <mat-select [(ngModel)]="ttsVoice">
-                        <mat-option value="vi-VN-HoaiMyNeural">Hoài My (Nữ, Miền Nam)</mat-option>
-                        <mat-option value="vi-VN-NamMinhNeural">Nam Minh (Nam, Miền Bắc)</mat-option>
-                        <mat-option value="google">Chị Google (Miễn phí, Nữ)</mat-option>
-                        <mat-option value="local">Giọng cục bộ (Trình duyệt, tức thì)</mat-option>
+                        <mat-option value="vi-VN-HoaiMyNeural"
+                            >Hoài My (Nữ, Miền Nam)</mat-option
+                        >
+                        <mat-option value="vi-VN-NamMinhNeural"
+                            >Nam Minh (Nam, Miền Bắc)</mat-option
+                        >
+                        <mat-option value="google"
+                            >Chị Google (Miễn phí, Nữ)</mat-option
+                        >
+                        <mat-option value="local"
+                            >Giọng cục bộ (Trình duyệt, tức thì)</mat-option
+                        >
                         <mat-option value="none">Tắt giọng đọc</mat-option>
                     </mat-select>
                 </mat-form-field>
-                
-                <mat-form-field class="w-1/6 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+
+                <mat-form-field
+                    class="w-1/6 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
                     <mat-label>Tốc độ đọc</mat-label>
                     <mat-select [(ngModel)]="ttsRate">
                         <mat-option value="-10%">Chậm (-10%)</mat-option>
@@ -221,8 +502,16 @@
             </div>
 
             <div class="flex items-center justify-end mt-8">
-                <mat-label class="mr-2 text-sm text-gray-400">Lưu cấu hình AI Agent</mat-label>
-                <button class="ml-2" mat-flat-button type="button" color="primary" (click)="saveAiAgentKey(getPlugin('ai_agent'))">
+                <mat-label class="mr-2 text-sm text-gray-400"
+                    >Lưu cấu hình AI Agent</mat-label
+                >
+                <button
+                    class="ml-2"
+                    mat-flat-button
+                    type="button"
+                    color="primary"
+                    (click)="saveAiAgentKey(getPlugin('ai_agent'))"
+                >
                     <span class="text-base">Lưu</span>
                 </button>
             </div>
@@ -237,56 +526,105 @@
             <div class="w-full mt-4">
                 <!-- Kích hoạt Zalo -->
                 <div class="full-width-toggle mb-4">
-                    <mat-slide-toggle [checked]="getPlugin('zalo_reply')?.enabled"
+                    <mat-slide-toggle
+                        [checked]="
+                            $safeNavigationMigration(
+                                getPlugin('zalo_reply')?.enabled
+                            )
+                        "
                         [labelPosition]="'before'"
                         (change)="togglePlugin(getPlugin('zalo_reply'), $event)"
-                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
+                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                        [color]="'primary'"
+                    >
                         <mat-label class="toggle-label text-base">
                             <div>Kích hoạt Tự động trả lời Zalo</div>
-                            <div class="text-sm text-gray-400 font-normal mt-0.5">Tự động đọc và phản hồi thông minh tin nhắn của khách hàng trên Zalo</div>
+                            <div
+                                class="text-sm text-gray-400 font-normal mt-0.5"
+                            >
+                                Tự động đọc và phản hồi thông minh tin nhắn của
+                                khách hàng trên Zalo
+                            </div>
                         </mat-label>
                     </mat-slide-toggle>
                 </div>
             </div>
 
             <div class="w-full flex items-center justify-between mt-8">
-                <div class="text-sm text-gray-400">Phiên bản Plugin: v{{ getPlugin('zalo_reply')?.version }}</div>
-                <div *ngIf="getPlugin('zalo_reply')?.installed">
-                    <button mat-icon-button color="warn" (click)="uninstallPlugin(getPlugin('zalo_reply'))" matTooltip="Gỡ cài đặt Plugin">
-                        <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:trash-2'"></mat-icon>
-                    </button>
+                <div class="text-sm text-gray-400">
+                    Phiên bản Plugin: v{{ getPlugin("zalo_reply")?.version }}
                 </div>
+                @if (getPlugin("zalo_reply")?.installed) {
+                    <div>
+                        <button
+                            mat-icon-button
+                            color="warn"
+                            (click)="uninstallPlugin(getPlugin('zalo_reply'))"
+                            matTooltip="Gỡ cài đặt Plugin"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-red-500"
+                                [svgIcon]="'feather:trash-2'"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                }
             </div>
         </mat-tab>
 
         <!-- Tab 4: 100 TikTokers -->
         <mat-tab label="100 TikTokers">
             <div class="w-full text-base text-secondary mt-1 mb-4">
-                Tự động hóa theo dõi, phân tích xu hướng và khai thác nội dung từ 100 kênh TikTok
+                Tự động hóa theo dõi, phân tích xu hướng và khai thác nội dung
+                từ 100 kênh TikTok
             </div>
 
             <div class="w-full mt-4">
                 <!-- Kích hoạt 100 TikTokers -->
                 <div class="full-width-toggle mb-4">
-                    <mat-slide-toggle [checked]="getPlugin('tiktok_100')?.enabled"
+                    <mat-slide-toggle
+                        [checked]="
+                            $safeNavigationMigration(
+                                getPlugin('tiktok_100')?.enabled
+                            )
+                        "
                         [labelPosition]="'before'"
                         (change)="togglePlugin(getPlugin('tiktok_100'), $event)"
-                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full" [color]="'primary'">
+                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                        [color]="'primary'"
+                    >
                         <mat-label class="toggle-label text-base">
                             <div>Kích hoạt 100 TikTokers</div>
-                            <div class="text-sm text-gray-400 font-normal mt-0.5">Tự động khởi chạy plugin 100tiktok-linux trong thư mục Documents/ai.type/plugins</div>
+                            <div
+                                class="text-sm text-gray-400 font-normal mt-0.5"
+                            >
+                                Tự động khởi chạy plugin 100tiktok-linux trong
+                                thư mục Documents/ai.type/plugins
+                            </div>
                         </mat-label>
                     </mat-slide-toggle>
                 </div>
             </div>
 
             <div class="w-full flex items-center justify-between mt-8">
-                <div class="text-sm text-gray-400">Phiên bản Plugin: v{{ getPlugin('tiktok_100')?.version }}</div>
-                <div *ngIf="getPlugin('tiktok_100')?.installed">
-                    <button mat-icon-button color="warn" (click)="uninstallPlugin(getPlugin('tiktok_100'))" matTooltip="Gỡ cài đặt Plugin">
-                        <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:trash-2'"></mat-icon>
-                    </button>
+                <div class="text-sm text-gray-400">
+                    Phiên bản Plugin: v{{ getPlugin("tiktok_100")?.version }}
                 </div>
+                @if (getPlugin("tiktok_100")?.installed) {
+                    <div>
+                        <button
+                            mat-icon-button
+                            color="warn"
+                            (click)="uninstallPlugin(getPlugin('tiktok_100'))"
+                            matTooltip="Gỡ cài đặt Plugin"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-red-500"
+                                [svgIcon]="'feather:trash-2'"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                }
             </div>
         </mat-tab>
     </mat-tab-group>

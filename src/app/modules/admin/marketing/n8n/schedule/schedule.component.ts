@@ -75,7 +75,8 @@ interface CommentGroup {
     styleUrls: ['./schedule.component.scss'],
     providers: [BlogService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked {
     config: AppConfig;

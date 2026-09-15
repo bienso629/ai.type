@@ -1,7 +1,9 @@
 <div class="flex items-center justify-between mb-4">
     <h2 class="text-lg font-semibold m-0">
         Sửa Prompt Phân Cảnh #{{ editingSceneIndex + 1 }}
-        <ng-container *ngIf="editingVideoIndex >= 0">- Phần {{ editingVideoIndex + 1 }}</ng-container>
+        @if (editingVideoIndex >= 0) {
+            - Phần {{ editingVideoIndex + 1 }}
+        }
     </h2>
     <div class="flex items-center gap-2">
         <button mat-icon-button mat-dialog-close>
@@ -10,157 +12,316 @@
     </div>
 </div>
 
-<mat-dialog-content class="flex flex-col gap-4 p-0 overflow-x-hidden scrollbar-hide !max-h-none">
+<mat-dialog-content
+    class="flex flex-col gap-4 p-0 overflow-x-hidden scrollbar-hide !max-h-none"
+>
     <!-- Frame Attachment Banner -->
-    <div *ngIf="frameBgUrl" class="flex items-center justify-between p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-900 text-xs">
-        <div class="flex items-center gap-2">
-            <mat-icon class="text-amber-600 icon-size-4">auto_fix_high</mat-icon>
-            <span>
-                Đang gắn <strong>ảnh nền của Frame ({{ frameTemplateName }})</strong> vào tệp đính kèm tham chiếu (Reference Image) với tỷ lệ <strong>{{ selectedAspectRatio }}</strong> để tạo video khớp khung hình.
-            </span>
+    @if (frameBgUrl) {
+        <div
+            class="flex items-center justify-between p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-900 text-xs"
+        >
+            <div class="flex items-center gap-2">
+                <mat-icon class="text-amber-600 icon-size-4"
+                    >auto_fix_high</mat-icon
+                >
+                <span>
+                    Đang gắn
+                    <strong>ảnh nền của Frame ({{ frameTemplateName }})</strong>
+                    vào tệp đính kèm tham chiếu (Reference Image) với tỷ lệ
+                    <strong>{{ selectedAspectRatio }}</strong> để tạo video khớp
+                    khung hình.
+                </span>
+            </div>
+            <img
+                [src]="getSafeUrl(frameBgUrl)"
+                class="w-8 h-8 rounded object-cover border border-amber-300 ml-2 shrink-0"
+            />
         </div>
-        <img [src]="getSafeUrl(frameBgUrl)" class="w-8 h-8 rounded object-cover border border-amber-300 ml-2 shrink-0">
-    </div>
+    }
 
     <!-- Reference Images Section -->
     @if (characters && characters.length > 0) {
-    <div class="flex flex-col mt-2">
-        <!-- <span class="font-semibold text-slate-800 text-sm mb-1">{{ 'app.auto_reference_character_images_for' | transloco }}</span> -->
-        <div class="flex flex-wrap gap-2">
-            @for (char of characters; track char) {
-            @if (char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)) {
-            <div class="relative cursor-pointer border-2 rounded-lg p-1 transition-all"
-                [ngClass]="isReferenceCharSelected(char) ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-slate-300'"
-                (click)="toggleReferenceChar(char)" [matTooltip]="'app.auto_used_as_a_reference_image_for' | transloco">
-                <img [src]="getSafeUrl(char.avatarUrl || char.avatarUrls[0])" class="w-12 h-12 object-cover rounded-md">
-                @if (isReferenceCharSelected(char)) {
-                <div class="absolute -top-2 -right-2 bg-blue-500 rounded-full w-5 h-5 flex items-center justify-center">
-                    <mat-icon class="icon-size-3 text-white">check</mat-icon>
-                </div>
+        <div class="flex flex-col mt-2">
+            <!-- <span class="font-semibold text-slate-800 text-sm mb-1">{{ 'app.auto_reference_character_images_for' | transloco }}</span> -->
+            <div class="flex flex-wrap gap-2">
+                @for (char of characters; track char) {
+                    @if (
+                        char.avatarUrl ||
+                        (char.avatarUrls && char.avatarUrls.length > 0)
+                    ) {
+                        <div
+                            class="relative cursor-pointer border-2 rounded-lg p-1 transition-all"
+                            [ngClass]="
+                                isReferenceCharSelected(char)
+                                    ? 'border-blue-500 bg-blue-50'
+                                    : 'border-transparent hover:border-slate-300'
+                            "
+                            (click)="toggleReferenceChar(char)"
+                            [matTooltip]="
+                                'app.auto_used_as_a_reference_image_for'
+                                    | transloco
+                            "
+                        >
+                            <img
+                                [src]="
+                                    getSafeUrl(
+                                        char.avatarUrl || char.avatarUrls[0]
+                                    )
+                                "
+                                class="w-12 h-12 object-cover rounded-md"
+                            />
+                            @if (isReferenceCharSelected(char)) {
+                                <div
+                                    class="absolute -top-2 -right-2 bg-blue-500 rounded-full w-5 h-5 flex items-center justify-center"
+                                >
+                                    <mat-icon class="icon-size-3 text-white"
+                                        >check</mat-icon
+                                    >
+                                </div>
+                            }
+                            <div class="text-xs text-center mt-1 w-12 truncate">
+                                {{ char.name || char.role }}
+                            </div>
+                        </div>
+                    }
                 }
-                <div class="text-xs text-center mt-1 w-12 truncate">{{ char.name || char.role }}</div>
             </div>
-            }
-            }
+            <span class="text-xs text-slate-500 mt-1">{{
+                "app.select_character_to_send" | transloco
+            }}</span>
         </div>
-        <span class="text-xs text-slate-500 mt-1">{{ 'app.select_character_to_send' | transloco }}</span>
-    </div>
     }
-
-
 
     <!-- Storyboard Area -->
     <div class="flex items-start gap-4 mb-2 mt-2">
-        <div *ngIf="(editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl)) || editingScenePrompt.controlImageUrl"
-            class="relative shrink-0 rounded-lg flex items-center justify-center bg-gray-50 overflow-visible group transition-all duration-300 m-2"
-            [ngStyle]="getAspectRatioStyle()">
-
-            <!-- Normal Image if no ControlNet -->
-            <img *ngIf="!editingScenePrompt.controlImageUrl && editingScenePrompt.imageUrl"
-                [src]="getSafeUrl(editingScenePrompt.imageUrl)" class="w-full h-full object-cover rounded-lg">
-
-            <!-- ControlNet Image ONLY if no Normal Image -->
-            <img *ngIf="editingScenePrompt.controlImageUrl && !editingScenePrompt.imageUrl"
-                [src]="getSafeUrl(editingScenePrompt.controlImageUrl)" class="w-full h-full object-cover rounded-lg">
-
-            <!-- Before/After Slider if BOTH exist -->
-            <div *ngIf="editingScenePrompt.controlImageUrl && editingScenePrompt.imageUrl"
-                class="relative w-full h-full select-none rounded-lg overflow-hidden group/slider">
-                <!-- After Image (Generated) -->
-                <img [src]="getSafeUrl(editingScenePrompt.imageUrl)" class="absolute inset-0 w-full h-full object-cover"
-                    draggable="false">
-
-                <!-- Before Image (ControlNet) -->
-                <img [src]="getSafeUrl(editingScenePrompt.controlImageUrl)"
-                    class="absolute inset-0 w-full h-full object-cover"
-                    [style.clip-path]="'polygon(0 0, ' + sliderValue + '% 0, ' + sliderValue + '% 100%, 0 100%)'"
-                    draggable="false">
-
-                <!-- Slider Line -->
-                <div class="absolute inset-y-0 w-0.5 bg-white pointer-events-none shadow" [style.left.%]="sliderValue"
-                    style="transform: translateX(-50%)"></div>
-
-                <!-- Custom Slider Thumb -->
-                <div class="absolute inset-y-0 flex items-center justify-center pointer-events-none z-20 opacity-0 group-hover/slider:opacity-100 transition-opacity duration-200"
-                    [style.left.%]="sliderValue" style="transform: translateX(-50%)">
+        @if (
+            (editingScenePrompt.imageUrl &&
+                isImageType(editingScenePrompt.imageUrl)) ||
+            editingScenePrompt.controlImageUrl
+        ) {
+            <div
+                class="relative shrink-0 rounded-lg flex items-center justify-center bg-gray-50 overflow-visible group transition-all duration-300 m-2"
+                [ngStyle]="getAspectRatioStyle()"
+            >
+                <!-- Normal Image if no ControlNet -->
+                @if (
+                    !editingScenePrompt.controlImageUrl &&
+                    editingScenePrompt.imageUrl
+                ) {
+                    <img
+                        [src]="getSafeUrl(editingScenePrompt.imageUrl)"
+                        class="w-full h-full object-cover rounded-lg"
+                    />
+                }
+                <!-- ControlNet Image ONLY if no Normal Image -->
+                @if (
+                    editingScenePrompt.controlImageUrl &&
+                    !editingScenePrompt.imageUrl
+                ) {
+                    <img
+                        [src]="getSafeUrl(editingScenePrompt.controlImageUrl)"
+                        class="w-full h-full object-cover rounded-lg"
+                    />
+                }
+                <!-- Before/After Slider if BOTH exist -->
+                @if (
+                    editingScenePrompt.controlImageUrl &&
+                    editingScenePrompt.imageUrl
+                ) {
                     <div
-                        class="w-8 h-8 bg-white/90 rounded-full shadow-lg flex items-center justify-center border border-slate-200 backdrop-blur-sm">
-                        <mat-icon class="icon-size-5 text-slate-700"
-                            style="transform: rotate(90deg)">unfold_more</mat-icon>
+                        class="relative w-full h-full select-none rounded-lg overflow-hidden group/slider"
+                    >
+                        <!-- After Image (Generated) -->
+                        <img
+                            [src]="getSafeUrl(editingScenePrompt.imageUrl)"
+                            class="absolute inset-0 w-full h-full object-cover"
+                            draggable="false"
+                        />
+                        <!-- Before Image (ControlNet) -->
+                        <img
+                            [src]="
+                                getSafeUrl(editingScenePrompt.controlImageUrl)
+                            "
+                            class="absolute inset-0 w-full h-full object-cover"
+                            [style.clip-path]="
+                                'polygon(0 0, ' +
+                                sliderValue +
+                                '% 0, ' +
+                                sliderValue +
+                                '% 100%, 0 100%)'
+                            "
+                            draggable="false"
+                        />
+                        <!-- Slider Line -->
+                        <div
+                            class="absolute inset-y-0 w-0.5 bg-white pointer-events-none shadow"
+                            [style.left.%]="sliderValue"
+                            style="transform: translateX(-50%)"
+                        ></div>
+                        <!-- Custom Slider Thumb -->
+                        <div
+                            class="absolute inset-y-0 flex items-center justify-center pointer-events-none z-20 opacity-0 group-hover/slider:opacity-100 transition-opacity duration-200"
+                            [style.left.%]="sliderValue"
+                            style="transform: translateX(-50%)"
+                        >
+                            <div
+                                class="w-8 h-8 bg-white/90 rounded-full shadow-lg flex items-center justify-center border border-slate-200 backdrop-blur-sm"
+                            >
+                                <mat-icon
+                                    class="icon-size-5 text-slate-700"
+                                    style="transform: rotate(90deg)"
+                                    >unfold_more</mat-icon
+                                >
+                            </div>
+                        </div>
+                        <!-- Input Range -->
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            [(ngModel)]="sliderValue"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-10 m-0"
+                            style="
+                                -webkit-appearance: none;
+                                appearance: none;
+                                background: transparent;
+                            "
+                        />
                     </div>
-                </div>
-
-                <!-- Input Range -->
-                <input type="range" min="0" max="100" [(ngModel)]="sliderValue"
-                    class="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-10 m-0"
-                    style="-webkit-appearance: none; appearance: none; background: transparent;">
+                }
+                <button
+                    mat-icon-button
+                    [matMenuTriggerFor]="imageMenu"
+                    class="absolute -bottom-2 -right-2 bg-white text-slate-700 shadow-md border border-slate-200 rounded-full w-8 h-8 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 transition-colors z-10"
+                    [matTooltip]="'app.image_options' | transloco"
+                >
+                    <mat-icon class="icon-size-5 text-slate-600"
+                        >more_horiz</mat-icon
+                    >
+                </button>
+                <button
+                    mat-icon-button
+                    class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                    (click)="removeMedia()"
+                >
+                    <mat-icon class="icon-size-4 text-white">close</mat-icon>
+                </button>
+                @if (aiReferenceVideoLocalUrl) {
+                    <div
+                        class="absolute bottom-2 left-2 bg-pink-500/80 text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm flex items-center z-10 backdrop-blur-sm"
+                    >
+                        <mat-icon class="icon-size-3 mr-0.5">videocam</mat-icon>
+                        {{ "app.has_sample_video" | transloco }}
+                        <mat-icon
+                            class="icon-size-3 ml-1 cursor-pointer hover:text-pink-200"
+                            (click)="
+                                removeReferenceVideo(); $event.stopPropagation()
+                            "
+                            >close</mat-icon
+                        >
+                    </div>
+                }
             </div>
+        }
 
-            <button mat-icon-button [matMenuTriggerFor]="imageMenu"
-                class="absolute -bottom-2 -right-2 bg-white text-slate-700 shadow-md border border-slate-200 rounded-full w-8 h-8 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 transition-colors z-10"
-                [matTooltip]="'app.image_options' | transloco">
-                <mat-icon class="icon-size-5 text-slate-600">more_horiz</mat-icon>
-            </button>
-
-            <button mat-icon-button
-                class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
-                (click)="removeMedia()">
-                <mat-icon class="icon-size-4 text-white">close</mat-icon>
-            </button>
-            <div *ngIf="aiReferenceVideoLocalUrl"
-                class="absolute bottom-2 left-2 bg-pink-500/80 text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm flex items-center z-10 backdrop-blur-sm">
-                <mat-icon class="icon-size-3 mr-0.5">videocam</mat-icon> {{ 'app.has_sample_video' | transloco }}
-                <mat-icon class="icon-size-3 ml-1 cursor-pointer hover:text-pink-200"
-                    (click)="removeReferenceVideo(); $event.stopPropagation()">close</mat-icon>
+        @if (
+            (!editingScenePrompt.imageUrl ||
+                !isImageType(editingScenePrompt.imageUrl)) &&
+            !editingScenePrompt.controlImageUrl
+        ) {
+            <div
+                class="relative shrink-0 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 transition-all duration-300 m-2"
+                [ngStyle]="getAspectRatioStyle()"
+            >
+                @if (isGeneratingImage) {
+                    <mat-spinner diameter="24"></mat-spinner>
+                } @else {
+                    <button
+                        mat-icon-button
+                        [matMenuTriggerFor]="imageMenu"
+                        class="bg-white shadow-sm border border-slate-200 hover:bg-slate-50 w-10 h-10 flex items-center justify-center rounded-full"
+                        [matTooltip]="'app.image_video_options' | transloco"
+                    >
+                        <mat-icon class="text-slate-600">more_horiz</mat-icon>
+                    </button>
+                    @if (aiReferenceVideoLocalUrl) {
+                        <div
+                            class="absolute bottom-2 left-2 right-2 bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded shadow-sm text-center font-medium truncate flex items-center justify-between"
+                        >
+                            <span
+                                ><mat-icon
+                                    class="icon-size-3 inline align-middle mr-1"
+                                    >videocam</mat-icon
+                                >
+                                {{ "app.has_sample_video" | transloco }}</span
+                            >
+                            <mat-icon
+                                class="icon-size-3 cursor-pointer hover:text-pink-900"
+                                (click)="
+                                    removeReferenceVideo();
+                                    $event.stopPropagation()
+                                "
+                                >close</mat-icon
+                            >
+                        </div>
+                    }
+                }
             </div>
-        </div>
-
-        <div *ngIf="(!editingScenePrompt.imageUrl || !isImageType(editingScenePrompt.imageUrl)) && !editingScenePrompt.controlImageUrl"
-            class="relative shrink-0 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 transition-all duration-300 m-2"
-            [ngStyle]="getAspectRatioStyle()">
-
-            @if (isGeneratingImage) {
-            <mat-spinner diameter="24"></mat-spinner>
-            } @else {
-            <button mat-icon-button [matMenuTriggerFor]="imageMenu"
-                class="bg-white shadow-sm border border-slate-200 hover:bg-slate-50 w-10 h-10 flex items-center justify-center rounded-full"
-                [matTooltip]="'app.image_video_options' | transloco">
-                <mat-icon class="text-slate-600">more_horiz</mat-icon>
-            </button>
-            <div *ngIf="aiReferenceVideoLocalUrl"
-                class="absolute bottom-2 left-2 right-2 bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded shadow-sm text-center font-medium truncate flex items-center justify-between">
-                <span><mat-icon class="icon-size-3 inline align-middle mr-1">videocam</mat-icon> {{ 'app.has_sample_video' | transloco }}</span>
-                <mat-icon class="icon-size-3 cursor-pointer hover:text-pink-900"
-                    (click)="removeReferenceVideo(); $event.stopPropagation()">close</mat-icon>
-            </div>
-            }
-        </div>
+        }
 
         <mat-menu #imageMenu="matMenu" class="custom-image-menu">
             <button mat-menu-item (click)="generateImage()">
-                <mat-icon class="text-blue-500 icon-size-5">auto_awesome</mat-icon>
-                <span>{{ 'app.ai_draws_new_image' | transloco }}</span>
+                <mat-icon class="text-blue-500 icon-size-5"
+                    >auto_awesome</mat-icon
+                >
+                <span>{{ "app.ai_draws_new_image" | transloco }}</span>
             </button>
             <button mat-menu-item (click)="imageInput.click()">
-                <mat-icon class="text-green-600 icon-size-5">upload_file</mat-icon>
-                <span>{{ 'app.auto_upload_image_from_computer' | transloco }}</span>
+                <mat-icon class="text-green-600 icon-size-5"
+                    >upload_file</mat-icon
+                >
+                <span>{{
+                    "app.auto_upload_image_from_computer" | transloco
+                }}</span>
             </button>
             <button mat-menu-item (click)="refImageInput.click()">
-                <mat-icon class="text-purple-500 icon-size-5">add_photo_alternate</mat-icon>
-                <span>{{ 'app.auto_upload_sample_image_for_ai' | transloco }}</span>
+                <mat-icon class="text-purple-500 icon-size-5"
+                    >add_photo_alternate</mat-icon
+                >
+                <span>{{
+                    "app.auto_upload_sample_image_for_ai" | transloco
+                }}</span>
             </button>
-
         </mat-menu>
 
-        <input #imageInput type="file" (change)="onImageSelected($event)" accept="image/*" class="hidden">
-        <input #refImageInput type="file" (change)="onReferenceImageSelected($event)" accept="image/*" class="hidden">
-        <input #refVideoInput type="file" (change)="onReferenceVideoSelected($event)"
-            accept="video/mp4,video/quicktime,video/webm" class="hidden">
+        <input
+            #imageInput
+            type="file"
+            (change)="onImageSelected($event)"
+            accept="image/*"
+            class="hidden"
+        />
+        <input
+            #refImageInput
+            type="file"
+            (change)="onReferenceImageSelected($event)"
+            accept="image/*"
+            class="hidden"
+        />
+        <input
+            #refVideoInput
+            type="file"
+            (change)="onReferenceVideoSelected($event)"
+            accept="video/mp4,video/quicktime,video/webm"
+            class="hidden"
+        />
 
         <div class="flex flex-col gap-1 text-sm text-slate-500 pt-1 flex-1">
-            <span class="font-semibold text-slate-800 text-base">{{ 'app.auto_scene_representation_diagram' | transloco }}</span>
+            <span class="font-semibold text-slate-800 text-base">{{
+                "app.auto_scene_representation_diagram" | transloco
+            }}</span>
             <span>
-                {{ 'app.auto_use_it_as_a_thumbnail_for_this' | transloco }}
+                {{ "app.auto_use_it_as_a_thumbnail_for_this" | transloco }}
             </span>
         </div>
     </div>
@@ -169,62 +330,123 @@
         <!-- Cột 1: Prompt Hình ảnh -->
         <div class="flex flex-col">
             <div class="flex items-center gap-1.5 mb-1">
-                <span class="font-semibold text-slate-800 text-sm">{{ 'app.auto_scene_creation_prompt_image' | transloco }}</span>
-                <button mat-icon-button
+                <span class="font-semibold text-slate-800 text-sm">{{
+                    "app.auto_scene_creation_prompt_image" | transloco
+                }}</span>
+                <button
+                    mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center ml-1 hover:bg-white rounded-full"
-                    (click)="copyPrompt(getFullImagePrompt()); $event.preventDefault(); $event.stopPropagation()"
-                    [matTooltip]="'app.copy_image_prompt' | transloco">
-                    <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700"
-                        [svgIcon]="'feather:copy'"></mat-icon>
+                    (click)="
+                        copyPrompt(getFullImagePrompt());
+                        $event.preventDefault();
+                        $event.stopPropagation()
+                    "
+                    [matTooltip]="'app.copy_image_prompt' | transloco"
+                >
+                    <mat-icon
+                        class="icon-size-3.5 text-slate-400 hover:text-slate-700"
+                        [svgIcon]="'feather:copy'"
+                    ></mat-icon>
                 </button>
             </div>
-            <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1 fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
-                    [(ngModel)]="editingScenePrompt.imagePrompt" [placeholder]="'app.auto_image_prompt' | transloco" cdkTextareaAutosize
-                    cdkAutosizeMinRows="4"></textarea>
+            <mat-form-field
+                class="custom-textarea fuse-mat-dense w-full flex-1 fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'"
+            >
+                <textarea
+                    matInput
+                    class="px-2 overflow-x-hidden text-base leading-relaxed"
+                    [(ngModel)]="editingScenePrompt.imagePrompt"
+                    [placeholder]="'app.auto_image_prompt' | transloco"
+                    cdkTextareaAutosize
+                    cdkAutosizeMinRows="4"
+                ></textarea>
             </mat-form-field>
         </div>
 
         <!-- Cột 2: Prompt Video -->
         <div class="flex flex-col">
             <div class="flex items-center gap-1.5 mb-1">
-                <span class="font-semibold text-slate-800 text-sm">{{ 'app.auto_video_creation_prompt_detailed' | transloco }}</span>
+                <span class="font-semibold text-slate-800 text-sm">{{
+                    "app.auto_video_creation_prompt_detailed" | transloco
+                }}</span>
 
-                <button mat-icon-button
+                <button
+                    mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-1 hover:bg-white hover:opacity-70"
-                    (click)="copyPrompt(getFullVideoPrompt()); $event.preventDefault(); $event.stopPropagation()"
-                    matTooltip="Copy Prompt Video">
-                    <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700"
-                        [svgIcon]="'feather:copy'"></mat-icon>
+                    (click)="
+                        copyPrompt(getFullVideoPrompt());
+                        $event.preventDefault();
+                        $event.stopPropagation()
+                    "
+                    matTooltip="Copy Prompt Video"
+                >
+                    <mat-icon
+                        class="icon-size-3.5 text-slate-400 hover:text-slate-700"
+                        [svgIcon]="'feather:copy'"
+                    ></mat-icon>
                 </button>
 
-                <button mat-icon-button
+                <button
+                    mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-0 hover:bg-white hover:opacity-70"
-                    (click)="autoFixVideoPrompt(); $event.preventDefault(); $event.stopPropagation()"
-                    [matTooltip]="'app.auto_fix_compensate_context' | transloco">
-                    <mat-icon class="icon-size-4 text-blue-500 hover:text-blue-700">auto_awesome</mat-icon>
+                    (click)="
+                        autoFixVideoPrompt();
+                        $event.preventDefault();
+                        $event.stopPropagation()
+                    "
+                    [matTooltip]="'app.auto_fix_compensate_context' | transloco"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-blue-500 hover:text-blue-700"
+                        >auto_awesome</mat-icon
+                    >
                 </button>
 
-                <button mat-icon-button
+                <button
+                    mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-0 hover:bg-white hover:opacity-70"
-                    (click)="addDialogueToPrompt(); $event.preventDefault(); $event.stopPropagation()"
-                    [matTooltip]="'app.add_dialogue_based_on' | transloco">
-                    <mat-icon class="icon-size-4 text-green-500 hover:text-green-700">record_voice_over</mat-icon>
+                    (click)="
+                        addDialogueToPrompt();
+                        $event.preventDefault();
+                        $event.stopPropagation()
+                    "
+                    [matTooltip]="'app.add_dialogue_based_on' | transloco"
+                >
+                    <mat-icon
+                        class="icon-size-4 text-green-500 hover:text-green-700"
+                        >record_voice_over</mat-icon
+                    >
                 </button>
             </div>
-            <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1 fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
-                    [(ngModel)]="editingScenePrompt.prompt" [placeholder]="'app.auto_describe_the_action_context' | transloco"
-                    cdkTextareaAutosize cdkAutosizeMinRows="4"></textarea>
+            <mat-form-field
+                class="custom-textarea fuse-mat-dense w-full flex-1 fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'"
+            >
+                <textarea
+                    matInput
+                    class="px-2 overflow-x-hidden text-base leading-relaxed"
+                    [(ngModel)]="editingScenePrompt.prompt"
+                    [placeholder]="
+                        'app.auto_describe_the_action_context' | transloco
+                    "
+                    cdkTextareaAutosize
+                    cdkAutosizeMinRows="4"
+                ></textarea>
             </mat-form-field>
         </div>
     </div>
 
-
     <div class="flex flex-col mt-4 gap-4">
-        <mat-form-field class="fuse-mat-dense w-32 shrink-0 fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <mat-label>{{ 'app.duration_seconds' | transloco }}</mat-label>
-            <mat-select [(ngModel)]="editingScenePrompt.duration" (ngModelChange)="onDurationChanged($event)">
+        <mat-form-field
+            class="fuse-mat-dense w-32 shrink-0 fuse-mat-emphasized-affix"
+            [subscriptSizing]="'dynamic'"
+        >
+            <mat-label>{{ "app.duration_seconds" | transloco }}</mat-label>
+            <mat-select
+                [(ngModel)]="editingScenePrompt.duration"
+                (ngModelChange)="onDurationChanged($event)"
+            >
                 <mat-option [value]="4">4s</mat-option>
                 <mat-option [value]="6">6s</mat-option>
                 <mat-option [value]="8">8s</mat-option>
@@ -232,49 +454,87 @@
             </mat-select>
         </mat-form-field>
 
-        <label *ngIf="previousVideoUrl" class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" [(ngModel)]="usePreviousSceneFrame"
-                (ngModelChange)="onUsePreviousFrameChange($event)"
-                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer">
-            <span class="text-sm font-medium text-slate-700">{{ 'app.auto_inherit_the_last_frame_from_th' | transloco }}</span>
-        </label>
+        @if (previousVideoUrl) {
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                    type="checkbox"
+                    [(ngModel)]="usePreviousSceneFrame"
+                    (ngModelChange)="onUsePreviousFrameChange($event)"
+                    class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                />
+                <span class="text-sm font-medium text-slate-700">{{
+                    "app.auto_inherit_the_last_frame_from_th" | transloco
+                }}</span>
+            </label>
+        }
     </div>
 </mat-dialog-content>
 
 <mat-dialog-actions align="end" class="p-0 mt-4 mb-0 gap-2">
     <div class="flex items-center gap-2 mr-auto">
-        <a href="javascript:void(0)" class="text-teal-700 text-sm hover:text-teal-900" (click)="openControlNetDialog()">
+        <a
+            href="javascript:void(0)"
+            class="text-teal-700 text-sm hover:text-teal-900"
+            (click)="openControlNetDialog()"
+        >
             <span class="flex items-center">
-                <mat-icon class="icon-size-4 mr-2 text-teal-600">accessibility_new</mat-icon> {{ 'app.auto_skeleton' | transloco }}
+                <mat-icon class="icon-size-4 mr-2 text-teal-600"
+                    >accessibility_new</mat-icon
+                >
+                {{ "app.auto_skeleton" | transloco }}
             </span>
         </a>
 
         <div class="w-px h-4 bg-slate-300"></div>
 
-        <a href="javascript:void(0)" class="text-teal-700 text-sm hover:text-teal-900"
-            (click)="openDirectorModeForScene()">
+        <a
+            href="javascript:void(0)"
+            class="text-teal-700 text-sm hover:text-teal-900"
+            (click)="openDirectorModeForScene()"
+        >
             <span class="flex items-center">
-                <mat-icon class="icon-size-4 mr-2 text-teal-600">movie_filter</mat-icon> Director Mode
+                <mat-icon class="icon-size-4 mr-2 text-teal-600"
+                    >movie_filter</mat-icon
+                >
+                Director Mode
             </span>
         </a>
 
-        <ng-container *ngIf="editingScenePrompt?.videoUrl">
+        @if (editingScenePrompt?.videoUrl) {
             <div class="w-px h-4 bg-slate-300"></div>
-
-            <a href="javascript:void(0)" class="text-indigo-700 text-sm hover:text-indigo-900"
-                (click)="openCropVideoDialog()">
+            <a
+                href="javascript:void(0)"
+                class="text-indigo-700 text-sm hover:text-indigo-900"
+                (click)="openCropVideoDialog()"
+            >
                 <span class="flex items-center">
-                    <mat-icon class="icon-size-4 mr-1.5 text-indigo-600">crop</mat-icon> Crop Video
+                    <mat-icon class="icon-size-4 mr-1.5 text-indigo-600"
+                        >crop</mat-icon
+                    >
+                    Crop Video
                 </span>
             </a>
-        </ng-container>
-
+        }
     </div>
 
-    <button mat-stroked-button color="accent" (click)="generateVideo()" [disabled]="isGeneratingVideo || isGeneratingImage" class="gap-1.5 border-amber-500/50 text-amber-600 hover:bg-amber-50">
-        <mat-spinner *ngIf="isGeneratingVideo" diameter="18" class="mr-1"></mat-spinner>
-        <mat-icon *ngIf="!isGeneratingVideo" class="icon-size-4 text-amber-600">videocam</mat-icon>
-        <span>{{ isGeneratingVideo ? 'Đang tạo Video...' : 'Tạo Video AI' }}</span>
+    <button
+        mat-stroked-button
+        color="accent"
+        (click)="generateVideo()"
+        [disabled]="isGeneratingVideo || isGeneratingImage"
+        class="gap-1.5 border-amber-500/50 text-amber-600 hover:bg-amber-50"
+    >
+        @if (isGeneratingVideo) {
+            <mat-spinner diameter="18" class="mr-1"></mat-spinner>
+        }
+        @if (!isGeneratingVideo) {
+            <mat-icon class="icon-size-4 text-amber-600">videocam</mat-icon>
+        }
+        <span>{{
+            isGeneratingVideo ? "Đang tạo Video..." : "Tạo Video AI"
+        }}</span>
     </button>
-    <button mat-flat-button color="primary" (click)="save()">{{ 'app.auto_save_information' | transloco }}</button>
+    <button mat-flat-button color="primary" (click)="save()">
+        {{ "app.auto_save_information" | transloco }}
+    </button>
 </mat-dialog-actions>

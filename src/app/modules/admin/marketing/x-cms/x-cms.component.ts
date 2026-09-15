@@ -1,6 +1,18 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
+import {
+    ColumnMode,
+    DatatableComponent,
+    SelectionType,
+} from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/_services/crawl';
@@ -22,7 +34,9 @@ import { MatDialog } from '@angular/material/dialog';
     styleUrls: ['./x-cms.component.scss'],
     templateUrl: './x-cms.component.html',
     providers: [CrawlService, ForumService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class XCmsComponent implements OnInit, OnDestroy {
     user: User;
@@ -38,7 +52,7 @@ export class XCmsComponent implements OnInit, OnDestroy {
         pageNumber: 0,
         size: 100,
         totalElements: 20,
-        totalPages: 0
+        totalPages: 0,
     };
     isLoading: boolean = false;
     lastId: string;
@@ -80,9 +94,10 @@ export class XCmsComponent implements OnInit, OnDestroy {
     }
 
     getGroups() {
-        this._customerService.groups({
-            username: this.user.name
-        })
+        this._customerService
+            .groups({
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result) => {
@@ -90,16 +105,16 @@ export class XCmsComponent implements OnInit, OnDestroy {
                         this.groups = result.data;
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
     getLevels() {
-        this._customerService.levels({
-            username: this.user.name
-        })
+        this._customerService
+            .levels({
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result) => {
@@ -107,9 +122,8 @@ export class XCmsComponent implements OnInit, OnDestroy {
                         this.levels = result.data;
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -118,11 +132,11 @@ export class XCmsComponent implements OnInit, OnDestroy {
             width: '540px',
             data: {
                 item: item,
-                user: this.user
-            }
+                user: this.user,
+            },
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result && result.data) {
                 item = result.data['item'];
                 // lam moi lai giao dien
@@ -136,11 +150,11 @@ export class XCmsComponent implements OnInit, OnDestroy {
             width: '540px',
             data: {
                 selected: this.selected,
-                user: this.user
-            }
+                user: this.user,
+            },
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result && result.data) {
                 // lam moi lai giao dien
                 this.cd.markForCheck();
@@ -158,12 +172,13 @@ export class XCmsComponent implements OnInit, OnDestroy {
         this.cache = {};
 
         if (this.keyword) {
-            this._customerService.deviceTokens({
-                username: this.user.name,
-                keyword: this.keyword,
-                appID: 'fastmailv2.tadu.fastmailv2',
-                page: this.page
-            })
+            this._customerService
+                .deviceTokens({
+                    username: this.user.name,
+                    keyword: this.keyword,
+                    appID: 'fastmailv2.tadu.fastmailv2',
+                    page: this.page,
+                })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: async (result) => {
@@ -174,14 +189,13 @@ export class XCmsComponent implements OnInit, OnDestroy {
                                     offset: 0,
                                     pageSize: undefined,
                                     limit: undefined,
-                                    count: this.totalElements
+                                    count: this.totalElements,
                                 });
                             }
                         }
                     },
-                    error: () => {
-                    },
-                    complete: () => { }
+                    error: () => {},
+                    complete: () => {},
                 });
         } else {
             let temp = localStorage.getItem('statistics');
@@ -193,20 +207,19 @@ export class XCmsComponent implements OnInit, OnDestroy {
                     offset: 0,
                     pageSize: undefined,
                     limit: undefined,
-                    count: this.totalElements
+                    count: this.totalElements,
                 });
             }
         }
     }
 
     /**
-         * Populate the table with new data based on the page number
-         * @param page The page to select
-         */
+     * Populate the table with new data based on the page number
+     * @param page The page to select
+     */
     setPage(pageInfo: PageInfo) {
         if (this.isLoading) return;
-        if (!pageInfo.pageSize)
-            pageInfo.pageSize = this.page.size;
+        if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
 
         // Current page number is determined by last call to setPage
         // This is the page the UI is currently displaying
@@ -222,7 +235,7 @@ export class XCmsComponent implements OnInit, OnDestroy {
             pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
             size: pageInfo.pageSize,
             totalElements: 0,
-            totalPages: 0
+            totalPages: 0,
         };
 
         // We keep a index of server loaded pages so we don't load same data twice
@@ -240,13 +253,14 @@ export class XCmsComponent implements OnInit, OnDestroy {
         this.isLoading = true;
         this.cd.markForCheck();
 
-        this._customerService.deviceTokens({
-            username: this.user.name,
-            keyword: this.keyword,
-            appID: 'fastmailv2.tadu.fastmailv2',
-            page: this.page,
-            lastId: this.lastId
-        })
+        this._customerService
+            .deviceTokens({
+                username: this.user.name,
+                keyword: this.keyword,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                page: this.page,
+                lastId: this.lastId,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
@@ -271,7 +285,12 @@ export class XCmsComponent implements OnInit, OnDestroy {
 
                         // Set rows to our new rows for display
                         this.rows = rows;
-                        this.lastId = (this.rows.length > 0 && this.rows[this.rows.length - 1] && this.rows[this.rows.length - 1]['_id']) ? this.rows[this.rows.length - 1]['_id'] : null;
+                        this.lastId =
+                            this.rows.length > 0 &&
+                            this.rows[this.rows.length - 1] &&
+                            this.rows[this.rows.length - 1]['_id']
+                                ? this.rows[this.rows.length - 1]['_id']
+                                : null;
                     } else if (!result || result.success === false) {
                         delete this.cache[this.page.pageNumber];
                     }
@@ -287,7 +306,7 @@ export class XCmsComponent implements OnInit, OnDestroy {
                         this.table.recalculatePages();
                     }
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -303,7 +322,7 @@ export class XCmsComponent implements OnInit, OnDestroy {
         private _fuseConfigService: FuseConfigService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
     ) {
         this.titleService.setTitle(`lưu trữ | ai.type - công cụ tạo content`);
 
@@ -315,8 +334,6 @@ export class XCmsComponent implements OnInit, OnDestroy {
 
                 this.getGroups();
                 this.getLevels();
-
-
             });
 
         // Subscribe to config changes
@@ -334,31 +351,31 @@ export class XCmsComponent implements OnInit, OnDestroy {
         this._unsubscribeAll.complete();
     }
 
-    ngOnInit(): void {
-
-    }
+    ngOnInit(): void {}
 
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference

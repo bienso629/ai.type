@@ -1,5 +1,12 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, interval } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -7,20 +14,22 @@ import { takeUntil } from 'rxjs/operators';
 @Component({
     selector: 'ai-zalo-crm',
     templateUrl: './zalo.component.html',
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class ZaloComponent implements OnInit, OnDestroy {
     contacts: any[] = [];
     messages: any[] = [];
     selectedContact: any = null;
     messageText: string = '';
-    
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
         private _http: HttpClient,
         private cd: ChangeDetectorRef,
-        private toastr: ToastrService
+        private toastr: ToastrService,
     ) {}
 
     ngOnInit(): void {
@@ -43,7 +52,8 @@ export class ZaloComponent implements OnInit, OnDestroy {
     }
 
     getContacts(): void {
-        this._http.get<any>('http://127.0.0.1:54322/api/zalo/contacts')
+        this._http
+            .get<any>('http://127.0.0.1:54322/api/zalo/contacts')
             .subscribe({
                 next: (res) => {
                     if (res && res.success) {
@@ -51,7 +61,7 @@ export class ZaloComponent implements OnInit, OnDestroy {
                         this.cd.detectChanges();
                     }
                 },
-                error: () => {}
+                error: () => {},
             });
     }
 
@@ -62,7 +72,10 @@ export class ZaloComponent implements OnInit, OnDestroy {
     }
 
     getMessages(contactName: string, scroll: boolean): void {
-        this._http.get<any>(`http://127.0.0.1:54322/api/zalo/messages?contact_name=${encodeURIComponent(contactName)}`)
+        this._http
+            .get<any>(
+                `http://127.0.0.1:54322/api/zalo/messages?contact_name=${encodeURIComponent(contactName)}`,
+            )
             .subscribe({
                 next: (res) => {
                     if (res && res.success) {
@@ -73,19 +86,20 @@ export class ZaloComponent implements OnInit, OnDestroy {
                         }
                     }
                 },
-                error: () => {}
+                error: () => {},
             });
     }
 
     sendMessage(): void {
         if (!this.messageText.trim() || !this.selectedContact) return;
-        
+
         const payload = {
             contact_name: this.selectedContact.name,
-            text: this.messageText
+            text: this.messageText,
         };
 
-        this._http.post<any>('http://127.0.0.1:54322/api/zalo/send', payload)
+        this._http
+            .post<any>('http://127.0.0.1:54322/api/zalo/send', payload)
             .subscribe({
                 next: (res) => {
                     if (res && res.success) {
@@ -94,7 +108,7 @@ export class ZaloComponent implements OnInit, OnDestroy {
                             sender: 'Me',
                             text: this.messageText,
                             is_mine: 1,
-                            time: new Date().toISOString()
+                            time: new Date().toISOString(),
                         });
                         this.messageText = '';
                         this.cd.detectChanges();
@@ -104,8 +118,10 @@ export class ZaloComponent implements OnInit, OnDestroy {
                     }
                 },
                 error: () => {
-                    this.toastr.error('Không thể kết nối đến server plugin Zalo.');
-                }
+                    this.toastr.error(
+                        'Không thể kết nối đến server plugin Zalo.',
+                    );
+                },
             });
     }
 
@@ -117,8 +133,10 @@ export class ZaloComponent implements OnInit, OnDestroy {
     }
 
     openZaloTool(): void {
-        window.dispatchEvent(new CustomEvent('open-web-tool', {
-            detail: { id: 'zalo.me' }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('open-web-tool', {
+                detail: { id: 'zalo.me' },
+            }),
+        );
     }
 }

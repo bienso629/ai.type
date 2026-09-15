@@ -1,6 +1,18 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
+import {
+    ColumnMode,
+    DatatableComponent,
+    SelectionType,
+} from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/_services/crawl';
@@ -23,7 +35,9 @@ import { shuffle } from 'lodash';
     styleUrls: ['./bigdata.component.scss'],
     templateUrl: './bigdata.component.html',
     providers: [CrawlService, ForumService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class BigDataComponent implements OnInit, OnDestroy {
     user: User;
@@ -39,14 +53,21 @@ export class BigDataComponent implements OnInit, OnDestroy {
         pageNumber: 0,
         size: 100,
         totalElements: 0,
-        totalPages: 0
+        totalPages: 0,
     };
     isLoading: boolean = false;
 
     levels: any[] = [];
 
     group: any = 'all';
-    groups: any[] = ['all', '404', 'done', 'error', 'no_files', 'verify_timeout'];
+    groups: any[] = [
+        'all',
+        '404',
+        'done',
+        'error',
+        'no_files',
+        'verify_timeout',
+    ];
 
     @ViewChild(DatatableComponent) table: DatatableComponent;
     selected = [];
@@ -84,16 +105,17 @@ export class BigDataComponent implements OnInit, OnDestroy {
         this.cachePageSize = 0;
         this.cache = {};
 
-        this._bigdataService.records({
-            username: this.user.name,
-            appID: 'fastmailv2.tadu.fastmailv2',
-            q: this.keyword || null,
-            page: this.page,
-            page_size: this.page.size,
-            fields: 'url,title,status,http_status',
-            sort: '-updated_at',
-            status: this.group
-        })
+        this._bigdataService
+            .records({
+                username: this.user.name,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                q: this.keyword || null,
+                page: this.page,
+                page_size: this.page.size,
+                fields: 'url,title,status,http_status',
+                sort: '-updated_at',
+                status: this.group,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -104,14 +126,13 @@ export class BigDataComponent implements OnInit, OnDestroy {
                                 offset: 0,
                                 pageSize: undefined,
                                 limit: undefined,
-                                count: this.totalElements
+                                count: this.totalElements,
                             });
                         }
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -123,16 +144,17 @@ export class BigDataComponent implements OnInit, OnDestroy {
         this.cachePageSize = 0;
         this.cache = {};
 
-        this._bigdataService.records({
-            username: this.user.name,
-            appID: 'fastmailv2.tadu.fastmailv2',
-            q: this.keyword || null,
-            page: this.page,
-            page_size: this.page.size,
-            fields: 'url,title,status,http_status',
-            sort: '-updated_at',
-            status: this.group
-        })
+        this._bigdataService
+            .records({
+                username: this.user.name,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                q: this.keyword || null,
+                page: this.page,
+                page_size: this.page.size,
+                fields: 'url,title,status,http_status',
+                sort: '-updated_at',
+                status: this.group,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -143,14 +165,13 @@ export class BigDataComponent implements OnInit, OnDestroy {
                                 offset: 0,
                                 pageSize: undefined,
                                 limit: undefined,
-                                count: this.totalElements
+                                count: this.totalElements,
                             });
                         }
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -160,9 +181,8 @@ export class BigDataComponent implements OnInit, OnDestroy {
      */
     setPage(pageInfo: PageInfo) {
         if (this.isLoading) return;
-        if (!pageInfo.pageSize)
-            pageInfo.pageSize = this.page.size;
-        
+        if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
+
         // Current page number is determined by last call to setPage
         // This is the page the UI is currently displaying
         // The current page is based on the UI pagesize and scroll position
@@ -177,7 +197,7 @@ export class BigDataComponent implements OnInit, OnDestroy {
             pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
             size: pageInfo.pageSize,
             totalElements: 0,
-            totalPages: 0
+            totalPages: 0,
         };
 
         // We keep a index of server loaded pages so we don't load same data twice
@@ -195,17 +215,18 @@ export class BigDataComponent implements OnInit, OnDestroy {
         this.isLoading = true;
         this.cd.markForCheck();
 
-        this._bigdataService.records({
-            username: this.user.name,
-            keyword: this.keyword,
-            appID: 'fastmailv2.tadu.fastmailv2',
-            page: this.page,
-            page_size: this.page.size,
-            q: this.keyword,
-            fields: 'url,title,status,http_status',
-            sort: '-updated_at',
-            status: this.group
-        })
+        this._bigdataService
+            .records({
+                username: this.user.name,
+                keyword: this.keyword,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                page: this.page,
+                page_size: this.page.size,
+                q: this.keyword,
+                fields: 'url,title,status,http_status',
+                sort: '-updated_at',
+                status: this.group,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
@@ -226,11 +247,19 @@ export class BigDataComponent implements OnInit, OnDestroy {
                         const rows = [...this.rows];
 
                         // Insert new rows into correct position
-                        rows.splice(start, result.items.length, ...result.items);
+                        rows.splice(
+                            start,
+                            result.items.length,
+                            ...result.items,
+                        );
 
                         // Set rows to our new rows for display
                         this.rows = rows;
-                    } else if (!result || result.success === false || (result.items && result.items.length === 0)) {
+                    } else if (
+                        !result ||
+                        result.success === false ||
+                        (result.items && result.items.length === 0)
+                    ) {
                         delete this.cache[this.page.pageNumber];
                     }
                 },
@@ -246,7 +275,7 @@ export class BigDataComponent implements OnInit, OnDestroy {
                     }
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -254,15 +283,15 @@ export class BigDataComponent implements OnInit, OnDestroy {
         const dialogRef = this.dialog.open(BigDataLogsDialog, {
             width: '50vw',
             position: {
-                bottom: '100px',   // khoảng cách từ top của màn hình
+                bottom: '100px', // khoảng cách từ top của màn hình
                 right: '100px', // khoảng cách từ left của màn hình
             },
             data: {
-                user: this.user
-            }
+                user: this.user,
+            },
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result) {
                 // lam moi lai giao dien
                 this.cd.markForCheck();
@@ -273,14 +302,14 @@ export class BigDataComponent implements OnInit, OnDestroy {
     report() {
         const dialogRef = this.dialog.open(ReportDialog, {
             width: '80vw',
-            height: '80vh',          // hoặc maxHeight: '80vh'
+            height: '80vh', // hoặc maxHeight: '80vh'
             panelClass: 'grid-dialog', // để áp CSS riêng cho dialog này
             data: {
-                user: this.user
-            }
+                user: this.user,
+            },
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result) {
                 // lam moi lai giao dien
                 this.cd.markForCheck();
@@ -289,128 +318,133 @@ export class BigDataComponent implements OnInit, OnDestroy {
     }
 
     scanSitemap() {
-        this._bigdataService.sitemaps({
-            username: this.user.name,
-            appID: 'fastmailv2.tadu.fastmailv2',
-            rootURL: 'https://thuvienphapluat.vn/sitemap.xml',
-            headless: false,
-            dedupe: true,
-            write_files: true
-        })
+        this._bigdataService
+            .sitemaps({
+                username: this.user.name,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                rootURL: 'https://thuvienphapluat.vn/sitemap.xml',
+                headless: false,
+                dedupe: true,
+                write_files: true,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result) {
-                        this.toastr.success("Tạo sitemap xong.");
+                        this.toastr.success('Tạo sitemap xong.');
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
     storeBigData() {
-        this._bigdataService.storeJob1({
-            "username": this.user.name,
-            "appID": 'fastmailv2.tadu.fastmailv2',
-            "links_file": "never_links.txt",
-            "queue_key": "tvpl-main",
-            "alloc_size": 200,
-            "lease_ttl_sec": 300,
-            "auto_next_block": true,
-            "headless": false,
-            "upsert": true,
-            "force": true,
-            "shuffle": false,
-            "delay_ms": 200,
-            "sleep_min": 0.3,
-            "sleep_max": 1.2
-        })
+        this._bigdataService
+            .storeJob1({
+                username: this.user.name,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                links_file: 'never_links.txt',
+                queue_key: 'tvpl-main',
+                alloc_size: 200,
+                lease_ttl_sec: 300,
+                auto_next_block: true,
+                headless: false,
+                upsert: true,
+                force: true,
+                shuffle: false,
+                delay_ms: 200,
+                sleep_min: 0.3,
+                sleep_max: 1.2,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result) {
                         localStorage.setItem('dataJobID', result.job_id);
-                        this.toastr.success("Mở logs để xem tiến trình.");
+                        this.toastr.success('Mở logs để xem tiến trình.');
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
     scanErrorLinks() {
-        this._bigdataService.scanErrorLinksJob3({
-            "username": this.user.name,
-            "appID": 'fastmailv2.tadu.fastmailv2',
-            "queue_key": "tvpl-main",
-            "alloc_size": 200,
-            "use_allocator": true,
-            "auto_next_block": true,
-            "headless": false,
-            "sleep_min": 2.0,
-            "sleep_max": 5.0,
-            "delay_ms": 0,
-            "shuffle": false
-        })
+        this._bigdataService
+            .scanErrorLinksJob3({
+                username: this.user.name,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                queue_key: 'tvpl-main',
+                alloc_size: 200,
+                use_allocator: true,
+                auto_next_block: true,
+                headless: false,
+                sleep_min: 2.0,
+                sleep_max: 5.0,
+                delay_ms: 0,
+                shuffle: false,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result) {
                         localStorage.setItem('dataJobID', result.job_id);
-                        this.toastr.success("Xử lý link bị lỗi.");
+                        this.toastr.success('Xử lý link bị lỗi.');
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
     neverLinks() {
-        this._bigdataService.neverLinks({
-            "username": this.user.name,
-            "appID": 'fastmailv2.tadu.fastmailv2',
-            "source": "path",
-            "file_path": "all_links.txt",
-            "output_path": "never_links.txt"
-        })
+        this._bigdataService
+            .neverLinks({
+                username: this.user.name,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                source: 'path',
+                file_path: 'all_links.txt',
+                output_path: 'never_links.txt',
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result) {
-                        this.toastr.success("Làm mới tất cả các link chưa quét");
+                        this.toastr.success(
+                            'Làm mới tất cả các link chưa quét',
+                        );
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
     donwload() {
-        this._bigdataService.downloadJob2({
-            username: this.user.name,
-            appID: 'fastmailv2.tadu.fastmailv2',
-            include_statuses: ["done", "fallback"],
-            headless: false,
-            max_docs: 200,
-            sleep_between_files: 0.0,
-            reattempt_failed: false
-        })
+        this._bigdataService
+            .downloadJob2({
+                username: this.user.name,
+                appID: 'fastmailv2.tadu.fastmailv2',
+                include_statuses: ['done', 'fallback'],
+                headless: false,
+                max_docs: 200,
+                sleep_between_files: 0.0,
+                reattempt_failed: false,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result) {
-                        localStorage.setItem('downloadFilesJobID', result.job_id);
-                        this.toastr.success("Tiền trình download chạy ngầm.");
+                        localStorage.setItem(
+                            'downloadFilesJobID',
+                            result.job_id,
+                        );
+                        this.toastr.success('Tiền trình download chạy ngầm.');
                     }
                 },
-                error: () => {
-                },
-                complete: () => { }
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -426,7 +460,7 @@ export class BigDataComponent implements OnInit, OnDestroy {
         private _fuseConfigService: FuseConfigService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
     ) {
         this.titleService.setTitle(`lưu trữ | ai.type - công cụ tạo content`);
 
@@ -435,8 +469,6 @@ export class BigDataComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
             });
 
         // Subscribe to config changes
@@ -454,31 +486,31 @@ export class BigDataComponent implements OnInit, OnDestroy {
         this._unsubscribeAll.complete();
     }
 
-    ngOnInit(): void {
-
-    }
+    ngOnInit(): void {}
 
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference

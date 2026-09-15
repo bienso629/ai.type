@@ -41,7 +41,8 @@ import { Router } from '@angular/router';
     encapsulation: ViewEncapsulation.None,
     providers: [ChatGPTService, CrawlService, UserClientService, WP2MDService, LogService, BlogService, ForumService],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    exportAs: 'chatgpt2s'
+    exportAs: 'chatgpt2s',
+    standalone: false
 })
 export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     user: User;

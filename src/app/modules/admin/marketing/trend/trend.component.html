@@ -1,49 +1,66 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
-                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
                     </div>
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">grouppost</a>
-                    </div> -->
+          <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+          [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+          <a class="ml-1 text-base text-primary-500">grouppost</a>
+        </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">{{ 'app.catch_trend' | transloco }}</span>
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            "app.catch_trend" | transloco
+                        }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base">{{
+                            "app.back" | transloco
+                        }}</span>
                     </a>
                 </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate lowercase">{{ 'app.auto_take_content_from_the_article' | transloco }}</p>
-            </div> -->
+    <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate lowercase">{{ 'app.auto_take_content_from_the_article' | transloco }}</p>
+  </div> -->
         </div>
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
             <!-- Form -->
             <!-- <form [formGroup]="chatgptForm">
-                <mat-form-field class="w-60 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                    <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="find($event)"
-                        [placeholder]="'app.auto_search_post' | transloco" matInput>
-                    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
-                </mat-form-field>
-            </form> -->
+  <mat-form-field class="w-60 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+    <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="find($event)"
+      [placeholder]="'app.auto_search_post' | transloco" matInput>
+    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
+  </mat-form-field>
+</form> -->
         </div>
     </div>
 
@@ -52,165 +69,404 @@
         <!-- CONTENT GOES HERE -->
         <mat-drawer-container class="flex-auto h-full">
             <!-- Drawer -->
-            <mat-drawer class="w-100 bg-gray-100 dark:bg-transparent border-r-0" [autoFocus]="false" [mode]="drawerMode"
-                [opened]="drawerOpened" #matDrawer>
+            <mat-drawer
+                class="w-100 bg-gray-100 dark:bg-transparent border-r-0"
+                [autoFocus]="false"
+                [mode]="drawerMode"
+                [opened]="drawerOpened"
+                #matDrawer
+            >
                 <!-- Buy / Sell -->
                 <div class="flex flex-col flex-auto p-4">
                     <!-- Action -->
                     <!-- Advanced search form -->
-                    <form class="flex flex-col items-start w-full overflow-hidden dark:bg-transparent"
-                        [formGroup]="sitemapForm">
+                    <form
+                        class="flex flex-col items-start w-full overflow-hidden dark:bg-transparent"
+                        [formGroup]="sitemapForm"
+                    >
                         <mat-accordion class="border rounded-xl p-2 bg-white">
-                            <mat-expansion-panel showToggle class="mb-6" [expanded]="true">
+                            <mat-expansion-panel
+                                showToggle
+                                class="mb-6"
+                                [expanded]="true"
+                            >
                                 <mat-expansion-panel-header>
-                                    <mat-panel-title class="font-semibold text-primary uppercase">
-                                        {{ 'app.option_1_choose_source' | transloco }}
+                                    <mat-panel-title
+                                        class="font-semibold text-primary uppercase"
+                                    >
+                                        {{
+                                            "app.option_1_choose_source"
+                                                | transloco
+                                        }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
                                 <div class="p-3">
                                     <!-- Danh sách collection của bạn -->
                                     <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>{{ 'app.choose_collection' | transloco }}</mat-label>
-                                        <input [placeholder]="'app.link_scanned_later' | transloco"
-                                            [formControlName]="'collection'" matInput [matAutocomplete]="collection">
-                                        <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:book'"></mat-icon>
+                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                                    >
+                                        <mat-label>{{
+                                            "app.choose_collection" | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [placeholder]="
+                                                'app.link_scanned_later'
+                                                    | transloco
+                                            "
+                                            [formControlName]="'collection'"
+                                            matInput
+                                            [matAutocomplete]="collection"
+                                        />
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            matPrefix
+                                            [svgIcon]="'feather:book'"
+                                        ></mat-icon>
 
-                                        <mat-autocomplete #collection="matAutocomplete"
-                                            (optionSelected)="getLinks($event.option.value._id, 1)"
-                                            [displayWith]="displayCollectionFn">
-                                            <mat-option *ngFor="let item of allLinkCollections" [value]="item"
-                                                class="py-2 mb-2">
-                                                <label class="line-clamp-1">{{ item.title || ('app.no_title' | transloco) }}</label>
-                                                <label class="line-clamp-1 text-gray-300">{{ item.ids.length }}
-                                                    link(s)</label>
-                                            </mat-option>
+                                        <mat-autocomplete
+                                            #collection="matAutocomplete"
+                                            (optionSelected)="
+                                                getLinks(
+                                                    $event.option.value._id,
+                                                    1
+                                                )
+                                            "
+                                            [displayWith]="displayCollectionFn"
+                                        >
+                                            @for (
+                                                item of allLinkCollections;
+                                                track item
+                                            ) {
+                                                <mat-option
+                                                    [value]="item"
+                                                    class="py-2 mb-2"
+                                                >
+                                                    <label
+                                                        class="line-clamp-1"
+                                                        >{{
+                                                            item.title ||
+                                                                ("app.no_title"
+                                                                    | transloco)
+                                                        }}</label
+                                                    >
+                                                    <label
+                                                        class="line-clamp-1 text-gray-300"
+                                                        >{{
+                                                            item.ids.length
+                                                        }}
+                                                        link(s)</label
+                                                    >
+                                                </mat-option>
+                                            }
                                         </mat-autocomplete>
                                     </mat-form-field>
 
                                     <!-- Địa chỉ mẹ -->
                                     <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>{{ 'app.link' | transloco }}</mat-label>
-                                        <input [placeholder]="'app.only_use_group_links' | transloco"
-                                            [formControlName]="'domain'" aria-label="Number" matInput
-                                            [matAutocomplete]="auto">
-                                        <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
+                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                                    >
+                                        <mat-label>{{
+                                            "app.link" | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [placeholder]="
+                                                'app.only_use_group_links'
+                                                    | transloco
+                                            "
+                                            [formControlName]="'domain'"
+                                            aria-label="Number"
+                                            matInput
+                                            [matAutocomplete]="auto"
+                                        />
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            matPrefix
+                                            [svgIcon]="'feather:link'"
+                                        ></mat-icon>
 
-                                        <mat-autocomplete #auto="matAutocomplete">
-                                            <mat-option *ngFor="let item of links" [value]="item.link"
-                                                class="py-2 mb-2">
-                                                <label class="line-clamp-1">{{ item.title || ('app.no_title' | transloco) }}</label>
-                                                <label class="line-clamp-1 text-gray-300">{{ item.link }}</label>
-                                            </mat-option>
+                                        <mat-autocomplete
+                                            #auto="matAutocomplete"
+                                        >
+                                            @for (item of links; track item) {
+                                                <mat-option
+                                                    [value]="item.link"
+                                                    class="py-2 mb-2"
+                                                >
+                                                    <label
+                                                        class="line-clamp-1"
+                                                        >{{
+                                                            item.title ||
+                                                                ("app.no_title"
+                                                                    | transloco)
+                                                        }}</label
+                                                    >
+                                                    <label
+                                                        class="line-clamp-1 text-gray-300"
+                                                        >{{ item.link }}</label
+                                                    >
+                                                </mat-option>
+                                            }
                                         </mat-autocomplete>
                                     </mat-form-field>
 
-                                    <mat-form-field class="w-full mt-2 fuse-mat-dense">
-                                        <mat-label>{{ 'app.scan_depth' | transloco }}</mat-label>
-                                        <input [formControlName]="'length'" type="number" required matInput />
-                                        <mat-error>Không được để trống!</mat-error>
+                                    <mat-form-field
+                                        class="w-full mt-2 fuse-mat-dense"
+                                    >
+                                        <mat-label>{{
+                                            "app.scan_depth" | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [formControlName]="'length'"
+                                            type="number"
+                                            required
+                                            matInput
+                                        />
+                                        <mat-error
+                                            >Không được để trống!</mat-error
+                                        >
                                     </mat-form-field>
 
                                     <div class="mt-2">
-                                        <button mat-flat-button [color]="'primary'" *ngIf="!loading" type="button"
-                                            (click)="createAllSitemap()">
-                                            <mat-icon class="icon-size-5" svgIcon="facebook"></mat-icon>
-                                            <mat-label class="ml-2">{{ 'app.scan_trend' | transloco }}</mat-label>
-                                        </button>
+                                        @if (!loading) {
+                                            <button
+                                                mat-flat-button
+                                                [color]="'primary'"
+                                                type="button"
+                                                (click)="createAllSitemap()"
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-5"
+                                                    svgIcon="facebook"
+                                                ></mat-icon>
+                                                <mat-label class="ml-2">{{
+                                                    "app.scan_trend" | transloco
+                                                }}</mat-label>
+                                            </button>
+                                        }
 
-                                        <button mat-flat-button *ngIf="loading" [color]="'warn'" (click)="stop()">
-                                            <mat-progress-spinner [diameter]="16" [strokeWidth]="2"
-                                                [mode]="'indeterminate'"></mat-progress-spinner>
-                                        </button>
+                                        @if (loading) {
+                                            <button
+                                                mat-flat-button
+                                                [color]="'warn'"
+                                                (click)="stop()"
+                                            >
+                                                <mat-progress-spinner
+                                                    [diameter]="16"
+                                                    [strokeWidth]="2"
+                                                    [mode]="'indeterminate'"
+                                                ></mat-progress-spinner>
+                                            </button>
+                                        }
                                     </div>
                                 </div>
                             </mat-expansion-panel>
 
                             <mat-expansion-panel showToggle [expanded]="false">
                                 <mat-expansion-panel-header>
-                                    <mat-panel-title class="font-semibold text-primary uppercase">
-                                        {{ 'app.option_2_auto_post' | transloco }}
+                                    <mat-panel-title
+                                        class="font-semibold text-primary uppercase"
+                                    >
+                                        {{
+                                            "app.option_2_auto_post" | transloco
+                                        }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
                                 <div class="flex flex-col p-3">
                                     <!-- Địa chỉ mẹ -->
                                     <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>{{ 'app.which_domain_will_ai' | transloco }}</mat-label>
-                                        <input [placeholder]="'app.auto_domain_list' | transloco" [formControlName]="'domain1'"
-                                            aria-label="Number" matInput [matAutocomplete]="auto1">
-                                        <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
+                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                                    >
+                                        <mat-label>{{
+                                            "app.which_domain_will_ai"
+                                                | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [placeholder]="
+                                                'app.auto_domain_list'
+                                                    | transloco
+                                            "
+                                            [formControlName]="'domain1'"
+                                            aria-label="Number"
+                                            matInput
+                                            [matAutocomplete]="auto1"
+                                        />
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            matPrefix
+                                            [svgIcon]="'feather:globe'"
+                                        ></mat-icon>
 
-                                        <mat-autocomplete #auto1="matAutocomplete"
-                                            (optionSelected)="getCategories($event)" [displayWith]="displayFn">
-                                            <mat-option *ngFor="let item of domains" [value]="item" class="py-2 mb-2">
-                                                <label class="line-clamp-1 text-gray-300">{{ item.name || 'Tiêu đề'
-                                                    }}</label>
-                                                <label class="line-clamp-1">{{ cleanDomain(item.domain) }}</label>
-                                            </mat-option>
+                                        <mat-autocomplete
+                                            #auto1="matAutocomplete"
+                                            (optionSelected)="
+                                                getCategories($event)
+                                            "
+                                            [displayWith]="displayFn"
+                                        >
+                                            @for (item of domains; track item) {
+                                                <mat-option
+                                                    [value]="item"
+                                                    class="py-2 mb-2"
+                                                >
+                                                    <label
+                                                        class="line-clamp-1 text-gray-300"
+                                                        >{{
+                                                            item.name ||
+                                                                "Tiêu đề"
+                                                        }}</label
+                                                    >
+                                                    <label
+                                                        class="line-clamp-1"
+                                                        >{{
+                                                            cleanDomain(
+                                                                item.domain
+                                                            )
+                                                        }}</label
+                                                    >
+                                                </mat-option>
+                                            }
                                         </mat-autocomplete>
                                     </mat-form-field>
 
                                     <!-- Địa chỉ tham chiếu -->
                                     <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>{{ 'app.create_backlink_for_which' | transloco }}</mat-label>
-                                        <input [placeholder]="'app.auto_example_type_vn' | transloco" [formControlName]="'domain2'"
-                                            aria-label="Number" matInput>
-                                        <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
-                                        <mat-hint>{{ 'app.auto_better_for_seo' | transloco }}</mat-hint>
+                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                                    >
+                                        <mat-label>{{
+                                            "app.create_backlink_for_which"
+                                                | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [placeholder]="
+                                                'app.auto_example_type_vn'
+                                                    | transloco
+                                            "
+                                            [formControlName]="'domain2'"
+                                            aria-label="Number"
+                                            matInput
+                                        />
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            matPrefix
+                                            [svgIcon]="'feather:globe'"
+                                        ></mat-icon>
+                                        <mat-hint>{{
+                                            "app.auto_better_for_seo"
+                                                | transloco
+                                        }}</mat-hint>
                                     </mat-form-field>
 
                                     <!-- Title tham chiếu -->
                                     <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>{{ 'app.backlink_title' | transloco }}</mat-label>
-                                        <input [placeholder]="'app.reference_title' | transloco" [formControlName]="'titledomain2'"
-                                            aria-label="Number" matInput>
-                                        <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:type'"></mat-icon>
-                                        <mat-hint>{{ 'app.auto_entering_it_will_be_better_for' | transloco }}</mat-hint>
+                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                                    >
+                                        <mat-label>{{
+                                            "app.backlink_title" | transloco
+                                        }}</mat-label>
+                                        <input
+                                            [placeholder]="
+                                                'app.reference_title'
+                                                    | transloco
+                                            "
+                                            [formControlName]="'titledomain2'"
+                                            aria-label="Number"
+                                            matInput
+                                        />
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            matPrefix
+                                            [svgIcon]="'feather:type'"
+                                        ></mat-icon>
+                                        <mat-hint>{{
+                                            "app.auto_entering_it_will_be_better_for"
+                                                | transloco
+                                        }}</mat-hint>
                                     </mat-form-field>
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'autocreatenode'">
-                                        <mat-label class="ml-2 text-sm">{{ 'app.auto_create_post' | transloco }}</mat-label>
+                                    <mat-slide-toggle
+                                        class="example-margin"
+                                        [color]="'primary'"
+                                        labelPosition="after"
+                                        [formControlName]="'autocreatenode'"
+                                    >
+                                        <mat-label class="ml-2 text-sm">{{
+                                            "app.auto_create_post" | transloco
+                                        }}</mat-label>
                                     </mat-slide-toggle>
 
                                     <!-- <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'createmore100nodes'">
-                                        <mat-label class="ml-2 text-sm">{{ 'app.auto_write_over_100_articles' | transloco }}</mat-label>
-                                    </mat-slide-toggle> -->
+                [formControlName]="'createmore100nodes'">
+                <mat-label class="ml-2 text-sm">{{ 'app.auto_write_over_100_articles' | transloco }}</mat-label>
+              </mat-slide-toggle> -->
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'createthumbnail'">
-                                        <mat-label class="ml-2 text-sm">{{ 'app.create_thumbnail' | transloco }}</mat-label>
+                                    <mat-slide-toggle
+                                        class="example-margin"
+                                        [color]="'primary'"
+                                        labelPosition="after"
+                                        [formControlName]="'createthumbnail'"
+                                    >
+                                        <mat-label class="ml-2 text-sm">{{
+                                            "app.create_thumbnail" | transloco
+                                        }}</mat-label>
                                     </mat-slide-toggle>
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'createvideo'">
-                                        <mat-label class="ml-2 text-sm">{{ 'app.create_video' | transloco }}</mat-label>
+                                    <mat-slide-toggle
+                                        class="example-margin"
+                                        [color]="'primary'"
+                                        labelPosition="after"
+                                        [formControlName]="'createvideo'"
+                                    >
+                                        <mat-label class="ml-2 text-sm">{{
+                                            "app.create_video" | transloco
+                                        }}</mat-label>
                                     </mat-slide-toggle>
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'autopost'">
-                                        <mat-label class="ml-2 text-sm">{{ 'app.auto_post_fb' | transloco }}</mat-label>
+                                    <mat-slide-toggle
+                                        class="example-margin"
+                                        [color]="'primary'"
+                                        labelPosition="after"
+                                        [formControlName]="'autopost'"
+                                    >
+                                        <mat-label class="ml-2 text-sm">{{
+                                            "app.auto_post_fb" | transloco
+                                        }}</mat-label>
                                     </mat-slide-toggle>
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'publish'">
-                                        <mat-label class="ml-2 text-sm">{{ 'app.enable_publish_mode' | transloco }}</mat-label>
+                                    <mat-slide-toggle
+                                        class="example-margin"
+                                        [color]="'primary'"
+                                        labelPosition="after"
+                                        [formControlName]="'publish'"
+                                    >
+                                        <mat-label class="ml-2 text-sm">{{
+                                            "app.enable_publish_mode"
+                                                | transloco
+                                        }}</mat-label>
                                     </mat-slide-toggle>
 
                                     <!-- Divider -->
-                                    <div class="w-full mt-2 mb-2 border-t border-gray-100"></div>
+                                    <div
+                                        class="w-full mt-2 mb-2 border-t border-gray-100"
+                                    ></div>
 
                                     <!-- Actions -->
-                                    <div class="flex items-center justify-start w-full my-4">
-                                        <button color="primary" [disabled]="totalElements <= 0" (click)="autoPost()"
-                                            type="button" mat-flat-button>
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'"></mat-icon>
-                                            <mat-label class="ml-2">{{ 'app.start_posting' | transloco }}</mat-label>
+                                    <div
+                                        class="flex items-center justify-start w-full my-4"
+                                    >
+                                        <button
+                                            color="primary"
+                                            [disabled]="totalElements <= 0"
+                                            (click)="autoPost()"
+                                            type="button"
+                                            mat-flat-button
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="'feather:calendar'"
+                                            ></mat-icon>
+                                            <mat-label class="ml-2">{{
+                                                "app.start_posting" | transloco
+                                            }}</mat-label>
                                         </button>
                                     </div>
                                 </div>
@@ -221,86 +477,202 @@
             </mat-drawer>
 
             <!-- Content -->
-            <mat-drawer-content class="flex flex-col min-w-0 border-t border-l overflow-hidden rounded-tl-lg">
+            <mat-drawer-content
+                class="flex flex-col min-w-0 border-t border-l overflow-hidden rounded-tl-lg"
+            >
                 <!-- Header -->
                 <div class="flex flex-col sm:flex-row flex-0 h-full bg-white">
                     <div class="flex w-1/2 h-full relative overflow-hidden">
                         <!-- Kết quả -->
-                        <ngx-datatable [appScrollLock]="loading" [virtualization]="true" #table
+                        <ngx-datatable
+                            [appScrollLock]="loading"
+                            [virtualization]="true"
+                            #table
                             class="material expandable fullscreen transition-opacity duration-300"
-                            [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading"
-                            [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true"
-                            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
-                            [footerHeight]="50" [rowHeight]="50" [displayCheck]="displayCheck" [scrollbarV]="true"
-                            [rows]="rows" (activate)="onActivate($event)" [selected]="selected"
-                            [selectionType]="SelectionType.checkbox" (select)="onSelect($event)"
-                            [selectCheck]="checkSelectable">
-
+                            [class.pointer-events-none]="isLoading"
+                            [class.opacity-50]="isLoading"
+                            [columnMode]="ColumnMode.force"
+                            [externalPaging]="true"
+                            [externalSorting]="true"
+                            [count]="totalElements"
+                            [offset]="pageNumber"
+                            (page)="setPage($event)"
+                            [headerHeight]="50"
+                            [footerHeight]="50"
+                            [rowHeight]="50"
+                            [displayCheck]="displayCheck"
+                            [scrollbarV]="true"
+                            [rows]="rows"
+                            (activate)="onActivate($event)"
+                            [selected]="selected"
+                            [selectionType]="SelectionType.checkbox"
+                            (select)="onSelect($event)"
+                            [selectCheck]="checkSelectable"
+                        >
                             <!-- Column Templates -->
-                            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
-                                [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
-                                [checkboxable]="true"></ngx-datatable-column>
+                            <ngx-datatable-column
+                                [width]="30"
+                                [sortable]="false"
+                                [canAutoResize]="false"
+                                [draggable]="false"
+                                [resizeable]="false"
+                                [headerCheckboxable]="true"
+                                [checkboxable]="true"
+                            ></ngx-datatable-column>
 
-                            <ngx-datatable-column [name]="totalDisplayCount + ' ' + ('app.unused_posts' | transloco)"
-                                [width]="300" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                                [resizeable]="true">
-                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <ng-container *ngIf="row">
-                                        <div *ngIf="row.isHeader" class="flex items-center justify-between">
-                                            <a class="h-8 flex items-center justify-between leading-8 cursor-pointer p-3 rounded-full border border-green-500 text-green-500 bg-green-50 hover:bg-green-100"
-                                                (click)="selectRowsByDate(row.dateLabel)">
-                                                <mat-icon class="icon-size-4 text-green-500"
-                                                    [svgIcon]="'feather:calendar'"></mat-icon>
-                                                <mat-label class="ml-2">{{ row.dateLabel }}</mat-label>
-                                            </a>
-                                        </div>
-
-                                        <div *ngIf="!row.isHeader" [class.active-row]="isActive(row)">
-                                            <p class="font-normal truncate hover:text-clip cursor-pointer"
-                                                (click)="previewNow(row)" [ngClass]="{used: row.used > 0}">
-                                                {{row.text || '...'}}
-                                            </p>
-                                        </div>
-                                    </ng-container>
+                            <ngx-datatable-column
+                                [name]="
+                                    totalDisplayCount +
+                                    ' ' +
+                                    ('app.unused_posts' | transloco)
+                                "
+                                [width]="300"
+                                [sortable]="false"
+                                [canAutoResize]="true"
+                                [draggable]="false"
+                                [resizeable]="true"
+                            >
+                                <ng-template
+                                    let-row="row"
+                                    let-value="value"
+                                    ngx-datatable-cell-template
+                                >
+                                    @if (row) {
+                                        @if (row.isHeader) {
+                                            <div
+                                                class="flex items-center justify-between"
+                                            >
+                                                <a
+                                                    class="h-8 flex items-center justify-between leading-8 cursor-pointer p-3 rounded-full border border-green-500 text-green-500 bg-green-50 hover:bg-green-100"
+                                                    (click)="
+                                                        selectRowsByDate(
+                                                            row.dateLabel
+                                                        )
+                                                    "
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-4 text-green-500"
+                                                        [svgIcon]="'feather:calendar'"
+                                                    ></mat-icon>
+                                                    <mat-label class="ml-2">{{
+                                                        row.dateLabel
+                                                    }}</mat-label>
+                                                </a>
+                                            </div>
+                                        }
+                                        @if (!row.isHeader) {
+                                            <div
+                                                [class.active-row]="
+                                                    isActive(row)
+                                                "
+                                            >
+                                                <p
+                                                    class="font-normal truncate hover:text-clip cursor-pointer"
+                                                    (click)="previewNow(row)"
+                                                    [ngClass]="{
+                                                        used: row.used > 0,
+                                                    }"
+                                                >
+                                                    {{ row.text || "..." }}
+                                                </p>
+                                            </div>
+                                        }
+                                    }
                                 </ng-template>
                             </ngx-datatable-column>
 
-                            <ngx-datatable-column name="" [width]="100" [sortable]="false" [canAutoResize]="false"
-                                [draggable]="false" [resizeable]="false">
-                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <div *ngIf="row" class="flex items-center justify-end">
-                                        <a *ngIf="row.href && row.href.length > 0"
-                                            class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
-                                            [href]="row.href[0]" target="_blank" matTooltipPosition="above"
-                                            matTooltip="Truy cập vào địa chỉ gốc {{row.author?.name}}">Link</a>
-                                    </div>
+                            <ngx-datatable-column
+                                name=""
+                                [width]="100"
+                                [sortable]="false"
+                                [canAutoResize]="false"
+                                [draggable]="false"
+                                [resizeable]="false"
+                            >
+                                <ng-template
+                                    let-row="row"
+                                    let-value="value"
+                                    ngx-datatable-cell-template
+                                >
+                                    @if (row) {
+                                        <div
+                                            class="flex items-center justify-end"
+                                        >
+                                            @if (
+                                                row.href && row.href.length > 0
+                                            ) {
+                                                <a
+                                                    class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
+                                                    [href]="row.href[0]"
+                                                    target="_blank"
+                                                    matTooltipPosition="above"
+                                                    matTooltip="Truy cập vào địa chỉ gốc {{
+                                                        row.author?.name
+                                                    }}"
+                                                    >Link</a
+                                                >
+                                            }
+                                        </div>
+                                    }
                                 </ng-template>
                             </ngx-datatable-column>
 
                             <ngx-datatable-footer>
                                 <ng-template ngx-datatable-footer-template>
-                                    <div class="flex w-full sm:items-center sm:justify-between">
+                                    <div
+                                        class="flex w-full sm:items-center sm:justify-between"
+                                    >
                                         <div class="flex-1 min-w-0">
                                             <!-- Breadcrumbs -->
                                             <div class="page-count">
-                                                {{ selected.length > 0 ? selected.length + ' ' + ('app.selected_posts' | transloco)
-                                                : ('app.no_post_selected' | transloco) }}
+                                                {{
+                                                    selected.length > 0
+                                                        ? selected.length +
+                                                          " " +
+                                                          ("app.selected_posts"
+                                                              | transloco)
+                                                        : ("app.no_post_selected"
+                                                          | transloco)
+                                                }}
                                             </div>
                                         </div>
 
                                         <!-- Actions -->
-                                        <div class="flex shrink-0 items-center pr-4">
-                                            <button color="primary" (click)="analyticsTrend()" type="button"
-                                                mat-flat-button [disabled]="isAnalyzing">
-                                                <span class="flex items-center justify-center">
-                                                    <mat-progress-spinner *ngIf="isAnalyzing" [diameter]="16"
-                                                        [mode]="'indeterminate'"></mat-progress-spinner>
+                                        <div
+                                            class="flex shrink-0 items-center pr-4"
+                                        >
+                                            <button
+                                                color="primary"
+                                                (click)="analyticsTrend()"
+                                                type="button"
+                                                mat-flat-button
+                                                [disabled]="isAnalyzing"
+                                            >
+                                                <span
+                                                    class="flex items-center justify-center"
+                                                >
+                                                    @if (isAnalyzing) {
+                                                        <mat-progress-spinner
+                                                            [diameter]="16"
+                                                            [mode]="'indeterminate'"
+                                                        ></mat-progress-spinner>
+                                                    }
 
-                                                    <mat-icon *ngIf="!isAnalyzing" class="icon-size-4"
-                                                        [svgIcon]="'feather:activity'"></mat-icon>
+                                                    @if (!isAnalyzing) {
+                                                        <mat-icon
+                                                            class="icon-size-4"
+                                                            [svgIcon]="'feather:activity'"
+                                                        ></mat-icon>
+                                                    }
 
                                                     <mat-label class="ml-2">
-                                                        {{ isAnalyzing ? ('app.analyzing' | transloco) : ('app.analyze_trend' | transloco) }}
+                                                        {{
+                                                            isAnalyzing
+                                                                ? ("app.analyzing"
+                                                                  | transloco)
+                                                                : ("app.analyze_trend"
+                                                                  | transloco)
+                                                        }}
                                                     </mat-label>
                                                 </span>
                                             </button>
@@ -311,164 +683,371 @@
                         </ngx-datatable>
                     </div>
 
-                    <div class="flex w-1/2 h-full relative overflow-hidden border-l">
-                        <ng-container *ngIf="isAnalyzing">
-                            <div class="flex flex-col w-full h-full p-4 relative">
+                    <div
+                        class="flex w-1/2 h-full relative overflow-hidden border-l"
+                    >
+                        @if (isAnalyzing) {
+                            <div
+                                class="flex flex-col w-full h-full p-4 relative"
+                            >
                                 <div class="animate-pulse space-y-6 opacity-50">
-                                    <div class="h-8 w-1/3 bg-gray-300 dark:bg-gray-700 rounded-lg mb-8"></div>
+                                    <div
+                                        class="h-8 w-1/3 bg-gray-300 dark:bg-gray-700 rounded-lg mb-8"
+                                    ></div>
                                     <div class="space-y-6">
-                                        <div *ngFor="let i of [1,2,3]"
-                                            class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                            <div class="h-4 w-1/4 bg-blue-200 rounded mb-4"></div>
-                                            <div class="h-6 w-3/4 bg-gray-300 rounded mb-2"></div>
-                                            <div class="h-4 w-full bg-gray-200 rounded mb-4"></div>
-                                            <div class="space-y-2 border-l-4 border-gray-200 pl-4">
-                                                <div class="h-10 bg-gray-100 rounded"></div>
-                                                <div class="h-10 bg-gray-100 rounded"></div>
+                                        @for (i of [1, 2, 3]; track i) {
+                                            <div
+                                                class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                                            >
+                                                <div
+                                                    class="h-4 w-1/4 bg-blue-200 rounded mb-4"
+                                                ></div>
+                                                <div
+                                                    class="h-6 w-3/4 bg-gray-300 rounded mb-2"
+                                                ></div>
+                                                <div
+                                                    class="h-4 w-full bg-gray-200 rounded mb-4"
+                                                ></div>
+                                                <div
+                                                    class="space-y-2 border-l-4 border-gray-200 pl-4"
+                                                >
+                                                    <div
+                                                        class="h-10 bg-gray-100 rounded"
+                                                    ></div>
+                                                    <div
+                                                        class="h-10 bg-gray-100 rounded"
+                                                    ></div>
+                                                </div>
                                             </div>
-                                        </div>
+                                        }
                                     </div>
                                 </div>
-
-                                <div class="absolute inset-0 flex flex-col items-center justify-center z-10">
+                                <div
+                                    class="absolute inset-0 flex flex-col items-center justify-center z-10"
+                                >
                                     <div
-                                        class="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-6 rounded-xl shadow-xl flex flex-col items-center">
-                                        <mat-progress-spinner class="mb-4" [diameter]="48"
-                                            [mode]="'indeterminate'"></mat-progress-spinner>
-
-                                        <p class="text-center text-base font-medium text-primary animate-bounce">
-                                            {{ 'app.ai_is_reading_your' | transloco }}
+                                        class="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-6 rounded-xl shadow-xl flex flex-col items-center"
+                                    >
+                                        <mat-progress-spinner
+                                            class="mb-4"
+                                            [diameter]="48"
+                                            [mode]="'indeterminate'"
+                                        ></mat-progress-spinner>
+                                        <p
+                                            class="text-center text-base font-medium text-primary animate-bounce"
+                                        >
+                                            {{
+                                                "app.ai_is_reading_your"
+                                                    | transloco
+                                            }}
                                         </p>
-                                        <p class="text-sm text-secondary mt-2">{{ 'app.please_wait_moment' | transloco }}</p>
+                                        <p class="text-sm text-secondary mt-2">
+                                            {{
+                                                "app.please_wait_moment"
+                                                    | transloco
+                                            }}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
-                        </ng-container>
+                        }
 
-                        <ng-container *ngIf="!isAnalyzing && trendResult && trendResult.length > 0">
-                            <ng-container *ngTemplateOutlet="trendTemplate"></ng-container>
-                        </ng-container>
+                        @if (
+                            !isAnalyzing &&
+                            trendResult &&
+                            trendResult.length > 0
+                        ) {
+                            <ng-container
+                                *ngTemplateOutlet="trendTemplate"
+                            ></ng-container>
+                        }
 
-                        <ng-container *ngIf="!isAnalyzing && trendResult.length === 0">
-                            <ng-container *ngTemplateOutlet="normalView"></ng-container>
-                        </ng-container>
+                        @if (!isAnalyzing && trendResult.length === 0) {
+                            <ng-container
+                                *ngTemplateOutlet="normalView"
+                            ></ng-container>
+                        }
 
                         <ng-template #trendTemplate>
-                            <div class="flex flex-col w-full h-full justify-between">
+                            <div
+                                class="flex flex-col w-full h-full justify-between"
+                            >
                                 <header
-                                    class="px-6 min-h-[50px] border-b border-gray-200 dark:border-gray-600 flex justify-between items-center bg-white dark:bg-gray-800">
-                                    <p class="text-base font-semibold text-primary">{{ 'app.trend_analysis_result' | transloco }}</p>
-                                    <button mat-icon-button (click)="clearTrend()" [matTooltip]="'app.clear_result' | transloco">
-                                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                                    class="px-6 min-h-[50px] border-b border-gray-200 dark:border-gray-600 flex justify-between items-center bg-white dark:bg-gray-800"
+                                >
+                                    <p
+                                        class="text-base font-semibold text-primary"
+                                    >
+                                        {{
+                                            "app.trend_analysis_result"
+                                                | transloco
+                                        }}
+                                    </p>
+                                    <button
+                                        mat-icon-button
+                                        (click)="clearTrend()"
+                                        [matTooltip]="
+                                            'app.clear_result' | transloco
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="'heroicons_outline:trash'"
+                                        ></mat-icon>
                                     </button>
                                 </header>
 
                                 <main class="w-full overflow-auto p-4">
                                     <div class="space-y-8">
-                                        <div *ngFor="let trend of trendResult"
-                                            class="bg-white border-b border-gray-200 dark:border-gray-600 dark:bg-gray-800 shadow-none pb-6 last:border-0 last:pb-0">
-                                            <div class="mb-4">
-                                                <span
-                                                    class="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-semibold uppercase">Trend</span>
-                                                <p
-                                                    class="text-base font-semibold mt-2 text-gray-800 dark:text-gray-100">
-                                                    {{
-                                                    trend.trend_name }}</p>
-                                                <p class="text-sm text-secondary mt-1 italic">{{ trend.summary }}</p>
-                                            </div>
-
-                                            <div class="space-y-4">
-                                                <div *ngFor="let item of trend.contents" class="rounded-lg">
+                                        @for (
+                                            trend of trendResult;
+                                            track trend
+                                        ) {
+                                            <div
+                                                class="bg-white border-b border-gray-200 dark:border-gray-600 dark:bg-gray-800 shadow-none pb-6 last:border-0 last:pb-0"
+                                            >
+                                                <div class="mb-4">
+                                                    <span
+                                                        class="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-semibold uppercase"
+                                                        >Trend</span
+                                                    >
                                                     <p
-                                                        class="font-medium text-base text-gray-900 dark:text-white leading-tight">
-                                                        {{ item.headline }}
+                                                        class="text-base font-semibold mt-2 text-gray-800 dark:text-gray-100"
+                                                    >
+                                                        {{ trend.trend_name }}
                                                     </p>
-                                                    <div class="mt-3 rounded">
-                                                        <div class="flex items-center justify-between mb-1">
-                                                            <span
-                                                                class="text-[10px] font-semibold uppercase text-gray-500">Image
-                                                                Prompt (AI)</span>
-                                                            <button mat-icon-button class="icon-size-8"
-                                                                (click)="facePost2Node(item)">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'heroicons_outline:clipboard-copy'"></mat-icon>
-                                                            </button>
+                                                    <p
+                                                        class="text-sm text-secondary mt-1 italic"
+                                                    >
+                                                        {{ trend.summary }}
+                                                    </p>
+                                                </div>
+                                                <div class="space-y-4">
+                                                    @for (
+                                                        item of trend.contents;
+                                                        track item
+                                                    ) {
+                                                        <div class="rounded-lg">
+                                                            <p
+                                                                class="font-medium text-base text-gray-900 dark:text-white leading-tight"
+                                                            >
+                                                                {{
+                                                                    item.headline
+                                                                }}
+                                                            </p>
+                                                            <div
+                                                                class="mt-3 rounded"
+                                                            >
+                                                                <div
+                                                                    class="flex items-center justify-between mb-1"
+                                                                >
+                                                                    <span
+                                                                        class="text-[10px] font-semibold uppercase text-gray-500"
+                                                                        >Image
+                                                                        Prompt
+                                                                        (AI)</span
+                                                                    >
+                                                                    <button
+                                                                        mat-icon-button
+                                                                        class="icon-size-8"
+                                                                        (click)="
+                                                                            facePost2Node(
+                                                                                item
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4"
+                                                                            [svgIcon]="'heroicons_outline:clipboard-copy'"
+                                                                        ></mat-icon>
+                                                                    </button>
+                                                                </div>
+                                                                <p
+                                                                    class="text-xs text-gray-600 dark:text-gray-400 italic"
+                                                                >
+                                                                    {{
+                                                                        item.image_prompt
+                                                                    }}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <p class="text-xs text-gray-600 dark:text-gray-400 italic">
-                                                            {{ item.image_prompt }}
-                                                        </p>
-                                                    </div>
+                                                    }
+                                                </div>
+                                                <div
+                                                    class="mt-4 flex flex-wrap gap-2"
+                                                >
+                                                    @for (
+                                                        kw of trend.keywords;
+                                                        track kw
+                                                    ) {
+                                                        <span
+                                                            class="text-[11px] bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded text-secondary"
+                                                        >
+                                                            #{{ kw }}
+                                                        </span>
+                                                    }
                                                 </div>
                                             </div>
-
-                                            <div class="mt-4 flex flex-wrap gap-2">
-                                                <span *ngFor="let kw of trend.keywords"
-                                                    class="text-[11px] bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded text-secondary">
-                                                    #{{ kw }}
-                                                </span>
-                                            </div>
-                                        </div>
+                                        }
                                     </div>
                                 </main>
                             </div>
                         </ng-template>
 
                         <ng-template #normalView>
-                            <div class="flex flex-col w-full h-full justify-between">
+                            <div
+                                class="flex flex-col w-full h-full justify-between"
+                            >
                                 <main class="w-full overflow-auto">
                                     <div class="flex flex-col pb-6">
-                                        <p class="relative flex-auto px-6 mt-6"
-                                            *ngIf="preview['images'] && preview['images'].length > 0">
-                                            <mat-grid-list cols="3" rowHeight="1:1" gutterSize="24px">
-                                                <ng-container *ngFor="let href of preview.href">
-                                                    <mat-grid-tile class="rounded-2xl"
-                                                        *ngIf="href.indexOf('video') >= 0"
-                                                        [ngStyle]="{'background-image': 'url(' + preview.images[0] + ')', 'background-size': 'cover', 'background-repeat': 'no-repeat', 'background-position': 'center'}">
-                                                        <ng-container
-                                                            *ngIf="preview['href'] && preview['href'].length > 0;">
-                                                            <a *ngFor="let href of preview.href"
-                                                                class="absolute top-0 left-0 bottom-0 right-0"
-                                                                [href]="href" target="_blank" matTooltipPosition="above"
-                                                                [matTooltip]="'app.access_this_address' | transloco"></a>
-                                                        </ng-container>
+                                        @if (
+                                            preview["images"] &&
+                                            preview["images"].length > 0
+                                        ) {
+                                            <p
+                                                class="relative flex-auto px-6 mt-6"
+                                            >
+                                                <mat-grid-list
+                                                    cols="3"
+                                                    rowHeight="1:1"
+                                                    gutterSize="24px"
+                                                >
+                                                    @for (
+                                                        href of preview.href;
+                                                        track href
+                                                    ) {
+                                                        @if (
+                                                            href.indexOf(
+                                                                "video"
+                                                            ) >= 0
+                                                        ) {
+                                                            <mat-grid-tile
+                                                                class="rounded-2xl"
+                                                                [ngStyle]="{
+                                                                    'background-image':
+                                                                        'url(' +
+                                                                        preview
+                                                                            .images[0] +
+                                                                        ')',
+                                                                    'background-size':
+                                                                        'cover',
+                                                                    'background-repeat':
+                                                                        'no-repeat',
+                                                                    'background-position':
+                                                                        'center',
+                                                                }"
+                                                            >
+                                                                @if (
+                                                                    preview[
+                                                                        "href"
+                                                                    ] &&
+                                                                    preview[
+                                                                        "href"
+                                                                    ].length > 0
+                                                                ) {
+                                                                    @for (
+                                                                        href of preview.href;
+                                                                        track href
+                                                                    ) {
+                                                                        <a
+                                                                            class="absolute top-0 left-0 bottom-0 right-0"
+                                                                            [href]="
+                                                                                href
+                                                                            "
+                                                                            target="_blank"
+                                                                            matTooltipPosition="above"
+                                                                            [matTooltip]="
+                                                                                'app.access_this_address'
+                                                                                    | transloco
+                                                                            "
+                                                                        ></a>
+                                                                    }
+                                                                }
+                                                                <a
+                                                                    mat-icon-button
+                                                                    (click)="
+                                                                        downloadVideo(
+                                                                            href
+                                                                        )
+                                                                    "
+                                                                    class="text-white bg-red-500 bg-opacity-30 absolute"
+                                                                    matTooltipPosition="above"
+                                                                    [matTooltip]="
+                                                                        'app.download_video_to_device'
+                                                                            | transloco
+                                                                    "
+                                                                >
+                                                                    <mat-icon
+                                                                        class="icon-size-4 text-white"
+                                                                        [svgIcon]="'feather:video'"
+                                                                    ></mat-icon>
+                                                                </a>
+                                                            </mat-grid-tile>
+                                                        }
+                                                    }
+                                                    @if (!checkVideo()) {
+                                                        @for (
+                                                            img of preview.images;
+                                                            track img
+                                                        ) {
+                                                            <mat-grid-tile
+                                                                class="rounded-2xl"
+                                                                [ngStyle]="{
+                                                                    'background-image':
+                                                                        'url(' +
+                                                                        img +
+                                                                        ')',
+                                                                    'background-size':
+                                                                        'cover',
+                                                                    'background-repeat':
+                                                                        'no-repeat',
+                                                                    'background-position':
+                                                                        'center',
+                                                                }"
+                                                            >
+                                                                <a
+                                                                    mat-icon-button
+                                                                    (click)="
+                                                                        downloadImage(
+                                                                            img
+                                                                        )
+                                                                    "
+                                                                    class="text-white bg-green-500 bg-opacity-30 absolute"
+                                                                    matTooltipPosition="above"
+                                                                    [matTooltip]="
+                                                                        'app.download_image_to_device'
+                                                                            | transloco
+                                                                    "
+                                                                >
+                                                                    <mat-icon
+                                                                        class="icon-size-4 text-white"
+                                                                        [svgIcon]="'feather:download'"
+                                                                    ></mat-icon>
+                                                                </a>
+                                                            </mat-grid-tile>
+                                                        }
+                                                    }
+                                                </mat-grid-list>
+                                            </p>
+                                        }
 
-                                                        <a mat-icon-button (click)="downloadVideo(href)"
-                                                            class="text-white bg-red-500 bg-opacity-30 absolute"
-                                                            matTooltipPosition="above" [matTooltip]="'app.download_video_to_device' | transloco">
-                                                            <mat-icon class="icon-size-4 text-white"
-                                                                [svgIcon]="'feather:video'"></mat-icon>
-                                                        </a>
-                                                    </mat-grid-tile>
-                                                </ng-container>
-
-                                                <ng-container *ngIf="!checkVideo()">
-                                                    <mat-grid-tile class="rounded-2xl"
-                                                        *ngFor="let img of preview.images"
-                                                        [ngStyle]="{'background-image': 'url(' +img+ ')', 'background-size': 'cover', 'background-repeat': 'no-repeat', 'background-position': 'center'}">
-                                                        <a mat-icon-button (click)="downloadImage(img)"
-                                                            class="text-white bg-green-500 bg-opacity-30 absolute"
-                                                            matTooltipPosition="above" [matTooltip]="'app.download_image_to_device' | transloco">
-                                                            <mat-icon class="icon-size-4 text-white"
-                                                                [svgIcon]="'feather:download'"></mat-icon>
-                                                        </a>
-                                                    </mat-grid-tile>
-                                                </ng-container>
-                                            </mat-grid-list>
-                                        </p>
-
-                                        <div class="text-base px-6 mt-4" *ngIf="preview.text"
-                                            [innerHTML]="preview.text"></div>
+                                        @if (preview.text) {
+                                            <div
+                                                class="text-base px-6 mt-4"
+                                                [innerHTML]="preview.text"
+                                            ></div>
+                                        }
                                     </div>
                                 </main>
 
                                 <!-- <footer class="px-4 py-2 min-h-[50px] shadow-md border-t">
-                                    <div class="flex flex-row">
-                                        <button mat-flat-button [color]="'primary'" (click)="facePost2Node()">
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
-                                            <span class="ml-2">{{ 'app.auto_create_post_1' | transloco }}</span>
-                                        </button>
-                                    </div>
-                                </footer> -->
+            <div class="flex flex-row">
+              <button mat-flat-button [color]="'primary'" (click)="facePost2Node()">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
+                <span class="ml-2">{{ 'app.auto_create_post_1' | transloco }}</span>
+              </button>
+            </div>
+          </footer> -->
                             </div>
                         </ng-template>
                     </div>

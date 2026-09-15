@@ -1,14 +1,21 @@
-<div class="ai-floating-container" *ngIf="isPluginInstalled && aiKnowledgeService.isLearningModeActive">
-  <!-- The Floating Button -->
-  <button 
-    class="ai-fab magical-icon" 
-    [class.analyzing]="isAnimating"
-    [class.cooldown]="isCoolingDown"
-    (animationiteration)="onAnimationIteration($event)"
-    (animationend)="onAnimationEnd($event)"
-    (click)="aiKnowledgeService.triggerManualSave()"
-    [matTooltip]="isAnalyzing ? 'Trợ lý AI đang phân tích dữ liệu màn hình...' : 'Nhấn để AI Agent học giao diện này'"
-    [matTooltipPosition]="'above'">
-    🧠
-  </button>
-</div>
+@if (isPluginInstalled && aiKnowledgeService.isLearningModeActive) {
+    <div class="ai-floating-container">
+        <!-- The Floating Button -->
+        <button
+            class="ai-fab magical-icon"
+            [class.analyzing]="isAnimating"
+            [class.cooldown]="isCoolingDown"
+            (animationiteration)="onAnimationIteration($event)"
+            (animationend)="onAnimationEnd($event)"
+            (click)="aiKnowledgeService.triggerManualSave()"
+            [matTooltip]="
+                isAnalyzing
+                    ? 'Trợ lý AI đang phân tích dữ liệu màn hình...'
+                    : 'Nhấn để AI Agent học giao diện này'
+            "
+            [matTooltipPosition]="'above'"
+        >
+            🧠
+        </button>
+    </div>
+}

@@ -1,362 +1,809 @@
-
-
 <style>
-  .chatgpt-result p {
-    margin-bottom: 0.5rem;
-  }
-  .chatgpt-result p:last-child {
-    margin-bottom: 0;
-  }
-  .chatgpt-result ul {
-    list-style-type: disc !important;
-    padding-left: 1.25rem !important;
-    margin-bottom: 0.5rem !important;
-  }
-  .chatgpt-result ol {
-    list-style-type: decimal !important;
-    padding-left: 1.25rem !important;
-    margin-bottom: 0.5rem !important;
-  }
-  .chatgpt-result li {
-    margin-bottom: 0.25rem;
-  }
-  .chatgpt-result code {
-    background-color: #e2e8f0 !important;
-    color: #b91c1c !important;
-    padding: 0.125rem 0.25rem;
-    border-radius: 0.25rem;
-    font-family: monospace;
-    font-size: 0.8125rem !important;
-  }
-  .dark .chatgpt-result code {
-    background-color: #1e293b !important;
-    color: #f87171 !important;
-  }
-  .chatgpt-result pre {
-    background-color: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
-    padding: 0.75rem;
-    border-radius: 0.375rem;
-    overflow-x: auto;
-    margin-bottom: 0.5rem;
-  }
-  .dark .chatgpt-result pre {
-    background-color: #0f172a !important;
-    border: 1px solid #334155 !important;
-  }
-  .chatgpt-result pre code {
-    background-color: transparent !important;
-    padding: 0 !important;
-    color: inherit !important;
-    font-size: 0.8125rem !important;
-  }
-  .chatgpt-result h1, .chatgpt-result h2, .chatgpt-result h3, .chatgpt-result h4 {
-    font-weight: 600;
-    margin-top: 0.75rem;
-    margin-bottom: 0.25rem;
-  }
-  .chatgpt-result table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 0.5rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.875rem;
-  }
-  .chatgpt-result th, .chatgpt-result td {
-    border: 1px solid #e2e8f0;
-    padding: 0.5rem 0.75rem;
-    text-align: left;
-  }
-  .chatgpt-result th {
-    background-color: #f1f5f9;
-    font-weight: 600;
-    color: #1e293b;
-  }
-  .dark .chatgpt-result th, .dark .chatgpt-result td {
-    border: 1px solid #334155;
-  }
-  .dark .chatgpt-result th {
-    background-color: #1e293b;
-    color: #f1f5f9;
-  }
-  .chatgpt-result tr:nth-child(even) {
-    background-color: #f8fafc;
-  }
-  .dark .chatgpt-result tr:nth-child(even) {
-    background-color: #0f172a;
-  }
+    .chatgpt-result p {
+        margin-bottom: 0.5rem;
+    }
+    .chatgpt-result p:last-child {
+        margin-bottom: 0;
+    }
+    .chatgpt-result ul {
+        list-style-type: disc !important;
+        padding-left: 1.25rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    .chatgpt-result ol {
+        list-style-type: decimal !important;
+        padding-left: 1.25rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    .chatgpt-result li {
+        margin-bottom: 0.25rem;
+    }
+    .chatgpt-result code {
+        background-color: #e2e8f0 !important;
+        color: #b91c1c !important;
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.25rem;
+        font-family: monospace;
+        font-size: 0.8125rem !important;
+    }
+    .dark .chatgpt-result code {
+        background-color: #1e293b !important;
+        color: #f87171 !important;
+    }
+    .chatgpt-result pre {
+        background-color: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+        overflow-x: auto;
+        margin-bottom: 0.5rem;
+    }
+    .dark .chatgpt-result pre {
+        background-color: #0f172a !important;
+        border: 1px solid #334155 !important;
+    }
+    .chatgpt-result pre code {
+        background-color: transparent !important;
+        padding: 0 !important;
+        color: inherit !important;
+        font-size: 0.8125rem !important;
+    }
+    .chatgpt-result h1,
+    .chatgpt-result h2,
+    .chatgpt-result h3,
+    .chatgpt-result h4 {
+        font-weight: 600;
+        margin-top: 0.75rem;
+        margin-bottom: 0.25rem;
+    }
+    .chatgpt-result table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.5rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.875rem;
+    }
+    .chatgpt-result th,
+    .chatgpt-result td {
+        border: 1px solid #e2e8f0;
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+    }
+    .chatgpt-result th {
+        background-color: #f1f5f9;
+        font-weight: 600;
+        color: #1e293b;
+    }
+    .dark .chatgpt-result th,
+    .dark .chatgpt-result td {
+        border: 1px solid #334155;
+    }
+    .dark .chatgpt-result th {
+        background-color: #1e293b;
+        color: #f1f5f9;
+    }
+    .chatgpt-result tr:nth-child(even) {
+        background-color: #f8fafc;
+    }
+    .dark .chatgpt-result tr:nth-child(even) {
+        background-color: #0f172a;
+    }
 </style>
 
 <!-- Notifications toggle -->
 <button mat-icon-button (click)="openPanel()" #chatgptOrigin>
-    <mat-icon class="icon-size-5" [svgIcon]="'feather:message-square'"></mat-icon>
+    <mat-icon
+        class="icon-size-5"
+        [svgIcon]="'feather:message-square'"
+    ></mat-icon>
 </button>
 
 <!-- Notifications panel -->
 <ng-template #chatgptPanel>
     <div
-        class="fixed inset-0 sm:static sm:inset-auto flex flex-col sm:min-w-[520px] sm:w-[520px] sm:h-[720px] h-[720px] overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
+        class="fixed inset-0 sm:static sm:inset-auto flex flex-col sm:min-w-[520px] sm:w-[520px] sm:h-[720px] h-[720px] overflow-hidden shadow-xl border-4 border-primary rounded-2xl"
+    >
         <!-- Header -->
-        <div *ngIf="!activeChatRow" class="flex flex-col shrink-0 px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-            <!-- File attachment preview -->
-            <div *ngIf="attachedFileMain" class="flex items-center space-x-2 px-2.5 py-1 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded-lg text-xs w-fit">
-                <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:document'"></mat-icon>
-                <span class="truncate max-w-40 font-medium">{{ attachedFileMain.name }}</span>
-                <button (click)="attachedFileMain = null" class="text-blue-400 hover:text-blue-600 focus:outline-none flex items-center">
-                    <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:x'"></mat-icon>
-                </button>
-            </div>
-
-            <div class="flex items-center w-full">
-                <div class="sm:hidden mr-2 shrink-0">
-                    <button mat-icon-button (click)="closePanel()">
-                        <mat-icon class="icon-size-4 text-gray-500" [svgIcon]="'heroicons_solid:x'"></mat-icon>
-                    </button>
-                </div>
-
-                <!-- Styled Input Container -->
-                <div class="flex items-center flex-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm relative">
-                    <!-- Hidden file input for main chat -->
-                    <input type="file" (change)="upload($event, false)" #fileInputMain class="hidden">
-
-                    <!-- Attachment Button -->
-                    <button mat-icon-button (click)="fileInputMain.click()" [disabled]="isLoading"
-                        class="mr-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-650 dark:hover:text-gray-300 focus:outline-none shrink-0"
-                        title="Đính kèm file">
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:paper-clip'"></mat-icon>
-                    </button>
-
-                    <input #mainInput class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0"
-                        [placeholder]="('app.we_use_gemini' | transloco)"
-                        (input)="onChatInput($event, mainInput)"
-                        (keydown)="onChatKeyDown($event, mainInput)"
-                        (keyup.enter)="!ignoreNextEnter && !showMentions && (!isLoading && (goiy?.trim() || attachedFileMain)) && chatgpt(goiy)" [(ngModel)]="goiy" required [disabled]="isLoading" />
-                    
-                    <!-- Suggestions Dropdown -->
-                    <div *ngIf="showMentions && filteredMentionOptions.length > 0" 
-                         class="absolute top-[110%] left-0 z-50 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 overflow-hidden">
-                        <div *ngFor="let option of filteredMentionOptions; let i = index" 
-                             (click)="selectMention(option, mainInput)"
-                             class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
-                             [ngClass]="{'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300': i === mentionIndex, 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50': i !== mentionIndex}">
-                            <mat-icon class="icon-size-4 mr-3 text-current" [svgIcon]="option.icon"></mat-icon>
-                            <span class="font-medium text-sm">{{ option.id }}</span>
-                        </div>
+        @if (!activeChatRow) {
+            <div
+                class="flex flex-col shrink-0 px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700"
+            >
+                <!-- File attachment preview -->
+                @if (attachedFileMain) {
+                    <div
+                        class="flex items-center space-x-2 px-2.5 py-1 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded-lg text-xs w-fit"
+                    >
+                        <mat-icon
+                            class="icon-size-3.5"
+                            [svgIcon]="'heroicons_solid:document'"
+                        ></mat-icon>
+                        <span class="truncate max-w-40 font-medium">{{
+                            attachedFileMain.name
+                        }}</span>
+                        <button
+                            (click)="attachedFileMain = null"
+                            class="text-blue-400 hover:text-blue-600 focus:outline-none flex items-center"
+                        >
+                            <mat-icon
+                                class="icon-size-3.5"
+                                [svgIcon]="'heroicons_solid:x'"
+                            ></mat-icon>
+                        </button>
                     </div>
-
-                    <button mat-mini-fab color="primary" [disabled]="isLoading || (!goiy?.trim() && !attachedFileMain)" (click)="!isLoading && chatgpt(goiy)"
-                        class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
-                        [matTooltip]="('app.send_question_to_gemini' | transloco)">
-                        <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
-                    </button>
+                }
+                <div class="flex items-center w-full">
+                    <div class="sm:hidden mr-2 shrink-0">
+                        <button mat-icon-button (click)="closePanel()">
+                            <mat-icon
+                                class="icon-size-4 text-gray-500"
+                                [svgIcon]="'heroicons_solid:x'"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                    <!-- Styled Input Container -->
+                    <div
+                        class="flex items-center flex-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm relative"
+                    >
+                        <!-- Hidden file input for main chat -->
+                        <input
+                            type="file"
+                            (change)="upload($event, false)"
+                            #fileInputMain
+                            class="hidden"
+                        />
+                        <!-- Attachment Button -->
+                        <button
+                            mat-icon-button
+                            (click)="fileInputMain.click()"
+                            [disabled]="isLoading"
+                            class="mr-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-650 dark:hover:text-gray-300 focus:outline-none shrink-0"
+                            title="Đính kèm file"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'heroicons_solid:paper-clip'"
+                            ></mat-icon>
+                        </button>
+                        <input
+                            #mainInput
+                            class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0"
+                            [placeholder]="'app.we_use_gemini' | transloco"
+                            (input)="onChatInput($event, mainInput)"
+                            (keydown)="onChatKeyDown($event, mainInput)"
+                            (keyup.enter)="
+                                !ignoreNextEnter &&
+                                    !showMentions &&
+                                    !isLoading &&
+                                    (goiy?.trim() || attachedFileMain) &&
+                                    chatgpt(goiy)
+                            "
+                            [(ngModel)]="goiy"
+                            required
+                            [disabled]="isLoading"
+                        />
+                        <!-- Suggestions Dropdown -->
+                        @if (
+                            showMentions && filteredMentionOptions.length > 0
+                        ) {
+                            <div
+                                class="absolute top-[110%] left-0 z-50 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 overflow-hidden"
+                            >
+                                @for (
+                                    option of filteredMentionOptions;
+                                    track option;
+                                    let i = $index
+                                ) {
+                                    <div
+                                        (click)="
+                                            selectMention(option, mainInput)
+                                        "
+                                        class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
+                                        [ngClass]="{
+                                            'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300':
+                                                i === mentionIndex,
+                                            'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50':
+                                                i !== mentionIndex,
+                                        }"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 mr-3 text-current"
+                                            [svgIcon]="option.icon"
+                                        ></mat-icon>
+                                        <span class="font-medium text-sm">{{
+                                            option.id
+                                        }}</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <button
+                            mat-mini-fab
+                            color="primary"
+                            [disabled]="
+                                isLoading ||
+                                (!goiy?.trim() && !attachedFileMain)
+                            "
+                            (click)="!isLoading && chatgpt(goiy)"
+                            class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
+                            [matTooltip]="
+                                'app.send_question_to_gemini' | transloco
+                            "
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-white"
+                                [svgIcon]="'heroicons_solid:paper-airplane'"
+                            ></mat-icon>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        }
 
         <!-- Content -->
         <div
-            class="relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
-            <ngx-datatable [appScrollLock]="isLoading" [virtualization]="false" #myTable class="material expandable fullscreen"
-                [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
-                [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
-                [scrollbarV]="true" [rows]="chatgpt2s">
-
-
-
+            class="relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card"
+        >
+            <ngx-datatable
+                [appScrollLock]="isLoading"
+                [virtualization]="false"
+                #myTable
+                class="material expandable fullscreen"
+                [columnMode]="ColumnMode.force"
+                [externalPaging]="true"
+                [externalSorting]="true"
+                [count]="totalElements"
+                [offset]="pageNumber"
+                (page)="setPage($event)"
+                [headerHeight]="50"
+                [footerHeight]="50"
+                [rowHeight]="50"
+                [scrollbarV]="true"
+                [rows]="chatgpt2s"
+            >
                 <!-- Column Templates -->
-                <ngx-datatable-column name="#" [width]="50" [resizeable]="false" [sortable]="false" [draggable]="false"
-                    [canAutoResize]="false">
+                <ngx-datatable-column
+                    name="#"
+                    [width]="50"
+                    [resizeable]="false"
+                    [sortable]="false"
+                    [draggable]="false"
+                    [canAutoResize]="false"
+                >
                     <ng-template let-row="row" ngx-datatable-cell-template>
-                        <a href="javascript:void(0)" [class.datatable-icon-right]="activeChatRow !== row"
-                            [class.datatable-icon-down]="activeChatRow === row" class="rounded" title="Expand/Collapse Row"
-                            (click)="toggleExpandRow(row)">
+                        <a
+                            href="javascript:void(0)"
+                            [class.datatable-icon-right]="activeChatRow !== row"
+                            [class.datatable-icon-down]="activeChatRow === row"
+                            class="rounded"
+                            title="Expand/Collapse Row"
+                            (click)="toggleExpandRow(row)"
+                        >
                         </a>
                     </ng-template>
                 </ngx-datatable-column>
 
-                <ngx-datatable-column [name]="('app.question' | transloco)" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                    [resizeable]="false">
-                    <ng-template let-rowIndex="rowIndex" let-row="row" ngx-datatable-cell-template>
+                <ngx-datatable-column
+                    [name]="'app.question' | transloco"
+                    [sortable]="false"
+                    [canAutoResize]="true"
+                    [draggable]="false"
+                    [resizeable]="false"
+                >
+                    <ng-template
+                        let-rowIndex="rowIndex"
+                        let-row="row"
+                        ngx-datatable-cell-template
+                    >
                         {{ row?.question }}
                     </ng-template>
                 </ngx-datatable-column>
 
-
-
-                <ngx-datatable-column [name]="('app.time' | transloco)" [width]="140" [sortable]="false" [canAutoResize]="false"
-                    [draggable]="false" [resizeable]="false">
-                    <ng-template let-rowIndex="rowIndex" let-row="row" ngx-datatable-cell-template>
-                        {{ row?.updatedAt | timeago }}
+                <ngx-datatable-column
+                    [name]="'app.time' | transloco"
+                    [width]="140"
+                    [sortable]="false"
+                    [canAutoResize]="false"
+                    [draggable]="false"
+                    [resizeable]="false"
+                >
+                    <ng-template
+                        let-rowIndex="rowIndex"
+                        let-row="row"
+                        ngx-datatable-cell-template
+                    >
+                        {{ $safeNavigationMigration(row?.updatedAt) | timeago }}
                     </ng-template>
                 </ngx-datatable-column>
 
-                <ngx-datatable-column [width]="60" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                    [resizeable]="false">
+                <ngx-datatable-column
+                    [width]="60"
+                    [sortable]="false"
+                    [canAutoResize]="false"
+                    [draggable]="false"
+                    [resizeable]="false"
+                >
                     <ng-template let-row="row" ngx-datatable-cell-template>
-                        <button mat-icon-button (click)="deleteChat(row, $event)"
+                        <button
+                            mat-icon-button
+                            (click)="deleteChat(row, $event)"
                             class="text-red-500 hover:text-red-700 dark:hover:text-red-400"
-                            title="Xóa cuộc hội thoại">
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                            title="Xóa cuộc hội thoại"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'heroicons_outline:trash'"
+                            ></mat-icon>
                         </button>
                     </ng-template>
                 </ngx-datatable-column>
 
                 <ngx-datatable-footer>
-                    <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-                        let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
-                        let-isVisible="isVisible">
+                    <ng-template
+                        ngx-datatable-footer-template
+                        let-rowCount="rowCount"
+                        let-pageSize="pageSize"
+                        let-selectedCount="selectedCount"
+                        let-curPage="curPage"
+                        let-offset="offset"
+                        let-isVisible="isVisible"
+                    >
                         <div class="page-count">
-                            {{ 'app.you_asked_gemini' | transloco }} {{ (rowCount) ? rowCount.toLocaleString() : 0 }} {{ 'app.times' | transloco }}
+                            {{ "app.you_asked_gemini" | transloco }}
+                            {{ rowCount ? rowCount.toLocaleString() : 0 }}
+                            {{ "app.times" | transloco }}
                         </div>
                     </ng-template>
                 </ngx-datatable-footer>
             </ngx-datatable>
 
             <!-- Chat Overlay Panel (Sibling of table, covers everything with absolute inset-0) -->
-            <div *ngIf="activeChatRow" class="absolute inset-0 z-50 flex flex-col border-none bg-gray-50 dark:bg-gray-900 w-full h-full overflow-hidden">
-                <!-- Chat Header / Back button -->
-                <div class="flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0">
-                    <button (click)="toggleExpandRow(activeChatRow)" 
-                        class="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center mr-2 transition-colors duration-150 focus:outline-none shrink-0" 
-                        title="Quay lại">
-                        <mat-icon class="icon-size-5 text-gray-600 dark:text-gray-300" [svgIcon]="'heroicons_solid:arrow-left'"></mat-icon>
-                    </button>
-                    <div class="flex-auto min-w-0">
-                        <h4 class="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
-                            {{ activeChatRow.question || 'Global AI Agent' }}
-                        </h4>
-                    </div>
-                </div>
-
-                <!-- Message List -->
-                <div id="chatMessageList" class="flex-auto overflow-y-auto overflow-x-hidden space-y-3 p-4 scrollbar-thin">
-                    <ng-container *ngFor="let msg of getMessages(activeChatRow)">
-                        <!-- User message -->
-                        <div class="flex justify-end flex-col items-end gap-1" *ngIf="msg.role === 'user'">
-                            <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none p-3.5 text-base whitespace-pre-wrap break-words flex flex-col shadow-2xs">
-                                <div>{{ msg.text }}</div>
-                                <!-- File attachment rendering inside bubble -->
-                                <div *ngIf="msg.inlineData" class="mt-2 pt-2 border-t border-blue-100/30 dark:border-blue-900/30 flex flex-col items-start w-full">
-                                    <img *ngIf="msg.inlineData.mimeType?.startsWith('image/')" [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-xl object-contain self-start" />
-                                    <div *ngIf="!msg.inlineData.mimeType?.startsWith('image/')" class="flex items-center space-x-1 text-xs opacity-75">
-                                        <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:document'"></mat-icon>
-                                        <span class="truncate max-w-40 font-medium">{{ msg.path ? (msg.path.split('/').pop()) : 'Tệp đính kèm' }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
-                            <div class="flex items-center gap-2 px-1 text-xs text-gray-400 dark:text-gray-400 select-none">
-                                <span>{{ getMessageTime(msg) }}</span>
-                                <button type="button" (click)="copyMessage(msg.text)" class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
-                                    <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
-                                    <span class="text-[11px]">Copy</span>
-                                </button>
-                                <button type="button" (click)="reAskMessage(msg.text)" class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại nội dung này">
-                                    <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                                    <span class="text-[11px]">Hỏi lại</span>
-                                </button>
-                            </div>
+            @if (activeChatRow) {
+                <div
+                    class="absolute inset-0 z-50 flex flex-col border-none bg-gray-50 dark:bg-gray-900 w-full h-full overflow-hidden"
+                >
+                    <!-- Chat Header / Back button -->
+                    <div
+                        class="flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0"
+                    >
+                        <button
+                            (click)="toggleExpandRow(activeChatRow)"
+                            class="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center mr-2 transition-colors duration-150 focus:outline-none shrink-0"
+                            title="Quay lại"
+                        >
+                            <mat-icon
+                                class="icon-size-5 text-gray-600 dark:text-gray-300"
+                                [svgIcon]="'heroicons_solid:arrow-left'"
+                            ></mat-icon>
+                        </button>
+                        <div class="flex-auto min-w-0">
+                            <h4
+                                class="text-sm font-semibold truncate text-gray-900 dark:text-gray-100"
+                            >
+                                {{
+                                    activeChatRow.question || "Global AI Agent"
+                                }}
+                            </h4>
                         </div>
-                        <!-- Model message -->
-                        <div class="flex justify-start flex-col items-start gap-1" *ngIf="msg.role === 'model'">
-                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none p-3.5 text-base break-words overflow-x-auto chatgpt-result shadow-2xs">
-                                <div [innerHTML]="msg.text | markdown"></div>
-                                
-                                <div *ngIf="msg.inlineData" class="mt-2 pt-2 flex flex-col items-start w-full">
-                                    <div class="relative inline-block" *ngIf="msg.inlineData.mimeType?.startsWith('image/')">
-                                        <img [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-xl object-contain max-h-96 shadow-sm" />
-                                        <button (click)="downloadImage(msg)" class="absolute top-2 right-2 bg-white/80 hover:bg-white text-gray-800 shadow-md backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center opacity-70 hover:opacity-100 transition-all duration-200" title="Tải xuống ảnh này">
-                                            <mat-icon class="icon-size-5">download</mat-icon>
+                    </div>
+                    <!-- Message List -->
+                    <div
+                        id="chatMessageList"
+                        class="flex-auto overflow-y-auto overflow-x-hidden space-y-3 p-4 scrollbar-thin"
+                    >
+                        @for (msg of getMessages(activeChatRow); track msg) {
+                            <!-- User message -->
+                            @if (msg.role === "user") {
+                                <div
+                                    class="flex justify-end flex-col items-end gap-1"
+                                >
+                                    <div
+                                        class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none p-3.5 text-base whitespace-pre-wrap break-words flex flex-col shadow-2xs"
+                                    >
+                                        <div>{{ msg.text }}</div>
+                                        <!-- File attachment rendering inside bubble -->
+                                        @if (msg.inlineData) {
+                                            <div
+                                                class="mt-2 pt-2 border-t border-blue-100/30 dark:border-blue-900/30 flex flex-col items-start w-full"
+                                            >
+                                                @if (
+                                                    msg.inlineData.mimeType?.startsWith(
+                                                        "image/"
+                                                    )
+                                                ) {
+                                                    <img
+                                                        [src]="
+                                                            'data:' +
+                                                            msg.inlineData
+                                                                .mimeType +
+                                                            ';base64,' +
+                                                            msg.inlineData.data
+                                                        "
+                                                        class="rounded-xl object-contain self-start"
+                                                    />
+                                                }
+                                                @if (
+                                                    !msg.inlineData.mimeType?.startsWith(
+                                                        "image/"
+                                                    )
+                                                ) {
+                                                    <div
+                                                        class="flex items-center space-x-1 text-xs opacity-75"
+                                                    >
+                                                        <mat-icon
+                                                            class="icon-size-3.5"
+                                                            [svgIcon]="'heroicons_solid:document'"
+                                                        ></mat-icon>
+                                                        <span
+                                                            class="truncate max-w-40 font-medium"
+                                                            >{{
+                                                                msg.path
+                                                                    ? msg.path
+                                                                          .split(
+                                                                              "/"
+                                                                          )
+                                                                          .pop()
+                                                                    : "Tệp đính kèm"
+                                                            }}</span
+                                                        >
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
+                                    <div
+                                        class="flex items-center gap-2 px-1 text-xs text-gray-400 dark:text-gray-400 select-none"
+                                    >
+                                        <span>{{ getMessageTime(msg) }}</span>
+                                        <button
+                                            type="button"
+                                            (click)="copyMessage(msg.text)"
+                                            class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Sao chép nội dung"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-3.5 mr-1"
+                                                [svgIcon]="'feather:copy'"
+                                            ></mat-icon>
+                                            <span class="text-[11px]"
+                                                >Copy</span
+                                            >
+                                        </button>
+                                        <button
+                                            type="button"
+                                            (click)="reAskMessage(msg.text)"
+                                            class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Hỏi lại nội dung này"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-3.5 mr-1"
+                                                [svgIcon]="'feather:refresh-cw'"
+                                            ></mat-icon>
+                                            <span class="text-[11px]"
+                                                >Hỏi lại</span
+                                            >
                                         </button>
                                     </div>
-                                    <video *ngIf="msg.inlineData.mimeType?.startsWith('video/')" controls class="rounded-lg object-contain max-h-96 w-full mt-2">
-                                        <source [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" [type]="msg.inlineData.mimeType" />
-                                    </video>
+                                </div>
+                            }
+                            <!-- Model message -->
+                            @if (msg.role === "model") {
+                                <div
+                                    class="flex justify-start flex-col items-start gap-1"
+                                >
+                                    <div
+                                        class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none p-3.5 text-base break-words overflow-x-auto chatgpt-result shadow-2xs"
+                                    >
+                                        <div
+                                            [innerHTML]="msg.text | markdown"
+                                        ></div>
+                                        @if (msg.inlineData) {
+                                            <div
+                                                class="mt-2 pt-2 flex flex-col items-start w-full"
+                                            >
+                                                @if (
+                                                    msg.inlineData.mimeType?.startsWith(
+                                                        "image/"
+                                                    )
+                                                ) {
+                                                    <div
+                                                        class="relative inline-block"
+                                                    >
+                                                        <img
+                                                            [src]="
+                                                                'data:' +
+                                                                msg.inlineData
+                                                                    .mimeType +
+                                                                ';base64,' +
+                                                                msg.inlineData
+                                                                    .data
+                                                            "
+                                                            class="rounded-xl object-contain max-h-96 shadow-sm"
+                                                        />
+                                                        <button
+                                                            (click)="
+                                                                downloadImage(
+                                                                    msg
+                                                                )
+                                                            "
+                                                            class="absolute top-2 right-2 bg-white/80 hover:bg-white text-gray-800 shadow-md backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center opacity-70 hover:opacity-100 transition-all duration-200"
+                                                            title="Tải xuống ảnh này"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-5"
+                                                                >download</mat-icon
+                                                            >
+                                                        </button>
+                                                    </div>
+                                                }
+                                                @if (
+                                                    msg.inlineData.mimeType?.startsWith(
+                                                        "video/"
+                                                    )
+                                                ) {
+                                                    <video
+                                                        controls
+                                                        class="rounded-lg object-contain max-h-96 w-full mt-2"
+                                                    >
+                                                        <source
+                                                            [src]="
+                                                                'data:' +
+                                                                msg.inlineData
+                                                                    .mimeType +
+                                                                ';base64,' +
+                                                                msg.inlineData
+                                                                    .data
+                                                            "
+                                                            [type]="
+                                                                msg.inlineData
+                                                                    .mimeType
+                                                            "
+                                                        />
+                                                    </video>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
+                                    <div
+                                        class="flex items-center gap-2 px-1 text-xs text-gray-400 dark:text-gray-400 select-none"
+                                    >
+                                        <span>{{ getMessageTime(msg) }}</span>
+                                        <button
+                                            type="button"
+                                            (click)="copyMessage(msg.text)"
+                                            class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Sao chép nội dung"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-3.5 mr-1"
+                                                [svgIcon]="'feather:copy'"
+                                            ></mat-icon>
+                                            <span class="text-[11px]"
+                                                >Copy</span
+                                            >
+                                        </button>
+                                        <button
+                                            type="button"
+                                            (click)="
+                                                reAskModelMessage(
+                                                    msg,
+                                                    activeChatRow
+                                                )
+                                            "
+                                            class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Hỏi lại câu trả lời này"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-3.5 mr-1"
+                                                [svgIcon]="'feather:refresh-cw'"
+                                            ></mat-icon>
+                                            <span class="text-[11px]"
+                                                >Hỏi lại</span
+                                            >
+                                        </button>
+                                    </div>
+                                    <!-- Action button for sharing -->
+                                    @if (
+                                        activeChatRow?.question?.startsWith(
+                                            "Chia sẻ ảnh"
+                                        )
+                                    ) {
+                                        <div
+                                            class="ml-4 mt-1 flex items-center"
+                                        >
+                                            <button
+                                                mat-flat-button
+                                                color="primary"
+                                                class="text-xs py-1 px-3 h-8 min-h-8 rounded-full"
+                                                (click)="
+                                                    postChatToForum(
+                                                        msg.text,
+                                                        activeChatRow
+                                                    )
+                                                "
+                                                [disabled]="isLoading"
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-4 mr-1.5"
+                                                    svgIcon="heroicons_outline:share"
+                                                ></mat-icon>
+                                                Đăng lên Diễn đàn
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                        @if (activeChatRow["chatLoading"]) {
+                            <div class="flex justify-start">
+                                <div
+                                    class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-2xl rounded-tl-none px-4 py-2.5 text-base flex items-center space-x-2"
+                                >
+                                    <mat-progress-spinner
+                                        [diameter]="20"
+                                        [strokeWidth]="2"
+                                        [mode]="'indeterminate'"
+                                    ></mat-progress-spinner>
+                                    @if (!activeChatRow.answer) {
+                                        <span class="text-base font-normal"
+                                            >Ông chủ đợi tôi xíu nhé...</span
+                                        >
+                                    }
+                                    @if (activeChatRow.answer) {
+                                        <span class="text-base font-normal"
+                                            >Đang hoàn thiện...</span
+                                        >
+                                    }
+                                    <button
+                                        (click)="stopChatLoading(activeChatRow)"
+                                        class="ml-2 p-0.5 text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 flex items-center justify-center transition-colors duration-150 focus:outline-none shrink-0"
+                                        title="Dừng AI"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5 text-current"
+                                            [svgIcon]="'heroicons_outline:stop'"
+                                        ></mat-icon>
+                                    </button>
                                 </div>
                             </div>
-                            <!-- Footer: Thời gian, Nút Copy, Nút Hỏi lại -->
-                            <div class="flex items-center gap-2 px-1 text-xs text-gray-400 dark:text-gray-400 select-none">
-                                <span>{{ getMessageTime(msg) }}</span>
-                                <button type="button" (click)="copyMessage(msg.text)" class="flex items-center hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
-                                    <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
-                                    <span class="text-[11px]">Copy</span>
-                                </button>
-                                <button type="button" (click)="reAskModelMessage(msg, activeChatRow)" class="flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại câu trả lời này">
-                                    <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                                    <span class="text-[11px]">Hỏi lại</span>
+                        }
+                    </div>
+                    <!-- Input section -->
+                    <div
+                        class="p-3 bg-white dark:bg-slate-900 shrink-0 border-t border-gray-200 dark:border-gray-700 flex flex-col"
+                    >
+                        <!-- File attachment preview -->
+                        @if (attachedFileFollow) {
+                            <div
+                                class="flex items-center space-x-2 px-2.5 py-1 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded-lg text-xs w-fit"
+                            >
+                                <mat-icon
+                                    class="icon-size-3.5"
+                                    [svgIcon]="'heroicons_solid:document'"
+                                ></mat-icon>
+                                <span class="truncate max-w-40 font-medium">{{
+                                    attachedFileFollow.name
+                                }}</span>
+                                <button
+                                    (click)="
+                                        attachedFileFollow = null;
+                                        chatInput.value = chatInput.value
+                                    "
+                                    class="text-blue-400 hover:text-blue-600 focus:outline-none flex items-center"
+                                >
+                                    <mat-icon
+                                        class="icon-size-3.5"
+                                        [svgIcon]="'heroicons_solid:x'"
+                                    ></mat-icon>
                                 </button>
                             </div>
-                            <!-- Action button for sharing -->
-                            <div *ngIf="activeChatRow?.question?.startsWith('Chia sẻ ảnh')" class="ml-4 mt-1 flex items-center">
-                                <button mat-flat-button color="primary" class="text-xs py-1 px-3 h-8 min-h-8 rounded-full" (click)="postChatToForum(msg.text, activeChatRow)" [disabled]="isLoading">
-                                    <mat-icon class="icon-size-4 mr-1.5" svgIcon="heroicons_outline:share"></mat-icon>
-                                    Đăng lên Diễn đàn
-                                </button>
-                            </div>
-                        </div>
-                    </ng-container>
-                    <div class="flex justify-start" *ngIf="activeChatRow['chatLoading']">
-                        <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-2xl rounded-tl-none px-4 py-2.5 text-base flex items-center space-x-2">
-                            <mat-progress-spinner [diameter]="20" [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>
-                            <span class="text-base font-normal" *ngIf="!activeChatRow.answer">Ông chủ đợi tôi xíu nhé...</span>
-                            <span class="text-base font-normal" *ngIf="activeChatRow.answer">Đang hoàn thiện...</span>
-                            <button (click)="stopChatLoading(activeChatRow)" 
-                                class="ml-2 p-0.5 text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 flex items-center justify-center transition-colors duration-150 focus:outline-none shrink-0" 
-                                title="Dừng AI">
-                                <mat-icon class="icon-size-5 text-current" [svgIcon]="'heroicons_outline:stop'"></mat-icon>
+                        }
+                        <!-- Styled Input Container -->
+                        <div
+                            class="flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm relative"
+                        >
+                            <!-- Hidden file input for follow-up chat -->
+                            <input
+                                type="file"
+                                (change)="upload($event, true, chatInput)"
+                                #fileInputFollow
+                                class="hidden"
+                            />
+                            <!-- Attachment Button -->
+                            <button
+                                mat-icon-button
+                                (click)="fileInputFollow.click()"
+                                [disabled]="activeChatRow['chatLoading']"
+                                class="mr-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-655 dark:hover:text-gray-300 focus:outline-none shrink-0"
+                                title="Đính kèm file"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_solid:paper-clip'"
+                                ></mat-icon>
+                            </button>
+                            <input
+                                #chatInput
+                                (input)="onChatInput($event, chatInput)"
+                                (keydown)="onChatKeyDown($event, chatInput)"
+                                class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0"
+                                placeholder="Hỏi tiếp từ prompt này..."
+                                [disabled]="activeChatRow['chatLoading']"
+                                (keyup.enter)="
+                                    !ignoreNextEnter &&
+                                        !showMentions &&
+                                        triggerFollowUp(
+                                            activeChatRow,
+                                            chatInput
+                                        )
+                                "
+                            />
+                            <!-- Suggestions Dropdown -->
+                            @if (
+                                showMentions &&
+                                filteredMentionOptions.length > 0
+                            ) {
+                                <div
+                                    class="absolute bottom-[110%] left-0 z-50 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 overflow-hidden"
+                                >
+                                    @for (
+                                        option of filteredMentionOptions;
+                                        track option;
+                                        let i = $index
+                                    ) {
+                                        <div
+                                            (click)="
+                                                selectMention(option, chatInput)
+                                            "
+                                            class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
+                                            [ngClass]="{
+                                                'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300':
+                                                    i === mentionIndex,
+                                                'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50':
+                                                    i !== mentionIndex,
+                                            }"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4 mr-3 text-current"
+                                                [svgIcon]="option.icon"
+                                            ></mat-icon>
+                                            <span class="font-medium text-sm">{{
+                                                option.id
+                                            }}</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            <button
+                                mat-mini-fab
+                                color="primary"
+                                [disabled]="
+                                    activeChatRow['chatLoading'] ||
+                                    (!chatInput.value?.trim() &&
+                                        !attachedFileFollow)
+                                "
+                                (click)="
+                                    !showMentions &&
+                                        triggerFollowUp(
+                                            activeChatRow,
+                                            chatInput
+                                        )
+                                "
+                                class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
+                                [matTooltip]="
+                                    'app.send_question_to_gemini' | transloco
+                                "
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-white"
+                                    [svgIcon]="'heroicons_solid:paper-airplane'"
+                                ></mat-icon>
                             </button>
                         </div>
                     </div>
                 </div>
-                
-                 <!-- Input section -->
-                <div class="p-3 bg-white dark:bg-slate-900 shrink-0 border-t border-gray-200 dark:border-gray-700 flex flex-col">
-                    <!-- File attachment preview -->
-                    <div *ngIf="attachedFileFollow" class="flex items-center space-x-2 px-2.5 py-1 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded-lg text-xs w-fit">
-                        <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:document'"></mat-icon>
-                        <span class="truncate max-w-40 font-medium">{{ attachedFileFollow.name }}</span>
-                        <button (click)="attachedFileFollow = null; chatInput.value = chatInput.value" class="text-blue-400 hover:text-blue-600 focus:outline-none flex items-center">
-                            <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:x'"></mat-icon>
-                        </button>
-                    </div>
-
-                    <!-- Styled Input Container -->
-                    <div class="flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm relative">
-                        <!-- Hidden file input for follow-up chat -->
-                        <input type="file" (change)="upload($event, true, chatInput)" #fileInputFollow class="hidden">
-
-                        <!-- Attachment Button -->
-                        <button mat-icon-button (click)="fileInputFollow.click()" [disabled]="activeChatRow['chatLoading']"
-                            class="mr-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-655 dark:hover:text-gray-300 focus:outline-none shrink-0"
-                            title="Đính kèm file">
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:paper-clip'"></mat-icon>
-                        </button>
-
-                        <input #chatInput (input)="onChatInput($event, chatInput)" (keydown)="onChatKeyDown($event, chatInput)" class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0" 
-                            placeholder="Hỏi tiếp từ prompt này..."
-                            [disabled]="activeChatRow['chatLoading']"
-                            (keyup.enter)="!ignoreNextEnter && !showMentions && triggerFollowUp(activeChatRow, chatInput)">
-                        
-                        <!-- Suggestions Dropdown -->
-                        <div *ngIf="showMentions && filteredMentionOptions.length > 0" 
-                             class="absolute bottom-[110%] left-0 z-50 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 overflow-hidden">
-                            <div *ngFor="let option of filteredMentionOptions; let i = index" 
-                                 (click)="selectMention(option, chatInput)"
-                                 class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
-                                 [ngClass]="{'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300': i === mentionIndex, 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50': i !== mentionIndex}">
-                                <mat-icon class="icon-size-4 mr-3 text-current" [svgIcon]="option.icon"></mat-icon>
-                                <span class="font-medium text-sm">{{ option.id }}</span>
-                            </div>
-                        </div>
-
-                        <button mat-mini-fab color="primary" [disabled]="activeChatRow['chatLoading'] || (!chatInput.value?.trim() && !attachedFileFollow)" (click)="!showMentions && triggerFollowUp(activeChatRow, chatInput)"
-                            class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
-                            [matTooltip]="('app.send_question_to_gemini' | transloco)">
-                            <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            }
         </div>
     </div>
 </ng-template>

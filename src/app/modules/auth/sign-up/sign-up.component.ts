@@ -1,5 +1,17 @@
-import { Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
-import { UntypedFormBuilder, UntypedFormGroup, NgForm, Validators } from '@angular/forms';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+import {
+    UntypedFormBuilder,
+    UntypedFormGroup,
+    NgForm,
+    Validators,
+} from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertType } from '@fuse/components/alert';
@@ -16,7 +28,9 @@ import { User } from 'app/core/user/user.types';
     selector: 'auth-sign-up',
     templateUrl: './sign-up.component.html',
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations
+    animations: fuseAnimations,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AuthSignUpComponent implements OnInit, OnDestroy {
     @ViewChild('signUpNgForm') signUpNgForm: NgForm;
@@ -24,7 +38,7 @@ export class AuthSignUpComponent implements OnInit, OnDestroy {
     accounts = [];
     alert: { type: FuseAlertType; message: string } = {
         type: 'success',
-        message: ''
+        message: '',
     };
     signUpForm: UntypedFormGroup;
     showAlert: boolean = false;
@@ -42,10 +56,9 @@ export class AuthSignUpComponent implements OnInit, OnDestroy {
         private _userService: UserService,
         private _userClientService: UserClientService,
         private _forumService: ForumService,
-        private multiAccountService: MultiAccountService
-    ) {
-    }
-    
+        private multiAccountService: MultiAccountService,
+    ) {}
+
     ngOnDestroy(): void {
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
@@ -65,14 +78,17 @@ export class AuthSignUpComponent implements OnInit, OnDestroy {
             email: ['', [Validators.required, Validators.email]],
             password: ['', Validators.required],
             company: [''],
-            agreements: ['', Validators.requiredTrue]
+            agreements: ['', Validators.requiredTrue],
         });
 
-        this.multiAccountService.getAllAccounts().then(accounts => {
+        this.multiAccountService.getAllAccounts().then((accounts) => {
             if (accounts && accounts.length > 0) {
                 this.accounts = accounts.map((acc: any) => {
                     if (acc.profile && acc.profile.avatar) {
-                        acc.profile.avatar = acc.profile.avatar.replace(/&#x2F;/gi, '/');
+                        acc.profile.avatar = acc.profile.avatar.replace(
+                            /&#x2F;/gi,
+                            '/',
+                        );
                     }
                     return acc;
                 });
@@ -102,53 +118,48 @@ export class AuthSignUpComponent implements OnInit, OnDestroy {
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (_) => { },
-                error: () => { },
-                complete: () => { },
+                next: async (_) => {},
+                error: () => {},
+                complete: () => {},
             });
     }
 
     checkAccount(user: any) {
-        this._forumService
-            .getGroups('vn.s3')
-            .subscribe((result) => {
-                if (result && result.success && result.data) {
-                    result.data.groups.map((g: any) => {
-                        if (g.slug === 'nhóm-đã-mua-ai-type') {
-                            this.multiAccountService.setItem('members', g.members);
-                        }
+        this._forumService.getGroups('vn.s3').subscribe((result) => {
+            if (result && result.success && result.data) {
+                result.data.groups.map((g: any) => {
+                    if (g.slug === 'nhóm-đã-mua-ai-type') {
+                        this.multiAccountService.setItem('members', g.members);
+                    }
 
-                        g.members.map((m: any) => {
-                            if (m.uid === user.id) {
-                                if (
-                                    !user.groups?.includes(
-                                        g.slug,
-                                    )
-                                ) {
-                                    user.groups.push(g.slug);
-                                }
+                    g.members.map((m: any) => {
+                        if (m.uid === user.id) {
+                            if (!user.groups?.includes(g.slug)) {
+                                user.groups.push(g.slug);
                             }
-                        });
+                        }
                     });
+                });
 
-                    // Store the access token in the local storage
-                    this._authService.accessToken = AuthUtils._generateJWTToken(user);
+                // Store the access token in the local storage
+                this._authService.accessToken =
+                    AuthUtils._generateJWTToken(user);
 
-                    // Store the user on the user service
-                    this._userService.user = user;
+                // Store the user on the user service
+                this._userService.user = user;
 
-                    const redirectURL =
-                        this._activatedRoute.snapshot.queryParamMap.get(
-                            'redirectURL',
-                        ) || '/signed-in-redirect';
-                    this._router.navigateByUrl(redirectURL);
-                } else {
-                    this.alert = {
-                        type: 'warning',
-                        message: 'Tài khoản của bạn không đúng.',
-                    };
-                }
-            });
+                const redirectURL =
+                    this._activatedRoute.snapshot.queryParamMap.get(
+                        'redirectURL',
+                    ) || '/signed-in-redirect';
+                this._router.navigateByUrl(redirectURL);
+            } else {
+                this.alert = {
+                    type: 'warning',
+                    message: 'Tài khoản của bạn không đúng.',
+                };
+            }
+        });
     }
 
     /**
@@ -167,30 +178,27 @@ export class AuthSignUpComponent implements OnInit, OnDestroy {
         this.showAlert = false;
 
         // Sign up
-        this._authService.signUp(this.signUpForm.value)
-            .subscribe(
-                (response) => {
+        this._authService.signUp(this.signUpForm.value).subscribe(
+            (response) => {
+                // Navigate to the confirmation required page
+                this._router.navigateByUrl('/confirmation-required');
+            },
+            (response) => {
+                // Re-enable the form
+                this.signUpForm.enable();
 
-                    // Navigate to the confirmation required page
-                    this._router.navigateByUrl('/confirmation-required');
-                },
-                (response) => {
+                // Reset the form
+                this.signUpNgForm.resetForm();
 
-                    // Re-enable the form
-                    this.signUpForm.enable();
+                // Set the alert
+                this.alert = {
+                    type: 'error',
+                    message: 'Something went wrong, please try again.',
+                };
 
-                    // Reset the form
-                    this.signUpNgForm.resetForm();
-
-                    // Set the alert
-                    this.alert = {
-                        type: 'error',
-                        message: 'Something went wrong, please try again.'
-                    };
-
-                    // Show the alert
-                    this.showAlert = true;
-                }
-            );
+                // Show the alert
+                this.showAlert = true;
+            },
+        );
     }
 }

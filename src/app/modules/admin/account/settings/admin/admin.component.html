@@ -1,343 +1,832 @@
 <style>
-.headless-select .mat-mdc-text-field-wrapper {
-    background-color: transparent !important;
-    padding: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-.headless-select .mdc-text-field--filled:not(.mdc-text-field--disabled) {
-    background-color: transparent !important;
-    border: none !important;
-}
-.headless-select .mdc-line-ripple {
-    display: none !important;
-}
-.headless-select .mat-mdc-form-field-flex {
-    padding: 0 !important;
-    background-color: transparent !important;
-    border: none !important;
-}
-.headless-select .mat-mdc-form-field-infix {
-    min-height: auto !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-}
-.headless-select .mdc-notched-outline {
-    display: none !important;
-}
-.headless-select .mat-mdc-form-field-focus-overlay {
-    display: none !important;
-}
-.fuse-mat-no-subscript .mat-mdc-form-field-subscript-wrapper {
-    display: none !important;
-}
+    .headless-select .mat-mdc-text-field-wrapper {
+        background-color: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .headless-select .mdc-text-field--filled:not(.mdc-text-field--disabled) {
+        background-color: transparent !important;
+        border: none !important;
+    }
+    .headless-select .mdc-line-ripple {
+        display: none !important;
+    }
+    .headless-select .mat-mdc-form-field-flex {
+        padding: 0 !important;
+        background-color: transparent !important;
+        border: none !important;
+    }
+    .headless-select .mat-mdc-form-field-infix {
+        min-height: auto !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
+    .headless-select .mdc-notched-outline {
+        display: none !important;
+    }
+    .headless-select .mat-mdc-form-field-focus-overlay {
+        display: none !important;
+    }
+    .fuse-mat-no-subscript .mat-mdc-form-field-subscript-wrapper {
+        display: none !important;
+    }
 </style>
 <div class="w-full">
-    <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start" [selectedIndex]="selectedTabIndex" (selectedTabChange)="onTabChanged($event)">
-<mat-tab [label]="'app.member' | transloco">
+    <mat-tab-group
+        class="border rounded-lg"
+        animationDuration="0ms"
+        mat-stretch-tabs="false"
+        mat-align-tabs="start"
+        [selectedIndex]="selectedTabIndex"
+        (selectedTabChange)="onTabChanged($event)"
+    >
+        <mat-tab [label]="'app.member' | transloco">
             <div class="w-full">
                 <div class="flex flex-row items-center justify-end">
                     <div class="flex gap-2">
-                        <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-64">
-                            <mat-icon matPrefix [svgIcon]="'heroicons_outline:search'"></mat-icon>
-                            <input matInput [placeholder]="'Tìm kiếm theo tên hoặc email'" (keyup)="filterForumUsers($event)">
+                        <mat-form-field
+                            class="fuse-mat-dense fuse-mat-no-subscript w-64"
+                        >
+                            <mat-icon
+                                matPrefix
+                                [svgIcon]="'heroicons_outline:search'"
+                            ></mat-icon>
+                            <input
+                                matInput
+                                [placeholder]="'Tìm kiếm theo tên hoặc email'"
+                                (keyup)="filterForumUsers($event)"
+                            />
                         </mat-form-field>
 
-                        <button *ngIf="forumSelected.length > 0" mat-flat-button color="primary"
-                            (click)="sendEmailToSelected()" [disabled]="isSendingEmail">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
-                            <span class="ml-2">{{ 'app.send_email' | transloco }} ({{ forumSelected.length }})</span>
-                        </button>
+                        @if (forumSelected.length > 0) {
+                            <button
+                                mat-flat-button
+                                color="primary"
+                                (click)="sendEmailToSelected()"
+                                [disabled]="isSendingEmail"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'feather:mail'"
+                                ></mat-icon>
+                                <span class="ml-2"
+                                    >{{ "app.send_email" | transloco }} ({{
+                                        forumSelected.length
+                                    }})</span
+                                >
+                            </button>
+                        }
                     </div>
                 </div>
 
-                <div *ngIf="isSendingEmail" class="mb-4 mt-4">
-                    <p class="text-blue-500 font-semibold mb-2">{{ emailProgressStatus }}</p>
-                    <mat-progress-bar mode="determinate" [value]="(emailSuccess + emailFail) / emailTotal * 100"></mat-progress-bar>
-                </div>
+                @if (isSendingEmail) {
+                    <div class="mb-4 mt-4">
+                        <p class="text-blue-500 font-semibold mb-2">
+                            {{ emailProgressStatus }}
+                        </p>
+                        <mat-progress-bar
+                            mode="determinate"
+                            [value]="
+                                ((emailSuccess + emailFail) / emailTotal) * 100
+                            "
+                        ></mat-progress-bar>
+                    </div>
+                }
 
                 <div class="mt-4">
-                    <ngx-datatable class="material shadow-none border rounded-lg" [virtualization]="false" [scrollbarV]="false" [scrollbarH]="false"
-                        [rows]="forumUsers" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50"
-                        rowHeight="50" [loadingIndicator]="n8nLoading" [limit]="10" [selected]="forumSelected"
-                        [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-                        (select)="onForumSelect($event)">
+                    <ngx-datatable
+                        class="material shadow-none border rounded-lg"
+                        [virtualization]="false"
+                        [scrollbarV]="false"
+                        [scrollbarH]="false"
+                        [rows]="forumUsers"
+                        [columnMode]="ColumnMode.force"
+                        [headerHeight]="50"
+                        [footerHeight]="50"
+                        rowHeight="50"
+                        [loadingIndicator]="n8nLoading"
+                        [limit]="10"
+                        [selected]="forumSelected"
+                        [selectionType]="SelectionType.checkbox"
+                        [selectAllRowsOnPage]="false"
+                        (select)="onForumSelect($event)"
+                    >
+                        <ngx-datatable-column
+                            [width]="50"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                            [headerCheckboxable]="true"
+                            [checkboxable]="true"
+                        >
+                        </ngx-datatable-column>
 
-                    <ngx-datatable-column [width]="50" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                        [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true">
-                    </ngx-datatable-column>
+                        <ngx-datatable-column
+                            name="UID"
+                            prop="uid"
+                            [width]="60"
+                            [canAutoResize]="false"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span
+                                    class="text-base text-gray-500 block w-full"
+                                    >{{ value }}</span
+                                >
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                    <ngx-datatable-column name="UID" prop="uid" [width]="60" [canAutoResize]="false">
-                        <ng-template ngx-datatable-cell-template let-value="value">
-                            <span class="text-base text-gray-500 block w-full">{{ value }}</span>
-                        </ng-template>
-                    </ngx-datatable-column>
+                        <ngx-datatable-column
+                            [name]="'app.member_name' | transloco"
+                            prop="username"
+                            [flexGrow]="1"
+                            [minWidth]="120"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span
+                                    class="text-base font-medium text-primary"
+                                    >{{ value }}</span
+                                >
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                    <ngx-datatable-column [name]="('app.member_name' | transloco)" prop="username" [flexGrow]="1" [minWidth]="120">
-                        <ng-template ngx-datatable-cell-template let-value="value">
-                            <span class="text-base font-medium text-primary">{{ value }}</span>
-                        </ng-template>
-                    </ngx-datatable-column>
+                        <ngx-datatable-column
+                            name="Email"
+                            prop="email"
+                            [flexGrow]="3"
+                            [minWidth]="200"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span class="text-base text-gray-500">{{
+                                    value || ("app.none" | transloco)
+                                }}</span>
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                    <ngx-datatable-column name="Email" prop="email" [flexGrow]="3" [minWidth]="200">
-                        <ng-template ngx-datatable-cell-template let-value="value">
-                            <span class="text-base text-gray-500">{{ value || ('app.none' | transloco) }}</span>
-                        </ng-template>
-                    </ngx-datatable-column>
+                        <ngx-datatable-column
+                            [name]="'app.articles' | transloco"
+                            prop="postcount"
+                            [width]="90"
+                            [canAutoResize]="false"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span class="text-base font-medium">{{
+                                    value | number
+                                }}</span>
+                            </ng-template>
+                        </ngx-datatable-column>
 
+                        <ngx-datatable-column
+                            [name]="'app.group' | transloco"
+                            [width]="350"
+                            [canAutoResize]="true"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-row="row"
+                            >
+                                <div class="w-full">
+                                    @if (forumGroups.length > 0) {
+                                        <mat-form-field
+                                            class="fuse-mat-no-subscript headless-select w-full"
+                                        >
+                                            <mat-select
+                                                [placeholder]="
+                                                    'app.nodebb_group'
+                                                        | transloco
+                                                "
+                                                multiple
+                                                [(ngModel)]="row.selectedGroups"
+                                                (openedChange)="
+                                                    onGroupSelectOpened(
+                                                        $event,
+                                                        row
+                                                    )
+                                                "
+                                                (selectionChange)="
+                                                    onUserGroupChange(
+                                                        row,
+                                                        $event.value
+                                                    )
+                                                "
+                                            >
+                                                @for (
+                                                    group of forumGroups;
+                                                    track group
+                                                ) {
+                                                    <mat-option
+                                                        [value]="group.slug"
+                                                        >{{
+                                                            group.name
+                                                        }}</mat-option
+                                                    >
+                                                }
+                                            </mat-select>
+                                        </mat-form-field>
+                                    }
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
 
+                        <ngx-datatable-column
+                            [name]="'app.reputation' | transloco"
+                            prop="reputation"
+                            [width]="140"
+                            [canAutoResize]="false"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <div
+                                    class="flex items-center text-amber-500 w-full h-full"
+                                >
+                                    <span class="text-base font-medium">{{
+                                        value | number
+                                    }}</span>
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                    <ngx-datatable-column [name]="('app.articles' | transloco)" prop="postcount" [width]="90" [canAutoResize]="false">
-                        <ng-template ngx-datatable-cell-template let-value="value">
-                            <span class="text-base font-medium">{{ value | number }}</span>
-                        </ng-template>
-                    </ngx-datatable-column>
-
-                    <ngx-datatable-column [name]="('app.group' | transloco)" [width]="350" [canAutoResize]="true">
-                        <ng-template ngx-datatable-cell-template let-row="row">
-                            <div class="w-full">
-                                <mat-form-field class="fuse-mat-no-subscript headless-select w-full" *ngIf="forumGroups.length > 0">
-                                    <mat-select [placeholder]="('app.nodebb_group' | transloco)" multiple [(ngModel)]="row.selectedGroups" 
-                                                (openedChange)="onGroupSelectOpened($event, row)"
-                                                (selectionChange)="onUserGroupChange(row, $event.value)">
-                                        <mat-option *ngFor="let group of forumGroups" [value]="group.slug">{{ group.name }}</mat-option>
-                                    </mat-select>
-                                </mat-form-field>
-                            </div>
-                        </ng-template>
-                    </ngx-datatable-column>
-
-                    <ngx-datatable-column [name]="('app.reputation' | transloco)" prop="reputation" [width]="140" [canAutoResize]="false">
-                        <ng-template ngx-datatable-cell-template let-value="value">
-                            <div class="flex items-center text-amber-500 w-full h-full">
-                                <span class="text-base font-medium">{{ value | number }}</span>
-                            </div>
-                        </ng-template>
-                    </ngx-datatable-column>
-
-                    <ngx-datatable-column [name]="('app.join_date' | transloco)" prop="joindateISO" [width]="130" [canAutoResize]="false">
-                        <ng-template ngx-datatable-cell-template let-value="value">
-                            <span class="text-base text-gray-500">{{ value | date:'dd/MM/yyyy' }}</span>
-                        </ng-template>
-                    </ngx-datatable-column>
+                        <ngx-datatable-column
+                            [name]="'app.join_date' | transloco"
+                            prop="joindateISO"
+                            [width]="130"
+                            [canAutoResize]="false"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span class="text-base text-gray-500">{{
+                                    value | date: "dd/MM/yyyy"
+                                }}</span>
+                            </ng-template>
+                        </ngx-datatable-column>
                     </ngx-datatable>
                 </div>
             </div>
         </mat-tab>
-<mat-tab [label]="('app.license_keys' | transloco)">
+        <mat-tab [label]="'app.license_keys' | transloco">
             <div class="w-full">
                 <license-keys></license-keys>
             </div>
         </mat-tab>
-<mat-tab label="Lịch sử giao dịch">
+        <mat-tab label="Lịch sử giao dịch">
             <div class="w-full">
                 <!-- Header -->
                 <div class="flex flex-row items-center justify-end">
-
-                    <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-80">
-                        <mat-icon matPrefix [svgIcon]="'heroicons_outline:search'"></mat-icon>
-                        <input matInput [placeholder]="'Tìm kiếm theo email'" [(ngModel)]="transactionEmailSearch" (keyup.enter)="getTransactions()">
+                    <mat-form-field
+                        class="fuse-mat-dense fuse-mat-no-subscript w-80"
+                    >
+                        <mat-icon
+                            matPrefix
+                            [svgIcon]="'heroicons_outline:search'"
+                        ></mat-icon>
+                        <input
+                            matInput
+                            [placeholder]="'Tìm kiếm theo email'"
+                            [(ngModel)]="transactionEmailSearch"
+                            (keyup.enter)="getTransactions()"
+                        />
                     </mat-form-field>
                 </div>
 
                 <!-- Main -->
                 <div class="mt-4">
-                    <ngx-datatable [virtualization]="false" class="material shadow-none border rounded-lg" [headerHeight]="50"
-                        [columnMode]="ColumnMode.force" [footerHeight]="50" rowHeight="50" [scrollbarV]="false"
-                        [scrollbarH]="true" [rows]="transactions" [loadingIndicator]="transactionsLoading" [limit]="10">
-                        
-                        <ngx-datatable-column name="Mã GD" prop="transactionId" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                            <ng-template let-value="value" ngx-datatable-cell-template>
+                    <ngx-datatable
+                        [virtualization]="false"
+                        class="material shadow-none border rounded-lg"
+                        [headerHeight]="50"
+                        [columnMode]="ColumnMode.force"
+                        [footerHeight]="50"
+                        rowHeight="50"
+                        [scrollbarV]="false"
+                        [scrollbarH]="true"
+                        [rows]="transactions"
+                        [loadingIndicator]="transactionsLoading"
+                        [limit]="10"
+                    >
+                        <ngx-datatable-column
+                            name="Mã GD"
+                            prop="transactionId"
+                            [width]="120"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-value="value"
+                                ngx-datatable-cell-template
+                            >
                                 {{ value }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Email khách hàng" prop="username" [width]="160" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
-                            <ng-template let-value="value" ngx-datatable-cell-template>
+                        <ngx-datatable-column
+                            name="Email khách hàng"
+                            prop="username"
+                            [width]="160"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                let-value="value"
+                                ngx-datatable-cell-template
+                            >
                                 {{ value }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="App ID" prop="appId" [width]="90" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                            <ng-template let-value="value" ngx-datatable-cell-template>
-                                {{ value || 'ai.typing' }}
+                        <ngx-datatable-column
+                            name="App ID"
+                            prop="appId"
+                            [width]="90"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-value="value"
+                                ngx-datatable-cell-template
+                            >
+                                {{ value || "ai.typing" }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Version" prop="appVersion" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                            <ng-template let-value="value" ngx-datatable-cell-template>
-                                {{ value || '1.2.3' }}
+                        <ngx-datatable-column
+                            name="Version"
+                            prop="appVersion"
+                            [width]="70"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-value="value"
+                                ngx-datatable-cell-template
+                            >
+                                {{ value || "1.2.3" }}
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Gói (tháng)" prop="months" [width]="90" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                            <ng-template let-value="value" ngx-datatable-cell-template>
+                        <ngx-datatable-column
+                            name="Gói (tháng)"
+                            prop="months"
+                            [width]="90"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-value="value"
+                                ngx-datatable-cell-template
+                            >
                                 <span class="text-green-600">{{ value }}</span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Nội dung" prop="content" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
-                            <ng-template let-value="value" ngx-datatable-cell-template>
-                                <span class="line-clamp-1" [title]="value">{{ value }}</span>
+                        <ngx-datatable-column
+                            name="Nội dung"
+                            prop="content"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                let-value="value"
+                                ngx-datatable-cell-template
+                            >
+                                <span class="line-clamp-1" [title]="value">{{
+                                    value
+                                }}</span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Số tiền" prop="amount" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                            <ng-template let-value="value" ngx-datatable-cell-template>
-                                <span class="text-green-600">{{ value | number }} đ</span>
+                        <ngx-datatable-column
+                            name="Số tiền"
+                            prop="amount"
+                            [width]="150"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-value="value"
+                                ngx-datatable-cell-template
+                            >
+                                <span class="text-green-600"
+                                    >{{ value | number }} đ</span
+                                >
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Thời gian" prop="createdAt" [width]="200" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                            <ng-template let-value="value" ngx-datatable-cell-template>
-                                <span [title]="value | date:'dd/MM/yyyy HH:mm'">{{ value | timeago }}</span>
+                        <ngx-datatable-column
+                            name="Thời gian"
+                            prop="createdAt"
+                            [width]="200"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-value="value"
+                                ngx-datatable-cell-template
+                            >
+                                <span
+                                    [title]="value | date: 'dd/MM/yyyy HH:mm'"
+                                    >{{ value | timeago }}</span
+                                >
                             </ng-template>
                         </ngx-datatable-column>
                     </ngx-datatable>
                 </div>
             </div>
         </mat-tab>
-    
-<mat-tab [label]="'app.report' | transloco">
+
+        <mat-tab [label]="'app.report' | transloco">
             <!-- Section -->
             <div class="w-full">
                 <div class="flex flex-row items-center justify-between">
-                    <button mat-flat-button type="button" (click)="renderTable()" [color]="'primary'">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:file-text'"></mat-icon>
-                        <span class="ml-2">{{ 'app.create_quick_report' | transloco }}</span>
+                    <button
+                        mat-flat-button
+                        type="button"
+                        (click)="renderTable()"
+                        [color]="'primary'"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'feather:file-text'"
+                        ></mat-icon>
+                        <span class="ml-2">{{
+                            "app.create_quick_report" | transloco
+                        }}</span>
                     </button>
 
-                    <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-80">
-                        <mat-icon matPrefix [svgIcon]="'heroicons_outline:search'"></mat-icon>
-                        <input matInput [placeholder]="'Tìm kiếm...'" (keyup)="filterReports($event)">
+                    <mat-form-field
+                        class="fuse-mat-dense fuse-mat-no-subscript w-80"
+                    >
+                        <mat-icon
+                            matPrefix
+                            [svgIcon]="'heroicons_outline:search'"
+                        ></mat-icon>
+                        <input
+                            matInput
+                            [placeholder]="'Tìm kiếm...'"
+                            (keyup)="filterReports($event)"
+                        />
                     </mat-form-field>
                 </div>
 
                 <div class="mt-4">
-                    <ngx-datatable [virtualization]="false" class="material shadow-none border rounded-lg" [selected]="selected" [scrollbarV]="false" [scrollbarH]="false"
-                        [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false" [displayCheck]="displayCheck"
-                        (select)="onSelect($event)" [headerHeight]="50"
-                        [columnMode]="ColumnMode.force" [footerHeight]="50" [limit]="10" rowHeight="50" [rows]="users">
-                <!-- Column Templates -->
-                <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                    [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+                    <ngx-datatable
+                        [virtualization]="false"
+                        class="material shadow-none border rounded-lg"
+                        [selected]="selected"
+                        [scrollbarV]="false"
+                        [scrollbarH]="false"
+                        [selectionType]="SelectionType.checkbox"
+                        [selectAllRowsOnPage]="false"
+                        [displayCheck]="displayCheck"
+                        (select)="onSelect($event)"
+                        [headerHeight]="50"
+                        [columnMode]="ColumnMode.force"
+                        [footerHeight]="50"
+                        [limit]="10"
+                        rowHeight="50"
+                        [rows]="users"
+                    >
+                        <!-- Column Templates -->
+                        <ngx-datatable-column
+                            [width]="30"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                            [headerCheckboxable]="true"
+                            [checkboxable]="true"
+                        ></ngx-datatable-column>
 
-                <ngx-datatable-column [name]="('app.customer' | transloco)" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                    [resizeable]="true">
-                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                        {{ row.username }}
-                    </ng-template>
-                </ngx-datatable-column>
+                        <ngx-datatable-column
+                            [name]="'app.customer' | transloco"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-rowIndex="rowIndex"
+                                let-row="row"
+                                let-value="value"
+                            >
+                                {{ row.username }}
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                <ngx-datatable-column [name]="('app.writing' | transloco)" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                    [resizeable]="true">
-                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                        {{ (statistics[row.username]) ? statistics[row.username]['writing']['total'] : '0' }}
-                    </ng-template>
-                </ngx-datatable-column>
+                        <ngx-datatable-column
+                            [name]="'app.writing' | transloco"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-rowIndex="rowIndex"
+                                let-row="row"
+                                let-value="value"
+                            >
+                                {{
+                                    statistics[row.username]
+                                        ? statistics[row.username]["writing"][
+                                              "total"
+                                          ]
+                                        : "0"
+                                }}
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                <ngx-datatable-column [name]="('app.completed' | transloco)" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                    [resizeable]="true">
-                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                        {{ (statistics[row.username]) ? statistics[row.username]['done'] : '0' }}
-                    </ng-template>
-                </ngx-datatable-column>
+                        <ngx-datatable-column
+                            [name]="'app.completed' | transloco"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-rowIndex="rowIndex"
+                                let-row="row"
+                                let-value="value"
+                            >
+                                {{
+                                    statistics[row.username]
+                                        ? statistics[row.username]["done"]
+                                        : "0"
+                                }}
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                <ngx-datatable-column [name]="('app.ask_chatgpt' | transloco)" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                    [resizeable]="true">
-                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                        {{ (statistics[row.username]) ? statistics[row.username]['chatgpt'] : '0' }}
-                    </ng-template>
-                </ngx-datatable-column>
+                        <ngx-datatable-column
+                            [name]="'app.ask_chatgpt' | transloco"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-rowIndex="rowIndex"
+                                let-row="row"
+                                let-value="value"
+                            >
+                                {{
+                                    statistics[row.username]
+                                        ? statistics[row.username]["chatgpt"]
+                                        : "0"
+                                }}
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                <ngx-datatable-column name="Node Crawler" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                    [resizeable]="true">
-                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                        {{ (statistics[row.username]) ? statistics[row.username]['archives']['total'] : '0' }}
-                    </ng-template>
-                </ngx-datatable-column>
+                        <ngx-datatable-column
+                            name="Node Crawler"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-rowIndex="rowIndex"
+                                let-row="row"
+                                let-value="value"
+                            >
+                                {{
+                                    statistics[row.username]
+                                        ? statistics[row.username]["archives"][
+                                              "total"
+                                          ]
+                                        : "0"
+                                }}
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                <ngx-datatable-column name="Importer" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                    [resizeable]="true">
-                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                        {{ (statistics[row.username]) ? statistics[row.username]['wp2md'] : '0' }}
-                    </ng-template>
-                </ngx-datatable-column>
+                        <ngx-datatable-column
+                            name="Importer"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-rowIndex="rowIndex"
+                                let-row="row"
+                                let-value="value"
+                            >
+                                {{
+                                    statistics[row.username]
+                                        ? statistics[row.username]["wp2md"]
+                                        : "0"
+                                }}
+                            </ng-template>
+                        </ngx-datatable-column>
 
-                <ngx-datatable-column [name]="('app.royalties' | transloco)" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                    [resizeable]="true">
-                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                        {{ (statistics[row.username]) ? (statistics[row.username]['money'] | currency: "VND":"") + "đ" :
-                        '0' }}
-                    </ng-template>
-                </ngx-datatable-column>
-
+                        <ngx-datatable-column
+                            [name]="'app.royalties' | transloco"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-rowIndex="rowIndex"
+                                let-row="row"
+                                let-value="value"
+                            >
+                                {{
+                                    statistics[row.username]
+                                        ? (statistics[row.username]["money"]
+                                              | currency: "VND" : "") + "đ"
+                                        : "0"
+                                }}
+                            </ng-template>
+                        </ngx-datatable-column>
                     </ngx-datatable>
                 </div>
             </div>
         </mat-tab>
-<mat-tab [label]="('app.n8n_workflows' | transloco)">
+        <mat-tab [label]="'app.n8n_workflows' | transloco">
             <div class="w-full">
                 <div class="flex flex-row items-center justify-between">
                     <div class="text-secondary leading-8">
                         <div class="text-base flex gap-2">
-                            <span *ngIf="n8nSelected.length > 0" class="text-primary">{{ 'app.selecting' | transloco }}: <b>{{
-                                    n8nSelected.length }}</b></span>
+                            @if (n8nSelected.length > 0) {
+                                <span class="text-primary"
+                                    >{{ "app.selecting" | transloco }}:
+                                    <b>{{ n8nSelected.length }}</b></span
+                                >
+                            }
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <button *ngIf="n8nSelected.length > 0" mat-flat-button color="warn"
-                            (click)="deleteSelectedWorkflows()" [disabled]="n8nLoading">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                            <span class="ml-2">{{ 'app.delete_selected' | transloco }} ({{ n8nSelected.length }})</span>
-                        </button>
+                        @if (n8nSelected.length > 0) {
+                            <button
+                                mat-flat-button
+                                color="warn"
+                                (click)="deleteSelectedWorkflows()"
+                                [disabled]="n8nLoading"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'feather:trash-2'"
+                                ></mat-icon>
+                                <span class="ml-2"
+                                    >{{ "app.delete_selected" | transloco }} ({{
+                                        n8nSelected.length
+                                    }})</span
+                                >
+                            </button>
+                        }
                     </div>
                 </div>
 
                 <div class="mt-4">
-                    <ngx-datatable class="material shadow-none border rounded-lg" [virtualization]="false" [scrollbarV]="false" [scrollbarH]="false"
-                        [rows]="n8nWorkflows" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50"
-                        rowHeight="50" [loadingIndicator]="n8nLoading" [limit]="10" [selected]="n8nSelected"
-                        [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-                        (select)="onN8nSelect($event)">
-
-                        <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                            [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true">
+                    <ngx-datatable
+                        class="material shadow-none border rounded-lg"
+                        [virtualization]="false"
+                        [scrollbarV]="false"
+                        [scrollbarH]="false"
+                        [rows]="n8nWorkflows"
+                        [columnMode]="ColumnMode.force"
+                        [headerHeight]="50"
+                        [footerHeight]="50"
+                        rowHeight="50"
+                        [loadingIndicator]="n8nLoading"
+                        [limit]="10"
+                        [selected]="n8nSelected"
+                        [selectionType]="SelectionType.checkbox"
+                        [selectAllRowsOnPage]="false"
+                        (select)="onN8nSelect($event)"
+                    >
+                        <ngx-datatable-column
+                            [width]="30"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                            [headerCheckboxable]="true"
+                            [checkboxable]="true"
+                        >
                         </ngx-datatable-column>
 
                         <ngx-datatable-column name="ID" prop="id">
-                            <ng-template ngx-datatable-cell-template let-value="value">
-                                <span class="text-base text-gray-500 truncate block w-full" [title]="value">{{ value
-                                    }}</span>
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span
+                                    class="text-base text-gray-500 truncate block w-full"
+                                    [title]="value"
+                                    >{{ value }}</span
+                                >
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column [name]="('app.workflow_name' | transloco)" prop="name">
-                            <ng-template ngx-datatable-cell-template let-value="value">
-                                <span class="font-medium text-primary cursor-pointer hover:underline">{{ value }}</span>
+                        <ngx-datatable-column
+                            [name]="'app.workflow_name' | transloco"
+                            prop="name"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span
+                                    class="font-medium text-primary cursor-pointer hover:underline"
+                                    >{{ value }}</span
+                                >
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column [name]="('app.status' | transloco)" prop="active">
-                            <ng-template ngx-datatable-cell-template let-value="value">
-                                <span class="px-2 py-1 rounded text-base font-semibold"
-                                    [ngClass]="{'bg-green-100 text-green-800': value, 'bg-gray-100 text-gray-800': !value}">
-                                    {{ value ? 'Active' : 'Inactive' }}
+                        <ngx-datatable-column
+                            [name]="'app.status' | transloco"
+                            prop="active"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span
+                                    class="px-2 py-1 rounded text-base font-semibold"
+                                    [ngClass]="{
+                                        'bg-green-100 text-green-800': value,
+                                        'bg-gray-100 text-gray-800': !value,
+                                    }"
+                                >
+                                    {{ value ? "Active" : "Inactive" }}
                                 </span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column [name]="('app.updated' | transloco)" prop="updatedAt">
-                            <ng-template ngx-datatable-cell-template let-value="value">
-                                <span class="text-base">{{ value | date:'dd/MM/yyyy HH:mm' }}</span>
+                        <ngx-datatable-column
+                            [name]="'app.updated' | transloco"
+                            prop="updatedAt"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-value="value"
+                            >
+                                <span class="text-base">{{
+                                    value | date: "dd/MM/yyyy HH:mm"
+                                }}</span>
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="false">
-                            <ng-template ngx-datatable-cell-template let-row="row">
-                                <button mat-icon-button color="warn" (click)="deleteWorkflow(row)"
-                                    [matTooltip]="('app.delete_this_workflow' | transloco)">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                        <ngx-datatable-column
+                            name=""
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                        >
+                            <ng-template
+                                ngx-datatable-cell-template
+                                let-row="row"
+                            >
+                                <button
+                                    mat-icon-button
+                                    color="warn"
+                                    (click)="deleteWorkflow(row)"
+                                    [matTooltip]="
+                                        'app.delete_this_workflow' | transloco
+                                    "
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:trash-2'"
+                                    ></mat-icon>
                                 </button>
                             </ng-template>
                         </ngx-datatable-column>
@@ -345,51 +834,100 @@
                 </div>
             </div>
         </mat-tab>
-<mat-tab [label]="('app.help' | transloco)">
+        <mat-tab [label]="'app.help' | transloco">
             <div class="text-secondary leading-10 mt-2">
-                <h2 class="headings">{{ 'app.app_needs_to_download' | transloco }}</h2>
+                <h2 class="headings">
+                    {{ "app.app_needs_to_download" | transloco }}
+                </h2>
 
                 <!-- Divider -->
                 <div class="mt-2"></div>
 
-                <p class="text-base mt-2">{{ 'app.download_ffmpeg_for_macos' | transloco }} <a href="https://evermeet.cx/ffmpeg"
-                        target="_blank">https://evermeet.cx/ffmpeg</a></p>
-                <p class="text-base">{{ 'app.auto_or_for_windows_linux' | transloco }} <a href="https://github.com/BtbN/FFmpeg-Builds/releases"
-                        target="_blank">https://github.com/BtbN/FFmpeg-Builds/releases</a></p>
-                <p class="text-base">{{ 'app.download_ytdlp_for_os' | transloco }} <a
+                <p class="text-base mt-2">
+                    {{ "app.download_ffmpeg_for_macos" | transloco }}
+                    <a href="https://evermeet.cx/ffmpeg" target="_blank"
+                        >https://evermeet.cx/ffmpeg</a
+                    >
+                </p>
+                <p class="text-base">
+                    {{ "app.auto_or_for_windows_linux" | transloco }}
+                    <a
+                        href="https://github.com/BtbN/FFmpeg-Builds/releases"
+                        target="_blank"
+                        >https://github.com/BtbN/FFmpeg-Builds/releases</a
+                    >
+                </p>
+                <p class="text-base">
+                    {{ "app.download_ytdlp_for_os" | transloco }}
+                    <a
                         href="https://github.com/yt-dlp/yt-dlp/releases"
-                        target="_blank">https://github.com/yt-dlp/yt-dlp/releases</a></p>
-                <p class="text-base">{{ 'app.download_chrome_win_at' | transloco }} <a
+                        target="_blank"
+                        >https://github.com/yt-dlp/yt-dlp/releases</a
+                    >
+                </p>
+                <p class="text-base">
+                    {{ "app.download_chrome_win_at" | transloco }}
+                    <a
                         href="https://commondatastorage.googleapis.com/chromium-browser-snapshots/index.html?prefix=Win"
-                        target="_blank">https://commondatastorage.googleapis.com/chromium-browser-snapshots/index.html?prefix=Win</a>
+                        target="_blank"
+                        >https://commondatastorage.googleapis.com/chromium-browser-snapshots/index.html?prefix=Win</a
+                    >
                 </p>
 
                 <!-- Divider -->
-                <div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4"></div>
+                <div
+                    class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4"
+                ></div>
 
                 <h2 class="headings">Source Code</h2>
 
                 <!-- Divider -->
                 <div class="mt-2"></div>
 
-                <p class="text-base mt-2">Source code cho mobile tại Bitbucket <a href="mailto:typevn@gmail.com" target="_blank">typevn&#64;gmail.com</a></p>
-                <p class="text-base">Source code cho ai.type và api tại Bitbucket <a href="mailto:lophocvinhxuan@gmail.com" target="_blank">lophocvinhxuan&#64;gmail.com</a></p>
-                <p class="text-base">Source code cho apps tại Bitbucket <a href="mailto:duonglothien493@gmail.com" target="_blank">duonglothien493&#64;gmail.com</a></p>
+                <p class="text-base mt-2">
+                    Source code cho mobile tại Bitbucket
+                    <a href="mailto:typevn@gmail.com" target="_blank"
+                        >typevn&#64;gmail.com</a
+                    >
+                </p>
+                <p class="text-base">
+                    Source code cho ai.type và api tại Bitbucket
+                    <a href="mailto:lophocvinhxuan@gmail.com" target="_blank"
+                        >lophocvinhxuan&#64;gmail.com</a
+                    >
+                </p>
+                <p class="text-base">
+                    Source code cho apps tại Bitbucket
+                    <a href="mailto:duonglothien493@gmail.com" target="_blank"
+                        >duonglothien493&#64;gmail.com</a
+                    >
+                </p>
             </div>
         </mat-tab>
 
         <mat-tab [label]="'app.auto_system' | transloco">
             <div class="w-full mt-4">
-
-
                 <div class="text-secondary leading-8">
-                    <p class="font-semibold text-lg">{{ 'app.auto_backup_and_restore' | transloco }}</p>
-                    <p class="text-base text-gray-500">{{ 'app.auto_push_all_current_couchdb_data' | transloco }}</p>
+                    <p class="font-semibold text-lg">
+                        {{ "app.auto_backup_and_restore" | transloco }}
+                    </p>
+                    <p class="text-base text-gray-500">
+                        {{
+                            "app.auto_push_all_current_couchdb_data" | transloco
+                        }}
+                    </p>
                 </div>
 
                 <div class="flex items-center justify-start mt-4">
-                    <button mat-flat-button type="button" (click)="backupDatabase()" color="accent">
-                        <mat-icon [svgIcon]="'heroicons_outline:cloud-upload'"></mat-icon>
+                    <button
+                        mat-flat-button
+                        type="button"
+                        (click)="backupDatabase()"
+                        color="accent"
+                    >
+                        <mat-icon
+                            [svgIcon]="'heroicons_outline:cloud-upload'"
+                        ></mat-icon>
                         <span class="ml-2">Backup Database</span>
                     </button>
                 </div>

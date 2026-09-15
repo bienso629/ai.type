@@ -1,4 +1,11 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfigService } from '@fuse/services/config';
@@ -14,7 +21,9 @@ import { Subject, takeUntil } from 'rxjs';
     selector: 'alltube',
     templateUrl: './all-tube.component.html',
     providers: [YoutubeService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AllTubeComponent implements OnInit, OnDestroy {
     config: AppConfig;
@@ -41,7 +50,9 @@ export class AllTubeComponent implements OnInit, OnDestroy {
         const urls = value ? value.match(urlRegex) : null;
 
         if (!urls || urls.length === 0) {
-            this.toastr.warning('Vui lòng nhập ít nhất một đường dẫn video hợp lệ!');
+            this.toastr.warning(
+                'Vui lòng nhập ít nhất một đường dẫn video hợp lệ!',
+            );
             return;
         }
 
@@ -61,26 +72,32 @@ export class AllTubeComponent implements OnInit, OnDestroy {
                     customCookies = JSON.parse(settingsStr).customCookies || '';
                 } catch (e) {}
             }
-            (window as any).electron.invoke('download-video', {
-                urls: urls,
-                customCookies: customCookies
-            }).then((result: any) => {
-                this.isDownloading = false;
-                if (result && result.success) {
-                    this.downloadPercent = 100;
-                    this.downloadStatus = 'Tải video thành công!';
-                    this.toastr.success('Tải video về thành công!');
-                } else {
-                    this.downloadStatus = 'Tải thất bại!';
-                    this.toastr.warning('Tải video thất bại: ' + (result?.error || 'Unknown error'));
-                }
-                this._changeDetectorRef.detectChanges();
-            }).catch((e: any) => {
-                this.isDownloading = false;
-                this.downloadStatus = 'Lỗi tải video!';
-                this.toastr.error('Có lỗi xảy ra: ' + e);
-                this._changeDetectorRef.detectChanges();
-            });
+            (window as any).electron
+                .invoke('download-video', {
+                    urls: urls,
+                    customCookies: customCookies,
+                })
+                .then((result: any) => {
+                    this.isDownloading = false;
+                    if (result && result.success) {
+                        this.downloadPercent = 100;
+                        this.downloadStatus = 'Tải video thành công!';
+                        this.toastr.success('Tải video về thành công!');
+                    } else {
+                        this.downloadStatus = 'Tải thất bại!';
+                        this.toastr.warning(
+                            'Tải video thất bại: ' +
+                                (result?.error || 'Unknown error'),
+                        );
+                    }
+                    this._changeDetectorRef.detectChanges();
+                })
+                .catch((e: any) => {
+                    this.isDownloading = false;
+                    this.downloadStatus = 'Lỗi tải video!';
+                    this.toastr.error('Có lỗi xảy ra: ' + e);
+                    this._changeDetectorRef.detectChanges();
+                });
         } else {
             this.toastr.warning('Vui lòng chạy trên app Desktop để tải video!');
         }
@@ -89,7 +106,7 @@ export class AllTubeComponent implements OnInit, OnDestroy {
     transcriptDetails(transcript_id: string, include_snapshots?: boolean) {
         return this._youtubeService.transcriptDetails({
             transcript_id: transcript_id,
-            include_snapshots: include_snapshots
+            include_snapshots: include_snapshots,
         });
     }
 
@@ -112,7 +129,9 @@ export class AllTubeComponent implements OnInit, OnDestroy {
         private _youtubeService: YoutubeService,
         private _changeDetectorRef: ChangeDetectorRef,
     ) {
-        this.titleService.setTitle(`tải toàn bộ kênh youtube | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `tải toàn bộ kênh youtube | ai.type - công cụ tạo content`,
+        );
     }
 
     ngOnInit(): void {
@@ -135,18 +154,23 @@ export class AllTubeComponent implements OnInit, OnDestroy {
         if (typeof window !== 'undefined' && (window as any).electron) {
             const electronApi = (window as any).electron;
             if (electronApi.onDownloadVideoProgress) {
-                this._unsubscribeDownloadProgress = electronApi.onDownloadVideoProgress((data: any) => {
-                    if (data) {
-                        this.downloadPercent = data.percent !== undefined ? data.percent : this.downloadPercent;
-                        this.downloadStatus = data.status || this.downloadStatus;
-                        this.downloadSpeed = data.speed || '';
-                        this.downloadEta = data.eta || '';
-                        if (data.percent < 100) {
-                            this.isDownloading = true;
+                this._unsubscribeDownloadProgress =
+                    electronApi.onDownloadVideoProgress((data: any) => {
+                        if (data) {
+                            this.downloadPercent =
+                                data.percent !== undefined
+                                    ? data.percent
+                                    : this.downloadPercent;
+                            this.downloadStatus =
+                                data.status || this.downloadStatus;
+                            this.downloadSpeed = data.speed || '';
+                            this.downloadEta = data.eta || '';
+                            if (data.percent < 100) {
+                                this.isDownloading = true;
+                            }
+                            this._changeDetectorRef.detectChanges();
                         }
-                        this._changeDetectorRef.detectChanges();
-                    }
-                });
+                    });
             }
         }
     }
@@ -164,24 +188,26 @@ export class AllTubeComponent implements OnInit, OnDestroy {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference

@@ -1,9 +1,13 @@
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslocoModule } from '@ngneat/transloco';
-import { Component, Inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { TranslocoModule } from '@jsverse/transloco';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import {
+    MatDialogModule,
+    MatDialogRef,
+    MAT_DIALOG_DATA,
+} from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,10 +20,10 @@ import { GenaiService } from 'app/genai.service';
 
 @Component({
     selector: 'app-add-scene',
-    standalone: true,
-    imports: [TranslocoModule, MatTooltipModule, 
+    imports: [
         TranslocoModule,
-        CommonModule,
+        MatTooltipModule,
+        TranslocoModule,
         FormsModule,
         MatDialogModule,
         MatFormFieldModule,
@@ -27,66 +31,107 @@ import { GenaiService } from 'app/genai.service';
         MatButtonModule,
         MatIconModule,
         MatProgressSpinnerModule,
-        MatSelectModule
+        MatSelectModule,
     ],
     template: `
-    <div class="min-w-[480px] bg-white rounded-lg">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold m-0">
-                Thêm Scene mới thủ công
-            </h2>
-            <div class="flex items-center gap-2">
-                <button mat-icon-button (click)="onCancel()">
-                    <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        <div class="min-w-[480px] bg-white rounded-lg">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold m-0">
+                    Thêm Scene mới thủ công
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button mat-icon-button (click)="onCancel()">
+                        <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1 pt-2">
+                <mat-form-field appearance="outline" class="w-full">
+                    <mat-label>Chọn câu thoại có sẵn</mat-label>
+                    <mat-select
+                        [(ngModel)]="data.selectedClip"
+                        placeholder="Tìm và chọn một câu thoại..."
+                        required
+                        (selectionChange)="generateAIPrompt()"
+                    >
+                        @for (
+                            item of data.availableClips;
+                            track item;
+                            let i = $index
+                        ) {
+                            <mat-option
+                                [value]="item"
+                                [title]="item.description"
+                            >
+                                <span class="line-clamp-1"
+                                    >#{{ i + 1 }} {{ item.description }}</span
+                                >
+                            </mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+
+                <div class="relative w-full">
+                    <div class="flex items-center mb-2">
+                        <mat-label class="text-sm font-medium text-gray-700"
+                            >Prompt (Mô tả hình ảnh bằng tiếng Anh)</mat-label
+                        >
+                        @if (isGenerating) {
+                            <div class="flex items-center ml-3 text-primary">
+                                <mat-spinner
+                                    diameter="16"
+                                    class="mr-1 inline-block"
+                                ></mat-spinner>
+                                <span class="text-xs font-medium"
+                                    >Đang tạo...</span
+                                >
+                            </div>
+                        }
+                    </div>
+                    <mat-form-field appearance="outline" class="w-full">
+                        <textarea
+                            matInput
+                            [(ngModel)]="data.prompt"
+                            rows="4"
+                            required
+                            placeholder="Hệ thống sẽ tự động tạo Prompt dựa trên Câu thoại và Nội dung truyện (Master Prompt)..."
+                        ></textarea>
+                        <mat-hint
+                            >Mô tả càng chi tiết, AI tạo ảnh càng đẹp.</mat-hint
+                        >
+                    </mat-form-field>
+                </div>
+            </div>
+
+            <div
+                mat-dialog-actions
+                class="flex justify-end gap-1 mt-8 p-0 pt-4 border-t border-gray-100"
+            >
+                <button
+                    mat-flat-button
+                    color="primary"
+                    [mat-dialog-close]="data"
+                    [disabled]="!data.selectedClip || !data.prompt?.trim()"
+                >
+                    <mat-icon class="icon-size-5">add</mat-icon>
+                    <mat-label class="ml-2">Thêm vào Timeline</mat-label>
                 </button>
             </div>
         </div>
-        
-        <div class="flex flex-col gap-1 pt-2">
-            <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Chọn câu thoại có sẵn</mat-label>
-                <mat-select [(ngModel)]="data.selectedClip" placeholder="Tìm và chọn một câu thoại..." required (selectionChange)="generateAIPrompt()">
-                    <mat-option *ngFor="let item of data.availableClips; let i = index" [value]="item" [title]="item.description">
-                        <span class="line-clamp-1">#{{ i + 1 }} {{ item.description }}</span>
-                    </mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            <div class="relative w-full">
-                <div class="flex items-center mb-2">
-                    <mat-label class="text-sm font-medium text-gray-700">Prompt (Mô tả hình ảnh bằng tiếng Anh)</mat-label>
-                    <div *ngIf="isGenerating" class="flex items-center ml-3 text-primary">
-                        <mat-spinner diameter="16" class="mr-1 inline-block"></mat-spinner>
-                        <span class="text-xs font-medium">Đang tạo...</span>
-                    </div>
-                </div>
-                <mat-form-field appearance="outline" class="w-full">
-                    <textarea matInput [(ngModel)]="data.prompt" rows="4" required 
-                        placeholder="Hệ thống sẽ tự động tạo Prompt dựa trên Câu thoại và Nội dung truyện (Master Prompt)..."></textarea>
-                    <mat-hint>Mô tả càng chi tiết, AI tạo ảnh càng đẹp.</mat-hint>
-                </mat-form-field>
-            </div>
-        </div>
-        
-        <div mat-dialog-actions class="flex justify-end gap-1 mt-8 p-0 pt-4 border-t border-gray-100">
-            <button mat-flat-button color="primary" 
-                    [mat-dialog-close]="data" 
-                    [disabled]="!data.selectedClip || !data.prompt?.trim()">
-                <mat-icon class="icon-size-5">add</mat-icon>
-                <mat-label class="ml-2">Thêm vào Timeline</mat-label>
-            </button>
-        </div>
-    </div>
     `,
-    styles: [`
-        :host {
-            display: block;
-            background: white;
-        }
-        mat-form-field {
-            width: 100%;
-        }
-    `]
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [
+        `
+            :host {
+                display: block;
+                background: white;
+            }
+            mat-form-field {
+                width: 100%;
+            }
+        `,
+    ],
 })
 export class AddSceneComponent {
     isGenerating: boolean = false;
@@ -96,7 +141,14 @@ export class AddSceneComponent {
         private multiAccountService: MultiAccountService,
         private toastr: ToastrService,
         private _genaiService: GenaiService,
-        @Inject(MAT_DIALOG_DATA) public data: { selectedClip: any, prompt: string, characters?: any[], masterPrompt?: string, availableClips?: any[] }
+        @Inject(MAT_DIALOG_DATA)
+        public data: {
+            selectedClip: any;
+            prompt: string;
+            characters?: any[];
+            masterPrompt?: string;
+            availableClips?: any[];
+        },
     ) {
         // Đảm bảo data không bị undefined
         if (!this.data) {
@@ -110,7 +162,9 @@ export class AddSceneComponent {
 
     async generateAIPrompt() {
         if (!this.data.selectedClip) {
-            this.toastr.warning('Vui lòng chọn một câu thoại trước khi sử dụng AI sinh Prompt.');
+            this.toastr.warning(
+                'Vui lòng chọn một câu thoại trước khi sử dụng AI sinh Prompt.',
+            );
             return;
         }
 
@@ -119,12 +173,18 @@ export class AddSceneComponent {
         const settings = this.multiAccountService.getItem('settings');
         let secretKey;
         try {
-            secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
-        } catch { }
+            secretKey = settings.secretKey
+                ? settings.secretKey.split(';')
+                : undefined;
+        } catch {}
 
-        const keys = secretKey ? secretKey.map((k: string) => k.trim()).filter((k: string) => k) : [];
+        const keys = secretKey
+            ? secretKey.map((k: string) => k.trim()).filter((k: string) => k)
+            : [];
         if (keys.length === 0) {
-            this.toastr.error('Thiếu API Key hợp lệ cho AI (Gemini). Vui lòng kiểm tra Cài đặt.');
+            this.toastr.error(
+                'Thiếu API Key hợp lệ cho AI (Gemini). Vui lòng kiểm tra Cài đặt.',
+            );
             return;
         }
 
@@ -135,7 +195,12 @@ export class AddSceneComponent {
 
         let characterContext = '';
         if (this.data.characters && this.data.characters.length > 0) {
-            const charList = this.data.characters.map((c: any) => `- Name: ${c.name || c.role}\n  Appearance: ${c.appearance || 'Unknown'}`).join('\n');
+            const charList = this.data.characters
+                .map(
+                    (c: any) =>
+                        `- Name: ${c.name || c.role}\n  Appearance: ${c.appearance || 'Unknown'}`,
+                )
+                .join('\n');
             characterContext = `\nCASTING INFORMATION:\n${charList}\n`;
         }
 
@@ -177,9 +242,12 @@ export class AddSceneComponent {
             }
         } catch (error: any) {
             console.error('Error generating prompt:', error);
-            const isOverloaded = error?.message?.includes('503') || error?.status === 503;
+            const isOverloaded =
+                error?.message?.includes('503') || error?.status === 503;
             if (isOverloaded) {
-                this.toastr.error('Hệ thống AI đang quá tải (503). Vui lòng thử lại sau vài giây.');
+                this.toastr.error(
+                    'Hệ thống AI đang quá tải (503). Vui lòng thử lại sau vài giây.',
+                );
             } else {
                 this.toastr.error('Lỗi khi sinh Prompt. Vui lòng thử lại.');
             }

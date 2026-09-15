@@ -12,7 +12,6 @@ export interface PolicySection {
 
 @Component({
     selector: 'policy-layout',
-    standalone: true,
     imports: [CommonModule, RouterModule, MatButtonModule, MatIconModule, MatTooltipModule],
     templateUrl: './policy-layout.component.html',
     styleUrls: ['./policy-layout.component.scss'],

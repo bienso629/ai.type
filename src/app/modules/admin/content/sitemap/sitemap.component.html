@@ -1,166 +1,387 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b">
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b"
+    >
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
-                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                        <a
+                            class="text-base text-primary-500"
+                            [routerLink]="['/dashboard']"
+                            >ai.type</a
+                        >
                     </div>
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">{{ 'app.reuse_post_from_wordpress' | transloco }}</span>
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            style="margin-top: 2px"
+                            [svgIcon]="'heroicons_solid:chevron-right'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base text-secondary">{{
+                            "app.reuse_post_from_wordpress" | transloco
+                        }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
-                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
+                    <a
+                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
+                        [routerLink]="'./..'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"
+                        ></mat-icon>
+                        <span class="ml-1 text-base">{{
+                            "app.back" | transloco
+                        }}</span>
                     </a>
                 </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    {{ 'app.auto_article_data_from_wordpress_tr' | transloco }}
-                </p>
-            </div> -->
+      <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+        {{ 'app.auto_article_data_from_wordpress_tr' | transloco }}
+      </p>
+    </div> -->
         </div>
 
         <!-- Actions -->
-        <div class="flex flex-wrap shrink-0 items-center mt-6 sm:mt-0 sm:ml-4 gap-2">
-
+        <div
+            class="flex flex-wrap shrink-0 items-center mt-6 sm:mt-0 sm:ml-4 gap-2"
+        >
             <!-- Keyword Search -->
-            <mat-form-field *ngIf="selectedDomain"
-                class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:search'"></mat-icon>
-                <input matInput (keyup.enter)="fetchPosts()" [(ngModel)]="keyword" [placeholder]="'app.search_posts' | transloco">
-            </mat-form-field>
+            @if (selectedDomain) {
+                <mat-form-field
+                    class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                    appearance="fill"
+                >
+                    <mat-icon
+                        matPrefix
+                        class="icon-size-4"
+                        [svgIcon]="'feather:search'"
+                    ></mat-icon>
+                    <input
+                        matInput
+                        (keyup.enter)="fetchPosts()"
+                        [(ngModel)]="keyword"
+                        [placeholder]="'app.search_posts' | transloco"
+                    />
+                </mat-form-field>
+            }
 
             <!-- Category Filter -->
-            <mat-form-field *ngIf="categories && categories.length > 0"
-                class="min-w-40 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                <mat-select (selectionChange)="fetchPosts()" [(ngModel)]="selectedCategory">
-                    <mat-option value="">{{ 'app.all' | transloco }}</mat-option>
-                    <mat-option *ngFor="let cat of categories" [value]="cat.id">{{cat.name}}</mat-option>
-                </mat-select>
-            </mat-form-field>
-
-
-            <!-- Domain Select -->
-            <div class="flex items-center gap-1.5" *ngIf="domains && domains.length > 0">
-                <mat-form-field class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                    <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
-                    <mat-select [compareWith]="compareDomainFn" (selectionChange)="onDomainChange($event)"
-                        [(ngModel)]="selectedDomain">
-                        <ng-container *ngFor="let item of domains; let i = index">
-                            <mat-option [value]="item">{{cleanDomain(item.domain)}}</mat-option>
-                        </ng-container>
+            @if (categories && categories.length > 0) {
+                <mat-form-field
+                    class="min-w-40 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                    appearance="fill"
+                >
+                    <mat-select
+                        (selectionChange)="fetchPosts()"
+                        [(ngModel)]="selectedCategory"
+                    >
+                        <mat-option value="">{{
+                            "app.all" | transloco
+                        }}</mat-option>
+                        @for (cat of categories; track cat) {
+                            <mat-option [value]="cat.id">{{
+                                cat.name
+                            }}</mat-option>
+                        }
                     </mat-select>
                 </mat-form-field>
-            </div>
+            }
 
+            <!-- Domain Select -->
+            @if (domains && domains.length > 0) {
+                <div class="flex items-center gap-1.5">
+                    <mat-form-field
+                        class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                        appearance="fill"
+                    >
+                        <mat-icon
+                            matPrefix
+                            class="icon-size-4"
+                            [svgIcon]="'feather:globe'"
+                        ></mat-icon>
+                        <mat-select
+                            [compareWith]="compareDomainFn"
+                            (selectionChange)="onDomainChange($event)"
+                            [(ngModel)]="selectedDomain"
+                        >
+                            @for (item of domains; track item; let i = $index) {
+                                <mat-option [value]="item">{{
+                                    cleanDomain(item.domain)
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            }
         </div>
     </div>
 
     <!-- Main -->
     <div class="flex-auto overflow-hidden relative">
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable #table [virtualization]="true" class="material fullscreen transition-opacity duration-300"
-            [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
-            [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)"
-            (scroll)="onScroll($event)">
+        <ngx-datatable
+            #table
+            [virtualization]="true"
+            class="material fullscreen transition-opacity duration-300"
+            [columnMode]="ColumnMode.force"
+            [headerHeight]="50"
+            [footerHeight]="50"
+            [rowHeight]="50"
+            [scrollbarV]="true"
+            [rows]="posts"
+            [selectionType]="'checkbox'"
+            [selected]="selected"
+            (select)="onSelect($event)"
+            (scroll)="onScroll($event)"
+        >
+            <ngx-datatable-column
+                [width]="40"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                [headerCheckboxable]="true"
+                [checkboxable]="true"
+            ></ngx-datatable-column>
 
-            <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
-
-            <ngx-datatable-column [name]="'app.thumbnail' | transloco" prop="thumbnail" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column
+                [name]="'app.thumbnail' | transloco"
+                prop="thumbnail"
+                [width]="70"
+                [sortable]="false"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-center w-full h-full">
-                        <img *ngIf="row.thumbnail" [src]="row.thumbnail" class="object-cover w-8 h-8 shadow-sm"
-                             [ngClass]="{'grayscale opacity-50': row.status === 'trash', 'grayscale': row.status === 'pending', 'ring-2 ring-yellow-400': row.status === 'draft'}">
-                        <div *ngIf="!row.thumbnail" class="flex items-center justify-center w-8 h-8 shadow-sm"
-                             [ngClass]="{'bg-red-100': row.status === 'trash', 'bg-gray-300': row.status === 'pending', 'bg-yellow-100': row.status === 'draft', 'bg-gray-100': row.status !== 'pending' && row.status !== 'draft' && row.status !== 'trash'}">
-                            <mat-icon class="icon-size-4" [ngClass]="row.status === 'trash' ? 'text-red-400' : 'text-gray-400'" [svgIcon]="row.status === 'trash' ? 'feather:trash' : 'feather:image'"></mat-icon>
-                        </div>
+                        @if (row.thumbnail) {
+                            <img
+                                [src]="row.thumbnail"
+                                class="object-cover w-8 h-8 shadow-sm"
+                                [ngClass]="{
+                                    'grayscale opacity-50':
+                                        row.status === 'trash',
+                                    grayscale: row.status === 'pending',
+                                    'ring-2 ring-yellow-400':
+                                        row.status === 'draft',
+                                }"
+                            />
+                        }
+                        @if (!row.thumbnail) {
+                            <div
+                                class="flex items-center justify-center w-8 h-8 shadow-sm"
+                                [ngClass]="{
+                                    'bg-red-100': row.status === 'trash',
+                                    'bg-gray-300': row.status === 'pending',
+                                    'bg-yellow-100': row.status === 'draft',
+                                    'bg-gray-100':
+                                        row.status !== 'pending' &&
+                                        row.status !== 'draft' &&
+                                        row.status !== 'trash',
+                                }"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [ngClass]="
+                                        row.status === 'trash'
+                                            ? 'text-red-400'
+                                            : 'text-gray-400'
+                                    "
+                                    [svgIcon]="
+                                        row.status === 'trash'
+                                            ? 'feather:trash'
+                                            : 'feather:image'
+                                    "
+                                ></mat-icon>
+                            </div>
+                        }
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column [name]="'app.title' | transloco" prop="title" [width]="500" [sortable]="true" [canAutoResize]="true">
+            <ngx-datatable-column
+                [name]="'app.title' | transloco"
+                prop="title"
+                [width]="500"
+                [sortable]="true"
+                [canAutoResize]="true"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center w-full">
-                        <span *ngIf="row.status === 'trash'" class="mr-2 px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 rounded">TRASH</span>
-                        <p class="font-normal truncate hover:text-clip" 
-                           [ngClass]="{'text-red-500 line-through': row.status === 'trash', 'text-gray-400': row.status === 'pending', 'text-yellow-600': row.status === 'draft'}"
-                           [innerHTML]="row?.title"></p>
-                        <button mat-icon-button (click)="editPost(row)" [matTooltip]="'app.edit_post' | transloco"
-                            class="flex items-center justify-center ml-2 transition-colors shrink-0">
-                            <mat-icon class="icon-size-4 text-gray-600" [svgIcon]="'feather:edit-3'"></mat-icon>
+                        @if (row.status === "trash") {
+                            <span
+                                class="mr-2 px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 rounded"
+                                >TRASH</span
+                            >
+                        }
+                        <p
+                            class="font-normal truncate hover:text-clip"
+                            [ngClass]="{
+                                'text-red-500 line-through':
+                                    row.status === 'trash',
+                                'text-gray-400': row.status === 'pending',
+                                'text-yellow-600': row.status === 'draft',
+                            }"
+                            [innerHTML]="$safeNavigationMigration(row?.title)"
+                        ></p>
+                        <button
+                            mat-icon-button
+                            (click)="editPost(row)"
+                            [matTooltip]="'app.edit_post' | transloco"
+                            class="flex items-center justify-center ml-2 transition-colors shrink-0"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-gray-600"
+                                [svgIcon]="'feather:edit-3'"
+                            ></mat-icon>
                         </button>
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column [name]="'app.original_link' | transloco" prop="link" [width]="250" [sortable]="true" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false" headerClass="text-right">
+            <ngx-datatable-column
+                [name]="'app.original_link' | transloco"
+                prop="link"
+                [width]="250"
+                [sortable]="true"
+                [canAutoResize]="false"
+                [draggable]="false"
+                [resizeable]="false"
+                headerClass="text-right"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center justify-end w-full">
-                        <a [href]="row.link" target="_blank"
-                            class="h-7 leading-7 px-3 text-white rounded-full text-sm font-semibold truncate hover:text-clip"
-                            [ngClass]="{
-                                'bg-red-500 hover:bg-red-600 line-through opacity-80': row.status === 'trash',
-                                'bg-gray-400 hover:bg-gray-500': row.status === 'pending',
-                                'bg-yellow-500 hover:bg-yellow-600': row.status === 'draft',
-                                'bg-blue-500 hover:bg-blue-600': row.status !== 'pending' && row.status !== 'draft' && row.status !== 'trash'
-                            }">
-                            {{row.link}}
-                        </a>
-                    </div>
+                    @if (row) {
+                        <div class="flex items-center justify-end w-full">
+                            <a
+                                [href]="row.link"
+                                target="_blank"
+                                class="h-7 leading-7 px-3 text-white rounded-full text-sm font-semibold truncate hover:text-clip"
+                                [ngClass]="{
+                                    'bg-red-500 hover:bg-red-600 line-through opacity-80':
+                                        row.status === 'trash',
+                                    'bg-gray-400 hover:bg-gray-500':
+                                        row.status === 'pending',
+                                    'bg-yellow-500 hover:bg-yellow-600':
+                                        row.status === 'draft',
+                                    'bg-blue-500 hover:bg-blue-600':
+                                        row.status !== 'pending' &&
+                                        row.status !== 'draft' &&
+                                        row.status !== 'trash',
+                                }"
+                            >
+                                {{ row.link }}
+                            </a>
+                        </div>
+                    }
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column [name]="'app.date_created' | transloco" prop="date" [width]="150" [sortable]="true" [canAutoResize]="false"
-                headerClass="text-right">
+            <ngx-datatable-column
+                [name]="'app.date_created' | transloco"
+                prop="date"
+                [width]="150"
+                [sortable]="true"
+                [canAutoResize]="false"
+                headerClass="text-right"
+            >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-end w-full">
-                        <span [ngClass]="{
-                            'text-red-500': row.status === 'trash',
-                            'text-gray-400': row.status === 'pending',
-                            'text-yellow-600': row.status === 'draft',
-                            'text-gray-500': row.status !== 'pending' && row.status !== 'draft' && row.status !== 'trash'
-                        }">{{ row?.date | date:'short' }}</span>
+                        <span
+                            [ngClass]="{
+                                'text-red-500': row.status === 'trash',
+                                'text-gray-400': row.status === 'pending',
+                                'text-yellow-600': row.status === 'draft',
+                                'text-gray-500':
+                                    row.status !== 'pending' &&
+                                    row.status !== 'draft' &&
+                                    row.status !== 'trash',
+                            }"
+                            >{{
+                                $safeNavigationMigration(row?.date)
+                                    | date: "short"
+                            }}</span
+                        >
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
             <ngx-datatable-footer>
-                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
-                    let-isVisible="isVisible">
-                    <div class="flex w-full sm:items-center sm:justify-between px-4">
+                <ng-template
+                    ngx-datatable-footer-template
+                    let-rowCount="rowCount"
+                    let-pageSize="pageSize"
+                    let-selectedCount="selectedCount"
+                    let-curPage="curPage"
+                    let-offset="offset"
+                    let-isVisible="isVisible"
+                >
+                    <div
+                        class="flex w-full sm:items-center sm:justify-between px-4"
+                    >
                         <div class="flex items-center gap-4 min-w-0">
                             <div class="page-count text-sm font-medium">
-                                {{ 'app.selected_posts_count' | transloco:{selected: (selectedCount ? selectedCount.toLocaleString() : 0), total: (rowCount ? rowCount.toLocaleString() : 0)} }}
+                                {{
+                                    "app.selected_posts_count"
+                                        | transloco
+                                            : {
+                                                  selected: selectedCount
+                                                      ? selectedCount.toLocaleString()
+                                                      : 0,
+                                                  total: rowCount
+                                                      ? rowCount.toLocaleString()
+                                                      : 0,
+                                              }
+                                }}
                             </div>
                         </div>
                         <div class="flex items-center ml-4 space-x-2">
-                            <button mat-flat-button class="bg-yellow-500 text-white" *ngIf="canUnpublish" (click)="unpublishSelectedPosts()">
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:archive'"></mat-icon>
-                                <span class="ml-2">Unpublish</span>
-                            </button>
-                            <button mat-flat-button color="warn" *ngIf="canDelete" (click)="deleteSelectedPosts()">
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                                <span class="ml-2">Delete</span>
-                            </button>
-                            <button mat-flat-button color="primary" *ngIf="canPublish" (click)="publishSelectedPosts()">
-                                <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
-                                <span class="ml-2">Publish</span>
-                            </button>
+                            @if (canUnpublish) {
+                                <button
+                                    mat-flat-button
+                                    class="bg-yellow-500 text-white"
+                                    (click)="unpublishSelectedPosts()"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:archive'"
+                                    ></mat-icon>
+                                    <span class="ml-2">Unpublish</span>
+                                </button>
+                            }
+                            @if (canDelete) {
+                                <button
+                                    mat-flat-button
+                                    color="warn"
+                                    (click)="deleteSelectedPosts()"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:trash-2'"
+                                    ></mat-icon>
+                                    <span class="ml-2">Delete</span>
+                                </button>
+                            }
+                            @if (canPublish) {
+                                <button
+                                    mat-flat-button
+                                    color="primary"
+                                    (click)="publishSelectedPosts()"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'feather:send'"
+                                    ></mat-icon>
+                                    <span class="ml-2">Publish</span>
+                                </button>
+                            }
                         </div>
                     </div>
                 </ng-template>
@@ -174,42 +395,108 @@
     <div class="flex flex-col p-6 min-w-[340px] sm:min-w-[460px] max-w-full">
         <div class="flex items-center justify-between pb-4 border-b">
             <div class="flex items-center gap-2">
-                <mat-icon class="text-primary-500 icon-size-5" [svgIcon]="'feather:key'"></mat-icon>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Cấu hình kết nối WordPress</h3>
+                <mat-icon
+                    class="text-primary-500 icon-size-5"
+                    [svgIcon]="'feather:key'"
+                ></mat-icon>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    Cấu hình kết nối WordPress
+                </h3>
             </div>
-            <button mat-icon-button mat-dialog-close class="text-gray-400 hover:text-gray-600">
-                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+            <button
+                mat-icon-button
+                mat-dialog-close
+                class="text-gray-400 hover:text-gray-600"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:x'"
+                ></mat-icon>
             </button>
         </div>
 
         <div class="pt-4 flex flex-col gap-4 text-sm">
-            <div class="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded text-xs leading-relaxed">
-                Tài khoản và Mật khẩu ứng dụng (Application Password) được mã hóa AES-256 an toàn ngay dưới máy tính của bạn và chỉ dùng để gửi lệnh trực tiếp lên website.
+            <div
+                class="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded text-xs leading-relaxed"
+            >
+                Tài khoản và Mật khẩu ứng dụng (Application Password) được mã
+                hóa AES-256 an toàn ngay dưới máy tính của bạn và chỉ dùng để
+                gửi lệnh trực tiếp lên website.
             </div>
 
-            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+            <mat-form-field
+                class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill"
+            >
                 <mat-label>Tên miền (Domain)</mat-label>
-                <input matInput [(ngModel)]="configDomainData.domain" readonly class="font-medium text-gray-600">
+                <input
+                    matInput
+                    [(ngModel)]="configDomainData.domain"
+                    readonly
+                    class="font-medium text-gray-600"
+                />
             </mat-form-field>
 
-            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+            <mat-form-field
+                class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill"
+            >
                 <mat-label>Tên đăng nhập WordPress (Username)</mat-label>
-                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
-                <input matInput [(ngModel)]="configDomainData.username" placeholder="admin">
+                <mat-icon
+                    matPrefix
+                    class="icon-size-4"
+                    [svgIcon]="'feather:user'"
+                ></mat-icon>
+                <input
+                    matInput
+                    [(ngModel)]="configDomainData.username"
+                    placeholder="admin"
+                />
             </mat-form-field>
 
-            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+            <mat-form-field
+                class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill"
+            >
                 <mat-label>Mật khẩu ứng dụng (Application Password)</mat-label>
-                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:lock'"></mat-icon>
-                <input matInput [type]="configDomainData._showPassword ? 'text' : 'password'" [(ngModel)]="configDomainData.password" placeholder="xxxx xxxx xxxx xxxx">
-                <mat-icon matSuffix class="icon-size-4 cursor-pointer" (click)="configDomainData._showPassword = !configDomainData._showPassword"
-                    [svgIcon]="configDomainData._showPassword ? 'heroicons_outline:eye' : 'heroicons_outline:eye-off'"></mat-icon>
+                <mat-icon
+                    matPrefix
+                    class="icon-size-4"
+                    [svgIcon]="'feather:lock'"
+                ></mat-icon>
+                <input
+                    matInput
+                    [type]="
+                        configDomainData._showPassword ? 'text' : 'password'
+                    "
+                    [(ngModel)]="configDomainData.password"
+                    placeholder="xxxx xxxx xxxx xxxx"
+                />
+                <mat-icon
+                    matSuffix
+                    class="icon-size-4 cursor-pointer"
+                    (click)="
+                        configDomainData._showPassword =
+                            !configDomainData._showPassword
+                    "
+                    [svgIcon]="
+                        configDomainData._showPassword
+                            ? 'heroicons_outline:eye'
+                            : 'heroicons_outline:eye-off'
+                    "
+                ></mat-icon>
             </mat-form-field>
         </div>
 
         <div class="flex items-center justify-end gap-2 pt-6 mt-2 border-t">
             <button mat-button mat-dialog-close>Hủy</button>
-            <button mat-flat-button color="primary" (click)="saveDomainConfig()">Lưu cấu hình</button>
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="saveDomainConfig()"
+            >
+                Lưu cấu hình
+            </button>
         </div>
     </div>
 </ng-template>

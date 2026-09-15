@@ -3,4 +3,20 @@
     flex: 1 1 auto;
     width: 100%;
     height: 100%;
+
+    mat-drawer,
+    .mat-drawer {
+        border-right: 1px solid var(--fuse-border, #e2e8f0) !important;
+        box-shadow: none !important;
+    }
 }
+
+.dark settings,
+body.dark settings {
+    mat-drawer,
+    .mat-drawer {
+        border-right: 1px solid var(--fuse-border, rgba(255, 255, 255, 0.12)) !important;
+        box-shadow: none !important;
+    }
+}
+

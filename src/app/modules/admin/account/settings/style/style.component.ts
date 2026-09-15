@@ -14,7 +14,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     templateUrl: './style.component.html',
     providers: [UserClientService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsStyleComponent implements OnInit {
     user: User;

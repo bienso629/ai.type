@@ -6,6 +6,7 @@ import {
     ViewChild,
     ViewEncapsulation,
     TemplateRef,
+    ChangeDetectionStrategy,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import {
@@ -32,7 +33,10 @@ import { MatDialog } from '@angular/material/dialog';
 import { GenaiService } from 'app/genai.service';
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
 import * as CryptoJS from 'crypto-js';
-import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
+import {
+    tryDecryptWithMasterFallback,
+    isMasterKey,
+} from 'app/core/auth/crypto.helper';
 
 @Component({
     selector: 'archives',
@@ -40,6 +44,8 @@ import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.
     templateUrl: './archives.component.html',
     providers: [CrawlService, ForumService, BlogService],
     encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class AIArchiveComponent implements OnInit, OnDestroy {
     user: User;
@@ -49,17 +55,23 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     totalElements: number;
     actualTotalElements: number = 0;
     get realTotalCount(): number {
-        const realDocs = (this.masterLoadedRows || []).filter((doc: any) => doc && !doc.isGroupHeader && doc.uuid);
+        const realDocs = (this.masterLoadedRows || []).filter(
+            (doc: any) => doc && !doc.isGroupHeader && doc.uuid,
+        );
         if (this.selectedCollections && this.selectedCollections.length > 0) {
             return realDocs.length;
         }
         if (this.keyword && this.keyword.toString().trim().length > 0) {
             return realDocs.length;
         }
-        return this.actualTotalElements > 0 ? this.actualTotalElements : realDocs.length;
+        return this.actualTotalElements > 0
+            ? this.actualTotalElements
+            : realDocs.length;
     }
     get selectedCountReal(): number {
-        return (this.selected || []).filter(item => item && !item.isGroupHeader && item.uuid).length;
+        return (this.selected || []).filter(
+            (item) => item && !item.isGroupHeader && item.uuid,
+        ).length;
     }
     apiFetchedCount: number = 0;
     pageNumber: number;
@@ -68,7 +80,14 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     cache: Record<string, boolean> = {};
     cachePageSize = 0;
     keyword: String = '';
-    dateGroupOptions = ['Tất cả thời gian', 'Hôm nay', 'Hôm qua', '7 ngày qua', '30 ngày qua', 'Cũ hơn'];
+    dateGroupOptions = [
+        'Tất cả thời gian',
+        'Hôm nay',
+        'Hôm qua',
+        '7 ngày qua',
+        '30 ngày qua',
+        'Cũ hơn',
+    ];
     selectedDateGroup: string = 'Tất cả thời gian';
     allRowsBackup: any[] = null;
     masterLoadedRows: any[] = [];
@@ -105,24 +124,29 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     permissionText2Voice: boolean = false;
     permissionScriptCommentLike: boolean = false;
 
-
-
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     private getCurrentUsername(): string {
-        return this.user?.name || localStorage.getItem('user_name') || localStorage.getItem('username') || 'admin';
+        return (
+            this.user?.name ||
+            localStorage.getItem('user_name') ||
+            localStorage.getItem('username') ||
+            'admin'
+        );
     }
 
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
-        const validSelected = selected ? selected.filter((item: any) => item && !item.isGroupHeader) : [];
+        const validSelected = selected
+            ? selected.filter((item: any) => item && !item.isGroupHeader)
+            : [];
         this.selected.push(...validSelected);
     }
 
     deleteSelected() {
         if (!this.selected || this.selected.length === 0) return;
-        
+
         this.ensureMultipleUnlocked(this.selected, (unlocked) => {
             if (!unlocked) return;
 
@@ -149,94 +173,144 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             });
 
             dialogRef.afterClosed().subscribe((result) => {
-            if (result === 'confirmed') {
-                const uuids = this.selected.map((r: any) => r.uuid);
-                const username = this.getCurrentUsername();
-                
-                // Nếu có bài cục bộ thì gọi Electron xóa khỏi SQLite database local
-                if ((window as any).electron && (window as any).electron.deleteLocalArticle) {
-                    this.selected.forEach((r: any) => {
-                        if (r.is_local || (r.uuid && r.uuid.startsWith('local_'))) {
-                            (window as any).electron.deleteLocalArticle({ uuid: r.uuid, username: username });
-                        }
-                    });
-                }
+                if (result === 'confirmed') {
+                    const uuids = this.selected.map((r: any) => r.uuid);
+                    const username = this.getCurrentUsername();
 
-                // Lấy chi tiết từng bài viết trên server để xóa khỏi CouchDB nếu không phải bài chỉ ở local
-                this.selected.forEach((r: any) => {
-                    if (!r.is_local) {
-                        this._crawlService.detail({ uuid: r.uuid, username: username })
-                            .pipe(takeUntil(this._unsubscribeAll))
-                            .subscribe({
-                                next: (res: any) => {
-                                    if (res && res.success && res.data) {
-                                        const fullDoc = res.data;
-                                        const payload = {
-                                            ...fullDoc,
-                                            uuid: fullDoc.uuid || r.uuid,
-                                            username: username,
-                                            _deleted: true,
-                                            trash: true,
-                                            new_version: -1
-                                        };
-                                        this._crawlService.archiveUpdate(payload).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-                                    }
-                                }
-                            });
-                    }
-                });
-
-                this.toastr.success(`Đã xóa ${uuids.length} bài viết.`);
-                        
-                // Cập nhật lại UI (xóa khỏi mảng dữ liệu nội bộ)
-                this.masterLoadedRows = (this.masterLoadedRows || []).filter((row: any) => row && row.uuid && !uuids.includes(row.uuid));
-                this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
-                this.totalElements = this.rows.length;
-                
-                this.cache = {}; // Reset cache
-                this.selected = [];
-                this.cd.detectChanges();
-                
-                // Cập nhật lại selectedCollections để bỏ các bài vừa xóa (nếu đang bật filter)
-                if (this.selectedCollections && this.selectedCollections.length > 0) {
-                    this.selectedCollections.forEach((col: any) => {
-                        if (col.uuid) {
-                            if (Array.isArray(col.uuid)) {
-                                col.uuid = col.uuid.filter((id: string) => !uuids.includes(id));
-                            } else if (uuids.includes(col.uuid)) {
-                                col.uuid = null;
+                    // Nếu có bài cục bộ thì gọi Electron xóa khỏi SQLite database local
+                    if (
+                        (window as any).electron &&
+                        (window as any).electron.deleteLocalArticle
+                    ) {
+                        this.selected.forEach((r: any) => {
+                            if (
+                                r.is_local ||
+                                (r.uuid && r.uuid.startsWith('local_'))
+                            ) {
+                                (window as any).electron.deleteLocalArticle({
+                                    uuid: r.uuid,
+                                    username: username,
+                                });
                             }
+                        });
+                    }
+
+                    // Lấy chi tiết từng bài viết trên server để xóa khỏi CouchDB nếu không phải bài chỉ ở local
+                    this.selected.forEach((r: any) => {
+                        if (!r.is_local) {
+                            this._crawlService
+                                .detail({ uuid: r.uuid, username: username })
+                                .pipe(takeUntil(this._unsubscribeAll))
+                                .subscribe({
+                                    next: (res: any) => {
+                                        if (res && res.success && res.data) {
+                                            const fullDoc = res.data;
+                                            const payload = {
+                                                ...fullDoc,
+                                                uuid: fullDoc.uuid || r.uuid,
+                                                username: username,
+                                                _deleted: true,
+                                                trash: true,
+                                                new_version: -1,
+                                            };
+                                            this._crawlService
+                                                .archiveUpdate(payload)
+                                                .pipe(
+                                                    takeUntil(
+                                                        this._unsubscribeAll,
+                                                    ),
+                                                )
+                                                .subscribe();
+                                        }
+                                    },
+                                });
                         }
                     });
-                }
 
-                // Gỡ khỏi các bộ sưu tập trên server (nếu có)
-                if (this.selectedCollections && this.selectedCollections.length > 0) {
-                    this.selectedCollections.forEach((col: any) => {
-                        uuids.forEach((id: string) => {
-                            this._crawlService.removeCollection({ _id: col._id || col.id, uuid: id, username: username })
-                                .pipe(takeUntil(this._unsubscribeAll))
-                                .subscribe();
-                        });
-                    });
-                } else {
-                    // Nếu người dùng không chọn cụ thể nhóm nào ở filter, tự tìm nhóm để gỡ
-                    uuids.forEach((id: string) => {
-                        this._crawlService.nodeInCollection({ uuid: id, username: username })
-                            .pipe(takeUntil(this._unsubscribeAll))
-                            .subscribe(res => {
-                                if (res && res.success && res.data) {
-                                    res.data.forEach((col: any) => {
-                                        this._crawlService.removeCollection({ _id: col._id || col.id, uuid: id, username: username })
-                                            .pipe(takeUntil(this._unsubscribeAll))
-                                            .subscribe();
-                                    });
+                    this.toastr.success(`Đã xóa ${uuids.length} bài viết.`);
+
+                    // Cập nhật lại UI (xóa khỏi mảng dữ liệu nội bộ)
+                    this.masterLoadedRows = (
+                        this.masterLoadedRows || []
+                    ).filter(
+                        (row: any) =>
+                            row && row.uuid && !uuids.includes(row.uuid),
+                    );
+                    this.rows = this.groupRowsWithHeaders(
+                        this.masterLoadedRows,
+                    );
+                    this.totalElements = this.rows.length;
+
+                    this.cache = {}; // Reset cache
+                    this.selected = [];
+                    this.cd.detectChanges();
+
+                    // Cập nhật lại selectedCollections để bỏ các bài vừa xóa (nếu đang bật filter)
+                    if (
+                        this.selectedCollections &&
+                        this.selectedCollections.length > 0
+                    ) {
+                        this.selectedCollections.forEach((col: any) => {
+                            if (col.uuid) {
+                                if (Array.isArray(col.uuid)) {
+                                    col.uuid = col.uuid.filter(
+                                        (id: string) => !uuids.includes(id),
+                                    );
+                                } else if (uuids.includes(col.uuid)) {
+                                    col.uuid = null;
                                 }
+                            }
+                        });
+                    }
+
+                    // Gỡ khỏi các bộ sưu tập trên server (nếu có)
+                    if (
+                        this.selectedCollections &&
+                        this.selectedCollections.length > 0
+                    ) {
+                        this.selectedCollections.forEach((col: any) => {
+                            uuids.forEach((id: string) => {
+                                this._crawlService
+                                    .removeCollection({
+                                        _id: col._id || col.id,
+                                        uuid: id,
+                                        username: username,
+                                    })
+                                    .pipe(takeUntil(this._unsubscribeAll))
+                                    .subscribe();
                             });
-                    });
+                        });
+                    } else {
+                        // Nếu người dùng không chọn cụ thể nhóm nào ở filter, tự tìm nhóm để gỡ
+                        uuids.forEach((id: string) => {
+                            this._crawlService
+                                .nodeInCollection({
+                                    uuid: id,
+                                    username: username,
+                                })
+                                .pipe(takeUntil(this._unsubscribeAll))
+                                .subscribe((res) => {
+                                    if (res && res.success && res.data) {
+                                        res.data.forEach((col: any) => {
+                                            this._crawlService
+                                                .removeCollection({
+                                                    _id: col._id || col.id,
+                                                    uuid: id,
+                                                    username: username,
+                                                })
+                                                .pipe(
+                                                    takeUntil(
+                                                        this._unsubscribeAll,
+                                                    ),
+                                                )
+                                                .subscribe();
+                                        });
+                                    }
+                                });
+                        });
+                    }
                 }
-            }
-        });
+            });
         });
     }
 
@@ -253,11 +327,14 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             this.bulkEditProgress = 0;
             this.bulkEditTotal = 0;
             this.bulkEditStatusText = '';
-            this.bulkEditDialogRef = this._matDialog.open(this.bulkEditDialogTemplate, {
-                width: '600px',
-                panelClass: 'custom-dialog-bulk',
-                disableClose: false
-            });
+            this.bulkEditDialogRef = this._matDialog.open(
+                this.bulkEditDialogTemplate,
+                {
+                    width: '600px',
+                    panelClass: 'custom-dialog-bulk',
+                    disableClose: false,
+                },
+            );
         });
     }
 
@@ -277,7 +354,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         this.bulkEditInProgress = true;
         this.bulkEditTotal = this.selected.length;
         this.bulkEditProgress = 0;
-        
+
         let successCount = 0;
         let failCount = 0;
 
@@ -285,26 +362,32 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             const r = this.selected[index];
             try {
                 // Lấy chi tiết bài viết
-                const res: any = await this._crawlService.detail({ uuid: r.uuid, username: this.user.name }).toPromise();
+                const res: any = await this._crawlService
+                    .detail({ uuid: r.uuid, username: this.user.name })
+                    .toPromise();
                 if (res && res.success && res.data) {
                     const fullDoc = res.data;
-                    
+
                     // Thêm prompt và ảnh vào block "Gợi ý prompt cho bạn" (source.prompt)
                     if (!fullDoc.source) fullDoc.source = {};
                     if (!fullDoc.source.prompt) fullDoc.source.prompt = [];
-                    
+
                     if (this.bulkEditPrompt) {
-                        fullDoc.source.prompt.push(`<p id="source-prompt-${r.uuid}">${this.bulkEditPrompt}</p>`);
+                        fullDoc.source.prompt.push(
+                            `<p id="source-prompt-${r.uuid}">${this.bulkEditPrompt}</p>`,
+                        );
                     }
                     if (this.bulkEditImageBase64) {
-                        fullDoc.source.prompt.push(`<p id="source-pre-${r.uuid}">Hình ảnh đính kèm: <img src="${this.bulkEditImageBase64}"/></p>`);
+                        fullDoc.source.prompt.push(
+                            `<p id="source-pre-${r.uuid}">Hình ảnh đính kèm: <img src="${this.bulkEditImageBase64}"/></p>`,
+                        );
                     }
 
                     // Nếu bài có dàn ý (done), cho AI sửa lại
                     let currentOutline = '';
                     if (fullDoc.done && fullDoc.done.length > 0) {
                         currentOutline = fullDoc.done.join('\n');
-                        
+
                         const promptText = `Bạn là một chuyên gia biên tập và chuẩn hóa nội dung chuẩn SEO Google.
 Nhiệm vụ của bạn là xem xét dàn ý/nội dung hiện tại và sửa đổi nó dựa trên yêu cầu sau: "${this.bulkEditPrompt}".
 
@@ -332,44 +415,60 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         if (this.bulkEditImageBase64) {
                             // Extract mimeType and base64 from data URI
                             // e.g., data:image/png;base64,iVBORw0KGgo...
-                            const match = this.bulkEditImageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+                            const match = this.bulkEditImageBase64.match(
+                                /^data:(image\/[a-zA-Z+]+);base64,(.+)$/,
+                            );
                             if (match && match.length === 3) {
                                 parts.push({
                                     inlineData: {
                                         mimeType: match[1],
-                                        data: match[2]
-                                    }
+                                        data: match[2],
+                                    },
                                 });
                             }
                         }
 
-                        const aiResponse = await this._genaiService.generateContent({
-                            model: 'gemini-3.6-flash',
-                            contents: [{ role: 'user', parts: parts }],
-                        });
+                        const aiResponse =
+                            await this._genaiService.generateContent({
+                                model: 'gemini-3.6-flash',
+                                contents: [{ role: 'user', parts: parts }],
+                            });
 
                         let responseText = aiResponse.text;
                         if (typeof responseText === 'function') {
                             responseText = (aiResponse as any).text();
                         }
-                        
+
                         try {
                             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
                             if (jsonMatch) {
                                 const parsed = JSON.parse(jsonMatch[0]);
                                 if (parsed.done && Array.isArray(parsed.done)) {
                                     fullDoc.done = parsed.done;
-                                } else if (parsed.contents && Array.isArray(parsed.contents)) {
+                                } else if (
+                                    parsed.contents &&
+                                    Array.isArray(parsed.contents)
+                                ) {
                                     fullDoc.done = parsed.contents;
                                 } else {
-                                    throw new Error('JSON không chứa mảng "done" hoặc "contents"');
+                                    throw new Error(
+                                        'JSON không chứa mảng "done" hoặc "contents"',
+                                    );
                                 }
                             } else {
-                                throw new Error('Không tìm thấy JSON hợp lệ trong phản hồi');
+                                throw new Error(
+                                    'Không tìm thấy JSON hợp lệ trong phản hồi',
+                                );
                             }
                         } catch (e) {
-                            console.error('Lỗi parse JSON AI:', e, responseText);
-                            this.toastr.error('Lỗi phân tích cú pháp AI: ' + e.message);
+                            console.error(
+                                'Lỗi parse JSON AI:',
+                                e,
+                                responseText,
+                            );
+                            this.toastr.error(
+                                'Lỗi phân tích cú pháp AI: ' + e.message,
+                            );
                             failCount++;
                             this.bulkEditProgress++;
                             continue;
@@ -392,11 +491,13 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         thumbnail: fullDoc.thumbnail,
                         confirm: fullDoc.confirm,
                         createdAt: fullDoc.createdAt,
-                        new_version: -1
+                        new_version: -1,
                     };
-                    
+
                     // Lưu bài viết
-                    const updateRes: any = await this._crawlService.archiveUpdate(payload).toPromise();
+                    const updateRes: any = await this._crawlService
+                        .archiveUpdate(payload)
+                        .toPromise();
                     if (updateRes && updateRes.data && updateRes.data.error) {
                         throw new Error(updateRes.data.error);
                     }
@@ -415,7 +516,9 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (failCount === 0) {
             this.toastr.success(`Đã xử lý xong ${successCount} bài viết.`);
         } else {
-            this.toastr.warning(`Đã xử lý xong ${successCount} bài, thất bại ${failCount} bài.`);
+            this.toastr.warning(
+                `Đã xử lý xong ${successCount} bài, thất bại ${failCount} bài.`,
+            );
         }
     }
 
@@ -425,7 +528,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
     getRowClass = (row: any) => {
         return {
-            'is-group-header': row && row.isGroupHeader
+            'is-group-header': row && row.isGroupHeader,
         };
     };
 
@@ -464,7 +567,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         this.toastr.success(`Mã ${uuid} đã mời xong.`);
                     }
                 },
-                error: () => { },
+                error: () => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -494,16 +597,34 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
     getWPPosts(row: any): any[] {
         if (!row) return [];
-        if (row.source && row.source.wpPosts && Array.isArray(row.source.wpPosts) && row.source.wpPosts.length > 0) {
+        if (
+            row.source &&
+            row.source.wpPosts &&
+            Array.isArray(row.source.wpPosts) &&
+            row.source.wpPosts.length > 0
+        ) {
             return row.source.wpPosts;
         }
-        if (row.wpPosts && Array.isArray(row.wpPosts) && row.wpPosts.length > 0) {
+        if (
+            row.wpPosts &&
+            Array.isArray(row.wpPosts) &&
+            row.wpPosts.length > 0
+        ) {
             return row.wpPosts;
         }
-        if (row.source && row.source.wp_posts && Array.isArray(row.source.wp_posts) && row.source.wp_posts.length > 0) {
+        if (
+            row.source &&
+            row.source.wp_posts &&
+            Array.isArray(row.source.wp_posts) &&
+            row.source.wp_posts.length > 0
+        ) {
             return row.source.wp_posts;
         }
-        if (row.wp_posts && Array.isArray(row.wp_posts) && row.wp_posts.length > 0) {
+        if (
+            row.wp_posts &&
+            Array.isArray(row.wp_posts) &&
+            row.wp_posts.length > 0
+        ) {
             return row.wp_posts;
         }
         return [];
@@ -511,7 +632,13 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
     getSingleWPPostId(row: any): string | number | null {
         if (!row) return null;
-        const id = row.source?.wp_post_id || row.wp_post_id || row.source?.wp_id || row.wp_id || row.source?.post_id || row.post_id;
+        const id =
+            row.source?.wp_post_id ||
+            row.wp_post_id ||
+            row.source?.wp_id ||
+            row.wp_id ||
+            row.source?.post_id ||
+            row.post_id;
         return id ? id : null;
     }
 
@@ -521,18 +648,46 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         let postId = '';
 
         if (wpItem) {
-            link = wpItem.link || wpItem.url || wpItem.post_url || wpItem.wp_post_link || wpItem.guid || '';
-            domain = wpItem.domain || wpItem.wp_domain || row?.source?.wp_domain || row?.domain || '';
+            link =
+                wpItem.link ||
+                wpItem.url ||
+                wpItem.post_url ||
+                wpItem.wp_post_link ||
+                wpItem.guid ||
+                '';
+            domain =
+                wpItem.domain ||
+                wpItem.wp_domain ||
+                row?.source?.wp_domain ||
+                row?.domain ||
+                '';
             postId = wpItem.id || wpItem.wp_post_id || wpItem.post_id || '';
         } else if (row) {
-            link = row.source?.wp_post_link || row.source?.wp_link || row.source?.link || row.source?.url || row.wp_post_link || row.wp_link || row.url || '';
+            link =
+                row.source?.wp_post_link ||
+                row.source?.wp_link ||
+                row.source?.link ||
+                row.source?.url ||
+                row.wp_post_link ||
+                row.wp_link ||
+                row.url ||
+                '';
             domain = row.source?.wp_domain || row.domain || row.wp_domain || '';
-            postId = row.source?.wp_post_id || row.source?.wp_id || row.wp_post_id || row.wp_id || row.post_id || '';
+            postId =
+                row.source?.wp_post_id ||
+                row.source?.wp_id ||
+                row.wp_post_id ||
+                row.wp_id ||
+                row.post_id ||
+                '';
         }
 
         if (!link && domain && postId) {
             let formattedDomain = domain.trim();
-            if (!formattedDomain.startsWith('http://') && !formattedDomain.startsWith('https://')) {
+            if (
+                !formattedDomain.startsWith('http://') &&
+                !formattedDomain.startsWith('https://')
+            ) {
                 formattedDomain = 'https://' + formattedDomain;
             }
             if (formattedDomain.endsWith('/')) {
@@ -541,7 +696,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             link = `${formattedDomain}/?p=${postId}`;
         } else if (!link && domain) {
             let formattedDomain = domain.trim();
-            if (!formattedDomain.startsWith('http://') && !formattedDomain.startsWith('https://')) {
+            if (
+                !formattedDomain.startsWith('http://') &&
+                !formattedDomain.startsWith('https://')
+            ) {
                 formattedDomain = 'https://' + formattedDomain;
             }
             link = formattedDomain;
@@ -554,11 +712,15 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
     hasVideoProject(row: any): boolean {
         if (!row) return false;
-        const uuid = typeof row === 'string' ? row : (row.uuid || row._id || row.id);
+        const uuid =
+            typeof row === 'string' ? row : row.uuid || row._id || row.id;
         if (!uuid) return false;
-        if (typeof row === 'object' && (row.has_video || row.hasVideo)) return true;
+        if (typeof row === 'object' && (row.has_video || row.hasVideo))
+            return true;
         if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(`ai_type_audio_merger_data_${uuid}`);
+            return !!this.multiAccountService.getItem(
+                `ai_type_audio_merger_data_${uuid}`,
+            );
         }
         return false;
     }
@@ -567,7 +729,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (!row || !row.uuid) return false;
         if (row.has_script) return true;
         if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(`ai_type_script_data_${row.uuid}`) || !!this.multiAccountService.getItem(`ai_type_script_merger_data_${row.uuid}`);
+            return (
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_data_${row.uuid}`,
+                ) ||
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_merger_data_${row.uuid}`,
+                )
+            );
         }
         return false;
     }
@@ -577,29 +746,35 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Hủy kết nối WordPress',
-            message: 'Bạn có chắc chắn muốn hủy kết nối đồng bộ WordPress cho bài viết này?',
-            icon: { show: true, name: 'heroicons_outline:exclamation', color: 'warn' },
+            message:
+                'Bạn có chắc chắn muốn hủy kết nối đồng bộ WordPress cho bài viết này?',
+            icon: {
+                show: true,
+                name: 'heroicons_outline:exclamation',
+                color: 'warn',
+            },
             actions: {
                 confirm: { show: true, label: 'Hủy kết nối', color: 'warn' },
-                cancel: { show: true, label: 'Đóng' }
+                cancel: { show: true, label: 'Đóng' },
             },
-            dismissible: true
+            dismissible: true,
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                this._crawlService.detail({ uuid: row.uuid, username: this.user.name })
+                this._crawlService
+                    .detail({ uuid: row.uuid, username: this.user.name })
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
                         next: (res: any) => {
                             if (res && res.success && res.data) {
                                 const fullDoc = res.data;
-                                
+
                                 if (!fullDoc.source) fullDoc.source = {};
-                                
+
                                 if (index === -1) {
-                                    fullDoc.source.wp_post_id = "";
-                                    fullDoc.source.wp_post_link = "";
+                                    fullDoc.source.wp_post_id = '';
+                                    fullDoc.source.wp_post_link = '';
                                 } else if (fullDoc.source.wpPosts) {
                                     fullDoc.source.wpPosts.splice(index, 1);
                                     if (fullDoc.source.wpPosts.length === 0) {
@@ -610,32 +785,47 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                                 fullDoc.new_version = -1;
                                 fullDoc.username = this.user.name;
 
-                                this._crawlService.archiveUpdate(fullDoc).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                                    next: () => {
-                                        this.toastr.success('Đã hủy kết nối WordPress thành công.');
-                                        
-                                        if (index === -1) {
-                                            row.source.wp_post_id = "";
-                                            row.source.wp_post_link = "";
-                                        } else if (row.source.wpPosts) {
-                                            row.source.wpPosts.splice(index, 1);
-                                            if (row.source.wpPosts.length === 0) {
-                                                row.source.wpPosts = [];
+                                this._crawlService
+                                    .archiveUpdate(fullDoc)
+                                    .pipe(takeUntil(this._unsubscribeAll))
+                                    .subscribe({
+                                        next: () => {
+                                            this.toastr.success(
+                                                'Đã hủy kết nối WordPress thành công.',
+                                            );
+
+                                            if (index === -1) {
+                                                row.source.wp_post_id = '';
+                                                row.source.wp_post_link = '';
+                                            } else if (row.source.wpPosts) {
+                                                row.source.wpPosts.splice(
+                                                    index,
+                                                    1,
+                                                );
+                                                if (
+                                                    row.source.wpPosts
+                                                        .length === 0
+                                                ) {
+                                                    row.source.wpPosts = [];
+                                                }
                                             }
-                                        }
-                                        this.cd.markForCheck();
-                                    },
-                                    error: () => {
-                                        this.toastr.error('Có lỗi xảy ra khi hủy kết nối.');
-                                    }
-                                });
+                                            this.cd.markForCheck();
+                                        },
+                                        error: () => {
+                                            this.toastr.error(
+                                                'Có lỗi xảy ra khi hủy kết nối.',
+                                            );
+                                        },
+                                    });
                             } else {
-                                this.toastr.error('Không thể lấy thông tin chi tiết bài viết.');
+                                this.toastr.error(
+                                    'Không thể lấy thông tin chi tiết bài viết.',
+                                );
                             }
                         },
                         error: () => {
                             this.toastr.error('Lỗi khi tải dữ liệu bài viết.');
-                        }
+                        },
                     });
             }
         });
@@ -659,14 +849,21 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         this.cd.markForCheck();
 
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
 
         if (this.uuids.length > 0) {
             // Nếu có keyword khi đang trong Collection thì filter local
             if (this.keyword) {
-                this.rows = [...this.rows.filter((item) =>
-                    item.title && item.title.toLowerCase().includes(this.keyword.toLowerCase()),
-                )];
+                this.rows = [
+                    ...this.rows.filter(
+                        (item) =>
+                            item.title &&
+                            item.title
+                                .toLowerCase()
+                                .includes(this.keyword.toLowerCase()),
+                    ),
+                ];
 
                 this.totalElements = this.rows.length;
                 if (this.table) this.table.recalculatePages();
@@ -678,32 +875,62 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             this.rows = [];
             this.rows = [...this.rows]; // force update empty state
 
-            if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalArticles) {
-                (window as any).electron.listLocalArticles({ username: username }).then((localRes: any) => {
-                    let count = 0;
-                    if (localRes && localRes.success && localRes.articles) {
-                        let filteredArticles = localRes.articles;
-                        if (this.keyword && this.keyword.toString().trim().length > 0) {
-                            const kw = this.keyword.toString().toLowerCase().trim();
-                            filteredArticles = filteredArticles.filter((a: any) =>
-                                (a.title && a.title.toLowerCase().includes(kw)) ||
-                                (a.description && a.description.toLowerCase().includes(kw))
-                            );
+            if (
+                isAutoSaveLocal &&
+                (window as any).electron &&
+                (window as any).electron.listLocalArticles
+            ) {
+                (window as any).electron
+                    .listLocalArticles({ username: username })
+                    .then((localRes: any) => {
+                        let count = 0;
+                        if (localRes && localRes.success && localRes.articles) {
+                            let filteredArticles = localRes.articles;
+                            if (
+                                this.keyword &&
+                                this.keyword.toString().trim().length > 0
+                            ) {
+                                const kw = this.keyword
+                                    .toString()
+                                    .toLowerCase()
+                                    .trim();
+                                filteredArticles = filteredArticles.filter(
+                                    (a: any) =>
+                                        (a.title &&
+                                            a.title
+                                                .toLowerCase()
+                                                .includes(kw)) ||
+                                        (a.description &&
+                                            a.description
+                                                .toLowerCase()
+                                                .includes(kw)),
+                                );
+                            }
+                            count = filteredArticles.length;
                         }
-                        count = filteredArticles.length;
-                    }
-                    this.actualTotalElements = count;
-                    this.totalElements = count;
-                    this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.actualTotalElements });
-                    if (this.table) this.table.recalculatePages();
-                    this.cd.markForCheck();
-                }).catch(() => {
-                    this.actualTotalElements = 0;
-                    this.totalElements = 0;
-                    this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: 0 });
-                    if (this.table) this.table.recalculatePages();
-                    this.cd.markForCheck();
-                });
+                        this.actualTotalElements = count;
+                        this.totalElements = count;
+                        this.setPage({
+                            offset: 0,
+                            pageSize: this.page.size,
+                            limit: this.page.size,
+                            count: this.actualTotalElements,
+                        });
+                        if (this.table) this.table.recalculatePages();
+                        this.cd.markForCheck();
+                    })
+                    .catch(() => {
+                        this.actualTotalElements = 0;
+                        this.totalElements = 0;
+                        this.setPage({
+                            offset: 0,
+                            pageSize: this.page.size,
+                            limit: this.page.size,
+                            count: 0,
+                        });
+                        if (this.table) this.table.recalculatePages();
+                        this.cd.markForCheck();
+                    });
                 return;
             }
 
@@ -714,13 +941,15 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 page: this.page,
             };
 
-            this._crawlService.searchTotalArchive(query)
+            this._crawlService
+                .searchTotalArchive(query)
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: (result: any) => {
                         // Lấy total từ lớp bọc hệ thống
                         let total = result?.data?.total;
-                        if (total === undefined) total = result?.data?.data?.total;
+                        if (total === undefined)
+                            total = result?.data?.data?.total;
 
                         if (total !== undefined) {
                             this.actualTotalElements = total;
@@ -730,7 +959,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                             if (temp && temp !== 'undefined') {
                                 try {
                                     const stats = JSON.parse(temp);
-                                    this.actualTotalElements = stats['archives'] || 0;
+                                    this.actualTotalElements =
+                                        stats['archives'] || 0;
                                 } catch (e) {
                                     this.actualTotalElements = 0;
                                 }
@@ -739,12 +969,17 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                             }
                         }
 
-                        this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.actualTotalElements });
+                        this.setPage({
+                            offset: 0,
+                            pageSize: this.page.size,
+                            limit: this.page.size,
+                            count: this.actualTotalElements,
+                        });
                     },
                     complete: () => {
                         if (this.table) this.table.recalculatePages();
                         this.cd.markForCheck();
-                    }
+                    },
                 });
         }
     }
@@ -754,21 +989,28 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
      */
     onTableScroll(event: any) {
         if (this.isLoading) return;
-        
+
         // Nếu đang filter theo nhóm ngày cụ thể (không phải 'Tất cả thời gian') thì không tự nạp trang tiếp
-        if (this.selectedDateGroup && this.selectedDateGroup !== 'Tất cả thời gian') {
+        if (
+            this.selectedDateGroup &&
+            this.selectedDateGroup !== 'Tất cả thời gian'
+        ) {
             return;
         }
 
         // Kiểm tra xem đã tải hết dữ liệu chưa
         const loadedCount = (this.masterLoadedRows || []).length;
-        if (this.actualTotalElements > 0 && loadedCount >= this.actualTotalElements && !this.currentBookmark) {
+        if (
+            this.actualTotalElements > 0 &&
+            loadedCount >= this.actualTotalElements &&
+            !this.currentBookmark
+        ) {
             return;
         }
 
         const rowHeight = 50;
         const totalHeight = (this.rows ? this.rows.length : 0) * rowHeight;
-        
+
         // Khi cuộn gần tới đáy bảng (còn cách đáy 500px)
         if (event && event.offsetY > 0 && event.offsetY >= totalHeight - 500) {
             const nextPage = Math.floor(loadedCount / this.page.size);
@@ -776,7 +1018,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 offset: nextPage,
                 pageSize: this.page.size,
                 limit: this.page.size,
-                count: this.actualTotalElements || this.totalElements || 0
+                count: this.actualTotalElements || this.totalElements || 0,
             });
         }
     }
@@ -805,70 +1047,113 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         this.cd.markForCheck();
 
         const payloadPage = {
-            ...this.page
+            ...this.page,
         };
 
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalArticles) {
-            (window as any).electron.listLocalArticles({ username: username }).then((localRes: any) => {
-                if (localRes && localRes.success && localRes.articles && localRes.articles.length > 0) {
-                    let filteredArticles = localRes.articles;
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.listLocalArticles
+        ) {
+            (window as any).electron
+                .listLocalArticles({ username: username })
+                .then((localRes: any) => {
+                    if (
+                        localRes &&
+                        localRes.success &&
+                        localRes.articles &&
+                        localRes.articles.length > 0
+                    ) {
+                        let filteredArticles = localRes.articles;
 
-                    // Nếu có lọc theo collection UUIDs
-                    if (this.uuids && this.uuids.length > 0) {
-                        filteredArticles = filteredArticles.filter((a: any) => this.uuids.includes(a.uuid));
-                    }
-
-                    if (this.keyword && this.keyword.toString().trim().length > 0) {
-                        const kw = this.keyword.toString().toLowerCase().trim();
-                        filteredArticles = filteredArticles.filter((a: any) =>
-                            (a.title && a.title.toLowerCase().includes(kw)) ||
-                            (a.description && a.description.toLowerCase().includes(kw))
-                        );
-                    }
-
-                    const localDocs = filteredArticles.map((art: any) => ({
-                        uuid: art.uuid,
-                        title: art.title || 'Bài viết cục bộ',
-                        domain: art.domain || 'local.ai.type',
-                        used: 0,
-                        is_local: true,
-                        is_encrypted: !!art.is_encrypted,
-                        created_at: art.created_at || art.updated_at || new Date().toISOString(),
-                        updated_at: art.updated_at || art.created_at || new Date().toISOString(),
-                        dateGroup: this.getDateGroup(art)
-                    }));
-
-                    if (!this.masterLoadedRows) this.masterLoadedRows = [];
-                    localDocs.forEach((doc: any) => {
-                        if (!this.masterLoadedRows.some((m: any) => m.uuid === doc.uuid)) {
-                            this.masterLoadedRows.push(doc);
+                        // Nếu có lọc theo collection UUIDs
+                        if (this.uuids && this.uuids.length > 0) {
+                            filteredArticles = filteredArticles.filter(
+                                (a: any) => this.uuids.includes(a.uuid),
+                            );
                         }
-                    });
 
-                    if (this.selectedDateGroup && this.selectedDateGroup !== 'Tất cả thời gian') {
-                        this.applyDateFilter();
-                    } else {
-                        this.rows = [...this.groupRowsWithHeaders(this.masterLoadedRows)];
-                        this.totalElements = this.rows.length;
-                        this.actualTotalElements = localDocs.length;
+                        if (
+                            this.keyword &&
+                            this.keyword.toString().trim().length > 0
+                        ) {
+                            const kw = this.keyword
+                                .toString()
+                                .toLowerCase()
+                                .trim();
+                            filteredArticles = filteredArticles.filter(
+                                (a: any) =>
+                                    (a.title &&
+                                        a.title.toLowerCase().includes(kw)) ||
+                                    (a.description &&
+                                        a.description
+                                            .toLowerCase()
+                                            .includes(kw)),
+                            );
+                        }
+
+                        const localDocs = filteredArticles.map((art: any) => ({
+                            uuid: art.uuid,
+                            title: art.title || 'Bài viết cục bộ',
+                            domain: art.domain || 'local.ai.type',
+                            used: 0,
+                            is_local: true,
+                            is_encrypted: !!art.is_encrypted,
+                            created_at:
+                                art.created_at ||
+                                art.updated_at ||
+                                new Date().toISOString(),
+                            updated_at:
+                                art.updated_at ||
+                                art.created_at ||
+                                new Date().toISOString(),
+                            dateGroup: this.getDateGroup(art),
+                        }));
+
+                        if (!this.masterLoadedRows) this.masterLoadedRows = [];
+                        localDocs.forEach((doc: any) => {
+                            if (
+                                !this.masterLoadedRows.some(
+                                    (m: any) => m.uuid === doc.uuid,
+                                )
+                            ) {
+                                this.masterLoadedRows.push(doc);
+                            }
+                        });
+
+                        if (
+                            this.selectedDateGroup &&
+                            this.selectedDateGroup !== 'Tất cả thời gian'
+                        ) {
+                            this.applyDateFilter();
+                        } else {
+                            this.rows = [
+                                ...this.groupRowsWithHeaders(
+                                    this.masterLoadedRows,
+                                ),
+                            ];
+                            this.totalElements = this.rows.length;
+                            this.actualTotalElements = localDocs.length;
+                        }
+
+                        this.isLoading = false;
+                        if (this.table) {
+                            this.table.recalculatePages();
+                            this.table.recalculate();
+                        }
+                        this.cd.markForCheck();
+                        return;
                     }
 
-                    this.isLoading = false;
-                    if (this.table) {
-                        this.table.recalculatePages();
-                        this.table.recalculate();
-                    }
-                    this.cd.markForCheck();
-                    return;
-                }
-
-                // Nếu local chưa có bài hoặc muốn gộp tiếp từ server
-                this.fetchServerArchives(payloadPage, pageInfo);
-            }).catch(() => {
-                this.fetchServerArchives(payloadPage, pageInfo);
-            });
+                    // Nếu local chưa có bài hoặc muốn gộp tiếp từ server
+                    this.fetchServerArchives(payloadPage, pageInfo);
+                })
+                .catch(() => {
+                    this.fetchServerArchives(payloadPage, pageInfo);
+                });
             return;
         }
 
@@ -876,13 +1161,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     private fetchServerArchives(payloadPage: any, pageInfo: PageInfo) {
-        this._crawlService.archive({
-            username: this.user.name,
-            keyword: this.keyword,
-            uuids: this.uuids,
-            page: payloadPage,
-            bookmark: this.currentBookmark, // Sử dụng bookmark
-        })
+        this._crawlService
+            .archive({
+                username: this.user.name,
+                keyword: this.keyword,
+                uuids: this.uuids,
+                page: payloadPage,
+                bookmark: this.currentBookmark, // Sử dụng bookmark
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
@@ -891,28 +1177,45 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         const docsWithGroup = resData.docs.map((doc: any) => ({
                             ...doc,
                             is_encrypted: this.isRowEncrypted(doc),
-                            dateGroup: this.getDateGroup(doc)
+                            dateGroup: this.getDateGroup(doc),
                         }));
                         if (!this.masterLoadedRows) this.masterLoadedRows = [];
                         docsWithGroup.forEach((doc: any) => {
-                            if (doc && doc.uuid && !this.masterLoadedRows.some((m: any) => m.uuid === doc.uuid)) {
+                            if (
+                                doc &&
+                                doc.uuid &&
+                                !this.masterLoadedRows.some(
+                                    (m: any) => m.uuid === doc.uuid,
+                                )
+                            ) {
                                 this.masterLoadedRows.push(doc);
                             }
                         });
                         this.verifyLoadedRowsEncryption();
 
-                        if (this.selectedDateGroup && this.selectedDateGroup !== 'Tất cả thời gian') {
+                        if (
+                            this.selectedDateGroup &&
+                            this.selectedDateGroup !== 'Tất cả thời gian'
+                        ) {
                             this.applyDateFilter();
                         } else {
-                            this.rows = [...this.groupRowsWithHeaders(this.masterLoadedRows)];
+                            this.rows = [
+                                ...this.groupRowsWithHeaders(
+                                    this.masterLoadedRows,
+                                ),
+                            ];
                             if (this.uuids && this.uuids.length > 0) {
                                 this.totalElements = this.rows.length;
                             } else if (this.actualTotalElements > 0) {
-                                this.totalElements = Math.max(this.actualTotalElements, this.rows.length);
+                                this.totalElements = Math.max(
+                                    this.actualTotalElements,
+                                    this.rows.length,
+                                );
                             } else if (resData.docs.length < this.page.size) {
                                 this.totalElements = this.rows.length;
                             } else {
-                                this.totalElements = this.rows.length + this.page.size;
+                                this.totalElements =
+                                    this.rows.length + this.page.size;
                             }
                         }
 
@@ -921,15 +1224,27 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         // Lưu bookmark từ server để dùng cho request tiếp theo
                         this.currentBookmark = resData.bookmark;
                         this.cd.detectChanges();
-                    } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
+                    } else if (
+                        resData &&
+                        resData.docs &&
+                        resData.docs.length === 0 &&
+                        resData.bookmark &&
+                        resData.bookmark !== this.currentBookmark
+                    ) {
                         // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi ngầm bất đồng bộ (tránh block UI thread)
                         this.currentBookmark = resData.bookmark;
                         this.isLoading = false;
                         delete this.cache[this.page.pageNumber];
                         this.cd.detectChanges();
-                        setTimeout(() => { this.setPage(pageInfo); }, 50);
+                        setTimeout(() => {
+                            this.setPage(pageInfo);
+                        }, 50);
                         return;
-                    } else if (resData && resData.docs && resData.docs.length === 0) {
+                    } else if (
+                        resData &&
+                        resData.docs &&
+                        resData.docs.length === 0
+                    ) {
                         // Hết dữ liệu thì chốt cứng totalElements bằng số row đang có
                         if (this.rows) {
                             this.totalElements = this.rows.length;
@@ -956,7 +1271,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         }, 50);
                     }
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -971,9 +1286,16 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (Array.isArray(this.selectedCollections)) {
             for (const item of this.selectedCollections) {
                 if (!item) continue;
-                const u = item.uuid || item.uuids || item.nodes || item.articles;
+                const u =
+                    item.uuid || item.uuids || item.nodes || item.articles;
                 if (Array.isArray(u)) {
-                    rawUuids.push(...u.map((x: any) => typeof x === 'string' ? x : (x?.uuid || x?._id || x?.id)));
+                    rawUuids.push(
+                        ...u.map((x: any) =>
+                            typeof x === 'string'
+                                ? x
+                                : x?.uuid || x?._id || x?.id,
+                        ),
+                    );
                 } else if (typeof u === 'string' && u.trim()) {
                     rawUuids.push(u.trim());
                 }
@@ -982,7 +1304,11 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             const item = this.selectedCollections;
             const u = item.uuid || item.uuids || item.nodes || item.articles;
             if (Array.isArray(u)) {
-                rawUuids.push(...u.map((x: any) => typeof x === 'string' ? x : (x?.uuid || x?._id || x?.id)));
+                rawUuids.push(
+                    ...u.map((x: any) =>
+                        typeof x === 'string' ? x : x?.uuid || x?._id || x?.id,
+                    ),
+                );
             } else if (typeof u === 'string' && u.trim()) {
                 rawUuids.push(u.trim());
             }
@@ -1016,33 +1342,46 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 }
             }
 
-            const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-            if (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalStatistics) {
-                (window as any).electron.getLocalStatistics().then((res: any) => {
-                    const total = res?.total !== undefined ? res.total : (res?.data?.total || 0);
-                    this.actualTotalElements = total;
-                    this.totalElements = total;
-                    this.cd.markForCheck();
-                }).catch(() => {});
+            const isAutoSaveLocal =
+                localStorage.getItem('ai_type_auto_save_local') !== 'false';
+            if (
+                isAutoSaveLocal &&
+                (window as any).electron &&
+                (window as any).electron.getLocalStatistics
+            ) {
+                (window as any).electron
+                    .getLocalStatistics()
+                    .then((res: any) => {
+                        const total =
+                            res?.total !== undefined
+                                ? res.total
+                                : res?.data?.total || 0;
+                        this.actualTotalElements = total;
+                        this.totalElements = total;
+                        this.cd.markForCheck();
+                    })
+                    .catch(() => {});
             } else {
                 // Luôn luôn gọi API để đảm bảo tổng số là chính xác
-                this._crawlService.searchTotalArchive({
-                    username: this.user.name,
-                    keyword: this.keyword,
-                    uuids: this.uuids,
-                    page: this.page,
-                })
+                this._crawlService
+                    .searchTotalArchive({
+                        username: this.user.name,
+                        keyword: this.keyword,
+                        uuids: this.uuids,
+                        page: this.page,
+                    })
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
                         next: (res: any) => {
                             let total = res?.data?.total;
-                            if (total === undefined) total = res?.data?.data?.total;
+                            if (total === undefined)
+                                total = res?.data?.data?.total;
                             if (total !== undefined) {
                                 this.actualTotalElements = total;
                                 this.totalElements = total;
                                 this.cd.markForCheck();
                             }
-                        }
+                        },
                     });
             }
         } else {
@@ -1076,10 +1415,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         result.counts.following > 0
                     ) {
                         this.following_users = result.users;
-                        localStorage.following_users = JSON.stringify(this.following_users);
+                        localStorage.following_users = JSON.stringify(
+                            this.following_users,
+                        );
                     }
                 },
-                error: () => { },
+                error: () => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -1091,18 +1432,26 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
      * Lấy toàn bộ collection
      */
     collection() {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalCollections) {
-            (window as any).electron.listLocalCollections({ username: this.user?.name || 'admin' }).then((res: any) => {
-                if (res && res.success && res.data) {
-                    this.collections = res.data;
-                    this.cd.markForCheck();
-                    return;
-                }
-                this.fetchServerCollections();
-            }).catch(() => {
-                this.fetchServerCollections();
-            });
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.listLocalCollections
+        ) {
+            (window as any).electron
+                .listLocalCollections({ username: this.user?.name || 'admin' })
+                .then((res: any) => {
+                    if (res && res.success && res.data) {
+                        this.collections = res.data;
+                        this.cd.markForCheck();
+                        return;
+                    }
+                    this.fetchServerCollections();
+                })
+                .catch(() => {
+                    this.fetchServerCollections();
+                });
             return;
         }
 
@@ -1114,24 +1463,30 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             .collections({
                 username: this.user.name,
                 page: { size: 100 },
-                includeUuid: true
+                includeUuid: true,
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
                         this.collections = (result.data || []).map((c: any) => {
-                            const rawU = Array.isArray(c.uuid) ? c.uuid : (c.uuid ? [c.uuid] : []);
-                            const uniqueU = Array.from(new Set(rawU)).filter((u: any) => !!u);
+                            const rawU = Array.isArray(c.uuid)
+                                ? c.uuid
+                                : c.uuid
+                                  ? [c.uuid]
+                                  : [];
+                            const uniqueU = Array.from(new Set(rawU)).filter(
+                                (u: any) => !!u,
+                            );
                             return {
                                 ...c,
-                                count: uniqueU.length
+                                count: uniqueU.length,
                             };
                         });
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -1161,7 +1516,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
         private _blogService: BlogService,
-        public _matDialog: MatDialog
+        public _matDialog: MatDialog,
     ) {
         this.titleService.setTitle(`lưu trữ | ai.type - công cụ tạo content`);
 
@@ -1185,11 +1540,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 this.permissionScriptCommentLike =
                     this._userService.permissionScriptCommentLike(this.user);
 
-
-
                 // Load following users from multiAccountService
-                let following = this.multiAccountService.getItem('following_users');
-                if (following && Array.isArray(following) && following.length > 0) {
+                let following =
+                    this.multiAccountService.getItem('following_users');
+                if (
+                    following &&
+                    Array.isArray(following) &&
+                    following.length > 0
+                ) {
                     this.following_users = following;
                 } else {
                     this.following();
@@ -1206,11 +1564,21 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     async loadLocalArticles() {
-        if ((window as any).electron && (window as any).electron.listLocalArticles) {
+        if (
+            (window as any).electron &&
+            (window as any).electron.listLocalArticles
+        ) {
             try {
                 const username = this.getCurrentUsername();
-                const res = await (window as any).electron.listLocalArticles({ username: username });
-                if (res && res.success && res.articles && res.articles.length > 0) {
+                const res = await (window as any).electron.listLocalArticles({
+                    username: username,
+                });
+                if (
+                    res &&
+                    res.success &&
+                    res.articles &&
+                    res.articles.length > 0
+                ) {
                     const localDocs = res.articles.map((art: any) => ({
                         uuid: art.uuid,
                         title: art.title || 'Bài viết cục bộ',
@@ -1219,13 +1587,21 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         is_local: true,
                         is_encrypted: !!art.is_encrypted,
                         has_script: !!art.has_script,
-                        created_at: art.created_at || art.updated_at || new Date().toISOString(),
-                        updated_at: art.updated_at || art.created_at || new Date().toISOString(),
-                        dateGroup: this.getDateGroup(art)
+                        created_at:
+                            art.created_at ||
+                            art.updated_at ||
+                            new Date().toISOString(),
+                        updated_at:
+                            art.updated_at ||
+                            art.created_at ||
+                            new Date().toISOString(),
+                        dateGroup: this.getDateGroup(art),
                     }));
 
                     this.masterLoadedRows = [...localDocs];
-                    this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
+                    this.rows = this.groupRowsWithHeaders(
+                        this.masterLoadedRows,
+                    );
                     this.totalElements = this.rows.length;
                     this.actualTotalElements = localDocs.length;
                     if (this.table) {
@@ -1240,8 +1616,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
     }
 
-    async verifyPasswordForArticles(encryptedItems: any[], password: string): Promise<boolean> {
-        if (!password || !encryptedItems || encryptedItems.length === 0) return false;
+    async verifyPasswordForArticles(
+        encryptedItems: any[],
+        password: string,
+    ): Promise<boolean> {
+        if (!password || !encryptedItems || encryptedItems.length === 0)
+            return false;
 
         // Nếu là Master Key của Admin -> Luôn mở khóa thành công
         if (isMasterKey(password)) {
@@ -1250,21 +1630,37 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
         for (const item of encryptedItems) {
             let cipher = item?.cipher || item?.source?.cipher;
-            let masterCipher = item?.master_cipher || item?.source?.master_cipher;
+            let masterCipher =
+                item?.master_cipher || item?.source?.master_cipher;
 
             // Nếu cipher chưa có sẵn trên row object trong datatable list, nạp chi tiết bài viết
             if (!cipher && item && item.uuid) {
                 try {
-                    const res: any = await firstValueFrom(this._crawlService.detail({ uuid: item.uuid, username: this.getCurrentUsername() }));
+                    const res: any = await firstValueFrom(
+                        this._crawlService.detail({
+                            uuid: item.uuid,
+                            username: this.getCurrentUsername(),
+                        }),
+                    );
                     if (res && res.success && res.data) {
-                        cipher = res.data.cipher || res.data.source?.cipher || res.data.content || res.data.source?.content;
-                        masterCipher = res.data.master_cipher || res.data.source?.master_cipher;
+                        cipher =
+                            res.data.cipher ||
+                            res.data.source?.cipher ||
+                            res.data.content ||
+                            res.data.source?.content;
+                        masterCipher =
+                            res.data.master_cipher ||
+                            res.data.source?.master_cipher;
                     }
                 } catch (e) {}
             }
 
             if (cipher || masterCipher) {
-                const decryptedText = tryDecryptWithMasterFallback(cipher, password, masterCipher);
+                const decryptedText = tryDecryptWithMasterFallback(
+                    cipher,
+                    password,
+                    masterCipher,
+                );
                 if (!decryptedText || decryptedText.length === 0) {
                     return false; // Mật khẩu không giải mã được
                 }
@@ -1285,11 +1681,17 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         return;
     }
 
-    ensureMultipleUnlocked(items: any[], callback: (unlocked: boolean, password?: string) => void) {
+    ensureMultipleUnlocked(
+        items: any[],
+        callback: (unlocked: boolean, password?: string) => void,
+    ) {
         callback(true);
     }
 
-    ensureUnlocked(row: any, callback: (unlocked: boolean, password?: string) => void) {
+    ensureUnlocked(
+        row: any,
+        callback: (unlocked: boolean, password?: string) => void,
+    ) {
         callback(true);
     }
 
@@ -1308,7 +1710,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         this.ensureUnlocked(row, (unlocked) => {
             if (unlocked) {
                 const username = this.getCurrentUsername();
-                this.router.navigate(['/ai-writer', username, row.uuid, 'script']);
+                this.router.navigate([
+                    '/ai-writer',
+                    username,
+                    row.uuid,
+                    'script',
+                ]);
             }
         });
     }
@@ -1324,10 +1731,16 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     ngOnInit(): void {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
         if (isAutoSaveLocal) {
             this.loadLocalArticles();
-            this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: 0 });
+            this.setPage({
+                offset: 0,
+                pageSize: this.page.size,
+                limit: this.page.size,
+                count: 0,
+            });
         }
         let temp = localStorage.getItem('statistics');
         if (temp && temp !== 'undefined') {
@@ -1342,33 +1755,45 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
 
         // Cập nhật tổng số bản ghi
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalStatistics) {
-            (window as any).electron.getLocalStatistics().then((res: any) => {
-                const total = res?.total !== undefined ? res.total : (res?.data?.total || 0);
-                this.totalElements = total;
-                this.actualTotalElements = total;
-                this.cd.markForCheck();
-            }).catch(() => {});
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.getLocalStatistics
+        ) {
+            (window as any).electron
+                .getLocalStatistics()
+                .then((res: any) => {
+                    const total =
+                        res?.total !== undefined
+                            ? res.total
+                            : res?.data?.total || 0;
+                    this.totalElements = total;
+                    this.actualTotalElements = total;
+                    this.cd.markForCheck();
+                })
+                .catch(() => {});
         } else {
-            this._crawlService.searchTotalArchive({
-                username: this.getCurrentUsername(),
-                keyword: '',
-                uuids: this.uuids,
-                page: this.page,
-            })
+            this._crawlService
+                .searchTotalArchive({
+                    username: this.getCurrentUsername(),
+                    keyword: '',
+                    uuids: this.uuids,
+                    page: this.page,
+                })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: (res: any) => {
                         if (!this.keyword && this.uuids.length === 0) {
                             let total = res?.data?.total;
-                            if (total === undefined) total = res?.data?.data?.total;
+                            if (total === undefined)
+                                total = res?.data?.data?.total;
                             if (total !== undefined) {
                                 this.totalElements = total;
                                 this.actualTotalElements = total;
                                 this.cd.markForCheck();
                             }
                         }
-                    }
+                    },
                 });
         }
     }
@@ -1407,7 +1832,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     // Group date helper method
     getDateGroup(doc: any): string {
         if (!doc) return 'Cũ hơn';
-        let dateVal = doc.createdAt || doc.created_at || doc.updatedAt || doc.updated_at || doc.date || doc.updated || doc.created;
+        let dateVal =
+            doc.createdAt ||
+            doc.created_at ||
+            doc.updatedAt ||
+            doc.updated_at ||
+            doc.date ||
+            doc.updated ||
+            doc.created;
         if (!dateVal) return 'Cũ hơn';
 
         if (typeof dateVal === 'string' && /^\d+$/.test(dateVal)) {
@@ -1421,7 +1853,11 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (isNaN(d.getTime())) return 'Cũ hơn';
 
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const today = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+        );
         const itemDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
         const diffTime = today.getTime() - itemDate.getTime();
@@ -1437,20 +1873,33 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     groupRowsWithHeaders(docs: any[]): any[] {
         if (!docs || docs.length === 0) return [];
 
-        const realDocs = docs.filter((doc: any) => doc && !doc.isGroupHeader && doc.uuid);
+        const realDocs = docs.filter(
+            (doc: any) => doc && !doc.isGroupHeader && doc.uuid,
+        );
         if (realDocs.length === 0) return [];
 
         // Nếu đang lọc theo Collection hoặc có tập UUID cụ thể, không chèn header gom nhóm ngày tháng
-        if ((this.selectedCollections && this.selectedCollections.length > 0) || (this.uuids && this.uuids.length > 0)) {
+        if (
+            (this.selectedCollections && this.selectedCollections.length > 0) ||
+            (this.uuids && this.uuids.length > 0)
+        ) {
             return realDocs;
         }
 
-        const groupOrder = ['Hôm nay', 'Hôm qua', '7 ngày qua', '30 ngày qua', 'Cũ hơn'];
+        const groupOrder = [
+            'Hôm nay',
+            'Hôm qua',
+            '7 ngày qua',
+            '30 ngày qua',
+            'Cũ hơn',
+        ];
         const grouped: { [key: string]: any[] } = {};
 
-        groupOrder.forEach(g => { grouped[g] = []; });
+        groupOrder.forEach((g) => {
+            grouped[g] = [];
+        });
 
-        realDocs.forEach(doc => {
+        realDocs.forEach((doc) => {
             const group = this.getDateGroup(doc);
             if (!grouped[group]) {
                 grouped[group] = [];
@@ -1459,14 +1908,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         });
 
         const result: any[] = [];
-        groupOrder.forEach(groupName => {
+        groupOrder.forEach((groupName) => {
             const docsInGroup = grouped[groupName] || [];
             if (docsInGroup.length > 0) {
                 result.push({
                     isGroupHeader: true,
                     groupTitle: groupName,
                     count: docsInGroup.length,
-                    uuid: 'group-header-' + groupName
+                    uuid: 'group-header-' + groupName,
                 });
                 result.push(...docsInGroup);
             }
@@ -1482,17 +1931,39 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
 
         if (!selectedGroup || selectedGroup === 'Tất cả thời gian') {
-            const docs = (this.masterLoadedRows && this.masterLoadedRows.length > 0)
-                ? this.masterLoadedRows
-                : (this.allRowsBackup ? this.allRowsBackup.filter(r => r && r.uuid && !r.isGroupHeader) : []);
+            const docs =
+                this.masterLoadedRows && this.masterLoadedRows.length > 0
+                    ? this.masterLoadedRows
+                    : this.allRowsBackup
+                      ? this.allRowsBackup.filter(
+                            (r) => r && r.uuid && !r.isGroupHeader,
+                        )
+                      : [];
             this.rows = this.groupRowsWithHeaders(docs);
-            this.totalElements = (this.actualTotalElements > 0) ? this.actualTotalElements : this.rows.length;
+            this.totalElements =
+                this.actualTotalElements > 0
+                    ? this.actualTotalElements
+                    : this.rows.length;
         } else {
-            const allDocs = (this.masterLoadedRows && this.masterLoadedRows.length > 0)
-                ? this.masterLoadedRows
-                : (this.allRowsBackup ? this.allRowsBackup.filter(r => r && r.uuid && !r.isGroupHeader) : (this.rows ? this.rows.filter(r => r && r.uuid && !r.isGroupHeader) : []));
+            const allDocs =
+                this.masterLoadedRows && this.masterLoadedRows.length > 0
+                    ? this.masterLoadedRows
+                    : this.allRowsBackup
+                      ? this.allRowsBackup.filter(
+                            (r) => r && r.uuid && !r.isGroupHeader,
+                        )
+                      : this.rows
+                        ? this.rows.filter(
+                              (r) => r && r.uuid && !r.isGroupHeader,
+                          )
+                        : [];
 
-            const filtered = allDocs.filter(row => row && !row.isGroupHeader && this.getDateGroup(row) === selectedGroup);
+            const filtered = allDocs.filter(
+                (row) =>
+                    row &&
+                    !row.isGroupHeader &&
+                    this.getDateGroup(row) === selectedGroup,
+            );
             this.rows = this.groupRowsWithHeaders(filtered);
             this.totalElements = this.rows.length;
         }
@@ -1525,7 +1996,11 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
     hasCollectionScriptFromArchives(): boolean {
         let targetCols = this.selectedCollections || [];
-        if ((!targetCols || targetCols.length === 0) && this.collections && this.collections.length > 0) {
+        if (
+            (!targetCols || targetCols.length === 0) &&
+            this.collections &&
+            this.collections.length > 0
+        ) {
             targetCols = [this.collections[0]];
         }
         if (!targetCols || targetCols.length === 0) return false;
@@ -1542,17 +2017,31 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (col.has_script) return true;
 
         if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(`ai_type_script_data_${firstUuid}`) ||
-                   !!this.multiAccountService.getItem(`ai_type_script_merger_data_${firstUuid}`) ||
-                   !!this.multiAccountService.getItem(`ai_type_script_data_${col._id}`) ||
-                   !!this.multiAccountService.getItem(`ai_type_script_merger_data_${col._id}`);
+            return (
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_data_${firstUuid}`,
+                ) ||
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_merger_data_${firstUuid}`,
+                ) ||
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_data_${col._id}`,
+                ) ||
+                !!this.multiAccountService.getItem(
+                    `ai_type_script_merger_data_${col._id}`,
+                )
+            );
         }
         return false;
     }
 
     readCollectionScriptFromArchives() {
         let targetCols = this.selectedCollections || [];
-        if ((!targetCols || targetCols.length === 0) && this.collections && this.collections.length > 0) {
+        if (
+            (!targetCols || targetCols.length === 0) &&
+            this.collections &&
+            this.collections.length > 0
+        ) {
             targetCols = [this.collections[0]];
         }
         if (!targetCols || targetCols.length === 0) return;
@@ -1573,11 +2062,21 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     extractCleanDoneContent(art: any): string {
         if (!art) return '';
         let content = '';
-        const rawDone = art.done || art.content || art.text || (art.source ? (art.source.done || art.source.text || art.source.prompt) : null);
+        const rawDone =
+            art.done ||
+            art.content ||
+            art.text ||
+            (art.source
+                ? art.source.done || art.source.text || art.source.prompt
+                : null);
         if (rawDone) {
             if (Array.isArray(rawDone)) {
                 content = rawDone
-                    .map((paragraph: any) => typeof paragraph === 'string' ? paragraph.replace(/<[^>]*>?/gm, '').trim() : '')
+                    .map((paragraph: any) =>
+                        typeof paragraph === 'string'
+                            ? paragraph.replace(/<[^>]*>?/gm, '').trim()
+                            : '',
+                    )
                     .filter((text: string) => text.length > 0)
                     .join('\n\n');
             } else if (typeof rawDone === 'string') {
@@ -1587,25 +2086,44 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         return content;
     }
 
-    async fetchCollectionContentBulk(uuids: string[], username: string): Promise<any[]> {
+    async fetchCollectionContentBulk(
+        uuids: string[],
+        username: string,
+    ): Promise<any[]> {
         if (!uuids || uuids.length === 0) return [];
         let docsMap: Record<string, any> = {};
 
         // Nạp từ local SQLite nếu có
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalArticles) {
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.listLocalArticles
+        ) {
             try {
-                const localRes = await (window as any).electron.listLocalArticles({ username: username });
+                const localRes = await (
+                    window as any
+                ).electron.listLocalArticles({ username: username });
                 if (localRes && localRes.success && localRes.articles) {
                     localRes.articles.forEach((doc: any) => {
                         if (doc && uuids.includes(doc.uuid)) {
-                            const cleanContent = this.extractCleanDoneContent(doc);
+                            const cleanContent =
+                                this.extractCleanDoneContent(doc);
                             const docItem = {
                                 uuid: doc.uuid,
                                 title: doc.title || '',
                                 done: cleanContent,
-                                style: (doc.source && doc.source.style) ? doc.source.style : (doc.style || null),
-                                createdAt: doc.createdAt || doc.created_at || doc.date || doc.updatedAt || 0
+                                style:
+                                    doc.source && doc.source.style
+                                        ? doc.source.style
+                                        : doc.style || null,
+                                createdAt:
+                                    doc.createdAt ||
+                                    doc.created_at ||
+                                    doc.date ||
+                                    doc.updatedAt ||
+                                    0,
                             };
                             docsMap[doc.uuid] = docItem;
                         }
@@ -1617,11 +2135,13 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
 
         try {
-            const bulkRes: any = await firstValueFrom(this._crawlService.archive({
-                username: username,
-                uuids: uuids,
-                page: { size: Math.max(uuids.length, 2000) }
-            })).catch(() => null);
+            const bulkRes: any = await firstValueFrom(
+                this._crawlService.archive({
+                    username: username,
+                    uuids: uuids,
+                    page: { size: Math.max(uuids.length, 2000) },
+                }),
+            ).catch(() => null);
 
             let docsList: any[] = [];
             if (bulkRes && bulkRes.data) {
@@ -1643,11 +2163,21 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         uuid: doc.uuid || doc._id || doc.id,
                         title: doc.title || doc.name || '',
                         done: cleanContent,
-                        style: (doc.source && doc.source.style) ? doc.source.style : (doc.style || null),
-                        createdAt: doc.createdAt || doc.created_at || doc.date || doc.updatedAt || 0
+                        style:
+                            doc.source && doc.source.style
+                                ? doc.source.style
+                                : doc.style || null,
+                        createdAt:
+                            doc.createdAt ||
+                            doc.created_at ||
+                            doc.date ||
+                            doc.updatedAt ||
+                            0,
                     };
-                    if (doc.uuid && !docsMap[doc.uuid]) docsMap[doc.uuid] = docItem;
-                    if (doc._id && !docsMap[doc._id]) docsMap[doc._id] = docItem;
+                    if (doc.uuid && !docsMap[doc.uuid])
+                        docsMap[doc.uuid] = docItem;
+                    if (doc._id && !docsMap[doc._id])
+                        docsMap[doc._id] = docItem;
                     if (doc.id && !docsMap[doc.id]) docsMap[doc.id] = docItem;
                 }
             });
@@ -1655,14 +2185,22 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             console.warn('Lỗi gọi bulk archive:', err);
         }
 
-        let resultDocs = uuids.map(uuid => docsMap[uuid]).filter(doc => !!doc && !!doc.done);
+        let resultDocs = uuids
+            .map((uuid) => docsMap[uuid])
+            .filter((doc) => !!doc && !!doc.done);
         if (resultDocs.length === 0 && Object.keys(docsMap).length > 0) {
-            resultDocs = Object.values(docsMap).filter((doc: any) => !!doc && !!doc.done);
+            resultDocs = Object.values(docsMap).filter(
+                (doc: any) => !!doc && !!doc.done,
+            );
         }
 
         resultDocs.sort((a: any, b: any) => {
-            const dateA = new Date(a.createdAt || a.created_at || a.date || a.updatedAt || 0).getTime();
-            const dateB = new Date(b.createdAt || b.created_at || b.date || b.updatedAt || 0).getTime();
+            const dateA = new Date(
+                a.createdAt || a.created_at || a.date || a.updatedAt || 0,
+            ).getTime();
+            const dateB = new Date(
+                b.createdAt || b.created_at || b.date || b.updatedAt || 0,
+            ).getTime();
             return dateA - dateB;
         });
         return resultDocs;
@@ -1672,8 +2210,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (this.isGeneratingCollectionScript) return;
 
         let targetCols = this.selectedCollections || [];
-        
-        if ((!targetCols || targetCols.length === 0) && this.selected && this.selected.length > 0) {
+
+        if (
+            (!targetCols || targetCols.length === 0) &&
+            this.selected &&
+            this.selected.length > 0
+        ) {
             targetCols = (this.collections || []).filter((c: any) => {
                 return (this.selected || []).some((sel: any) => {
                     if (Array.isArray(c.uuid)) return c.uuid.includes(sel.uuid);
@@ -1686,7 +2228,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             if (this.collections && this.collections.length > 0) {
                 targetCols = [this.collections[0]];
             } else {
-                this.toastr.warning('Vui lòng chọn 1 Collection ở bộ lọc bên trên để tạo kịch bản!', 'Chưa chọn Collection');
+                this.toastr.warning(
+                    'Vui lòng chọn 1 Collection ở bộ lọc bên trên để tạo kịch bản!',
+                    'Chưa chọn Collection',
+                );
                 return;
             }
         }
@@ -1712,50 +2257,84 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
 
         if (uuids.length === 0) {
-            this.toastr.warning('Collection này chưa có bài viết nào để dựng kịch bản!', 'Trống');
+            this.toastr.warning(
+                'Collection này chưa có bài viết nào để dựng kịch bản!',
+                'Trống',
+            );
             this.isGeneratingCollectionScript = false;
             this.cd.markForCheck();
             return;
         }
 
         try {
-            this.toastr.info(`Đang siêu tối ưu đọc ${uuids.length} chương trong Collection "${collectionTitle}"...`, 'Đang xử lý siêu tốc');
+            this.toastr.info(
+                `Đang siêu tối ưu đọc ${uuids.length} chương trong Collection "${collectionTitle}"...`,
+                'Đang xử lý siêu tốc',
+            );
             const username = this.user?.name || 'admin';
-            
-            const fullDocs = await this.fetchCollectionContentBulk(uuids, username);
+
+            const fullDocs = await this.fetchCollectionContentBulk(
+                uuids,
+                username,
+            );
 
             if (fullDocs && fullDocs.length > 0) {
                 const firstUuid = uuids[0];
                 let fullScriptParts: string[] = [];
                 let currentSceneNumber = 1;
 
-                this.toastr.info(`Bắt đầu chuyển thể chi tiết trọn vẹn ${fullDocs.length} chương sang kịch bản...`, 'Chuyển thể siêu chi tiết');
+                this.toastr.info(
+                    `Bắt đầu chuyển thể chi tiết trọn vẹn ${fullDocs.length} chương sang kịch bản...`,
+                    'Chuyển thể siêu chi tiết',
+                );
 
                 for (let idx = 0; idx < fullDocs.length; idx++) {
                     const art = fullDocs[idx];
                     const chapterTitle = art.title || `Chương ${idx + 1}`;
-                    
+
                     let contentFromDone = '';
                     if (art.done) {
                         if (Array.isArray(art.done)) {
                             contentFromDone = art.done
-                                .map((paragraph: any) => typeof paragraph === 'string' ? paragraph.replace(/<[^>]*>?/gm, '').trim() : '')
+                                .map((paragraph: any) =>
+                                    typeof paragraph === 'string'
+                                        ? paragraph
+                                              .replace(/<[^>]*>?/gm, '')
+                                              .trim()
+                                        : '',
+                                )
                                 .filter((text: string) => text.length > 0)
                                 .join('\n\n');
                         } else if (typeof art.done === 'string') {
-                            contentFromDone = art.done.replace(/<[^>]*>?/gm, '').trim();
+                            contentFromDone = art.done
+                                .replace(/<[^>]*>?/gm, '')
+                                .trim();
                         }
                     }
 
                     if (!contentFromDone && art.source) {
-                        if (art.source.prompt && Array.isArray(art.source.prompt)) {
+                        if (
+                            art.source.prompt &&
+                            Array.isArray(art.source.prompt)
+                        ) {
                             contentFromDone = art.source.prompt
-                                .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                                .map((item: any) =>
+                                    typeof item === 'string'
+                                        ? item.replace(/<[^>]*>?/gm, '').trim()
+                                        : '',
+                                )
                                 .filter((text: string) => text.length > 0)
                                 .join('\n\n');
-                        } else if (art.source.pre && Array.isArray(art.source.pre)) {
+                        } else if (
+                            art.source.pre &&
+                            Array.isArray(art.source.pre)
+                        ) {
                             contentFromDone = art.source.pre
-                                .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                                .map((item: any) =>
+                                    typeof item === 'string'
+                                        ? item.replace(/<[^>]*>?/gm, '').trim()
+                                        : '',
+                                )
                                 .filter((text: string) => text.length > 0)
                                 .join('\n\n');
                         }
@@ -1765,7 +2344,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         continue;
                     }
 
-                    this.toastr.info(`[Chương ${idx + 1}/${fullDocs.length}] Đang dựng kịch bản mổ xẻ chi tiết cho: "${chapterTitle}"...`, 'Đang xử lý từng chương');
+                    this.toastr.info(
+                        `[Chương ${idx + 1}/${fullDocs.length}] Đang dựng kịch bản mổ xẻ chi tiết cho: "${chapterTitle}"...`,
+                        'Đang xử lý từng chương',
+                    );
 
                     let prompt = `Bạn là một Nhà biên kịch Điện ảnh Chuyên nghiệp.
 Nhiệm vụ của bạn là CHUYỂN THỂ TRUNG THỰC TUYỆT ĐỐI (100% High-Fidelity Adaptation) CHƯƠNG ${idx + 1}/${fullDocs.length} thuộc tác phẩm dưới đây thành một KỊCH BẢN PHIM ĐIỆN ẢNH chuẩn mực chiếu rạp.
@@ -1792,61 +2374,102 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 - Bắt đầu kịch bản ngay bằng CẢNH ${currentSceneNumber} hoặc "FADE IN:". KHÔNG kèm lời dẫn hay giải thích thừa.`;
 
                     try {
-                        const response = await this._genaiService.generateContent({
-                            model: 'gemini-3.6-flash',
-                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                            config: { temperature: 0.1 }
-                        });
+                        const response =
+                            await this._genaiService.generateContent({
+                                model: 'gemini-3.6-flash',
+                                contents: [
+                                    { role: 'user', parts: [{ text: prompt }] },
+                                ],
+                                config: { temperature: 0.1 },
+                            });
 
-                        const chapterScript = response.text ? response.text.trim() : '';
+                        const chapterScript = response.text
+                            ? response.text.trim()
+                            : '';
                         if (chapterScript) {
-                            const sceneMatches = chapterScript.match(/(?:CẢNH|SCENE)\s+(\d+)/gi);
+                            const sceneMatches = chapterScript.match(
+                                /(?:CẢNH|SCENE)\s+(\d+)/gi,
+                            );
                             if (sceneMatches && sceneMatches.length > 0) {
-                                const lastMatch = sceneMatches[sceneMatches.length - 1];
+                                const lastMatch =
+                                    sceneMatches[sceneMatches.length - 1];
                                 const numMatch = lastMatch.match(/\d+/);
                                 if (numMatch) {
-                                    currentSceneNumber = parseInt(numMatch[0], 10) + 1;
+                                    currentSceneNumber =
+                                        parseInt(numMatch[0], 10) + 1;
                                 }
                             } else {
                                 currentSceneNumber += 5;
                             }
 
-                            fullScriptParts.push(`========================================\n[PHẦN KỊCH BẢN CHƯƠNG ${idx + 1}: ${chapterTitle}]\n========================================\n\n` + chapterScript);
+                            fullScriptParts.push(
+                                `========================================\n[PHẦN KỊCH BẢN CHƯƠNG ${idx + 1}: ${chapterTitle}]\n========================================\n\n` +
+                                    chapterScript,
+                            );
 
                             // Lưu kịch bản riêng lẻ cho từng bài viết / chương
                             if (art && art.uuid) {
-                                this.multiAccountService.setItem(`ai_type_script_data_${art.uuid}`, true);
-                                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-                                if (isAutoSaveLocal && (window as any).electron && (window as any).electron.saveLocalScript) {
-                                    (window as any).electron.saveLocalScript({
-                                        uuid: art.uuid,
+                                this.multiAccountService.setItem(
+                                    `ai_type_script_data_${art.uuid}`,
+                                    true,
+                                );
+                                const isAutoSaveLocal =
+                                    localStorage.getItem(
+                                        'ai_type_auto_save_local',
+                                    ) !== 'false';
+                                if (
+                                    isAutoSaveLocal &&
+                                    (window as any).electron &&
+                                    (window as any).electron.saveLocalScript
+                                ) {
+                                    (window as any).electron
+                                        .saveLocalScript({
+                                            uuid: art.uuid,
+                                            username: username,
+                                            title: chapterTitle,
+                                            outline: chapterTitle,
+                                            script: chapterScript,
+                                        })
+                                        .catch((errLocal: any) =>
+                                            console.warn(
+                                                'Lỗi lưu kịch bản từng chương vào SQLite:',
+                                                errLocal,
+                                            ),
+                                        );
+                                }
+                                this._blogService
+                                    .storeScript({
                                         username: username,
+                                        uuid: art.uuid,
                                         title: chapterTitle,
                                         outline: chapterTitle,
-                                        script: chapterScript
-                                    }).catch((errLocal: any) => console.warn('Lỗi lưu kịch bản từng chương vào SQLite:', errLocal));
-                                }
-                                this._blogService.storeScript({
-                                    username: username,
-                                    uuid: art.uuid,
-                                    title: chapterTitle,
-                                    outline: chapterTitle,
-                                    script: chapterScript
-                                }).subscribe({
-                                    next: () => {},
-                                    error: (errStore: any) => console.warn('Lỗi lưu kịch bản chương lên server:', errStore)
-                                });
+                                        script: chapterScript,
+                                    })
+                                    .subscribe({
+                                        next: () => {},
+                                        error: (errStore: any) =>
+                                            console.warn(
+                                                'Lỗi lưu kịch bản chương lên server:',
+                                                errStore,
+                                            ),
+                                    });
                             }
                         }
                     } catch (e) {
-                        console.warn(`Lỗi khi dựng kịch bản cho Chương ${idx + 1}:`, e);
+                        console.warn(
+                            `Lỗi khi dựng kịch bản cho Chương ${idx + 1}:`,
+                            e,
+                        );
                     }
                 }
 
                 const scriptText = fullScriptParts.join('\n\n');
 
                 if (!scriptText || !scriptText.trim()) {
-                    this.toastr.error('Không thể dựng kịch bản cho Collection này!', 'Lỗi');
+                    this.toastr.error(
+                        'Không thể dựng kịch bản cho Collection này!',
+                        'Lỗi',
+                    );
                     this.isGeneratingCollectionScript = false;
                     this.cd.markForCheck();
                     return;
@@ -1854,68 +2477,124 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 
                 if (scriptText) {
                     const scriptTitle = `${collectionTitle}`;
-                    const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                    const isAutoSaveLocal =
+                        localStorage.getItem('ai_type_auto_save_local') !==
+                        'false';
                     const outlineText = `Toàn bộ Collection (${uuids.length} chương)`;
 
-                    if (isAutoSaveLocal && (window as any).electron && (window as any).electron.saveLocalScript) {
+                    if (
+                        isAutoSaveLocal &&
+                        (window as any).electron &&
+                        (window as any).electron.saveLocalScript
+                    ) {
                         try {
                             await (window as any).electron.saveLocalScript({
                                 uuid: firstUuid,
                                 username: username,
                                 title: scriptTitle,
                                 outline: outlineText,
-                                script: scriptText
+                                script: scriptText,
                             });
                         } catch (eLocal) {
-                            console.warn('Lưu kịch bản local SQLite cảnh báo:', eLocal);
+                            console.warn(
+                                'Lưu kịch bản local SQLite cảnh báo:',
+                                eLocal,
+                            );
                         }
                     }
 
-                    this._blogService.storeScript({
-                        username: username,
-                        uuid: firstUuid,
-                        title: scriptTitle,
-                        outline: outlineText,
-                        script: scriptText
-                    }).subscribe({
-                        next: (res) => {
-                            this.multiAccountService.setItem(`ai_type_script_data_${firstUuid}`, true);
-                            this.toastr.success(`Dựng kịch bản trọn vẹn chi tiết toàn bộ Collection "${collectionTitle}" (${fullDocs.length} chương) thành công!`);
-                            this.isGeneratingCollectionScript = false;
-                            this.cd.markForCheck();
-                            
-                            const firstRowName = (this.rows && this.rows.length > 0 && this.rows[0].name) ? this.rows[0].name : username;
-                            this.router.navigate(['/ai-writer', firstRowName, firstUuid, 'script']);
-                        },
-                        error: (err) => {
-                            console.warn('Lỗi lưu kịch bản lên Server:', err);
-                            if (isAutoSaveLocal) {
-                                this.multiAccountService.setItem(`ai_type_script_data_${firstUuid}`, true);
-                                this.toastr.success(`Đã lưu kịch bản vào SQLite máy tính thành công!`);
+                    this._blogService
+                        .storeScript({
+                            username: username,
+                            uuid: firstUuid,
+                            title: scriptTitle,
+                            outline: outlineText,
+                            script: scriptText,
+                        })
+                        .subscribe({
+                            next: (res) => {
+                                this.multiAccountService.setItem(
+                                    `ai_type_script_data_${firstUuid}`,
+                                    true,
+                                );
+                                this.toastr.success(
+                                    `Dựng kịch bản trọn vẹn chi tiết toàn bộ Collection "${collectionTitle}" (${fullDocs.length} chương) thành công!`,
+                                );
                                 this.isGeneratingCollectionScript = false;
                                 this.cd.markForCheck();
-                                const firstRowName = (this.rows && this.rows.length > 0 && this.rows[0].name) ? this.rows[0].name : username;
-                                this.router.navigate(['/ai-writer', firstRowName, firstUuid, 'script']);
-                            } else {
-                                this.toastr.error('Dựng kịch bản thành công nhưng không thể lưu vào database.', 'Lỗi lưu trữ');
-                                this.isGeneratingCollectionScript = false;
-                                this.cd.markForCheck();
-                            }
-                        }
-                    });
+
+                                const firstRowName =
+                                    this.rows &&
+                                    this.rows.length > 0 &&
+                                    this.rows[0].name
+                                        ? this.rows[0].name
+                                        : username;
+                                this.router.navigate([
+                                    '/ai-writer',
+                                    firstRowName,
+                                    firstUuid,
+                                    'script',
+                                ]);
+                            },
+                            error: (err) => {
+                                console.warn(
+                                    'Lỗi lưu kịch bản lên Server:',
+                                    err,
+                                );
+                                if (isAutoSaveLocal) {
+                                    this.multiAccountService.setItem(
+                                        `ai_type_script_data_${firstUuid}`,
+                                        true,
+                                    );
+                                    this.toastr.success(
+                                        `Đã lưu kịch bản vào SQLite máy tính thành công!`,
+                                    );
+                                    this.isGeneratingCollectionScript = false;
+                                    this.cd.markForCheck();
+                                    const firstRowName =
+                                        this.rows &&
+                                        this.rows.length > 0 &&
+                                        this.rows[0].name
+                                            ? this.rows[0].name
+                                            : username;
+                                    this.router.navigate([
+                                        '/ai-writer',
+                                        firstRowName,
+                                        firstUuid,
+                                        'script',
+                                    ]);
+                                } else {
+                                    this.toastr.error(
+                                        'Dựng kịch bản thành công nhưng không thể lưu vào database.',
+                                        'Lỗi lưu trữ',
+                                    );
+                                    this.isGeneratingCollectionScript = false;
+                                    this.cd.markForCheck();
+                                }
+                            },
+                        });
                 } else {
-                    this.toastr.error('AI không phản hồi nội dung kịch bản.', 'Lỗi AI');
+                    this.toastr.error(
+                        'AI không phản hồi nội dung kịch bản.',
+                        'Lỗi AI',
+                    );
                     this.isGeneratingCollectionScript = false;
                     this.cd.markForCheck();
                 }
             } else {
-                this.toastr.error('Không thể đọc nội dung các chương trong Collection.', 'Lỗi dữ liệu');
+                this.toastr.error(
+                    'Không thể đọc nội dung các chương trong Collection.',
+                    'Lỗi dữ liệu',
+                );
                 this.isGeneratingCollectionScript = false;
                 this.cd.markForCheck();
             }
         } catch (error) {
             console.error('Lỗi dựng kịch bản Collection:', error);
-            this.toastr.error('Không thể kết nối đến máy chủ AI để dựng kịch bản Collection.', 'Lỗi kết nối');
+            this.toastr.error(
+                'Không thể kết nối đến máy chủ AI để dựng kịch bản Collection.',
+                'Lỗi kết nối',
+            );
             this.isGeneratingCollectionScript = false;
             this.cd.markForCheck();
         }

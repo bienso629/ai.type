@@ -1,5 +1,21 @@
-import { AfterViewInit, Component, ElementRef, HostBinding, HostListener, Inject, NgZone, OnDestroy, OnInit, Renderer2, ViewEncapsulation, ViewChild, ChangeDetectorRef } from '@angular/core';
-import { DOCUMENT } from '@angular/common';
+import {
+    AfterViewInit,
+    Component,
+    ElementRef,
+    HostBinding,
+    HostListener,
+    Inject,
+    NgZone,
+    OnDestroy,
+    OnInit,
+    Renderer2,
+    ViewEncapsulation,
+    ViewChild,
+    ChangeDetectorRef,
+    DOCUMENT,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+
 import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 import { Subject } from 'rxjs';
 import { MultiAccountService } from 'app/_services/multi-account.service';
@@ -20,7 +36,9 @@ export interface ToolItem {
     templateUrl: './quick-chat.component.html',
     styleUrls: ['./quick-chat.component.scss'],
     encapsulation: ViewEncapsulation.None,
-    exportAs: 'quickChat'
+    exportAs: 'quickChat',
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     tools: ToolItem[] = [];
@@ -40,7 +58,8 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     private _openWebToolListener: (e: any) => void;
 
     private _mutationObserver: MutationObserver;
-    private _scrollStrategy: ScrollStrategy = this._scrollStrategyOptions.block();
+    private _scrollStrategy: ScrollStrategy =
+        this._scrollStrategyOptions.block();
     private _overlay: HTMLElement;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -52,19 +71,19 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         private _scrollStrategyOptions: ScrollStrategyOptions,
         private multiAccountService: MultiAccountService,
         private _matDialog: MatDialog,
-        private cd: ChangeDetectorRef
-    ) { }
+        private cd: ChangeDetectorRef,
+    ) {}
 
     @HostBinding('class') get classList(): any {
         return {
-            'quick-chat-opened': this.opened
+            'quick-chat-opened': this.opened,
         };
     }
 
     ngOnInit(): void {
         this.loadTools();
         this.checkZaloStatus();
-        
+
         // Định kỳ kiểm tra trạng thái Zalo để cập nhật hiệu ứng nhấp nháy
         this._intervalId = setInterval(() => {
             this.checkZaloStatus();
@@ -72,11 +91,18 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     async checkZaloStatus() {
-        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+        if (
+            (window as any).electronAPI &&
+            (window as any).electronAPI.getPluginsStatus
+        ) {
             try {
-                const list = await (window as any).electronAPI.getPluginsStatus();
+                const list = await (
+                    window as any
+                ).electronAPI.getPluginsStatus();
                 const zalo = list.find((p: any) => p.id === 'zalo_reply');
-                this.isZaloRunningBackground = zalo ? (zalo.installed && zalo.enabled) : false;
+                this.isZaloRunningBackground = zalo
+                    ? zalo.installed && zalo.enabled
+                    : false;
             } catch (e) {
                 this.isZaloRunningBackground = false;
             }
@@ -96,19 +122,27 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
         // Remove Google Labs from existing cached tools
         if (savedTools && savedTools.length > 0) {
-            const hasLabs = savedTools.find((t: any) => t.name === 'Google Labs');
+            const hasLabs = savedTools.find(
+                (t: any) => t.name === 'Google Labs',
+            );
             if (hasLabs) {
-                savedTools = savedTools.filter((t: any) => t.name !== 'Google Labs');
+                savedTools = savedTools.filter(
+                    (t: any) => t.name !== 'Google Labs',
+                );
                 this.multiAccountService.setItem('tools_urls', savedTools);
             }
         }
         if (!savedTools || savedTools.length === 0) {
             savedTools = [
-                { id: '1', name: 'Gemini', url: 'https://gemini.google.com/app?hl=vi' },
+                {
+                    id: '1',
+                    name: 'Gemini',
+                    url: 'https://gemini.google.com/app?hl=vi',
+                },
                 { id: '3', name: 'Facebook', url: 'https://facebook.com' },
                 { id: '4', name: 'Tiktok', url: 'https://www.tiktok.com' },
                 { id: '5', name: 'Instagram', url: 'https://instagram.com' },
-                { id: '6', name: 'X', url: 'https://x.com' }
+                { id: '6', name: 'X', url: 'https://x.com' },
             ];
             this.multiAccountService.setItem('tools_urls', savedTools);
         }
@@ -147,7 +181,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
             id: Date.now().toString(),
             name: this.newToolName,
             url: this.newToolUrl,
-            icon: this.newToolIcon || ''
+            icon: this.newToolIcon || '',
         };
 
         this.tools.push(newTool);
@@ -165,7 +199,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     openAddDialog(): void {
         const dialogRef = this._matDialog.open(AddToolDialog, {
             width: '450px',
-            disableClose: false
+            disableClose: false,
         });
 
         dialogRef.afterClosed().subscribe((res: any) => {
@@ -174,7 +208,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                     id: Date.now().toString(),
                     name: res.name,
                     url: res.url,
-                    icon: res.icon || ''
+                    icon: res.icon || '',
                 };
 
                 this.tools.push(newTool);
@@ -185,7 +219,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     removeTool(id: string): void {
-        this.tools = this.tools.filter(t => t.id !== id);
+        this.tools = this.tools.filter((t) => t.id !== id);
         this.multiAccountService.setItem('tools_urls', this.tools);
         if (this.selectedTool && this.selectedTool.id === id) {
             this.selectedTool = null;
@@ -194,7 +228,9 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         // Remove the associated webview from DOM if it exists
         const container = document.getElementById('webview-container-div');
         if (container) {
-            const webview = container.querySelector(`webview[data-tool-id="${id}"]`);
+            const webview = container.querySelector(
+                `webview[data-tool-id="${id}"]`,
+            );
             if (webview) {
                 container.removeChild(webview);
             }
@@ -218,7 +254,9 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
             });
 
             // Check if webview for this tool exists
-            let webview = container.querySelector(`webview[data-tool-id="${tool.id}"]`) as any;
+            let webview = container.querySelector(
+                `webview[data-tool-id="${tool.id}"]`,
+            ) as any;
             if (webview) {
                 // Show it
                 webview.style.display = 'flex';
@@ -239,7 +277,9 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 webview.style.transition = 'opacity 0.2s ease-in-out';
 
                 // Fallback hiển thị sau 1s nếu dom-ready quá lâu
-                setTimeout(() => { webview.style.opacity = '1'; }, 1000);
+                setTimeout(() => {
+                    webview.style.opacity = '1';
+                }, 1000);
 
                 webview.addEventListener('dom-ready', () => {
                     const scrollbarCSS = `
@@ -248,10 +288,14 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
                         ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
                     `;
-                    try { (webview as any).insertCSS(scrollbarCSS); } catch (e) { }
+                    try {
+                        (webview as any).insertCSS(scrollbarCSS);
+                    } catch (e) {}
 
                     // Hiện webview sau khi đã tiêm CSS
-                    setTimeout(() => { webview.style.opacity = '1'; }, 50);
+                    setTimeout(() => {
+                        webview.style.opacity = '1';
+                    }, 50);
                 });
 
                 container.appendChild(webview);
@@ -259,13 +303,15 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         }
 
         // Cập nhật isWebviewVisible (phát sự kiện toggle)
-        window.dispatchEvent(new CustomEvent('toggle-gemini', { 
-            detail: { 
-                forceOpen: true,
-                title: tool.name,
-                url: tool.url
-            } 
-        }));
+        window.dispatchEvent(
+            new CustomEvent('toggle-gemini', {
+                detail: {
+                    forceOpen: true,
+                    title: tool.name,
+                    url: tool.url,
+                },
+            }),
+        );
         // Đóng panel sau khi chọn
         this.close();
     }
@@ -284,10 +330,20 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
             const container = document.getElementById('webview-container-div');
             if (container) {
                 // Find the currently visible webview
-                const activeWebview = Array.from(container.querySelectorAll('webview')).find((wv: any) => wv.style.display !== 'none') as any || container.querySelector('webview') as any;
+                const activeWebview =
+                    (Array.from(container.querySelectorAll('webview')).find(
+                        (wv: any) => wv.style.display !== 'none',
+                    ) as any) || (container.querySelector('webview') as any);
 
                 if (activeWebview && activeWebview.clearData) {
-                    await activeWebview.clearData({ dataTypes: ['cookies', 'storages', 'caches', 'serviceworkers'] });
+                    await activeWebview.clearData({
+                        dataTypes: [
+                            'cookies',
+                            'storages',
+                            'caches',
+                            'serviceworkers',
+                        ],
+                    });
                     console.log('Webview data cleared.');
                 }
 
@@ -308,9 +364,14 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     openLoginBrowser() {
         const container = document.getElementById('webview-container-div');
         if (container) {
-            const activeWebview = Array.from(container.querySelectorAll('webview')).find((wv: any) => wv.style.display !== 'none') as any || container.querySelector('webview') as any;
+            const activeWebview =
+                (Array.from(container.querySelectorAll('webview')).find(
+                    (wv: any) => wv.style.display !== 'none',
+                ) as any) || (container.querySelector('webview') as any);
             if (activeWebview && activeWebview.executeJavaScript) {
-                activeWebview.executeJavaScript("window.location.href = 'https://gemini.google.com/trigger-stealth-login';");
+                activeWebview.executeJavaScript(
+                    "window.location.href = 'https://gemini.google.com/trigger-stealth-login';",
+                );
             }
         }
     }
@@ -342,31 +403,46 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
             const cleanUrl = url.trim();
 
             // Tìm tool theo tên dự án chuẩn
-            tool = this.tools.find(t => {
+            tool = this.tools.find((t) => {
                 if (!t) return false;
-                if (t.name && t.name.trim().toLowerCase() === toolName.trim().toLowerCase()) return true;
+                if (
+                    t.name &&
+                    t.name.trim().toLowerCase() ===
+                        toolName.trim().toLowerCase()
+                )
+                    return true;
                 if (t.url && t.url.trim() === cleanUrl) return true;
                 return false;
             });
 
             if (!tool) {
-                tool = { id: Date.now().toString(), name: toolName, url: cleanUrl };
+                tool = {
+                    id: Date.now().toString(),
+                    name: toolName,
+                    url: cleanUrl,
+                };
                 this.tools.unshift(tool);
             } else {
                 tool.url = cleanUrl;
                 tool.name = toolName;
 
                 // Cập nhật thẻ webview luôn nếu nó đã được render
-                const container = document.getElementById('webview-container-div');
+                const container = document.getElementById(
+                    'webview-container-div',
+                );
                 if (container) {
-                    const webview = container.querySelector(`webview[data-tool-id="${tool.id}"]`) as any;
+                    const webview = container.querySelector(
+                        `webview[data-tool-id="${tool.id}"]`,
+                    ) as any;
                     if (webview) {
                         webview.setAttribute('src', cleanUrl);
                     }
                 }
             }
         } else if (toolId) {
-            tool = this.tools.find(t => t.id === toolId || t.url.includes(toolId));
+            tool = this.tools.find(
+                (t) => t.id === toolId || t.url.includes(toolId),
+            );
         }
 
         if (tool) {
@@ -381,18 +457,30 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
             mutations.forEach((mutation) => {
                 const mutationTarget = mutation.target as HTMLElement;
                 if (mutation.attributeName === 'class') {
-                    if (mutationTarget.classList.contains('cdk-global-scrollblock')) {
+                    if (
+                        mutationTarget.classList.contains(
+                            'cdk-global-scrollblock',
+                        )
+                    ) {
                         const top = parseInt(mutationTarget.style.top, 10);
-                        this._renderer2.setStyle(this._elementRef.nativeElement, 'margin-top', `${Math.abs(top)}px`);
+                        this._renderer2.setStyle(
+                            this._elementRef.nativeElement,
+                            'margin-top',
+                            `${Math.abs(top)}px`,
+                        );
                     } else {
-                        this._renderer2.setStyle(this._elementRef.nativeElement, 'margin-top', null);
+                        this._renderer2.setStyle(
+                            this._elementRef.nativeElement,
+                            'margin-top',
+                            null,
+                        );
                     }
                 }
             });
         });
         this._mutationObserver.observe(this._document.documentElement, {
             attributes: true,
-            attributeFilter: ['class']
+            attributeFilter: ['class'],
         });
     }
 
@@ -401,7 +489,10 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
             clearInterval(this._intervalId);
         }
         if (this._openWebToolListener) {
-            (window as any).removeEventListener('open-web-tool', this._openWebToolListener);
+            (window as any).removeEventListener(
+                'open-web-tool',
+                this._openWebToolListener,
+            );
         }
         this._mutationObserver.disconnect();
         this._unsubscribeAll.next(null);
@@ -433,7 +524,10 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         if (!this._overlay) return;
 
         this._overlay.classList.add('quick-chat-overlay');
-        this._renderer2.appendChild(this._elementRef.nativeElement.parentElement, this._overlay);
+        this._renderer2.appendChild(
+            this._elementRef.nativeElement.parentElement,
+            this._overlay,
+        );
         this._scrollStrategy.enable();
 
         this._overlay.addEventListener('click', () => {

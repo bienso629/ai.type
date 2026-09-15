@@ -1,16 +1,32 @@
-import { AfterViewInit, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import {
+    AfterViewInit,
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
-import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
+import {
+    ColumnMode,
+    DatatableComponent,
+    SelectionType,
+} from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/_services/crawl';
 import { Subject, takeUntil } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { MatDialogRef } from '@angular/material/dialog';
-import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import {
+    UntypedFormBuilder,
+    UntypedFormGroup,
+    Validators,
+} from '@angular/forms';
 
 import * as uuid from 'uuid';
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 import * as xml2js from 'xml2js';
 
@@ -19,6 +35,8 @@ import * as xml2js from 'xml2js';
     styleUrls: ['./dialog.links.profile.scss'],
     templateUrl: './dialog.links.profile.html',
     providers: [CrawlService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class DialogLinksProfile implements OnInit, OnDestroy, AfterViewInit {
     user: User;
@@ -74,43 +92,50 @@ export class DialogLinksProfile implements OnInit, OnDestroy, AfterViewInit {
     }
 
     updateLink(e: any, index: number) {
-        this._crawlService.updateLink({
-            _id: this.data[index]._id,
-            link: e.target.value,
-            title: uuid.v4(),
-            options: this.data[index].options,
-            username: this.user.name
-        })
+        this._crawlService
+            .updateLink({
+                _id: this.data[index]._id,
+                link: e.target.value,
+                title: uuid.v4(),
+                options: this.data[index].options,
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result && result.success && result.data &&result.data.modifiedCount > 0) {
+                    if (
+                        result &&
+                        result.success &&
+                        result.data &&
+                        result.data.modifiedCount > 0
+                    ) {
                         this.toastr.success(`Chỉnh sửa link xong.`);
                         this.generateDownloadJsonUri();
                     } else {
                         this.toastr.warning(`Link không thể sửa.`);
                     }
                 },
-                error: () => {
-                },
+                error: () => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
-
     }
 
     generateDownloadJsonUri() {
         var theJSON = JSON.stringify(this.data);
-        var uri = this.sanitizer.bypassSecurityTrustUrl("data:text/json;charset=UTF-8," + encodeURIComponent(theJSON));
+        var uri = this.sanitizer.bypassSecurityTrustUrl(
+            'data:text/json;charset=UTF-8,' + encodeURIComponent(theJSON),
+        );
         this.downloadJsonHref = uri;
     }
 
     links(): void {
-        this._crawlService.links({
-            username: this.user.name
-        })
+        this._crawlService
+            .links({
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -119,12 +144,11 @@ export class DialogLinksProfile implements OnInit, OnDestroy, AfterViewInit {
                         this.generateDownloadJsonUri();
                     }
                 },
-                error: () => {
-                },
+                error: () => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
@@ -166,21 +190,22 @@ export class DialogLinksProfile implements OnInit, OnDestroy, AfterViewInit {
 
     run(): void {
         this.dialogRef.close({
-            start: true
+            start: true,
         });
     }
 
     add(): void {
         if (!this.urlForm.get('link').value) return;
 
-        this._crawlService.addLink({
-            link: this.urlForm.get('link').value,
-            title: uuid.v4(),
-            options: {
-                duration: this.urlForm.get('duration').value
-            },
-            username: this.user.name
-        })
+        this._crawlService
+            .addLink({
+                link: this.urlForm.get('link').value,
+                title: uuid.v4(),
+                options: {
+                    duration: this.urlForm.get('duration').value,
+                },
+                username: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -190,18 +215,17 @@ export class DialogLinksProfile implements OnInit, OnDestroy, AfterViewInit {
                         this.toastr.warning(`Link này đã tồn tại.`);
                     }
                 },
-                error: () => {
-                },
+                error: () => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
-                }
+                },
             });
     }
 
     close() {
         this.dialogRef.close({
-            start: false
+            start: false,
         });
     }
 
@@ -212,9 +236,7 @@ export class DialogLinksProfile implements OnInit, OnDestroy, AfterViewInit {
     /**
      * On init
      */
-    ngOnInit(): void {
-
-    }
+    ngOnInit(): void {}
 
     ngOnDestroy(): void {
         // Unsubscribe from all subscriptions
@@ -222,8 +244,7 @@ export class DialogLinksProfile implements OnInit, OnDestroy, AfterViewInit {
         this._unsubscribeAll.complete();
     }
 
-    ngAfterViewInit(): void {
-    }
+    ngAfterViewInit(): void {}
 
     constructor(
         private cd: ChangeDetectorRef,
@@ -232,7 +253,7 @@ export class DialogLinksProfile implements OnInit, OnDestroy, AfterViewInit {
         private _userService: UserService,
         private toastr: ToastrService,
         private sanitizer: DomSanitizer,
-        public dialogRef: MatDialogRef<DialogLinksProfile>
+        public dialogRef: MatDialogRef<DialogLinksProfile>,
     ) {
         // Create the form
         this.urlForm = this._formBuilder.group({

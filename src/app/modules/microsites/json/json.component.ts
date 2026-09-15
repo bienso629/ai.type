@@ -1,24 +1,31 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Subject } from 'rxjs';
 
 @Component({
     selector: 'json',
     templateUrl: './json.component.html',
-    styleUrls: ['./json.component.scss']
+    styleUrls: ['./json.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class JsonComponent implements OnInit, OnDestroy {
-    public data: any = [{
-        data: 1
-    }];
-    
+    public data: any = [
+        {
+            data: 1,
+        },
+    ];
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     /**
      * Constructor
      */
-    constructor(
-    ) {
-    }
+    constructor() {}
 
     // -----------------------------------------------------------------------------------------------------
     // @ Lifecycle hooks
@@ -27,9 +34,7 @@ export class JsonComponent implements OnInit, OnDestroy {
     /**
      * On init
      */
-    ngOnInit(): void {
-
-    }
+    ngOnInit(): void {}
 
     /**
      * On destroy

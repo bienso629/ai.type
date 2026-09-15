@@ -20,7 +20,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     styleUrls: ['./n8n.component.scss'],
     providers: [CrawlService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class AMXHComponent implements OnInit, OnDestroy {
     config: AppConfig;

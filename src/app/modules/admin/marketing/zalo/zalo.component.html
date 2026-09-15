@@ -1,108 +1,211 @@
-<div class="flex flex-col flex-auto min-w-0 h-full bg-card dark:bg-transparent overflow-hidden">
+<div
+    class="flex flex-col flex-auto min-w-0 h-full bg-card dark:bg-transparent overflow-hidden"
+>
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-6 sm:py-8 border-b bg-card dark:bg-transparent">
+    <div
+        class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-6 sm:py-8 border-b bg-card dark:bg-transparent"
+    >
         <div>
-            <div class="text-3xl font-extrabold tracking-tight">Quản lý Zalo (CRM)</div>
+            <div class="text-3xl font-extrabold tracking-tight">
+                Quản lý Zalo (CRM)
+            </div>
         </div>
     </div>
 
     <!-- Main Content Panel -->
     <div class="flex flex-auto overflow-hidden h-full">
         <!-- Sidebar: Contacts List -->
-        <div class="flex flex-col w-80 md:w-96 border-r bg-white dark:bg-gray-900 overflow-y-auto">
+        <div
+            class="flex flex-col w-80 md:w-96 border-r bg-white dark:bg-gray-900 overflow-y-auto"
+        >
             <div class="p-4 border-b">
-                <div class="text-lg font-bold text-gray-700">Cuộc hội thoại</div>
-            </div>
-            
-            <div class="flex flex-col divide-y">
-                <div *ngIf="contacts.length === 0" class="p-6 text-center text-gray-400 text-sm">
-                    Không tìm thấy hội thoại. Hãy mở Zalo trong Web Tools để đồng bộ danh bạ.
+                <div class="text-lg font-bold text-gray-700">
+                    Cuộc hội thoại
                 </div>
+            </div>
+
+            <div class="flex flex-col divide-y">
+                @if (contacts.length === 0) {
+                    <div class="p-6 text-center text-gray-400 text-sm">
+                        Không tìm thấy hội thoại. Hãy mở Zalo trong Web Tools để
+                        đồng bộ danh bạ.
+                    </div>
+                }
 
                 <!-- Contact List Item -->
-                <div *ngFor="let contact of contacts" 
-                     (click)="selectContact(contact)"
-                     [ngClass]="{'bg-blue-50 border-l-4 border-blue-500': selectedContact?.name === contact.name}"
-                     class="flex items-center px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                    <div class="relative flex-shrink-0">
-                        <img class="w-10 h-10 rounded-full object-cover" 
-                             [src]="contact.avatar || 'assets/images/avatars/avatar-placeholder.png'" 
-                             onerror="this.src='assets/images/avatars/avatar-placeholder.png'"
-                             alt="avatar">
-                        <span *ngIf="contact.unread > 0" class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                            {{ contact.unread }}
-                        </span>
-                    </div>
-                    <div class="ml-3 flex-1 min-w-0">
-                        <div class="flex items-center justify-between">
-                            <p class="text-sm font-semibold text-gray-900 truncate">{{ contact.name }}</p>
-                            <span class="text-xs text-gray-400">{{ contact.time }}</span>
+                @for (contact of contacts; track contact) {
+                    <div
+                        (click)="selectContact(contact)"
+                        [ngClass]="{
+                            'bg-blue-50 border-l-4 border-blue-500':
+                                selectedContact?.name === contact.name,
+                        }"
+                        class="flex items-center px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                        <div class="relative flex-shrink-0">
+                            <img
+                                class="w-10 h-10 rounded-full object-cover"
+                                [src]="
+                                    contact.avatar ||
+                                    'assets/images/avatars/avatar-placeholder.png'
+                                "
+                                onerror="
+                                    this.src =
+                                        'assets/images/avatars/avatar-placeholder.png'
+                                "
+                                alt="avatar"
+                            />
+                            @if (contact.unread > 0) {
+                                <span
+                                    class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+                                >
+                                    {{ contact.unread }}
+                                </span>
+                            }
                         </div>
-                        <p class="text-xs text-gray-500 truncate mt-0.5">{{ contact.preview }}</p>
+                        <div class="ml-3 flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <p
+                                    class="text-sm font-semibold text-gray-900 truncate"
+                                >
+                                    {{ contact.name }}
+                                </p>
+                                <span class="text-xs text-gray-400">{{
+                                    contact.time
+                                }}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 truncate mt-0.5">
+                                {{ contact.preview }}
+                            </p>
+                        </div>
                     </div>
-                </div>
+                }
             </div>
         </div>
 
         <!-- Chat Panel -->
-        <div class="flex flex-col flex-auto bg-gray-50 dark:bg-gray-950 overflow-hidden">
+        <div
+            class="flex flex-col flex-auto bg-gray-50 dark:bg-gray-950 overflow-hidden"
+        >
             <!-- No Conversation Selected -->
-            <div *ngIf="!selectedContact" class="flex flex-col items-center justify-center flex-auto p-6 text-center">
-                <mat-icon class="icon-size-16 text-gray-300" [svgIcon]="'heroicons_outline:chat'"></mat-icon>
-                <div class="mt-4 text-xl font-bold text-gray-700">Chọn cuộc hội thoại</div>
-                <div class="mt-1 text-gray-500">Hãy chọn một cuộc hội thoại từ danh sách bên trái để xem lịch sử tin nhắn.</div>
-                <button *ngIf="contacts.length === 0" mat-flat-button color="primary" class="mt-6" (click)="openZaloTool()">
-                    Mở Zalo ở Web Tools để Đồng Bộ
-                </button>
-            </div>
+            @if (!selectedContact) {
+                <div
+                    class="flex flex-col items-center justify-center flex-auto p-6 text-center"
+                >
+                    <mat-icon
+                        class="icon-size-16 text-gray-300"
+                        [svgIcon]="'heroicons_outline:chat'"
+                    ></mat-icon>
+                    <div class="mt-4 text-xl font-bold text-gray-700">
+                        Chọn cuộc hội thoại
+                    </div>
+                    <div class="mt-1 text-gray-500">
+                        Hãy chọn một cuộc hội thoại từ danh sách bên trái để xem
+                        lịch sử tin nhắn.
+                    </div>
+                    @if (contacts.length === 0) {
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            class="mt-6"
+                            (click)="openZaloTool()"
+                        >
+                            Mở Zalo ở Web Tools để Đồng Bộ
+                        </button>
+                    }
+                </div>
+            }
 
             <!-- Conversation Selected -->
-            <div *ngIf="selectedContact" class="flex flex-col flex-auto overflow-hidden h-full">
-                <!-- Chat Header -->
-                <div class="flex items-center px-6 py-4 border-b bg-white dark:bg-gray-900">
-                    <img class="w-10 h-10 rounded-full object-cover" 
-                         [src]="selectedContact.avatar || 'assets/images/avatars/avatar-placeholder.png'" 
-                         onerror="this.src='assets/images/avatars/avatar-placeholder.png'"
-                         alt="avatar">
-                    <div class="ml-3">
-                        <div class="text-md font-bold text-gray-900">{{ selectedContact.name }}</div>
-                        <div class="text-xs text-green-500 flex items-center">
-                            <span class="w-2 h-2 rounded-full bg-green-500 mr-1"></span> Đang đồng bộ
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Messages Scroll Area -->
-                <div id="chat-scroll-container" class="flex-auto overflow-y-auto p-6 space-y-4">
-                    <div *ngFor="let msg of messages" class="flex flex-col">
-                        <!-- Received Message -->
-                        <div *ngIf="!msg.is_mine" class="flex items-end max-w-lg">
-                            <div class="bg-white dark:bg-gray-800 border border-gray-200 text-sm text-gray-900 px-4 py-2.5 rounded-2xl rounded-bl-none shadow-sm leading-relaxed">
-                                {{ msg.text }}
+            @if (selectedContact) {
+                <div class="flex flex-col flex-auto overflow-hidden h-full">
+                    <!-- Chat Header -->
+                    <div
+                        class="flex items-center px-6 py-4 border-b bg-white dark:bg-gray-900"
+                    >
+                        <img
+                            class="w-10 h-10 rounded-full object-cover"
+                            [src]="
+                                selectedContact.avatar ||
+                                'assets/images/avatars/avatar-placeholder.png'
+                            "
+                            onerror="
+                                this.src =
+                                    'assets/images/avatars/avatar-placeholder.png'
+                            "
+                            alt="avatar"
+                        />
+                        <div class="ml-3">
+                            <div class="text-md font-bold text-gray-900">
+                                {{ selectedContact.name }}
+                            </div>
+                            <div
+                                class="text-xs text-green-500 flex items-center"
+                            >
+                                <span
+                                    class="w-2 h-2 rounded-full bg-green-500 mr-1"
+                                ></span>
+                                Đang đồng bộ
                             </div>
                         </div>
-
-                        <!-- Sent Message -->
-                        <div *ngIf="msg.is_mine" class="flex items-end justify-end max-w-lg ml-auto">
-                            <div class="bg-blue-600 text-white text-sm px-4 py-2.5 rounded-2xl rounded-br-none shadow-sm leading-relaxed">
-                                {{ msg.text }}
+                    </div>
+                    <!-- Messages Scroll Area -->
+                    <div
+                        id="chat-scroll-container"
+                        class="flex-auto overflow-y-auto p-6 space-y-4"
+                    >
+                        @for (msg of messages; track msg) {
+                            <div class="flex flex-col">
+                                <!-- Received Message -->
+                                @if (!msg.is_mine) {
+                                    <div class="flex items-end max-w-lg">
+                                        <div
+                                            class="bg-white dark:bg-gray-800 border border-gray-200 text-sm text-gray-900 px-4 py-2.5 rounded-2xl rounded-bl-none shadow-sm leading-relaxed"
+                                        >
+                                            {{ msg.text }}
+                                        </div>
+                                    </div>
+                                }
+                                <!-- Sent Message -->
+                                @if (msg.is_mine) {
+                                    <div
+                                        class="flex items-end justify-end max-w-lg ml-auto"
+                                    >
+                                        <div
+                                            class="bg-blue-600 text-white text-sm px-4 py-2.5 rounded-2xl rounded-br-none shadow-sm leading-relaxed"
+                                        >
+                                            {{ msg.text }}
+                                        </div>
+                                    </div>
+                                }
                             </div>
-                        </div>
+                        }
+                    </div>
+                    <!-- Input area -->
+                    <div
+                        class="p-4 border-t bg-white dark:bg-gray-900 flex items-center"
+                    >
+                        <input
+                            type="text"
+                            [(ngModel)]="messageText"
+                            (keyup.enter)="sendMessage()"
+                            placeholder="Nhập tin nhắn..."
+                            class="flex-auto border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        />
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            class="ml-3 rounded-full min-w-10 p-0 h-10 w-10 flex items-center justify-center"
+                            (click)="sendMessage()"
+                        >
+                            <mat-icon
+                                [svgIcon]="'heroicons_outline:paper-airplane'"
+                                class="icon-size-5 transform rotate-90"
+                            ></mat-icon>
+                        </button>
                     </div>
                 </div>
-
-                <!-- Input area -->
-                <div class="p-4 border-t bg-white dark:bg-gray-900 flex items-center">
-                    <input type="text" 
-                           [(ngModel)]="messageText" 
-                           (keyup.enter)="sendMessage()"
-                           placeholder="Nhập tin nhắn..." 
-                           class="flex-auto border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <button mat-flat-button color="primary" class="ml-3 rounded-full min-w-10 p-0 h-10 w-10 flex items-center justify-center" (click)="sendMessage()">
-                        <mat-icon [svgIcon]="'heroicons_outline:paper-airplane'" class="icon-size-5 transform rotate-90"></mat-icon>
-                    </button>
-                </div>
-            </div>
+            }
         </div>
     </div>
 </div>

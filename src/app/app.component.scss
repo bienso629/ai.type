@@ -173,10 +173,6 @@
     right: calc(16px + var(--webview-width, 0vw)) !important; 
 }
 
-:root {
-    --mdc-filled-button-container-color: #f5f5f5 !important;
-}
-
 /* Ẩn webview bằng CSS (giữ DOM sống) */
 .webview-hidden {
     visibility: hidden;

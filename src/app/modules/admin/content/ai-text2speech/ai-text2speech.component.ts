@@ -1,4 +1,13 @@
-import { AfterViewInit, Component, Inject, OnDestroy, OnInit, Optional, ViewEncapsulation } from '@angular/core';
+import {
+    AfterViewInit,
+    Component,
+    Inject,
+    OnDestroy,
+    OnInit,
+    Optional,
+    ViewEncapsulation,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { DomSanitizer, Title } from '@angular/platform-browser';
@@ -19,9 +28,13 @@ import { MatSelectChange } from '@angular/material/select';
     selector: 'ai-text2speech',
     templateUrl: './ai-text2speech.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [BlogService]
+    providers: [BlogService],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
-export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit {
+export class AIText2SpeechComponent
+    implements OnInit, OnDestroy, AfterViewInit
+{
     config: AppConfig;
     user: User;
     wavesurfer: WaveSurfer;
@@ -56,7 +69,9 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
         @Optional() @Inject(MAT_DIALOG_DATA) public data: any,
         @Optional() public dialogRef?: MatDialogRef<AIText2SpeechComponent>,
     ) {
-        this.titleService.setTitle(`text2speech | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(
+            `text2speech | ai.type - công cụ tạo content`,
+        );
 
         // Subscribe to config changes
         this._fuseConfigService.config$
@@ -70,17 +85,15 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
             });
 
         // Create the form
         this.text2speechForm = this._formBuilder.group({
-            text: [(this.data) ? this.removeHTML.transform(this.data) : ''],
+            text: [this.data ? this.removeHTML.transform(this.data) : ''],
             voice: ['vi-VN-NamMinhNeural'],
             rate: [1.0], // <--- THÊM MỚI
-            pitch: [0],  // <--- THÊM MỚI
-            speed: [0]
+            pitch: [0], // <--- THÊM MỚI
+            speed: [0],
         });
     }
 
@@ -132,7 +145,9 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
 
     async text2speech2025() {
         if (!this.text2speechForm) {
-            this.toastr.error('Form chưa được khởi tạo, vui lòng tải lại trang.');
+            this.toastr.error(
+                'Form chưa được khởi tạo, vui lòng tải lại trang.',
+            );
             return;
         }
 
@@ -160,17 +175,17 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
 
         // --- LOGIC CŨ (GỌI API PYTHON BACKEND) ---
         const payload = {
-            "tts_text": text.split(/\r?\n|\r|\n/g),
-            "speaker_audio": `${voice}.wav`,
-            "language": "vi",
-            "normalize_text": true,
-            "use_filter": false,
-            "output_sr": 48000,
-            "crossfade_ms": 30,
-            "concurrency": 2,
-            "join_silence_ms": 800,
-            "flat": true,
-            "username": this.user.name
+            tts_text: text.split(/\r?\n|\r|\n/g),
+            speaker_audio: `${voice}.wav`,
+            language: 'vi',
+            normalize_text: true,
+            use_filter: false,
+            output_sr: 48000,
+            crossfade_ms: 30,
+            concurrency: 2,
+            join_silence_ms: 800,
+            flat: true,
+            username: this.user.name,
         };
 
         this.toastr.info('Đang gửi yêu cầu', 'Đang xử lý');
@@ -192,15 +207,24 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
                 },
                 error: () => {
                     this.isGenerating = false;
-                    this.toastr.error('Gửi yêu cầu chuyển đổi không thành công.');
-                }
+                    this.toastr.error(
+                        'Gửi yêu cầu chuyển đổi không thành công.',
+                    );
+                },
             });
     }
 
     // [CẬP NHẬT] Thêm tham số rate và pitch
-    async generateEdgeTTSLocal(text: string, voice: string, rate: number, pitch: number) {
+    async generateEdgeTTSLocal(
+        text: string,
+        voice: string,
+        rate: number,
+        pitch: number,
+    ) {
         if (!(window as any).electron || !(window as any).electron.invoke) {
-            this.toastr.error('Tính năng này chỉ hoạt động trên ứng dụng Desktop.');
+            this.toastr.error(
+                'Tính năng này chỉ hoạt động trên ứng dụng Desktop.',
+            );
             return;
         }
 
@@ -214,21 +238,27 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
         const payload = {
             text: text,
             voice: voice,
-            rate: rate,   // <--- Gửi Rate
+            rate: rate, // <--- Gửi Rate
             pitch: pitch, // <--- Gửi Pitch
             filename: niceFilename,
-            username: this.user?.name || 'anonymous'
+            username: this.user?.name || 'anonymous',
         };
 
         try {
-            const res = await (window as any).electron.invoke('tts-generate', payload);
+            const res = await (window as any).electron.invoke(
+                'tts-generate',
+                payload,
+            );
 
             if (res && res.success) {
                 const fullUrl = res.url;
-                const filename = res.filePath ? res.filePath.split(/[\\/]/).pop() : `${payload.filename}.mp3`;
+                const filename = res.filePath
+                    ? res.filePath.split(/[\\/]/).pop()
+                    : `${payload.filename}.mp3`;
 
                 this.generatedAudioUrl = fullUrl;
-                this.downloadMP3Href = this.domSanitizer.bypassSecurityTrustUrl(fullUrl);
+                this.downloadMP3Href =
+                    this.domSanitizer.bypassSecurityTrustUrl(fullUrl);
                 this.nameMP3Href = filename;
 
                 this.wavesurfer.load(fullUrl);
@@ -258,7 +288,7 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
             action: 'insert',
             audioUrl: this.generatedAudioUrl,
             filename: this.nameMP3Href,
-            text: this.text2speechForm?.get('text')?.value
+            text: this.text2speechForm?.get('text')?.value,
         });
     }
 
@@ -266,11 +296,13 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
         const polling$ = interval(3000).pipe(
             switchMap(() => this._blogService.getJobStatus(jobId)),
             switchMap(async (resp: any) => {
-                const httpResp = resp as import('@angular/common/http').HttpResponse<Blob>;
+                const httpResp =
+                    resp as import('@angular/common/http').HttpResponse<Blob>;
                 const headers = httpResp.headers;
                 const body = httpResp.body as Blob;
 
-                const contentType = headers.get('content-type') || body.type || '';
+                const contentType =
+                    headers.get('content-type') || body.type || '';
 
                 // Nếu là audio (job DONE) -> trả kết quả
                 if (contentType.startsWith('audio/')) {
@@ -301,39 +333,38 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
                     return { done: false, blob: null, filename: '' };
                 }
             }),
-            filter(res => res.done),
-            take(1)
+            filter((res) => res.done),
+            take(1),
         );
 
-        polling$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: (res: any) => {
-                    const blob = res.blob as Blob;
-                    const filename = res.filename || 'tts-audio.wav';
+        polling$.pipe(takeUntil(this._unsubscribeAll)).subscribe({
+            next: (res: any) => {
+                const blob = res.blob as Blob;
+                const filename = res.filename || 'tts-audio.wav';
 
-                    const audioUrl = URL.createObjectURL(blob);
+                const audioUrl = URL.createObjectURL(blob);
 
-                    this.generatedAudioUrl = audioUrl;
-                    // dùng cho nút download
-                    this.downloadMP3Href = this.domSanitizer.bypassSecurityTrustUrl(audioUrl);
-                    this.nameMP3Href = filename;
+                this.generatedAudioUrl = audioUrl;
+                // dùng cho nút download
+                this.downloadMP3Href =
+                    this.domSanitizer.bypassSecurityTrustUrl(audioUrl);
+                this.nameMP3Href = filename;
 
-                    // dùng cho waveform player
-                    this.wavesurfer.load(audioUrl);
-                    this.wavesurfer.once('interaction', () => {
-                        this.wavesurfer.play();
-                    });
+                // dùng cho waveform player
+                this.wavesurfer.load(audioUrl);
+                this.wavesurfer.once('interaction', () => {
+                    this.wavesurfer.play();
+                });
 
-                    this.isGenerating = false;
-                    this.toastr.success('Chuyển đổi thành công!');
-                },
-                error: (err) => {
-                    console.error(err);
-                    this.isGenerating = false;
-                    this.toastr.error('Chuyển đổi không thành công.');
-                }
-            });
+                this.isGenerating = false;
+                this.toastr.success('Chuyển đổi thành công!');
+            },
+            error: (err) => {
+                console.error(err);
+                this.isGenerating = false;
+                this.toastr.error('Chuyển đổi không thành công.');
+            },
+        });
     }
 
     fetchAudioWithHeader() {
@@ -347,7 +378,8 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
             height: 100,
         });
 
-        const url = "assets/la-mot-lap-trinh-vien-toi-luon-tim-cach-toi-uu-hoa-moi-quy_ctxqq.mp3";
+        const url =
+            'assets/la-mot-lap-trinh-vien-toi-luon-tim-cach-toi-uu-hoa-moi-quy_ctxqq.mp3';
 
         this.wavesurfer.load(url);
 
@@ -368,24 +400,26 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: 'Đóng',
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
-                }
+                    label: 'Đóng lại',
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         dialogRef.afterClosed().subscribe((_) => {

@@ -71,12 +71,13 @@ const DEFAULT_PROPS = [
 ];
 
 @Component({
-  selector: 'profile',
-  templateUrl: './profile.component.html',
-  styleUrls: ['./profile.component.scss'],
-  encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [SontinhSceneService, ProfileDataService]
+    selector: 'profile',
+    templateUrl: './profile.component.html',
+    styleUrls: ['./profile.component.scss'],
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    providers: [SontinhSceneService, ProfileDataService],
+    standalone: false
 })
 export class ProfileComponent implements AfterViewInit, OnDestroy {
 
@@ -2219,7 +2220,7 @@ ${JSON.stringify({
     }
   }
 
-  @HostListener('document:fullscreenchange', ['$event'])
+  @HostListener('document:fullscreenchange')
   onFullscreenChange(): void {
     this.isFullscreen = !!document.fullscreenElement;
     this.cdr.markForCheck();

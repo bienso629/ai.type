@@ -1,5 +1,14 @@
-import { Component, Inject, OnDestroy, OnInit, Renderer2, ViewEncapsulation } from '@angular/core';
-import { DOCUMENT } from '@angular/common';
+import {
+    Component,
+    Inject,
+    OnDestroy,
+    OnInit,
+    Renderer2,
+    ViewEncapsulation,
+    DOCUMENT,
+    ChangeDetectionStrategy,
+} from '@angular/core';
+
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { combineLatest, filter, map, Subject, takeUntil } from 'rxjs';
 import { FuseConfigService } from '@fuse/services/config';
@@ -13,7 +22,9 @@ import { AppConfig } from 'app/core/config/app.config';
     selector: 'layout',
     templateUrl: './layout.component.html',
     styleUrls: ['./layout.component.scss'],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class LayoutComponent implements OnInit, OnDestroy {
     config: AppConfig;
@@ -32,9 +43,8 @@ export class LayoutComponent implements OnInit, OnDestroy {
         private _router: Router,
         private _fuseConfigService: FuseConfigService,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
-        private _fusePlatformService: FusePlatformService
-    ) {
-    }
+        private _fusePlatformService: FusePlatformService,
+    ) {}
 
     // -----------------------------------------------------------------------------------------------------
     // @ Lifecycle hooks
@@ -47,40 +57,46 @@ export class LayoutComponent implements OnInit, OnDestroy {
         // Set the theme and scheme based on the configuration
         combineLatest([
             this._fuseConfigService.config$,
-            this._fuseMediaWatcherService.onMediaQueryChange$(['(prefers-color-scheme: dark)', '(prefers-color-scheme: light)'])
-        ]).pipe(
-            takeUntil(this._unsubscribeAll),
-            map(([config, mql]) => {
+            this._fuseMediaWatcherService.onMediaQueryChange$([
+                '(prefers-color-scheme: dark)',
+                '(prefers-color-scheme: light)',
+            ]),
+        ])
+            .pipe(
+                takeUntil(this._unsubscribeAll),
+                map(([config, mql]) => {
+                    const options = {
+                        scheme: config.scheme,
+                        theme: config.theme,
+                    };
 
-                const options = {
-                    scheme: config.scheme,
-                    theme: config.theme
-                };
+                    // If the scheme is set to 'auto'...
+                    if (config.scheme === 'auto') {
+                        // Decide the scheme using the media query
+                        options.scheme = mql.breakpoints[
+                            '(prefers-color-scheme: dark)'
+                        ]
+                            ? 'dark'
+                            : 'light';
+                    }
 
-                // If the scheme is set to 'auto'...
-                if (config.scheme === 'auto') {
-                    // Decide the scheme using the media query
-                    options.scheme = mql.breakpoints['(prefers-color-scheme: dark)'] ? 'dark' : 'light';
-                }
+                    return options;
+                }),
+            )
+            .subscribe((options) => {
+                // Store the options
+                this.scheme = options.scheme;
+                this.theme = options.theme;
 
-                return options;
-            })
-        ).subscribe((options) => {
-
-            // Store the options
-            this.scheme = options.scheme;
-            this.theme = options.theme;
-
-            // Update the scheme and theme
-            this._updateScheme();
-            this._updateTheme();
-        });
+                // Update the scheme and theme
+                this._updateScheme();
+                this._updateTheme();
+            });
 
         // Subscribe to config changes
         this._fuseConfigService.config$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((config: AppConfig) => {
-
                 // Store the config
                 this.config = config;
 
@@ -89,20 +105,28 @@ export class LayoutComponent implements OnInit, OnDestroy {
             });
 
         // Subscribe to NavigationEnd event
-        this._router.events.pipe(
-            filter(event => event instanceof NavigationEnd),
-            takeUntil(this._unsubscribeAll)
-        ).subscribe(() => {
-
-            // Update the layout
-            this._updateLayout();
-        });
+        this._router.events
+            .pipe(
+                filter((event) => event instanceof NavigationEnd),
+                takeUntil(this._unsubscribeAll),
+            )
+            .subscribe(() => {
+                // Update the layout
+                this._updateLayout();
+            });
 
         // Set the app version
-        this._renderer2.setAttribute(this._document.querySelector('[ng-version]'), 'fuse-version', FUSE_VERSION);
+        this._renderer2.setAttribute(
+            this._document.querySelector('[ng-version]'),
+            'fuse-version',
+            FUSE_VERSION,
+        );
 
         // Set the OS name
-        this._renderer2.addClass(this._document.body, this._fusePlatformService.osName);
+        this._renderer2.addClass(
+            this._document.body,
+            this._fusePlatformService.osName,
+        );
     }
 
     /**
@@ -133,7 +157,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
         // 2. Get the query parameter from the current route and
         // set the layout and save the layout to the config
-        const layoutFromQueryParam = (route.snapshot.queryParamMap.get('layout') as Layout);
+        const layoutFromQueryParam = route.snapshot.queryParamMap.get(
+            'layout',
+        ) as Layout;
         if (layoutFromQueryParam) {
             this.layout = layoutFromQueryParam;
             if (this.config) {
@@ -159,9 +185,12 @@ export class LayoutComponent implements OnInit, OnDestroy {
         // can have different layouts for different routes.
         const paths = route.pathFromRoot;
         paths.forEach((path) => {
-
             // Check if there is a 'layout' data
-            if (path.routeConfig && path.routeConfig.data && path.routeConfig.data.layout) {
+            if (
+                path.routeConfig &&
+                path.routeConfig.data &&
+                path.routeConfig.data.layout
+            ) {
                 // Set the layout
                 this.layout = path.routeConfig.data.layout;
             }
@@ -190,7 +219,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
         // Find the class name for the previously selected theme and remove it
         this._document.body.classList.forEach((className: string) => {
             if (className.startsWith('theme-')) {
-                this._document.body.classList.remove(className, className.split('-')[1]);
+                this._document.body.classList.remove(
+                    className,
+                    className.split('-')[1],
+                );
             }
         });
 

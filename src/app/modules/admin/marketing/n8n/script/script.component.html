@@ -1,127 +1,256 @@
-<div class="flex flex-col sm:flex-row flex-0 h-full bg-transparent overflow-hidden">
+<div
+    class="flex flex-col sm:flex-row flex-0 h-full bg-transparent overflow-hidden"
+>
     <!-- Left Panel: Trợ lý AI - Lên kịch bản (Matching Screenshot 15-07-08.png) -->
-    <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white">
+    <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white !border-r">
         <!-- Header Bar (Explicit 72px height matching right panel header) -->
-        <div class="flex flex-row h-[72px] min-h-[72px] max-h-[72px] px-6 border-b items-center justify-between bg-white shrink-0">
+        <div
+            class="flex flex-row h-[72px] min-h-[72px] max-h-[72px] px-6 border-b items-center justify-between bg-white shrink-0"
+        >
             <div class="flex items-center">
-                <h3 class="text-base font-bold text-gray-900 m-0">Trợ lý AI - Lên kịch bản</h3>
+                <h3 class="text-base font-bold text-gray-900 m-0">
+                    Trợ lý AI - Lên kịch bản
+                </h3>
             </div>
             <div class="flex items-center gap-1 text-gray-400">
-                <button mat-icon-button (click)="clearChatMessages()" matTooltip="Xóa trò chuyện">
-                    <mat-icon class="icon-size-4.5 text-gray-500" [svgIcon]="'feather:trash-2'"></mat-icon>
+                <button
+                    mat-icon-button
+                    (click)="clearChatMessages()"
+                    matTooltip="Xóa trò chuyện"
+                >
+                    <mat-icon
+                        class="icon-size-4.5 text-gray-500"
+                        [svgIcon]="'feather:trash-2'"
+                    ></mat-icon>
                 </button>
                 <button mat-icon-button matTooltip="Lưu kịch bản">
-                    <mat-icon class="icon-size-4.5 text-gray-500" [svgIcon]="'feather:bookmark'"></mat-icon>
+                    <mat-icon
+                        class="icon-size-4.5 text-gray-500"
+                        [svgIcon]="'feather:bookmark'"
+                    ></mat-icon>
                 </button>
             </div>
         </div>
 
         <!-- Chat Messages Area -->
-        <div #chatScrollContainer (scroll)="onChatScroll($event)" class="flex-1 overflow-y-auto p-6 pb-10 space-y-6 bg-white">
+        <div
+            #chatScrollContainer
+            (scroll)="onChatScroll($event)"
+            class="flex-1 overflow-y-auto p-6 pb-10 space-y-6 bg-white"
+        >
             <!-- Empty State Placeholder -->
-            <div *ngIf="!chatMessages || chatMessages.length === 0" class="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400">
-                <div class="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-3 text-teal-600">
-                    <mat-icon class="icon-size-8" [svgIcon]="'heroicons_outline:chat-alt-2'"></mat-icon>
+            @if (!chatMessages || chatMessages.length === 0) {
+                <div
+                    class="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400"
+                >
+                    <div
+                        class="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-3 text-teal-600"
+                    >
+                        <mat-icon
+                            class="icon-size-8"
+                            [svgIcon]="'heroicons_outline:chat-alt-2'"
+                        ></mat-icon>
+                    </div>
+                    <h4 class="text-base font-bold text-gray-700 m-0 mb-1">
+                        Chưa có nội dung trao đổi
+                    </h4>
+                    <p class="text-sm text-gray-400 m-0 max-w-xs">
+                        Hãy chọn một trong các thao tác bên dưới hoặc nhập câu
+                        hỏi để bắt đầu lên kịch bản với Trợ lý AI.
+                    </p>
                 </div>
-                <h4 class="text-base font-bold text-gray-700 m-0 mb-1">Chưa có nội dung trao đổi</h4>
-                <p class="text-sm text-gray-400 m-0 max-w-xs">
-                    Hãy chọn một trong các thao tác bên dưới hoặc nhập câu hỏi để bắt đầu lên kịch bản với Trợ lý AI.
-                </p>
-            </div>
+            }
 
-            <ng-container *ngFor="let msg of chatMessages">
+            @for (msg of chatMessages; track msg) {
                 <!-- Assistant Message Bubble -->
-                <div *ngIf="msg.role === 'assistant'" class="flex flex-col gap-1.5 max-w-[95%]">
-                    <div class="ai-chat-bubble bg-gray-100/80 border border-gray-200/50 rounded-xl p-4 text-base text-gray-800 leading-relaxed shadow-2xs"
-                         (click)="onChatBubbleClick($event)"
-                         [innerHTML]="msg.content">
-                    </div>
-
-                    <!-- Action Execution Status Card -->
-                    <div *ngIf="msg.confirmAction" class="p-3 bg-white dark:bg-gray-800 rounded-xl border border-teal-200 dark:border-teal-800/60 shadow-2xs space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
-                                <mat-icon class="icon-size-3.5 text-teal-600" [svgIcon]="'feather:cpu'"></mat-icon>
-                                Tác vụ tự động hóa
-                            </span>
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                                <mat-icon class="icon-size-3" [svgIcon]="'feather:check'"></mat-icon> Đang thực thi
-                            </span>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="flex items-center flex-wrap gap-2 pt-0.5">
-                            <button type="button" 
-                                    (click)="confirmAndExecuteAction(msg)"
-                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 shadow-2xs transition-colors flex items-center gap-1 cursor-pointer">
-                                <mat-icon class="icon-size-3.5" [svgIcon]="'feather:rotate-cw'"></mat-icon>
-                                Chạy lại tác vụ
+                @if (msg.role === "assistant") {
+                    <div class="flex flex-col gap-1.5 max-w-[95%]">
+                        <div
+                            class="ai-chat-bubble bg-gray-100/80 border border-gray-200/50 rounded-xl p-4 text-base text-gray-800 leading-relaxed shadow-2xs"
+                            (click)="onChatBubbleClick($event)"
+                            [innerHTML]="msg.content"
+                        ></div>
+                        <!-- Action Execution Status Card -->
+                        @if (msg.confirmAction) {
+                            <div
+                                class="p-3 bg-white dark:bg-gray-800 rounded-xl border border-teal-200 dark:border-teal-800/60 shadow-2xs space-y-2"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <span
+                                        class="text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider flex items-center gap-1.5"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-3.5 text-teal-600"
+                                            [svgIcon]="'feather:cpu'"
+                                        ></mat-icon>
+                                        Tác vụ tự động hóa
+                                    </span>
+                                    <span
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-3"
+                                            [svgIcon]="'feather:check'"
+                                        ></mat-icon>
+                                        Đang thực thi
+                                    </span>
+                                </div>
+                                <!-- Action Buttons -->
+                                <div
+                                    class="flex items-center flex-wrap gap-2 pt-0.5"
+                                >
+                                    <button
+                                        type="button"
+                                        (click)="confirmAndExecuteAction(msg)"
+                                        class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-3.5"
+                                            [svgIcon]="'feather:rotate-cw'"
+                                        ></mat-icon>
+                                        Chạy lại tác vụ
+                                    </button>
+                                    <button
+                                        type="button"
+                                        (click)="continuePrompt(msg)"
+                                        class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-teal-50 hover:bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 transition-colors flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-3.5"
+                                            [svgIcon]="'feather:edit-3'"
+                                        ></mat-icon>
+                                        Viết tiếp prompt cho câu hỏi này
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                        <!-- Follow-up Suggested Prompt Chips -->
+                        @if (
+                            msg.followUpPrompts &&
+                            msg.followUpPrompts.length > 0
+                        ) {
+                            <div class="flex flex-wrap gap-1.5 mt-1">
+                                @for (p of msg.followUpPrompts; track p) {
+                                    <button
+                                        type="button"
+                                        (click)="applyFollowUpPrompt(p)"
+                                        class="px-3 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-800 hover:bg-teal-50 dark:hover:bg-teal-950/60 text-teal-800 dark:text-teal-200 border border-teal-200/80 dark:border-teal-800/80 hover:border-teal-400 transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+                                    >
+                                        <span>{{ p }}</span>
+                                    </button>
+                                }
+                            </div>
+                        }
+                        <!-- Footer: Thời gian, Nút Copy, Nút Viết tiếp prompt, Nút Hỏi lại -->
+                        <div
+                            class="flex items-center gap-3 px-1 text-xs text-gray-400 select-none"
+                        >
+                            <span>{{ getMessageTime(msg) }}</span>
+                            <button
+                                type="button"
+                                (click)="copyMessage(msg.content)"
+                                class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer"
+                                title="Sao chép nội dung"
+                            >
+                                <mat-icon
+                                    class="icon-size-3.5 mr-1"
+                                    [svgIcon]="'feather:copy'"
+                                ></mat-icon>
+                                <span class="text-[11px]">Copy</span>
                             </button>
-                            <button type="button" 
-                                    (click)="continuePrompt(msg)"
-                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-teal-50 hover:bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 transition-colors flex items-center gap-1 cursor-pointer">
-                                <mat-icon class="icon-size-3.5" [svgIcon]="'feather:edit-3'"></mat-icon>
-                                Viết tiếp prompt cho câu hỏi này
+                            <button
+                                type="button"
+                                (click)="continuePrompt(msg)"
+                                class="flex items-center hover:text-teal-600 transition-colors p-0.5 rounded cursor-pointer"
+                                title="Viết tiếp prompt từ câu trả lời này"
+                            >
+                                <mat-icon
+                                    class="icon-size-3.5 mr-1 text-teal-600"
+                                    [svgIcon]="'feather:edit-3'"
+                                ></mat-icon>
+                                <span
+                                    class="text-[11px] text-teal-700 font-medium"
+                                    >Viết tiếp prompt</span
+                                >
+                            </button>
+                            <button
+                                type="button"
+                                (click)="reAskMessage(msg)"
+                                class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer"
+                                title="Hỏi lại nội dung này"
+                            >
+                                <mat-icon
+                                    class="icon-size-3.5 mr-1"
+                                    [svgIcon]="'feather:refresh-cw'"
+                                ></mat-icon>
+                                <span class="text-[11px]">Hỏi lại</span>
                             </button>
                         </div>
                     </div>
-
-                    <!-- Follow-up Suggested Prompt Chips -->
-                    <div *ngIf="msg.followUpPrompts && msg.followUpPrompts.length > 0" class="flex flex-wrap gap-1.5 mt-1">
-                        <button *ngFor="let p of msg.followUpPrompts" 
-                                type="button" 
-                                (click)="applyFollowUpPrompt(p)"
-                                class="px-3 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-800 hover:bg-teal-50 dark:hover:bg-teal-950/60 text-teal-800 dark:text-teal-200 border border-teal-200/80 dark:border-teal-800/80 hover:border-teal-400 transition-all shadow-2xs cursor-pointer flex items-center gap-1.5">
-                            <span>{{ p }}</span>
-                        </button>
-                    </div>
-
-                    <!-- Footer: Thời gian, Nút Copy, Nút Viết tiếp prompt, Nút Hỏi lại -->
-                    <div class="flex items-center gap-3 px-1 text-xs text-gray-400 select-none">
-                        <span>{{ getMessageTime(msg) }}</span>
-                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
-                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
-                            <span class="text-[11px]">Copy</span>
-                        </button>
-                        <button type="button" (click)="continuePrompt(msg)" class="flex items-center hover:text-teal-600 transition-colors p-0.5 rounded cursor-pointer" title="Viết tiếp prompt từ câu trả lời này">
-                            <mat-icon class="icon-size-3.5 mr-1 text-teal-600" [svgIcon]="'feather:edit-3'"></mat-icon>
-                            <span class="text-[11px] text-teal-700 font-medium">Viết tiếp prompt</span>
-                        </button>
-                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại nội dung này">
-                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                            <span class="text-[11px]">Hỏi lại</span>
-                        </button>
-                    </div>
-                </div>
-
+                }
                 <!-- User Message Bubble -->
-                <div *ngIf="msg.role === 'user'" class="flex flex-col items-end gap-1 max-w-[85%] ml-auto">
-                    <div class="bg-primary-600 text-white rounded-xl rounded-tr-xs p-3.5 px-4 text-base leading-relaxed shadow-2xs"
-                         [innerHTML]="msg.content">
+                @if (msg.role === "user") {
+                    <div
+                        class="flex flex-col items-end gap-1 max-w-[85%] ml-auto"
+                    >
+                        <div
+                            class="bg-primary-600 text-white rounded-xl rounded-tr-xs p-3.5 px-4 text-base leading-relaxed shadow-2xs"
+                            [innerHTML]="msg.content"
+                        ></div>
+                        <!-- Footer: Thời gian, Nút Copy, Nút Viết tiếp, Nút Hỏi lại -->
+                        <div
+                            class="flex items-center gap-3 px-1 text-xs text-gray-400 select-none justify-end"
+                        >
+                            <span>{{ getMessageTime(msg) }}</span>
+                            <button
+                                type="button"
+                                (click)="copyMessage(msg.content)"
+                                class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer"
+                                title="Sao chép nội dung"
+                            >
+                                <mat-icon
+                                    class="icon-size-3.5 mr-1"
+                                    [svgIcon]="'feather:copy'"
+                                ></mat-icon>
+                                <span class="text-[11px]">Copy</span>
+                            </button>
+                            <button
+                                type="button"
+                                (click)="continuePrompt(msg)"
+                                class="flex items-center hover:text-teal-600 transition-colors p-0.5 rounded cursor-pointer"
+                                title="Viết tiếp prompt từ câu hỏi này"
+                            >
+                                <mat-icon
+                                    class="icon-size-3.5 mr-1 text-teal-600"
+                                    [svgIcon]="'feather:edit-3'"
+                                ></mat-icon>
+                                <span
+                                    class="text-[11px] text-teal-700 font-medium"
+                                    >Viết tiếp prompt</span
+                                >
+                            </button>
+                            <button
+                                type="button"
+                                (click)="reAskMessage(msg)"
+                                class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer"
+                                title="Hỏi lại nội dung này"
+                            >
+                                <mat-icon
+                                    class="icon-size-3.5 mr-1"
+                                    [svgIcon]="'feather:refresh-cw'"
+                                ></mat-icon>
+                                <span class="text-[11px]">Hỏi lại</span>
+                            </button>
+                        </div>
                     </div>
-                    <!-- Footer: Thời gian, Nút Copy, Nút Viết tiếp, Nút Hỏi lại -->
-                    <div class="flex items-center gap-3 px-1 text-xs text-gray-400 select-none justify-end">
-                        <span>{{ getMessageTime(msg) }}</span>
-                        <button type="button" (click)="copyMessage(msg.content)" class="flex items-center hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer" title="Sao chép nội dung">
-                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:copy'"></mat-icon>
-                            <span class="text-[11px]">Copy</span>
-                        </button>
-                        <button type="button" (click)="continuePrompt(msg)" class="flex items-center hover:text-teal-600 transition-colors p-0.5 rounded cursor-pointer" title="Viết tiếp prompt từ câu hỏi này">
-                            <mat-icon class="icon-size-3.5 mr-1 text-teal-600" [svgIcon]="'feather:edit-3'"></mat-icon>
-                            <span class="text-[11px] text-teal-700 font-medium">Viết tiếp prompt</span>
-                        </button>
-                        <button type="button" (click)="reAskMessage(msg)" class="flex items-center hover:text-primary-600 transition-colors p-0.5 rounded cursor-pointer" title="Hỏi lại nội dung này">
-                            <mat-icon class="icon-size-3.5 mr-1" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                            <span class="text-[11px]">Hỏi lại</span>
-                        </button>
-                    </div>
-                </div>
-
+                }
                 <!-- Divider Line -->
-                <div *ngIf="msg.role === 'divider'" class="w-full my-1">
-                    <div [innerHTML]="msg.content"></div>
-                </div>
-            </ng-container>
+                @if (msg.role === "divider") {
+                    <div class="w-full my-1">
+                        <div [innerHTML]="msg.content"></div>
+                    </div>
+                }
+            }
 
             <!-- Bottom Spacer to prevent sticking to input bar -->
             <div class="h-6 shrink-0 w-full pointer-events-none"></div>
@@ -130,119 +259,253 @@
         <!-- Quick Action Chip Buttons (Above Input) -->
         <div class="p-4 pt-2 pb-3 bg-white shrink-0">
             <div class="flex flex-wrap gap-2">
-                <button type="button" 
-                        *ngFor="let chip of quickActionChips" 
+                @for (chip of quickActionChips; track chip) {
+                    <button
+                        type="button"
                         (click)="sendQuickAction(chip)"
                         [class.border-red-300]="chip.action === 'stop_analyze'"
                         [class.bg-red-50]="chip.action === 'stop_analyze'"
                         [class.text-red-700]="chip.action === 'stop_analyze'"
-                        class="px-3.5 py-2 rounded-lg bg-white border border-gray-200 hover:border-gray-300 text-base font-normal text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all shadow-2xs cursor-pointer">
-                    <mat-icon class="icon-size-4" 
-                              [class.text-red-600]="chip.action === 'stop_analyze'"
-                              [class.text-primary-500]="chip.action !== 'stop_analyze'"
-                              [svgIcon]="chip.icon"></mat-icon>
-                    <span>{{ chip.label }}</span>
-                </button>
+                        class="px-3.5 py-2 rounded-lg bg-white border border-gray-200 hover:border-gray-300 text-base font-normal text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [class.text-red-600]="
+                                chip.action === 'stop_analyze'
+                            "
+                            [class.text-primary-500]="
+                                chip.action !== 'stop_analyze'
+                            "
+                            [svgIcon]="chip.icon"
+                        ></mat-icon>
+                        <span>{{ chip.label }}</span>
+                    </button>
+                }
             </div>
         </div>
 
         <!-- Input Box Area -->
         <div class="relative p-4 pt-0 bg-white shrink-0 space-y-3">
             <!-- Attached Files Preview Bar -->
-            <div *ngIf="attachedFiles && attachedFiles.length > 0" class="flex flex-wrap items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 animate-fadeIn">
-                <div *ngFor="let item of attachedFiles; let i = index" 
-                     class="flex items-center gap-2 bg-white dark:bg-gray-700 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 shadow-2xs text-xs">
-                    <img *ngIf="item.isImage && item.preview" [src]="item.preview" class="w-6 h-6 rounded object-cover border" />
-                    <mat-icon *ngIf="!item.isImage || !item.preview" class="icon-size-4 text-primary" [svgIcon]="'feather:file-text'"></mat-icon>
-                    <div class="flex flex-col min-w-0 max-w-[140px]">
-                        <span class="font-medium text-gray-800 dark:text-gray-200 truncate" [title]="item.name">{{ item.name }}</span>
-                        <span class="text-[10px] text-gray-400">{{ item.size }}</span>
-                    </div>
-                    <button type="button" (click)="removeAttachedFile(i)" class="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full">
-                        <mat-icon class="icon-size-3" [svgIcon]="'feather:x'"></mat-icon>
-                    </button>
+            @if (attachedFiles && attachedFiles.length > 0) {
+                <div
+                    class="flex flex-wrap items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 animate-fadeIn"
+                >
+                    @for (item of attachedFiles; track item; let i = $index) {
+                        <div
+                            class="flex items-center gap-2 bg-white dark:bg-gray-700 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 shadow-2xs text-xs"
+                        >
+                            @if (item.isImage && item.preview) {
+                                <img
+                                    [src]="item.preview"
+                                    class="w-6 h-6 rounded object-cover border"
+                                />
+                            }
+                            @if (!item.isImage || !item.preview) {
+                                <mat-icon
+                                    class="icon-size-4 text-primary"
+                                    [svgIcon]="'feather:file-text'"
+                                ></mat-icon>
+                            }
+                            <div class="flex flex-col min-w-0 max-w-[140px]">
+                                <span
+                                    class="font-medium text-gray-800 dark:text-gray-200 truncate"
+                                    [title]="item.name"
+                                    >{{ item.name }}</span
+                                >
+                                <span class="text-[10px] text-gray-400">{{
+                                    item.size
+                                }}</span>
+                            </div>
+                            <button
+                                type="button"
+                                (click)="removeAttachedFile(i)"
+                                class="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full"
+                            >
+                                <mat-icon
+                                    class="icon-size-3"
+                                    [svgIcon]="'feather:x'"
+                                ></mat-icon>
+                            </button>
+                        </div>
+                    }
                 </div>
-            </div>
+            }
 
             <!-- Mời profile cùng viết kịch bản (Giống hệt Mời bạn cùng viết trong Archives) -->
-            <div *ngIf="showNgSelectBar || showProfileMentionPopup" class="mb-3">
-                <ng-select [(ngModel)]="selectedProfilesForScript" [multiple]="true" [closeOnSelect]="false"
-                    [searchable]="true" appendTo="body" bindLabel="name" bindValue="name"
-                    [dropdownPosition]="'top'"
-                    [placeholder]="'Mời profile cùng viết kịch bản (@)...'" class="w-full custom-select-ai-writer">
-                    
-                    <ng-option *ngFor="let user of runningProfiles" [value]="user.name">
-                        <div class="flex items-center gap-2 py-0.5">
-                            <img [src]="getProfileAvatar(user)"
-                                 (error)="onImgError($event)"
-                                 class="w-5 h-5 rounded-full object-cover shrink-0 border border-gray-200" />
-                            <span class="text-base text-gray-800 dark:text-gray-200">
-                                {{ user.persona?.alias ? user.persona.alias + ' (' + user.name + ')' : user.name }}
+            @if (showNgSelectBar || showProfileMentionPopup) {
+                <div class="mb-3">
+                    <ng-select
+                        [(ngModel)]="selectedProfilesForScript"
+                        [multiple]="true"
+                        [closeOnSelect]="false"
+                        [searchable]="true"
+                        appendTo="body"
+                        bindLabel="name"
+                        bindValue="name"
+                        [dropdownPosition]="'top'"
+                        [placeholder]="'Mời profile cùng viết kịch bản (@)...'"
+                        class="w-full custom-select-ai-writer"
+                    >
+                        @for (user of runningProfiles; track user) {
+                            <ng-option [value]="user.name">
+                                <div class="flex items-center gap-2 py-0.5">
+                                    <img
+                                        [src]="getProfileAvatar(user)"
+                                        (error)="onImgError($event)"
+                                        class="w-5 h-5 rounded-full object-cover shrink-0 border border-gray-200"
+                                    />
+                                    <span
+                                        class="text-base text-gray-800 dark:text-gray-200"
+                                    >
+                                        {{
+                                            user.persona?.alias
+                                                ? user.persona.alias +
+                                                  " (" +
+                                                  user.name +
+                                                  ")"
+                                                : user.name
+                                        }}
+                                    </span>
+                                </div>
+                            </ng-option>
+                        }
+                        <ng-template
+                            ng-label-tmp
+                            let-item="item"
+                            let-clear="clear"
+                        >
+                            <span
+                                class="ng-value-icon left"
+                                (click)="clear(item)"
+                                aria-hidden="true"
+                                >×</span
+                            >
+                            <span
+                                class="ng-value-label flex items-center gap-1.5 pl-1 pr-1.5 py-0.5"
+                            >
+                                <img
+                                    [src]="getProfileAvatar(item)"
+                                    (error)="onImgError($event)"
+                                    class="w-4 h-4 rounded-full object-cover shrink-0 border border-gray-100"
+                                />
+                                <span class="truncate max-w-[140px]">{{
+                                    getProfileDisplayName(item)
+                                }}</span>
                             </span>
-                        </div>
-                    </ng-option>
-
-                    <ng-template ng-label-tmp let-item="item" let-clear="clear">
-                        <span class="ng-value-icon left" (click)="clear(item)" aria-hidden="true">×</span>
-                        <span class="ng-value-label flex items-center gap-1.5 pl-1 pr-1.5 py-0.5">
-                            <img [src]="getProfileAvatar(item)"
-                                 (error)="onImgError($event)"
-                                 class="w-4 h-4 rounded-full object-cover shrink-0 border border-gray-100" />
-                            <span class="truncate max-w-[140px]">{{ getProfileDisplayName(item) }}</span>
-                        </span>
-                    </ng-template>
-
-                    <ng-template ng-footer-tmp>
-                        <button mat-flat-button class="w-full whitespace-nowrap flex items-center justify-center !py-2 !px-4" [color]="'primary'"
-                            [disabled]="selectedProfilesForScript.length === 0"
-                            (click)="applyNgProfilesToPrompt()">
-                            <span class="text-sm font-semibold whitespace-nowrap">Sử dụng các Profile này ({{ selectedProfilesForScript.length }})</span>
-                        </button>
-                    </ng-template>
-                </ng-select>
-            </div>
+                        </ng-template>
+                        <ng-template ng-footer-tmp>
+                            <button
+                                mat-flat-button
+                                class="w-full whitespace-nowrap flex items-center justify-center !py-2 !px-4"
+                                [color]="'primary'"
+                                [disabled]="
+                                    selectedProfilesForScript.length === 0
+                                "
+                                (click)="applyNgProfilesToPrompt()"
+                            >
+                                <span
+                                    class="text-sm font-semibold whitespace-nowrap"
+                                    >Sử dụng các Profile này ({{
+                                        selectedProfilesForScript.length
+                                    }})</span
+                                >
+                            </button>
+                        </ng-template>
+                    </ng-select>
+                </div>
+            }
 
             <!-- Chat Input Bar -->
-            <div class="script-chat-input-container flex items-center gap-3 border border-gray-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-xl px-4 py-2.5 bg-white shadow-2xs transition-all">
-                <input type="file" #fileInputScript multiple (change)="onFileSelected($event)" class="hidden">
-                <button type="button" mat-icon-button class="text-gray-400 hover:text-gray-600" (click)="fileInputScript.click()" matTooltip="Đính kèm tệp / hình ảnh">
-                    <mat-icon class="icon-size-5" [svgIcon]="'feather:paperclip'"></mat-icon>
+            <div
+                class="script-chat-input-container flex items-center gap-3 border border-gray-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-xl px-4 py-2.5 bg-white shadow-2xs transition-all"
+            >
+                <input
+                    type="file"
+                    #fileInputScript
+                    multiple
+                    (change)="onFileSelected($event)"
+                    class="hidden"
+                />
+                <button
+                    type="button"
+                    mat-icon-button
+                    class="text-gray-400 hover:text-gray-600"
+                    (click)="fileInputScript.click()"
+                    matTooltip="Đính kèm tệp / hình ảnh"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'feather:paperclip'"
+                    ></mat-icon>
                 </button>
-                <button type="button" 
-                        (click)="toggleProfileMentionPopup()" 
-                        matTooltip="Chọn Profile đang chạy (@)"
-                        [class.text-primary]="showProfileMentionPopup || showNgSelectBar"
-                        [class.bg-primary-50]="showProfileMentionPopup || showNgSelectBar"
-                        class="px-2 py-1 rounded-md text-base font-bold text-gray-500 hover:text-primary hover:bg-gray-100 transition-all cursor-pointer">
-                    {{ '@' }}
+                <button
+                    type="button"
+                    (click)="toggleProfileMentionPopup()"
+                    matTooltip="Chọn Profile đang chạy (@)"
+                    [class.text-primary]="
+                        showProfileMentionPopup || showNgSelectBar
+                    "
+                    [class.bg-primary-50]="
+                        showProfileMentionPopup || showNgSelectBar
+                    "
+                    class="px-2 py-1 rounded-md text-base font-bold text-gray-500 hover:text-primary hover:bg-gray-100 transition-all cursor-pointer"
+                >
+                    {{ "@" }}
                 </button>
-                <input #scriptChatInput
-                       type="text" 
-                       [(ngModel)]="chatInput" 
-                       (input)="onChatInputChange($event)"
-                       (keydown)="onChatInputKeydown($event)"
-                       (keyup.enter)="sendChatMessage()"
-                       placeholder="Hỏi tiếp từ prompt này... (nhập @ để chọn profile)" 
-                       class="flex-1 border-0 outline-none focus:ring-0 text-base text-gray-800 placeholder-gray-400 bg-transparent py-1" />
-                <button type="button" 
-                        (click)="sendChatMessage()"
-                        [disabled]="(!chatInput || !chatInput.trim()) && (!attachedFiles || attachedFiles.length === 0)"
-                        class="text-gray-400 hover:text-primary disabled:opacity-40 transition-colors p-1">
-                    <mat-icon class="icon-size-5 text-primary" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                <input
+                    #scriptChatInput
+                    type="text"
+                    [(ngModel)]="chatInput"
+                    (input)="onChatInputChange($event)"
+                    (keydown)="onChatInputKeydown($event)"
+                    (keyup.enter)="sendChatMessage()"
+                    placeholder="Hỏi tiếp từ prompt này... (nhập @ để chọn profile)"
+                    class="flex-1 border-0 outline-none focus:ring-0 text-base text-gray-800 placeholder-gray-400 bg-transparent py-1"
+                />
+                <button
+                    type="button"
+                    (click)="sendChatMessage()"
+                    [disabled]="
+                        (!chatInput || !chatInput.trim()) &&
+                        (!attachedFiles || attachedFiles.length === 0)
+                    "
+                    class="text-gray-400 hover:text-primary disabled:opacity-40 transition-colors p-1"
+                >
+                    <mat-icon
+                        class="icon-size-5 text-primary"
+                        [svgIcon]="'heroicons_solid:paper-airplane'"
+                    ></mat-icon>
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="relative flex flex-col shrink-0 border-l w-[750px] h-full bg-white overflow-hidden">
-        <div class="flex flex-row h-[72px] min-h-[72px] max-h-[72px] px-6 border-b items-center justify-between bg-white shrink-0">
+    <div
+        class="relative flex flex-col shrink-0 border-l w-[750px] h-full bg-white overflow-hidden"
+    >
+        <div
+            class="flex flex-row h-[72px] min-h-[72px] max-h-[72px] px-6 border-b items-center justify-between bg-white shrink-0"
+        >
             <div class="flex flex-1 flex-col">
-                <p class="text-base font-bold text-gray-800"><b>{{ 'app.auto_off_on' | transloco }}</b> {{ 'app.auto_livestream_list' | transloco }}</p>
+                <p class="text-base font-bold text-gray-800">
+                    <b>{{ "app.auto_off_on" | transloco }}</b>
+                    {{ "app.auto_livestream_list" | transloco }}
+                </p>
                 <div class="flex items-center gap-2 mt-0.5">
-                    <mat-slide-toggle class="fuse-mat-dense fuse-mat-emphasized-affix" (change)="onToggleChange($event)"
+                    <mat-slide-toggle
+                        class="fuse-mat-dense fuse-mat-emphasized-affix"
+                        (change)="onToggleChange($event)"
                         [disabled]="!isProfileRunning"
-                        [checked]="turnOffLiveStream && isProfileRunning" [color]="'primary'"
-                        [matTooltip]="!isProfileRunning ? (getProfileName() + ' chưa ở trạng thái Running') : ''">
+                        [checked]="turnOffLiveStream && isProfileRunning"
+                        [color]="'primary'"
+                        [matTooltip]="
+                            !isProfileRunning
+                                ? getProfileName() +
+                                  ' chưa ở trạng thái Running'
+                                : ''
+                        "
+                    >
                     </mat-slide-toggle>
                     <p class="text-gray-400 text-sm m-0">
                         Tự động làm mới sau {{ countdown$ | async }} giây
@@ -250,238 +513,512 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <div class="flex items-center gap-1 bg-gray-100/90 p-1 rounded-full border border-gray-200/40">
-                    <button mat-icon-button (click)="viewMode = 'grid'" matTooltip="Xem dạng Video Grid"
-                            [class.bg-white]="viewMode === 'grid'" [class.shadow-2xs]="viewMode === 'grid'" [class.text-primary-600]="viewMode === 'grid'" [class.text-gray-500]="viewMode !== 'grid'"
-                            class="rounded-full !w-7.5 !h-7.5 !min-w-7.5 flex items-center justify-center transition-all">
-                        <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_outline:view-grid'"></mat-icon>
+                <div
+                    class="flex items-center gap-1 bg-gray-100/90 p-1 rounded-full border border-gray-200/40"
+                >
+                    <button
+                        mat-icon-button
+                        (click)="viewMode = 'grid'"
+                        matTooltip="Xem dạng Video Grid"
+                        [class.bg-white]="viewMode === 'grid'"
+                        [class.shadow-2xs]="viewMode === 'grid'"
+                        [class.text-primary-600]="viewMode === 'grid'"
+                        [class.text-gray-500]="viewMode !== 'grid'"
+                        class="rounded-full !w-7.5 !h-7.5 !min-w-7.5 flex items-center justify-center transition-all"
+                    >
+                        <mat-icon
+                            class="icon-size-3.5"
+                            [svgIcon]="'heroicons_outline:view-grid'"
+                        ></mat-icon>
                     </button>
-                    <button mat-icon-button (click)="viewMode = 'list'" matTooltip="Xem dạng Danh sách"
-                            [class.bg-white]="viewMode === 'list'" [class.shadow-2xs]="viewMode === 'list'" [class.text-primary-600]="viewMode === 'list'" [class.text-gray-500]="viewMode !== 'list'"
-                            class="rounded-full !w-7.5 !h-7.5 !min-w-7.5 flex items-center justify-center transition-all">
-                        <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_outline:view-list'"></mat-icon>
+                    <button
+                        mat-icon-button
+                        (click)="viewMode = 'list'"
+                        matTooltip="Xem dạng Danh sách"
+                        [class.bg-white]="viewMode === 'list'"
+                        [class.shadow-2xs]="viewMode === 'list'"
+                        [class.text-primary-600]="viewMode === 'list'"
+                        [class.text-gray-500]="viewMode !== 'list'"
+                        class="rounded-full !w-7.5 !h-7.5 !min-w-7.5 flex items-center justify-center transition-all"
+                    >
+                        <mat-icon
+                            class="icon-size-3.5"
+                            [svgIcon]="'heroicons_outline:view-list'"
+                        ></mat-icon>
                     </button>
                 </div>
             </div>
         </div>
 
         <!-- Video Grid Viewer View (ngx-datatable grid engine matching ai-image / screenshot 13-17-38) -->
-        <ng-container *ngIf="rooms.length > 0">
-            <div *ngIf="viewMode === 'grid'" class="relative flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden p-0">
-                <ngx-datatable #gridDatatable 
-                               class="material grid image-thumbnails flex-auto h-full w-full" 
-                               [rows]="gridRows" 
-                               [virtualization]="true" 
-                               [scrollbarV]="true" 
-                               [rowHeight]="rowHeight"
-                               [headerHeight]="0" 
-                               [footerHeight]="0" 
-                               [columnMode]="'force'">
-                    <ngx-datatable-column [flexGrow]="1">
-                        <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
-                            <div class="row-grid w-full flex flex-wrap">
-                                <div class="thumb-wrap p-1 box-border"
-                                     *ngFor="let room of row.rooms; let i = index"
-                                     [ngStyle]="{ flex: '0 0 ' + (100 / gridSize) + '%' }"
-                                     (mouseenter)="onRoomMouseEnter(room, hoverVideoGrid)"
-                                     (mouseleave)="onRoomMouseLeave(room)">
-                                    
-                                    <div (click)="selectRoom(room)"
-                                         class="group relative flex flex-col bg-slate-900 rounded-2xl transition-all duration-200 overflow-hidden cursor-pointer aspect-square w-full"
-                                         [class.ring-4]="selectedRoom === room"
-                                         [class.ring-teal-500]="selectedRoom === room">
-                                        <div class="relative w-full h-full overflow-hidden bg-slate-950">
-                                            <div class="absolute inset-0 bg-cover bg-center transition-opacity duration-300 group-hover:scale-105"
-                                                 [class.opacity-0]="room._hovering"
-                                                 [ngStyle]="{ 'background-image': 'url(' + (room['cover']?.['url_list']?.[0] || '') + ')' }">
-                                            </div>
-                                            
-                                            <video #hoverVideoGrid 
-                                                   class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-                                                   [class.opacity-0]="!room._hovering"
-                                                   autoplay playsinline loop></video>
-
-                                            <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none"></div>
-
-                                            <!-- Top LIVE / ĐÃ TẮT / AI ANALYZING & Viewer Pill -->
-                                            <div class="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
-                                                <div class="flex items-center gap-1">
-                                                    <span *ngIf="room.is_analyzing" class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-teal-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                                                        AI STREAM
-                                                    </span>
-                                                    <span *ngIf="!room.is_analyzing && room.is_live !== false" class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                                                        LIVE
-                                                    </span>
-                                                    <span *ngIf="room.is_live === false" class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gray-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                                                        ĐÃ TẮT
-                                                    </span>
+        @if (rooms.length > 0) {
+            @if (viewMode === "grid") {
+                <div
+                    class="relative flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden p-0"
+                >
+                    <ngx-datatable
+                        #gridDatatable
+                        class="material grid image-thumbnails flex-auto h-full w-full"
+                        [rows]="gridRows"
+                        [virtualization]="true"
+                        [scrollbarV]="true"
+                        [rowHeight]="rowHeight"
+                        [headerHeight]="0"
+                        [footerHeight]="0"
+                        [columnMode]="'force'"
+                    >
+                        <ngx-datatable-column [flexGrow]="1">
+                            <ng-template
+                                let-row="row"
+                                let-rowIndex="rowIndex"
+                                ngx-datatable-cell-template
+                            >
+                                <div class="row-grid w-full flex flex-wrap">
+                                    @for (
+                                        room of row.rooms;
+                                        track room;
+                                        let i = $index
+                                    ) {
+                                        <div
+                                            class="thumb-wrap p-1 box-border"
+                                            [ngStyle]="{
+                                                flex:
+                                                    '0 0 ' +
+                                                    100 / gridSize +
+                                                    '%',
+                                            }"
+                                            (mouseenter)="
+                                                onRoomMouseEnter(
+                                                    room,
+                                                    hoverVideoGrid
+                                                )
+                                            "
+                                            (mouseleave)="
+                                                onRoomMouseLeave(room)
+                                            "
+                                        >
+                                            <div
+                                                (click)="selectRoom(room)"
+                                                class="group relative flex flex-col bg-slate-900 rounded-2xl transition-all duration-200 overflow-hidden cursor-pointer aspect-square w-full"
+                                                [class.ring-4]="
+                                                    selectedRoom === room
+                                                "
+                                                [class.ring-teal-500]="
+                                                    selectedRoom === room
+                                                "
+                                            >
+                                                <div
+                                                    class="relative w-full h-full overflow-hidden bg-slate-950"
+                                                >
+                                                    <div
+                                                        class="absolute inset-0 bg-cover bg-center transition-opacity duration-300 group-hover:scale-105"
+                                                        [class.opacity-0]="
+                                                            room._hovering
+                                                        "
+                                                        [ngStyle]="{
+                                                            'background-image':
+                                                                'url(' +
+                                                                (room[
+                                                                    'cover'
+                                                                ]?.[
+                                                                    'url_list'
+                                                                ]?.[0] || '') +
+                                                                ')',
+                                                        }"
+                                                    ></div>
+                                                    <video
+                                                        #hoverVideoGrid
+                                                        class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                                                        [class.opacity-0]="
+                                                            !room._hovering
+                                                        "
+                                                        autoplay
+                                                        playsinline
+                                                        loop
+                                                    ></video>
+                                                    <div
+                                                        class="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none"
+                                                    ></div>
+                                                    <!-- Top LIVE / ĐÃ TẮT / AI ANALYZING & Viewer Pill -->
+                                                    <div
+                                                        class="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none"
+                                                    >
+                                                        <div
+                                                            class="flex items-center gap-1"
+                                                        >
+                                                            @if (
+                                                                room.is_analyzing
+                                                            ) {
+                                                                <span
+                                                                    class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-teal-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs"
+                                                                >
+                                                                    <span
+                                                                        class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                                                                    ></span>
+                                                                    AI STREAM
+                                                                </span>
+                                                            }
+                                                            @if (
+                                                                !room.is_analyzing &&
+                                                                room.is_live !==
+                                                                    false
+                                                            ) {
+                                                                <span
+                                                                    class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs"
+                                                                >
+                                                                    <span
+                                                                        class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"
+                                                                    ></span>
+                                                                    LIVE
+                                                                </span>
+                                                            }
+                                                            @if (
+                                                                room.is_live ===
+                                                                false
+                                                            ) {
+                                                                <span
+                                                                    class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gray-600/90 text-white text-[9px] font-bold tracking-wide uppercase backdrop-blur-xs"
+                                                                >
+                                                                    <span
+                                                                        class="w-1.5 h-1.5 rounded-full bg-gray-400"
+                                                                    ></span>
+                                                                    ĐÃ TẮT
+                                                                </span>
+                                                            }
+                                                        </div>
+                                                        <span
+                                                            class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-xs"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-3 text-white"
+                                                                [svgIcon]="'feather:eye'"
+                                                            ></mat-icon>
+                                                            {{
+                                                                getRoomViewerCount(
+                                                                    room
+                                                                )
+                                                            }}
+                                                        </span>
+                                                    </div>
+                                                    <!-- Bottom Handle Info & Circular 3-Dot Button -->
+                                                    <div
+                                                        class="absolute bottom-2 left-2 right-2 flex items-end justify-between z-10 pointer-events-none"
+                                                    >
+                                                        <span
+                                                            class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white truncate max-w-[70%] backdrop-blur-xs"
+                                                        >
+                                                            &#64;{{
+                                                                room["nickname"]
+                                                            }}
+                                                        </span>
+                                                        <button
+                                                            mat-icon-button
+                                                            [matMenuTriggerFor]="
+                                                                roomMenu
+                                                            "
+                                                            [matMenuTriggerData]="{
+                                                                room: room,
+                                                            }"
+                                                            (click)="
+                                                                $event.stopPropagation()
+                                                            "
+                                                            class="w-7 h-7 min-w-7 min-h-7 rounded-full bg-white/80 hover:bg-white text-gray-800 backdrop-blur-xs flex items-center justify-center transition-colors pointer-events-auto p-0 border-0"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-3.5 text-gray-800"
+                                                                [svgIcon]="'feather:more-vertical'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <span class="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-xs">
-                                                    <mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:eye'"></mat-icon>
-                                                    {{ getRoomViewerCount(room) }}
-                                                </span>
-                                            </div>
-
-                                            <!-- Bottom Handle Info & Circular 3-Dot Button -->
-                                            <div class="absolute bottom-2 left-2 right-2 flex items-end justify-between z-10 pointer-events-none">
-                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white truncate max-w-[70%] backdrop-blur-xs">
-                                                    &#64;{{ room["nickname"] }}
-                                                </span>
-                                                <button mat-icon-button
-                                                        [matMenuTriggerFor]="roomMenu"
-                                                        [matMenuTriggerData]="{room: room}"
-                                                        (click)="$event.stopPropagation()"
-                                                        class="w-7 h-7 min-w-7 min-h-7 rounded-full bg-white/80 hover:bg-white text-gray-800 backdrop-blur-xs flex items-center justify-center transition-colors pointer-events-auto p-0 border-0">
-                                                    <mat-icon class="icon-size-3.5 text-gray-800" [svgIcon]="'feather:more-vertical'"></mat-icon>
-                                                </button>
                                             </div>
                                         </div>
-                                    </div>
+                                    }
                                 </div>
-                            </div>
-                        </ng-template>
-                    </ngx-datatable-column>
-                </ngx-datatable>
-            </div>
-
+                            </ng-template>
+                        </ngx-datatable-column>
+                    </ngx-datatable>
+                </div>
+            }
             <!-- List View using ngx-datatable -->
-            <div *ngIf="viewMode === 'list'" class="relative flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden p-0">
-                <ngx-datatable [virtualization]="true" 
-                               #roomsTable 
-                               class="material flex-auto h-full w-full" 
-                               [columnMode]="ColumnMode.force"
-                               [rows]="displayedRooms" 
-                               [rowHeight]="70" 
-                               [headerHeight]="40" 
-                               [footerHeight]="0" 
-                               [scrollbarV]="true">
-                    
-                    <!-- Column Ảnh -->
-                    <ngx-datatable-column name="Ảnh" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                        <ng-template let-row="row" ngx-datatable-cell-template>
-                            <div class="relative w-12 h-12 rounded-xl overflow-hidden cursor-pointer group my-auto"
-                                 (mouseenter)="onRoomMouseEnter(row, listHoverVideo)"
-                                 (mouseleave)="onRoomMouseLeave(row)">
-                                <div class="absolute inset-0 bg-cover bg-center transition-opacity duration-300"
-                                     [class.opacity-0]="row._hovering"
-                                     [ngStyle]="{ 'background-image': 'url(' + (row['cover']?.['url_list']?.[0] || '') + ')' }">
+            @if (viewMode === "list") {
+                <div
+                    class="relative flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden p-0"
+                >
+                    <ngx-datatable
+                        [virtualization]="true"
+                        #roomsTable
+                        class="material flex-auto h-full w-full"
+                        [columnMode]="ColumnMode.force"
+                        [rows]="displayedRooms"
+                        [rowHeight]="70"
+                        [headerHeight]="40"
+                        [footerHeight]="0"
+                        [scrollbarV]="true"
+                    >
+                        <!-- Column Ảnh -->
+                        <ngx-datatable-column
+                            name="Ảnh"
+                            [width]="70"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-row="row"
+                                ngx-datatable-cell-template
+                            >
+                                <div
+                                    class="relative w-12 h-12 rounded-xl overflow-hidden cursor-pointer group my-auto"
+                                    (mouseenter)="
+                                        onRoomMouseEnter(row, listHoverVideo)
+                                    "
+                                    (mouseleave)="onRoomMouseLeave(row)"
+                                >
+                                    <div
+                                        class="absolute inset-0 bg-cover bg-center transition-opacity duration-300"
+                                        [class.opacity-0]="row._hovering"
+                                        [ngStyle]="{
+                                            'background-image':
+                                                'url(' +
+                                                (row['cover']?.[
+                                                    'url_list'
+                                                ]?.[0] || '') +
+                                                ')',
+                                        }"
+                                    ></div>
+                                    <video
+                                        #listHoverVideo
+                                        class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                                        [class.opacity-0]="!row._hovering"
+                                        autoplay
+                                        playsinline
+                                        loop
+                                    ></video>
                                 </div>
-                                <video #listHoverVideo 
-                                       class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-                                       [class.opacity-0]="!row._hovering"
-                                       autoplay playsinline loop></video>
-                            </div>
-                        </ng-template>
-                    </ngx-datatable-column>
-
-                    <!-- Column Kênh -->
-                    <ngx-datatable-column name="Kênh" [width]="160" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                        <ng-template let-row="row" ngx-datatable-cell-template>
-                            <div class="flex flex-col justify-center h-full">
-                                <span class="font-bold text-sm text-gray-800 line-clamp-1">{{ '@' + (row.nickname || '') }}</span>
-                                <span class="text-xs text-gray-400">ID: {{ row.unique_id || row.id }}</span>
-                            </div>
-                        </ng-template>
-                    </ngx-datatable-column>
-
-                    <!-- Column Tiêu đề -->
-                    <ngx-datatable-column name="Tiêu đề" [width]="320" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
-                        <ng-template let-row="row" ngx-datatable-cell-template>
-                            <div class="flex items-center h-full">
-                                <span class="text-sm font-medium text-gray-700 line-clamp-2" [title]="row.title">
-                                    {{ row.title || 'Không tiêu đề' }}
-                                </span>
-                            </div>
-                        </ng-template>
-                    </ngx-datatable-column>
-
-                    <!-- Column Trạng thái & Người xem -->
-                    <ngx-datatable-column name="Trạng thái" [width]="130" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                        <ng-template let-row="row" ngx-datatable-cell-template>
-                            <div class="flex items-center h-full">
-                                <span *ngIf="row.is_analyzing" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"></span>
-                                    AI STREAM
-                                </span>
-                                <span *ngIf="!row.is_analyzing && row.is_live !== false" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                                    LIVE ({{ getRoomViewerCount(row) }})
-                                </span>
-                                <span *ngIf="row.is_live === false" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                                    ĐÃ TẮT
-                                </span>
-                            </div>
-                        </ng-template>
-                    </ngx-datatable-column>
-
-                    <!-- Column Thao tác -->
-                    <ngx-datatable-column name="Thao tác" [width]="80" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-                        <ng-template let-row="row" ngx-datatable-cell-template>
-                            <div class="flex items-center justify-center h-full">
-                                <button mat-icon-button
+                            </ng-template>
+                        </ngx-datatable-column>
+                        <!-- Column Kênh -->
+                        <ngx-datatable-column
+                            name="Kênh"
+                            [width]="160"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-row="row"
+                                ngx-datatable-cell-template
+                            >
+                                <div
+                                    class="flex flex-col justify-center h-full"
+                                >
+                                    <span
+                                        class="font-bold text-sm text-gray-800 line-clamp-1"
+                                        >{{ "@" + (row.nickname || "") }}</span
+                                    >
+                                    <span class="text-xs text-gray-400"
+                                        >ID: {{ row.unique_id || row.id }}</span
+                                    >
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
+                        <!-- Column Tiêu đề -->
+                        <ngx-datatable-column
+                            name="Tiêu đề"
+                            [width]="320"
+                            [sortable]="false"
+                            [canAutoResize]="true"
+                            [draggable]="false"
+                            [resizeable]="true"
+                        >
+                            <ng-template
+                                let-row="row"
+                                ngx-datatable-cell-template
+                            >
+                                <div class="flex items-center h-full">
+                                    <span
+                                        class="text-sm font-medium text-gray-700 line-clamp-2"
+                                        [title]="row.title"
+                                    >
+                                        {{ row.title || "Không tiêu đề" }}
+                                    </span>
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
+                        <!-- Column Trạng thái & Người xem -->
+                        <ngx-datatable-column
+                            name="Trạng thái"
+                            [width]="130"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-row="row"
+                                ngx-datatable-cell-template
+                            >
+                                <div class="flex items-center h-full">
+                                    @if (row.is_analyzing) {
+                                        <span
+                                            class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold"
+                                        >
+                                            <span
+                                                class="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"
+                                            ></span>
+                                            AI STREAM
+                                        </span>
+                                    }
+                                    @if (
+                                        !row.is_analyzing &&
+                                        row.is_live !== false
+                                    ) {
+                                        <span
+                                            class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold"
+                                        >
+                                            <span
+                                                class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"
+                                            ></span>
+                                            LIVE ({{ getRoomViewerCount(row) }})
+                                        </span>
+                                    }
+                                    @if (row.is_live === false) {
+                                        <span
+                                            class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold"
+                                        >
+                                            <span
+                                                class="w-1.5 h-1.5 rounded-full bg-gray-400"
+                                            ></span>
+                                            ĐÃ TẮT
+                                        </span>
+                                    }
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
+                        <!-- Column Thao tác -->
+                        <ngx-datatable-column
+                            name="Thao tác"
+                            [width]="80"
+                            [sortable]="false"
+                            [canAutoResize]="false"
+                            [draggable]="false"
+                            [resizeable]="false"
+                        >
+                            <ng-template
+                                let-row="row"
+                                ngx-datatable-cell-template
+                            >
+                                <div
+                                    class="flex items-center justify-center h-full"
+                                >
+                                    <button
+                                        mat-icon-button
                                         [matMenuTriggerFor]="roomMenu"
-                                        [matMenuTriggerData]="{room: row}"
+                                        [matMenuTriggerData]="{ room: row }"
                                         (click)="$event.stopPropagation()"
-                                        class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-700">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:more-vertical'"></mat-icon>
-                                </button>
-                            </div>
-                        </ng-template>
-                    </ngx-datatable-column>
-                </ngx-datatable>
-            </div>
-        </ng-container>
+                                        class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-700"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="'feather:more-vertical'"
+                                        ></mat-icon>
+                                    </button>
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
+                    </ngx-datatable>
+                </div>
+            }
+        }
 
-        <div class="flex flex-col flex-1 items-center justify-center p-6 text-gray-400" *ngIf="rooms.length === 0">
-            <mat-icon class="icon-size-10 mb-2 text-gray-300" [svgIcon]="'heroicons_outline:collection'"></mat-icon>
-            <span class="text-sm">Chưa có danh sách Livestream</span>
-        </div>
+        @if (rooms.length === 0) {
+            <div
+                class="flex flex-col flex-1 items-center justify-center p-6 text-gray-400"
+            >
+                <mat-icon
+                    class="icon-size-10 mb-2 text-gray-300"
+                    [svgIcon]="'heroicons_outline:collection'"
+                ></mat-icon>
+                <span class="text-sm">Chưa có danh sách Livestream</span>
+            </div>
+        }
     </div>
 </div>
 
 <!-- MENU THAO TÁC LIVESTREAM (3 CHẤM) -->
 <mat-menu #roomMenu="matMenu" xPosition="before">
     <ng-template matMenuContent let-room="room">
-        <button mat-menu-item (click)="startContinuousAnalysis(room)" *ngIf="!room?.is_analyzing">
-            <mat-icon class="icon-size-4 text-teal-600" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
-            <span class="font-medium text-teal-700">Phân tích nội dung</span>
-        </button>
-        <button mat-menu-item (click)="stopContinuousAnalysis(room)" *ngIf="room?.is_analyzing">
-            <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:stop-circle'"></mat-icon>
-            <span class="text-red-600 font-semibold">Tắt phân tích</span>
-        </button>
+        @if (!room?.is_analyzing) {
+            <button mat-menu-item (click)="startContinuousAnalysis(room)">
+                <mat-icon
+                    class="icon-size-4 text-teal-600"
+                    [svgIcon]="'heroicons_outline:sparkles'"
+                ></mat-icon>
+                <span class="font-medium text-teal-700"
+                    >Phân tích nội dung</span
+                >
+            </button>
+        }
+        @if (room?.is_analyzing) {
+            <button mat-menu-item (click)="stopContinuousAnalysis(room)">
+                <mat-icon
+                    class="icon-size-4 text-red-600"
+                    [svgIcon]="'feather:stop-circle'"
+                ></mat-icon>
+                <span class="text-red-600 font-semibold">Tắt phân tích</span>
+            </button>
+        }
         <button mat-menu-item (click)="selectRoom(room)">
-            <mat-icon class="icon-size-4 text-blue-600" [svgIcon]="'feather:check-circle'"></mat-icon>
+            <mat-icon
+                class="icon-size-4 text-blue-600"
+                [svgIcon]="'feather:check-circle'"
+            ></mat-icon>
             <span>Chọn video này</span>
         </button>
         <button mat-menu-item (click)="loadAnalysisHistoryForRoom(room)">
-            <mat-icon class="icon-size-4 text-amber-600" [svgIcon]="'feather:clock'"></mat-icon>
+            <mat-icon
+                class="icon-size-4 text-amber-600"
+                [svgIcon]="'feather:clock'"
+            ></mat-icon>
             <span>Đọc lịch sử phân tích</span>
         </button>
         <button mat-menu-item (click)="generateLike()">
-            <mat-icon class="icon-size-4 text-pink-600" [svgIcon]="'feather:heart'"></mat-icon>
+            <mat-icon
+                class="icon-size-4 text-pink-600"
+                [svgIcon]="'feather:heart'"
+            ></mat-icon>
             <span>Tự động thích</span>
         </button>
         <button mat-menu-item (click)="generateComment()">
-            <mat-icon class="icon-size-4 text-indigo-600" [svgIcon]="'feather:message-square'"></mat-icon>
+            <mat-icon
+                class="icon-size-4 text-indigo-600"
+                [svgIcon]="'feather:message-square'"
+            ></mat-icon>
             <span>Tự động bình luận</span>
         </button>
         <button mat-menu-item (click)="generateLowestPrice(room)">
-            <mat-icon class="icon-size-4 text-emerald-600" [svgIcon]="'feather:tag'"></mat-icon>
+            <mat-icon
+                class="icon-size-4 text-emerald-600"
+                [svgIcon]="'feather:tag'"
+            ></mat-icon>
             <span>Tìm giá thấp nhất</span>
         </button>
     </ng-template>
 </mat-menu>
 
 <ng-template #promptDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 600px">
-        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
+    <div
+        class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden"
+        style="max-width: 600px"
+    >
+        <div
+            class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0"
+        >
             <h2 class="text-xl font-semibold m-0 text-gray-800">
-                {{ 'app.use_ai_to_create' | transloco }}
+                {{ "app.use_ai_to_create" | transloco }}
             </h2>
             <button mat-icon-button (click)="_matDialog.closeAll()">
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
@@ -489,38 +1026,65 @@
         </div>
         <div class="p-6">
             <p class="text-gray-600 text-sm">
-                {{ 'app.auto_enter_specific_instructions_fo' | transloco }}
+                {{ "app.auto_enter_specific_instructions_fo" | transloco }}
             </p>
 
             <mat-form-field class="w-full mt-3" appearance="outline">
-                <mat-label class="ml-2">{{ 'app.auto_enter_additional_prompt' | transloco }}</mat-label>
-                <textarea matInput [(ngModel)]="customPromptInput" [ngModelOptions]="{ standalone: true }" rows="5"
-                    [placeholder]="'app.auto_for_example_video_link_https' | transloco"></textarea>
+                <mat-label class="ml-2">{{
+                    "app.auto_enter_additional_prompt" | transloco
+                }}</mat-label>
+                <textarea
+                    matInput
+                    [(ngModel)]="customPromptInput"
+                    [ngModelOptions]="{ standalone: true }"
+                    rows="5"
+                    [placeholder]="
+                        'app.auto_for_example_video_link_https' | transloco
+                    "
+                ></textarea>
             </mat-form-field>
 
             <p class="text-blue-700 text-xs">
-                <strong>Ví dụ: </strong> {{ 'app.auto_create_a_comment_script_and_as' | transloco }}
+                <strong>Ví dụ: </strong>
+                {{ "app.auto_create_a_comment_script_and_as" | transloco }}
             </p>
         </div>
 
-        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
+        <div
+            class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0"
+        >
             <button mat-button (click)="_matDialog.closeAll()">
-                {{ 'app.auto_cancel' | transloco }}
+                {{ "app.auto_cancel" | transloco }}
             </button>
-            <button mat-flat-button color="primary" (click)="confirmGenerateComment()" class="ml-2">
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:check'"></mat-icon>
-                <span class="ml-2">{{ 'app.auto_confirm_script_creation' | transloco }}</span>
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="confirmGenerateComment()"
+                class="ml-2"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'feather:check'"
+                ></mat-icon>
+                <span class="ml-2">{{
+                    "app.auto_confirm_script_creation" | transloco
+                }}</span>
             </button>
         </div>
     </div>
 </ng-template>
 
 <ng-template #commentDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded-lg w-full overflow-hidden">
-        <div class="flex items-center justify-between px-6 py-4 bg-gray-50 border-b shrink-0 z-10">
+    <div
+        class="flex flex-col h-full bg-card p-0 rounded-lg w-full overflow-hidden"
+    >
+        <div
+            class="flex items-center justify-between px-6 py-4 bg-gray-50 border-b shrink-0 z-10"
+        >
             <div>
                 <h2 class="text-2xl font-semibold m-0 text-gray-800">
-                    {{ 'app.auto_approve_script_total_selected' | transloco }} <strong>{{ totalSelected }}</strong> comment)
+                    {{ "app.auto_approve_script_total_selected" | transloco }}
+                    <strong>{{ totalSelected }}</strong> comment)
                 </h2>
             </div>
             <button mat-icon-button (click)="_matDialog.closeAll()">
@@ -529,172 +1093,368 @@
         </div>
 
         <div class="flex items-center px-6 py-3 bg-white border-b shrink-0">
-            <mat-checkbox color="primary" [checked]="isAllSelected" [ngModelOptions]="{ standalone: true }"
-                (change)="toggleAllSelection($event.checked)">
+            <mat-checkbox
+                color="primary"
+                [checked]="isAllSelected"
+                [ngModelOptions]="{ standalone: true }"
+                (change)="toggleAllSelection($event.checked)"
+            >
                 Chọn tất cả ({{ commentGroups.length }} nhóm)
             </mat-checkbox>
         </div>
 
         <div class="flex-1 relative overflow-y-auto min-h-0 bg-white">
-            <ng-container *ngFor="let group of commentGroups">
-                <div class="flex items-center px-6 py-3 bg-gray-100 border-t first:border-t-0 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                    (click)="toggleGroup(group)">
-                    <mat-icon class="icon-size-5 text-gray-500 mr-2 transition-transform duration-200"
-                        [class.rotate-90]="group.expanded" [svgIcon]="'feather:chevron-right'"></mat-icon>
+            @for (group of commentGroups; track group) {
+                <div
+                    class="flex items-center px-6 py-3 bg-gray-100 border-t first:border-t-0 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                    (click)="toggleGroup(group)"
+                >
+                    <mat-icon
+                        class="icon-size-5 text-gray-500 mr-2 transition-transform duration-200"
+                        [class.rotate-90]="group.expanded"
+                        [svgIcon]="'feather:chevron-right'"
+                    ></mat-icon>
                     <span class="font-semibold text-gray-800 text-sm">{{
                         group.key
-                        }}</span>
-                    <span class="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">{{
-                        group.items.length }} comments</span>
+                    }}</span>
+                    <span
+                        class="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold"
+                        >{{ group.items.length }} comments</span
+                    >
                 </div>
-
-                <div *ngIf="group.expanded">
-                    <div class="overflow-x-auto overflow-y-auto hover-scroll max-h-[400px]">
-                        <table class="w-full text-left border-collapse">
-                            <thead
-                                class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-medium">
-                                <tr>
-                                    <th class="w-12 px-4 py-2 text-center">#</th>
-                                    <th class="w-28 px-4 py-2">{{ 'app.time' | transloco }}</th>
-                                    <th class="w-28 px-4 py-2">Link Video</th>
-                                    <th class="w-1/4 px-4 py-2">
-                                        {{ 'app.auto_comment_content' | transloco }}
-                                    </th>
-                                    <th class="px-4 py-2">{{ 'app.auto_feedback_suggestion' | transloco }}</th>
-                                    <th class="w-24 px-4 py-2 text-center">
-                                        {{ 'app.action' | transloco }}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm divide-y divide-gray-100">
-                                <tr *ngFor="let item of group.items" class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-6 py-3 text-center">
-                                        <mat-checkbox color="primary" [(ngModel)]="item.selected"
-                                            [ngModelOptions]="{ standalone: true }"
-                                            (change)="updateSelectionCount()"></mat-checkbox>
-                                    </td>
-                                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap align-top">
-                                        <div class="font-medium text-blue-600">
-                                            {{ item.start | date: "HH:mm:ss" }}
-                                        </div>
-                                        <div class="text-xs text-gray-400">
-                                            {{ item.start | date: "dd/MM/yyyy" }}
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <ng-container *ngIf="!item.isEditing">
-                                            <a *ngIf="item.videoUrl" [href]="item.videoUrl" target="_blank"
-                                                class="text-blue-500 hover:underline flex items-center"
-                                                matTooltip="{{ item.videoUrl }}">
-                                                <mat-icon class="icon-size-4 mr-1" [svgIcon]="
-                                                    'feather:external-link'
-                                                "></mat-icon>
-                                                Link
-                                            </a>
-                                            <span *ngIf="!item.videoUrl" class="text-gray-400 text-xs">-</span>
-                                        </ng-container>
-                                        <ng-container *ngIf="item.isEditing">
-                                            <input type="text" class="w-full p-2 border border-gray-200 rounded text-xs"
-                                                placeholder="URL video..." [(ngModel)]="item.videoUrlDraft"
-                                                [ngModelOptions]="{
-                                                standalone: true,
-                                            }" />
-                                        </ng-container>
-                                    </td>
-                                    <td class="px-4 py-3 text-gray-900 font-medium align-top">
-                                        <div class="flex flex-col gap-1">
-                                            <div class="flex gap-2">
-                                                <span [class]="
-                                                    item.type === 'LIKE'
-                                                        ? 'bg-pink-100 text-pink-700'
-                                                        : 'bg-blue-100 text-blue-700'
-                                                " class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase">
+                @if (group.expanded) {
+                    <div>
+                        <div
+                            class="overflow-x-auto overflow-y-auto hover-scroll max-h-[400px]"
+                        >
+                            <table class="w-full text-left border-collapse">
+                                <thead
+                                    class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-medium"
+                                >
+                                    <tr>
+                                        <th class="w-12 px-4 py-2 text-center">
+                                            #
+                                        </th>
+                                        <th class="w-28 px-4 py-2">
+                                            {{ "app.time" | transloco }}
+                                        </th>
+                                        <th class="w-28 px-4 py-2">
+                                            Link Video
+                                        </th>
+                                        <th class="w-1/4 px-4 py-2">
+                                            {{
+                                                "app.auto_comment_content"
+                                                    | transloco
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-2">
+                                            {{
+                                                "app.auto_feedback_suggestion"
+                                                    | transloco
+                                            }}
+                                        </th>
+                                        <th class="w-24 px-4 py-2 text-center">
+                                            {{ "app.action" | transloco }}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm divide-y divide-gray-100">
+                                    @for (item of group.items; track item) {
+                                        <tr
+                                            class="hover:bg-gray-50 transition-colors"
+                                        >
+                                            <td class="px-6 py-3 text-center">
+                                                <mat-checkbox
+                                                    color="primary"
+                                                    [(ngModel)]="item.selected"
+                                                    [ngModelOptions]="{
+                                                        standalone: true,
+                                                    }"
+                                                    (change)="
+                                                        updateSelectionCount()
+                                                    "
+                                                ></mat-checkbox>
+                                            </td>
+                                            <td
+                                                class="px-4 py-3 text-gray-600 whitespace-nowrap align-top"
+                                            >
+                                                <div
+                                                    class="font-medium text-blue-600"
+                                                >
                                                     {{
-                                                    item.type === "LIKE"
-                                                    ? "Thả tim"
-                                                    : "Comment"
+                                                        item.start
+                                                            | date: "HH:mm:ss"
                                                     }}
-                                                </span>
-                                            </div>
-
-                                            <ng-container *ngIf="!item.isEditing">
-                                                <span [class.text-pink-600]="
-                                                    item.type === 'LIKE'
-                                                ">{{ item.comment }}</span>
-                                            </ng-container>
-
-                                            <ng-container *ngIf="item.isEditing">
-                                                <textarea *ngIf="item.type === 'COMMENT'"
-                                                    class="w-full p-2 border border-gray-200 rounded focus:outline-none"
-                                                    rows="3" [(ngModel)]="item.commentDraft"></textarea>
-                                                <span *ngIf="item.type === 'LIKE'" class="text-gray-400 italic">{{ 'app.auto_content_like_cannot_be_edited' | transloco }}</span>
-                                            </ng-container>
-
-                                            <div class="text-[10px] text-gray-400 truncate mt-1"
-                                                [matTooltip]="item.videoUrl">
-                                                URL: {{ item.videoUrl }}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 text-gray-500 align-top">
-                                        <ng-container *ngIf="!item.isEditing">{{
-                                            item.result || "---"
-                                            }}</ng-container>
-                                        <ng-container *ngIf="item.isEditing">
-                                            <textarea
-                                                class="w-full p-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"
-                                                rows="3" [(ngModel)]="item.resultDraft" [ngModelOptions]="{
-                                                standalone: true,
-                                            }"></textarea>
-                                        </ng-container>
-                                    </td>
-                                    <td class="px-4 py-3 text-center align-top">
-                                        <div *ngIf="!item.isEditing" class="flex justify-center items-center gap-2">
-                                            <button mat-icon-button (click)="enableEdit(item)" [matTooltip]="'app.edit' | transloco"
-                                                class="text-blue-500 hover:bg-blue-50">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-2'"></mat-icon>
-                                            </button>
-                                            <button mat-icon-button (click)="deleteComment(group, item)"
-                                                [matTooltip]="'app.auto_delete' | transloco" class="text-red-500 hover:bg-red-50">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                                            </button>
-                                        </div>
-                                        <div *ngIf="item.isEditing" class="flex justify-center items-center gap-2">
-                                            <button mat-icon-button (click)="saveEdit(item)" [matTooltip]="'app.auto_save' | transloco"
-                                                class="text-green-600 hover:bg-green-50">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
-                                            </button>
-                                            <button mat-icon-button (click)="cancelEdit(item)" [matTooltip]="'app.auto_cancel' | transloco"
-                                                class="text-gray-500 hover:bg-gray-50">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                                </div>
+                                                <div
+                                                    class="text-xs text-gray-400"
+                                                >
+                                                    {{
+                                                        item.start
+                                                            | date: "dd/MM/yyyy"
+                                                    }}
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3 align-top">
+                                                @if (!item.isEditing) {
+                                                    @if (item.videoUrl) {
+                                                        <a
+                                                            [href]="
+                                                                item.videoUrl
+                                                            "
+                                                            target="_blank"
+                                                            class="text-blue-500 hover:underline flex items-center"
+                                                            matTooltip="{{
+                                                                item.videoUrl
+                                                            }}"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4 mr-1"
+                                                                [svgIcon]="'feather:external-link'"
+                                                            ></mat-icon>
+                                                            Link
+                                                        </a>
+                                                    }
+                                                    @if (!item.videoUrl) {
+                                                        <span
+                                                            class="text-gray-400 text-xs"
+                                                            >-</span
+                                                        >
+                                                    }
+                                                }
+                                                @if (item.isEditing) {
+                                                    <input
+                                                        type="text"
+                                                        class="w-full p-2 border border-gray-200 rounded text-xs"
+                                                        placeholder="URL video..."
+                                                        [(ngModel)]="
+                                                            item.videoUrlDraft
+                                                        "
+                                                        [ngModelOptions]="{
+                                                            standalone: true,
+                                                        }"
+                                                    />
+                                                }
+                                            </td>
+                                            <td
+                                                class="px-4 py-3 text-gray-900 font-medium align-top"
+                                            >
+                                                <div
+                                                    class="flex flex-col gap-1"
+                                                >
+                                                    <div class="flex gap-2">
+                                                        <span
+                                                            [class]="
+                                                                item.type ===
+                                                                'LIKE'
+                                                                    ? 'bg-pink-100 text-pink-700'
+                                                                    : 'bg-blue-100 text-blue-700'
+                                                            "
+                                                            class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase"
+                                                        >
+                                                            {{
+                                                                item.type ===
+                                                                "LIKE"
+                                                                    ? "Thả tim"
+                                                                    : "Comment"
+                                                            }}
+                                                        </span>
+                                                    </div>
+                                                    @if (!item.isEditing) {
+                                                        <span
+                                                            [class.text-pink-600]="
+                                                                item.type ===
+                                                                'LIKE'
+                                                            "
+                                                            >{{
+                                                                item.comment
+                                                            }}</span
+                                                        >
+                                                    }
+                                                    @if (item.isEditing) {
+                                                        @if (
+                                                            item.type ===
+                                                            "COMMENT"
+                                                        ) {
+                                                            <textarea
+                                                                class="w-full p-2 border border-gray-200 rounded focus:outline-none"
+                                                                rows="3"
+                                                                [(ngModel)]="
+                                                                    item.commentDraft
+                                                                "
+                                                            ></textarea>
+                                                        }
+                                                        @if (
+                                                            item.type === "LIKE"
+                                                        ) {
+                                                            <span
+                                                                class="text-gray-400 italic"
+                                                                >{{
+                                                                    "app.auto_content_like_cannot_be_edited"
+                                                                        | transloco
+                                                                }}</span
+                                                            >
+                                                        }
+                                                    }
+                                                    <div
+                                                        class="text-[10px] text-gray-400 truncate mt-1"
+                                                        [matTooltip]="
+                                                            item.videoUrl
+                                                        "
+                                                    >
+                                                        URL: {{ item.videoUrl }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td
+                                                class="px-4 py-3 text-gray-500 align-top"
+                                            >
+                                                @if (!item.isEditing) {
+                                                    {{ item.result || "---" }}
+                                                }
+                                                @if (item.isEditing) {
+                                                    <textarea
+                                                        class="w-full p-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"
+                                                        rows="3"
+                                                        [(ngModel)]="
+                                                            item.resultDraft
+                                                        "
+                                                        [ngModelOptions]="{
+                                                            standalone: true,
+                                                        }"
+                                                    ></textarea>
+                                                }
+                                            </td>
+                                            <td
+                                                class="px-4 py-3 text-center align-top"
+                                            >
+                                                @if (!item.isEditing) {
+                                                    <div
+                                                        class="flex justify-center items-center gap-2"
+                                                    >
+                                                        <button
+                                                            mat-icon-button
+                                                            (click)="
+                                                                enableEdit(item)
+                                                            "
+                                                            [matTooltip]="
+                                                                'app.edit'
+                                                                    | transloco
+                                                            "
+                                                            class="text-blue-500 hover:bg-blue-50"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="'feather:edit-2'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                        <button
+                                                            mat-icon-button
+                                                            (click)="
+                                                                deleteComment(
+                                                                    group,
+                                                                    item
+                                                                )
+                                                            "
+                                                            [matTooltip]="
+                                                                'app.auto_delete'
+                                                                    | transloco
+                                                            "
+                                                            class="text-red-500 hover:bg-red-50"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="'feather:trash-2'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                    </div>
+                                                }
+                                                @if (item.isEditing) {
+                                                    <div
+                                                        class="flex justify-center items-center gap-2"
+                                                    >
+                                                        <button
+                                                            mat-icon-button
+                                                            (click)="
+                                                                saveEdit(item)
+                                                            "
+                                                            [matTooltip]="
+                                                                'app.auto_save'
+                                                                    | transloco
+                                                            "
+                                                            class="text-green-600 hover:bg-green-50"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="'feather:check'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                        <button
+                                                            mat-icon-button
+                                                            (click)="
+                                                                cancelEdit(item)
+                                                            "
+                                                            [matTooltip]="
+                                                                'app.auto_cancel'
+                                                                    | transloco
+                                                            "
+                                                            class="text-gray-500 hover:bg-gray-50"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="'feather:x'"
+                                                            ></mat-icon>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+                }
+            }
+            @if (commentGroups.length === 0) {
+                <div
+                    class="flex flex-col items-center justify-center h-64 text-gray-500"
+                >
+                    <mat-icon
+                        class="icon-size-12 mb-2"
+                        [svgIcon]="'heroicons_outline:inbox'"
+                    ></mat-icon>
+                    <span>{{ "app.no_comment_data_yet" | transloco }}</span>
                 </div>
-            </ng-container>
-            <div *ngIf="commentGroups.length === 0"
-                class="flex flex-col items-center justify-center h-64 text-gray-500">
-                <mat-icon class="icon-size-12 mb-2" [svgIcon]="'heroicons_outline:inbox'"></mat-icon>
-                <span>{{ 'app.no_comment_data_yet' | transloco }}</span>
-            </div>
+            }
         </div>
 
-        <div class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0 z-10">
+        <div
+            class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0 z-10"
+        >
             <div class="text-sm text-gray-600 ml-2">
-                <span class="text-gray-500 mr-4">{{ 'app.statistics' | transloco }}</span>
-                <span class="text-blue-600 mr-4">Comment: {{ countTypeInGroups("COMMENT") }}</span>
-                <span class="text-pink-600">Thả tim: {{ countTypeInGroups("LIKE") }}</span>
+                <span class="text-gray-500 mr-4">{{
+                    "app.statistics" | transloco
+                }}</span>
+                <span class="text-blue-600 mr-4"
+                    >Comment: {{ countTypeInGroups("COMMENT") }}</span
+                >
+                <span class="text-pink-600"
+                    >Thả tim: {{ countTypeInGroups("LIKE") }}</span
+                >
             </div>
             <div class="flex gap-2 mr-2">
-                <button mat-button (click)="_matDialog.closeAll()">
-                    Đóng
-                </button>
-                <button mat-flat-button color="primary" (click)="submitToN8n()" [disabled]="totalSelected === 0">
-                    <mat-icon class="icon-size-5" [svgIcon]="'feather:send'"></mat-icon>
+                <button mat-button (click)="_matDialog.closeAll()">Đóng</button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    (click)="submitToN8n()"
+                    [disabled]="totalSelected === 0"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'feather:send'"
+                    ></mat-icon>
                     <span class="ml-2">Gửi sang N8N ({{ totalSelected }})</span>
                 </button>
             </div>
@@ -703,10 +1463,15 @@
 </ng-template>
 
 <ng-template #likeDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="min-width: 500px">
-        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
+    <div
+        class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden"
+        style="min-width: 500px"
+    >
+        <div
+            class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0"
+        >
             <h2 class="text-xl font-semibold m-0 text-gray-800">
-                {{ 'app.mass_hearting_script_settings' | transloco }}
+                {{ "app.mass_hearting_script_settings" | transloco }}
             </h2>
             <button mat-icon-button (click)="_matDialog.closeAll()">
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
@@ -716,40 +1481,79 @@
         <div class="p-6">
             <mat-form-field class="w-full mt-3" appearance="outline">
                 <mat-label class="ml-2">Link video TikTok</mat-label>
-                <input matInput [(ngModel)]="likeVideoUrl" placeholder="https://www.tiktok.com/@..." />
-                <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:link'"></mat-icon>
+                <input
+                    matInput
+                    [(ngModel)]="likeVideoUrl"
+                    placeholder="https://www.tiktok.com/@..."
+                />
+                <mat-icon
+                    matSuffix
+                    class="icon-size-5"
+                    [svgIcon]="'feather:link'"
+                ></mat-icon>
             </mat-form-field>
 
             <div class="flex flex-col gap-2">
                 <div class="flex gap-6">
                     <mat-form-field class="flex-1" appearance="outline">
-                        <mat-label class="ml-2">{{ 'app.auto_from_the_moment' | transloco }}</mat-label>
-                        <input matInput type="datetime-local" #startTimeInput (click)="startTimeInput.showPicker()"
-                            [(ngModel)]="likeStartTime" />
-                        <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:calendar'"></mat-icon>
+                        <mat-label class="ml-2">{{
+                            "app.auto_from_the_moment" | transloco
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="datetime-local"
+                            #startTimeInput
+                            (click)="startTimeInput.showPicker()"
+                            [(ngModel)]="likeStartTime"
+                        />
+                        <mat-icon
+                            matSuffix
+                            class="icon-size-5"
+                            [svgIcon]="'feather:calendar'"
+                        ></mat-icon>
                     </mat-form-field>
 
                     <mat-form-field class="flex-1" appearance="outline">
-                        <mat-label class="ml-2">{{ 'app.auto_by_the_time' | transloco }}</mat-label>
-                        <input matInput type="datetime-local" #endTimeInput (click)="endTimeInput.showPicker()"
-                            [(ngModel)]="likeEndTime" />
-                        <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:clock'"></mat-icon>
+                        <mat-label class="ml-2">{{
+                            "app.auto_by_the_time" | transloco
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="datetime-local"
+                            #endTimeInput
+                            (click)="endTimeInput.showPicker()"
+                            [(ngModel)]="likeEndTime"
+                        />
+                        <mat-icon
+                            matSuffix
+                            class="icon-size-5"
+                            [svgIcon]="'feather:clock'"
+                        ></mat-icon>
                     </mat-form-field>
                 </div>
             </div>
 
             <p class="text-blue-700 text-xs m-0">
-                <strong>{{ 'app.auto_note_1' | transloco }}</strong> {{ 'app.auto_the_system_will_randomly_sprea' | transloco }} <b>{{ items.length }} Profiles</b>
-                {{ 'app.auto_during_the_time_period_you_sel' | transloco }}
+                <strong>{{ "app.auto_note_1" | transloco }}</strong>
+                {{ "app.auto_the_system_will_randomly_sprea" | transloco }}
+                <b>{{ items.length }} Profiles</b>
+                {{ "app.auto_during_the_time_period_you_sel" | transloco }}
             </p>
         </div>
 
-        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
+        <div
+            class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0"
+        >
             <button mat-button (click)="_matDialog.closeAll()">
-                {{ 'app.auto_cancel' | transloco }}
+                {{ "app.auto_cancel" | transloco }}
             </button>
-            <button mat-flat-button color="primary" (click)="confirmGenerateLike()" class="ml-2 px-6">
-                {{ 'app.auto_confirm_creation' | transloco }}
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="confirmGenerateLike()"
+                class="ml-2 px-6"
+            >
+                {{ "app.auto_confirm_creation" | transloco }}
             </button>
         </div>
     </div>

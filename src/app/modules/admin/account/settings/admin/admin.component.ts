@@ -27,7 +27,8 @@ import moment from 'moment';
     templateUrl: './admin.component.html',
     providers: [BlogService, UserClientService, ChatGPTService, WP2MDService, CrawlService, N8nService],
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsAdminComponent implements OnInit, OnDestroy {
     user: User;

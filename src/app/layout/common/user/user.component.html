@@ -1,58 +1,90 @@
 <!-- Button -->
-<ng-container *ngIf="user">
-    <button mat-icon-button [matMenuTriggerFor]="userActions" class="!w-10 !h-10 !p-1 flex items-center justify-center relative overflow-visible">
+@if (user) {
+    <button
+        mat-icon-button
+        [matMenuTriggerFor]="userActions"
+        class="!w-10 !h-10 !p-1 flex items-center justify-center relative overflow-visible"
+    >
         <div class="relative w-8 h-8 mx-auto my-auto rounded-full">
-            <ng-container *ngIf="user.avatar && user.avatar != 'https://type.vnnull'">
-                <img class="absolute inset-0 z-10 w-full h-full rounded-full object-cover transition-all" 
-                     [ngClass]="{'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]': isAiAgentEnabled}"
-                     src="{{user.avatar}}" alt="{{user.name}}" crossorigin="anonymous" />
-            </ng-container>
-
-            <ng-container *ngIf="!user.avatar || user.avatar == 'https://type.vnnull'">
-                <div class="absolute inset-0 z-10 flex items-center justify-center w-full h-full rounded-full text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200 transition-all"
-                     [ngClass]="{'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]': isAiAgentEnabled}">
-                    {{user.name.charAt(0)}}
+            @if (user.avatar && user.avatar != "https://type.vnnull") {
+                <img
+                    class="absolute inset-0 z-10 w-full h-full rounded-full object-cover transition-all"
+                    [ngClass]="{
+                        'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]':
+                            isAiAgentEnabled,
+                    }"
+                    src="{{ user.avatar }}"
+                    alt="{{ user.name }}"
+                    crossorigin="anonymous"
+                />
+            }
+            @if (!user.avatar || user.avatar == "https://type.vnnull") {
+                <div
+                    class="absolute inset-0 z-10 flex items-center justify-center w-full h-full rounded-full text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200 transition-all"
+                    [ngClass]="{
+                        'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]':
+                            isAiAgentEnabled,
+                    }"
+                >
+                    {{ user.name.charAt(0) }}
                 </div>
-            </ng-container>
-
+            }
             <!-- Status Dot (Aligned perfectly with the avatar circle) -->
-            <div class="absolute right-0 bottom-0 w-2.5 h-2.5 rounded-full border border-white z-20" [ngClass]="{
-                                  'bg-green-500': user.status === 'online',
-                                  'bg-amber-500': user.status === 'away',
-                                  'bg-red-500': user.status === 'busy',
-                                  'bg-gray-400': user.status === 'not-visible'}"></div>
+            <div
+                class="absolute right-0 bottom-0 w-2.5 h-2.5 rounded-full border border-white z-20"
+                [ngClass]="{
+                    'bg-green-500': user.status === 'online',
+                    'bg-amber-500': user.status === 'away',
+                    'bg-red-500': user.status === 'busy',
+                    'bg-gray-400': user.status === 'not-visible',
+                }"
+            ></div>
         </div>
-
-        <mat-icon *ngIf="!showAvatar || !user.avatar" [svgIcon]="'heroicons_outline:user-circle'"></mat-icon>
+        @if (!showAvatar || !user.avatar) {
+            <mat-icon [svgIcon]="'heroicons_outline:user-circle'"></mat-icon>
+        }
     </button>
-
     <mat-menu [xPosition]="'before'" #userActions="matMenu">
-        <a href="javascript:void(0)" (click)="onSelectAccount(user.email)" mat-menu-item class="user-info-item !h-auto !py-2.5 !px-4 !justify-start !text-left">
-            <span class="flex flex-col items-start text-left leading-tight w-full">
-                <span class="text-xs font-semibold text-green-600 dark:text-green-400 text-left">{{ 'user.location' | transloco }} {{user.server}}</span>
-                <span class="mt-1 font-medium text-slate-800 dark:text-slate-100 truncate text-left w-full">{{user.email}}</span>
+        <a
+            href="javascript:void(0)"
+            (click)="onSelectAccount(user.email)"
+            mat-menu-item
+            class="user-info-item !h-auto !py-2.5 !px-4 !justify-start !text-left"
+        >
+            <span
+                class="flex flex-col items-start text-left leading-tight w-full"
+            >
+                <span
+                    class="text-xs font-semibold text-green-600 dark:text-green-400 text-left"
+                    >{{ "user.location" | transloco }} {{ user.server }}</span
+                >
+                <span
+                    class="mt-1 font-medium text-slate-800 dark:text-slate-100 truncate text-left w-full"
+                    >{{ user.email }}</span
+                >
             </span>
         </a>
         <mat-divider class="my-2"></mat-divider>
         <button (click)="goto('profile')" mat-menu-item>
             <mat-icon [svgIcon]="'heroicons_outline:user-circle'"></mat-icon>
-            <span>{{ 'user.profile' | transloco }}</span>
+            <span>{{ "user.profile" | transloco }}</span>
         </button>
         <button (click)="goto('settings')" mat-menu-item>
             <mat-icon [svgIcon]="'heroicons_outline:cog'"></mat-icon>
-            <span>{{ 'user.settings' | transloco }}</span>
+            <span>{{ "user.settings" | transloco }}</span>
         </button>
         <button mat-menu-item [matMenuTriggerFor]="userStatus">
-            <mat-icon [svgIcon]="'heroicons_outline:dots-circle-horizontal'"></mat-icon>
-            <span>{{ 'user.status' | transloco }}</span>
+            <mat-icon
+                [svgIcon]="'heroicons_outline:dots-circle-horizontal'"
+            ></mat-icon>
+            <span>{{ "user.status" | transloco }}</span>
         </button>
         <mat-divider class="my-2"></mat-divider>
         <button mat-menu-item (click)="signOut()">
             <mat-icon [svgIcon]="'heroicons_outline:logout'"></mat-icon>
-            <span>{{ 'user.logout' | transloco }}</span>
+            <span>{{ "user.logout" | transloco }}</span>
         </button>
     </mat-menu>
-
     <mat-menu class="user-status-menu" #userStatus="matMenu">
         <button mat-menu-item (click)="updateUserStatus('online')">
             <span class="w-4 h-4 mr-3 rounded-full bg-green-500"></span>
@@ -71,4 +103,4 @@
             <span>Invisible</span>
         </button>
     </mat-menu>
-</ng-container>
+}

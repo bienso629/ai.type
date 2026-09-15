@@ -24,15 +24,16 @@ export const MY_DATE_FORMATS = {
 };
 
 @Component({
-	selector: 'settings-licensekey-create',
-	templateUrl: './create.component.html',
-	encapsulation: ViewEncapsulation.None,
-	providers: [
-		LicenseKeyService,
-		{ provide: MAT_DATE_FORMATS, useValue: MY_DATE_FORMATS },
-		{ provide: MAT_DATE_LOCALE, useValue: 'vi' },
-	],
-	changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'settings-licensekey-create',
+    templateUrl: './create.component.html',
+    encapsulation: ViewEncapsulation.None,
+    providers: [
+        LicenseKeyService,
+        { provide: MAT_DATE_FORMATS, useValue: MY_DATE_FORMATS },
+        { provide: MAT_DATE_LOCALE, useValue: 'vi' },
+    ],
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class SettingsCreateLicenseKeyComponent implements OnInit, OnDestroy {
 	title: String = 'Tạo License Key';

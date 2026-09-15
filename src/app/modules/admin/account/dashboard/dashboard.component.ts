@@ -1,4 +1,13 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation, ViewChild, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    ViewChild,
+    TemplateRef,
+    ChangeDetectorRef,
+    ChangeDetectionStrategy,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfigService } from '@fuse/services/config/config.service';
@@ -10,21 +19,26 @@ import { UserClientService } from 'app/_services/user';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 import { CrawlService } from 'app/_services/crawl';
 import { Subject, takeUntil } from 'rxjs';
-import { TranslocoService } from '@ngneat/transloco';
+import { TranslocoService } from '@jsverse/transloco';
 import { FuseSplashScreenService } from '@fuse/services/splash-screen/splash-screen.service';
 import { MatDialog } from '@angular/material/dialog';
 import { DomainService } from 'app/_services/domain';
 import { ToastrService } from 'ngx-toastr';
 import { ArticlePasswordDialog } from '../../content/ai-writer/tools/article-password-dialog';
 import * as CryptoJS from 'crypto-js';
-import { tryDecryptWithMasterFallback, isMasterKey } from 'app/core/auth/crypto.helper';
+import {
+    tryDecryptWithMasterFallback,
+    isMasterKey,
+} from 'app/core/auth/crypto.helper';
 
 @Component({
     selector: 'dashboard',
     templateUrl: './dashboard.component.html',
     styleUrls: ['./dashboard.component.scss'],
     providers: [UserClientService, CrawlService, DomainService],
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false,
 })
 export class DashboardComponent implements OnInit, OnDestroy {
     user: User;
@@ -32,7 +46,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     initialLoadCount: number = 0;
     isFirstAppLoad: boolean = false;
-    
+
     checkInitialLoad() {
         this.initialLoadCount--;
         if (this.initialLoadCount <= 0 && this.isFirstAppLoad) {
@@ -45,7 +59,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     videoProjects: any[] = [];
     totalVideoProjects: number = 0;
     statistics: any = null;
-    
+
     totalArticles: number = 0;
     activeDomains: number = 0;
     avgArticles: number = 0;
@@ -54,19 +68,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
     sparkline2: any = null;
     sparkline3: any = null;
 
-    totalArticlesStatus: { text: string, color: string, icon: string } = { text: 'Tăng trưởng tốt', color: 'text-blue-600', icon: 'trending_up' };
-    activeDomainsStatus: { text: string, color: string, icon: string } = { text: 'Cần tối ưu thêm', color: 'text-red-600', icon: 'trending_down' };
-    avgArticlesStatus: { text: string, color: string, icon: string } = { text: 'Đạt mục tiêu', color: 'text-green-600', icon: 'trending_up' };
-    
-    domainTargets: { [key: string]: any } = JSON.parse(localStorage.getItem('domainTargets') || '{}');
+    totalArticlesStatus: { text: string; color: string; icon: string } = {
+        text: 'Tăng trưởng tốt',
+        color: 'text-blue-600',
+        icon: 'trending_up',
+    };
+    activeDomainsStatus: { text: string; color: string; icon: string } = {
+        text: 'Cần tối ưu thêm',
+        color: 'text-red-600',
+        icon: 'trending_down',
+    };
+    avgArticlesStatus: { text: string; color: string; icon: string } = {
+        text: 'Đạt mục tiêu',
+        color: 'text-green-600',
+        icon: 'trending_up',
+    };
+
+    domainTargets: { [key: string]: any } = JSON.parse(
+        localStorage.getItem('domainTargets') || '{}',
+    );
     domainChartOptions: any;
     evalMonthToDisplay: number;
-    
+
     progressCurrent: number = 0;
     progressTarget: number = 0;
     progressPercent: number = 0;
-    progressStatus: { text: string, color: string, icon: string } = { text: '', color: '', icon: '' };
-    
+    progressStatus: { text: string; color: string; icon: string } = {
+        text: '',
+        color: '',
+        icon: '',
+    };
+
     @ViewChild('targetDialogTemplate') targetDialogTemplate: TemplateRef<any>;
 
     getTargetFor(domain: string, month: number): number {
@@ -74,35 +106,50 @@ export class DashboardComponent implements OnInit, OnDestroy {
         let target = this.domainTargets[domain];
         if (target === undefined) return 0;
         if (typeof target === 'number') return target; // Legacy compatibility
-        
+
         let yearTarget = target[this.selectedYear];
         let legacyTarget = target[month]; // From old structure
-        
-        if (yearTarget && yearTarget[month] !== undefined && yearTarget[month] !== null) return yearTarget[month];
-        if (legacyTarget !== undefined && legacyTarget !== null && typeof legacyTarget === 'number') return legacyTarget;
-        
+
+        if (
+            yearTarget &&
+            yearTarget[month] !== undefined &&
+            yearTarget[month] !== null
+        )
+            return yearTarget[month];
+        if (
+            legacyTarget !== undefined &&
+            legacyTarget !== null &&
+            typeof legacyTarget === 'number'
+        )
+            return legacyTarget;
+
         // Fallback backward...
         if (yearTarget) {
             for (let m = month - 1; m >= 1; m--) {
-                if (yearTarget[m] !== undefined && yearTarget[m] !== null) return yearTarget[m];
+                if (yearTarget[m] !== undefined && yearTarget[m] !== null)
+                    return yearTarget[m];
             }
         }
-        
+
         // legacy fallback
         for (let m = month - 1; m >= 1; m--) {
             if (typeof target[m] === 'number') return target[m];
         }
-        
+
         return 0;
     }
-
 
     selectedDomain: string = 'all';
     selectedMonth: string = 'all';
     selectedYear: number = new Date().getFullYear();
     availableDomains: string[] = [];
     allDomains: any[] = [];
-    yearsList: number[] = [this.selectedYear - 3, this.selectedYear - 2, this.selectedYear - 1, this.selectedYear];
+    yearsList: number[] = [
+        this.selectedYear - 3,
+        this.selectedYear - 2,
+        this.selectedYear - 1,
+        this.selectedYear,
+    ];
     monthsList: any[] = [
         { value: 'all', label: 'Tất cả các tháng' },
         { value: '1', label: 'Tháng 1' },
@@ -116,9 +163,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         { value: '9', label: 'Tháng 9' },
         { value: '10', label: 'Tháng 10' },
         { value: '11', label: 'Tháng 11' },
-        { value: '12', label: 'Tháng 12' }
+        { value: '12', label: 'Tháng 12' },
     ];
-    
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     /**
@@ -133,36 +180,49 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 this.collections = JSON.parse(cachedData);
             } catch (e) {}
         }
-        
+
         if ((window as any)['dashboard_collections_preloaded']) {
             (window as any)['dashboard_collections_preloaded'] = false;
             this.checkInitialLoad();
             return;
         }
 
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalCollections) {
-            (window as any).electron.listLocalCollections({ username: this.user.name }).then((res: any) => {
-                if (res && res.success && res.data) {
-                    this.collections = res.data;
-                    const lightweightCache = this.collections.map(col => ({
-                        _id: col._id,
-                        title: col.title,
-                        count: col.count,
-                        lastItemUpdatedAt: col.lastItemUpdatedAt,
-                        lastUpdatedAt: col.lastUpdatedAt,
-                        lastUpdated: col.lastUpdated,
-                        updatedAt: col.updatedAt
-                    }));
-                    localStorage.setItem(cacheKey, JSON.stringify(lightweightCache));
-                    this.checkInitialLoad();
-                    this._changeDetectorRef.markForCheck();
-                    return;
-                }
-                this.fetchServerCollections(cacheKey);
-            }).catch(() => {
-                this.fetchServerCollections(cacheKey);
-            });
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.listLocalCollections
+        ) {
+            (window as any).electron
+                .listLocalCollections({ username: this.user.name })
+                .then((res: any) => {
+                    if (res && res.success && res.data) {
+                        this.collections = res.data;
+                        const lightweightCache = this.collections.map(
+                            (col) => ({
+                                _id: col._id,
+                                title: col.title,
+                                count: col.count,
+                                lastItemUpdatedAt: col.lastItemUpdatedAt,
+                                lastUpdatedAt: col.lastUpdatedAt,
+                                lastUpdated: col.lastUpdated,
+                                updatedAt: col.updatedAt,
+                            }),
+                        );
+                        localStorage.setItem(
+                            cacheKey,
+                            JSON.stringify(lightweightCache),
+                        );
+                        this.checkInitialLoad();
+                        this._changeDetectorRef.markForCheck();
+                        return;
+                    }
+                    this.fetchServerCollections(cacheKey);
+                })
+                .catch(() => {
+                    this.fetchServerCollections(cacheKey);
+                });
             return;
         }
 
@@ -174,7 +234,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .collections({
                 username: this.user.name,
                 page: { size: 100 },
-                includeUuid: false // Tắt lấy mảng UUID để chống DB scan & Network payload khổng lồ
+                includeUuid: false, // Tắt lấy mảng UUID để chống DB scan & Network payload khổng lồ
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -182,24 +242,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     if (result && result.success) {
                         this.collections = result.data.map((col: any) => {
                             // Nếu backend có trả về count sẵn thì dùng, ngược lại tạm bỏ qua tính count bằng uuid
-                            col.count = col.count || (col.uuid && Array.isArray(col.uuid) ? col.uuid.length : 0);
+                            col.count =
+                                col.count ||
+                                (col.uuid && Array.isArray(col.uuid)
+                                    ? col.uuid.length
+                                    : 0);
                             return col;
                         });
                         // Cập nhật lại cache mới nhất (lược bỏ data nặng như mảng uuid)
-                        const lightweightCache = this.collections.map(col => ({
-                            _id: col._id,
-                            title: col.title,
-                            count: col.count,
-                            lastItemUpdatedAt: col.lastItemUpdatedAt,
-                            lastUpdatedAt: col.lastUpdatedAt,
-                            lastUpdated: col.lastUpdated,
-                            updatedAt: col.updatedAt
-                        }));
-                        localStorage.setItem(cacheKey, JSON.stringify(lightweightCache));
+                        const lightweightCache = this.collections.map(
+                            (col) => ({
+                                _id: col._id,
+                                title: col.title,
+                                count: col.count,
+                                lastItemUpdatedAt: col.lastItemUpdatedAt,
+                                lastUpdatedAt: col.lastUpdatedAt,
+                                lastUpdated: col.lastUpdated,
+                                updatedAt: col.updatedAt,
+                            }),
+                        );
+                        localStorage.setItem(
+                            cacheKey,
+                            JSON.stringify(lightweightCache),
+                        );
                     }
                 },
-                error: () => { this.checkInitialLoad(); },
-                complete: () => { this.checkInitialLoad(); },
+                error: () => {
+                    this.checkInitialLoad();
+                },
+                complete: () => {
+                    this.checkInitialLoad();
+                },
             });
     }
 
@@ -211,45 +284,80 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
         (window as any)['profile_synced'] = true;
 
-        this._userClientService.profile({
-            name: this.user.name
-        })
+        this._userClientService
+            .profile({
+                name: this.user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
-                        if (result.data.styles && result.data.styles.length > 0) this.multiAccountService.setItem('styles', result.data.styles);
-                        if (result.data.editor) this.multiAccountService.setItem('editor', result.data.editor);
-                        if (result.data.following_users) this.multiAccountService.setItem('following_users', result.data.following_users);
+                        if (result.data.styles && result.data.styles.length > 0)
+                            this.multiAccountService.setItem(
+                                'styles',
+                                result.data.styles,
+                            );
+                        if (result.data.editor)
+                            this.multiAccountService.setItem(
+                                'editor',
+                                result.data.editor,
+                            );
+                        if (result.data.following_users)
+                            this.multiAccountService.setItem(
+                                'following_users',
+                                result.data.following_users,
+                            );
                         if (result.data.settings) {
-                             this.multiAccountService.setItem('settings', result.data.settings);
-                             if (result.data.settings.domainTargets) {
-                                 const rawTargets = result.data.settings.domainTargets;
-                                 const normalizedTargets: any = {};
-                                 for (const rawDomain of Object.keys(rawTargets)) {
-                                     const normalized = this.normalizeDomain(rawDomain);
-                                     normalizedTargets[normalized] = rawTargets[rawDomain];
-                                 }
-                                 this.domainTargets = normalizedTargets;
-                                 localStorage.setItem('domainTargets', JSON.stringify(this.domainTargets));
-                                 this.updateChart();
-                             }
+                            this.multiAccountService.setItem(
+                                'settings',
+                                result.data.settings,
+                            );
+                            if (result.data.settings.domainTargets) {
+                                const rawTargets =
+                                    result.data.settings.domainTargets;
+                                const normalizedTargets: any = {};
+                                for (const rawDomain of Object.keys(
+                                    rawTargets,
+                                )) {
+                                    const normalized =
+                                        this.normalizeDomain(rawDomain);
+                                    normalizedTargets[normalized] =
+                                        rawTargets[rawDomain];
+                                }
+                                this.domainTargets = normalizedTargets;
+                                localStorage.setItem(
+                                    'domainTargets',
+                                    JSON.stringify(this.domainTargets),
+                                );
+                                this.updateChart();
+                            }
                         }
                     }
                 },
-                error: () => { this.checkInitialLoad(); },
-                complete: () => { this.checkInitialLoad(); }
+                error: () => {
+                    this.checkInitialLoad();
+                },
+                complete: () => {
+                    this.checkInitialLoad();
+                },
             });
     }
 
     private normalizeDomain(domain: string): string {
         if (!domain) return '';
         let normalized = domain.trim().toLowerCase();
-        if (normalized.includes('[object') || normalized.includes('object object')) return '';
-        if (normalized.startsWith('http://')) normalized = normalized.substring(7);
-        if (normalized.startsWith('https://')) normalized = normalized.substring(8);
+        if (
+            normalized.includes('[object') ||
+            normalized.includes('object object')
+        )
+            return '';
+        if (normalized.startsWith('http://'))
+            normalized = normalized.substring(7);
+        if (normalized.startsWith('https://'))
+            normalized = normalized.substring(8);
         if (normalized.startsWith('www.')) normalized = normalized.substring(4);
-        if (normalized.endsWith('/')) normalized = normalized.substring(0, normalized.length - 1);
+        if (normalized.endsWith('/'))
+            normalized = normalized.substring(0, normalized.length - 1);
         return normalized;
     }
 
@@ -257,7 +365,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if ((window as any)['dashboard_domains_preloaded']) {
             (window as any)['dashboard_domains_preloaded'] = false;
             try {
-                const cached = localStorage.getItem(`dashboard_domains_${this.user.name}`);
+                const cached = localStorage.getItem(
+                    `dashboard_domains_${this.user.name}`,
+                );
                 if (cached) {
                     this.allDomains = JSON.parse(cached);
                     this._changeDetectorRef.markForCheck();
@@ -266,28 +376,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return;
         }
 
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalDomains) {
-            (window as any).electron.listLocalDomains().then((res: any) => {
-                if (res && res.success && res.data) {
-                    const rawDomains = res.data;
-                    const uniqueDomains = new Map<string, any>();
-                    rawDomains.forEach((d: any) => {
-                        if (d && d.domain) {
-                            const norm = this.normalizeDomain(d.domain);
-                            if (norm && !uniqueDomains.has(norm)) {
-                                uniqueDomains.set(norm, { domain: norm });
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.listLocalDomains
+        ) {
+            (window as any).electron
+                .listLocalDomains()
+                .then((res: any) => {
+                    if (res && res.success && res.data) {
+                        const rawDomains = res.data;
+                        const uniqueDomains = new Map<string, any>();
+                        rawDomains.forEach((d: any) => {
+                            if (d && d.domain) {
+                                const norm = this.normalizeDomain(d.domain);
+                                if (norm && !uniqueDomains.has(norm)) {
+                                    uniqueDomains.set(norm, { domain: norm });
+                                }
                             }
-                        }
-                    });
-                    this.allDomains = Array.from(uniqueDomains.values());
-                    this._changeDetectorRef.markForCheck();
-                    return;
-                }
-                this.fetchServerDomains();
-            }).catch(() => {
-                this.fetchServerDomains();
-            });
+                        });
+                        this.allDomains = Array.from(uniqueDomains.values());
+                        this._changeDetectorRef.markForCheck();
+                        return;
+                    }
+                    this.fetchServerDomains();
+                })
+                .catch(() => {
+                    this.fetchServerDomains();
+                });
             return;
         }
 
@@ -295,28 +413,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     private fetchServerDomains() {
-        this._domainService.fetch({
-            username: this.user.name
-        })
-        .pipe(takeUntil(this._unsubscribeAll))
-        .subscribe({
-            next: (result) => {
-                if (result && result.success) {
-                    const rawDomains = result.data || [];
-                    const uniqueDomains = new Map<string, any>();
-                    rawDomains.forEach((d: any) => {
-                        if (d && d.domain) {
-                            const norm = this.normalizeDomain(d.domain);
-                            if (!uniqueDomains.has(norm)) {
-                                uniqueDomains.set(norm, { ...d, domain: norm });
+        this._domainService
+            .fetch({
+                username: this.user.name,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result) => {
+                    if (result && result.success) {
+                        const rawDomains = result.data || [];
+                        const uniqueDomains = new Map<string, any>();
+                        rawDomains.forEach((d: any) => {
+                            if (d && d.domain) {
+                                const norm = this.normalizeDomain(d.domain);
+                                if (!uniqueDomains.has(norm)) {
+                                    uniqueDomains.set(norm, {
+                                        ...d,
+                                        domain: norm,
+                                    });
+                                }
                             }
-                        }
-                    });
-                    this.allDomains = Array.from(uniqueDomains.values());
-                    this._changeDetectorRef.markForCheck();
-                }
-            }
-        });
+                        });
+                        this.allDomains = Array.from(uniqueDomains.values());
+                        this._changeDetectorRef.markForCheck();
+                    }
+                },
+            });
     }
 
     /**
@@ -350,58 +472,76 @@ export class DashboardComponent implements OnInit, OnDestroy {
                             if (!normalizedStats[normalized][month]) {
                                 normalizedStats[normalized][month] = 0;
                             }
-                            normalizedStats[normalized][month] += rawStats[rawDomain][month];
+                            normalizedStats[normalized][month] +=
+                                rawStats[rawDomain][month];
                         }
                     }
-                    
+
                     this.statistics.domainStats = normalizedStats;
-                    this.availableDomains = Object.keys(this.statistics.domainStats);
+                    this.availableDomains = Object.keys(
+                        this.statistics.domainStats,
+                    );
                     this.updateChart();
                 }
             } catch (e) {}
             return;
         }
 
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalStatistics) {
-            (window as any).electron.getLocalStatistics().then((res: any) => {
-                if (res && res.success && res.data) {
-                    const statsData = res.data;
-                    const rawStats = statsData.domainStats || {};
-                    const normalizedStats: any = {};
-                    for (const rawDomain of Object.keys(rawStats)) {
-                        const normalized = this.normalizeDomain(rawDomain);
-                        if (!normalized) continue;
-                        if (!normalizedStats[normalized]) {
-                            normalizedStats[normalized] = {};
-                        }
-                        for (const month of Object.keys(rawStats[rawDomain])) {
-                            if (!normalizedStats[normalized][month]) {
-                                normalizedStats[normalized][month] = 0;
+        const isAutoSaveLocal =
+            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        if (
+            isAutoSaveLocal &&
+            (window as any).electron &&
+            (window as any).electron.getLocalStatistics
+        ) {
+            (window as any).electron
+                .getLocalStatistics()
+                .then((res: any) => {
+                    if (res && res.success && res.data) {
+                        const statsData = res.data;
+                        const rawStats = statsData.domainStats || {};
+                        const normalizedStats: any = {};
+                        for (const rawDomain of Object.keys(rawStats)) {
+                            const normalized = this.normalizeDomain(rawDomain);
+                            if (!normalized) continue;
+                            if (!normalizedStats[normalized]) {
+                                normalizedStats[normalized] = {};
                             }
-                            normalizedStats[normalized][month] += rawStats[rawDomain][month];
+                            for (const month of Object.keys(
+                                rawStats[rawDomain],
+                            )) {
+                                if (!normalizedStats[normalized][month]) {
+                                    normalizedStats[normalized][month] = 0;
+                                }
+                                normalizedStats[normalized][month] +=
+                                    rawStats[rawDomain][month];
+                            }
                         }
-                    }
 
-                    this.statistics = {
-                        archives: statsData.archives || statsData.total || 0,
-                        total: statsData.total || statsData.archives || 0,
-                        done: statsData.done || 0,
-                        money: statsData.money || 0,
-                        writing: statsData.writing || 0,
-                        domainStats: normalizedStats
-                    };
-                    this.availableDomains = Object.keys(normalizedStats);
-                    this.updateChart();
-                    localStorage.setItem('statistics', JSON.stringify(this.statistics));
-                    if (this.initialLoadCount > 0) this.checkInitialLoad();
-                    this._changeDetectorRef.markForCheck();
-                    return;
-                }
-                this.fetchServerStatistics(forceRefresh);
-            }).catch(() => {
-                this.fetchServerStatistics(forceRefresh);
-            });
+                        this.statistics = {
+                            archives:
+                                statsData.archives || statsData.total || 0,
+                            total: statsData.total || statsData.archives || 0,
+                            done: statsData.done || 0,
+                            money: statsData.money || 0,
+                            writing: statsData.writing || 0,
+                            domainStats: normalizedStats,
+                        };
+                        this.availableDomains = Object.keys(normalizedStats);
+                        this.updateChart();
+                        localStorage.setItem(
+                            'statistics',
+                            JSON.stringify(this.statistics),
+                        );
+                        if (this.initialLoadCount > 0) this.checkInitialLoad();
+                        this._changeDetectorRef.markForCheck();
+                        return;
+                    }
+                    this.fetchServerStatistics(forceRefresh);
+                })
+                .catch(() => {
+                    this.fetchServerStatistics(forceRefresh);
+                });
             return;
         }
 
@@ -411,7 +551,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private fetchServerStatistics(forceRefresh: boolean = false) {
         let payload: any = {
             username: this.user.name,
-            reportYear: this.selectedYear
+            reportYear: this.selectedYear,
         };
         if (forceRefresh) payload.refresh = true;
 
@@ -423,23 +563,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     if (result && result.success) {
                         const nodes = result.data || [];
                         const doneCount = nodes[0] ? nodes[0].length : 0;
-                        const moneyCount = nodes[0] ? nodes[0].reduce((total: number, obj: any) => (obj.amount || 0) + total, 0) : 0;
+                        const moneyCount = nodes[0]
+                            ? nodes[0].reduce(
+                                  (total: number, obj: any) =>
+                                      (obj.amount || 0) + total,
+                                  0,
+                              )
+                            : 0;
                         const writingData = nodes[1] || { total: 0 };
                         const archivesData = nodes[2] || { total: 0 };
                         const domainStatsDataRaw = nodes[3] || {};
-                        
+
                         const domainStatsData: any = {};
-                        for (const rawDomain of Object.keys(domainStatsDataRaw)) {
+                        for (const rawDomain of Object.keys(
+                            domainStatsDataRaw,
+                        )) {
                             const normalized = this.normalizeDomain(rawDomain);
                             if (!normalized) continue;
                             if (!domainStatsData[normalized]) {
                                 domainStatsData[normalized] = {};
                             }
-                            for (const month of Object.keys(domainStatsDataRaw[rawDomain])) {
+                            for (const month of Object.keys(
+                                domainStatsDataRaw[rawDomain],
+                            )) {
                                 if (!domainStatsData[normalized][month]) {
                                     domainStatsData[normalized][month] = 0;
                                 }
-                                domainStatsData[normalized][month] += domainStatsDataRaw[rawDomain][month];
+                                domainStatsData[normalized][month] +=
+                                    domainStatsDataRaw[rawDomain][month];
                             }
                         }
 
@@ -461,17 +612,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
                             money: moneyCount,
                             archives: archivesData.total || archivesData || 0,
                             writing: writingData.total || writingData || 0,
-                            domainStats: domainStatsData
+                            domainStats: domainStatsData,
                         };
                         this.statistics = newStats;
 
-                        localStorage.setItem('statistics', JSON.stringify(newStats));
+                        localStorage.setItem(
+                            'statistics',
+                            JSON.stringify(newStats),
+                        );
                     }
                 },
                 error: () => {
                     if (this.initialLoadCount > 0) this.checkInitialLoad();
                 },
-                complete: () => { 
+                complete: () => {
                     if (this.initialLoadCount > 0) this.checkInitialLoad();
                 },
             });
@@ -494,7 +648,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         private _matDialog: MatDialog,
         private _changeDetectorRef: ChangeDetectorRef,
         private _domainService: DomainService,
-        private toastr: ToastrService
+        private toastr: ToastrService,
     ) {
         this.titleService.setTitle(`thống kê | ai.type - công cụ tạo content`);
 
@@ -511,8 +665,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-
 
                 // Chỉ bật Splash Screen khi tải trang lần đầu tiên (F5)
                 this.isFirstAppLoad = !(window as any)['profile_synced'];
@@ -533,33 +685,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         this.statistic();
                     }
                 }, 100);
-                
+
                 // Get video projects being built
                 setTimeout(() => {
-                    let projects = this.multiAccountService.getItemsByPrefix('ai_type_audio_merger_data_') || [];
-                    const allProjects = projects.filter(p => p.uuid && p.title).reverse().map(p => {
-                        // Calculate dynamic status
-                        let statusLabel = 'app.draft';
-                        let statusClass = 'bg-blue-100 text-blue-600';
-                        
-                        if (!p.clips || p.clips.length === 0) {
-                            statusLabel = 'app.empty';
-                            statusClass = 'bg-gray-100 text-gray-600';
-                        } else {
-                            const hasAudio = p.clips.some((c: any) => c.localFilePath || c.audioFileName);
-                            const allAudio = p.clips.every((c: any) => c.localFilePath || c.audioFileName);
-                            
-                            if (allAudio) {
-                                statusLabel = 'app.ready';
-                                statusClass = 'bg-green-100 text-green-600';
-                            } else if (hasAudio) {
-                                statusLabel = 'app.working';
-                                statusClass = 'bg-amber-100 text-amber-600';
+                    let projects =
+                        this.multiAccountService.getItemsByPrefix(
+                            'ai_type_audio_merger_data_',
+                        ) || [];
+                    const allProjects = projects
+                        .filter((p) => p.uuid && p.title)
+                        .reverse()
+                        .map((p) => {
+                            // Calculate dynamic status
+                            let statusLabel = 'app.draft';
+                            let statusClass = 'bg-blue-100 text-blue-600';
+
+                            if (!p.clips || p.clips.length === 0) {
+                                statusLabel = 'app.empty';
+                                statusClass = 'bg-gray-100 text-gray-600';
+                            } else {
+                                const hasAudio = p.clips.some(
+                                    (c: any) =>
+                                        c.localFilePath || c.audioFileName,
+                                );
+                                const allAudio = p.clips.every(
+                                    (c: any) =>
+                                        c.localFilePath || c.audioFileName,
+                                );
+
+                                if (allAudio) {
+                                    statusLabel = 'app.ready';
+                                    statusClass = 'bg-green-100 text-green-600';
+                                } else if (hasAudio) {
+                                    statusLabel = 'app.working';
+                                    statusClass = 'bg-amber-100 text-amber-600';
+                                }
                             }
-                        }
-                        
-                        return { ...p, statusLabel, statusClass };
-                    });
+
+                            return { ...p, statusLabel, statusClass };
+                        });
                     this.totalVideoProjects = allProjects.length;
                     this.videoProjects = allProjects.slice(0, 12);
                 }, 500); // wait a bit to ensure multiAccountService has loaded if needed
@@ -587,24 +751,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: this.translocoService.translate('app.notification'),
-            message: (message) ? message : this.translocoService.translate('app.request_not_found'),
+            message: message
+                ? message
+                : this.translocoService.translate('app.request_not_found'),
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
-                color: 'error'
+                color: 'error',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: this.translocoService.translate('app.close'),
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: false,
-                    label: this.translocoService.translate('app.close_again')
-                }
+                    label: this.translocoService.translate('app.close_again'),
+                },
             },
-            dismissible: false
+            dismissible: false,
         });
 
         // Subscribe to afterClosed from the dialog reference
@@ -615,47 +781,58 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     deleteVideoProject(project: any, event: MouseEvent) {
         event.stopPropagation();
-        
+
         const dialogRef = this._fuseConfirmationService.open({
             title: this.translocoService.translate('app.delete_video_script'),
             message: `${this.translocoService.translate('app.are_you_sure_delete_script')} "<b>${project.title || this.translocoService.translate('app.new_project')}</b>"?<br>${this.translocoService.translate('app.action_cannot_be_undone_delete_all')}`,
             icon: {
                 show: true,
                 name: 'heroicons_outline:question-mark-circle',
-                color: 'warn'
+                color: 'warn',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: this.translocoService.translate('app.delete'),
-                    color: 'warn'
+                    color: 'warn',
                 },
                 cancel: {
                     show: true,
-                    label: this.translocoService.translate('app.cancel')
-                }
+                    label: this.translocoService.translate('app.cancel'),
+                },
             },
-            dismissible: true
+            dismissible: true,
         });
 
         dialogRef.afterClosed().subscribe(async (result) => {
             if (result === 'confirmed') {
                 // Xóa localStorage
-                this.multiAccountService.removeItem(`ai_type_audio_merger_data_${project.uuid}`);
-                this.multiAccountService.removeItem(`ai_type_video_ready_data_${project.uuid}`);
-                this.multiAccountService.removeItem(`casting_list_${project.uuid}`);
-                
+                this.multiAccountService.removeItem(
+                    `ai_type_audio_merger_data_${project.uuid}`,
+                );
+                this.multiAccountService.removeItem(
+                    `ai_type_video_ready_data_${project.uuid}`,
+                );
+                this.multiAccountService.removeItem(
+                    `casting_list_${project.uuid}`,
+                );
+
                 // Cập nhật mảng trên UI
-                this.videoProjects = this.videoProjects.filter(p => p.uuid !== project.uuid);
+                this.videoProjects = this.videoProjects.filter(
+                    (p) => p.uuid !== project.uuid,
+                );
                 this.totalVideoProjects--;
-                
+
                 // Xóa file trên đĩa qua Electron IPC
                 if ((window as any).electron) {
                     try {
-                        await (window as any).electron.invoke('delete-project', {
-                            targetUuid: project.uuid,
-                            username: this.user.name
-                        });
+                        await (window as any).electron.invoke(
+                            'delete-project',
+                            {
+                                targetUuid: project.uuid,
+                                username: this.user.name,
+                            },
+                        );
                     } catch (e) {
                         console.error('Lỗi khi xóa file đĩa:', e);
                     }
@@ -665,94 +842,151 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     updateChart() {
-        let domainStatsData = (this.statistics && this.statistics.domainStats) ? this.statistics.domainStats : {};
+        let domainStatsData =
+            this.statistics && this.statistics.domainStats
+                ? this.statistics.domainStats
+                : {};
         let series = [];
         let categories = [];
-        
-        let displayDomains = this.selectedDomain === 'all' ? this.availableDomains : [this.selectedDomain];
-        
+
+        let displayDomains =
+            this.selectedDomain === 'all'
+                ? this.availableDomains
+                : [this.selectedDomain];
+
         displayDomains.sort((a, b) => {
             let totalA = 0;
-            if (domainStatsData[a]) { Object.values(domainStatsData[a]).forEach((v: any) => totalA += (v || 0)); }
+            if (domainStatsData[a]) {
+                Object.values(domainStatsData[a]).forEach(
+                    (v: any) => (totalA += v || 0),
+                );
+            }
             let totalB = 0;
-            if (domainStatsData[b]) { Object.values(domainStatsData[b]).forEach((v: any) => totalB += (v || 0)); }
+            if (domainStatsData[b]) {
+                Object.values(domainStatsData[b]).forEach(
+                    (v: any) => (totalB += v || 0),
+                );
+            }
             return totalB - totalA;
         });
-        
-        let displayMonths = this.selectedMonth === 'all' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [parseInt(this.selectedMonth, 10)];
-        categories = displayMonths.map(m => 'Tháng ' + m);
-        
+
+        let displayMonths =
+            this.selectedMonth === 'all'
+                ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                : [parseInt(this.selectedMonth, 10)];
+        categories = displayMonths.map((m) => 'Tháng ' + m);
+
         for (let domain of displayDomains) {
             let data = [];
             for (let m of displayMonths) {
-                data.push((domainStatsData[domain] && domainStatsData[domain][m]) ? domainStatsData[domain][m] : 0);
+                data.push(
+                    domainStatsData[domain] && domainStatsData[domain][m]
+                        ? domainStatsData[domain][m]
+                        : 0,
+                );
             }
             series.push({
                 name: domain,
-                data: data
+                data: data,
             });
         }
-        
+
         if (series.length === 0) {
             series.push({
                 name: 'Chưa có bài viết',
-                data: displayMonths.map(() => 0)
+                data: displayMonths.map(() => 0),
             });
         }
-        
-        const chartColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f43f5e', '#14b8a6'];
+
+        const chartColors = [
+            '#3b82f6',
+            '#10b981',
+            '#f59e0b',
+            '#ef4444',
+            '#8b5cf6',
+            '#06b6d4',
+            '#f43f5e',
+            '#14b8a6',
+        ];
 
         this.chartOptions = {
             series: series,
             colors: chartColors,
-            chart: { type: 'area', height: 400, fontFamily: 'inherit', toolbar: { show: false }, animations: { enabled: false } },
+            chart: {
+                type: 'area',
+                height: 400,
+                fontFamily: 'inherit',
+                toolbar: { show: false },
+                animations: { enabled: false },
+            },
             grid: { show: false },
             stroke: { width: 3, curve: 'smooth' },
             fill: {
                 type: 'gradient',
-                gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] }
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.4,
+                    opacityTo: 0.05,
+                    stops: [0, 90, 100],
+                },
             },
             markers: { size: 0, hover: { size: 6 } },
-            dataLabels: { 
-                enabled: true, 
+            dataLabels: {
+                enabled: true,
                 offsetY: -5,
                 background: { enabled: false, dropShadow: { enabled: false } },
-                style: { fontSize: '13px', fontWeight: 600, colors: chartColors },
-                formatter: function(val) { return val > 0 ? val : ''; }
+                style: {
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    colors: chartColors,
+                },
+                formatter: function (val) {
+                    return val > 0 ? val : '';
+                },
             },
-            xaxis: { 
-                categories: categories, 
+            xaxis: {
+                categories: categories,
                 labels: { show: false },
                 axisTicks: { show: false },
-                tooltip: { enabled: false } 
+                tooltip: { enabled: false },
             },
-            yaxis: { 
+            yaxis: {
                 labels: { show: false },
                 min: 0,
-                max: (max) => Math.max(5, Math.ceil(max * 1.3)) 
+                max: (max) => Math.max(5, Math.ceil(max * 1.3)),
             },
-            tooltip: { 
-                shared: true, 
+            tooltip: {
+                shared: true,
                 intersect: false,
-                y: { formatter: function (val: number) { return val + " bài" } } 
+                y: {
+                    formatter: function (val: number) {
+                        return val + ' bài';
+                    },
+                },
             },
-            legend: { position: 'bottom', horizontalAlign: 'center', itemMargin: { horizontal: 10, vertical: 5 } }
+            legend: {
+                position: 'bottom',
+                horizontalAlign: 'center',
+                itemMargin: { horizontal: 10, vertical: 5 },
+            },
         };
 
         if (displayDomains.length > 0) {
-
             // Calculate Stats for mini charts
             let total = 0;
             let activeDoms = new Set();
             let monthlyTotals = new Array(12).fill(0);
-            
-            let targetMonths = this.selectedMonth === 'all' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [parseInt(this.selectedMonth, 10)];
-            
+
+            let targetMonths =
+                this.selectedMonth === 'all'
+                    ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                    : [parseInt(this.selectedMonth, 10)];
+
             for (let d of displayDomains) {
                 let hasArticlesInPeriod = false;
                 for (let m = 1; m <= 12; m++) {
                     if (domainStatsData[d] && domainStatsData[d][m]) {
-                        monthlyTotals[m-1] += domainStatsData[d][m];
+                        monthlyTotals[m - 1] += domainStatsData[d][m];
                         if (targetMonths.includes(m)) {
                             total += domainStatsData[d][m];
                             hasArticlesInPeriod = true;
@@ -761,184 +995,291 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 }
                 if (hasArticlesInPeriod) activeDoms.add(d);
             }
-            
+
             let activeMonthsCount = 0;
             for (let m of targetMonths) {
-                 if (monthlyTotals[m-1] > 0) activeMonthsCount++;
+                if (monthlyTotals[m - 1] > 0) activeMonthsCount++;
             }
             if (activeMonthsCount === 0) activeMonthsCount = 1;
-            
+
             // Evaluation logic for total articles comparison
             let currentPeriodTotal = 0;
             let previousPeriodTotal = 0;
-            
+
             let now = new Date();
             let currentYear = now.getFullYear();
             let currentMonth = now.getMonth() + 1; // 1-based (1-12)
 
             if (this.selectedMonth !== 'all') {
-                 let m = parseInt(this.selectedMonth, 10);
-                 currentPeriodTotal = monthlyTotals[m-1];
-                 previousPeriodTotal = m > 1 ? monthlyTotals[m-2] : 0;
+                let m = parseInt(this.selectedMonth, 10);
+                currentPeriodTotal = monthlyTotals[m - 1];
+                previousPeriodTotal = m > 1 ? monthlyTotals[m - 2] : 0;
             } else if (this.selectedYear === currentYear) {
-                 currentPeriodTotal = monthlyTotals[currentMonth - 1] || 0;
-                 previousPeriodTotal = currentMonth > 1 ? (monthlyTotals[currentMonth - 2] || 0) : 0;
+                currentPeriodTotal = monthlyTotals[currentMonth - 1] || 0;
+                previousPeriodTotal =
+                    currentMonth > 1 ? monthlyTotals[currentMonth - 2] || 0 : 0;
             } else {
-                 let lastActiveMonth = 11;
-                 while(lastActiveMonth >= 0 && monthlyTotals[lastActiveMonth] === 0) lastActiveMonth--;
-                 if (lastActiveMonth > 0) {
-                     currentPeriodTotal = monthlyTotals[lastActiveMonth];
-                     previousPeriodTotal = monthlyTotals[lastActiveMonth - 1];
-                 } else {
-                     currentPeriodTotal = monthlyTotals[0];
-                     previousPeriodTotal = 0;
-                 }
+                let lastActiveMonth = 11;
+                while (
+                    lastActiveMonth >= 0 &&
+                    monthlyTotals[lastActiveMonth] === 0
+                )
+                    lastActiveMonth--;
+                if (lastActiveMonth > 0) {
+                    currentPeriodTotal = monthlyTotals[lastActiveMonth];
+                    previousPeriodTotal = monthlyTotals[lastActiveMonth - 1];
+                } else {
+                    currentPeriodTotal = monthlyTotals[0];
+                    previousPeriodTotal = 0;
+                }
             }
 
             this.totalArticles = total;
             this.activeDomains = activeDoms.size;
-            let totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
-            
+            let totalDomainsCount =
+                this.allDomains.length > 0
+                    ? this.allDomains.length
+                    : this.activeDomains || 1;
+
             // Tính trung bình bài viết TRONG THÁNG (hoặc tháng gần nhất có data) để so sánh trực tiếp với mục tiêu hàng tháng
-            let periodTotalForAvg = this.selectedMonth === 'all' ? currentPeriodTotal : total;
-            this.avgArticles = Math.round(periodTotalForAvg / totalDomainsCount);
+            let periodTotalForAvg =
+                this.selectedMonth === 'all' ? currentPeriodTotal : total;
+            this.avgArticles = Math.round(
+                periodTotalForAvg / totalDomainsCount,
+            );
 
             if (currentPeriodTotal >= previousPeriodTotal) {
-                 this.totalArticlesStatus = { text: 'Tăng trưởng tốt', color: 'text-blue-600', icon: 'trending_up' };
+                this.totalArticlesStatus = {
+                    text: 'Tăng trưởng tốt',
+                    color: 'text-blue-600',
+                    icon: 'trending_up',
+                };
             } else {
-                 this.totalArticlesStatus = { text: 'Tăng trưởng yếu', color: 'text-red-600', icon: 'trending_down' };
+                this.totalArticlesStatus = {
+                    text: 'Tăng trưởng yếu',
+                    color: 'text-red-600',
+                    icon: 'trending_down',
+                };
             }
 
-            let totalDomainsCountForStatus = this.collections ? this.collections.length : 0;
+            let totalDomainsCountForStatus = this.collections
+                ? this.collections.length
+                : 0;
             if (this.activeDomains > totalDomainsCountForStatus / 2) {
-                 this.activeDomainsStatus = { text: 'Hoạt động tốt', color: 'text-green-600', icon: 'trending_up' };
+                this.activeDomainsStatus = {
+                    text: 'Hoạt động tốt',
+                    color: 'text-green-600',
+                    icon: 'trending_up',
+                };
             } else {
-                 this.activeDomainsStatus = { text: 'Hoạt động yếu', color: 'text-red-600', icon: 'trending_down' };
+                this.activeDomainsStatus = {
+                    text: 'Hoạt động yếu',
+                    color: 'text-red-600',
+                    icon: 'trending_down',
+                };
             }
-            
+
             let evalMonth = 1;
             if (this.selectedMonth !== 'all') {
-                 evalMonth = parseInt(this.selectedMonth, 10);
+                evalMonth = parseInt(this.selectedMonth, 10);
             } else if (this.selectedYear === currentYear) {
-                 evalMonth = currentMonth;
+                evalMonth = currentMonth;
             } else {
-                 let lastActiveMonth = 11;
-                 while(lastActiveMonth >= 0 && monthlyTotals[lastActiveMonth] === 0) lastActiveMonth--;
-                 evalMonth = lastActiveMonth >= 0 ? lastActiveMonth + 1 : 12;
+                let lastActiveMonth = 11;
+                while (
+                    lastActiveMonth >= 0 &&
+                    monthlyTotals[lastActiveMonth] === 0
+                )
+                    lastActiveMonth--;
+                evalMonth = lastActiveMonth >= 0 ? lastActiveMonth + 1 : 12;
             }
 
             let totalTargetForAllDomains = 0;
-            displayDomains.forEach(d => {
+            displayDomains.forEach((d) => {
                 totalTargetForAllDomains += this.getTargetFor(d, evalMonth);
             });
-            
-            totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
-            let avgTargetPerMonth = totalTargetForAllDomains / totalDomainsCount;
-            
+
+            totalDomainsCount =
+                this.allDomains.length > 0
+                    ? this.allDomains.length
+                    : this.activeDomains || 1;
+            let avgTargetPerMonth =
+                totalTargetForAllDomains / totalDomainsCount;
+
             let target = avgTargetPerMonth;
 
             if (Number(this.avgArticles) >= target) {
-                 this.avgArticlesStatus = { text: 'Đạt mục tiêu', color: 'text-green-600', icon: 'trending_up' };
+                this.avgArticlesStatus = {
+                    text: 'Đạt mục tiêu',
+                    color: 'text-green-600',
+                    icon: 'trending_up',
+                };
             } else {
-                 this.avgArticlesStatus = { text: 'Chưa đạt mục tiêu', color: 'text-red-600', icon: 'trending_down' };
+                this.avgArticlesStatus = {
+                    text: 'Chưa đạt mục tiêu',
+                    color: 'text-red-600',
+                    icon: 'trending_down',
+                };
             }
-            
+
             this.progressTarget = totalTargetForAllDomains;
-            
+
             // Calculate the first active month for each domain to estimate historical domain counts
             let currentMonthNum = currentMonth;
             let domainCreatedMonth: { [key: string]: number } = {};
-            this.allDomains.forEach(dom => {
-                 let d = dom.domain;
-                 let firstActive = 12; // default to end of year
-                 let found = false;
-                 if (domainStatsData[d]) {
-                     for (let m = 1; m <= 12; m++) {
-                         if (domainStatsData[d][m] > 0) {
-                             firstActive = m;
-                             found = true;
-                             break;
-                         }
-                     }
-                 }
-                 // If a domain never published, assume it was created in the current month
-                 domainCreatedMonth[d] = found ? firstActive : currentMonthNum;
+            this.allDomains.forEach((dom) => {
+                let d = dom.domain;
+                let firstActive = 12; // default to end of year
+                let found = false;
+                if (domainStatsData[d]) {
+                    for (let m = 1; m <= 12; m++) {
+                        if (domainStatsData[d][m] > 0) {
+                            firstActive = m;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                // If a domain never published, assume it was created in the current month
+                domainCreatedMonth[d] = found ? firstActive : currentMonthNum;
             });
 
             // Tính toán data thật cho các biểu đồ mini theo từng tháng
             let monthlyActiveDomains = new Array(12).fill(0);
             let monthlyTargets = new Array(12).fill(0);
             let progressMonthlyTotals = new Array(12).fill(0);
-            totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
+            totalDomainsCount =
+                this.allDomains.length > 0
+                    ? this.allDomains.length
+                    : this.activeDomains || 1;
             for (let m = 1; m <= 12; m++) {
                 let activeCount = 0;
                 for (let d of displayDomains) {
-                    if (domainStatsData[d] && domainStatsData[d][m] > 0) activeCount++;
+                    if (domainStatsData[d] && domainStatsData[d][m] > 0)
+                        activeCount++;
                 }
-                monthlyActiveDomains[m-1] = activeCount;
-                
+                monthlyActiveDomains[m - 1] = activeCount;
+
                 let targetSum = 0;
                 let actualProgressSum = 0;
-                displayDomains.forEach(d => { 
+                displayDomains.forEach((d) => {
                     let t = this.getTargetFor(d, m);
-                    targetSum += t; 
+                    targetSum += t;
                     if (t > 0 && domainStatsData[d] && domainStatsData[d][m]) {
                         actualProgressSum += domainStatsData[d][m];
                     }
                 });
-                monthlyTargets[m-1] = targetSum;
-                progressMonthlyTotals[m-1] = actualProgressSum;
+                monthlyTargets[m - 1] = targetSum;
+                progressMonthlyTotals[m - 1] = actualProgressSum;
             }
-            
+
             const commonSparklineConfig = {
-                chart: { type: 'area', height: 60, sparkline: { enabled: true }, animations: { enabled: false } },
+                chart: {
+                    type: 'area',
+                    height: 60,
+                    sparkline: { enabled: true },
+                    animations: { enabled: false },
+                },
                 grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } },
                 stroke: { curve: 'smooth', width: 2 },
-                yaxis: { 
+                yaxis: {
                     min: 0,
-                    max: (max) => Math.max(2, Math.ceil(max * 1.5)) 
+                    max: (max) => Math.max(2, Math.ceil(max * 1.5)),
                 },
-                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.0, stops: [0, 100] } },
-                tooltip: { fixed: { enabled: false }, x: { show: false }, y: { title: { formatter: function () { return '' } } }, marker: { show: false } }
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: 0.4,
+                        opacityTo: 0.0,
+                        stops: [0, 100],
+                    },
+                },
+                tooltip: {
+                    fixed: { enabled: false },
+                    x: { show: false },
+                    y: {
+                        title: {
+                            formatter: function () {
+                                return '';
+                            },
+                        },
+                    },
+                    marker: { show: false },
+                },
             };
 
             this.sparkline1 = {
                 ...commonSparklineConfig,
                 series: [{ data: monthlyTotals }],
-                colors: ['#3b82f6'] // Blue
+                colors: ['#3b82f6'], // Blue
             };
 
             this.sparkline2 = {
                 ...commonSparklineConfig,
                 series: [{ data: monthlyActiveDomains }], // Data thật: Domain hoạt động theo tháng
-                colors: ['#ef4444'] // Red
+                colors: ['#ef4444'], // Red
             };
 
             this.sparkline3 = {
-                chart: { type: 'line', height: 60, sparkline: { enabled: true }, animations: { enabled: true } },
+                chart: {
+                    type: 'line',
+                    height: 60,
+                    sparkline: { enabled: true },
+                    animations: { enabled: true },
+                },
                 series: [
                     { name: 'Chỉ tiêu', data: monthlyTargets },
-                    { name: 'Thực tế', data: progressMonthlyTotals }
+                    { name: 'Thực tế', data: progressMonthlyTotals },
                 ],
                 colors: ['#94a3b8', '#10b981'], // Gray for target, Green for actual
                 stroke: { curve: 'smooth', width: [2, 2], dashArray: [4, 0] },
-                yaxis: { min: 0, max: (max) => Math.max(5, Math.ceil(max * 1.3)) },
-                tooltip: { fixed: { enabled: false }, x: { show: false }, marker: { show: false } },
-                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } }
+                yaxis: {
+                    min: 0,
+                    max: (max) => Math.max(5, Math.ceil(max * 1.3)),
+                },
+                tooltip: {
+                    fixed: { enabled: false },
+                    x: { show: false },
+                    marker: { show: false },
+                },
+                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } },
             };
 
             // Calculate progressCurrent from progressMonthlyTotals for Card 3
-            let currentProgressPeriodTotal = progressMonthlyTotals[evalMonth - 1] || 0;
+            let currentProgressPeriodTotal =
+                progressMonthlyTotals[evalMonth - 1] || 0;
 
             this.progressCurrent = currentProgressPeriodTotal;
-            this.progressPercent = this.progressTarget > 0 ? Math.min(100, Math.round((this.progressCurrent / this.progressTarget) * 100)) : 0;
-            
+            this.progressPercent =
+                this.progressTarget > 0
+                    ? Math.min(
+                          100,
+                          Math.round(
+                              (this.progressCurrent / this.progressTarget) *
+                                  100,
+                          ),
+                      )
+                    : 0;
+
             if (this.progressPercent >= 100) {
-                 this.progressStatus = { text: 'Hoàn thành chỉ tiêu', color: 'text-green-600', icon: 'check_circle' };
+                this.progressStatus = {
+                    text: 'Hoàn thành chỉ tiêu',
+                    color: 'text-green-600',
+                    icon: 'check_circle',
+                };
             } else if (this.progressPercent >= 50) {
-                 this.progressStatus = { text: 'Đang theo đúng tiến độ', color: 'text-blue-600', icon: 'trending_up' };
+                this.progressStatus = {
+                    text: 'Đang theo đúng tiến độ',
+                    color: 'text-blue-600',
+                    icon: 'trending_up',
+                };
             } else {
-                 this.progressStatus = { text: 'Cần đẩy nhanh tiến độ', color: 'text-orange-500', icon: 'warning' };
+                this.progressStatus = {
+                    text: 'Cần đẩy nhanh tiến độ',
+                    color: 'text-orange-500',
+                    icon: 'warning',
+                };
             }
 
             // Build Domain Detailed Chart for evalMonth
@@ -946,34 +1287,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
             let domainNames = [];
             let targetSeries = [];
             let actualSeries = [];
-            
-            let domainsToChart = this.allDomains.length > 0 ? this.allDomains : Array.from(activeDoms).map(d => ({ domain: d }));
-            
-            domainsToChart.forEach(d => {
+
+            let domainsToChart =
+                this.allDomains.length > 0
+                    ? this.allDomains
+                    : Array.from(activeDoms).map((d) => ({ domain: d }));
+
+            domainsToChart.forEach((d) => {
                 let domName = d.domain || d;
                 domainNames.push(domName);
-                
+
                 let target = this.getTargetFor(domName, evalMonth);
                 let actual = 0;
-                
-                if (domainStatsData[domName] && domainStatsData[domName][evalMonth]) {
+
+                if (
+                    domainStatsData[domName] &&
+                    domainStatsData[domName][evalMonth]
+                ) {
                     actual = domainStatsData[domName][evalMonth];
                 }
-                
+
                 targetSeries.push(target);
                 actualSeries.push(actual);
             });
-            
+
             this.domainChartOptions = {
                 series: [
                     { name: 'Chỉ tiêu', type: 'line', data: targetSeries },
-                    { name: 'Thực tế', type: 'line', data: actualSeries }
+                    { name: 'Thực tế', type: 'line', data: actualSeries },
                 ],
                 chart: {
                     type: 'line',
                     height: 60,
                     sparkline: { enabled: true },
-                    animations: { enabled: true }
+                    animations: { enabled: true },
                 },
                 colors: ['#94a3b8', '#10b981'],
                 dataLabels: { enabled: false },
@@ -981,59 +1328,117 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 xaxis: {
                     categories: domainNames,
                     labels: { show: false },
-                    tooltip: { enabled: false }
+                    tooltip: { enabled: false },
                 },
                 yaxis: {
                     min: 0,
                     max: (max) => Math.max(5, Math.ceil(max * 1.3)),
-                    labels: { show: false }
+                    labels: { show: false },
                 },
-                tooltip: { 
-                    fixed: { enabled: true, position: 'topRight', offsetY: -20, offsetX: 0 }, 
-                    x: { show: true }, 
-                    marker: { show: false } 
+                tooltip: {
+                    fixed: {
+                        enabled: true,
+                        position: 'topRight',
+                        offsetY: -20,
+                        offsetX: 0,
+                    },
+                    x: { show: true },
+                    marker: { show: false },
                 },
                 legend: { show: false },
-                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } }
+                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } },
             };
-
         } else {
             this.totalArticles = 0;
             this.activeDomains = 0;
             this.avgArticles = 0;
-            
+
             const emptyData = new Array(12).fill(0);
             const commonSparklineConfig = {
-                chart: { type: 'area', height: 60, sparkline: { enabled: true }, animations: { enabled: false } },
+                chart: {
+                    type: 'area',
+                    height: 60,
+                    sparkline: { enabled: true },
+                    animations: { enabled: false },
+                },
                 grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } },
                 stroke: { curve: 'smooth', width: 2 },
-                yaxis: { 
+                yaxis: {
                     min: 0,
-                    max: (max) => Math.max(2, Math.ceil(max * 1.5)) 
+                    max: (max) => Math.max(2, Math.ceil(max * 1.5)),
                 },
-                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.0, stops: [0, 100] } },
-                tooltip: { fixed: { enabled: false }, x: { show: false }, y: { title: { formatter: function () { return '' } } }, marker: { show: false } }
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: 0.4,
+                        opacityTo: 0.0,
+                        stops: [0, 100],
+                    },
+                },
+                tooltip: {
+                    fixed: { enabled: false },
+                    x: { show: false },
+                    y: {
+                        title: {
+                            formatter: function () {
+                                return '';
+                            },
+                        },
+                    },
+                    marker: { show: false },
+                },
             };
 
-            this.sparkline1 = { ...commonSparklineConfig, series: [{ data: emptyData }], colors: ['#3b82f6'] };
-            this.sparkline2 = { ...commonSparklineConfig, series: [{ data: emptyData }], colors: ['#ef4444'] };
-            this.sparkline3 = { ...commonSparklineConfig, series: [{ data: emptyData }], colors: ['#10b981'] };
-            
+            this.sparkline1 = {
+                ...commonSparklineConfig,
+                series: [{ data: emptyData }],
+                colors: ['#3b82f6'],
+            };
+            this.sparkline2 = {
+                ...commonSparklineConfig,
+                series: [{ data: emptyData }],
+                colors: ['#ef4444'],
+            };
+            this.sparkline3 = {
+                ...commonSparklineConfig,
+                series: [{ data: emptyData }],
+                colors: ['#10b981'],
+            };
+
             let domainNames = ['Chưa có'];
             this.domainChartOptions = {
                 series: [
                     { name: 'Chỉ tiêu', type: 'line', data: [0] },
-                    { name: 'Thực tế', type: 'line', data: [0] }
+                    { name: 'Thực tế', type: 'line', data: [0] },
                 ],
-                chart: { type: 'line', height: 60, sparkline: { enabled: true }, animations: { enabled: true } },
+                chart: {
+                    type: 'line',
+                    height: 60,
+                    sparkline: { enabled: true },
+                    animations: { enabled: true },
+                },
                 colors: ['#94a3b8', '#10b981'],
                 dataLabels: { enabled: false },
                 stroke: { curve: 'smooth', width: [2, 2], dashArray: [4, 0] },
-                xaxis: { categories: domainNames, labels: { show: false }, tooltip: { enabled: false } },
+                xaxis: {
+                    categories: domainNames,
+                    labels: { show: false },
+                    tooltip: { enabled: false },
+                },
                 yaxis: { min: 0, max: 5, labels: { show: false } },
-                tooltip: { fixed: { enabled: true, position: 'topRight', offsetY: -20, offsetX: 0 }, x: { show: true }, marker: { show: false } },
+                tooltip: {
+                    fixed: {
+                        enabled: true,
+                        position: 'topRight',
+                        offsetY: -20,
+                        offsetX: 0,
+                    },
+                    x: { show: true },
+                    marker: { show: false },
+                },
                 legend: { show: false },
-                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } }
+                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } },
             };
         }
     }
