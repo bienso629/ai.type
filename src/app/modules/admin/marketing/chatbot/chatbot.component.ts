@@ -1395,6 +1395,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
 
         // 1. ƯU TIÊN HÀNG ĐẦU: Chạy trực tiếp trên Google Colab MCP GPU Server & Lưu FAISS Local
+        let colabSuccess = false;
         if ((isColabMcpEnabled || colabMcpUrl) && electron) {
             this.isIndexing = true;
             this.indexingFilename = filename;
@@ -1424,7 +1425,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 console.log(`[Chatbot] Colab MCP phân tích xong:`, result);
 
                 if (!result || !result.markdown || result.markdown.trim().length < 20) {
-                    throw new Error('Colab GPU trả về kết quả rỗng (chưa trích xuất được nội dung). Vui lòng chạy cell code Colab mới nhất có tích hợp PyMuPDF & FAISS!');
+                    throw new Error('Colab GPU trả về kết quả rỗng (chưa trích xuất được nội dung).');
                 }
 
                 this.progressPercent = 85;
@@ -1451,16 +1452,15 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     const chunksMsg = result.chunks_count ? ` (${result.chunks_count} đoạn)` : '';
                     this.toastr.success(`Đã tạo FAISS local & học xong ${filename}${chunksMsg}!`);
                     this.cd.markForCheck();
+                    colabSuccess = true;
                     return;
                 } else {
                     throw new Error(saveRes?.error || 'Lỗi lưu tệp FAISS vào Documents');
                 }
             } catch (mcpErr: any) {
-                this.isIndexing = false;
-                this.indexingFilename = '';
-                this.toastr.error('Lỗi phân tích trên Colab GPU: ' + (mcpErr.message || mcpErr));
-                this.cd.markForCheck();
-                return;
+                console.warn('[Chatbot] Colab GPU không khả dụng hoặc lỗi, chuyển sang phân tích thông thường:', mcpErr);
+                this.toastr.warning('Colab GPU chưa sẵn sàng hoặc mất kết nối. Đang tự động chuyển sang phân tích tài liệu chuẩn...');
+                // Không return để tiếp tục fallback xuống luồng thông thường bên dưới
             }
         }
 

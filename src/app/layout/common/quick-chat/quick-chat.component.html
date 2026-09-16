@@ -11,12 +11,12 @@
     >
         <!-- Header -->
         <div
-            class="quick-chat-header flex flex-0 items-center justify-start cursor-pointer"
+            class="quick-chat-header flex flex-0 items-center justify-start cursor-pointer border-b"
             (click)="toggle()"
         >
             @if (!opened) {
                 <div
-                    class="flex items-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover"
+                    class="flex items-center py-3 px-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-hover"
                 >
                     <div
                         class="relative flex flex-0 items-center justify-center w-10 h-10"
@@ -48,7 +48,7 @@
         </div>
 
         <!-- Content -->
-        <div class="flex flex-auto overflow-hidden border-t">
+        <div class="flex flex-auto overflow-hidden">
             <!-- Tools list (Left Sidebar) -->
             <div
                 class="flex-0 w-16 h-full overflow-y-auto overscroll-y-contain sm:overflow-hidden sm:overscroll-auto"
