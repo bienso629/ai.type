@@ -8,7 +8,7 @@ body fuse-splash-screen {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #dbdbdb;
+    background-color: #0d9488;
     color: #F9FAFB;
     z-index: 999999;
     pointer-events: none;
@@ -18,8 +18,11 @@ body fuse-splash-screen {
 }
 
 body fuse-splash-screen img {
-    width: 300px;
-    max-width: 300px;
+    width: 120px;
+    max-width: 120px;
+    max-height: 120px;
+    height: auto;
+    object-fit: contain;
 }
 
 body fuse-splash-screen .spinner {

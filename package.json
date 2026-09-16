@@ -16,7 +16,10 @@
     "build:mac": "node build-all.js --mac",
     "build:frontend": "ng build --configuration=production",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "cap:sync": "cap sync",
+    "cap:open:android": "CAPACITOR_ANDROID_STUDIO_PATH=/snap/bin/android-studio cap open android",
+    "cap:open:ios": "cap open ios"
   },
   "dependencies": {
     "@angular/animations": "^22.1.6",
@@ -31,6 +34,10 @@
     "@angular/platform-browser": "^22.1.6",
     "@angular/platform-browser-dynamic": "^22.1.6",
     "@angular/router": "^22.1.6",
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "@ecodev/fab-speed-dial": "^13.0.0",
     "@google/genai": "^1.5.1",
     "@jsverse/transloco": "^8.4.0",
