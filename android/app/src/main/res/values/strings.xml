@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AI.Type</string>
+    <string name="title_activity_main">AI.Type</string>
+    <string name="package_name">vn.type.app</string>
+    <string name="custom_url_scheme">vn.type.app</string>
+</resources>
