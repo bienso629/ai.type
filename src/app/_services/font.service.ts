@@ -200,7 +200,12 @@ export class FontService {
             :root {
                 --fuse-font-sans: 'AppCustomFontFamily', 'Inter var', sans-serif !important;
             }
-            body, button, input, select, textarea, .text-base, .mat-typography {
+            html, body, app-root, .app-container, .main-pane,
+            h1:not(.font-preview-title), h2:not(.font-preview-title), h3:not(.font-preview-title), h4, h5, h6,
+            p:not(.font-preview-text), span:not(.font-preview-text), a:not(.font-preview-text),
+            div:not(.font-preview-text):not(.font-preview-title), li, td, th,
+            button, input, select, textarea,
+            .mat-typography, [class*="mat-"]:not(.font-preview-text):not(.font-preview-title) {
                 font-family: 'AppCustomFontFamily', 'Inter var', sans-serif !important;
             }
         `;

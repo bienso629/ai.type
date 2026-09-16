@@ -147,9 +147,13 @@
                             </div>
                             <div>
                                 <h3
-                                    class="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight m-0"
-                                    [style.fontFamily]="
-                                        group.fonts[0]?.fontName
+                                    class="font-preview-title text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight m-0"
+                                    [style.font-family]="
+                                        group.fonts[0]
+                                            ? '\'' +
+                                              group.fonts[0].fontName +
+                                              '\', sans-serif'
+                                            : 'inherit'
                                     "
                                 >
                                     {{ group.folderName }}
@@ -219,8 +223,9 @@
                                         class="flex items-center gap-2 min-w-0"
                                     >
                                         <span
-                                            class="font-bold text-gray-900 dark:text-gray-100 text-base truncate"
+                                            class="font-preview-text font-bold text-gray-900 dark:text-gray-100 text-base truncate"
                                             [title]="item.fontName"
+                                            [style.font-family]="'\'' + item.fontName + '\', sans-serif'"
                                         >
                                             {{ item.fontName }}
                                         </span>
@@ -276,8 +281,8 @@
                                         }}):
                                     </div>
                                     <div
-                                        class="text-2xl text-gray-900 dark:text-gray-100 leading-snug break-words py-1"
-                                        [style.fontFamily]="item.fontName"
+                                        class="font-preview-text text-2xl text-gray-900 dark:text-gray-100 leading-snug break-words py-1"
+                                        [style.font-family]="'\'' + item.fontName + '\', sans-serif'"
                                         [style.fontWeight]="
                                             fontService.detectFontWeight(
                                                 item.fontName
@@ -292,8 +297,8 @@
                                         Chúc Mừng Năm Mới!!!
                                     </div>
                                     <div
-                                        class="text-base text-gray-500 dark:text-gray-400 break-words"
-                                        [style.fontFamily]="item.fontName"
+                                        class="font-preview-text text-base text-gray-500 dark:text-gray-400 break-words"
+                                        [style.font-family]="'\'' + item.fontName + '\', sans-serif'"
                                         [style.fontWeight]="
                                             fontService.detectFontWeight(
                                                 item.fontName

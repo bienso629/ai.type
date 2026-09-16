@@ -117,17 +117,15 @@
 
     <!-- Footer -->
     <div
-        class="relative flex flex-col sm:flex-row flex-0 items-center justify-between w-full p-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden gap-2"
+        class="relative flex flex-wrap items-center justify-between w-full p-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden gap-x-2 gap-y-1"
     >
-        <div class="font-normal text-base text-secondary">
-            {{ "app.footer_powered_by_ai" | transloco }} &copy;
-            {{ currentYear }}, {{ "app.footer_version" | transloco }}
-            {{ appVersion }}.
-        </div>
-
-        <div
-            class="font-normal text-base text-secondary flex flex-wrap items-center gap-1.5 sm:ml-auto"
-        >
+        <div class="font-normal text-base text-secondary flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+                {{ "app.footer_powered_by_ai" | transloco }} &copy;
+                {{ currentYear }}, {{ "app.footer_version" | transloco }}
+                {{ appVersion }}.
+            </span>
+            <span class="text-secondary opacity-60 hidden sm:inline">•</span>
             <a
                 [routerLink]="['/policy']"
                 [title]="'app.auto_automatic_article_writing_soft' | transloco"
