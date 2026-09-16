@@ -201,12 +201,29 @@ export class FontService {
                 --fuse-font-sans: 'AppCustomFontFamily', 'Inter var', sans-serif !important;
             }
             html, body, app-root, .app-container, .main-pane,
-            h1:not(.font-preview-title), h2:not(.font-preview-title), h3:not(.font-preview-title), h4, h5, h6,
-            p:not(.font-preview-text), span:not(.font-preview-text), a:not(.font-preview-text),
-            div:not(.font-preview-text):not(.font-preview-title), li, td, th,
-            button, input, select, textarea,
-            .mat-typography, [class*="mat-"]:not(.font-preview-text):not(.font-preview-title) {
+            h1:not(.font-preview-title):not(mat-icon):not(.mat-icon):not(.material-icons),
+            h2:not(.font-preview-title):not(mat-icon):not(.mat-icon):not(.material-icons),
+            h3:not(.font-preview-title):not(mat-icon):not(.mat-icon):not(.material-icons),
+            h4:not(mat-icon):not(.mat-icon):not(.material-icons),
+            h5:not(mat-icon):not(.mat-icon):not(.material-icons),
+            h6:not(mat-icon):not(.mat-icon):not(.material-icons),
+            p:not(.font-preview-text):not(mat-icon):not(.mat-icon):not(.material-icons),
+            span:not(.font-preview-text):not(mat-icon):not(.mat-icon):not(.material-icons):not(.mat-ligature-font),
+            a:not(.font-preview-text):not(mat-icon):not(.mat-icon):not(.material-icons),
+            div:not(.font-preview-text):not(.font-preview-title):not(mat-icon):not(.mat-icon):not(.material-icons):not(.mat-mdc-button-touch-target),
+            li, td, th,
+            button:not(.mat-mdc-icon-button),
+            input, select, textarea,
+            .mat-typography,
+            [class*="mat-"]:not(.font-preview-text):not(.font-preview-title):not(mat-icon):not(.mat-icon):not(.material-icons):not([class*="mat-icon"]):not(.mat-ligature-font):not(.mdc-icon-button):not(.mat-mdc-icon-button) {
                 font-family: 'AppCustomFontFamily', 'Inter var', sans-serif !important;
+            }
+
+            mat-icon,
+            .mat-icon,
+            .material-icons,
+            .mat-ligature-font {
+                font-family: 'Material Icons' !important;
             }
         `;
     }
