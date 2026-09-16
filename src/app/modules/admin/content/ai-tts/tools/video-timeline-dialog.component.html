@@ -2439,11 +2439,14 @@
                                         "
                                         class="w-full h-8 pl-2.5 pr-7 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 focus:outline-none focus:border-amber-500 cursor-pointer"
                                     >
-                                        <optgroup
+                                         <optgroup
                                             label="── 1. Font Mặc Định ──"
                                         >
                                             @for (f of DEFAULT_FONTS; track f) {
-                                                <option [value]="f.value">
+                                                <option
+                                                    [value]="f.value"
+                                                    [style.fontFamily]="f.value"
+                                                >
                                                     {{ f.label }}
                                                 </option>
                                             }
@@ -2458,7 +2461,10 @@
                                                     f of systemFontList;
                                                     track f
                                                 ) {
-                                                    <option [value]="f.value">
+                                                    <option
+                                                        [value]="f.value"
+                                                        [style.fontFamily]="f.value"
+                                                    >
                                                         {{ f.label }}
                                                     </option>
                                                 }
@@ -3173,6 +3179,9 @@
                                                                         [value]="
                                                                             f.value
                                                                         "
+                                                                        [style.fontFamily]="
+                                                                            f.value
+                                                                        "
                                                                     >
                                                                         {{
                                                                             f.label
@@ -3193,6 +3202,9 @@
                                                                     ) {
                                                                         <option
                                                                             [value]="
+                                                                                f.value
+                                                                            "
+                                                                            [style.fontFamily]="
                                                                                 f.value
                                                                             "
                                                                         >

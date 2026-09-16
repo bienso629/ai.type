@@ -12,9 +12,9 @@
 *[class*=mat-mdc-]:not(mat-icon):not(.mat-icon):not(.material-icons) {
     -webkit-font-smoothing: auto !important;
     -moz-osx-font-smoothing: auto !important;
-    font-family: "Inter var", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-family: var(--fuse-font-sans, "Inter var", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif) !important;
 
-    *:not(mat-icon):not(.mat-icon):not(.material-icons) {
+    *:not(mat-icon):not(.mat-icon):not(.material-icons):not(.font-preview-text):not(.font-preview-title) {
         -webkit-font-smoothing: auto !important;
         -moz-osx-font-smoothing: auto !important;
         font-family: inherit !important;
