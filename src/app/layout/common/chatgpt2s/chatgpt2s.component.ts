@@ -19,6 +19,8 @@ import { BlogService } from 'app/_services/blog';
 import { ForumService } from 'app/_services/forum';
 
 import moment from 'moment';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { GenaiService } from 'app/genai.service';
 import { HelperService } from 'app/helper.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
@@ -218,6 +220,101 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             }
         }
         this.reAskMessage(question || msg.text || '');
+    }
+
+    async exportPdfModelMessage(msg: any, activeChatRow?: any): Promise<void> {
+        const answerText = msg?.text;
+        if (!answerText) {
+            this.toastr.warning('Không có nội dung câu trả lời để xuất PDF!');
+            return;
+        }
+
+        let questionText = '';
+        if (activeChatRow) {
+            const messages = this.getMessages(activeChatRow);
+            const idx = messages.indexOf(msg);
+            if (idx > 0 && messages[idx - 1]?.role === 'user') {
+                questionText = messages[idx - 1]?.text;
+            } else {
+                questionText = activeChatRow?.question || '';
+            }
+        }
+
+        try {
+            this.toastr.info('Đang tạo tệp PDF...');
+
+            const pdfMakeModule = await import('pdfmake/build/pdfmake');
+            const pdfMake = (pdfMakeModule as any).default || pdfMakeModule;
+            const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
+            const pdfFonts = (pdfFontsModule as any).default || pdfFontsModule;
+            const htmlToPdfmakeModule = await import('html-to-pdfmake');
+            const htmlToPdfmake = ((htmlToPdfmakeModule as any).default || htmlToPdfmakeModule) as Function;
+
+            pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts.vfs;
+
+            // Xử lý Markdown -> HTML cho câu hỏi và câu trả lời
+            let fullHtml = '';
+            if (questionText && questionText.trim()) {
+                const questionHtml = marked.parse(questionText.trim()) as string;
+                fullHtml += `<div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; padding: 10px 14px; margin-bottom: 18px; border-radius: 4px;">
+                    <strong style="color: #15803d; font-size: 13px;">CÂU HỎI:</strong>
+                    <div style="margin-top: 6px; color: #1e293b;">${questionHtml}</div>
+                </div>`;
+            }
+
+            const answerHtml = marked.parse(answerText.trim()) as string;
+            fullHtml += `<div style="margin-top: 10px; color: #0f172a; line-height: 1.6;">
+                <strong style="color: #2563eb; font-size: 13px;">CÂU TRẢ LỜI:</strong>
+                <div style="margin-top: 6px;">${answerHtml}</div>
+            </div>`;
+
+            // Làm sạch HTML
+            const cleanHtml = DOMPurify.sanitize(fullHtml, { USE_PROFILES: { html: true } });
+            const htmlConverted = htmlToPdfmake(cleanHtml, {
+                window: window,
+                tableAutoSize: true
+            });
+
+            const rawTitle = questionText && questionText.trim()
+                ? questionText.trim().slice(0, 40)
+                : 'Cau_Tra_Loi_Gemini';
+            const safeFileName = rawTitle.replace(/[/\\?%*:|"<> \n\r\t]/g, '_').trim() || 'Cau_Tra_Loi_Gemini';
+            const currentDateStr = new Date().toLocaleDateString('vi-VN');
+
+            const docDefinition = {
+                header: (currentPage: number, pageCount: number) => {
+                    return {
+                        columns: [
+                            { text: 'ai.type - Trợ lý AI', alignment: 'left', fontSize: 8, color: '#64748b' },
+                            { text: `Xuất ngày: ${currentDateStr}`, alignment: 'right', fontSize: 8, color: '#64748b' }
+                        ],
+                        margin: [40, 15, 40, 0]
+                    };
+                },
+                footer: (currentPage: number, pageCount: number) => {
+                    return {
+                        columns: [
+                            { text: 'ai.type', alignment: 'left', fontSize: 8, color: '#94a3b8' },
+                            { text: `Trang ${currentPage} / ${pageCount}`, alignment: 'right', fontSize: 8, color: '#94a3b8' }
+                        ],
+                        margin: [40, 10, 40, 0]
+                    };
+                },
+                pageMargins: [40, 45, 40, 45],
+                content: [
+                    htmlConverted
+                ],
+                defaultStyle: {
+                    font: 'Roboto'
+                }
+            };
+
+            pdfMake.createPdf(docDefinition).download(`${safeFileName}.pdf`);
+            this.toastr.success('Đã xuất tệp PDF thành công!');
+        } catch (error: any) {
+            console.error('Lỗi khi xuất PDF:', error);
+            this.toastr.error('Có lỗi xảy ra khi tạo tệp PDF!');
+        }
     }
 
     answer2Node(answer: string) {

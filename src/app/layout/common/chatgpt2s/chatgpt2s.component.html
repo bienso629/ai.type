@@ -602,6 +602,25 @@
                                                 >Hỏi lại</span
                                             >
                                         </button>
+                                        <button
+                                            type="button"
+                                            (click)="
+                                                exportPdfModelMessage(
+                                                    msg,
+                                                    activeChatRow
+                                                )
+                                            "
+                                            class="flex items-center hover:text-red-600 dark:hover:text-red-400 transition-colors p-0.5 rounded cursor-pointer"
+                                            title="Xuất câu trả lời ra PDF"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-3.5 mr-1"
+                                                [svgIcon]="'feather:file-text'"
+                                            ></mat-icon>
+                                            <span class="text-[11px]"
+                                                >PDF</span
+                                            >
+                                        </button>
                                     </div>
                                     <!-- Action button for sharing -->
                                     @if (
