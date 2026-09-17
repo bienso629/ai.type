@@ -114,6 +114,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
+        { id: 'omnivoice-yenai', name: 'Yenai (OmniVoice Colab)' },
+        { id: 'omnivoice-mpsg', name: 'MPSG (OmniVoice Colab)' },
         // { id: 'nam-calm', name: 'Nam điềm tĩnh (Server)' },
         // { id: 'nam-cham', name: 'Nam chậm (Server)' },
         // { id: 'nam-nhanh', name: 'Nam nhanh (Server)' },
@@ -503,6 +505,26 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         'tts-generate',
                         payload,
                     );
+                } else if (clipVoice.startsWith('omnivoice-') || clipVoice === 'omnivoice') {
+                    const niceFilename = `${prefix}_${slug}_${fileSuffix}`;
+                    const targetVoiceName = clipVoice.replace('omnivoice-', '');
+                    const refAudioName = targetVoiceName.endsWith('.wav') ? targetVoiceName : `${targetVoiceName}.wav`;
+
+                    const payload = {
+                        text: clip.description,
+                        voice_id: targetVoiceName,
+                        ref_audio_name: refAudioName,
+                        ref_text: clip['ref_text'] || '',
+                        speed: clip.rate || 1.0,
+                        num_step: 16,
+                        filename: niceFilename,
+                        username: subPath,
+                    };
+
+                    res = await (window as any).electron.invoke(
+                        'tts-type-generate',
+                        payload,
+                    );
                 } else {
                     const selectedVoiceSplit = clipVoice.split('-');
                     const voice_id = selectedVoiceSplit[0];
@@ -606,6 +628,25 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 resolve();
             }
         });
+    }
+
+    async openColabBridge() {
+        if (!(window as any).electronAPI || !(window as any).electronAPI.startColabGpu) {
+            this.toastr.warning('Chỉ hỗ trợ kích hoạt Colab GPU trên ứng dụng Desktop Electron.');
+            return;
+        }
+
+        this.toastr.info('Đang khởi tạo máy ảo GPU Tesla T4 trên Colab qua Plugin...');
+        try {
+            const res = await (window as any).electronAPI.startColabGpu();
+            if (res && res.success) {
+                this.toastr.success(res.message || `Đã kết nối GPU Colab (${res.gpu || 'Tesla T4'}) thành công!`, 'Colab GPU');
+            } else {
+                this.toastr.error(res?.error || 'Không thể khởi tạo GPU Colab. Vui lòng kiểm tra tab Plugins trong Cài đặt.', 'Colab GPU');
+            }
+        } catch (e: any) {
+            this.toastr.error('Lỗi kết nối Colab Agent Plugin: ' + (e?.message || e), 'Colab GPU');
+        }
     }
 
     async cancelProcessing() {

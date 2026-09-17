@@ -427,38 +427,166 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 const targetUrl =
                     'https://colab.research.google.com/#create=true';
 
-                const pyCode = `# === AI.TYPE GPU BRIDGE AUTO-RUNNER ===
-import os, sys, time, subprocess, json, base64, threading, io, traceback, re
-print("⏳ [ai.type] Đang chuẩn bị môi trường GPU...")
+                const pyCode = `# === AI.TYPE GPU BRIDGE & OMNIVOICE RUNNER ===
+import os, sys, time, subprocess, json, base64, threading, io, traceback, re, shutil
+print("⏳ [ai.type] Đang chuẩn bị môi trường GPU & OmniVoice...")
 
 os.system("wget -q -nc https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && dpkg -i cloudflared-linux-amd64.deb > /dev/null 2>&1")
-os.system("pip install -q fastapi uvicorn pydantic requests sentence-transformers faiss-gpu pypdf pdfplumber > /dev/null 2>&1")
+os.system("pip install -q fastapi uvicorn pydantic requests soundfile torchaudio sentence-transformers faiss-gpu pypdf pdfplumber > /dev/null 2>&1")
+os.system("pip install -q omnivoice > /dev/null 2>&1 || pip install -q git+https://github.com/k2-fsa/OmniVoice.git > /dev/null 2>&1")
 
 import torch
-from fastapi import FastAPI
+import soundfile as sf
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import uvicorn, requests
 
-app = FastAPI(title="ai.type Colab Bridge", version="1.0.1")
+VOICES_DIR = "/content/voices"
+OUTPUT_DIR = "/content/tts_output"
+os.makedirs(VOICES_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+omnivoice_model = None
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+
+try:
+    from omnivoice import OmniVoice
+    omnivoice_model = OmniVoice.from_pretrained("k2-fsa/OmniVoice", device_map=device, dtype=dtype)
+    print(f"✅ OmniVoice đã sẵn sàng trên GPU: {device}")
+except Exception as e:
+    print(f"⚠️ Sẽ nạp OmniVoice khi có yêu cầu đầu tiên: {e}")
+
+app = FastAPI(title="ai.type Colab Bridge", version="1.2.3")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 class ToolCallRequest(BaseModel):
     name: str
     arguments: Dict[str, Any] = {}
 
+class AudioAsyncRequest(BaseModel):
+    text: str
+    voice: Optional[str] = "yenai"
+    ref_audio_name: Optional[str] = "yenai.wav"
+    ref_text: Optional[str] = ""
+    speed: Optional[float] = 1.0
+    num_step: Optional[int] = 16
+    ref_audio_base64: Optional[str] = None
+
+tasks_db = {}
+
 @app.get("/")
 @app.get("/status")
 def server_status():
     gpu_info = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
     vram_free = round(torch.cuda.mem_get_info()[0] / (1024**3), 2) if torch.cuda.is_available() else 0
-    return {"status": "online", "gpu": f"{gpu_info} ({vram_free}GB VRAM Free)", "version": "1.0.1"}
+    return {
+        "status": "online",
+        "gpu": f"{gpu_info} ({vram_free}GB VRAM Free)",
+        "version": "1.2.3",
+        "omnivoice_loaded": omnivoice_model is not None,
+        "available_voices": [f for f in os.listdir(VOICES_DIR) if f.endswith(('.wav', '.mp3'))]
+    }
+
+@app.get("/status/{task_id}")
+def get_task_status(task_id: str):
+    if task_id not in tasks_db:
+        return {"status": "error", "message": "Task không tồn tại"}
+    return tasks_db[task_id]
+
+@app.get("/download/{filename}")
+def download_file(filename: str):
+    file_path = os.path.join(OUTPUT_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File không tồn tại")
+    return FileResponse(file_path, media_type="audio/wav", filename=filename)
+
+@app.post("/cancel_task/{task_id}")
+def cancel_task(task_id: str):
+    if task_id in tasks_db:
+        tasks_db[task_id]["status"] = "cancelled"
+    return {"success": True}
+
+def run_omnivoice_task(task_id: str, req: AudioAsyncRequest):
+    global omnivoice_model
+    try:
+        tasks_db[task_id] = {"status": "processing", "progress": 20}
+        if omnivoice_model is None:
+            from omnivoice import OmniVoice
+            omnivoice_model = OmniVoice.from_pretrained("k2-fsa/OmniVoice", device_map=device, dtype=dtype)
+
+        ref_audio_path = None
+        if req.ref_audio_base64:
+            ref_audio_path = os.path.join(VOICES_DIR, f"{task_id}_ref.wav")
+            with open(ref_audio_path, "wb") as f:
+                f.write(base64.b64decode(req.ref_audio_base64))
+        else:
+            target_name = req.ref_audio_name or "yenai.wav"
+            candidates = [
+                os.path.join(VOICES_DIR, target_name),
+                os.path.join(VOICES_DIR, target_name.lower()),
+                os.path.join(VOICES_DIR, f"{target_name}.wav"),
+                os.path.join(VOICES_DIR, "yenai.wav"),
+                os.path.join(VOICES_DIR, "mpsg.wav")
+            ]
+            for c in candidates:
+                if os.path.exists(c):
+                    ref_audio_path = c
+                    break
+
+        if tasks_db.get(task_id, {}).get("status") == "cancelled":
+            return
+
+        gen_kwargs = {"text": req.text}
+        if ref_audio_path and os.path.exists(ref_audio_path):
+            gen_kwargs["ref_audio"] = ref_audio_path
+            if req.ref_text and req.ref_text.strip():
+                gen_kwargs["ref_text"] = req.ref_text.strip()
+
+        tasks_db[task_id]["progress"] = 50
+        audio_list = omnivoice_model.generate(**gen_kwargs)
+
+        out_filename = f"{task_id}.wav"
+        out_filepath = os.path.join(OUTPUT_DIR, out_filename)
+        sf.write(out_filepath, audio_list[0], 24000)
+
+        tasks_db[task_id] = {
+            "status": "done",
+            "download_url": f"/download/{out_filename}",
+            "task_id": task_id
+        }
+    except Exception as e:
+        traceback.print_exc()
+        tasks_db[task_id] = {"status": "error", "message": str(e)}
+
+@app.post("/generate_audio_async")
+def generate_audio_async(req: AudioAsyncRequest):
+    task_id = f"task_{int(time.time()*1000)}_{os.urandom(3).hex()}"
+    tasks_db[task_id] = {"status": "pending", "progress": 0}
+    threading.Thread(target=run_omnivoice_task, args=(task_id, req), daemon=True).start()
+    return {"task_id": task_id, "status": "started"}
 
 @app.post("/call_tool")
 def handle_call_tool(req: ToolCallRequest):
     tool, args = req.name, req.arguments
-    if tool == "execute_code":
+    if tool == "omnivoice_tts":
+        text = args.get("text", "")
+        voice_name = args.get("voice", "yenai")
+        ref_audio_b64 = args.get("ref_audio_base64", None)
+        req_obj = AudioAsyncRequest(text=text, ref_audio_name=f"{voice_name}.wav", ref_audio_base64=ref_audio_b64)
+        task_id = f"tool_{int(time.time()*1000)}_{os.urandom(3).hex()}"
+        run_omnivoice_task(task_id, req_obj)
+        result = tasks_db.get(task_id, {})
+        if result.get("status") == "done":
+            wav_path = os.path.join(OUTPUT_DIR, f"{task_id}.wav")
+            with open(wav_path, "rb") as f:
+                wav_b64 = base64.b64encode(f.read()).decode("ascii")
+            return {"status": "success", "audio_base64": wav_b64, "download_url": result.get("download_url")}
+        return {"status": "error", "error": result.get("message", "Xử lý thất bại")}
+    elif tool == "execute_code":
         code, lang = args.get("code", ""), args.get("language", "python")
         if lang in ["bash", "shell"]:
             res = subprocess.run(code, shell=True, capture_output=True, text=True, timeout=120)

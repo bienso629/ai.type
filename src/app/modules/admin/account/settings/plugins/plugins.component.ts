@@ -334,12 +334,32 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         }
     }
 
+    colabAccounts: any[] = [];
+    colabActiveEmail: string = '';
+
     async checkColabStatus() {
         this.colabChecking = true;
         try {
             if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
                 const authRes = await (window as any).electronAPI.getColabAuthStatus();
                 this.isColabLoggedIn = authRes && authRes.authenticated;
+                this.colabAccounts = (authRes && authRes.accounts) || [];
+                this.colabActiveEmail = (authRes && authRes.active_email) || '';
+            }
+
+            // Fallback trực tiếp tới Colab Agent Service trên máy cục bộ
+            if (this.colabAccounts.length === 0) {
+                try {
+                    const authResp = await fetch('http://127.0.0.1:7868/auth_status');
+                    if (authResp.ok) {
+                        const authData = await authResp.json();
+                        if (authData && authData.authenticated) {
+                            this.isColabLoggedIn = true;
+                            this.colabAccounts = authData.accounts || [];
+                            this.colabActiveEmail = authData.active_email || '';
+                        }
+                    }
+                } catch(e) {}
             }
 
             const resp = await fetch('http://127.0.0.1:7868/status');
@@ -356,6 +376,71 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         }
     }
 
+    async switchColabAccount(email: string) {
+        if (!email || email === this.colabActiveEmail) return;
+        this.toastr.info(`Đang chuyển sang tài khoản ${email}...`);
+        try {
+            if ((window as any).electronAPI && (window as any).electronAPI.switchColabAccount) {
+                const res = await (window as any).electronAPI.switchColabAccount(email);
+                if (res && res.success) {
+                    this.colabActiveEmail = res.active_email || email;
+                    this.colabAccounts = res.accounts || this.colabAccounts;
+                    this.toastr.success(`Đã kích hoạt tài khoản ${email}`);
+                } else {
+                    this.toastr.error(res?.error || 'Không thể chuyển tài khoản.');
+                }
+            } else {
+                const resp = await fetch('http://127.0.0.1:7868/switch_account', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const res = await resp.json();
+                if (res && res.success) {
+                    this.colabActiveEmail = res.active_email || email;
+                    this.colabAccounts = res.accounts || this.colabAccounts;
+                    this.toastr.success(`Đã kích hoạt tài khoản ${email}`);
+                }
+            }
+        } catch(e: any) {
+            this.toastr.error('Lỗi chuyển tài khoản: ' + e.message);
+        }
+        this.cd.detectChanges();
+    }
+
+    async removeColabAccount(email: string, event?: MouseEvent) {
+        if (event) event.stopPropagation();
+        if (!confirm(`Bạn có chắc muốn xóa tài khoản ${email} khỏi danh sách Colab GPU?`)) return;
+
+        try {
+            if ((window as any).electronAPI && (window as any).electronAPI.removeColabAccount) {
+                const res = await (window as any).electronAPI.removeColabAccount(email);
+                if (res && res.success) {
+                    this.colabAccounts = res.accounts || [];
+                    this.colabActiveEmail = res.active_email || '';
+                    this.isColabLoggedIn = this.colabAccounts.length > 0;
+                    this.toastr.success(`Đã gỡ tài khoản ${email}`);
+                }
+            } else {
+                const resp = await fetch('http://127.0.0.1:7868/remove_account', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const res = await resp.json();
+                if (res && res.success) {
+                    this.colabAccounts = res.accounts || [];
+                    this.colabActiveEmail = res.active_email || '';
+                    this.isColabLoggedIn = this.colabAccounts.length > 0;
+                    this.toastr.success(`Đã gỡ tài khoản ${email}`);
+                }
+            }
+        } catch(e: any) {
+            this.toastr.error('Lỗi xóa tài khoản: ' + e.message);
+        }
+        this.cd.detectChanges();
+    }
+
     async loginGoogleColab() {
         if (!(window as any).electronAPI || !(window as any).electronAPI.loginColabGoogle) {
             this.toastr.info('Tính năng này hoạt động trên ứng dụng Desktop.');
@@ -367,7 +452,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         try {
             const res = await (window as any).electronAPI.loginColabGoogle();
             if (res && res.success) {
-                this.toastr.info('Vui lòng bấm "Cho phép" trên trình duyệt, sau đó dán mã xác thực (4/0A...) vào ô bên dưới.');
+                this.toastr.info('Vui lòng chọn tài khoản Google trên trình duyệt, bấm "Cho phép" và dán mã xác thực (4/0A...) vào ô bên dưới.');
                 // Lắng nghe clipboard tự động nếu người dùng vừa copy
                 this.startClipboardWatcher();
             } else {
@@ -383,7 +468,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         let count = 0;
         const interval = setInterval(async () => {
             count++;
-            if (count > 60 || this.isColabLoggedIn || !this.isColabAuthenticating) {
+            if (count > 60 || !this.isColabAuthenticating) {
                 clearInterval(interval);
                 return;
             }
@@ -415,7 +500,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 this.isColabLoggedIn = true;
                 this.isColabAuthenticating = false;
                 this.colabAuthCode = '';
-                this.toastr.success(res.message || 'Đã liên kết Google Colab thành công!');
+                this.toastr.success(res.message || 'Đã liên kết tài khoản Google Colab thành công!');
                 this.checkColabStatus();
             } else {
                 this.toastr.error(this.formatErrorMessage(res?.error || 'Mã xác thực không hợp lệ hoặc đã hết hạn.'));
