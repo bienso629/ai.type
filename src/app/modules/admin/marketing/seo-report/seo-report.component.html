@@ -40,28 +40,6 @@
                     "app.auto_export_report" | transloco
                 }}</mat-label>
             </button>
-            <button
-                mat-flat-button
-                class="!bg-purple-600 hover:!bg-purple-700 text-white"
-                (click)="exportImageReport()"
-                [disabled]="isExportingImage"
-            >
-                @if (!isExportingImage) {
-                    <mat-icon
-                        svgIcon="feather:image"
-                        class="icon-size-4"
-                    ></mat-icon>
-                }
-                @if (isExportingImage) {
-                    <mat-icon
-                        class="icon-size-4 animate-spin"
-                        svgIcon="feather:loader"
-                    ></mat-icon>
-                }
-                <mat-label class="ml-2">{{
-                    isExportingImage ? "Đang tạo ảnh..." : "Báo cáo bằng ảnh"
-                }}</mat-label>
-            </button>
             <input
                 type="file"
                 (change)="readFile($event)"

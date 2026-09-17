@@ -2320,3 +2320,18 @@ mat-icon:not(:has(svg)),
     font-feature-settings: 'liga' !important;
     -webkit-font-smoothing: antialiased !important;
 }
+
+/* Đảm bảo nút xác nhận thao tác xóa (color='warn') trong dialog luôn hiển thị màu đỏ rõ ràng */
+fuse-confirmation-dialog {
+    button[mat-flat-button][color="warn"],
+    button.mat-warn.mat-mdc-unelevated-button {
+        --mdc-filled-button-container-color: #ef4444 !important;
+        --mdc-filled-button-label-text-color: #ffffff !important;
+        background-color: #ef4444 !important;
+        color: #ffffff !important;
+
+        &:hover {
+            background-color: #dc2626 !important;
+        }
+    }
+}

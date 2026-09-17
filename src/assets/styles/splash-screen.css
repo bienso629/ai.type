@@ -18,9 +18,9 @@ body fuse-splash-screen {
 }
 
 body fuse-splash-screen img {
-    width: 120px;
-    max-width: 120px;
-    max-height: 120px;
+    width: 72px;
+    max-width: 72px;
+    max-height: 72px;
     height: auto;
     object-fit: contain;
 }

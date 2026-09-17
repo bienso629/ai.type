@@ -455,7 +455,25 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     }
                 }
             });
-            footer.appendChild(reAskBtn);
+            // 4. Nút PDF (chỉ hiển thị cho câu trả lời của Bot)
+            if (m[2] !== 'user') {
+                const pdfBtn = document.createElement('button');
+                pdfBtn.type = 'button';
+                pdfBtn.className = 'flex items-center hover:text-red-600 dark:hover:text-red-400 transition-colors p-0.5 rounded cursor-pointer';
+                pdfBtn.title = 'Xuất câu trả lời ra PDF';
+                pdfBtn.innerHTML = `<svg class="w-3.5 h-3.5 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span class="text-[11px]">PDF</span>`;
+                pdfBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const answerText = (m[3] ?? '').toString();
+                    let questionText = '';
+                    const msgIdx = messages.indexOf(m);
+                    if (msgIdx > 0 && messages[msgIdx - 1]?.[2] === 'user') {
+                        questionText = (messages[msgIdx - 1][3] ?? '').toString();
+                    }
+                    this.exportToPdf(answerText, questionText);
+                });
+                footer.appendChild(pdfBtn);
+            }
 
             bubbleWrap.appendChild(footer);
             message.appendChild(avatar);
@@ -471,6 +489,90 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             setTimeout(() => {
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             }, 50);
+        }
+    }
+
+    async exportToPdf(answerText: string, questionText?: string): Promise<void> {
+        if (!answerText || answerText === 'Đang phân tích...' || answerText === 'Đang suy nghĩ & trả lời...') {
+            this.toastr.warning('Nội dung câu trả lời chưa sẵn sàng để xuất PDF!');
+            return;
+        }
+
+        try {
+            this.toastr.info('Đang tạo tệp PDF...');
+
+            const pdfMakeModule = await import('pdfmake/build/pdfmake');
+            const pdfMake = (pdfMakeModule as any).default || pdfMakeModule;
+            const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
+            const pdfFonts = (pdfFontsModule as any).default || pdfFontsModule;
+            const htmlToPdfmakeModule = await import('html-to-pdfmake');
+            const htmlToPdfmake = ((htmlToPdfmakeModule as any).default || htmlToPdfmakeModule) as Function;
+
+            pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts.vfs;
+
+            // Xử lý Markdown -> HTML cho câu hỏi và câu trả lời
+            let fullHtml = '';
+            if (questionText && questionText.trim()) {
+                const questionHtml = marked.parse(questionText.trim()) as string;
+                fullHtml += `<div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; padding: 10px 14px; margin-bottom: 18px; border-radius: 4px;">
+                    <strong style="color: #15803d; font-size: 13px;">CÂU HỎI:</strong>
+                    <div style="margin-top: 6px; color: #1e293b;">${questionHtml}</div>
+                </div>`;
+            }
+
+            const answerHtml = marked.parse(answerText.trim()) as string;
+            fullHtml += `<div style="margin-top: 10px; color: #0f172a; line-height: 1.6;">
+                <strong style="color: #2563eb; font-size: 13px;">CÂU TRẢ LỜI:</strong>
+                <div style="margin-top: 6px;">${answerHtml}</div>
+            </div>`;
+
+            // Làm sạch HTML
+            const cleanHtml = DOMPurify.sanitize(fullHtml, { USE_PROFILES: { html: true } });
+            const htmlConverted = htmlToPdfmake(cleanHtml, {
+                window: window,
+                tableAutoSize: true
+            });
+
+            // Tiêu đề và tên file
+            const rawTitle = questionText && questionText.trim()
+                ? questionText.trim().slice(0, 40)
+                : 'Cau_Tra_Loi_AI';
+            const safeFileName = rawTitle.replace(/[/\\?%*:|"<> \n\r\t]/g, '_').trim() || 'Cau_Tra_Loi_AI';
+            const currentDateStr = new Date().toLocaleDateString('vi-VN');
+
+            const docDefinition = {
+                header: (currentPage: number, pageCount: number) => {
+                    return {
+                        columns: [
+                            { text: 'ai.type - Trợ lý AI & Hỏi đáp tài liệu', alignment: 'left', fontSize: 8, color: '#64748b' },
+                            { text: `Xuất ngày: ${currentDateStr}`, alignment: 'right', fontSize: 8, color: '#64748b' }
+                        ],
+                        margin: [40, 15, 40, 0]
+                    };
+                },
+                footer: (currentPage: number, pageCount: number) => {
+                    return {
+                        columns: [
+                            { text: 'ai.type', alignment: 'left', fontSize: 8, color: '#94a3b8' },
+                            { text: `Trang ${currentPage} / ${pageCount}`, alignment: 'right', fontSize: 8, color: '#94a3b8' }
+                        ],
+                        margin: [40, 10, 40, 0]
+                    };
+                },
+                pageMargins: [40, 45, 40, 45],
+                content: [
+                    htmlConverted
+                ],
+                defaultStyle: {
+                    font: 'Roboto'
+                }
+            };
+
+            pdfMake.createPdf(docDefinition).download(`${safeFileName}.pdf`);
+            this.toastr.success('Đã xuất tệp PDF thành công!');
+        } catch (error: any) {
+            console.error('Lỗi khi xuất PDF:', error);
+            this.toastr.error('Có lỗi xảy ra khi tạo tệp PDF!');
         }
     }
 
@@ -572,8 +674,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             message: `Bạn có chắc chắn muốn xóa cuộc trò chuyện <strong>${threadName}</strong> không?`,
             icon: {
                 show: true,
-                name: 'heroicons_outline:exclamation-triangle',
-                color: 'warn'
+                name: 'heroicons_outline:trash',
+                color: 'error'
             },
             actions: {
                 confirm: {
@@ -624,8 +726,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             message: 'Bạn có chắc chắn muốn xóa toàn bộ lịch sử các cuộc trò chuyện không? Thao tác này không thể hoàn tác.',
             icon: {
                 show: true,
-                name: 'heroicons_outline:exclamation-triangle',
-                color: 'warn'
+                name: 'heroicons_outline:trash',
+                color: 'error'
             },
             actions: {
                 confirm: {
@@ -1681,6 +1783,11 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa tài liệu',
             message: `Bạn có chắc chắn muốn xóa file <strong>${filename}</strong> không?`,
+            icon: {
+                show: true,
+                name: 'heroicons_outline:trash',
+                color: 'error'
+            },
             actions: {
                 confirm: {
                     show: true,
