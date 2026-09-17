@@ -245,6 +245,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loginColabGoogle: () => ipcRenderer.invoke('login-colab-google'),
     exchangeColabCode: (code) => ipcRenderer.invoke('exchange-colab-code', code),
     getColabAuthStatus: () => ipcRenderer.invoke('get-colab-auth-status'),
+    switchColabAccount: (email) => ipcRenderer.invoke('switch-colab-account', email),
+    removeColabAccount: (email) => ipcRenderer.invoke('remove-colab-account', email),
     startColabGpu: () => ipcRenderer.invoke('start-colab-gpu'),
     stopColabGpu: () => ipcRenderer.invoke('stop-colab-gpu'),
     getPluginsStatus: () => ipcRenderer.invoke('get-plugins-status'),

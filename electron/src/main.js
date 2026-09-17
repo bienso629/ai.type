@@ -5009,12 +5009,48 @@ ipcMain.handle('toggle-colab-agent', (event, enable) => {
     }
 });
 
-ipcMain.handle('get-colab-auth-status', () => {
+ipcMain.handle('get-colab-auth-status', async () => {
     try {
+        startColabAgent();
+        try {
+            const resp = await fetch('http://127.0.0.1:7868/auth_status');
+            if (resp.ok) {
+                const data = await resp.json();
+                return data;
+            }
+        } catch(e) {}
         const tokenPath = path.join(os.homedir(), ".config", "colab-cli", "token.json");
-        return { authenticated: fs.existsSync(tokenPath), tokenPath };
+        return { authenticated: fs.existsSync(tokenPath), tokenPath, accounts: [], active_email: '' };
     } catch(e) {
-        return { authenticated: false };
+        return { authenticated: false, accounts: [], active_email: '' };
+    }
+});
+
+ipcMain.handle('switch-colab-account', async (event, email) => {
+    try {
+        const resp = await fetch('http://127.0.0.1:7868/switch_account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await resp.json();
+        return data;
+    } catch(e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('remove-colab-account', async (event, email) => {
+    try {
+        const resp = await fetch('http://127.0.0.1:7868/remove_account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await resp.json();
+        return data;
+    } catch(e) {
+        return { success: false, error: e.message };
     }
 });
 
@@ -7786,56 +7822,77 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
 const activeTtsTasks = new Set();
 
 ipcMain.handle("tts-type-generate", async (event, payload) => {
-    const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username } = payload;
+    const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username, ref_audio_base64 } = payload;
 
-    // �?ịnh nghĩa Base URL của API
-    const API_BASE_URL = "https://tts.type.vn";
+    // Kiểm tra xem có kết nối Colab GPU đang hoạt động hay không
+    let colabBaseUrl = null;
+    try {
+        if (colabMcpClient && colabMcpClient.isConnected && colabMcpClient.baseUrl) {
+            colabBaseUrl = colabMcpClient.baseUrl;
+        } else {
+            // Thử kiểm tra daemon local cổng 7868
+            const localResp = await fetch("http://127.0.0.1:7868/status", { signal: AbortSignal.timeout(1500) });
+            if (localResp.ok) {
+                const statusJson = await localResp.json();
+                if (statusJson && statusJson.is_connected && statusJson.colab_url) {
+                    colabBaseUrl = statusJson.colab_url;
+                }
+            }
+        }
+    } catch (e) {}
+
+    // Định nghĩa Base URL của API (ưu tiên Colab OmniVoice, fallback sang tts.type.vn)
+    const isColab = !!colabBaseUrl;
+    const API_BASE_URL = isColab ? colabBaseUrl.replace(/\/+$/, "") : "https://tts.type.vn";
 
     try {
-        // BƯỚC 1: POST yêu cầu lên endpoint _async để lấy task_id
-        sendToRenderer("tools-log", `[Type TTS] �?ang gửi yêu cầu tạo audio cho: ${filename}...`);
+        const logPrefix = isColab ? "[OmniVoice Colab]" : "[Type TTS]";
+        sendToRenderer("tools-log", `${logPrefix} Đang gửi yêu cầu tạo audio tới ${API_BASE_URL} cho: ${filename}...`);
+
+        const requestBody = {
+            "text": text,
+            "ref_audio_name": ref_audio_name,
+            "ref_text": ref_text || "",
+            "speed": Number(speed) || 1.0,
+            "num_step": Number(num_step) || 16
+        };
+
+        if (ref_audio_base64) {
+            requestBody["ref_audio_base64"] = ref_audio_base64;
+        }
 
         const postRes = await fetch(`${API_BASE_URL}/generate_audio_async`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                "text": text,
-                "ref_audio_name": ref_audio_name,
-                "ref_text": ref_text,
-                "speed": Number(speed) || 1.0,
-                "num_step": Number(num_step) || 16
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!postRes.ok) throw new Error(`HTTP Error: ${postRes.status}`);
         const postData = await postRes.json();
         const taskId = postData.task_id;
 
-        if (!taskId) throw new Error("API không trả v�? Task ID");
+        if (!taskId) throw new Error("API không trả về Task ID");
 
         // BỎ TASK ID VÀO SỔ THEO DÕI
-        if (taskId) activeTtsTasks.add(taskId);
+        activeTtsTasks.add({ id: taskId, baseUrl: API_BASE_URL });
 
-        // BƯỚC 2: Polling (H�?i thăm) xem file đã xong chưa
-        sendToRenderer("tools-log", `[Type TTS] �?ang xử lý Audio (Task ID: ${taskId})...`);
+        // BƯỚC 2: Polling (Hỏi thăm) xem file đã xong chưa
+        sendToRenderer("tools-log", `${logPrefix} Đang xử lý Audio trên GPU (Task ID: ${taskId})...`);
 
         let downloadPath = "";
         let attempts = 0;
 
-        while (attempts < 900) { // Tăng Timeout lên 30 phút (1800 giây) để cho máy chủ thảnh thơi xử lý
-            // === THÊM �?OẠN NÀY ===
-            // Nếu taskId đã bị hàm cancel-tts xóa kh�?i sổ, lập tức dừng vòng lặp
-            if (!activeTtsTasks.has(taskId)) {
+        while (attempts < 900) { // Timeout 30 phút cho máy chủ xử lý
+            const currentItem = Array.from(activeTtsTasks).find(t => (typeof t === 'string' ? t === taskId : t.id === taskId));
+            if (!currentItem) {
                 throw new Error("Task đã bị hủy bởi người dùng.");
             }
-            // =====================
 
             const statusRes = await fetch(`${API_BASE_URL}/status/${taskId}`);
             const statusData = await statusRes.json();
 
-            // Cập nhật thêm việc bắt trạng thái cancelled từ server (nếu có)
             if (statusData.status === "done") {
                 downloadPath = statusData.download_url;
                 break;
@@ -7843,26 +7900,31 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
                 throw new Error(statusData.message || "Quá trình tạo audio đã bị dừng hoặc lỗi.");
             }
 
-            // Ch�? 2 giây trước khi h�?i lại
+            // Chờ 2 giây trước khi hỏi lại
             await new Promise(r => setTimeout(r, 2000));
             attempts++;
         }
 
-        if (!downloadPath) throw new Error("Quá th�?i gian ch�? (Timeout) - API chạy quá lâu.");
+        if (!downloadPath) throw new Error("Quá thời gian chờ (Timeout) - API chạy quá lâu.");
 
-        // BƯỚC 3: Tải file audio v�? máy tính
-        sendToRenderer("tools-log", `[Type TTS] �?ã xử lý xong, đang tải file v�?...`);
+        // BƯỚC 3: Tải file audio về máy tính
+        sendToRenderer("tools-log", `${logPrefix} Đã xử lý xong, đang tải file về...`);
 
         // KHI NÀO TẢI XONG FILE, XÓA TASK KHỎI SỔ
-        activeTtsTasks.delete(taskId);
+        for (const item of activeTtsTasks) {
+            if ((typeof item === 'string' && item === taskId) || item.id === taskId) {
+                activeTtsTasks.delete(item);
+            }
+        }
 
-        const fileRes = await fetch(`${API_BASE_URL}${downloadPath}`);
+        const fullDownloadUrl = downloadPath.startsWith("http") ? downloadPath : `${API_BASE_URL}${downloadPath}`;
+        const fileRes = await fetch(fullDownloadUrl);
         if (!fileRes.ok) throw new Error("Không thể tải file âm thanh từ server.");
 
         const arrayBuffer = await fileRes.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Thiết lập đư�?ng dẫn lưu cục bộ
+        // Thiết lập đường dẫn lưu cục bộ
         const documentsPath = app.getPath("documents");
         const saveDir = path.join(documentsPath, "ai.type", "data", "tts", username || "default");
 
@@ -7876,7 +7938,7 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
         // Ghi file
         fs.writeFileSync(filePath, buffer);
 
-        sendToRenderer("tools-log", `[Type TTS] ✅ �?ã lưu file thành công tại: ${filePath}`);
+        sendToRenderer("tools-log", `${logPrefix} ✅ Đã lưu file thành công tại: ${filePath}`);
 
         return {
             success: true,
@@ -7885,26 +7947,28 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
 
     } catch (error) {
         console.error("Type TTS Error:", error);
-        sendToRenderer("tools-log", `[Type TTS] �?� Lỗi: ${error.message}`);
+        sendToRenderer("tools-log", `[TTS Error] ❌ Lỗi: ${error.message}`);
         return { success: false, error: error.message };
     }
 });
 
-// 2. THÊM CỔNG MỚI �?Ể NHẬN LỆNH HỦY TỪ ANGULAR
+// 2. THÊM CỔNG MỚI ĐỂ NHẬN LỆNH HỦY TỪ ANGULAR
 ipcMain.handle('cancel-tts', async (event) => {
-    console.log('Nhận lệnh hủy từ UI. �?ang hủy các task:', Array.from(activeTtsTasks));
+    console.log('Nhận lệnh hủy từ UI. Đang hủy các task:', Array.from(activeTtsTasks));
 
     const cancelPromises = [];
 
-    // Duyệt qua tất cả các task đang chạy ngầm và g�?i API hủy
-    for (const taskId of activeTtsTasks) {
+    // Duyệt qua tất cả các task đang chạy ngầm và gọi API hủy
+    for (const taskItem of activeTtsTasks) {
+        const taskId = typeof taskItem === 'string' ? taskItem : taskItem.id;
+        const targetBaseUrl = typeof taskItem === 'string' ? "https://tts.type.vn" : (taskItem.baseUrl || "https://tts.type.vn");
         cancelPromises.push(
-            fetch(`https://tts.type.vn/cancel_task/${taskId}`, { method: 'POST' })
+            fetch(`${targetBaseUrl}/cancel_task/${taskId}`, { method: 'POST' })
                 .catch(err => console.log(`Lỗi hủy task ${taskId}:`, err.message))
         );
     }
 
-    // �?ợi gửi lệnh hủy xong
+    // Đợi gửi lệnh hủy xong
     await Promise.all(cancelPromises);
 
     // Xóa sạch sổ
