@@ -306,36 +306,6 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
 
     getMyKeys() {
         this.checkColabStatus();
-        this._voice
-            .getMyKeys({
-                username: this.data.username,
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success && result.data.length > 0) {
-                        this.myvoices = result.data;
-                        this.myvoices.map((voice: any) => {
-                            if (
-                                voice.base === 'ausynclab.io' ||
-                                voice.base === 'tts.type.vn'
-                            ) {
-                                if (!this.voiceList.some(v => v.id === `${voice.id}-${voice.base}`)) {
-                                    this.voiceList.push({
-                                        id: `${voice.id}-${voice.base}`,
-                                        name: voice.name,
-                                    });
-                                }
-                            }
-                        });
-                        this.cd.detectChanges();
-                    }
-                },
-                error: (e: any) => {
-                    this.toastr.warning('Tải video thất bại.');
-                },
-                complete: () => {},
-            });
     }
 
     startParallelProcess(): void {

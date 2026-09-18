@@ -29,6 +29,6 @@
 <div class="flex items-center justify-end mt-4 mb-2">
     <button mat-flat-button [color]="'primary'" type="button" (click)="submit()" [disabled]="!emailComposer.subject || !emailComposer.content">
         <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
-        <mat-label class="ml-2 text-base">{{ 'app.auto_send_email' | transloco }}</mat-label>
+        <mat-label class="ml-2">{{ 'app.auto_send_email' | transloco }}</mat-label>
     </button>
 </div>

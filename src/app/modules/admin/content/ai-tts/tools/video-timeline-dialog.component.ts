@@ -13124,12 +13124,41 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                             else if (item.extension === '.woff2')
                                 format = 'woff2';
 
+                            const cleanName = item.fontName.replace(/['"]/g, '');
                             styleEl.appendChild(
                                 document.createTextNode(`
                                 @font-face {
-                                    font-family: '${item.fontName}';
+                                    font-family: '${cleanName}';
+                                    src: url('${item.dataUrl}') format('${format}');
+                                    font-weight: 100 900;
+                                    font-style: normal;
+                                    font-display: swap;
+                                }
+                                @font-face {
+                                    font-family: '${cleanName}';
                                     src: url('${item.dataUrl}') format('${format}');
                                     font-weight: normal;
+                                    font-style: normal;
+                                    font-display: swap;
+                                }
+                                @font-face {
+                                    font-family: '${cleanName}';
+                                    src: url('${item.dataUrl}') format('${format}');
+                                    font-weight: bold;
+                                    font-style: normal;
+                                    font-display: swap;
+                                }
+                                @font-face {
+                                    font-family: '${cleanName}';
+                                    src: url('${item.dataUrl}') format('${format}');
+                                    font-weight: 700;
+                                    font-style: normal;
+                                    font-display: swap;
+                                }
+                                @font-face {
+                                    font-family: '${cleanName}';
+                                    src: url('${item.dataUrl}') format('${format}');
+                                    font-weight: 400;
                                     font-style: normal;
                                     font-display: swap;
                                 }
@@ -13153,6 +13182,13 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         const subs = this.getSelectedSubtitles();
         if (subs.length > 0 && subs[0].fontFamily) return subs[0].fontFamily;
         return 'sans-serif';
+    }
+
+    formatSubtitleFont(fontName?: string): string {
+        const font = (fontName || this.currentSubtitleFont || 'sans-serif').trim();
+        if (!font || font.toLowerCase() === 'sans-serif') return 'sans-serif';
+        const clean = font.replace(/['"]/g, '');
+        return `"${clean}", sans-serif`;
     }
 
     setSubtitleFont(font: string) {
@@ -13184,7 +13220,25 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             this.activeItem.fontFamily = font;
         }
         if (this.currentSubtitleInfo) {
-            this.currentSubtitleInfo.fontFamily = font;
+            this.currentSubtitleInfo = {
+                ...this.currentSubtitleInfo,
+                fontFamily: font,
+            };
+        } else {
+            this.updateActiveSubtitleInfo();
+            if (this.currentSubtitleInfo) {
+                this.currentSubtitleInfo = {
+                    ...this.currentSubtitleInfo,
+                    fontFamily: font,
+                };
+            }
+        }
+        if (
+            document.activeElement &&
+            (document.activeElement.tagName === 'SELECT' ||
+                document.activeElement.tagName === 'INPUT')
+        ) {
+            (document.activeElement as HTMLElement).blur();
         }
         this.markDirty();
         this.cd.detectChanges();

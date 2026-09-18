@@ -7,6 +7,7 @@ import {
     OnDestroy,
     HostListener,
     ChangeDetectionStrategy,
+    ChangeDetectorRef,
 } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
@@ -28,6 +29,10 @@ interface TextObject extends LayerBase {
     letterSpacing?: number;
     fontSize: number;
     rotation: number;
+    textAlign?: 'left' | 'center' | 'right' | 'justify';
+    isBold?: boolean;
+    isItalic?: boolean;
+    isUnderline?: boolean;
     color1: string;
     color2: string;
     isGradient: boolean;
@@ -238,6 +243,7 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
         @Inject(MAT_DIALOG_DATA)
         public data: { imageUrl: string; username: string },
         private toastr: ToastrService,
+        private cdr: ChangeDetectorRef,
     ) {
         this.saveTrigger.pipe(debounceTime(1000)).subscribe(() => {
             if (!this.isUndoing) this.saveStateToStorage();
@@ -297,7 +303,7 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                         @font-face {
                             font-family: '${item.fontName}';
                             src: url('${item.dataUrl}') format('${format}');
-                            font-weight: normal;
+                            font-weight: 100 900;
                             font-style: normal;
                         }
                     `),
@@ -306,6 +312,59 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                 } catch (err) {}
             }
         }
+    }
+
+    async onFontFamilyChange(txt: TextObject, font: string): Promise<void> {
+        if (!txt) return;
+        txt.fontFamily = font;
+        this.draw();
+        this.recordHistory();
+        this.cdr.markForCheck();
+
+        if (document.fonts) {
+            try {
+                await Promise.all([
+                    document.fonts.load(`bold ${txt.fontSize || 40}px "${font}"`),
+                    document.fonts.load(`${txt.fontSize || 40}px "${font}"`),
+                ]);
+            } catch (e) {
+                // bỏ qua lỗi nạp font
+            }
+            this.draw();
+            this.cdr.markForCheck();
+        }
+    }
+
+    setTextAlignment(txt: TextObject, align: 'left' | 'center' | 'right' | 'justify'): void {
+        if (!txt) return;
+        txt.textAlign = align;
+        this.draw();
+        this.recordHistory();
+        this.cdr.markForCheck();
+    }
+
+    toggleBold(txt: TextObject): void {
+        if (!txt) return;
+        txt.isBold = txt.isBold === false ? true : false;
+        this.draw();
+        this.recordHistory();
+        this.cdr.markForCheck();
+    }
+
+    toggleItalic(txt: TextObject): void {
+        if (!txt) return;
+        txt.isItalic = !txt.isItalic;
+        this.draw();
+        this.recordHistory();
+        this.cdr.markForCheck();
+    }
+
+    toggleUnderline(txt: TextObject): void {
+        if (!txt) return;
+        txt.isUnderline = !txt.isUnderline;
+        this.draw();
+        this.recordHistory();
+        this.cdr.markForCheck();
     }
 
     ngOnDestroy(): void {
@@ -592,32 +651,57 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                 this.ctx.globalAlpha = t.opacity;
                 this.ctx.rotate((t.rotation * Math.PI) / 180);
                 const fontFam = t.fontFamily || 'Arial';
-                this.ctx.font = `bold ${t.fontSize}px "${fontFam}", Arial, sans-serif`;
+                const fontStyle = t.isItalic ? 'italic' : 'normal';
+                const fontWeight = t.isBold !== false ? 'bold' : 'normal';
+                this.ctx.font = `${fontStyle} ${fontWeight} ${t.fontSize}px "${fontFam}", Arial, sans-serif`;
                 const letterSpace = t.letterSpacing || 0;
                 try {
                     (this.ctx as any).letterSpacing = `${letterSpace}px`;
                 } catch (e) {}
-                this.ctx.textAlign = 'center';
-                this.ctx.textBaseline = 'middle';
 
-                const lines = t.content.split('\n');
+                const lines = (t.content || '').split('\n');
                 const lineHeight = t.fontSize * 1.2;
                 const totalHeight = lines.length * lineHeight;
-                let maxWidth = 0;
-                lines.forEach((line) => {
+                const align = t.textAlign || 'center';
+
+                // Đo độ rộng từng dòng
+                const lineWidths = lines.map((line) => {
                     const metric = this.ctx.measureText(line);
-                    const lineW =
+                    return (
                         metric.width +
-                        (line.length > 1 ? (line.length - 1) * letterSpace : 0);
-                    if (lineW > maxWidth) maxWidth = lineW;
+                        (line.length > 1 ? (line.length - 1) * letterSpace : 0)
+                    );
                 });
+                const maxWidth = Math.max(...lineWidths, 10);
+                t.width = maxWidth;
+                t.height = totalHeight;
 
                 const startY = -(totalHeight / 2) + lineHeight / 2;
 
                 lines.forEach((line, index) => {
                     const lineY = startY + index * lineHeight;
+                    const lineW = lineWidths[index];
 
-                    // Shadow
+                    // Căn chỉnh vị trí X của từng dòng
+                    let lineX = 0;
+                    if (align === 'left') {
+                        lineX = -maxWidth / 2;
+                        this.ctx.textAlign = 'left';
+                    } else if (align === 'right') {
+                        lineX = maxWidth / 2;
+                        this.ctx.textAlign = 'right';
+                    } else {
+                        // center hoặc justify cơ bản
+                        lineX = 0;
+                        this.ctx.textAlign = 'center';
+                    }
+                    this.ctx.textBaseline = 'middle';
+
+                    // Xử lý căn đều (justify) cho dòng nhiều từ
+                    const words = line.trim().split(/\s+/);
+                    const isJustifyLine = align === 'justify' && words.length > 1 && (index < lines.length - 1 || lines.length === 1);
+
+                    // Thiết lập Shadow
                     if (t.hasShadow) {
                         this.ctx.shadowColor = t.shadowColor;
                         this.ctx.shadowBlur = t.shadowBlur;
@@ -630,7 +714,7 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                         this.ctx.shadowOffsetY = 0;
                     }
 
-                    // Fill
+                    // Thiết lập Fill
                     if (t.isGradient) {
                         const angleRad = (t.gradientAngle * Math.PI) / 180;
                         const r = t.fontSize * 2;
@@ -675,15 +759,52 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                     } else {
                         this.ctx.fillStyle = t.color1;
                     }
-                    this.ctx.fillText(line, 0, lineY);
 
-                    // Border
-                    if (t.hasBorder) {
-                        this.ctx.lineJoin = 'round';
-                        this.ctx.lineWidth = t.borderWidth;
-                        this.ctx.strokeStyle = t.borderColor;
-                        this.ctx.strokeText(line, 0, lineY);
-                        this.ctx.fillText(line, 0, lineY);
+                    if (isJustifyLine) {
+                        // Vẽ từng từ phân bổ đều
+                        const wordMetrics = words.map((w) => this.ctx.measureText(w).width);
+                        const totalWordW = wordMetrics.reduce((a, b) => a + b, 0);
+                        const spaceGap = (maxWidth - totalWordW) / (words.length - 1);
+                        let curX = -maxWidth / 2;
+                        this.ctx.textAlign = 'left';
+
+                        words.forEach((w, wIdx) => {
+                            if (t.hasBorder) {
+                                this.ctx.lineJoin = 'round';
+                                this.ctx.lineWidth = t.borderWidth;
+                                this.ctx.strokeStyle = t.borderColor;
+                                this.ctx.strokeText(w, curX, lineY);
+                            }
+                            this.ctx.fillText(w, curX, lineY);
+                            curX += wordMetrics[wIdx] + spaceGap;
+                        });
+                    } else {
+                        // Vẽ dòng bình thường
+                        if (t.hasBorder) {
+                            this.ctx.lineJoin = 'round';
+                            this.ctx.lineWidth = t.borderWidth;
+                            this.ctx.strokeStyle = t.borderColor;
+                            this.ctx.strokeText(line, lineX, lineY);
+                        }
+                        this.ctx.fillText(line, lineX, lineY);
+                    }
+
+                    // Gạch chân (underline)
+                    if (t.isUnderline) {
+                        this.ctx.save();
+                        this.ctx.shadowColor = 'transparent';
+                        this.ctx.fillStyle = t.color1 || '#ffffff';
+                        const underlineY = lineY + t.fontSize * 0.55;
+                        const underlineH = Math.max(2, t.fontSize * 0.08);
+
+                        let startUnderlineX = -lineW / 2;
+                        if (align === 'left') startUnderlineX = -maxWidth / 2;
+                        else if (align === 'right') startUnderlineX = maxWidth / 2 - lineW;
+                        else if (align === 'justify' && isJustifyLine) startUnderlineX = -maxWidth / 2;
+
+                        const underlineW = (align === 'justify' && isJustifyLine) ? maxWidth : lineW;
+                        this.ctx.fillRect(startUnderlineX, underlineY, underlineW, underlineH);
+                        this.ctx.restore();
                     }
                 });
 
@@ -773,8 +894,8 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                 }
             } else {
                 const t = layer as TextObject;
-                w = t.content.length * t.fontSize * 0.6;
-                h = t.fontSize;
+                w = t.width || (t.content.length * t.fontSize * 0.6);
+                h = t.height || t.fontSize;
                 if (this.hitTestRotated(x, y, t.x, t.y, w, h, t.rotation)) {
                     this.selectedId = t.id;
                     this.dragState.dragTarget = 'layer';
@@ -1002,6 +1123,10 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
             letterSpacing: 0,
             fontSize: 80,
             rotation: 0,
+            textAlign: 'center',
+            isBold: true,
+            isItalic: false,
+            isUnderline: false,
             color1: '#ffffff',
             color2: '#ff0000',
             isGradient: false,

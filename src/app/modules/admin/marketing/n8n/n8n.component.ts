@@ -50,18 +50,6 @@ export class AMXHComponent implements OnInit, OnDestroy {
             description: 'Xem livestream, bấm like, viết comment tự động',
         },
         {
-            id: 'shopee',
-            icon: 'feather:shopping-bag',
-            title: 'Shopee',
-            description: 'Xem live và mua hàng trực tiếp trên Shopee',
-        },
-        {
-            id: 'type',
-            icon: 'feather:type',
-            title: 'Diễn đàn Type',
-            description: 'Chia sẻ bài viết lên diễn đàn',
-        },
-        {
             id: 'share',
             icon: 'feather:share-2',
             title: 'Facebook',
@@ -101,7 +89,7 @@ export class AMXHComponent implements OnInit, OnDestroy {
         const hasTiktok = !!(mxhautoVal && mxhautoVal !== '' && mxhautoVal !== 'http://localhost:404');
 
         this.panels = this.allPanels.filter(p => {
-            if (p.id === 'profiles' || p.id === 'script' || p.id === 'shopee' || p.id === 'type') {
+            if (p.id === 'profiles' || p.id === 'script') {
                 return hasTiktok;
             }
             return true;

@@ -252,27 +252,72 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
             pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts.vfs;
 
-            // Xử lý Markdown -> HTML cho câu hỏi và câu trả lời
-            let fullHtml = '';
+            const defaultStyles = {
+                p: { margin: [0, 2, 0, 5], lineHeight: 1.35 },
+                h1: { fontSize: 16, bold: true, marginTop: 8, marginBottom: 4 },
+                h2: { fontSize: 14, bold: true, marginTop: 6, marginBottom: 3 },
+                h3: { fontSize: 12, bold: true, marginTop: 5, marginBottom: 2 },
+                pre: { background: '#f8fafc', color: '#0f172a', margin: [0, 4, 0, 6] },
+                code: { background: '#f1f5f9', color: '#b91c1c', fontSize: 9.5 },
+                ul: { marginBottom: 5, marginLeft: 8 },
+                ol: { marginBottom: 5, marginLeft: 8 },
+                li: { marginBottom: 2 }
+            };
+
+            const pdfContent: any[] = [];
+
+            // 1. Khối câu hỏi
             if (questionText && questionText.trim()) {
                 const questionHtml = marked.parse(questionText.trim()) as string;
-                fullHtml += `<div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; padding: 10px 14px; margin-bottom: 18px; border-radius: 4px;">
-                    <strong style="color: #15803d; font-size: 13px;">CÂU HỎI:</strong>
-                    <div style="margin-top: 6px; color: #1e293b;">${questionHtml}</div>
-                </div>`;
+                const cleanQuestionHtml = DOMPurify.sanitize(questionHtml, { USE_PROFILES: { html: true } });
+                const questionConverted = htmlToPdfmake(cleanQuestionHtml, {
+                    window: window,
+                    removeExtraBlanks: true,
+                    defaultStyles: defaultStyles
+                });
+
+                pdfContent.push({
+                    table: {
+                        widths: ['*'],
+                        body: [
+                            [
+                                {
+                                    stack: [
+                                        { text: 'CÂU HỎI:', bold: true, color: '#15803d', fontSize: 10, marginBottom: 4 },
+                                        ...(Array.isArray(questionConverted) ? questionConverted : [questionConverted])
+                                    ],
+                                    fillColor: '#f0fdf4',
+                                    margin: [8, 6, 8, 6],
+                                    border: [true, false, false, false],
+                                    borderColor: ['#16a34a', null, null, null]
+                                }
+                            ]
+                        ]
+                    },
+                    layout: {
+                        hLineWidth: () => 0,
+                        vLineWidth: (i: number) => (i === 0 ? 3.5 : 0),
+                        vLineColor: () => '#16a34a'
+                    },
+                    marginBottom: 12
+                });
             }
 
+            // 2. Khối câu trả lời
             const answerHtml = marked.parse(answerText.trim()) as string;
-            fullHtml += `<div style="margin-top: 10px; color: #0f172a; line-height: 1.6;">
-                <strong style="color: #2563eb; font-size: 13px;">CÂU TRẢ LỜI:</strong>
-                <div style="margin-top: 6px;">${answerHtml}</div>
-            </div>`;
-
-            // Làm sạch HTML
-            const cleanHtml = DOMPurify.sanitize(fullHtml, { USE_PROFILES: { html: true } });
-            const htmlConverted = htmlToPdfmake(cleanHtml, {
+            const cleanAnswerHtml = DOMPurify.sanitize(answerHtml, { USE_PROFILES: { html: true } });
+            const answerConverted = htmlToPdfmake(cleanAnswerHtml, {
                 window: window,
+                removeExtraBlanks: true,
+                defaultStyles: defaultStyles,
                 tableAutoSize: true
+            });
+
+            pdfContent.push({
+                stack: [
+                    { text: 'CÂU TRẢ LỜI:', bold: true, color: '#2563eb', fontSize: 10, marginBottom: 6 },
+                    ...(Array.isArray(answerConverted) ? answerConverted : [answerConverted])
+                ]
             });
 
             const rawTitle = questionText && questionText.trim()
@@ -301,9 +346,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     };
                 },
                 pageMargins: [40, 45, 40, 45],
-                content: [
-                    htmlConverted
-                ],
+                content: pdfContent,
                 defaultStyle: {
                     font: 'Roboto'
                 }

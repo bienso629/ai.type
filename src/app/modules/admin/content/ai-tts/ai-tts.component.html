@@ -158,19 +158,28 @@
                                 </button>
 
                                 @if (isColabPluginActive) {
-                                    <button
-                                        mat-icon-button
-                                        class="ml-0"
-                                        (click)="openColabBridge()"
-                                        [disabled]="isColabConnecting"
-                                        [matTooltip]="isColabConnecting ? 'Đang khởi chạy & kết nối Colab GPU...' : 'Mở & Kết nối Google Colab GPU (OmniVoice)'"
+                                    <div
+                                        class="flex items-center mx-1.5"
+                                        [matTooltip]="
+                                            isColabConnecting
+                                                ? 'Đang xử lý kết nối Colab GPU...'
+                                                : isColabConnected
+                                                ? 'Colab GPU đang BẬT. Nhấp để ngắt kết nối'
+                                                : 'BẬT để kết nối Google Colab GPU (OmniVoice)'
+                                        "
                                     >
-                                        <mat-icon
-                                            class="icon-size-4 text-amber-500"
-                                            [class.animate-spin]="isColabConnecting"
-                                            [svgIcon]="isColabConnecting ? 'feather:loader' : 'heroicons_outline:chip'"
-                                        ></mat-icon>
-                                    </button>
+                                        <mat-slide-toggle
+                                            [checked]="isColabConnected"
+                                            [disabled]="isColabConnecting"
+                                            (change)="toggleColabGpu($event.checked)"
+                                            color="primary"
+                                            class="scale-90"
+                                        >
+                                            <span class="text-xs font-medium text-slate-700 dark:text-slate-200 select-none">
+                                                Colab GPU
+                                            </span>
+                                        </mat-slide-toggle>
+                                    </div>
 
                                     <div
                                         class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"

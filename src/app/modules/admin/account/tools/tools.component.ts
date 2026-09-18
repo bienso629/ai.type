@@ -17,6 +17,7 @@ import { A11y, Mousewheel, Navigation, Pagination } from 'swiper/modules';
 import { Subject, takeUntil } from 'rxjs';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'ai-tools',
@@ -52,6 +53,7 @@ export class AIToolsComponent implements OnInit, OnDestroy {
 
     isZaloInstalled: boolean = false;
     isZaloRunningBackground: boolean = false;
+    isTiktokPluginActive: boolean = false;
 
     cols: number;
 
@@ -104,6 +106,7 @@ export class AIToolsComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private breakpointObserver: BreakpointObserver,
         private cd: ChangeDetectorRef,
+        private _multiAccountService: MultiAccountService,
     ) {
         this.titleService.setTitle(
             `bộ công cụ | ai.type - công cụ tạo content`,
@@ -155,10 +158,18 @@ export class AIToolsComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
-        this.checkZaloPlugin();
+        this.checkPlugins();
     }
 
-    async checkZaloPlugin() {
+    async checkPlugins() {
+        let settings = this._multiAccountService?.getItem('settings') || {};
+        try {
+            const ls = localStorage.getItem('settings');
+            if (ls) {
+                settings = { ...settings, ...JSON.parse(ls) };
+            }
+        } catch (e) {}
+
         if (
             (window as any).electronAPI &&
             (window as any).electronAPI.getPluginsStatus
@@ -174,14 +185,21 @@ export class AIToolsComponent implements OnInit, OnDestroy {
                 this.isZaloRunningBackground = zalo
                     ? zalo.installed && zalo.enabled
                     : false;
+
+                const tiktok = list.find((p: any) => p.id === 'tiktok_100');
+                this.isTiktokPluginActive = tiktok
+                    ? tiktok.installed && tiktok.enabled
+                    : !!settings.tiktokPluginEnabled;
             } catch (e) {
                 this.isZaloInstalled = false;
                 this.isZaloRunningBackground = false;
+                this.isTiktokPluginActive = !!settings.tiktokPluginEnabled;
             }
         } else {
-            // Chạy trên browser dev mode thì hiển thị mặc định
+            // Chạy trên browser dev mode thì đọc từ settings
             this.isZaloInstalled = true;
             this.isZaloRunningBackground = true;
+            this.isTiktokPluginActive = !!settings.tiktokPluginEnabled;
         }
         this.cd.detectChanges();
     }

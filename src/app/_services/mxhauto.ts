@@ -86,10 +86,23 @@ export class MXHAutoService {
     }
 
     public getBaseUrl(): string {
-        let base = (this.config && this.config.settings && this.config.settings.mxhauto)
-            ? String(this.config.settings.mxhauto).trim()
+        let settings = this.multiAccountService.getItem('settings') || {};
+        try {
+            const lsSettings = localStorage.getItem('settings');
+            if (lsSettings) {
+                settings = { ...settings, ...JSON.parse(lsSettings) };
+            }
+        } catch (e) {}
+
+        // Nếu plugin 100 TikTokers được bật hoặc cấu hình mxhauto trỏ local thì ưu tiên localhost:8000
+        if (settings.tiktokPluginEnabled) {
+            return 'http://localhost:8000';
+        }
+
+        let base = (settings.mxhauto || (this.config && this.config.settings && this.config.settings.mxhauto))
+            ? String(settings.mxhauto || this.config.settings.mxhauto).trim()
             : 'http://localhost:8000';
-        if (!base || base === 'undefined' || base === 'null') {
+        if (!base || base === 'undefined' || base === 'null' || base === 'http://localhost:404') {
             base = 'http://localhost:8000';
         }
         if (!/^https?:\/\//i.test(base)) {
