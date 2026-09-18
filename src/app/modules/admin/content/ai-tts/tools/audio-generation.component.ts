@@ -271,7 +271,41 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
         this.multiAccountService.setItem(storageKey, this.data);
     }
 
+    async checkColabStatus() {
+        try {
+            let connected = false;
+            if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
+                const res = await (window as any).electronAPI.checkColabGpuStatus();
+                connected = !!(res && res.is_connected);
+            } else {
+                const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    connected = !!(data && data.is_connected);
+                }
+            }
+            const omniVoices = [
+                { id: 'omnivoice-yenai', name: 'Yenai (OmniVoice Colab)' },
+                { id: 'omnivoice-mpsg', name: 'MPSG (OmniVoice Colab)' }
+            ];
+            if (connected) {
+                omniVoices.forEach(ov => {
+                    if (!this.voiceList.some(v => v.id === ov.id)) {
+                        this.voiceList.push(ov);
+                    }
+                });
+            } else {
+                this.voiceList = this.voiceList.filter(v => !v.id.startsWith('omnivoice-'));
+                if (this.selectedVoice.startsWith('omnivoice-')) {
+                    this.selectedVoice = 'vi-VN-HoaiMyNeural';
+                }
+            }
+            this.cd.detectChanges();
+        } catch (e) {}
+    }
+
     getMyKeys() {
+        this.checkColabStatus();
         this._voice
             .getMyKeys({
                 username: this.data.username,
@@ -286,12 +320,15 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
                                 voice.base === 'ausynclab.io' ||
                                 voice.base === 'tts.type.vn'
                             ) {
-                                this.voiceList.push({
-                                    id: `${voice.id}-${voice.base}`,
-                                    name: voice.name,
-                                });
+                                if (!this.voiceList.some(v => v.id === `${voice.id}-${voice.base}`)) {
+                                    this.voiceList.push({
+                                        id: `${voice.id}-${voice.base}`,
+                                        name: voice.name,
+                                    });
+                                }
                             }
                         });
+                        this.cd.detectChanges();
                     }
                 },
                 error: (e: any) => {
