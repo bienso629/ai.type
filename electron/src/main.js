@@ -5009,32 +5009,86 @@ ipcMain.handle('toggle-colab-agent', (event, enable) => {
     }
 });
 
+function readColabDiskAccounts() {
+    try {
+        const accountsJsonPath = path.join(os.homedir(), ".config", "colab-cli", "accounts", "accounts.json");
+        const tokenPath = path.join(os.homedir(), ".config", "colab-cli", "token.json");
+        let accounts = [];
+        let activeEmail = '';
+        if (fs.existsSync(accountsJsonPath)) {
+            try {
+                const parsed = JSON.parse(fs.readFileSync(accountsJsonPath, 'utf8'));
+                accounts = parsed.accounts || [];
+                activeEmail = parsed.active_email || '';
+            } catch(e) {}
+        }
+        const hasToken = fs.existsSync(tokenPath);
+        return {
+            authenticated: hasToken && accounts.length > 0,
+            token_path: tokenPath,
+            accounts,
+            active_email: activeEmail
+        };
+    } catch(e) {
+        return { authenticated: false, accounts: [], active_email: '' };
+    }
+}
+
 ipcMain.handle('get-colab-auth-status', async () => {
     try {
-        startColabAgent();
         try {
             const resp = await fetch('http://127.0.0.1:7868/auth_status');
             if (resp.ok) {
                 const data = await resp.json();
-                return data;
+                if (data && Array.isArray(data.accounts) && data.accounts.length > 0) {
+                    return data;
+                }
             }
         } catch(e) {}
-        const tokenPath = path.join(os.homedir(), ".config", "colab-cli", "token.json");
-        return { authenticated: fs.existsSync(tokenPath), tokenPath, accounts: [], active_email: '' };
+        
+        // Fallback đọc trực tiếp từ file trên ổ đĩa để danh sách tài khoản không bao giờ bị mất
+        const diskData = readColabDiskAccounts();
+        return diskData;
     } catch(e) {
-        return { authenticated: false, accounts: [], active_email: '' };
+        return readColabDiskAccounts();
     }
 });
 
 ipcMain.handle('switch-colab-account', async (event, email) => {
     try {
-        const resp = await fetch('http://127.0.0.1:7868/switch_account', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const data = await resp.json();
-        return data;
+        try {
+            const resp = await fetch('http://127.0.0.1:7868/switch_account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data && data.success) return data;
+            }
+        } catch(e) {}
+
+        // Fallback thực hiện đổi trực tiếp trên đĩa nếu daemon đang tắt
+        const accountsDir = path.join(os.homedir(), ".config", "colab-cli", "accounts");
+        const accountsJsonPath = path.join(accountsDir, "accounts.json");
+        const targetTokenFile = path.join(accountsDir, `${email}.json`);
+        const mainTokenFile = path.join(os.homedir(), ".config", "colab-cli", "token.json");
+
+        if (fs.existsSync(targetTokenFile)) {
+            fs.copyFileSync(targetTokenFile, mainTokenFile);
+        }
+        if (fs.existsSync(accountsJsonPath)) {
+            const idx = JSON.parse(fs.readFileSync(accountsJsonPath, 'utf8'));
+            idx.active_email = email;
+            if (Array.isArray(idx.accounts)) {
+                for (const acc of idx.accounts) {
+                    acc.status = (acc.email === email) ? 'active' : 'ready';
+                }
+            }
+            fs.writeFileSync(accountsJsonPath, JSON.stringify(idx, null, 2), 'utf8');
+            return { success: true, active_email: email, accounts: idx.accounts || [] };
+        }
+        return { success: false, error: 'Không tìm thấy file cấu hình tài khoản.' };
     } catch(e) {
         return { success: false, error: e.message };
     }
@@ -5042,13 +5096,50 @@ ipcMain.handle('switch-colab-account', async (event, email) => {
 
 ipcMain.handle('remove-colab-account', async (event, email) => {
     try {
-        const resp = await fetch('http://127.0.0.1:7868/remove_account', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const data = await resp.json();
-        return data;
+        try {
+            const resp = await fetch('http://127.0.0.1:7868/remove_account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data && data.success) return data;
+            }
+        } catch(e) {}
+
+        // Fallback thực hiện xóa trực tiếp trên đĩa nếu daemon đang tắt
+        const accountsDir = path.join(os.homedir(), ".config", "colab-cli", "accounts");
+        const accountsJsonPath = path.join(accountsDir, "accounts.json");
+        const targetTokenFile = path.join(accountsDir, `${email}.json`);
+        const mainTokenFile = path.join(os.homedir(), ".config", "colab-cli", "token.json");
+
+        if (fs.existsSync(targetTokenFile)) {
+            try { fs.unlinkSync(targetTokenFile); } catch(e) {}
+        }
+        if (fs.existsSync(accountsJsonPath)) {
+            const idx = JSON.parse(fs.readFileSync(accountsJsonPath, 'utf8'));
+            idx.accounts = (idx.accounts || []).filter(a => a.email !== email);
+            if (idx.active_email === email) {
+                if (idx.accounts.length > 0) {
+                    const newActive = idx.accounts[0].email;
+                    idx.active_email = newActive;
+                    idx.accounts[0].status = 'active';
+                    const newFile = path.join(accountsDir, `${newActive}.json`);
+                    if (fs.existsSync(newFile)) {
+                        fs.copyFileSync(newFile, mainTokenFile);
+                    }
+                } else {
+                    idx.active_email = '';
+                    if (fs.existsSync(mainTokenFile)) {
+                        try { fs.unlinkSync(mainTokenFile); } catch(e) {}
+                    }
+                }
+            }
+            fs.writeFileSync(accountsJsonPath, JSON.stringify(idx, null, 2), 'utf8');
+            return { success: true, active_email: idx.active_email || '', accounts: idx.accounts || [] };
+        }
+        return { success: true, active_email: '', accounts: [] };
     } catch(e) {
         return { success: false, error: e.message };
     }
@@ -5143,6 +5234,37 @@ ipcMain.handle('stop-colab-gpu', async () => {
         return { success: false, error: 'Lỗi khi dừng GPU.' };
     } catch(e) {
         return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('check-colab-gpu-status', async () => {
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const userColabPath = path.join(userPluginsDir, 'colab_agent_linux');
+        const userScriptPath = path.join(userPluginsDir, 'colab_agent.py');
+        const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
+        const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
+        const colabInstalled = fs.existsSync(userColabPath) || fs.existsSync(userScriptPath) || fs.existsSync(devBinaryPath) || fs.existsSync(devScriptPath);
+        const colabEnabled = isColabAgentEnabled();
+        const pluginActive = colabInstalled && colabEnabled;
+
+        if (colabMcpClient && colabMcpClient.isConnected && colabMcpClient.baseUrl) {
+            return { success: true, plugin_active: pluginActive, is_connected: true, colab_url: colabMcpClient.baseUrl };
+        }
+        const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+        if (resp.ok) {
+            const data = await resp.json();
+            return {
+                success: true,
+                plugin_active: pluginActive,
+                is_connected: !!(data && data.is_connected),
+                colab_url: data?.colab_url || '',
+                gpu: data?.gpu || ''
+            };
+        }
+        return { success: true, plugin_active: pluginActive, is_connected: false };
+    } catch(e) {
+        return { success: false, plugin_active: false, is_connected: false, error: e.message };
     }
 });
 
@@ -7857,8 +7979,52 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
             "num_step": Number(num_step) || 16
         };
 
-        if (ref_audio_base64) {
-            requestBody["ref_audio_base64"] = ref_audio_base64;
+        // Tự động tìm nạp voice sample cục bộ nếu client chưa gửi ref_audio_base64
+        let finalRefBase64 = ref_audio_base64;
+        let finalRefText = ref_text ? ref_text.trim() : "";
+
+        if (ref_audio_name) {
+            const rawVoiceKey = path.basename(ref_audio_name, path.extname(ref_audio_name)).toLowerCase();
+            const defaultVoiceTexts = {
+                "yenai": "Đêm giao thừa, cả nhà không ai lo cắm mặt vào điện thoại, chúng tôi ngồi bên nhau, kể chuyện, cười đùa, chờ đợi tiếng pháo nổ giòn giã ngoài ngõ.",
+                "mpsg": "Rachel đã ly dị, đã mất việc, đã chìm trong rượu và cay đắng, chẳng còn nơi nào để đến và đi."
+            };
+
+            if (!finalRefText && defaultVoiceTexts[rawVoiceKey]) {
+                finalRefText = defaultVoiceTexts[rawVoiceKey];
+            }
+
+            try {
+                const sampleCandidates = [
+                    path.join(process.cwd(), "apps", "voiceclone-tts", "voices", ref_audio_name),
+                    path.join(process.cwd(), "apps", "voiceclone-tts", "voices", `${ref_audio_name}.wav`),
+                    path.join(app.getPath("documents"), "ai.type", "voices", ref_audio_name),
+                    path.join(app.getPath("documents"), "ai.type", "voices", `${ref_audio_name}.wav`),
+                    path.join("/home/yenai/Documents/Projects/Typing/apps/voiceclone-tts/voices", ref_audio_name),
+                    path.join("/home/yenai/Documents/Projects/Typing/apps/voiceclone-tts/voices", `${ref_audio_name}.wav`)
+                ];
+                for (const cand of sampleCandidates) {
+                    if (fs.existsSync(cand)) {
+                        if (!finalRefBase64) {
+                            finalRefBase64 = fs.readFileSync(cand).toString("base64");
+                        }
+                        const txtCand = cand.replace(/\.[^/.]+$/, ".txt");
+                        if (!finalRefText && fs.existsSync(txtCand)) {
+                            finalRefText = fs.readFileSync(txtCand, "utf8").trim();
+                        }
+                        break;
+                    }
+                }
+            } catch (err) {
+                console.error("[TTS] Không thể đọc voice sample cục bộ:", err);
+            }
+        }
+
+        if (finalRefBase64) {
+            requestBody["ref_audio_base64"] = finalRefBase64;
+        }
+        if (finalRefText) {
+            requestBody["ref_text"] = finalRefText;
         }
 
         const postRes = await fetch(`${API_BASE_URL}/generate_audio_async`, {

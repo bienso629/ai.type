@@ -323,7 +323,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 if (res && res.success) {
                     plugin.enabled = event.checked;
                     this.toastr.success(event.checked ? 'Đã kích hoạt Colab GPU Agent.' : 'Đã tắt Colab GPU Agent.');
-                    if (event.checked) setTimeout(() => this.checkColabStatus(), 1000);
+                    setTimeout(() => this.checkColabStatus(), 500);
                 } else {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái Colab Agent.');
                 }
@@ -342,9 +342,17 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         try {
             if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
                 const authRes = await (window as any).electronAPI.getColabAuthStatus();
-                this.isColabLoggedIn = authRes && authRes.authenticated;
-                this.colabAccounts = (authRes && authRes.accounts) || [];
-                this.colabActiveEmail = (authRes && authRes.active_email) || '';
+                if (authRes) {
+                    if (authRes.authenticated !== undefined) {
+                        this.isColabLoggedIn = authRes.authenticated;
+                    }
+                    if (Array.isArray(authRes.accounts) && authRes.accounts.length > 0) {
+                        this.colabAccounts = authRes.accounts;
+                    }
+                    if (authRes.active_email) {
+                        this.colabActiveEmail = authRes.active_email;
+                    }
+                }
             }
 
             // Fallback trực tiếp tới Colab Agent Service trên máy cục bộ
@@ -355,8 +363,12 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                         const authData = await authResp.json();
                         if (authData && authData.authenticated) {
                             this.isColabLoggedIn = true;
-                            this.colabAccounts = authData.accounts || [];
-                            this.colabActiveEmail = authData.active_email || '';
+                            if (Array.isArray(authData.accounts) && authData.accounts.length > 0) {
+                                this.colabAccounts = authData.accounts;
+                            }
+                            if (authData.active_email) {
+                                this.colabActiveEmail = authData.active_email;
+                            }
                         }
                     }
                 } catch(e) {}

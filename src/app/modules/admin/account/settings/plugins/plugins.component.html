@@ -88,15 +88,6 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-1 shrink-0">
-                                    @if (acc.email !== colabActiveEmail) {
-                                        <button
-                                            mat-stroked-button
-                                            class="!h-7 !px-2 text-xs"
-                                            (click)="switchColabAccount(acc.email)"
-                                        >
-                                            Chọn
-                                        </button>
-                                    }
                                     <button
                                         mat-icon-button
                                         class="!w-7 !h-7 text-slate-400 hover:text-red-500"
@@ -674,60 +665,5 @@
             </div>
         </mat-tab>
 
-        <!-- Tab 4: 100 TikTokers -->
-        <mat-tab label="100 TikTokers">
-            <div class="w-full text-base text-secondary mt-1 mb-4">
-                Tự động hóa theo dõi, phân tích xu hướng và khai thác nội dung
-                từ 100 kênh TikTok
-            </div>
-
-            <div class="w-full mt-4">
-                <!-- Kích hoạt 100 TikTokers -->
-                <div class="full-width-toggle mb-4">
-                    <mat-slide-toggle
-                        [checked]="
-                            $safeNavigationMigration(
-                                getPlugin('tiktok_100')?.enabled
-                            )
-                        "
-                        [labelPosition]="'before'"
-                        (change)="togglePlugin(getPlugin('tiktok_100'), $event)"
-                        class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
-                        [color]="'primary'"
-                    >
-                        <mat-label class="toggle-label text-base">
-                            <div>Kích hoạt 100 TikTokers</div>
-                            <div
-                                class="text-sm text-gray-400 font-normal mt-0.5"
-                            >
-                                Tự động khởi chạy plugin 100tiktok-linux trong
-                                thư mục Documents/ai.type/plugins
-                            </div>
-                        </mat-label>
-                    </mat-slide-toggle>
-                </div>
-            </div>
-
-            <div class="w-full flex items-center justify-between mt-8">
-                <div class="text-sm text-gray-400">
-                    Phiên bản Plugin: v{{ getPlugin("tiktok_100")?.version }}
-                </div>
-                @if (getPlugin("tiktok_100")?.installed) {
-                    <div>
-                        <button
-                            mat-icon-button
-                            color="warn"
-                            (click)="uninstallPlugin(getPlugin('tiktok_100'))"
-                            matTooltip="Gỡ cài đặt Plugin"
-                        >
-                            <mat-icon
-                                class="icon-size-4 text-red-500"
-                                [svgIcon]="'feather:trash-2'"
-                            ></mat-icon>
-                        </button>
-                    </div>
-                }
-            </div>
-        </mat-tab>
     </mat-tab-group>
 </div>

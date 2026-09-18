@@ -543,8 +543,18 @@ def run_omnivoice_task(task_id: str, req: AudioAsyncRequest):
         gen_kwargs = {"text": req.text}
         if ref_audio_path and os.path.exists(ref_audio_path):
             gen_kwargs["ref_audio"] = ref_audio_path
-            if req.ref_text and req.ref_text.strip():
-                gen_kwargs["ref_text"] = req.ref_text.strip()
+            ref_text_to_use = req.ref_text.strip() if req.ref_text else ""
+            if not ref_text_to_use:
+                default_texts = {
+                    "yenai": "Đêm giao thừa, cả nhà không ai lo cắm mặt vào điện thoại, chúng tôi ngồi bên nhau, kể chuyện, cười đùa, chờ đợi tiếng pháo nổ giòn giã ngoài ngõ.",
+                    "mpsg": "Rachel đã ly dị, đã mất việc, đã chìm trong rượu và cay đắng, chẳng còn nơi nào để đến và đi."
+                }
+                for k, v in default_texts.items():
+                    if k in os.path.basename(ref_audio_path).lower():
+                        ref_text_to_use = v
+                        break
+            if ref_text_to_use:
+                gen_kwargs["ref_text"] = ref_text_to_use
 
         tasks_db[task_id]["progress"] = 50
         audio_list = omnivoice_model.generate(**gen_kwargs)

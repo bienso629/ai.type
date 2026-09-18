@@ -114,8 +114,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
-        { id: 'omnivoice-yenai', name: 'Yenai (OmniVoice Colab)' },
-        { id: 'omnivoice-mpsg', name: 'MPSG (OmniVoice Colab)' },
         // { id: 'nam-calm', name: 'Nam điềm tĩnh (Server)' },
         // { id: 'nam-cham', name: 'Nam chậm (Server)' },
         // { id: 'nam-nhanh', name: 'Nam nhanh (Server)' },
@@ -126,8 +124,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // { id: 'nu-nhe-nhang', name: 'Nữ nhẹ nhàng (Server)' }
     ];
 
+    isColabConnected: boolean = false;
+    isColabPluginActive: boolean = false;
     selectedVoice = 'vi-VN-HoaiMyNeural';
     isDownloadingModel: boolean = false; // Thêm biến này
+    isColabConnecting: boolean = false; // Trạng thái đang kết nối Colab GPU
 
     removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
     audioList: AudioClip[] = [];
@@ -163,7 +164,61 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
     private saveSubject = new Subject<string | undefined>();
 
+    async checkColabStatus() {
+        try {
+            let connected = false;
+            let pluginActive = false;
+            if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
+                const res = await (window as any).electronAPI.checkColabGpuStatus();
+                connected = !!(res && res.is_connected);
+                pluginActive = !!(res && res.plugin_active);
+            } else {
+                const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    connected = !!(data && data.is_connected);
+                    pluginActive = true;
+                }
+            }
+            this.isColabPluginActive = pluginActive;
+            this.updateColabVoices(connected);
+        } catch (e) {
+            this.isColabPluginActive = false;
+            this.updateColabVoices(false);
+        }
+    }
+
+    updateColabVoices(connected: boolean) {
+        this.isColabConnected = connected;
+        const omniVoices = [
+            { id: 'omnivoice-yenai', name: 'Yenai (OmniVoice Colab)' },
+            { id: 'omnivoice-mpsg', name: 'MPSG (OmniVoice Colab)' }
+        ];
+
+        if (connected) {
+            omniVoices.forEach(ov => {
+                if (!this.voiceList.some(v => v.id === ov.id)) {
+                    this.voiceList.push(ov);
+                }
+            });
+        } else {
+            this.voiceList = this.voiceList.filter(v => !v.id.startsWith('omnivoice-'));
+            if (!this.selectedVoice || this.selectedVoice.startsWith('omnivoice-')) {
+                this.selectedVoice = 'vi-VN-HoaiMyNeural';
+            }
+            if (this.audioList && this.audioList.length > 0) {
+                this.audioList.forEach(clip => {
+                    if (!clip.voice || clip.voice === 'vi-VN-Standard-A' || clip.voice.startsWith('omnivoice-')) {
+                        clip.voice = 'vi-VN-HoaiMyNeural';
+                    }
+                });
+            }
+        }
+        this.cd.detectChanges();
+    }
+
     getMyKeys() {
+        this.checkColabStatus();
         this._voice
             .getMyKeys({
                 username: this.user.name,
@@ -178,12 +233,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                                 voice.base === 'ausynclab.io' ||
                                 voice.base === 'tts.type.vn'
                             ) {
-                                this.voiceList.push({
-                                    id: `${voice.id}-${voice.base}`,
-                                    name: voice.name,
-                                });
+                                if (!this.voiceList.some(v => v.id === `${voice.id}-${voice.base}`)) {
+                                    this.voiceList.push({
+                                        id: `${voice.id}-${voice.base}`,
+                                        name: voice.name,
+                                    });
+                                }
                             }
                         });
+                        this.cd.detectChanges();
                     }
                 },
                 error: (e: any) => {
@@ -482,8 +540,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 .padStart(3, '0');
             const slug = this.toSlug(clip.description.substring(0, 50));
 
-            // Lấy thông tin voice của clip
-            const clipVoice = clip.voice || this.selectedVoice;
+            // Lấy thông tin voice của clip (nếu chưa bật/kết nối Colab GPU mà clip mang giọng omnivoice thì tự động fallback về giọng mặc định)
+            let clipVoice = clip.voice || this.selectedVoice;
+            if (clipVoice.startsWith('omnivoice-') && !this.isColabConnected) {
+                clipVoice = 'vi-VN-HoaiMyNeural';
+                clip.voice = clipVoice;
+            }
             const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
             const isEdgeVoice = edgeVoices.includes(clipVoice);
 
@@ -510,11 +572,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     const targetVoiceName = clipVoice.replace('omnivoice-', '');
                     const refAudioName = targetVoiceName.endsWith('.wav') ? targetVoiceName : `${targetVoiceName}.wav`;
 
+                    const defaultRefTexts: { [key: string]: string } = {
+                        'yenai': 'Đêm giao thừa, cả nhà không ai lo cắm mặt vào điện thoại, chúng tôi ngồi bên nhau, kể chuyện, cười đùa, chờ đợi tiếng pháo nổ giòn giã ngoài ngõ.',
+                        'mpsg': 'Rachel đã ly dị, đã mất việc, đã chìm trong rượu và cay đắng, chẳng còn nơi nào để đến và đi.'
+                    };
+
                     const payload = {
                         text: clip.description,
                         voice_id: targetVoiceName,
                         ref_audio_name: refAudioName,
-                        ref_text: clip['ref_text'] || '',
+                        ref_text: clip['ref_text'] || defaultRefTexts[targetVoiceName.toLowerCase().replace('.wav', '')] || '',
                         speed: clip.rate || 1.0,
                         num_step: 16,
                         filename: niceFilename,
@@ -631,21 +698,32 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     async openColabBridge() {
+        if (this.isColabConnecting) return;
+
         if (!(window as any).electronAPI || !(window as any).electronAPI.startColabGpu) {
             this.toastr.warning('Chỉ hỗ trợ kích hoạt Colab GPU trên ứng dụng Desktop Electron.');
             return;
         }
 
-        this.toastr.info('Đang khởi tạo máy ảo GPU Tesla T4 trên Colab qua Plugin...');
+        this.isColabConnecting = true;
+        this.cd.detectChanges();
+        this.toastr.info('Đang kết nối & khởi chạy máy ảo GPU Tesla T4 trên Colab...', 'Colab GPU');
+
         try {
             const res = await (window as any).electronAPI.startColabGpu();
             if (res && res.success) {
                 this.toastr.success(res.message || `Đã kết nối GPU Colab (${res.gpu || 'Tesla T4'}) thành công!`, 'Colab GPU');
+                this.updateColabVoices(true);
             } else {
                 this.toastr.error(res?.error || 'Không thể khởi tạo GPU Colab. Vui lòng kiểm tra tab Plugins trong Cài đặt.', 'Colab GPU');
+                this.updateColabVoices(false);
             }
         } catch (e: any) {
             this.toastr.error('Lỗi kết nối Colab Agent Plugin: ' + (e?.message || e), 'Colab GPU');
+            this.updateColabVoices(false);
+        } finally {
+            this.isColabConnecting = false;
+            this.cd.detectChanges();
         }
     }
 
@@ -1056,8 +1134,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     ));
 
             // Khởi tạo đối tượng mới trước để có thể truyền vào loadLocalAudioContent
+            let voiceToUse = item.voice;
+            if (!voiceToUse || voiceToUse === 'vi-VN-Standard-A' || (voiceToUse.startsWith('omnivoice-') && !this.isColabConnected)) {
+                voiceToUse = 'vi-VN-HoaiMyNeural';
+            }
+
             const newItem = {
                 ...item,
+                voice: voiceToUse,
                 file: null,
                 url: null,
                 rawUrl: null,
@@ -3030,7 +3114,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             duration: 0,
             description: '',
             username: this.user?.name || '',
-            voice: 'vi-VN-Standard-A',
+            voice: this.selectedVoice || 'vi-VN-HoaiMyNeural',
             rate: 1.0,
             pitch: 0,
             isEditing: true, // Auto open edit mode
