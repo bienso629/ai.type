@@ -219,36 +219,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     getMyKeys() {
         this.checkColabStatus();
-        this._voice
-            .getMyKeys({
-                username: this.user.name,
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success && result.data.length > 0) {
-                        this.myvoices = result.data;
-                        this.myvoices.map((voice: any) => {
-                            if (
-                                voice.base === 'ausynclab.io' ||
-                                voice.base === 'tts.type.vn'
-                            ) {
-                                if (!this.voiceList.some(v => v.id === `${voice.id}-${voice.base}`)) {
-                                    this.voiceList.push({
-                                        id: `${voice.id}-${voice.base}`,
-                                        name: voice.name,
-                                    });
-                                }
-                            }
-                        });
-                        this.cd.detectChanges();
-                    }
-                },
-                error: (e: any) => {
-                    this.toastr.warning('Tải video thất bại.');
-                },
-                complete: () => {},
-            });
     }
 
     cleanupBlobs() {
@@ -695,6 +665,44 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 resolve();
             }
         });
+    }
+
+    async toggleColabGpu(enable: boolean) {
+        if (this.isColabConnecting) return;
+
+        if (enable) {
+            await this.openColabBridge();
+        } else {
+            await this.stopColabBridge();
+        }
+    }
+
+    async stopColabBridge() {
+        if (this.isColabConnecting) return;
+
+        this.isColabConnecting = true;
+        this.cd.detectChanges();
+        this.toastr.info('Đang ngắt kết nối và tắt máy ảo Colab GPU...', 'Colab GPU');
+
+        try {
+            if ((window as any).electronAPI && (window as any).electronAPI.stopColabGpu) {
+                const res = await (window as any).electronAPI.stopColabGpu();
+                if (res && res.success) {
+                    this.toastr.success(res.message || 'Đã tắt máy ảo Colab GPU thành công.', 'Colab GPU');
+                } else {
+                    this.toastr.warning(res?.error || 'Không thể dừng máy ảo Colab GPU.', 'Colab GPU');
+                }
+            } else {
+                await fetch('http://127.0.0.1:7868/stop_gpu', { method: 'POST', signal: AbortSignal.timeout(3000) });
+                this.toastr.success('Đã gửi yêu cầu tắt máy ảo Colab GPU.', 'Colab GPU');
+            }
+        } catch (e: any) {
+            this.toastr.warning('Lỗi khi tắt Colab GPU: ' + (e?.message || e), 'Colab GPU');
+        } finally {
+            this.updateColabVoices(false);
+            this.isColabConnecting = false;
+            this.cd.detectChanges();
+        }
     }
 
     async openColabBridge() {

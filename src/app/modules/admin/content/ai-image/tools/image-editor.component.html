@@ -290,21 +290,33 @@
                                     <mat-select
                                         [(ngModel)]="txt.fontFamily"
                                         (selectionChange)="
-                                            draw(); recordHistory()
+                                            onFontFamilyChange(txt, $event.value)
                                         "
                                     >
-                                        <mat-option [value]="'Arial'" [style.fontFamily]="'Arial'"
-                                            >Arial (Mặc định)</mat-option
-                                        >
-                                        <mat-option [value]="'Inter var'" [style.fontFamily]="'Inter var'"
-                                            >Inter (Mặc định)</mat-option
-                                        >
-                                        <mat-option [value]="'Times New Roman'" [style.fontFamily]="'Times New Roman'"
-                                            >Times New Roman</mat-option
-                                        >
-                                        <mat-option [value]="'Courier New'" [style.fontFamily]="'Courier New'"
-                                            >Courier New</mat-option
-                                        >
+                                        <mat-option [value]="'Arial'" class="font-option-preview" [style.--font-family-preview]="'Arial, sans-serif'">
+                                            <div class="flex items-center justify-between w-full min-w-0 pr-1">
+                                                <span class="truncate text-base font-preview-name font-preview-text">Arial (Mặc định)</span>
+                                                <span class="text-xs text-gray-400 dark:text-gray-500 font-sans shrink-0 ml-3 font-preview-text">AaBb 123</span>
+                                            </div>
+                                        </mat-option>
+                                        <mat-option [value]="'Inter var'" class="font-option-preview" [style.--font-family-preview]="'Inter var, sans-serif'">
+                                            <div class="flex items-center justify-between w-full min-w-0 pr-1">
+                                                <span class="truncate text-base font-preview-name font-preview-text">Inter (Mặc định)</span>
+                                                <span class="text-xs text-gray-400 dark:text-gray-500 font-sans shrink-0 ml-3 font-preview-text">AaBb 123</span>
+                                            </div>
+                                        </mat-option>
+                                        <mat-option [value]="'Times New Roman'" class="font-option-preview" [style.--font-family-preview]="'Times New Roman, serif'">
+                                            <div class="flex items-center justify-between w-full min-w-0 pr-1">
+                                                <span class="truncate text-base font-preview-name font-preview-text">Times New Roman</span>
+                                                <span class="text-xs text-gray-400 dark:text-gray-500 font-sans shrink-0 ml-3 font-preview-text">AaBb 123</span>
+                                            </div>
+                                        </mat-option>
+                                        <mat-option [value]="'Courier New'" class="font-option-preview" [style.--font-family-preview]="'Courier New, monospace'">
+                                            <div class="flex items-center justify-between w-full min-w-0 pr-1">
+                                                <span class="truncate text-base font-preview-name font-preview-text">Courier New</span>
+                                                <span class="text-xs text-gray-400 dark:text-gray-500 font-sans shrink-0 ml-3 font-preview-text">AaBb 123</span>
+                                            </div>
+                                        </mat-option>
                                         @for (
                                             group of fontGroups;
                                             track group
@@ -317,20 +329,123 @@
                                                     track fontItem
                                                 ) {
                                                     <mat-option
-                                                        [value]="
-                                                            fontItem.fontName
-                                                        "
-                                                        [style.fontFamily]="
-                                                            fontItem.fontName
-                                                        "
+                                                        [value]="fontItem.fontName"
+                                                        class="font-option-preview"
+                                                        [style.--font-family-preview]="'&quot;' + fontItem.fontName + '&quot;, sans-serif'"
                                                     >
-                                                        {{ fontItem.fontName }}
+                                                        <div class="flex items-center justify-between w-full min-w-0 pr-1">
+                                                            <span class="truncate text-base font-preview-name font-preview-text">
+                                                                {{ fontItem.fontName }}
+                                                            </span>
+                                                            <span class="text-xs text-gray-400 dark:text-gray-500 font-sans shrink-0 ml-3 font-preview-text">
+                                                                AaBb 123
+                                                            </span>
+                                                        </div>
                                                     </mat-option>
                                                 }
                                             </mat-optgroup>
                                         }
                                     </mat-select>
                                 </mat-form-field>
+                                <!-- Thanh công cụ định dạng chữ: căn lề & kiểu chữ -->
+                                <div class="flex items-center justify-between p-1 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center space-x-0.5">
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            class="w-8 h-8 rounded"
+                                            [class.bg-white]="(txt.textAlign || 'center') === 'left'"
+                                            [class.shadow-xs]="(txt.textAlign || 'center') === 'left'"
+                                            [class.text-blue-600]="(txt.textAlign || 'center') === 'left'"
+                                            [class.text-gray-500]="(txt.textAlign || 'center') !== 'left'"
+                                            (click)="setTextAlignment(txt, 'left')"
+                                            matTooltip="Căn trái"
+                                        >
+                                            <mat-icon class="icon-size-4" svgIcon="feather:align-left"></mat-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            class="w-8 h-8 rounded"
+                                            [class.bg-white]="(txt.textAlign || 'center') === 'center'"
+                                            [class.shadow-xs]="(txt.textAlign || 'center') === 'center'"
+                                            [class.text-blue-600]="(txt.textAlign || 'center') === 'center'"
+                                            [class.text-gray-500]="(txt.textAlign || 'center') !== 'center'"
+                                            (click)="setTextAlignment(txt, 'center')"
+                                            matTooltip="Căn giữa"
+                                        >
+                                            <mat-icon class="icon-size-4" svgIcon="feather:align-center"></mat-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            class="w-8 h-8 rounded"
+                                            [class.bg-white]="(txt.textAlign || 'center') === 'right'"
+                                            [class.shadow-xs]="(txt.textAlign || 'center') === 'right'"
+                                            [class.text-blue-600]="(txt.textAlign || 'center') === 'right'"
+                                            [class.text-gray-500]="(txt.textAlign || 'center') !== 'right'"
+                                            (click)="setTextAlignment(txt, 'right')"
+                                            matTooltip="Căn phải"
+                                        >
+                                            <mat-icon class="icon-size-4" svgIcon="feather:align-right"></mat-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            class="w-8 h-8 rounded"
+                                            [class.bg-white]="(txt.textAlign || 'center') === 'justify'"
+                                            [class.shadow-xs]="(txt.textAlign || 'center') === 'justify'"
+                                            [class.text-blue-600]="(txt.textAlign || 'center') === 'justify'"
+                                            [class.text-gray-500]="(txt.textAlign || 'center') !== 'justify'"
+                                            (click)="setTextAlignment(txt, 'justify')"
+                                            matTooltip="Căn đều"
+                                        >
+                                            <mat-icon class="icon-size-4" svgIcon="feather:align-justify"></mat-icon>
+                                        </button>
+                                    </div>
+                                    <div class="h-5 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                                    <div class="flex items-center space-x-0.5">
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            class="w-8 h-8 rounded"
+                                            [class.bg-white]="txt.isBold !== false"
+                                            [class.shadow-xs]="txt.isBold !== false"
+                                            [class.text-blue-600]="txt.isBold !== false"
+                                            [class.text-gray-500]="txt.isBold === false"
+                                            (click)="toggleBold(txt)"
+                                            matTooltip="In đậm"
+                                        >
+                                            <mat-icon class="icon-size-4" svgIcon="feather:bold"></mat-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            class="w-8 h-8 rounded"
+                                            [class.bg-white]="!!txt.isItalic"
+                                            [class.shadow-xs]="!!txt.isItalic"
+                                            [class.text-blue-600]="!!txt.isItalic"
+                                            [class.text-gray-500]="!txt.isItalic"
+                                            (click)="toggleItalic(txt)"
+                                            matTooltip="In nghiêng"
+                                        >
+                                            <mat-icon class="icon-size-4" svgIcon="feather:italic"></mat-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            class="w-8 h-8 rounded"
+                                            [class.bg-white]="!!txt.isUnderline"
+                                            [class.shadow-xs]="!!txt.isUnderline"
+                                            [class.text-blue-600]="!!txt.isUnderline"
+                                            [class.text-gray-500]="!txt.isUnderline"
+                                            (click)="toggleUnderline(txt)"
+                                            matTooltip="Gạch chân"
+                                        >
+                                            <mat-icon class="icon-size-4" svgIcon="feather:underline"></mat-icon>
+                                        </button>
+                                    </div>
+                                </div>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div
                                         class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50"

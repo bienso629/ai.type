@@ -102,6 +102,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     maxZoomIndex: number;
     currentZoomIndex: number;
 
+    isLoadingSchedule: boolean = false;
     items: ICustomTimelineItem[] = [];
     
     timelineStartDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1, 0, 0, 0, 0);
@@ -572,6 +573,8 @@ ${domainRows.join('\n')}
         this.loadScriptState();
         const state = history.state;
         if (state && state.domains && state.domains.length > 0) {
+            this.isLoadingSchedule = true;
+            this.cd.markForCheck();
             this.processDomains(state.domains, state.statsData, state.month, state.forceGenerate);
             
             const newState = { ...state };
@@ -1317,6 +1320,7 @@ ${domainRows.join('\n')}
         
         this.updateTotalSummaryRow();
         this.saveScriptState();
+        this.isLoadingSchedule = false;
         this.cd.markForCheck();
         this.toastr.success('Hoàn thành lên kế hoạch cho tên miền!');
         
@@ -2183,6 +2187,8 @@ Không dùng markdown \`\`\`json.`;
     }
 
     loadScheduleFromDB() {
+        this.isLoadingSchedule = true;
+        this.cd.markForCheck();
         const username = this.user?.name || 'admin';
         this._domainService.fetch({ username: username }).subscribe({
             next: (res: any) => {
@@ -2247,11 +2253,15 @@ Không dùng markdown \`\`\`json.`;
                         }
                     });
                 } else {
+                    this.isLoadingSchedule = false;
                     this.loadScriptState();
+                    this.cd.markForCheck();
                 }
             },
             error: () => {
+                this.isLoadingSchedule = false;
                 this.loadScriptState();
+                this.cd.markForCheck();
             }
         });
     }

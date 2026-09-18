@@ -1484,7 +1484,7 @@
                             <!-- Subtitle Caption Overlay on Video Preview (Song ngữ Dual Subtitles - Clean Cinematic Style) -->
                             @if (currentSubtitleInfo) {
                                 <div
-                                    class="absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
+                                    class="subtitle-preview-box font-preview-text absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
                                     [ngClass]="
                                         activeItem &&
                                         getItemType(activeItem) === 'text'
@@ -1493,8 +1493,7 @@
                                     "
                                     [style.bottom.px]="currentSubtitleBottom"
                                     [style.fontFamily]="
-                                        currentSubtitleInfo.fontFamily ||
-                                        currentSubtitleFont
+                                        formatSubtitleFont(currentSubtitleInfo.fontFamily)
                                     "
                                     [style.transform]="
                                         'translate(calc(-50% + ' +
@@ -1532,7 +1531,10 @@
                                 >
                                     <!-- Dòng 1: Ngôn ngữ chính / Gốc (Chữ to, trắng đậm, viền đen điện ảnh) -->
                                     <span
-                                        class="text-white font-bold leading-snug tracking-wide pointer-events-none whitespace-pre-wrap break-words block"
+                                        class="subtitle-primary font-preview-text text-white font-bold leading-snug tracking-wide pointer-events-none whitespace-pre-wrap break-words block"
+                                        [style.fontFamily]="
+                                            formatSubtitleFont(currentSubtitleInfo.fontFamily)
+                                        "
                                         [style.fontSize.px]="
                                             currentSubtitleInfo.fontSize ||
                                             currentSubtitleFontSize
@@ -1543,7 +1545,10 @@
                                     <!-- Dòng 2: Tiếng Việt (Chữ vàng tươi, to rõ bên dưới) -->
                                     @if (currentSubtitleInfo.secondaryText) {
                                         <span
-                                            class="text-yellow-300 font-semibold leading-snug tracking-wide pointer-events-none whitespace-pre-wrap break-words block"
+                                            class="subtitle-secondary font-preview-text text-yellow-300 font-semibold leading-snug tracking-wide pointer-events-none whitespace-pre-wrap break-words block"
+                                            [style.fontFamily]="
+                                                formatSubtitleFont(currentSubtitleInfo.fontFamily)
+                                            "
                                             [style.fontSize.px]="
                                                 (currentSubtitleInfo.fontSize ||
                                                     currentSubtitleFontSize) *
@@ -1691,7 +1696,7 @@
                         currentSubtitleInfo
                     ) {
                         <div
-                            class="absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
+                            class="subtitle-preview-box font-preview-text absolute left-1/2 -translate-x-1/2 max-w-[92%] z-40 select-none flex flex-col items-center justify-center gap-1 text-center cursor-move p-2 rounded"
                             [ngClass]="
                                 activeItem && getItemType(activeItem) === 'text'
                                     ? 'layer-transform-box subtitle-transform-box'
@@ -1699,8 +1704,7 @@
                             "
                             [style.bottom.px]="currentSubtitleBottom"
                             [style.fontFamily]="
-                                currentSubtitleInfo.fontFamily ||
-                                currentSubtitleFont
+                                formatSubtitleFont(currentSubtitleInfo.fontFamily)
                             "
                             [style.transform]="
                                 'translate(calc(-50% + ' +
@@ -1738,7 +1742,10 @@
                         >
                             <!-- Dòng 1: Ngôn ngữ chính / Gốc (Chữ to, trắng đậm, viền đen điện ảnh) -->
                             <span
-                                class="text-white font-bold leading-snug tracking-wide pointer-events-none whitespace-pre-wrap break-words block"
+                                class="subtitle-primary font-preview-text text-white font-bold leading-snug tracking-wide pointer-events-none whitespace-pre-wrap break-words block"
+                                [style.fontFamily]="
+                                    formatSubtitleFont(currentSubtitleInfo.fontFamily)
+                                "
                                 [style.fontSize.px]="
                                     currentSubtitleInfo.fontSize ||
                                     currentSubtitleFontSize
@@ -1749,7 +1756,10 @@
                             <!-- Dòng 2: Tiếng Việt (Chữ vàng tươi, to rõ bên dưới) -->
                             @if (currentSubtitleInfo.secondaryText) {
                                 <span
-                                    class="text-yellow-300 font-semibold leading-snug tracking-wide pointer-events-none whitespace-pre-wrap break-words block"
+                                    class="subtitle-secondary font-preview-text text-yellow-300 font-semibold leading-snug tracking-wide pointer-events-none whitespace-pre-wrap break-words block"
+                                    [style.fontFamily]="
+                                        formatSubtitleFont(currentSubtitleInfo.fontFamily)
+                                    "
                                     [style.fontSize.px]="
                                         (currentSubtitleInfo.fontSize ||
                                             currentSubtitleFontSize) * 0.85
@@ -2434,9 +2444,9 @@
                                     >
                                     <select
                                         [ngModel]="currentSubtitleFont"
-                                        (ngModelChange)="
-                                            setSubtitleFont($event)
-                                        "
+                                        (ngModelChange)="setSubtitleFont($event)"
+                                        (change)="setSubtitleFont($any($event.target).value)"
+                                        (input)="setSubtitleFont($any($event.target).value)"
                                         class="w-full h-8 pl-2.5 pr-7 py-1 text-xs bg-[#0d0e12] border border-neutral-700 rounded text-neutral-200 focus:outline-none focus:border-amber-500 cursor-pointer"
                                     >
                                          <optgroup
@@ -2718,10 +2728,9 @@
                                             rows="3"
                                             placeholder="Nhập nội dung phụ đề..."
                                             [style.fontFamily]="
-                                                activeItem.fontFamily ||
-                                                currentSubtitleFont
+                                                '\'' + (activeItem.fontFamily || currentSubtitleFont) + '\', sans-serif'
                                             "
-                                            class="w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed"
+                                            class="font-preview-text w-full p-2.5 text-xs bg-[#0d0e12] border border-neutral-700 rounded-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none leading-relaxed"
                                         ></textarea>
                                     </div>
                                     <!-- THANH CÔNG CỤ TÁCH PHỤ ĐỀ (SPLIT SUBTITLE TOOLS) -->

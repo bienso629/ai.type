@@ -183,17 +183,24 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
                                     p.accounts = item.accounts;
                                 }
                             });
+                            this.profiles = [...this.profiles];
                         } else {
-                            this.profiles = newResults;
+                            this.profiles = [...newResults];
                         }
                         this.totalProfiles =
                             result.count || this.profiles.length;
-                        this.cd.markForCheck();
+                        this.cd.detectChanges();
+                        if (this.table) {
+                            this.table.recalculate();
+                        }
                     }
                 },
                 error: () => {},
                 complete: () => {
-                    this.cd.markForCheck();
+                    this.cd.detectChanges();
+                    if (this.table) {
+                        this.table.recalculate();
+                    }
                 },
             });
     }
