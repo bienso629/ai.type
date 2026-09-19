@@ -383,8 +383,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
             (window as any).electron &&
             (window as any).electron.listLocalDomains
         ) {
+            const currentUname = this.user?.name || localStorage.getItem('username');
             (window as any).electron
-                .listLocalDomains()
+                .listLocalDomains({ username: currentUname })
                 .then((res: any) => {
                     if (res && res.success && res.data) {
                         const rawDomains = res.data;
@@ -494,8 +495,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
             (window as any).electron &&
             (window as any).electron.getLocalStatistics
         ) {
+            const currentUname = this.user?.name || localStorage.getItem('username');
             (window as any).electron
-                .getLocalStatistics()
+                .getLocalStatistics({ username: currentUname })
                 .then((res: any) => {
                     if (res && res.success && res.data) {
                         const statsData = res.data;

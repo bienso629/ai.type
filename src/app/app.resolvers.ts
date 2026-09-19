@@ -132,7 +132,7 @@ export class InitialDataResolver
 
                 const statistics$ = (isAutoSaveLocal && (window as any).electron && (window as any).electron.getLocalStatistics)
                     ? new Observable(observer => {
-                        (window as any).electron.getLocalStatistics().then((res: any) => {
+                        (window as any).electron.getLocalStatistics({ username: user.name }).then((res: any) => {
                             if (res && res.success && res.data) {
                                 let oldStats: any = {};
                                 try {

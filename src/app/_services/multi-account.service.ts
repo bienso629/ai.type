@@ -46,7 +46,7 @@ export class MultiAccountService {
 
     // Biến Cache lưu dữ liệu trên RAM để truy xuất tức thì (Đồng bộ - Synchronous)
     private currentSessionData: any = {};
-    private currentAccountId: string | null = null;
+    public currentAccountId: string | null = null;
 
     // Cờ báo hiệu DB đã load xong (dành cho những lúc cần await lúc khởi động app)
     public isReady: Promise<boolean>;
@@ -54,6 +54,13 @@ export class MultiAccountService {
     // Cache RAM cho các file Video/Media dung lượng lớn
     // Bây giờ sẽ được đồng bộ với IndexedDB để sống sót qua F5
     public memoryVideoFiles: { [key: string]: File } = {};
+
+    private syncActiveUserWithElectron(username: string | null): void {
+        const electron = (window as any)?.electron;
+        if (electron && electron.setActiveLocalUser) {
+            electron.setActiveLocalUser({ username: username || 'admin' }).catch(() => {});
+        }
+    }
 
     async saveMemoryFile(name: string, file: File): Promise<void> {
         this.memoryVideoFiles[name] = file;
@@ -195,19 +202,57 @@ export class MultiAccountService {
                 console.warn('Could not load media files', e);
             }
 
-            const activeRecord = await db.sessions.where('isActive').equals(1).first();
-            
+            let activeRecord: any = null;
+            const savedActiveId = localStorage.getItem('ai_type_active_account_id');
+            if (savedActiveId) {
+                activeRecord = await db.sessions.get(savedActiveId);
+                if (activeRecord && activeRecord.isActive !== 1) {
+                    await db.sessions.update(savedActiveId, { isActive: 1 });
+                    activeRecord.isActive = 1;
+                }
+            }
+
+            if (!activeRecord) {
+                activeRecord = await db.sessions.where('isActive').equals(1).first();
+            }
+
             if (activeRecord && activeRecord.encryptedData) {
                 this.currentAccountId = activeRecord.id;
+                localStorage.setItem('ai_type_active_account_id', activeRecord.id);
                 this.currentSessionData = this.decryptData(activeRecord.encryptedData) || {};
                 
+                const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
+                const uname = userObj?.name || userObj?.username || this.currentAccountId;
+                this.syncActiveUserWithElectron(uname);
+
                 this.activeAccountSubject.next(this.currentSessionData);
                 return this.currentSessionData;
             }
             
+            this.currentAccountId = null;
+            localStorage.removeItem('ai_type_active_account_id');
+            this.currentSessionData = {};
+            this.syncActiveUserWithElectron(null);
             this.activeAccountSubject.next(null);
             return null;
         }, null);
+    }
+
+    /**
+     * Hủy phiên hoạt động hiện tại (Đăng xuất phiên làm việc)
+     */
+    async clearActiveSession(): Promise<void> {
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+        }
+        localStorage.removeItem('ai_type_active_account_id');
+        await this.safeDbCall(async () => {
+            await db.sessions.toCollection().modify({ isActive: 0 });
+        }, undefined);
+        this.currentAccountId = null;
+        this.currentSessionData = {};
+        this.syncActiveUserWithElectron(null);
+        this.activeAccountSubject.next(null);
     }
 
     /**
@@ -225,13 +270,22 @@ export class MultiAccountService {
             return {};
         }, {});
 
+        // Giữ lại accessToken nếu có trong existingData hoặc currentSessionData mà rawData không truyền
+        const preservedToken = rawData.accessToken || existingData.accessToken || this.currentSessionData?.accessToken;
         this.currentSessionData = { ...existingData, ...rawData }; 
+        if (preservedToken) {
+            this.currentSessionData.accessToken = preservedToken;
+        }
         
         await this.safeDbCall(async () => {
             await db.sessions.toCollection().modify({ isActive: 0 });
         }, undefined);
         
         await this.saveToBackground();
+        localStorage.setItem('ai_type_active_account_id', accountId);
+        const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
+        const uname = userObj?.name || userObj?.username || this.currentAccountId;
+        this.syncActiveUserWithElectron(uname);
         this.activeAccountSubject.next(this.currentSessionData);
     }
 
@@ -266,7 +320,11 @@ export class MultiAccountService {
             await db.sessions.update(accountId, { isActive: 1 });
             
             this.currentAccountId = accountId;
+            localStorage.setItem('ai_type_active_account_id', accountId);
             this.currentSessionData = this.decryptData(targetAccount.encryptedData) || {};
+            const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
+            const uname = userObj?.name || userObj?.username || this.currentAccountId;
+            this.syncActiveUserWithElectron(uname);
             this.activeAccountSubject.next(this.currentSessionData);
             
             return true;
@@ -287,6 +345,7 @@ export class MultiAccountService {
                 } else {
                     this.currentAccountId = null;
                     this.currentSessionData = {};
+                    this.syncActiveUserWithElectron(null);
                     this.activeAccountSubject.next(null);
                 }
             }

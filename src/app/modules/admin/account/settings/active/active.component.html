@@ -9,11 +9,22 @@
             <div class="text-secondary leading-8 mt-4">
                 @if (activeInfo && activeInfo.user) {
                     <fuse-alert [appearance]="'outline'" [type]="'success'">
-                        {{ "app.valid_until" | transloco }}
-                        {{
-                            activeInfo.user.expirationDate
-                                | date: "d/M/Y h:mma z"
-                        }}
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex items-center space-x-2 font-semibold">
+                                @if (isFreeLicense) {
+                                    <span class="text-green-600">Bản quyền: Miễn phí (Free)</span>
+                                } @else {
+                                    <span class="text-green-600">Bản quyền: Chính hãng ({{ licenseCustomerEmail }})</span>
+                                }
+                            </div>
+                            <div>
+                                {{ "app.valid_until" | transloco }}
+                                {{
+                                    activeInfo.user.expirationDate
+                                        | date: "d/M/y h:mma z"
+                                }}
+                            </div>
+                        </div>
                     </fuse-alert>
                 } @else {
                     <fuse-alert [appearance]="'outline'" [type]="'warning'">
@@ -47,14 +58,14 @@
                     "app.enter_license_key" | transloco
                 }}</mat-label>
                 <mat-grid-list
-                    class="max-w-140"
+                    class="max-w-160 license-key-grid block relative"
                     cols="6"
                     gutterSize="10px"
                     rowHeight="60px"
                 >
-                    <mat-grid-tile class="">
+                    <mat-grid-tile class="!overflow-visible">
                         <mat-form-field
-                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix field-hidden-subscript"
                         >
                             <input
                                 #digitOne
@@ -64,15 +75,15 @@
                                 (keyup)="onDigitInput($event, null, digitTwo)"
                                 type="text"
                                 maxlength="5"
-                                class="uppercase"
+                                class="uppercase text-center text-sm font-medium tracking-wide"
                                 required
                                 matInput
                             />
                         </mat-form-field>
                     </mat-grid-tile>
-                    <mat-grid-tile class="">
+                    <mat-grid-tile class="!overflow-visible">
                         <mat-form-field
-                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix field-hidden-subscript"
                         >
                             <input
                                 #digitTwo
@@ -83,15 +94,15 @@
                                 "
                                 type="text"
                                 maxlength="5"
-                                class="uppercase"
+                                class="uppercase text-center text-sm font-medium tracking-wide"
                                 required
                                 matInput
                             />
                         </mat-form-field>
                     </mat-grid-tile>
-                    <mat-grid-tile class="">
+                    <mat-grid-tile class="!overflow-visible">
                         <mat-form-field
-                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix field-hidden-subscript"
                         >
                             <input
                                 #digitThree
@@ -102,15 +113,15 @@
                                 "
                                 type="text"
                                 maxlength="5"
-                                class="uppercase"
+                                class="uppercase text-center text-sm font-medium tracking-wide"
                                 required
                                 matInput
                             />
                         </mat-form-field>
                     </mat-grid-tile>
-                    <mat-grid-tile class="">
+                    <mat-grid-tile class="!overflow-visible">
                         <mat-form-field
-                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix field-hidden-subscript"
                         >
                             <input
                                 #digitFour
@@ -121,15 +132,15 @@
                                 "
                                 type="text"
                                 maxlength="5"
-                                class="uppercase"
+                                class="uppercase text-center text-sm font-medium tracking-wide"
                                 required
                                 matInput
                             />
                         </mat-form-field>
                     </mat-grid-tile>
-                    <mat-grid-tile class="">
+                    <mat-grid-tile class="!overflow-visible">
                         <mat-form-field
-                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix field-hidden-subscript"
                         >
                             <input
                                 #digitFive
@@ -140,15 +151,15 @@
                                 "
                                 type="text"
                                 maxlength="5"
-                                class="uppercase"
+                                class="uppercase text-center text-sm font-medium tracking-wide"
                                 required
                                 matInput
                             />
                         </mat-form-field>
                     </mat-grid-tile>
-                    <mat-grid-tile class="">
+                    <mat-grid-tile class="!overflow-visible">
                         <mat-form-field
-                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix field-hidden-subscript"
                         >
                             <input
                                 #digitSix
@@ -157,7 +168,7 @@
                                 (keyup)="onDigitInput($event, digitFive, null)"
                                 type="text"
                                 maxlength="5"
-                                class="uppercase"
+                                class="uppercase text-center text-sm font-medium tracking-wide"
                                 required
                                 matInput
                             />
@@ -170,18 +181,11 @@
                     <button mat-flat-button type="submit" [color]="'primary'">
                         {{ "app.activate_software" | transloco }}
                     </button>
-                    @if (showPaymentButton) {
-                        <a
-                            class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline"
-                            (click)="openMomoPayment()"
-                            >{{ "app.auto_receive_license_key" | transloco }}</a
-                        >
-                    }
                 </div>
             </div>
         }
 
-        @if (activeInfo && activeInfo.user) {
+        @if (canShowPaymentButton) {
             <div class="w-full mt-8">
                 <div class="flex flex-col items-start space-y-3">
                     <button

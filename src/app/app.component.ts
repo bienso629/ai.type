@@ -75,42 +75,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     // ===============================
 
     updateTime(): void {
-        let activeInfo = this.multiAccountService.getItem('active_info');
-
-        if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
-            const isLicenseKeyExpired =
-                AuthUtils.isLicenseKeyExpired(activeInfo);
-            // this.checkActiveInfo = AuthUtils._verifyActiveInfo(activeInfo, this.uuid);
-
-            if (isLicenseKeyExpired === true) {
-                this.router.navigate(['/settings'], {
-                    queryParams: {
-                        tab: 'active',
-                    },
-                });
-                this._translocoService
-                    .selectTranslate('app.software_expired')
-                    .pipe(take(1))
-                    .subscribe((t) => this.error(t));
-            } else {
-                // Phần mềm đã được kích hoạt
-                if (this.intervalId) {
-                    clearInterval(this.intervalId);
-                }
-
-                // Tự động đồng bộ với server để lấy trạng thái mới nhất
-                this.syncActiveInfo(activeInfo);
-            }
-        } else {
-            this.router.navigate(['/settings'], {
-                queryParams: {
-                    tab: 'active',
-                },
-            });
-            this._translocoService
-                .selectTranslate('app.software_not_activated')
-                .pipe(take(1))
-                .subscribe((t) => this.error(t));
+        // Đã tắt logic kiểm tra và thông báo kích hoạt phần mềm
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
         }
     }
 
@@ -216,13 +183,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private _fontService: FontService,
         private _titleService: Title,
     ) {
-        // kiểm tra settings và khởi tạo
-        this.multiAccountService.loadActiveAccount().then((data) => {
-            const groups = data?.user?.groups;
-            if (groups && groups.length === 0) {
-                this.multiAccountService.clearCurrentAccountData();
-            }
-        });
+        // Khôi phục tài khoản đang Active
+        this.multiAccountService.loadActiveAccount();
 
         let settings: any = this.multiAccountService.getItem('settings');
         if (!settings || settings == 'undefined') {
@@ -307,15 +269,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 (window as any).electron.invoke('register-license', activeInfo);
             }
 
-            // Lắng nghe lệnh force-renewal từ main.js
+            // Đã tắt logic kiểm tra và thông báo kích hoạt phần mềm từ Electron
             (window as any).electron.onForceRenewal(() => {
-                this.router.navigate(['/settings'], {
-                    queryParams: { tab: 'active' },
-                });
-                this._translocoService
-                    .selectTranslate('app.software_expired')
-                    .pipe(take(1))
-                    .subscribe((t) => this.error(t));
+                // Tắt thông báo hết hạn bản quyền
             });
 
             (window as any).electron.onToolsResponse((data: any) => {

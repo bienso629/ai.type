@@ -112,7 +112,8 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         const electron = (window as any).electron;
 
         if (isAutoSaveLocal && electron && electron.listLocalDomains) {
-            electron.listLocalDomains().then((res: any) => {
+            const currentUname = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username');
+            electron.listLocalDomains({ username: currentUname }).then((res: any) => {
                 if (res && res.success && res.data) {
                     this.rows = res.data;
                     let settings = this.multiAccountService.getItem('settings') || {};

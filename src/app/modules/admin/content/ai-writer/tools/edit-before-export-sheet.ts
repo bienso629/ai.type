@@ -119,22 +119,22 @@ try {
     template: `<div class="px-2 pb-4 pt-2">
         <div class="flex items-center justify-between mb-1 mt-1">
             @if (data.function === 'share') {
-                <div class="text-2xl font-bold text-gray-800 tracking-tight">
+                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100 tracking-tight">
                     {{ this.data.title }}
                 </div>
             }
             @if (data.function === 'edit') {
-                <div class="text-2xl font-bold text-gray-800 tracking-tight">
+                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100 tracking-tight">
                     Chỉnh sửa
                 </div>
             }
             @if (data.function === 'new') {
-                <div class="text-2xl font-bold text-gray-800 tracking-tight">
+                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100 tracking-tight">
                     Thêm nội dung
                 </div>
             }
             @if (data.function === 'update') {
-                <div class="text-2xl font-bold text-gray-800 tracking-tight">
+                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100 tracking-tight">
                     Cập nhật lên WordPress
                 </div>
             }
@@ -515,27 +515,35 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
-                    if (result) {
+                    if (result && Array.isArray(result)) {
                         this.categoryitems = result.map((item: any) => {
-                            if (item.name) {
+                            const catId = item.id !== undefined ? item.id : item.cid;
+                            let catName = item.name || '';
+                            if (catName) {
                                 // Decode các thẻ HTML entities của NodeBB
-                                item.name = item.name
+                                catName = catName
                                     .replace(/&lsqb;/gi, '[')
                                     .replace(/&rsqb;/gi, ']');
                                 // Dịch thành tiếng việt
                                 if (
-                                    item.name.includes(
+                                    catName.includes(
                                         '[[category:uncategorized]]',
                                     )
                                 ) {
-                                    item.name = item.name.replace(
+                                    catName = catName.replace(
                                         '[[category:uncategorized]]',
                                         'Chưa phân loại',
                                     );
                                 }
                             }
-                            return item;
+                            return {
+                                ...item,
+                                id: catId,
+                                cid: catId,
+                                name: catName,
+                            };
                         });
+                        this.cdr.markForCheck();
                     } else {
                         this.toastr.warning('Lấy danh mục thất bại.');
                     }

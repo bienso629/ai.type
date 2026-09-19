@@ -4726,12 +4726,12 @@ ${contentFromDone || '(Chưa có văn bản)'}
     forumCategory() {
         this._forumService
             .category({
-                _uid: this.user.id,
+                _uid: this.user?.id || 0,
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result && result.success) {
+                    if (result && result.success && result.data?.response?.categories) {
                         this.forumCategories = result.data.response.categories.map((item: any) => {
                             if (item.name) {
                                 item.name = item.name.replace(/&lsqb;/gi, '[').replace(/&rsqb;/gi, ']');
@@ -4741,11 +4741,13 @@ ${contentFromDone || '(Chưa có văn bản)'}
                             }
                             return item;
                         });
+                        this.cd.markForCheck();
                     }
                 },
-                error: () => { },
+                error: (err) => {
+                    console.error('[ai-writer] Lỗi forumCategory:', err);
+                },
                 complete: () => {
-                    // lam moi lai giao dien
                     this.cd.markForCheck();
                 },
             });
@@ -6986,6 +6988,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
         }
 
         this.updateAgentContext();
+        this.forumCategory();
     }
 
     updateAgentContext() {
