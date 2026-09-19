@@ -53,7 +53,7 @@ export class AMXHComponent implements OnInit, OnDestroy {
             id: 'share',
             icon: 'feather:share-2',
             title: 'Facebook',
-            description: 'Chia sẻ bài viết lên Facebook',
+            description: 'Chia sẻ bài viết lên Fanpage của bạn nhanh hơn',
         }
     ];
 

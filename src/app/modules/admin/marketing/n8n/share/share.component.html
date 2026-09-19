@@ -240,11 +240,12 @@
                     @if (filteredFbPages.length === 0) {
                         <mat-option
                             disabled
-                            class="text-center italic text-gray-400 py-4"
-                            >{{
-                                "app.auto_no_fanpage_found" | transloco
-                            }}</mat-option
+                            class="!h-auto !py-4 not-italic text-gray-400 select-none [&_.mdc-list-item__primary-text]:w-full [&_.mdc-list-item__primary-text]:!justify-center [&_.mat-pseudo-checkbox]:!hidden"
                         >
+                            <div class="flex items-center justify-center w-full text-center text-sm not-italic font-normal">
+                                {{ "app.auto_no_fanpage_found" | transloco }}
+                            </div>
+                        </mat-option>
                     }
                     @for (page of filteredFbPages; track page) {
                         <mat-option
