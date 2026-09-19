@@ -111,7 +111,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     currentName: string | null = null;
     originalArchiveData: any = null; // [MỚI] Lưu lại toàn bộ dữ liệu gốc từ Server
 
-    voiceList = [
+    voiceList: any[] = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
         // { id: 'nam-calm', name: 'Nam điềm tĩnh (Server)' },
@@ -188,17 +188,36 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
-    updateColabVoices(connected: boolean) {
+    async updateColabVoices(connected: boolean) {
         this.isColabConnected = connected;
-        const omniVoices = [
-            { id: 'omnivoice-yenai', name: 'Yenai (OmniVoice Colab)' },
-            { id: 'omnivoice-mpsg', name: 'MPSG (OmniVoice Colab)' }
-        ];
 
         if (connected) {
+            let omniVoices: any[] = [];
+            if ((window as any).electron && (window as any).electron.invoke) {
+                try {
+                    const dynamicVoices = await (window as any).electron.invoke('get-colab-voices');
+                    if (Array.isArray(dynamicVoices) && dynamicVoices.length > 0) {
+                        omniVoices = dynamicVoices;
+                    }
+                } catch (err) {
+                    console.error('Lỗi lấy danh sách OmniVoice:', err);
+                }
+            }
+
+            // Fallback nếu không đọc được từ Electron
+            if (omniVoices.length === 0) {
+                omniVoices = [
+                    { id: 'omnivoice-yenai', name: 'Yenai' },
+                    { id: 'omnivoice-mpsg', name: 'MPSG' }
+                ];
+            }
+
             omniVoices.forEach(ov => {
-                if (!this.voiceList.some(v => v.id === ov.id)) {
+                const existing = this.voiceList.find(v => v.id === ov.id);
+                if (!existing) {
                     this.voiceList.push(ov);
+                } else {
+                    existing.name = ov.name;
                 }
             });
         } else {
@@ -540,18 +559,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 } else if (clipVoice.startsWith('omnivoice-') || clipVoice === 'omnivoice') {
                     const niceFilename = `${prefix}_${slug}_${fileSuffix}`;
                     const targetVoiceName = clipVoice.replace('omnivoice-', '');
-                    const refAudioName = targetVoiceName.endsWith('.wav') ? targetVoiceName : `${targetVoiceName}.wav`;
-
-                    const defaultRefTexts: { [key: string]: string } = {
-                        'yenai': 'Đêm giao thừa, cả nhà không ai lo cắm mặt vào điện thoại, chúng tôi ngồi bên nhau, kể chuyện, cười đùa, chờ đợi tiếng pháo nổ giòn giã ngoài ngõ.',
-                        'mpsg': 'Rachel đã ly dị, đã mất việc, đã chìm trong rượu và cay đắng, chẳng còn nơi nào để đến và đi.'
-                    };
+                    const refAudioName = targetVoiceName.endsWith('.wav') || targetVoiceName.endsWith('.mp3')
+                        ? targetVoiceName
+                        : `${targetVoiceName}.wav`;
+                    const selectedVoiceObj = this.voiceList.find(v => v.id === clipVoice);
 
                     const payload = {
                         text: clip.description,
                         voice_id: targetVoiceName,
                         ref_audio_name: refAudioName,
-                        ref_text: clip['ref_text'] || defaultRefTexts[targetVoiceName.toLowerCase().replace('.wav', '')] || '',
+                        ref_text: clip['ref_text'] || selectedVoiceObj?.refText || '',
                         speed: clip.rate || 1.0,
                         num_step: 16,
                         filename: niceFilename,

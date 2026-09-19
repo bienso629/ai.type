@@ -47,6 +47,11 @@ export class LicenseKeyService {
             });
     }
 
+    private getServerUrl(): string {
+        const serverKey = this.user?.server || 'vn.s3';
+        return this.config?.settings?.api?.[serverKey] || this.config?.settings?.api?.['vn.s3'] || 'https://apiv3.type.vn/v1';
+    }
+
     public fetch(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
@@ -55,7 +60,7 @@ export class LicenseKeyService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.api[this.user.server]}/licensekey/all`;
+        const url = `${this.getServerUrl()}/licensekey/all`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -80,7 +85,7 @@ export class LicenseKeyService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.api[this.user.server]}/licensekey/add`;
+        const url = `${this.getServerUrl()}/licensekey/add`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -117,7 +122,7 @@ export class LicenseKeyService {
         dataForm.appId = 'ai.typing';
         // dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.api[this.user.server]}/licensekey/activate`;
+        const url = `${this.getServerUrl()}/licensekey/activate`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -142,7 +147,7 @@ export class LicenseKeyService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.api[this.user.server]}/licensekey/check`;
+        const url = `${this.getServerUrl()}/licensekey/check`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -160,7 +165,7 @@ export class LicenseKeyService {
     }
 
     public restore(dataForm: any): Observable<any> {
-        const url = `${this.config.settings.api[this.user.server]}/licensekey/restore`;
+        const url = `${this.getServerUrl()}/licensekey/restore`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -185,7 +190,7 @@ export class LicenseKeyService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         
-        const url = `${this.config.settings.api[this.user.server]}/licensekey/extend`;
+        const url = `${this.getServerUrl()}/licensekey/extend`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)

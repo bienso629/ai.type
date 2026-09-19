@@ -111,6 +111,7 @@ contextBridge.exposeInMainWorld('electron', {
     },
     exportProject: (payload) => ipcRenderer.invoke('export-project', payload),
     importProject: (uuid) => ipcRenderer.invoke('import-project', uuid),
+    setActiveLocalUser: (payload) => ipcRenderer.invoke('set-active-local-user', payload),
     saveLocalArticle: (payload) => ipcRenderer.invoke('save-local-article', payload),
     exportLocalArticleDialog: (payload) => ipcRenderer.invoke('export-local-article-dialog', payload),
     listLocalArticles: (payload) => ipcRenderer.invoke('list-local-articles', payload),

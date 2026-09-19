@@ -385,20 +385,7 @@ export class AuthUtils {
      * @param offsetSeconds
      */
     static isLicenseKeyExpired(token: string, offsetSeconds?: number): boolean {
-        // Return if there is no token
-        if (!token || token === '') {
-            return true;
-        }
-
-        // Get the expiration date
-        const date = this._getTokenExpirationDate(token);
-        offsetSeconds = offsetSeconds || 0;
-
-        if (date === null) {
-            return true;
-        }
-
-        // Check if the token is expired
-        return !(date.valueOf() > new Date().valueOf() + offsetSeconds * 1000);
+        // Luôn trả về false để vô hiệu hóa kiểm tra hết hạn phần mềm
+        return false;
     }
 }

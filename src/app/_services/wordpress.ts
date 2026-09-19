@@ -49,6 +49,31 @@ export class WordpressService {
     }
 
     public categories(dataForm: any): Observable<any> {
+        const domainStr = (dataForm?.domain || '').toLowerCase();
+        if (domainStr.includes('type.vn')) {
+            return this.http.get<any>('https://type.vn/api/categories').pipe(
+                map((res: any) => {
+                    const list = res?.categories || [];
+                    return list.map((c: any) => {
+                        let name = c.name || '';
+                        if (name) {
+                            name = name.replace(/&lsqb;/gi, '[').replace(/&rsqb;/gi, ']');
+                            if (name.includes('[[category:uncategorized]]')) {
+                                name = name.replace('[[category:uncategorized]]', 'Chưa phân loại');
+                            }
+                        }
+                        return {
+                            id: c.cid !== undefined ? c.cid : c.id,
+                            cid: c.cid !== undefined ? c.cid : c.id,
+                            name: name,
+                            slug: c.slug
+                        };
+                    });
+                }),
+                catchError(this.handleError('typeVnCategoriesDirect', []))
+            );
+        }
+
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpCategories) {

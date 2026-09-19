@@ -14,7 +14,24 @@ try {
     }
 }
 
-let articlesDbInstance = null;
+const articlesDbInstances = {};
+let activeLocalUsername = 'admin';
+
+function setActiveLocalUsername(username) {
+    if (username && typeof username === 'string' && username.trim() && username !== 'all') {
+        activeLocalUsername = username.trim();
+    }
+}
+
+function getActiveLocalUsername() {
+    return activeLocalUsername || 'admin';
+}
+
+function sanitizeUsername(username) {
+    if (!username || typeof username !== 'string') return 'admin';
+    const clean = username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+    return clean || 'admin';
+}
 
 function getArticlesDbDir() {
     let documentsPath;
@@ -33,18 +50,35 @@ function getArticlesDbDir() {
     return dbDir;
 }
 
-function getArticlesDbPath() {
-    return path.join(getArticlesDbDir(), 'articles.sqlite');
+function getArticlesDbPath(username = 'admin') {
+    const sanitized = sanitizeUsername(username);
+    const dbDir = getArticlesDbDir();
+    if (sanitized === 'admin') {
+        const adminPath = path.join(dbDir, 'articles_admin.sqlite');
+        if (fs.existsSync(adminPath)) {
+            return adminPath;
+        }
+        const legacyPath = path.join(dbDir, 'articles.sqlite');
+        if (fs.existsSync(legacyPath)) {
+            return legacyPath;
+        }
+        return adminPath;
+    }
+    return path.join(dbDir, `articles_${sanitized}.sqlite`);
 }
 
-function getArticlesDatabase() {
-    if (articlesDbInstance) {
-        return articlesDbInstance;
+function getArticlesDatabase(username) {
+    const targetUser = username || activeLocalUsername || 'admin';
+    const sanitized = sanitizeUsername(targetUser);
+    if (articlesDbInstances[sanitized]) {
+        return articlesDbInstances[sanitized];
     }
-    const dbPath = getArticlesDbPath();
-    articlesDbInstance = new sqlite3.Database(dbPath);
-    articlesDbInstance.serialize(() => {
-        articlesDbInstance.run(`
+    const dbPath = getArticlesDbPath(sanitized);
+    const dbInstance = new sqlite3.Database(dbPath);
+    articlesDbInstances[sanitized] = dbInstance;
+
+    dbInstance.serialize(() => {
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_articles (
                 uuid TEXT PRIMARY KEY,
                 title TEXT,
@@ -70,10 +104,10 @@ function getArticlesDatabase() {
                 updated_at TEXT
             )
         `);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_articles_username ON local_articles(username)`);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_articles_updated_at ON local_articles(updated_at)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_articles_username ON local_articles(username)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_articles_updated_at ON local_articles(updated_at)`);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_chats (
                 id TEXT PRIMARY KEY,
                 conversation_id TEXT,
@@ -86,10 +120,10 @@ function getArticlesDatabase() {
                 updated_at TEXT
             )
         `);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_chats_username ON local_chats(username)`);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_chats_updated_at ON local_chats(updated_at)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_chats_username ON local_chats(username)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_chats_updated_at ON local_chats(updated_at)`);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_domains (
                 domain TEXT PRIMARY KEY,
                 name TEXT,
@@ -107,7 +141,7 @@ function getArticlesDatabase() {
             )
         `);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_tasks (
                 id TEXT PRIMARY KEY,
                 username TEXT,
@@ -123,11 +157,11 @@ function getArticlesDatabase() {
                 updated_at TEXT
             )
         `);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_username ON local_tasks(username)`);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_domain_id ON local_tasks(domain_id)`);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_year ON local_tasks(year)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_username ON local_tasks(username)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_domain_id ON local_tasks(domain_id)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_year ON local_tasks(year)`);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_nodes (
                 id TEXT PRIMARY KEY,
                 title TEXT,
@@ -139,10 +173,10 @@ function getArticlesDatabase() {
                 updated_at TEXT
             )
         `);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_nodes_username ON local_nodes(username)`);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_nodes_url ON local_nodes(url)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_nodes_username ON local_nodes(username)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_nodes_url ON local_nodes(url)`);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_comments (
                 id TEXT PRIMARY KEY,
                 uuid TEXT NOT NULL,
@@ -154,10 +188,10 @@ function getArticlesDatabase() {
                 updated_at TEXT
             )
         `);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_comments_uuid ON local_comments(uuid)`);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_comments_blockid ON local_comments(blockid)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_comments_uuid ON local_comments(uuid)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_comments_blockid ON local_comments(blockid)`);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_forum_categories (
                 cid INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -168,7 +202,7 @@ function getArticlesDatabase() {
             )
         `);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_collections (
                 id TEXT PRIMARY KEY,
                 title TEXT,
@@ -183,9 +217,9 @@ function getArticlesDatabase() {
                 updated_at TEXT
             )
         `);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_collections_username ON local_collections(username)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_collections_username ON local_collections(username)`);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_link_collections (
                 id TEXT PRIMARY KEY,
                 title TEXT,
@@ -196,7 +230,7 @@ function getArticlesDatabase() {
             )
         `);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_links (
                 id TEXT PRIMARY KEY,
                 link TEXT,
@@ -208,7 +242,7 @@ function getArticlesDatabase() {
             )
         `);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_facebook_posts (
                 id TEXT PRIMARY KEY,
                 uuid INTEGER,
@@ -222,10 +256,10 @@ function getArticlesDatabase() {
                 updated_at TEXT
             )
         `);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_fb_posts_facegroup ON local_facebook_posts(facegroup)`);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_fb_posts_created_at ON local_facebook_posts(created_at)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_fb_posts_facegroup ON local_facebook_posts(facegroup)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_fb_posts_created_at ON local_facebook_posts(created_at)`);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_gologin_tokens (
                 id TEXT PRIMARY KEY,
                 token TEXT,
@@ -236,7 +270,7 @@ function getArticlesDatabase() {
             )
         `);
 
-        articlesDbInstance.run(`
+        dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_scripts (
                 uuid TEXT PRIMARY KEY,
                 username TEXT DEFAULT 'admin',
@@ -247,258 +281,273 @@ function getArticlesDatabase() {
                 updated_at TEXT
             )
         `);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_scripts_username ON local_scripts(username)`);
-        articlesDbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_scripts_updated_at ON local_scripts(updated_at)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_scripts_username ON local_scripts(username)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_scripts_updated_at ON local_scripts(updated_at)`);
 
-        // Tự động nạp dữ liệu kịch bản scripts từ backup nếu bảng đang trống
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_scripts', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(getArticlesDbDir(), 'backup', 'admin_scripts_2023.json'),
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_scripts_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_scripts_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const raw = fs.readFileSync(backupFile, 'utf8');
-                        const list = JSON.parse(raw);
-                        if (Array.isArray(list) && list.length > 0) {
-                            const stmt = articlesDbInstance.prepare(
-                                'INSERT OR REPLACE INTO local_scripts (uuid, username, title, outline, script, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-                            );
-                            for (const item of list) {
-                                const uuid = item.uuid || item._id || item.id;
-                                if (!uuid) continue;
-                                const title = item.title || item.name || '';
-                                const outline = item.outline || '';
-                                const script = item.script || '';
-                                const createdAt = item.createdAt || new Date().toISOString();
-                                const updatedAt = item.updatedAt || createdAt;
-                                stmt.run(uuid, 'admin', title, outline, script, createdAt, updatedAt);
-                            }
-                            stmt.finalize();
-                            console.log(`[local-scripts] Đã tự động nạp ${list.length} kịch bản từ backup.`);
-                        }
-                    }
-                } catch (e) {
-                    console.error('[local-scripts] Lỗi khi nạp từ backup:', e);
-                }
-            }
-        });
-
-        // Tự động nạp dữ liệu gologin tokens từ backup nếu bảng đang trống
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_gologin_tokens', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_gologin_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_gologin_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const raw = fs.readFileSync(backupFile, 'utf8');
-                        const list = JSON.parse(raw);
-                        if (Array.isArray(list) && list.length > 0) {
-                            const stmt = articlesDbInstance.prepare(
-                                'INSERT OR REPLACE INTO local_gologin_tokens (id, token, profiles_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-                            );
-                            for (const item of list) {
-                                const id = item._id || item.id || crypto.randomUUID();
-                                const token = item.token || '';
-                                const profilesJson = JSON.stringify(item.profiles || []);
-                                const createdAt = item.createdAt || new Date().toISOString();
-                                const updatedAt = item.updatedAt || createdAt;
-                                stmt.run(id, token, profilesJson, 'admin', createdAt, updatedAt);
-                            }
-                            stmt.finalize();
-                            console.log(`[local-gologin-tokens] Đã tự động nạp ${list.length} token GoLogin từ backup.`);
-                        }
-                    }
-                } catch (e) {
-                    console.error('[local-gologin-tokens] Lỗi khi nạp từ backup:', e);
-                }
-            }
-        });
-
-        // Tự động nạp dữ liệu collections từ backup nếu bảng đang trống hoặc chứa rel:
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_collections WHERE id NOT LIKE "rel:%"', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(getArticlesDbDir(), 'backup', 'admin_collections_2023.json'),
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_collections_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_collections_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const raw = fs.readFileSync(backupFile, 'utf8');
-                        const rawCols = JSON.parse(raw);
-                        if (Array.isArray(rawCols) && rawCols.length > 0) {
-                            const collections = rawCols.filter(x => x && x.type === 'collection');
-                            const rels = rawCols.filter(x => x && x.type === 'collection_uuid');
-                            const uuidsByCol = {};
-                            for (const r of rels) {
-                                if (r.collection_id && r.uuid) {
-                                    if (!uuidsByCol[r.collection_id]) uuidsByCol[r.collection_id] = [];
-                                    if (!uuidsByCol[r.collection_id].includes(r.uuid)) {
-                                        uuidsByCol[r.collection_id].push(r.uuid);
-                                    }
-                                }
-                            }
-
-                            articlesDbInstance.serialize(() => {
-                                articlesDbInstance.run('DELETE FROM local_collections WHERE id LIKE "rel:%"');
-                                const stmt = articlesDbInstance.prepare(`
-                                    INSERT OR REPLACE INTO local_collections (id, title, url, picture, excerpt, username, uuids_json, count, has_script, created_at, updated_at)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                `);
-                                for (const c of collections) {
-                                    const id = c._id || c.id;
-                                    if (!id) continue;
-                                    const colUuids = uuidsByCol[id] || (Array.isArray(c.uuids) ? c.uuids : (Array.isArray(c.uuid) ? c.uuid : []));
-                                    stmt.run(
-                                        id,
-                                        c.title || '',
-                                        c.url || '',
-                                        c.picture || '',
-                                        c.excerpt || '',
-                                        'admin',
-                                        JSON.stringify(colUuids),
-                                        colUuids.length,
-                                        c.has_script ? 1 : 0,
-                                        c.createdAt || new Date().toISOString(),
-                                        c.updatedAt || new Date().toISOString()
-                                    );
+        // Tự động nạp dữ liệu kịch bản scripts từ backup nếu bảng đang trống và đúng user admin
+        if (sanitized === 'admin') {
+            dbInstance.get('SELECT COUNT(*) as count FROM local_scripts', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(getArticlesDbDir(), 'backup', 'admin_scripts_2023.json'),
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_scripts_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_scripts_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const raw = fs.readFileSync(backupFile, 'utf8');
+                            const list = JSON.parse(raw);
+                            if (Array.isArray(list) && list.length > 0) {
+                                const stmt = dbInstance.prepare(
+                                    'INSERT OR REPLACE INTO local_scripts (uuid, username, title, outline, script, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                                );
+                                for (const item of list) {
+                                    const uuid = item.uuid || item._id || item.id;
+                                    if (!uuid) continue;
+                                    const title = item.title || item.name || '';
+                                    const outline = item.outline || '';
+                                    const script = item.script || '';
+                                    const createdAt = item.createdAt || new Date().toISOString();
+                                    const updatedAt = item.updatedAt || createdAt;
+                                    stmt.run(uuid, 'admin', title, outline, script, createdAt, updatedAt);
                                 }
                                 stmt.finalize();
-                                console.log(`[local-collections] Đã tự động nạp ${collections.length} bộ sưu tập từ backup.`);
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.error('[local-collections] Lỗi khi nạp từ backup:', e);
-                }
-            }
-        });
-
-        // Tự động nạp dữ liệu link collections từ backup nếu bảng đang trống
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_link_collections', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_link_collections_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_link_collections_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const raw = fs.readFileSync(backupFile, 'utf8');
-                        const list = JSON.parse(raw);
-                        if (Array.isArray(list) && list.length > 0) {
-                            const stmt = articlesDbInstance.prepare(
-                                'INSERT OR REPLACE INTO local_link_collections (id, title, ids_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-                            );
-                            for (const item of list) {
-                                const id = item._id || item.id;
-                                const title = item.title || 'Bộ sưu tập link';
-                                const idsJson = JSON.stringify(item.ids || []);
-                                const createdAt = item.createdAt || new Date().toISOString();
-                                const updatedAt = item.updatedAt || createdAt;
-                                stmt.run(id, title, idsJson, 'admin', createdAt, updatedAt);
+                                console.log(`[local-scripts] Đã tự động nạp ${list.length} kịch bản từ backup.`);
                             }
-                            stmt.finalize();
-                            console.log(`[local-link-collections] Đã tự động nạp ${list.length} bộ sưu tập link từ backup.`);
                         }
+                    } catch (e) {
+                        console.error('[local-scripts] Lỗi khi nạp từ backup:', e);
                     }
-                } catch (e) {
-                    console.error('[local-link-collections] Lỗi khi nạp từ backup:', e);
                 }
-            }
-        });
+            });
 
-        // Tự động nạp dữ liệu links từ backup nếu bảng đang trống
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_links', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_links_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_links_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const raw = fs.readFileSync(backupFile, 'utf8');
-                        const list = JSON.parse(raw);
-                        if (Array.isArray(list) && list.length > 0) {
-                            const stmt = articlesDbInstance.prepare(
-                                'INSERT OR REPLACE INTO local_links (id, link, title, options_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-                            );
-                            for (const item of list) {
-                                const id = item._id || item.id;
-                                const link = item.link || '';
-                                const title = item.title || link;
-                                const optionsJson = JSON.stringify(item.options || {});
-                                const createdAt = item.createdAt || new Date().toISOString();
-                                const updatedAt = item.updatedAt || createdAt;
-                                stmt.run(id, link, title, optionsJson, 'admin', createdAt, updatedAt);
+            // Tự động nạp dữ liệu gologin tokens từ backup nếu bảng đang trống
+            dbInstance.get('SELECT COUNT(*) as count FROM local_gologin_tokens', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_gologin_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_gologin_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const raw = fs.readFileSync(backupFile, 'utf8');
+                            const list = JSON.parse(raw);
+                            if (Array.isArray(list) && list.length > 0) {
+                                const stmt = dbInstance.prepare(
+                                    'INSERT OR REPLACE INTO local_gologin_tokens (id, token, profiles_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+                                );
+                                for (const item of list) {
+                                    const id = item._id || item.id || crypto.randomUUID();
+                                    const token = item.token || '';
+                                    const profilesJson = JSON.stringify(item.profiles || []);
+                                    const createdAt = item.createdAt || new Date().toISOString();
+                                    const updatedAt = item.updatedAt || createdAt;
+                                    stmt.run(id, token, profilesJson, 'admin', createdAt, updatedAt);
+                                }
+                                stmt.finalize();
+                                console.log(`[local-gologin-tokens] Đã tự động nạp ${list.length} token GoLogin từ backup.`);
                             }
-                            stmt.finalize();
-                            console.log(`[local-links] Đã tự động nạp ${list.length} link từ backup.`);
                         }
+                    } catch (e) {
+                        console.error('[local-gologin-tokens] Lỗi khi nạp từ backup:', e);
                     }
-                } catch (e) {
-                    console.error('[local-links] Lỗi khi nạp từ backup:', e);
                 }
-            }
-        });
+            });
 
-        // Tự động nạp dữ liệu facebook posts từ backup nếu bảng đang trống
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_facebook_posts', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_facebook_posts_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_facebook_posts_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const raw = fs.readFileSync(backupFile, 'utf8');
-                        const list = JSON.parse(raw);
-                        if (Array.isArray(list) && list.length > 0) {
-                            const stmt = articlesDbInstance.prepare(
-                                'INSERT OR REPLACE INTO local_facebook_posts (id, uuid, used, facegroup, text, images_json, href_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                            );
-                            for (const item of list) {
-                                const id = item._id || item.id;
-                                const uuidVal = item.uuid || 0;
-                                const used = item.used ? 1 : 0;
-                                const facegroup = item.facegroup || '';
-                                const text = item.text || '';
-                                const imagesJson = JSON.stringify(item.images || []);
-                                const hrefJson = JSON.stringify(item.href || []);
-                                const createdAt = item.createdAt || new Date().toISOString();
-                                const updatedAt = item.updatedAt || createdAt;
-                                stmt.run(id, uuidVal, used, facegroup, text, imagesJson, hrefJson, 'admin', createdAt, updatedAt);
+            // Tự động nạp dữ liệu collections từ backup nếu bảng đang trống hoặc chứa rel:
+            dbInstance.get('SELECT COUNT(*) as count FROM local_collections WHERE id NOT LIKE "rel:%"', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(getArticlesDbDir(), 'backup', 'admin_collections_2023.json'),
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_collections_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_collections_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const raw = fs.readFileSync(backupFile, 'utf8');
+                            const rawCols = JSON.parse(raw);
+                            if (Array.isArray(rawCols) && rawCols.length > 0) {
+                                const collections = rawCols.filter(x => x && x.type === 'collection');
+                                const rels = rawCols.filter(x => x && x.type === 'collection_uuid');
+                                const uuidsByCol = {};
+                                for (const r of rels) {
+                                    if (r.collection_id && r.uuid) {
+                                        if (!uuidsByCol[r.collection_id]) uuidsByCol[r.collection_id] = [];
+                                        if (!uuidsByCol[r.collection_id].includes(r.uuid)) {
+                                            uuidsByCol[r.collection_id].push(r.uuid);
+                                        }
+                                    }
+                                }
+
+                                dbInstance.serialize(() => {
+                                    dbInstance.run('DELETE FROM local_collections WHERE id LIKE "rel:%"');
+                                    const stmt = dbInstance.prepare(`
+                                        INSERT OR REPLACE INTO local_collections (id, title, url, picture, excerpt, username, uuids_json, count, has_script, created_at, updated_at)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    `);
+                                    for (const c of collections) {
+                                        const id = c._id || c.id;
+                                        if (!id) continue;
+                                        const colUuids = uuidsByCol[id] || (Array.isArray(c.uuids) ? c.uuids : (Array.isArray(c.uuid) ? c.uuid : []));
+                                        stmt.run(
+                                            id,
+                                            c.title || '',
+                                            c.url || '',
+                                            c.picture || '',
+                                            c.excerpt || '',
+                                            'admin',
+                                            JSON.stringify(colUuids),
+                                            colUuids.length,
+                                            c.has_script ? 1 : 0,
+                                            c.createdAt || new Date().toISOString(),
+                                            c.updatedAt || new Date().toISOString()
+                                        );
+                                    }
+                                    stmt.finalize();
+                                    console.log(`[local-collections] Đã tự động nạp ${collections.length} bộ sưu tập từ backup.`);
+                                });
                             }
-                            stmt.finalize();
-                            console.log(`[local-facebook-posts] Đã tự động nạp ${list.length} bài viết facebook từ backup.`);
                         }
+                    } catch (e) {
+                        console.error('[local-collections] Lỗi khi nạp từ backup:', e);
                     }
-                } catch (e) {
-                    console.error('[local-facebook-posts] Lỗi khi nạp từ backup:', e);
                 }
-            }
-        });
+            });
+
+            // Tự động nạp dữ liệu link collections từ backup nếu bảng đang trống
+            dbInstance.get('SELECT COUNT(*) as count FROM local_link_collections', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_link_collections_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_link_collections_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const raw = fs.readFileSync(backupFile, 'utf8');
+                            const list = JSON.parse(raw);
+                            if (Array.isArray(list) && list.length > 0) {
+                                const stmt = dbInstance.prepare(
+                                    'INSERT OR REPLACE INTO local_link_collections (id, title, ids_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+                                );
+                                for (const item of list) {
+                                    const id = item._id || item.id;
+                                    const title = item.title || 'Bộ sưu tập link';
+                                    const idsJson = JSON.stringify(item.ids || []);
+                                    const createdAt = item.createdAt || new Date().toISOString();
+                                    const updatedAt = item.updatedAt || createdAt;
+                                    stmt.run(id, title, idsJson, 'admin', createdAt, updatedAt);
+                                }
+                                stmt.finalize();
+                                console.log(`[local-link-collections] Đã tự động nạp ${list.length} bộ sưu tập link từ backup.`);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[local-link-collections] Lỗi khi nạp từ backup:', e);
+                    }
+                }
+            });
+
+            // Tự động nạp dữ liệu links từ backup nếu bảng đang trống
+            dbInstance.get('SELECT COUNT(*) as count FROM local_links', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_links_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_links_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const raw = fs.readFileSync(backupFile, 'utf8');
+                            const list = JSON.parse(raw);
+                            if (Array.isArray(list) && list.length > 0) {
+                                const stmt = dbInstance.prepare(
+                                    'INSERT OR REPLACE INTO local_links (id, link, title, options_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                                );
+                                for (const item of list) {
+                                    const id = item._id || item.id;
+                                    const link = item.link || '';
+                                    const title = item.title || link;
+                                    const optionsJson = JSON.stringify(item.options || {});
+                                    const createdAt = item.createdAt || new Date().toISOString();
+                                    const updatedAt = item.updatedAt || createdAt;
+                                    stmt.run(id, link, title, optionsJson, 'admin', createdAt, updatedAt);
+                                }
+                                stmt.finalize();
+                                console.log(`[local-links] Đã tự động nạp ${list.length} link từ backup.`);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[local-links] Lỗi khi nạp từ backup:', e);
+                    }
+                }
+            });
+
+            // Tự động nạp dữ liệu facebook posts từ backup nếu bảng đang trống
+            dbInstance.get('SELECT COUNT(*) as count FROM local_facebook_posts', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_facebook_posts_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_facebook_posts_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const raw = fs.readFileSync(backupFile, 'utf8');
+                            const list = JSON.parse(raw);
+                            if (Array.isArray(list) && list.length > 0) {
+                                const stmt = dbInstance.prepare(
+                                    'INSERT OR REPLACE INTO local_facebook_posts (id, uuid, used, facegroup, text, images_json, href_json, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                                );
+                                for (const item of list) {
+                                    const id = item._id || item.id;
+                                    const uuidVal = item.uuid || 0;
+                                    const used = item.used ? 1 : 0;
+                                    const facegroup = item.facegroup || '';
+                                    const text = item.text || '';
+                                    const imagesJson = JSON.stringify(item.images || []);
+                                    const hrefJson = JSON.stringify(item.href || []);
+                                    const createdAt = item.createdAt || new Date().toISOString();
+                                    const updatedAt = item.updatedAt || createdAt;
+                                    stmt.run(id, uuidVal, used, facegroup, text, imagesJson, hrefJson, 'admin', createdAt, updatedAt);
+                                }
+                                stmt.finalize();
+                                console.log(`[local-facebook-posts] Đã tự động nạp ${list.length} bài viết facebook từ backup.`);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[local-facebook-posts] Lỗi khi nạp từ backup:', e);
+                    }
+                }
+            });
+        }
 
         // Khởi tạo danh mục diễn đàn mặc định nếu chưa có
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_forum_categories', (err, row) => {
+        dbInstance.get('SELECT COUNT(*) as count FROM local_forum_categories', (err, row) => {
             if (!err && (!row || row.count === 0)) {
                 const defaultCategories = [
-                    { cid: 1, name: 'Chung (General)', slug: 'general', description: 'Thảo luận chung', order_num: 1 },
-                    { cid: 2, name: 'Hỏi đáp & Trợ giúp', slug: 'hoi-dap', description: 'Hỏi đáp kỹ thuật và thắc mắc', order_num: 2 },
-                    { cid: 3, name: 'Chia sẻ kiến thức & Bài viết', slug: 'chia-se', description: 'Chia sẻ kinh nghiệm và bài viết', order_num: 3 },
-                    { cid: 4, name: 'Góp ý & Báo lỗi', slug: 'gop-y', description: 'Góp ý phát triển hệ thống', order_num: 4 }
+                    { cid: 1, name: 'Cafe Buổi Sáng', slug: '1/cafe-buổi-sáng', description: 'Những tin tức mới nhất cập nhật về thế giới công nghệ AI năm 2023', order_num: 1 },
+                    { cid: 3, name: 'Giới thiệu Phim', slug: '3/giới-thiệu-phim', description: 'Thành viên được quyền tải tài nguyên hình ảnh, video miễn phí', order_num: 2 },
+                    { cid: 28, name: 'Giới thiệu Trò chơi', slug: '28/giới-thiệu-trò-chơi', description: 'Thông tin & đánh giá các Game hay đang chơi mới nhất.', order_num: 3 },
+                    { cid: 15, name: 'Chuyện đời', slug: '15/chuyện-đời', description: 'Nơi mọi người cùng chia sẻ câu chuyện của mình.', order_num: 4 },
+                    { cid: 27, name: 'Radio Chill Phết', slug: '27/radio-chill-phết', description: 'Nghe Radio và Audio ngay cả khi bạn phải thường xuyên di chuyển.', order_num: 5 },
+                    { cid: 25, name: 'Truyện Hay Phết', slug: '25/truyện-hay-phết', description: 'Đọc truyện online, đọc truyện chữ, truyện bao hay mà chỉ có mỗi AD thích.', order_num: 6 },
+                    { cid: 29, name: 'Mô hình AI Thiết kế', slug: '29/mô-hình-ai-thiết-kế', description: 'Trong này toàn quái vật', order_num: 7 },
+                    { cid: 8, name: 'Mô hình AI Âm thanh', slug: '8/mô-hình-ai-âm-thanh', description: 'Hỗ trợ sáng tạo thiết kế âm thanh, nhạc và thuyết minh', order_num: 8 },
+                    { cid: 7, name: 'Mô hình AI sáng tạo Hình ảnh', slug: '7/mô-hình-ai-sáng-tạo-hình-ảnh', description: 'Công cụ hỗ trợ thiết kế & chỉnh sửa hình ảnh đẹp lung linh cho bạn', order_num: 9 },
+                    { cid: 6, name: 'Mô hình AI sáng tạo Video', slug: '6/mô-hình-ai-sáng-tạo-video', description: 'Công cụ hỗ trợ bạn thiết kế mọi loại video yêu thích để đăng lên Tiktok, Youtube và Facebook', order_num: 10 },
+                    { cid: 5, name: 'Mô hình AI viết', slug: '5/mô-hình-ai-viết', description: 'Hỏi nhanh đáp lẹ chính là AI tụi mình', order_num: 11 },
+                    { cid: 24, name: 'Học làm Video', slug: '24/học-làm-video', description: 'Các bài hướng dẫn tập chỉnh sửa video bằng Davinci Resolve do con gà AD lượm được', order_num: 12 },
+                    { cid: 13, name: 'Content SEO', slug: '13/content-seo', description: 'Content SEO chính là cầu nối giữa website của bạn đến các công cụ tìm kiếm.', order_num: 13 },
+                    { cid: 10, name: 'Lập trình Python', slug: '10/lập-trình-python', description: 'Tìm hiểu về ngôn ngữ lập trình Python dùng cho AI ngay từ bây giờ', order_num: 14 },
+                    { cid: 12, name: 'Bí Kíp Viết', slug: '12/bí-kíp-viết', description: 'Để viết tốt, bạn không chỉ cứ ngồi vào bạn và viết. Mà bên cạnh đó, bạn phải đọc mỗi ngày.', order_num: 15 },
+                    { cid: 4, name: 'Chợ phần mềm', slug: '4/chợ-phần-mềm', description: 'Gian hàng buôn bán phần mềm của anh em.', order_num: 16 },
+                    { cid: 14, name: 'Phần mềm AI.TYPE', slug: '14/phần-mềm-ai-type', description: 'Giới thiệu và hướng dẫn sử dụng phần mềm tự động tạo bài viết AI.TYPE', order_num: 17 }
                 ];
-                const stmt = articlesDbInstance.prepare(
+                const stmt = dbInstance.prepare(
                     'INSERT OR REPLACE INTO local_forum_categories (cid, name, slug, description, disabled, order_num) VALUES (?, ?, ?, ?, 0, ?)'
                 );
                 for (const cat of defaultCategories) {
@@ -508,187 +557,190 @@ function getArticlesDatabase() {
             }
         });
 
-        // Tự động nạp dữ liệu từ thư mục backup nếu bảng local_nodes đang trống
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_nodes', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_nodes_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_nodes_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const rawContent = fs.readFileSync(backupFile, 'utf8');
-                        const nodes = JSON.parse(rawContent);
-                        if (Array.isArray(nodes) && nodes.length > 0) {
-                            const stmt = articlesDbInstance.prepare(`
-                                INSERT OR REPLACE INTO local_nodes (id, title, url, username, uuids_json, raw_json, created_at, updated_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            `);
-                            for (const n of nodes) {
-                                const nodeId = n._id || n.id;
-                                const url = n.url || '';
-                                let title = n.title;
-                                if (!title && Array.isArray(n.meta)) {
-                                    for (const m of n.meta) {
-                                        if (m && typeof m === 'object' && ((m.name && m.name.toLowerCase().includes('title')) || (m.property && m.property.toLowerCase().includes('title')))) {
-                                            title = m.content;
-                                            break;
+        // Chỉ tự động nạp nodes, domains, articles từ backup cho tài khoản admin
+        if (sanitized === 'admin') {
+            // Tự động nạp dữ liệu từ thư mục backup nếu bảng local_nodes đang trống
+            dbInstance.get('SELECT COUNT(*) as count FROM local_nodes', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_nodes_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_nodes_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const rawContent = fs.readFileSync(backupFile, 'utf8');
+                            const nodes = JSON.parse(rawContent);
+                            if (Array.isArray(nodes) && nodes.length > 0) {
+                                const stmt = dbInstance.prepare(`
+                                    INSERT OR REPLACE INTO local_nodes (id, title, url, username, uuids_json, raw_json, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const n of nodes) {
+                                    const nodeId = n._id || n.id;
+                                    const url = n.url || '';
+                                    let title = n.title;
+                                    if (!title && Array.isArray(n.meta)) {
+                                        for (const m of n.meta) {
+                                            if (m && typeof m === 'object' && ((m.name && m.name.toLowerCase().includes('title')) || (m.property && m.property.toLowerCase().includes('title')))) {
+                                                title = m.content;
+                                                break;
+                                            }
                                         }
                                     }
+                                    if (!title && n.heading && Array.isArray(n.heading.h1)) {
+                                        const h1s = n.heading.h1.filter(x => x && x.trim());
+                                        if (h1s.length > 0) title = h1s[0];
+                                    }
+                                    if (!title) title = url || 'Node';
+
+                                    const username = 'admin';
+                                    const uuids = JSON.stringify(n.uuids || []);
+                                    const rawJson = JSON.stringify(n);
+                                    const createdAt = n.createdAt || n.updatedAt || new Date().toISOString();
+                                    const updatedAt = n.updatedAt || createdAt;
+                                    stmt.run(nodeId, title, url, username, uuids, rawJson, createdAt, updatedAt);
                                 }
-                                if (!title && n.heading && Array.isArray(n.heading.h1)) {
-                                    const h1s = n.heading.h1.filter(x => x && x.trim());
-                                    if (h1s.length > 0) title = h1s[0];
+                                stmt.finalize();
+                                console.log(`[local-nodes] Đã tự động nạp ${nodes.length} bản ghi node từ backup.`);
+                            }
+                        }
+                    } catch (backupErr) {
+                        console.error('[local-nodes] Lỗi khi nạp từ backup:', backupErr);
+                    }
+                }
+            });
+
+            // Tự động nạp dữ liệu tên miền và mật khẩu từ thư mục backup vào local_domains
+            dbInstance.get('SELECT COUNT(*) as count FROM local_domains WHERE password IS NOT NULL AND password != ""', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_domain_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_domain_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const rawContent = fs.readFileSync(backupFile, 'utf8');
+                            const domains = JSON.parse(rawContent);
+                            if (Array.isArray(domains) && domains.length > 0) {
+                                const stmt = dbInstance.prepare(`
+                                    INSERT INTO local_domains (
+                                        domain, name, username, password, note, monthly_target, writing_style,
+                                        ga4_property_id, server_ip, server_username, server_password, created_at, updated_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    ON CONFLICT(domain) DO UPDATE SET
+                                        name = excluded.name,
+                                        username = excluded.username,
+                                        password = excluded.password,
+                                        note = excluded.note,
+                                        monthly_target = excluded.monthly_target,
+                                        writing_style = excluded.writing_style,
+                                        ga4_property_id = excluded.ga4_property_id,
+                                        server_ip = excluded.server_ip,
+                                        server_username = excluded.server_username,
+                                        server_password = excluded.server_password,
+                                        updated_at = excluded.updated_at
+                                `);
+                                for (const d of domains) {
+                                    if (!d.domain) continue;
+                                    const encPass = encryptDomainPassword(d.password);
+                                    const encServerPass = encryptDomainPassword(d.serverPassword);
+                                    const now = new Date().toISOString();
+                                    stmt.run(
+                                        d.domain,
+                                        d.name || d.domain,
+                                        d.username || '',
+                                        encPass,
+                                        d.note || '',
+                                        d.monthlyTarget || 0,
+                                        d.writingStyle || '',
+                                        d.ga4PropertyId || '',
+                                        d.serverIp || '',
+                                        d.serverUsername || '',
+                                        encServerPass,
+                                        d.createdAt || now,
+                                        d.updatedAt || now
+                                    );
                                 }
-                                if (!title) title = url || 'Node';
-
-                                const username = 'admin';
-                                const uuids = JSON.stringify(n.uuids || []);
-                                const rawJson = JSON.stringify(n);
-                                const createdAt = n.createdAt || n.updatedAt || new Date().toISOString();
-                                const updatedAt = n.updatedAt || createdAt;
-                                stmt.run(nodeId, title, url, username, uuids, rawJson, createdAt, updatedAt);
+                                stmt.finalize();
+                                console.log(`[local-domains] Đã tự động nạp ${domains.length} tên miền và mật khẩu từ backup.`);
                             }
-                            stmt.finalize();
-                            console.log(`[local-nodes] Đã tự động nạp ${nodes.length} bản ghi node từ backup.`);
                         }
+                    } catch (backupErr) {
+                        console.error('[local-domains] Lỗi khi nạp từ backup:', backupErr);
                     }
-                } catch (backupErr) {
-                    console.error('[local-nodes] Lỗi khi nạp từ backup:', backupErr);
                 }
-            }
-        });
+            });
 
-        // Tự động nạp dữ liệu tên miền và mật khẩu từ thư mục backup vào local_domains
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_domains WHERE password IS NOT NULL AND password != ""', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_domain_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_domain_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const rawContent = fs.readFileSync(backupFile, 'utf8');
-                        const domains = JSON.parse(rawContent);
-                        if (Array.isArray(domains) && domains.length > 0) {
-                            const stmt = articlesDbInstance.prepare(`
-                                INSERT INTO local_domains (
-                                    domain, name, username, password, note, monthly_target, writing_style,
-                                    ga4_property_id, server_ip, server_username, server_password, created_at, updated_at
-                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                ON CONFLICT(domain) DO UPDATE SET
-                                    name = excluded.name,
-                                    username = excluded.username,
-                                    password = excluded.password,
-                                    note = excluded.note,
-                                    monthly_target = excluded.monthly_target,
-                                    writing_style = excluded.writing_style,
-                                    ga4_property_id = excluded.ga4_property_id,
-                                    server_ip = excluded.server_ip,
-                                    server_username = excluded.server_username,
-                                    server_password = excluded.server_password,
-                                    updated_at = excluded.updated_at
-                            `);
-                            for (const d of domains) {
-                                if (!d.domain) continue;
-                                const encPass = encryptDomainPassword(d.password);
-                                const encServerPass = encryptDomainPassword(d.serverPassword);
-                                const now = new Date().toISOString();
-                                stmt.run(
-                                    d.domain,
-                                    d.name || d.domain,
-                                    d.username || '',
-                                    encPass,
-                                    d.note || '',
-                                    d.monthlyTarget || 0,
-                                    d.writingStyle || '',
-                                    d.ga4PropertyId || '',
-                                    d.serverIp || '',
-                                    d.serverUsername || '',
-                                    encServerPass,
-                                    d.createdAt || now,
-                                    d.updatedAt || now
-                                );
+            // Tự động nạp dữ liệu bài viết từ backup nếu bảng local_articles đang trống
+            dbInstance.get('SELECT COUNT(*) as count FROM local_articles', (err, row) => {
+                if (!err && (!row || row.count === 0)) {
+                    try {
+                        const backupCandidates = [
+                            path.join(getArticlesDbDir(), 'backup', 'admin_archives_2023.json'),
+                            path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_archives_2023.json'),
+                            path.join(__dirname, '..', '..', 'backup', 'admin_archives_2023.json')
+                        ];
+                        const backupFile = backupCandidates.find(f => fs.existsSync(f));
+                        if (backupFile) {
+                            const rawContent = fs.readFileSync(backupFile, 'utf8');
+                            const archives = JSON.parse(rawContent);
+                            if (Array.isArray(archives) && archives.length > 0) {
+                                const stmt = dbInstance.prepare(`
+                                    INSERT OR REPLACE INTO local_articles (
+                                        uuid, title, url, content, markdown, domain, username,
+                                        thumbnail, description, source_json, done_json, trash_json,
+                                        seo_json, arr_keyword_json, tags_json, style_json,
+                                        format, is_local, is_encrypted, encrypted_payload,
+                                        created_at, updated_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                `);
+                                for (const doc of archives) {
+                                    const uuid = doc.uuid || doc._id;
+                                    if (!uuid) continue;
+                                    const title = doc.title || (doc.name ? doc.name : '');
+                                    const url = doc.url || '';
+                                    const content = doc.content || '';
+                                    const markdown = doc.markdown || '';
+                                    const domain = doc.domain || '';
+                                    const username = doc.username || 'admin';
+                                    const thumbnail = doc.thumbnail || '';
+                                    const description = doc.description || '';
+                                    const sourceJson = JSON.stringify(doc.source || {});
+                                    const doneJson = JSON.stringify(doc.done || {});
+                                    const trashJson = JSON.stringify(doc.trash || {});
+                                    const seoJson = JSON.stringify(doc.seo || {});
+                                    const arrKeywordJson = JSON.stringify(doc.arr_keyword || []);
+                                    const tagsJson = JSON.stringify(doc.tags || []);
+                                    const styleJson = JSON.stringify(doc.style || {});
+                                    const format = doc.format || 'md';
+                                    const isLocal = 1;
+                                    const isEncrypted = 0;
+                                    const encryptedPayload = '';
+                                    const createdAt = doc.createdAt || doc.created_at || new Date().toISOString();
+                                    const updatedAt = doc.updatedAt || doc.updated_at || createdAt;
+
+                                    stmt.run(
+                                        uuid, title, url, content, markdown, domain, username,
+                                        thumbnail, description, sourceJson, doneJson, trashJson,
+                                        seoJson, arrKeywordJson, tagsJson, styleJson,
+                                        format, isLocal, isEncrypted, encryptedPayload,
+                                        createdAt, updatedAt
+                                    );
+                                }
+                                stmt.finalize();
+                                console.log(`[local-articles] Đã tự động nạp ${archives.length} bài viết từ backup archives.`);
                             }
-                            stmt.finalize();
-                            console.log(`[local-domains] Đã tự động nạp ${domains.length} tên miền và mật khẩu từ backup.`);
                         }
+                    } catch (backupErr) {
+                        console.error('[local-articles] Lỗi khi nạp archives từ backup:', backupErr);
                     }
-                } catch (backupErr) {
-                    console.error('[local-domains] Lỗi khi nạp từ backup:', backupErr);
                 }
-            }
-        });
-
-        // Tự động nạp dữ liệu bài viết từ backup nếu bảng local_articles đang trống
-        articlesDbInstance.get('SELECT COUNT(*) as count FROM local_articles', (err, row) => {
-            if (!err && (!row || row.count === 0)) {
-                try {
-                    const backupCandidates = [
-                        path.join(getArticlesDbDir(), 'backup', 'admin_archives_2023.json'),
-                        path.join(require('os').homedir(), 'Documents', 'Projects', 'Typing', 'backup', 'admin_archives_2023.json'),
-                        path.join(__dirname, '..', '..', 'backup', 'admin_archives_2023.json')
-                    ];
-                    const backupFile = backupCandidates.find(f => fs.existsSync(f));
-                    if (backupFile) {
-                        const rawContent = fs.readFileSync(backupFile, 'utf8');
-                        const archives = JSON.parse(rawContent);
-                        if (Array.isArray(archives) && archives.length > 0) {
-                            const stmt = articlesDbInstance.prepare(`
-                                INSERT OR REPLACE INTO local_articles (
-                                    uuid, title, url, content, markdown, domain, username,
-                                    thumbnail, description, source_json, done_json, trash_json,
-                                    seo_json, arr_keyword_json, tags_json, style_json,
-                                    format, is_local, is_encrypted, encrypted_payload,
-                                    created_at, updated_at
-                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            `);
-                            for (const doc of archives) {
-                                const uuid = doc.uuid || doc._id;
-                                if (!uuid) continue;
-                                const title = doc.title || (doc.name ? doc.name : '');
-                                const url = doc.url || '';
-                                const content = doc.content || '';
-                                const markdown = doc.markdown || '';
-                                const domain = doc.domain || '';
-                                const username = doc.username || 'admin';
-                                const thumbnail = doc.thumbnail || '';
-                                const description = doc.description || '';
-                                const sourceJson = JSON.stringify(doc.source || {});
-                                const doneJson = JSON.stringify(doc.done || {});
-                                const trashJson = JSON.stringify(doc.trash || {});
-                                const seoJson = JSON.stringify(doc.seo || {});
-                                const arrKeywordJson = JSON.stringify(doc.arr_keyword || []);
-                                const tagsJson = JSON.stringify(doc.tags || []);
-                                const styleJson = JSON.stringify(doc.style || {});
-                                const format = doc.format || 'md';
-                                const isLocal = 1;
-                                const isEncrypted = 0;
-                                const encryptedPayload = '';
-                                const createdAt = doc.createdAt || doc.created_at || new Date().toISOString();
-                                const updatedAt = doc.updatedAt || doc.updated_at || createdAt;
-
-                                stmt.run(
-                                    uuid, title, url, content, markdown, domain, username,
-                                    thumbnail, description, sourceJson, doneJson, trashJson,
-                                    seoJson, arrKeywordJson, tagsJson, styleJson,
-                                    format, isLocal, isEncrypted, encryptedPayload,
-                                    createdAt, updatedAt
-                                );
-                            }
-                            stmt.finalize();
-                            console.log(`[local-articles] Đã tự động nạp ${archives.length} bài viết từ backup archives.`);
-                        }
-                    }
-                } catch (backupErr) {
-                    console.error('[local-articles] Lỗi khi nạp archives từ backup:', backupErr);
-                }
-            }
-        });
+            });
+        }
     });
-    return articlesDbInstance;
+    return dbInstance;
 }
 
 function getLocalArticlesDir(username = 'admin') {
@@ -908,6 +960,17 @@ function htmlToMarkdownFallback(html) {
 }
 
 function registerLocalArticlesHandlers() {
+    ipcMain.handle('set-active-local-user', async (event, payload) => {
+        try {
+            const username = (payload && typeof payload === 'object') ? (payload.username || payload.name || payload.email) : payload;
+            setActiveLocalUsername(username);
+            getArticlesDatabase(username);
+            return { success: true, activeUser: activeLocalUsername };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    });
+
     // Khởi tạo bảng ngay khi đăng ký handler
     getArticlesDatabase();
 
@@ -967,7 +1030,7 @@ function registerLocalArticlesHandlers() {
             const styleJson = style ? JSON.stringify(style) : null;
             const encPayloadJson = encryptedPayload ? JSON.stringify(encryptedPayload) : null;
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             await new Promise((resolve, reject) => {
                 const query = `
                     INSERT INTO local_articles (
@@ -1112,8 +1175,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-articles', async (event, payload) => {
         try {
-            const { username = 'admin', uuids, keyword, domain } = payload || {};
-            const db = getArticlesDatabase();
+            const { username = getActiveLocalUsername(), uuids, keyword, domain } = payload || {};
+            const db = getArticlesDatabase(username);
 
             const rows = await new Promise((resolve, reject) => {
                 let query = 'SELECT a.*, (s.uuid IS NOT NULL) AS has_script FROM local_articles a LEFT JOIN local_scripts s ON a.uuid = s.uuid';
@@ -1204,12 +1267,12 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('read-local-article', async (event, payload) => {
         try {
-            const { uuid, username = 'admin', password } = payload || {};
+            const { uuid, username = getActiveLocalUsername(), password } = payload || {};
             if (!uuid) {
                 return { success: false, error: 'Thiếu UUID bài viết cục bộ' };
             }
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const row = await new Promise((resolve, reject) => {
                 db.get('SELECT * FROM local_articles WHERE uuid = ?', [uuid], (err, r) => {
                     if (err) reject(err);
@@ -1333,10 +1396,10 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('delete-local-article', async (event, payload) => {
         try {
-            const { uuid, username = 'admin' } = payload || {};
+            const { uuid, username = getActiveLocalUsername() } = payload || {};
             if (!uuid) return { success: false, error: 'Thiếu UUID bài viết' };
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const deletedCount = await new Promise((resolve, reject) => {
                 db.run('DELETE FROM local_articles WHERE uuid = ?', [uuid], function (err) {
                     if (err) reject(err);
@@ -1367,8 +1430,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-collections', async (event, payload) => {
         try {
-            const { username = 'admin' } = payload || {};
-            const db = getArticlesDatabase();
+            const { username = getActiveLocalUsername() } = payload || {};
+            const db = getArticlesDatabase(username);
 
             const rows = await new Promise((resolve, reject) => {
                 db.all('SELECT * FROM local_collections WHERE id NOT LIKE "rel:%" ORDER BY updated_at DESC', [], (err, resultRows) => {
@@ -1411,11 +1474,11 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('save-local-collection', async (event, payload) => {
         try {
-            const { id = crypto.randomUUID(), title, url, picture = '', excerpt = '', username = 'admin', uuid = [] } = payload || {};
+            const { id = crypto.randomUUID(), title, url, picture = '', excerpt = '', username = getActiveLocalUsername(), uuid = [] } = payload || {};
             if (!title) {
                 return { success: false, message: 'Tiêu đề bộ sưu tập không được để trống.' };
             }
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const uuidsList = Array.isArray(uuid) ? uuid : (uuid ? [uuid] : []);
             const now = new Date().toISOString();
 
@@ -1460,12 +1523,12 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('store-local-collection', async (event, payload) => {
         try {
-            const { _id, id, uuid, username = 'admin' } = payload || {};
+            const { _id, id, uuid, username = getActiveLocalUsername() } = payload || {};
             const colId = _id || id;
             if (!colId || !uuid) {
                 return { success: false, message: 'Thiếu thông tin bộ sưu tập hoặc bài viết.' };
             }
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const row = await new Promise((resolve, reject) => {
                 db.get('SELECT * FROM local_collections WHERE id = ?', [colId], (err, r) => err ? reject(err) : resolve(r));
             });
@@ -1503,12 +1566,12 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('remove-from-local-collection', async (event, payload) => {
         try {
-            const { _id, id, uuid } = payload || {};
+            const { _id, id, uuid, username = getActiveLocalUsername() } = payload || {};
             const colId = _id || id;
             if (!colId || !uuid) {
                 return { success: false, message: 'Thiếu thông tin bộ sưu tập hoặc bài viết.' };
             }
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const row = await new Promise((resolve, reject) => {
                 db.get('SELECT * FROM local_collections WHERE id = ?', [colId], (err, r) => err ? reject(err) : resolve(r));
             });
@@ -1686,7 +1749,8 @@ function registerLocalArticlesHandlers() {
             if (!domainData || !domainData.domain) {
                 return { success: false, error: 'Thiếu domain' };
             }
-            const db = getArticlesDatabase();
+            const targetUser = domainData.user || domainData.username || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const now = new Date().toISOString();
 
             const encryptedPassword = encryptDomainPassword(domainData.password || '');
@@ -1742,7 +1806,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-domains', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && (payload.username || payload.user)) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
 
             // 1. Lấy tất cả tên miền đã lưu trong bảng local_domains (đã đồng bộ từ JSON backup)
             const savedDomains = await new Promise((resolve, reject) => {
@@ -1782,7 +1847,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-tasks', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && (payload.username || payload.user)) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const year = payload?.year ? parseInt(payload.year, 10) : new Date().getFullYear();
 
             // 1. Lấy tasks từ bảng local_tasks
@@ -1907,9 +1973,9 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('save-local-task', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
             const task = payload?.task || payload || {};
-            const username = payload?.username || task.username || 'admin';
+            const username = payload?.username || task.username || getActiveLocalUsername();
+            const db = getArticlesDatabase(username);
             const id = task._id || task.id || ('local_task_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
             const domainId = task.domain_id || task.domain || task.domainName || '';
             const year = task.year ? parseInt(task.year, 10) : new Date().getFullYear();
@@ -1989,7 +2055,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('delete-local-task', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && (payload.username || payload.user)) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const task = payload?.task || payload || {};
             const id = task._id || task.id || (typeof payload === 'string' ? payload : null);
 
@@ -2016,7 +2083,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('get-local-statistics', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && (payload.username || payload.user)) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const rowCount = await new Promise((resolve, reject) => {
                 db.get('SELECT COUNT(*) as total FROM local_articles', (err, row) => {
                     if (err) reject(err);
@@ -2091,14 +2159,14 @@ function registerLocalArticlesHandlers() {
                 _id,
                 id,
                 conversation_id,
-                username = 'admin',
+                username = getActiveLocalUsername(),
                 question = '',
                 content = '',
                 answer = '',
                 messages = []
             } = payload || {};
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const chatId = _id || id || `chat_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
             const messagesJson = JSON.stringify(messages || []);
             const now = new Date().toISOString();
@@ -2137,8 +2205,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-chats', async (event, payload) => {
         try {
-            const { username = 'admin', page } = payload || {};
-            const db = getArticlesDatabase();
+            const { username = getActiveLocalUsername(), page } = payload || {};
+            const db = getArticlesDatabase(username);
             const pageSize = page?.size || 25;
             const pageOffset = (page?.pageNumber || 0) * pageSize;
 
@@ -2187,8 +2255,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('get-local-chat-total', async (event, payload) => {
         try {
-            const { username = 'admin' } = payload || {};
-            const db = getArticlesDatabase();
+            const { username = getActiveLocalUsername() } = payload || {};
+            const db = getArticlesDatabase(username);
             const total = await new Promise((resolve, reject) => {
                 db.get('SELECT COUNT(*) as cnt FROM local_chats WHERE username = ?', [username], (err, row) => {
                     if (err) reject(err);
@@ -2208,10 +2276,10 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('delete-local-chat', async (event, payload) => {
         try {
-            const { id } = payload || {};
+            const { id, username = getActiveLocalUsername() } = payload || {};
             if (!id) return { success: false, error: 'Thiếu ID' };
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             await new Promise((resolve, reject) => {
                 db.run('DELETE FROM local_chats WHERE id = ?', [id], function (err) {
                     if (err) reject(err);
@@ -2411,8 +2479,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-nodes', async (event, payload) => {
         try {
-            const { username = 'admin', keyword = '', page, bookmark } = payload || {};
-            const db = getArticlesDatabase();
+            const { username = getActiveLocalUsername(), keyword = '', page, bookmark } = payload || {};
+            const db = getArticlesDatabase(username);
             const pageSize = page?.size || 100;
             const pageOffset = (page?.pageNumber || 0) * pageSize;
 
@@ -2477,8 +2545,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('get-local-nodes-total', async (event, payload) => {
         try {
-            const { username = 'admin', keyword = '' } = payload || {};
-            const db = getArticlesDatabase();
+            const { username = getActiveLocalUsername(), keyword = '' } = payload || {};
+            const db = getArticlesDatabase(username);
 
             let sql = 'SELECT COUNT(*) as cnt FROM local_nodes WHERE (username = ? OR username IS NULL)';
             const params = [username];
@@ -2514,10 +2582,10 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('save-local-node', async (event, payload) => {
         try {
-            const { url, type, node, username = 'admin' } = payload || {};
+            const { url, type, node, username = getActiveLocalUsername() } = payload || {};
             if (!node && !url) return { success: false, error: 'Dữ liệu node không hợp lệ' };
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const nodeData = node || {};
             const nodeId = nodeData._id || nodeData.id || `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
             const title = nodeData.title || url || 'Node';
@@ -2554,10 +2622,10 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('get-local-node-details', async (event, payload) => {
         try {
-            const { id } = payload || {};
+            const { id, username = getActiveLocalUsername() } = payload || {};
             if (!id) return { success: false, error: 'Thiếu ID' };
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const row = await new Promise((resolve, reject) => {
                 db.get('SELECT * FROM local_nodes WHERE id = ?', [id], (err, resultRow) => {
                     if (err) reject(err);
@@ -2652,6 +2720,48 @@ function registerLocalArticlesHandlers() {
                 domain = 'https://' + domain;
             }
             if (domain.endsWith('/')) domain = domain.slice(0, -1);
+
+            // Trường hợp đặc biệt: domain là type.vn (sử dụng API diễn đàn NodeBB)
+            if (domain.includes('type.vn')) {
+                try {
+                    const onlineResp = await fetch('https://type.vn/api/categories', {
+                        headers: { 'User-Agent': 'Mozilla/5.0 AI.Type/1.0' },
+                        signal: AbortSignal.timeout(3000)
+                    });
+                    if (onlineResp.ok) {
+                        const onlineJson = await onlineResp.json();
+                        const list = onlineJson?.categories || [];
+                        if (Array.isArray(list) && list.length > 0) {
+                            return {
+                                success: true,
+                                data: list.map(c => ({
+                                    id: c.cid,
+                                    cid: c.cid,
+                                    name: c.name,
+                                    slug: c.slug
+                                }))
+                            };
+                        }
+                    }
+                } catch (e) {}
+
+                // Fallback từ SQLite
+                const db = getArticlesDatabase();
+                const rows = await new Promise((resolve) => {
+                    db.all('SELECT * FROM local_forum_categories WHERE disabled = 0 ORDER BY order_num ASC, cid ASC', [], (err, r) => {
+                        resolve(r || []);
+                    });
+                });
+                return {
+                    success: true,
+                    data: rows.map(r => ({
+                        id: r.cid,
+                        cid: r.cid,
+                        name: r.name,
+                        slug: r.slug
+                    }))
+                };
+            }
 
             const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
             const apiUrl = `${domain}/wp-json/wp/v2/categories?per_page=100`;
@@ -3082,12 +3192,12 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-comments', async (event, payload) => {
         try {
-            const { uuid } = payload || {};
+            const { uuid, username = getActiveLocalUsername() } = payload || {};
             if (!uuid) {
                 return { success: true, data: [] };
             }
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const rows = await new Promise((resolve, reject) => {
                 db.all(
                     'SELECT * FROM local_comments WHERE uuid = ? ORDER BY created_at ASC',
@@ -3147,7 +3257,7 @@ function registerLocalArticlesHandlers() {
             };
             const commentJson = JSON.stringify(commentData);
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username || commentData.username || getActiveLocalUsername());
             await new Promise((resolve, reject) => {
                 db.run(
                     `INSERT INTO local_comments (id, uuid, blockid, author, username, comment_json, created_at, updated_at)
@@ -3192,6 +3302,37 @@ function registerLocalArticlesHandlers() {
     ipcMain.handle('list-local-forum-categories', async (event, payload) => {
         try {
             const db = getArticlesDatabase();
+
+            // Cố gắng đồng bộ danh mục mới nhất trực tiếp từ type.vn/api/categories nếu có mạng
+            try {
+                const onlineResp = await fetch('https://type.vn/api/categories', {
+                    headers: { 'User-Agent': 'Mozilla/5.0 AI.Type/1.0' },
+                    signal: AbortSignal.timeout(3000)
+                });
+                if (onlineResp.ok) {
+                    const onlineJson = await onlineResp.json();
+                    const list = onlineJson?.categories || [];
+                    if (Array.isArray(list) && list.length > 0) {
+                        const insertStmt = db.prepare(
+                            'INSERT OR REPLACE INTO local_forum_categories (cid, name, slug, description, disabled, order_num) VALUES (?, ?, ?, ?, ?, ?)'
+                        );
+                        for (const item of list) {
+                            insertStmt.run(
+                                item.cid,
+                                item.name,
+                                item.slug || '',
+                                item.description || '',
+                                item.disabled ? 1 : 0,
+                                item.order || item.cid || 0
+                            );
+                        }
+                        insertStmt.finalize();
+                    }
+                }
+            } catch (fetchErr) {
+                // Môi trường offline hoặc timeout, tiếp tục đọc từ SQLite
+            }
+
             const rows = await new Promise((resolve, reject) => {
                 db.all(
                     'SELECT * FROM local_forum_categories WHERE disabled = 0 ORDER BY order_num ASC, cid ASC',
@@ -3225,9 +3366,23 @@ function registerLocalArticlesHandlers() {
                 data: {
                     response: {
                         categories: [
-                            { cid: 1, name: 'Chung (General)', slug: 'general' },
-                            { cid: 2, name: 'Hỏi đáp & Trợ giúp', slug: 'hoi-dap' },
-                            { cid: 3, name: 'Chia sẻ kiến thức & Bài viết', slug: 'chia-se' }
+                            { cid: 1, name: 'Cafe Buổi Sáng', slug: '1/cafe-buổi-sáng' },
+                            { cid: 3, name: 'Giới thiệu Phim', slug: '3/giới-thiệu-phim' },
+                            { cid: 28, name: 'Giới thiệu Trò chơi', slug: '28/giới-thiệu-trò-chơi' },
+                            { cid: 15, name: 'Chuyện đời', slug: '15/chuyện-đời' },
+                            { cid: 27, name: 'Radio Chill Phết', slug: '27/radio-chill-phết' },
+                            { cid: 25, name: 'Truyện Hay Phết', slug: '25/truyện-hay-phết' },
+                            { cid: 29, name: 'Mô hình AI Thiết kế', slug: '29/mô-hình-ai-thiết-kế' },
+                            { cid: 8, name: 'Mô hình AI Âm thanh', slug: '8/mô-hình-ai-âm-thanh' },
+                            { cid: 7, name: 'Mô hình AI sáng tạo Hình ảnh', slug: '7/mô-hình-ai-sáng-tạo-hình-ảnh' },
+                            { cid: 6, name: 'Mô hình AI sáng tạo Video', slug: '6/mô-hình-ai-sáng-tạo-video' },
+                            { cid: 5, name: 'Mô hình AI viết', slug: '5/mô-hình-ai-viết' },
+                            { cid: 24, name: 'Học làm Video', slug: '24/học-làm-video' },
+                            { cid: 13, name: 'Content SEO', slug: '13/content-seo' },
+                            { cid: 10, name: 'Lập trình Python', slug: '10/lập-trình-python' },
+                            { cid: 12, name: 'Bí Kíp Viết', slug: '12/bí-kíp-viết' },
+                            { cid: 4, name: 'Chợ phần mềm', slug: '4/chợ-phần-mềm' },
+                            { cid: 14, name: 'Phần mềm AI.TYPE', slug: '14/phần-mềm-ai-type' }
                         ]
                     }
                 }
@@ -3254,7 +3409,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-link-collections', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const rows = await new Promise((resolve, reject) => {
                 db.all('SELECT * FROM local_link_collections ORDER BY updated_at DESC', [], (err, r) => {
                     if (err) reject(err);
@@ -3290,8 +3446,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('get-local-links-in-collection', async (event, payload) => {
         try {
-            const { id } = payload || {};
-            const db = getArticlesDatabase();
+            const { id, username = getActiveLocalUsername() } = payload || {};
+            const db = getArticlesDatabase(username);
 
             let targetIds = [];
             if (id) {
@@ -3349,8 +3505,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-links', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
-            const username = (payload && payload.username) || 'admin';
+            const username = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(username);
             const keyword = (payload && payload.keyword) ? String(payload.keyword).trim().toLowerCase() : '';
             const page = payload && payload.page ? payload.page : null;
 
@@ -3427,7 +3583,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('add-local-link', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const link = (payload && payload.link) ? payload.link.trim() : '';
             const title = (payload && payload.title) || link;
             const optionsJson = JSON.stringify((payload && payload.options) || {});
@@ -3485,7 +3642,8 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('update-local-link', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const id = (payload && (payload._id || payload.id)) ? String(payload._id || payload.id).trim() : '';
             const link = (payload && payload.link) ? payload.link.trim() : '';
             const title = (payload && payload.title) || link;
@@ -3529,7 +3687,8 @@ function registerLocalArticlesHandlers() {
             const pageSize = (page && page.size) ? Number(page.size) : 25;
             const pageOffset = (page && page.pageNumber) ? Number(page.pageNumber) * pageSize : 0;
 
-            const db = getArticlesDatabase();
+            const targetUser = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             let whereClauses = [];
             let params = [];
 
@@ -3611,8 +3770,8 @@ function registerLocalArticlesHandlers() {
     // ── Lấy danh sách GoLogin tokens cục bộ ──
     ipcMain.handle('list-local-gologin-tokens', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
-            const username = (payload && payload.username) || 'admin';
+            const username = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(username);
 
             const rows = await new Promise((resolve, reject) => {
                 db.all(
@@ -3658,7 +3817,8 @@ function registerLocalArticlesHandlers() {
     // ── Thêm mới GoLogin token cục bộ ──
     ipcMain.handle('add-local-gologin-token', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const token = (payload && payload.token) ? payload.token.trim() : '';
             const username = (payload && payload.username) || 'admin';
 
@@ -3719,7 +3879,8 @@ function registerLocalArticlesHandlers() {
     // ── Cập nhật profiles cho GoLogin token cục bộ ──
     ipcMain.handle('update-local-gologin-token', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const token = (payload && payload.token) ? payload.token.trim() : '';
             const profiles = (payload && payload.profiles) ? payload.profiles : [];
             const username = (payload && payload.username) || 'admin';
@@ -3783,7 +3944,8 @@ function registerLocalArticlesHandlers() {
     // ── Xóa profile thuộc GoLogin token cục bộ ──
     ipcMain.handle('delete-local-gologin-profile', async (event, payload) => {
         try {
-            const db = getArticlesDatabase();
+            const targetUser = (payload && payload.username) || getActiveLocalUsername();
+            const db = getArticlesDatabase(targetUser);
             const token = (payload && payload.token) ? payload.token.trim() : '';
             const profileId = (payload && (payload.profileId || payload.id)) ? String(payload.profileId || payload.id).trim() : '';
             const now = new Date().toISOString();
@@ -3849,8 +4011,8 @@ function registerLocalArticlesHandlers() {
     // Handler đồng bộ toàn bộ file backup JSON vào database articles.sqlite cục bộ
     ipcMain.handle('sync-backup-to-local-sqlite', async (event, args) => {
         try {
-            const { username = 'admin', year = 2023 } = args || {};
-            const db = getArticlesDatabase();
+            const { username = getActiveLocalUsername(), year = 2023 } = args || {};
+            const db = getArticlesDatabase(username);
             const backupDir = path.join(getArticlesDbDir(), 'backup');
             if (!fs.existsSync(backupDir)) {
                 return { success: false, message: `Thư mục backup không tồn tại: ${backupDir}` };
@@ -4369,10 +4531,10 @@ function registerLocalArticlesHandlers() {
     // ===== QUẢN LÝ KỊCH BẢN LOCAL (LOCAL SCRIPTS) =====
     ipcMain.handle('save-local-script', async (event, payload) => {
         try {
-            const { uuid, username = 'admin', title, outline, script } = payload || {};
+            const { uuid, username = getActiveLocalUsername(), title, outline, script } = payload || {};
             if (!uuid) return { success: false, error: 'Thiếu uuid của kịch bản' };
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             const now = new Date().toISOString();
 
             return await new Promise((resolve) => {
@@ -4400,10 +4562,10 @@ function registerLocalArticlesHandlers() {
 
     ipcMain.handle('get-local-script', async (event, payload) => {
         try {
-            const { uuid } = payload || {};
+            const { uuid, username = getActiveLocalUsername() } = payload || {};
             if (!uuid) return { success: false, error: 'Thiếu uuid' };
 
-            const db = getArticlesDatabase();
+            const db = getArticlesDatabase(username);
             return await new Promise((resolve) => {
                 db.get('SELECT * FROM local_scripts WHERE uuid = ?', [uuid], (err, row) => {
                     if (err) {
@@ -4435,8 +4597,8 @@ function registerLocalArticlesHandlers() {
 
     ipcMain.handle('list-local-scripts', async (event, payload) => {
         try {
-            const { username = 'admin' } = payload || {};
-            const db = getArticlesDatabase();
+            const { username = getActiveLocalUsername() } = payload || {};
+            const db = getArticlesDatabase(username);
             return await new Promise((resolve) => {
                 db.all(
                     'SELECT uuid, username, title, outline, created_at, updated_at FROM local_scripts WHERE username = ? ORDER BY updated_at DESC',

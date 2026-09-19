@@ -284,14 +284,31 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
                     connected = !!(data && data.is_connected);
                 }
             }
-            const omniVoices = [
-                { id: 'omnivoice-yenai', name: 'Yenai (OmniVoice Colab)' },
-                { id: 'omnivoice-mpsg', name: 'MPSG (OmniVoice Colab)' }
-            ];
+            let omniVoices: any[] = [];
             if (connected) {
+                if ((window as any).electron && (window as any).electron.invoke) {
+                    try {
+                        const dynamicVoices = await (window as any).electron.invoke('get-colab-voices');
+                        if (Array.isArray(dynamicVoices) && dynamicVoices.length > 0) {
+                            omniVoices = dynamicVoices;
+                        }
+                    } catch (err) {
+                        console.error('Lỗi lấy danh sách OmniVoice:', err);
+                    }
+                }
+                if (omniVoices.length === 0) {
+                    omniVoices = [
+                        { id: 'omnivoice-yenai', name: 'Yenai' },
+                        { id: 'omnivoice-mpsg', name: 'MPSG' }
+                    ];
+                }
+
                 omniVoices.forEach(ov => {
-                    if (!this.voiceList.some(v => v.id === ov.id)) {
+                    const existing = this.voiceList.find(v => v.id === ov.id);
+                    if (!existing) {
                         this.voiceList.push(ov);
+                    } else {
+                        existing.name = ov.name;
                     }
                 });
             } else {

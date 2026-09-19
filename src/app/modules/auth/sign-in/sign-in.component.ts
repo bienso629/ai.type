@@ -7,6 +7,7 @@ import {
     ViewEncapsulation,
     ElementRef,
     ChangeDetectionStrategy,
+    NgZone,
 } from '@angular/core';
 import {
     UntypedFormBuilder,
@@ -47,8 +48,6 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
 
     foods = [
         // { value: 'local', viewValue: 'Máy tính cá nhân' },
-        { value: 'vn.s1', viewValue: 'Việt Nam - TP.HCM/S1 (đang sửa chữa)' },
-        { value: 'vn.s2', viewValue: 'Việt Nam - TP.HCM/S2 (đang sửa chữa)' },
         { value: 'vn.s3', viewValue: 'Việt Nam - TP.HCM/S3 (ổn định)' },
     ];
 
@@ -144,12 +143,19 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     async onSelectAccount(accountId: string, index: number) {
-        const success = await this.multiAccountService.switchAccount(accountId);
-        if (success) {
-            const user = this.accounts[index]['profile'];
-            if (user) {
-                this.checkAccount(user);
+        try {
+            const success = await this.multiAccountService.switchAccount(accountId);
+            if (success) {
+                const user = this.accounts[index]?.['profile'];
+                if (user) {
+                    if (user.server && this.signInForm?.get('server')) {
+                        this.signInForm.get('server').setValue(user.server);
+                    }
+                    this.checkAccount(user);
+                }
             }
+        } catch (err) {
+            console.error('Lỗi khi chọn tài khoản:', err);
         }
     }
 
@@ -170,53 +176,57 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             });
     }
 
-    checkAccount(user: any) {
+    async checkAccount(user: any) {
+        // Đánh dấu xác thực ngay lập tức để Guard và UI thông qua
+        const token = AuthUtils._generateJWTToken(user);
+        this._authService.authenticated = true;
+        this._authService.accessToken = token;
+        this._userService.user = user;
+
+        const server = user?.server || this.signInForm?.get('server')?.value || 'vn.s3';
+
+        // Đảm bảo lưu xong session xuống DB và localStorage trước khi chuyển trang
+        await this.multiAccountService.saveAccount(user.email, { user: user, accessToken: token });
+        await this.multiAccountService.forceSave();
+
+        // Điều hướng ngay lập tức trong NgZone
+        this._ngZone.run(() => {
+            const redirectURL =
+                this._activatedRoute.snapshot.queryParamMap.get(
+                    'redirectURL',
+                ) || '/signed-in-redirect';
+            this._router.navigateByUrl(redirectURL);
+        });
+
+        // Đồng bộ nhóm từ forum chạy ngầm trong background, không chặn luồng đăng nhập
         this._forumService
-            .getGroups(this.signInForm.get('server').value)
-            .subscribe((result) => {
-                if (result && result.success && result.data) {
-                    result.data.groups.map((g: any) => {
-                        if (g.slug === 'nhóm-đã-mua-ai-type') {
-                            this.multiAccountService.setItem(
-                                'members',
-                                g.members,
-                            );
-                        }
-
-                        g.members.map((m: any) => {
-                            if (m.uid === user.id) {
-                                if (!user.groups?.includes(g.slug)) {
-                                    user.groups.push(g.slug);
-                                }
+            .getGroups(server)
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data) {
+                        result.data.groups?.map((g: any) => {
+                            if (g.slug === 'nhóm-đã-mua-ai-type') {
+                                this.multiAccountService.setItem(
+                                    'members',
+                                    g.members,
+                                );
                             }
+
+                            g.members?.map((m: any) => {
+                                if (m.uid === user.id) {
+                                    if (!user.groups) {
+                                        user.groups = [];
+                                    }
+                                    if (!user.groups.includes(g.slug)) {
+                                        user.groups.push(g.slug);
+                                    }
+                                }
+                            });
                         });
-                    });
-
-                    if (this.signInForm.value.rememberMe) {
-                        // Store the access token in the local storage
-                        this._authService.accessToken =
-                            AuthUtils._generateJWTToken(user);
+                        this.multiAccountService.saveAccount(user.email, { user: user, accessToken: token });
                     }
-
-                    // Store the user on the user service
-                    this._userService.user = user;
-
-                    const redirectURL =
-                        this._activatedRoute.snapshot.queryParamMap.get(
-                            'redirectURL',
-                        ) || '/signed-in-redirect';
-                    this._router.navigateByUrl(redirectURL);
-                } else {
-                    // this.multiAccountService.removeItem('accessToken');
-
-                    // Re-enable the form
-                    this.signInForm.enable();
-
-                    this.alert = {
-                        type: 'warning',
-                        message: 'Tài khoản của bạn không đúng.',
-                    };
-                }
+                },
+                error: () => {}
             });
     }
 
@@ -233,6 +243,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         private _router: Router,
         private multiAccountService: MultiAccountService,
         private _matDialog: MatDialog,
+        private _ngZone: NgZone,
     ) {}
 
     generateCaptcha(retryCount = 0) {

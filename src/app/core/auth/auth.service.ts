@@ -36,6 +36,14 @@ export class AuthService {
         return this.multiAccountService.getItem('accessToken') || '';
     }
 
+    set authenticated(val: boolean) {
+        this._authenticated = val;
+    }
+
+    get authenticated(): boolean {
+        return this._authenticated;
+    }
+
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
@@ -85,11 +93,14 @@ export class AuthService {
                         groups: []
                     };
 
+                    const token = AuthUtils._generateJWTToken(user);
+                    this.accessToken = token;
                     this._authenticated = true;
+                    this._userService.user = user;
 
                     // KHỞI TẠO TÀI KHOẢN VÀO INDEXED DB
                     // Bạn cần dùng switchMap ở trên để có thể trả về Observable từ Promise
-                    return from(this.multiAccountService.saveAccount(user.email, { user: user })).pipe(
+                    return from(this.multiAccountService.saveAccount(user.email, { user: user, accessToken: token })).pipe(
                         map(() => user)
                     );
                 } else {
@@ -144,14 +155,14 @@ export class AuthService {
      * Sign out
      */
     signOut(): Observable<any> {
-        // Xóa token trong service mới
-        this.multiAccountService.removeItem('accessToken');
-
-        // Set the authenticated flag to false
+        // Hủy session active trong IndexedDB và xóa RAM cache
         this._authenticated = false;
+        this.accessToken = null;
+        this._userService.user = null;
 
-        // Return the observable
-        return of(true);
+        return from(this.multiAccountService.clearActiveSession()).pipe(
+            map(() => true)
+        );
     }
 
     /**
@@ -180,23 +191,29 @@ export class AuthService {
         // Ép Angular phải chờ MultiAccountService load xong dữ liệu từ IndexedDB
         return from(this.multiAccountService.isReady).pipe(
             switchMap(() => {
-                // Check if the user is logged in
-                if (this._authenticated) {
+                // Chỉ khôi phục khi có tài khoản thực sự active trong IndexedDB
+                if (!this.multiAccountService.currentAccountId) {
+                    this._authenticated = false;
+                    this.accessToken = null;
+                    this._userService.user = null;
+                    return of(false);
+                }
+
+                // Phục hồi user và token từ phiên làm việc nếu chưa có
+                const cachedUser = this.multiAccountService.getItem('user') || this.multiAccountService.getItem('profile');
+                if (cachedUser) {
+                    if (!this.accessToken || AuthUtils.isTokenExpired(this.accessToken)) {
+                        const token = AuthUtils._generateJWTToken(cachedUser);
+                        this.accessToken = token;
+                    }
+                    this._userService.user = cachedUser;
+                    this._authenticated = true;
                     return of(true);
-                }
-
-                // Check the access token availability
-                if (!this.accessToken) {
+                } else {
+                    this._authenticated = false;
+                    this.accessToken = null;
                     return of(false);
                 }
-
-                // Check the access token expire date
-                if (AuthUtils.isTokenExpired(this.accessToken)) {
-                    return of(false);
-                }
-
-                // If the access token exists and it didn't expire, sign in using it
-                return this.signInUsingToken();
             })
         );
     }

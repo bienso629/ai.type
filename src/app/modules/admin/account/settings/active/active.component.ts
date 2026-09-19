@@ -41,7 +41,39 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     activeForm: UntypedFormGroup;
     activeInfo: any = {};
     plans: any[];
-    showPaymentButton: boolean = true;
+    get licenseCustomerEmail(): string {
+        const info = this.activeInfo?.user?.info;
+        if (!info || !info.email) return '';
+        const email = String(info.email).trim();
+        return email === '0' || email.toLowerCase() === 'null' ? '' : email;
+    }
+
+    get isFreeLicense(): boolean {
+        if (!this.activeInfo || !this.activeInfo.user) {
+            return false;
+        }
+        const user = this.activeInfo.user;
+        const appId = (user.appId || this.activeInfo.appId || '').toLowerCase();
+        const plan = (user.plan || user.type || this.activeInfo.plan || this.activeInfo.type || '').toLowerCase();
+        const customerName = (user.info?.customerName || '').toLowerCase();
+        const customerEmail = String(user.info?.email || '').trim().toLowerCase();
+
+        // 1. Kiểm tra từ khóa free
+        if (appId.includes('free') || plan.includes('free') || customerName.includes('miễn phí') || customerName.includes('free')) {
+            return true;
+        }
+
+        // 2. License Key chính hãng có email hợp lệ đính kèm (không phải rỗng hoặc '0')
+        if (!customerEmail || customerEmail === '0' || !customerEmail.includes('@')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    get canShowPaymentButton(): boolean {
+        return !!(this.activeInfo && this.activeInfo.user && !this.isFreeLicense);
+    }
 
     config: AppConfig;
     user: User;
@@ -113,10 +145,13 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
         } else {
             const licensekey = `${this.activeForm.value['licensekey1'].toUpperCase()}-${this.activeForm.value['licensekey2'].toUpperCase()}-${this.activeForm.value['licensekey3'].toUpperCase()}-${this.activeForm.value['licensekey4'].toUpperCase()}-${this.activeForm.value['licensekey5'].toUpperCase()}-${this.activeForm.value['licensekey6'].toUpperCase()}`;
 
+            const username = this.user?.name || this.multiAccountService.getItem('username') || 'user';
+            const email = this.user?.email || this.multiAccountService.getItem('email') || 'user@type.vn';
+
             this._licenseKeyService
                 .activate({
-                    username: this.user.name,
-                    email: this.user.email,
+                    username: username,
+                    email: email,
                     machine: {
                         uuid: this.uuid,
                         du: this.du,
@@ -160,14 +195,13 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                                 (window as any).electron.relaunchApp();
                             }
                         } else {
-                            this.toastr.error(
-                                this._translocoService.translate(
-                                    'app.key_invalid',
-                                ),
-                            );
+                            const errorMsg = result?.message || result?.error || this._translocoService.translate('app.key_invalid');
+                            this.toastr.error(errorMsg);
                         }
                     },
-                    error: () => {},
+                    error: (err) => {
+                        this.toastr.error(err?.message || 'Lỗi kết nối máy chủ kích hoạt.');
+                    },
                     complete: () => {},
                 });
         }
@@ -248,22 +282,6 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             activeInfoStr != 'undefined'
         ) {
             this.activeInfo = AuthUtils._getActiveInfo(activeInfoStr);
-
-            // Nếu có key, kiểm tra xem nó còn bao lâu thì hết hạn
-            const expirationDate =
-                AuthUtils._getTokenExpirationDate(activeInfoStr);
-            if (expirationDate) {
-                const now = new Date().valueOf();
-                const exp = expirationDate.valueOf();
-                const daysLeft = (exp - now) / (1000 * 60 * 60 * 24);
-
-                // Nếu còn hơn 45 ngày thì ẩn nút, ngược lại (<= 45 ngày hoặc đã hết hạn) thì hiện
-                if (daysLeft > 45) {
-                    this.showPaymentButton = false;
-                } else {
-                    this.showPaymentButton = true;
-                }
-            }
         }
     }
 
@@ -298,7 +316,34 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
+                this.refreshActiveInfo();
             });
+
+        this.multiAccountService.activeAccount$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(() => {
+                this.refreshActiveInfo();
+            });
+
+        if (this.multiAccountService.isReady) {
+            this.multiAccountService.isReady.then(() => {
+                this.refreshActiveInfo();
+            });
+        }
+    }
+
+    private refreshActiveInfo(): void {
+        const activeInfoStr = this.multiAccountService.getItem('active_info');
+        if (
+            activeInfoStr &&
+            activeInfoStr != 'null' &&
+            activeInfoStr != 'undefined'
+        ) {
+            this.activeInfo = AuthUtils._getActiveInfo(activeInfoStr);
+        } else {
+            this.activeInfo = {};
+        }
+        this._cdr.markForCheck();
     }
 
     ngOnDestroy(): void {
@@ -600,17 +645,6 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                         [alt]="'app.qr_code' | transloco"
                     />
                 </div>
-            </div>
-
-            <!-- Footer Actions -->
-            <div class="flex items-center justify-end mt-4 pt-3 border-t">
-                <button
-                    mat-flat-button
-                    class="bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    [matDialogClose]="undefined"
-                >
-                    {{ 'app.auto_cancel' | transloco }}
-                </button>
             </div>
         </div>
     `,

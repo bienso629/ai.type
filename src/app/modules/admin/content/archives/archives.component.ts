@@ -1350,14 +1350,18 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 (window as any).electron.getLocalStatistics
             ) {
                 (window as any).electron
-                    .getLocalStatistics()
+                    .getLocalStatistics({ username: this.getCurrentUsername() })
                     .then((res: any) => {
                         const total =
                             res?.total !== undefined
                                 ? res.total
                                 : res?.data?.total || 0;
                         this.actualTotalElements = total;
-                        this.totalElements = total;
+                        this.totalElements = Math.max(total, this.rows?.length || 0);
+                        if (this.table) {
+                            this.table.recalculatePages();
+                            this.table.recalculate();
+                        }
                         this.cd.markForCheck();
                     })
                     .catch(() => {});
@@ -1761,14 +1765,18 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             (window as any).electron.getLocalStatistics
         ) {
             (window as any).electron
-                .getLocalStatistics()
+                .getLocalStatistics({ username: this.getCurrentUsername() })
                 .then((res: any) => {
                     const total =
                         res?.total !== undefined
                             ? res.total
                             : res?.data?.total || 0;
-                    this.totalElements = total;
                     this.actualTotalElements = total;
+                    this.totalElements = Math.max(total, this.rows?.length || 0);
+                    if (this.table) {
+                        this.table.recalculatePages();
+                        this.table.recalculate();
+                    }
                     this.cd.markForCheck();
                 })
                 .catch(() => {});

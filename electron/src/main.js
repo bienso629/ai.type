@@ -7943,6 +7943,40 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
 // Thêm một Set ở đầu file để lưu trữ các task đang chạy
 const activeTtsTasks = new Set();
 
+ipcMain.handle("get-colab-voices", async () => {
+    try {
+        const voicesDir = path.join(app.getPath("documents"), "ai.type", "voices");
+        if (!fs.existsSync(voicesDir)) {
+            fs.mkdirSync(voicesDir, { recursive: true });
+            return [];
+        }
+        const files = fs.readdirSync(voicesDir);
+        const wavFiles = files.filter(f => f.toLowerCase().endsWith(".wav") || f.toLowerCase().endsWith(".mp3"));
+        
+        return wavFiles.map(file => {
+            const rawName = path.basename(file, path.extname(file));
+            const txtFile = path.join(voicesDir, `${rawName}.txt`);
+            let refText = "";
+            if (fs.existsSync(txtFile)) {
+                try {
+                    refText = fs.readFileSync(txtFile, "utf8").trim();
+                } catch (e) {}
+            }
+            const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+            return {
+                id: `omnivoice-${rawName.toLowerCase()}`,
+                name: displayName,
+                voiceKey: rawName.toLowerCase(),
+                audioFile: file,
+                refText: refText
+            };
+        });
+    } catch (err) {
+        console.error("[TTS] Lỗi khi lấy danh sách voices từ Documents/ai.type/voices:", err);
+        return [];
+    }
+});
+
 ipcMain.handle("tts-type-generate", async (event, payload) => {
     const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username, ref_audio_base64 } = payload;
 
@@ -7979,29 +8013,20 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
             "num_step": Number(num_step) || 16
         };
 
-        // Tự động tìm nạp voice sample cục bộ nếu client chưa gửi ref_audio_base64
+        // Tự động tìm nạp voice sample từ Documents/ai.type/voices
         let finalRefBase64 = ref_audio_base64;
         let finalRefText = ref_text ? ref_text.trim() : "";
 
         if (ref_audio_name) {
             const rawVoiceKey = path.basename(ref_audio_name, path.extname(ref_audio_name)).toLowerCase();
-            const defaultVoiceTexts = {
-                "yenai": "Đêm giao thừa, cả nhà không ai lo cắm mặt vào điện thoại, chúng tôi ngồi bên nhau, kể chuyện, cười đùa, chờ đợi tiếng pháo nổ giòn giã ngoài ngõ.",
-                "mpsg": "Rachel đã ly dị, đã mất việc, đã chìm trong rượu và cay đắng, chẳng còn nơi nào để đến và đi."
-            };
-
-            if (!finalRefText && defaultVoiceTexts[rawVoiceKey]) {
-                finalRefText = defaultVoiceTexts[rawVoiceKey];
-            }
 
             try {
+                const voicesDir = path.join(app.getPath("documents"), "ai.type", "voices");
                 const sampleCandidates = [
-                    path.join(process.cwd(), "apps", "voiceclone-tts", "voices", ref_audio_name),
-                    path.join(process.cwd(), "apps", "voiceclone-tts", "voices", `${ref_audio_name}.wav`),
-                    path.join(app.getPath("documents"), "ai.type", "voices", ref_audio_name),
-                    path.join(app.getPath("documents"), "ai.type", "voices", `${ref_audio_name}.wav`),
-                    path.join("/home/yenai/Documents/Projects/Typing/apps/voiceclone-tts/voices", ref_audio_name),
-                    path.join("/home/yenai/Documents/Projects/Typing/apps/voiceclone-tts/voices", `${ref_audio_name}.wav`)
+                    path.join(voicesDir, ref_audio_name),
+                    path.join(voicesDir, `${ref_audio_name}.wav`),
+                    path.join(voicesDir, `${rawVoiceKey}.wav`),
+                    path.join(voicesDir, `${rawVoiceKey}.mp3`)
                 ];
                 for (const cand of sampleCandidates) {
                     if (fs.existsSync(cand)) {
@@ -10314,31 +10339,9 @@ ipcMain.handle('register-license', (event, token) => {
     currentLicense = token;
 });
 
-// Kiểm tra mỗi 5 phút
+// Kiểm tra mỗi 5 phút (Đã vô hiệu hóa kiểm tra và ép kích hoạt phần mềm)
 setInterval(() => {
-    let isValid = false;
-    if (currentLicense && currentLicense !== 'null' && currentLicense !== 'undefined') {
-        try {
-            const parts = currentLicense.split('.');
-            if (parts.length === 3) {
-                const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8');
-                const payload = JSON.parse(payloadStr);
-                // Payload 'exp' is usually in seconds. Date.now() is milliseconds.
-                if (payload.exp && (payload.exp * 1000) > Date.now()) {
-                    isValid = true;
-                }
-            }
-        } catch (e) {}
-    }
-
-    if (!isValid) {
-        // Broadcast force-renewal to all windows
-        BrowserWindow.getAllWindows().forEach(win => {
-            if (win && !win.isDestroyed()) {
-                win.webContents.send('force-renewal');
-            }
-        });
-    }
+    // Đã tắt logic kiểm tra hết hạn license key
 }, 5 * 60 * 1000);
 
 // =====================================================================

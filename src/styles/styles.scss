@@ -1304,9 +1304,19 @@ ng-dropdown-panel {
     }
 }
 
-mat-bottom-sheet-container {
+mat-bottom-sheet-container,
+.mat-bottom-sheet-container {
     width: 100%;
+    background-color: var(--fuse-bg-card, #ffffff) !important;
+    color: var(--fuse-text-default, #1e293b) !important;
 }
+
+.dark mat-bottom-sheet-container,
+.dark .mat-bottom-sheet-container {
+    background-color: var(--fuse-bg-card, #1e293b) !important;
+    color: var(--fuse-text-default, #f8fafc) !important;
+}
+
 
 mat-hint {
     font-weight: 400;
@@ -2429,6 +2439,38 @@ body.dark .mdc-tooltip__surface {
 
     .font-preview-name {
         font-family: var(--font-family-preview) !important;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  @ License Key Grid and Input Tweaks
+/* -------------------------------------------------------------------------- */
+.license-key-grid {
+    position: relative !important;
+
+    > div {
+        position: relative !important;
+    }
+
+    .mat-mdc-form-field-flex {
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+    }
+
+    .mat-mdc-form-field-infix {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+}
+
+/* Force white background for video players and wrappers */
+app-video-timeline-dialog {
+    video,
+    img#mainImagePlayer,
+    #standardPlayerContainer,
+    #mockupFrameContainer,
+    #mockupScreenInner {
+        background-color: #ffffff !important;
     }
 }
 
