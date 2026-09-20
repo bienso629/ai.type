@@ -761,7 +761,7 @@
     "app.professional_precise_text_drawing": "Vẽ chuyên nghiệp (bám sát text)",
     "app.channel_url": "Địa chỉ kênh",
     "app.or_tiktoker_username": "hoặc bạn có username của một Tiktoker",
-    "app.tiktoker_username_hint": "Ví dụ chúng ta có 1 kênh Tiktoker là https://www.tiktok.com/@aicontenttools thì username bạn có thể nhập là aicontenttools",
+    "app.tiktoker_username_hint": "https://www.tiktok.com/@aicontenttools thì username là aicontenttools",
     "app.download_method": "Phương thức tải",
     "app.parallel": "Song song",
     "app.cannot_be_empty": "Không được để trống!",
