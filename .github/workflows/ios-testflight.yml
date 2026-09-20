@@ -51,6 +51,7 @@ jobs:
             -authenticationKeyID ${{ secrets.APP_STORE_KEY_ID }} \
             -authenticationKeyIssuerID ${{ secrets.APP_STORE_ISSUER_ID }} \
             DEVELOPMENT_TEAM=7Q9KE7THG2 \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             archive
 
       - name: Export & Upload to TestFlight
