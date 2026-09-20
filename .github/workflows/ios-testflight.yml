@@ -43,14 +43,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             archive
 
-      - name: Export & Upload to TestFlight
+      - name: Package IPA & Upload to TestFlight
         run: |
           cd ios/App
-          xcodebuild -exportArchive \
-            -archivePath build/App.xcarchive \
-            -exportOptionsPlist ExportOptions-AppStore.plist \
-            -exportPath build/output \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ secrets.APP_STORE_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.APP_STORE_ISSUER_ID }}
+          mkdir -p build/Payload
+          cp -r build/App.xcarchive/Products/Applications/App.app build/Payload/
+          cd build
+          zip -qr App.ipa Payload
+          xcrun altool --upload-app -f App.ipa -t ios \
+            --apiKey "${{ secrets.APP_STORE_KEY_ID }}" \
+            --apiIssuer "${{ secrets.APP_STORE_ISSUER_ID }}"
