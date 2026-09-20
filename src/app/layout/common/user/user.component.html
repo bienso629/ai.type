@@ -80,10 +80,10 @@
             <span>{{ "user.status" | transloco }}</span>
         </button>
         <mat-divider class="my-2"></mat-divider>
-        <button mat-menu-item (click)="signOut()">
+        <a mat-menu-item (click)="signOut()" class="cursor-pointer">
             <mat-icon [svgIcon]="'heroicons_outline:logout'"></mat-icon>
             <span>{{ "user.logout" | transloco }}</span>
-        </button>
+        </a>
     </mat-menu>
     <mat-menu class="user-status-menu" #userStatus="matMenu">
         <button mat-menu-item (click)="updateUserStatus('online')">

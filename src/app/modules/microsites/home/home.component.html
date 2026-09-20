@@ -14,10 +14,12 @@
                                     <img class="w-80" src="assets/images/logo/typing-logo.svg" alt="Logo image">
                                 </div>
                                 <!-- @formatter:on -->
+
+
                                 <!-- Header -->
                                 <div class="flex flex-col mt-8 items-center">
                                     <!-- <h2 class="text-xl font-semibold">type.vn</h2> -->
-                                    <div class="text-3xl sm:text-5xl font-semibold leading-8 sm:leading-10 text-center max-w-200 tw"
+                                    <div class="text-2xl font-medium leading-8 text-center max-w-200 tw"
                                         #tw></div>
                                 </div>
 
@@ -32,10 +34,6 @@
                         </div>
                     </div>
 
-                    <div class="absolute right-10 bottom-10 z-99 w-20 h-20 bg-gray-30 grayscale-0 opacity-10 hover:opacity-100 transition-opacity duration-1000 ease-drawer"
-                        matTooltipPosition="above" [matTooltip]="'app.auto_use_three_fingers_to_swipe_up' | transloco">
-                        <img src="./assets/icons/80636_aggressive_finger_gestureworks_three_tilt_icon.png" />
-                    </div>
                 </div>
             </fm-stream-item>
         </swiper-slide>
@@ -53,11 +51,8 @@
                                     class="flex flex-col items-center px-6 py-10 sm:px-16 sm:pt-18 sm:pb-20 dark:bg-gray-800">
                                     <div class="w-full max-w-6xl">
                                         <div class="text-left">
-                                            <div class="text-4xl font-normal tracking-tight leading-tight">
+                                            <div class="text-2xl font-medium tracking-tight leading-8">
                                                 {{ 'microsites.home.about.title' | transloco }}
-                                            </div>
-                                            <div class="mt-2 text-xl text-secondary leading-8">
-                                                {{ 'microsites.home.about.subtitle' | transloco }}
                                             </div>
                                         </div>
                                         <!-- Features grid -->
@@ -123,10 +118,6 @@
                 <a mat-icon-button color="warn" [title]="'app.auto_learning_programming' | transloco" href="https://www.youtube.com/@manguonmo"
                     target="_blank">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:youtube'"></mat-icon>
-                </a>
-
-                <a [title]="'app.auto_technology_course' | transloco" mat-icon-button href="https://buy.type.vn" target="_blank">
-                    <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:shopping-cart'"></mat-icon>
                 </a>
             </div>
         </div>

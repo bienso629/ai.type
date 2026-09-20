@@ -74,7 +74,7 @@
                 "button2": "Xoá kết quả"
             },
             "footer": {
-                "info": "Công ty TNHH <a class=\"\" href=\"https://typing.vn\" title=\"Phần mềm AI xây dựng bài viết chuyên nghiệp\">Typing</a> &copy; 2019-{{currentYear}}"
+                "info": "Công cụ viết <a class=\"\" href=\"https://typing.vn\" title=\"Phần mềm AI xây dựng bài viết chuyên nghiệp\">AI Type</a> &copy; 2019-{{currentYear}}"
             },
             "toastr": {
                 "googletrend": {
