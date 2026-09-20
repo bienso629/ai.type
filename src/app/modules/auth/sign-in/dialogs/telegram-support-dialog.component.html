@@ -1,4 +1,4 @@
-<div class="flex flex-col max-w-120 md:min-w-110 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl text-gray-800 dark:text-gray-100">
+<div class="flex flex-col max-w-120 md:min-w-110 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl text-gray-800 dark:text-gray-100 text-base">
     <!-- Header -->
     <div class="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center gap-3">
@@ -6,7 +6,7 @@
                 <mat-icon class="icon-size-6" [svgIcon]="'feather:send'"></mat-icon>
             </div>
             <div>
-                <h3 class="text-lg font-bold leading-none text-gray-900 dark:text-white">Trợ giúp Đăng nhập AI Type</h3>
+                <h3 class="text-base font-bold leading-none text-gray-900 dark:text-white">Hướng dẫn đăng nhập</h3>
             </div>
         </div>
         <button mat-icon-button (click)="close()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -15,29 +15,29 @@
     </div>
 
     <!-- Body Content -->
-    <div class="py-4 space-y-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+    <div class="py-4 space-y-3 text-base leading-relaxed text-gray-600 dark:text-gray-300">
         <div>
-            <p class="font-medium text-gray-900 dark:text-gray-100 mb-1">
+            <p class="font-medium text-gray-900 dark:text-gray-100 mb-1 text-base">
                 Các trường hợp thường gặp:
             </p>
-            <ul class="list-disc list-inside space-y-1 text-xs text-gray-600 dark:text-gray-400">
+            <ul class="list-disc list-inside space-y-1 text-base text-gray-600 dark:text-gray-400">
                 <li>Chưa kích hoạt tài khoản diễn đàn <strong>type.vn</strong></li>
                 <li>Quên mật khẩu hoặc tài khoản chưa được gán quyền AI Type</li>
                 <li>Hết hạn gói dịch vụ hoặc cần hỗ trợ nạp key / gia hạn</li>
             </ul>
         </div>
 
-        <p class="text-sm">
+        <p class="text-base">
             Hãy liên hệ trực tiếp với bộ phận hỗ trợ kỹ thuật qua Telegram (&#64;AITypeSupport_bot) để được xử lý nhanh nhất.
         </p>
     </div>
 
     <!-- Footer -->
-    <div class="flex justify-end items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-        <button mat-button (click)="close()" class="text-gray-600 dark:text-gray-400">
+    <div class="flex justify-end items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700 text-base">
+        <button mat-button (click)="close()" class="text-gray-600 dark:text-gray-400 text-base">
             Đóng
         </button>
-        <button mat-flat-button [color]="'primary'" (click)="openTelegramExternal()">
+        <button mat-flat-button [color]="'primary'" (click)="openTelegramExternal()" class="text-base">
             <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:send'"></mat-icon>
             <span class="ml-2">Mở Telegram</span>
         </button>

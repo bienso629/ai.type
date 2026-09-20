@@ -6,11 +6,15 @@
 
 .captcha-actions {
     background: white;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
 }
 
 .captcha-actions input[type=text] {
     border: none !important;
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     padding: 10px 16px !important;
     font-size: 14px;
 }
@@ -20,14 +24,14 @@
         opacity: 0.7;
     }
     
-    border-radius: 0 6px 0 0 !important;
+    border-radius: 0 !important;
     background: #f5f5f5 !important;
     color: rgb(114, 114, 114);
     font-size: 14px;
-    padding: 8px 16px !important;
+    padding: 8px 14px !important;
     cursor: pointer;
-    // border-top: 1px solid #e2e8f0 !important;
-    // border-right: 1px solid #e2e8f0 !important;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .captcha-actions input[type=button] {
@@ -52,36 +56,41 @@
 }
 
 .captcha-actions a {
-    color: #23ab19 !important;
-    font-size: 14px !important;
-    display: none;
-    padding: 8px !important;
+    display: inline-flex;
+    padding: 8px 12px !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    font-weight: 700;
+    text-decoration: none;
+    transition: opacity 0.2s;
+
+    &:hover {
+        opacity: 0.7;
+    }
+}
+
+.captcha-actions a.check {
+    font-size: 20px !important;
+    color: #eab308 !important; // Màu vàng mặc định
 }
 
 .captcha-actions a.reload {
-    display: inline-flex;
+    font-size: 16px !important;
+    color: #9ca3af !important; // Màu xám
 }
 
 .ngx-captcha {
     &.incorrect {
-        .captcha-actions input[type=button] {
-            &:hover {
-                opacity: 0.7;
-            }
-
-            background: #f5f5f5 !important;
-            color: rgb(247 7 7);
+        .captcha-actions a.check {
+            color: #eab308 !important;
         }
     }
 
     &.correct {
-        .captcha-actions input[type=button] {
-            &:hover {
-                opacity: 0.7;
-            }
-
-            background: #f5f5f5 !important;
-            color: #23ab19;
+        .captcha-actions a.check {
+            color: #23ab19 !important; // Màu xanh khi đúng
         }
     }
 }

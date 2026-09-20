@@ -2,7 +2,7 @@
     class="flex flex-col sm:flex-row items-center md:items-start sm:justify-center md:justify-start flex-auto min-w-0 sm:bg-white"
 >
     <div
-        class="md:flex md:items-center md:justify-end w-full sm:w-auto md:h-full md:w-1/2 py-8 px-4 sm:p-8 md:p-12 sm:rounded-2xl md:rounded-none sm:shadow md:shadow-none"
+        class="md:flex md:items-center md:justify-end w-full sm:w-auto md:h-full md:w-1/2 p-0 rounded-none shadow-none"
     >
         <div class="w-full max-w-80 sm:w-100 mx-auto sm:mx-0">
             <!-- Logo -->
@@ -48,6 +48,7 @@
                 (submit)="signIn()"
                 [formGroup]="signInForm"
                 #signInNgForm="ngForm"
+                autocomplete="off"
             >
                 <!-- Email field -->
                 <mat-form-field
@@ -57,6 +58,10 @@
                     <input
                         id="username"
                         matInput
+                        type="email"
+                        autocomplete="new-password"
+                        readonly
+                        onfocus="this.removeAttribute('readonly');"
                         [formControlName]="'username'"
                     />
                     <mat-hint
@@ -91,6 +96,9 @@
                         id="password"
                         matInput
                         type="password"
+                        autocomplete="new-password"
+                        readonly
+                        onfocus="this.removeAttribute('readonly');"
                         [formControlName]="'password'"
                         #passwordField
                     />
@@ -126,7 +134,7 @@
                 </mat-form-field>
 
                 <mat-form-field
-                    class="w-full mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                    class="hidden w-full mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                 >
                     <mat-label>{{ "app.auto_server" | transloco }}</mat-label>
                     <mat-select [formControlName]="'server'">
@@ -185,15 +193,18 @@
                                 "
                                 (keyup)="validateCaptcha()"
                             />
-                            <input
-                                type="button"
-                                value="Kiểm tra"
+                            <a
+                                href="javascript:void(0)"
+                                class="cpt-btn check"
                                 (click)="validateCaptcha()"
-                            />
+                                title="Kiểm tra"
+                                >&#x2713;</a
+                            >
                             <a
                                 href="javascript:void(0)"
                                 class="cpt-btn reload"
                                 (click)="generateCaptcha()"
+                                title="Làm mới"
                                 >&#x21bb;</a
                             >
                         </div>
