@@ -25,6 +25,12 @@ jobs:
       - name: Sync iOS Capacitor
         run: npx cap sync ios
 
+      - name: Remove Alpha Channel from App Icon
+        run: |
+          sips -s format bmp ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png --out temp.bmp || true
+          sips -s format png temp.bmp --out ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png || true
+          rm -f temp.bmp
+
       - name: Setup App Store Connect API Key
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
