@@ -5,6 +5,7 @@
 *.wav
 *.webm
 *.mp4
+*.p8
 
 # compiled output
 /bugs
