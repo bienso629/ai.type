@@ -177,10 +177,20 @@
                 </mat-grid-list>
                 <!-- Divider -->
                 <div class="mt-8 border-t"></div>
-                <div class="mt-4 flex items-center">
+                <div class="mt-4 flex items-center space-x-3">
                     <button mat-flat-button type="submit" [color]="'primary'">
                         {{ "app.activate_software" | transloco }}
                     </button>
+                    <a
+                        class="text-sm font-medium text-primary hover:underline cursor-pointer flex items-center"
+                        (click)="restoreLicense()"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-primary"
+                            [svgIcon]="'feather:refresh-cw'"
+                        ></mat-icon>
+                        <mat-label class="ml-2 cursor-pointer">Khôi phục thanh toán</mat-label>
+                    </a>
                 </div>
             </div>
         }
@@ -208,7 +218,7 @@
                             class="icon-size-4 text-primary"
                             [svgIcon]="'feather:refresh-cw'"
                         ></mat-icon>
-                        <mat-label class="ml-2 cursor-pointer">Khôi phục tài khoản</mat-label>
+                        <mat-label class="ml-2 cursor-pointer">Khôi phục thanh toán</mat-label>
                     </a>
                 </div>
             </div>

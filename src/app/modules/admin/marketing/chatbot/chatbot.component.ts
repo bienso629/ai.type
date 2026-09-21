@@ -58,6 +58,97 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     batchTotalCount: number = 0;
     batchCurrentFile: string = '';
     isBatchCancelled: boolean = false;
+
+    // Colab GPU Agent Support
+    isColabConnected: boolean = false;
+    isColabPluginActive: boolean = false;
+    isColabConnecting: boolean = false;
+
+    async checkColabStatus(): Promise<void> {
+        try {
+            let connected = false;
+            let pluginActive = false;
+            if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
+                const res = await (window as any).electronAPI.checkColabGpuStatus();
+                connected = !!(res && res.is_connected);
+                pluginActive = !!(res && res.plugin_active);
+            } else {
+                const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    connected = !!(data && data.is_connected);
+                    pluginActive = true;
+                    if (data && data.colab_url) {
+                        localStorage.setItem('colabMcpUrl', data.colab_url);
+                        localStorage.setItem('isColabMcpEnabled', 'true');
+                    }
+                }
+            }
+            this.isColabPluginActive = pluginActive;
+            this.isColabConnected = connected;
+        } catch (e) {
+            this.isColabPluginActive = false;
+            this.isColabConnected = false;
+        } finally {
+            this.cd.markForCheck();
+        }
+    }
+
+    async toggleColabGpu(enable: boolean): Promise<void> {
+        if (this.isColabConnecting) return;
+        this.isColabConnecting = true;
+        this.cd.markForCheck();
+
+        try {
+            if (enable) {
+                this.toastr.info('Đang kết nối & khởi chạy GPU Tesla T4 trên Colab...', 'Colab GPU');
+                if ((window as any).electronAPI && (window as any).electronAPI.startColabGpu) {
+                    const res = await (window as any).electronAPI.startColabGpu();
+                    if (res && res.success) {
+                        this.toastr.success(res.message || `Đã kết nối GPU Colab (${res.gpu || 'Tesla T4'}) thành công!`, 'Colab GPU');
+                        if (res.url) {
+                            localStorage.setItem('colabMcpUrl', res.url);
+                            localStorage.setItem('isColabMcpEnabled', 'true');
+                        }
+                    } else {
+                        this.toastr.error(res?.error || 'Không thể khởi tạo GPU Colab. Vui lòng kiểm tra tab Plugins trong Cài đặt.', 'Colab GPU');
+                    }
+                } else {
+                    const resp = await fetch('http://127.0.0.1:7868/start_gpu', { method: 'POST', signal: AbortSignal.timeout(30000) });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data.success) {
+                            this.toastr.success('Đã kết nối GPU Colab thành công!', 'Colab GPU');
+                            if (data.url) {
+                                localStorage.setItem('colabMcpUrl', data.url);
+                                localStorage.setItem('isColabMcpEnabled', 'true');
+                            }
+                        } else {
+                            this.toastr.error(data.error || 'Lỗi khởi chạy GPU Colab.', 'Colab GPU');
+                        }
+                    }
+                }
+            } else {
+                this.toastr.info('Đang ngắt kết nối và tắt máy ảo Colab GPU...', 'Colab GPU');
+                if ((window as any).electronAPI && (window as any).electronAPI.stopColabGpu) {
+                    const res = await (window as any).electronAPI.stopColabGpu();
+                    if (res && res.success) {
+                        this.toastr.success(res.message || 'Đã tắt máy ảo Colab GPU thành công.', 'Colab GPU');
+                    }
+                } else {
+                    await fetch('http://127.0.0.1:7868/stop_gpu', { method: 'POST', signal: AbortSignal.timeout(3000) });
+                    this.toastr.success('Đã gửi yêu cầu tắt máy ảo Colab GPU.', 'Colab GPU');
+                }
+            }
+        } catch (e: any) {
+            this.toastr.error('Lỗi thao tác Colab GPU: ' + (e?.message || e), 'Colab GPU');
+        } finally {
+            this.isColabConnecting = false;
+            await this.checkColabStatus();
+            this.cd.markForCheck();
+        }
+    }
+
     Math = Math;
 
     onSelect({ selected }: { selected: any[] }): void {
@@ -1513,17 +1604,16 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     }
 
     async reIndexPdf(doc_type: string, filename: string, rowIndex: number = -1): Promise<void> {
-        const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
+        let isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
         let isColabMcpEnabled = localStorage.getItem('isColabMcpEnabled') === 'true';
         let colabMcpUrl = (localStorage.getItem('colabMcpUrl') || '').trim();
 
-        // Tự động kiểm tra và đồng bộ Colab GPU URL mới nhất từ Agent daemon nền
+        // 0. Tự động kiểm tra và đồng bộ Colab GPU URL mới nhất từ Agent daemon nền và settings
         try {
-            const colabStatusResp = await fetch('http://127.0.0.1:7868/status');
-            if (colabStatusResp.ok) {
-                const cData = await colabStatusResp.json();
-                if (cData && cData.colab_url && cData.is_connected) {
-                    colabMcpUrl = cData.colab_url;
+            if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
+                const statusRes = await (window as any).electronAPI.checkColabGpuStatus();
+                if (statusRes && statusRes.colab_url && statusRes.is_connected) {
+                    colabMcpUrl = statusRes.colab_url;
                     isColabMcpEnabled = true;
                     localStorage.setItem('colabMcpUrl', colabMcpUrl);
                     localStorage.setItem('isColabMcpEnabled', 'true');
@@ -1531,7 +1621,23 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             }
         } catch(e) {}
 
-        const secretKeys = this.settings?.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
+        if (!colabMcpUrl) {
+            try {
+                const colabStatusResp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+                if (colabStatusResp.ok) {
+                    const cData = await colabStatusResp.json();
+                    if (cData && cData.colab_url && cData.is_connected) {
+                        colabMcpUrl = cData.colab_url;
+                        isColabMcpEnabled = true;
+                        localStorage.setItem('colabMcpUrl', colabMcpUrl);
+                        localStorage.setItem('isColabMcpEnabled', 'true');
+                    }
+                }
+            } catch(e) {}
+        }
+
+        const settings = this.settings || this.multiAccountService.getItem('settings') || {};
+        const secretKeys = settings?.secretKey ? settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
         const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
 
         const electron = (window as any).electron;
@@ -1539,13 +1645,20 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const dType = doc_type === 'None' ? 'default' : doc_type;
         const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
 
-        // 1. ƯU TIÊN HÀNG ĐẦU: Chạy trực tiếp trên Google Colab MCP GPU Server & Lưu FAISS Local
+        // 1. ƯU TIÊN HÀNG ĐẦU: Chạy trực tiếp trên Google Colab MCP GPU Server & Lưu FAISS Local (dành riêng cho PDF)
         let colabSuccess = false;
-        if ((isColabMcpEnabled || colabMcpUrl) && electron) {
+        if (filename.toLowerCase().endsWith('.pdf') && (isColabMcpEnabled || colabMcpUrl) && electron) {
             this.isIndexing = true;
             this.indexingFilename = filename;
-            this.progressPercent = 20;
+            this.progressPercent = 15;
+            this.progressStatus = 'Đang chuẩn bị file cho Colab GPU...';
             this.cd.markForCheck();
+
+            // Lắng nghe tiến trình chi tiết từ electron nếu có
+            const cleanupMcpProgress = electron.onPdfProgress ? electron.onPdfProgress((data: string) => {
+                this.progressStatus = data;
+                this.cd.markForCheck();
+            }) : () => {};
 
             try {
                 let tempPdfPath = '';
@@ -1556,7 +1669,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
                 }
 
-                this.progressPercent = 40;
+                this.progressPercent = 35;
+                this.progressStatus = 'Đang gửi PDF lên Colab GPU bóc tách...';
                 this.cd.markForCheck();
 
                 console.log(`[Chatbot] Đang gửi PDF lên Colab MCP GPU: ${filename}`);
@@ -1574,6 +1688,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 }
 
                 this.progressPercent = 85;
+                this.progressStatus = 'Đang lưu bản chỉ mục FAISS cục bộ...';
                 this.cd.markForCheck();
 
                 // Lưu bản chỉ mục & dữ liệu bóc tách cục bộ tại Documents/ai.type/data/faiss/{username}
@@ -1592,26 +1707,57 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         targetRow.is_indexed = true;
                         this.applyFileFilter();
                     }
-                    this.isIndexing = false;
-                    this.indexingFilename = '';
                     const chunksMsg = result.chunks_count ? ` (${result.chunks_count} đoạn)` : '';
                     this.toastr.success(`Đã tạo FAISS local & học xong ${filename}${chunksMsg}!`);
+                    
+                    // Đồng bộ kết quả bóc tách từ Colab GPU lên máy chủ bot.type.vn
+                    this.progressStatus = 'Đang đồng bộ FAISS lên máy chủ bot.type.vn...';
                     this.cd.markForCheck();
+                    try {
+                        const jsonPayload = (typeof result.data === 'string') 
+                            ? result.data 
+                            : (result.data ? JSON.stringify(result.data) : (typeof result === 'string' ? result : JSON.stringify(result)));
+                        
+                        await new Promise((resolve) => {
+                            this._chatbotService.uploadMinerUResult({
+                                username: this.user.name,
+                                filename: filename,
+                                doc_type: doc_type,
+                                content_json: jsonPayload
+                            }).subscribe({
+                                next: (res) => resolve(res),
+                                error: (err) => {
+                                    console.warn('[Chatbot] Cảnh báo uploadMinerUResult lên server:', err);
+                                    resolve(null);
+                                }
+                            });
+                        });
+                    } catch (syncErr) {
+                        console.warn('[Chatbot] Lỗi đồng bộ mineru lên server:', syncErr);
+                    }
+
+                    // Kích hoạt máy chủ cập nhật bản chỉ mục FAISS trên cloud
+                    this.triggerNormalReindex(doc_type, filename);
                     colabSuccess = true;
                     return;
                 } else {
                     throw new Error(saveRes?.error || 'Lỗi lưu tệp FAISS vào Documents');
                 }
             } catch (mcpErr: any) {
-                console.warn('[Chatbot] Colab GPU không khả dụng hoặc lỗi, chuyển sang phân tích thông thường:', mcpErr);
-                this.toastr.warning('Colab GPU chưa sẵn sàng hoặc mất kết nối. Đang tự động chuyển sang phân tích tài liệu chuẩn...');
-                // Không return để tiếp tục fallback xuống luồng thông thường bên dưới
+                console.warn('[Chatbot] Colab GPU không khả dụng hoặc lỗi:', mcpErr);
+                this.toastr.warning('Không thể phân tích qua Colab GPU: ' + (mcpErr?.message || mcpErr) + '. Đang chuyển sang phương thức dự phòng...');
+                // Fallback xuống luồng thông thường bên dưới
+            } finally {
+                cleanupMcpProgress();
             }
         }
 
-        // 2. Chế độ thông thường (Local MinerU hoặc Server bot.type.vn)
-        if (!geminiKey) {
-            this.toastr.warning('Chưa có Google API Key trong Cài đặt');
+        // 2. Chế độ thông thường (OpenAI API hoặc MinerU cục bộ)
+        if (!geminiKey && !settings.umodelverseKey) {
+            this.isIndexing = false;
+            this.indexingFilename = '';
+            this.cd.markForCheck();
+            this.toastr.warning('Chưa có Google API Key hoặc Colab GPU để học tài liệu.');
             return;
         }
 
@@ -1619,7 +1765,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             this.isIndexing = true;
             this.indexingFilename = filename;
             this.progressPercent = 10;
-            this.progressStatus = 'Đang kiểm tra dữ liệu...';
+            this.progressStatus = 'Đang kiểm tra dữ liệu máy chủ...';
             this.cd.markForCheck();
 
             const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
@@ -1642,21 +1788,41 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     });
 
                     try {
+                        // Nếu không có MinerU cục bộ, dùng OpenAI / Gemini API
                         let ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
                         let configData = undefined;
                         if (!isMinerUEnabled) {
                             try {
-                                const settings = this.multiAccountService.getItem('settings');
-                                if (settings) {
+                                const currentSettings = this.multiAccountService.getItem('settings') || this.settings;
+                                if (currentSettings) {
                                     configData = {
-                                        url: settings.umodelverseUrl || '',
-                                        key: settings.umodelverseKey || ''
+                                        url: currentSettings.umodelverseUrl || '',
+                                        key: currentSettings.umodelverseKey || ''
                                     };
                                 }
                             } catch (e) {}
                         }
 
-                        const result = await electron.invoke(ipcMethod, tempPdfPath, configData);
+                        let result: any;
+                        try {
+                            result = await electron.invoke(ipcMethod, tempPdfPath, configData);
+                        } catch (ipcErr: any) {
+                            // Nếu chạy MinerU cục bộ lỗi do thiếu GPU, tự động fallback sang phân tích qua API
+                            if (isMinerUEnabled) {
+                                console.warn('[Chatbot] MinerU cục bộ thất bại, tự động chuyển sang OpenAI API:', ipcErr);
+                                this.progressStatus = 'Chuyển sang phân tích bằng AI API...';
+                                this.cd.markForCheck();
+                                const currentSettings = this.multiAccountService.getItem('settings') || this.settings;
+                                configData = {
+                                    url: currentSettings?.umodelverseUrl || '',
+                                    key: currentSettings?.umodelverseKey || ''
+                                };
+                                result = await electron.invoke('run-pdf-analysis-openai', tempPdfPath, configData);
+                            } else {
+                                throw ipcErr;
+                            }
+                        }
+
                         await new Promise((resolve, reject) => {
                             this._chatbotService.uploadMinerUResult({
                                 username: this.user.name,
@@ -1677,11 +1843,16 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 return;
             } catch (err: any) {
                 this.stopProgressPolling();
+                this.isIndexing = false;
+                this.indexingFilename = '';
+                this.cd.markForCheck();
                 this.toastr.error('Lỗi phân tích tài liệu AI: ' + (err.message || err));
                 return;
             }
+        } else {
+            // Đối với các tệp không phải PDF (EPUB, MOBI, TXT, DOCX...) thì gửi reindex trực tiếp lên máy chủ
+            this.triggerNormalReindex(doc_type, filename);
         }
-
     }
 
     triggerNormalReindex(doc_type: string, filename: string): void {
@@ -2375,6 +2546,9 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 } else {
                     this.loadFileRows();
                 }
+
+                // Tự động kiểm tra trạng thái Google Colab GPU
+                this.checkColabStatus();
             });
 
         // Subscribe to config changes

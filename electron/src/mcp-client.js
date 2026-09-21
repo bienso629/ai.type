@@ -12,39 +12,62 @@ function customLookup(hostname, options, callback) {
         callback = options;
         options = {};
     }
+    const isAll = options && options.all;
+    const returnResult = (ip) => {
+        if (isAll) {
+            return callback(null, [{ address: ip, family: 4 }]);
+        }
+        return callback(null, ip, 4);
+    };
+
     if (hostname === '127.0.0.1' || hostname === 'localhost') {
         return dns.lookup(hostname, options, callback);
     }
+
     if (dnsCache[hostname]) {
-        return callback(null, dnsCache[hostname], 4);
+        return returnResult(dnsCache[hostname]);
     }
-    dns.lookup(hostname, options, (err, address, family) => {
-        if (!err && address) {
-            dnsCache[hostname] = address;
-            return callback(null, address, family);
+
+    // 1. Thử resolve trực tiếp qua DNS servers đã set
+    dns.resolve4(hostname, (err, addresses) => {
+        if (!err && addresses && addresses.length > 0) {
+            dnsCache[hostname] = addresses[0];
+            return returnResult(addresses[0]);
         }
-        // Fallback: Query 1.1.1.1 DNS over HTTPS
-        https.get(`https://1.1.1.1/dns-query?name=${hostname}&type=A`, {
-            headers: { 'accept': 'application/dns-json' },
-            timeout: 4000
-        }, (res) => {
-            let data = '';
-            res.on('data', c => data += c);
-            res.on('end', () => {
-                try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.Answer && parsed.Answer.length > 0) {
-                        const aRecord = parsed.Answer.find(a => a.type === 1);
-                        if (aRecord && aRecord.data) {
-                            dnsCache[hostname] = aRecord.data;
-                            return callback(null, aRecord.data, 4);
+
+        // 2. Thử dns.lookup thông thường
+        dns.lookup(hostname, options, (lookupErr, address, family) => {
+            if (!lookupErr && address) {
+                if (isAll && Array.isArray(address)) {
+                    return callback(null, address);
+                }
+                dnsCache[hostname] = address;
+                return returnResult(address);
+            }
+
+            // 3. Fallback: Query Cloudflare DoH (1.1.1.1)
+            https.get(`https://1.1.1.1/dns-query?name=${hostname}&type=A`, {
+                headers: { 'accept': 'application/dns-json' },
+                timeout: 5000
+            }, (res) => {
+                let data = '';
+                res.on('data', c => data += c);
+                res.on('end', () => {
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.Answer && parsed.Answer.length > 0) {
+                            const aRecord = parsed.Answer.find(a => a.type === 1);
+                            if (aRecord && aRecord.data) {
+                                dnsCache[hostname] = aRecord.data;
+                                return returnResult(aRecord.data);
+                            }
                         }
-                    }
-                } catch(e) {}
-                callback(err || new Error(`Could not resolve ${hostname}`));
+                    } catch(e) {}
+                    callback(lookupErr || err || new Error(`Could not resolve ${hostname}`));
+                });
+            }).on('error', () => {
+                callback(lookupErr || err || new Error(`Could not resolve ${hostname}`));
             });
-        }).on('error', () => {
-            callback(err || new Error(`Could not resolve ${hostname}`));
         });
     });
 }

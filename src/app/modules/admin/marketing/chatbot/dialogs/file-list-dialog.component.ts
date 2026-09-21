@@ -64,21 +64,114 @@ export class FileListDialogComponent implements AfterViewInit {
             return;
         }
 
-        const isMinerUEnabled =
-            localStorage.getItem('isMinerUEnabled') === 'true';
+        let isColabMcpEnabled = localStorage.getItem('isColabMcpEnabled') === 'true';
+        let colabMcpUrl = (localStorage.getItem('colabMcpUrl') || '').trim();
+
+        // Tự động kiểm tra Colab GPU URL
+        try {
+            if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
+                const statusRes = await (window as any).electronAPI.checkColabGpuStatus();
+                if (statusRes && statusRes.colab_url && statusRes.is_connected) {
+                    colabMcpUrl = statusRes.colab_url;
+                    isColabMcpEnabled = true;
+                    localStorage.setItem('colabMcpUrl', colabMcpUrl);
+                    localStorage.setItem('isColabMcpEnabled', 'true');
+                }
+            }
+        } catch(e) {}
+
+        if (!colabMcpUrl) {
+            try {
+                const colabStatusResp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+                if (colabStatusResp.ok) {
+                    const cData = await colabStatusResp.json();
+                    if (cData && cData.colab_url && cData.is_connected) {
+                        colabMcpUrl = cData.colab_url;
+                        isColabMcpEnabled = true;
+                        localStorage.setItem('colabMcpUrl', colabMcpUrl);
+                        localStorage.setItem('isColabMcpEnabled', 'true');
+                    }
+                }
+            } catch(e) {}
+        }
+
+        const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
 
         if (filename.toLowerCase().endsWith('.pdf')) {
             const electron = (window as any).electron;
             if (electron) {
+                const dType = doc_type === 'None' ? 'default' : doc_type;
+                const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
+
+                // 1. Ưu tiên phân tích bằng Colab GPU MCP nếu có
+                if (isColabMcpEnabled || colabMcpUrl) {
+                    this.isIndexing = true;
+                    this.indexingFilename = filename;
+                    this.progressPercent = 20;
+                    this.progressStatus = 'Đang tải PDF gửi lên Colab GPU...';
+                    this.cdr.markForCheck();
+
+                    const cleanupMcp = electron.onPdfProgress ? electron.onPdfProgress((data: string) => {
+                        this.progressStatus = data;
+                        this.cdr.markForCheck();
+                    }) : () => {};
+
+                    try {
+                        const pdfUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}`;
+                        const tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
+
+                        this.progressPercent = 40;
+                        this.progressStatus = 'Colab GPU đang xử lý bóc tách...';
+                        this.cdr.markForCheck();
+
+                        const result = await electron.invoke('run-pdf-analysis-mcp', {
+                            filePath: tempPdfPath,
+                            mcpUrl: colabMcpUrl,
+                            docType: doc_type,
+                            googleApiKey: this.google_api_key,
+                            username: this.username || 'admin'
+                        });
+
+                        if (result && result.markdown && result.markdown.trim().length >= 20) {
+                            this.progressPercent = 85;
+                            this.progressStatus = 'Đang lưu chỉ mục FAISS...';
+                            this.cdr.markForCheck();
+
+                            await electron.invoke('save-local-faiss-data', {
+                                username: this.username,
+                                filename: filename,
+                                doc_type: doc_type,
+                                markdown: result.markdown || '',
+                                content_json: result.data || result,
+                                faiss_base64: result.faiss_base64,
+                                pkl_base64: result.pkl_base64
+                            });
+
+                            const targetRow = this.rows?.find(r => r.filename === filename);
+                            if (targetRow) {
+                                targetRow.is_indexed = true;
+                            }
+                            this.isIndexing = false;
+                            this.indexingFilename = null;
+                            this.toastr.success(`Đã bóc tách qua Colab GPU & lưu FAISS: ${filename}`);
+                            this.cdr.markForCheck();
+                            return;
+                        }
+                    } catch (colabErr: any) {
+                        console.warn('[Dialog] Colab GPU phân tích lỗi, fallback sang chế độ thường:', colabErr);
+                        this.toastr.warning('Colab GPU chưa phản hồi, chuyển sang phân tích tiêu chuẩn...');
+                    } finally {
+                        cleanupMcp();
+                    }
+                }
+
+                // 2. Chế độ thông thường
                 this.isIndexing = true;
                 this.indexingFilename = filename;
                 this.progressPercent = 10;
                 this.progressStatus = 'Đang kiểm tra dữ liệu...';
                 this.cdr.markForCheck();
 
-                const dType = doc_type === 'None' ? 'default' : doc_type;
-                const backendUrl =
-                    this.config?.settings?.chatbot || 'https://bot.type.vn';
                 const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
                 const jsonUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filenameWithoutExt)}.mineru.json`;
 
@@ -114,7 +207,7 @@ export class FileListDialogComponent implements AfterViewInit {
                         );
 
                         try {
-                            const ipcMethod = isMinerUEnabled
+                            let ipcMethod = isMinerUEnabled
                                 ? 'run-pdf-analysis'
                                 : 'run-pdf-analysis-openai';
 
@@ -136,11 +229,28 @@ export class FileListDialogComponent implements AfterViewInit {
                                 }
                             }
 
-                            const result = await electron.invoke(
-                                ipcMethod,
-                                tempPdfPath,
-                                configData,
-                            );
+                            let result: any;
+                            try {
+                                result = await electron.invoke(
+                                    ipcMethod,
+                                    tempPdfPath,
+                                    configData,
+                                );
+                            } catch (ipcErr: any) {
+                                if (isMinerUEnabled) {
+                                    console.warn('[Dialog] MinerU lỗi, fallback sang OpenAI API:', ipcErr);
+                                    this.progressStatus = 'Chuyển sang phân tích OpenAI API...';
+                                    this.cdr.markForCheck();
+                                    const settings = this._multiAccountService.getItem('settings') || {};
+                                    configData = {
+                                        url: settings.umodelverseUrl || '',
+                                        key: settings.umodelverseKey || '',
+                                    };
+                                    result = await electron.invoke('run-pdf-analysis-openai', tempPdfPath, configData);
+                                } else {
+                                    throw ipcErr;
+                                }
+                            }
 
                             this.progressStatus =
                                 'Đang lưu kết quả AI lên Server...';
@@ -170,7 +280,6 @@ export class FileListDialogComponent implements AfterViewInit {
                             });
                         } finally {
                             cleanup();
-                            // Không cần thiết phải gọi cancel-pdf-analysis vì đã chạy xong hoặc lỗi
                         }
                     } else {
                         // Đã có JSON -> Chỉ cần Re-index
@@ -184,6 +293,9 @@ export class FileListDialogComponent implements AfterViewInit {
                     return;
                 } catch (err: any) {
                     this.stopProgressPolling();
+                    this.isIndexing = false;
+                    this.indexingFilename = null;
+                    this.cdr.markForCheck();
                     this.toastr.error(
                         'Lỗi phân tích tài liệu AI: ' + (err.message || err),
                     );

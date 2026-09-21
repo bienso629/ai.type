@@ -230,6 +230,7 @@ export class ThinLayoutComponent
     appVersion: string = '1.0.0';
     activeInfo: any = {};
     private _recordingStateListener: any;
+    private _visibilityListener: any;
 
     isScreenSmall: boolean;
     navigation: Navigation;
@@ -431,7 +432,19 @@ export class ThinLayoutComponent
             .subscribe(({ matchingAliases }) => {
                 // Check if the screen is small
                 this.isScreenSmall = !matchingAliases.includes('md');
+                this._changeDetectorRef.markForCheck();
             });
+
+        this._visibilityListener = () => {
+            if (!document.hidden) {
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                    this._changeDetectorRef.detectChanges();
+                }, 100);
+            }
+        };
+        document.addEventListener('visibilitychange', this._visibilityListener);
+        window.addEventListener('pageshow', this._visibilityListener);
     }
 
     /**
@@ -442,6 +455,10 @@ export class ThinLayoutComponent
             'recording-state-changed',
             this._recordingStateListener,
         );
+        if (this._visibilityListener) {
+            document.removeEventListener('visibilitychange', this._visibilityListener);
+            window.removeEventListener('pageshow', this._visibilityListener);
+        }
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();

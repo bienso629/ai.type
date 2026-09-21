@@ -28,6 +28,7 @@
         </div>
 
         <div class="flex shrink-0 items-center gap-2 mt-3 sm:mt-0">
+
             <button
                 mat-flat-button
                 class="!bg-emerald-600 hover:!bg-emerald-700 !text-white"
@@ -432,6 +433,36 @@
                                             {{ filteredFileRows.length }} file
                                         </div>
                                     </div>
+
+                                    <!-- Nút Colab GPU ở bên phải footer (bỏ border) -->
+                                    @if (isColabPluginActive) {
+                                        <div
+                                            class="flex items-center px-2 py-0.5 mr-2 rounded-md bg-transparent"
+                                            [matTooltip]="
+                                                isColabConnecting
+                                                    ? 'Đang xử lý kết nối Colab GPU...'
+                                                    : isColabConnected
+                                                    ? 'Colab GPU đang BẬT. Bấm để ngắt kết nối'
+                                                    : 'BẬT để kết nối Google Colab GPU (MinerU & FAISS)'
+                                            "
+                                        >
+                                            <mat-slide-toggle
+                                                [checked]="isColabConnected"
+                                                [disabled]="isColabConnecting"
+                                                (change)="toggleColabGpu($event.checked)"
+                                                color="primary"
+                                                class="scale-90"
+                                            >
+                                                <span class="text-xs font-semibold select-none flex items-center gap-1.5"
+                                                      [ngClass]="isColabConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'">
+                                                    @if (isColabConnected) {
+                                                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                    }
+                                                    Colab GPU
+                                                </span>
+                                            </mat-slide-toggle>
+                                        </div>
+                                    }
                                 </div>
                             </ng-template>
                         </ngx-datatable-footer>
