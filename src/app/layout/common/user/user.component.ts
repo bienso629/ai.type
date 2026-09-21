@@ -21,6 +21,7 @@ export class UserComponent implements OnInit, OnDestroy {
 
     @Input() showAvatar: boolean = true;
     user: User;
+    avatarLoadFailed: boolean = false;
 
     isAiAgentEnabled: boolean = false;
 
@@ -28,6 +29,11 @@ export class UserComponent implements OnInit, OnDestroy {
 
     goto(page: string = 'settings') {
         this._router.navigateByUrl(page);
+    }
+
+    onAvatarError(): void {
+        this.avatarLoadFailed = true;
+        this._changeDetectorRef.markForCheck();
     }
 
     async onSelectAccount(accountId: string) {
@@ -62,6 +68,15 @@ export class UserComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 if (user) {
+                    if (user.avatar) {
+                        user.avatar = user.avatar.replace(/&#x2F;/gi, '/');
+                        if (user.avatar === 'https://type.vnnull' || user.avatar === 'null') {
+                            user.avatar = null;
+                        } else if (!user.avatar.startsWith('http://') && !user.avatar.startsWith('https://') && !user.avatar.startsWith('data:') && !user.avatar.startsWith('assets/')) {
+                            user.avatar = 'https://type.vn' + (user.avatar.startsWith('/') ? '' : '/') + user.avatar;
+                        }
+                    }
+                    this.avatarLoadFailed = false;
                     this.user = user;
 
                     // Mark for check

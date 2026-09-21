@@ -272,6 +272,7 @@ export class SettingsAccountComponent implements OnInit {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
+                this.cd.markForCheck();
             });
 
         // Lắng nghe thay đổi settings từ header (ThinLayoutComponent)
@@ -377,6 +378,9 @@ export class SettingsAccountComponent implements OnInit {
         }
         this.geminiKeysVisibility = this.geminiKeys.map(() => false);
 
+        // Khởi tạo autocomplete filter ngay lập tức để Observable sẵn sàng render
+        this.setupAutocompleteFilters();
+
         // Fetch umodelverse models
         fetch('https://api-us-ca.umodelverse.ai/v1/models')
             .then(res => res.json())
@@ -398,7 +402,9 @@ export class SettingsAccountComponent implements OnInit {
                     this.cd.markForCheck();
                 }
             })
-            .catch(err => console.error('Failed to fetch models', err));
+            .catch(err => {
+                console.warn('Could not fetch umodelverse models', err);
+            });
     }
 
     private setupAutocompleteFilters(): void {
