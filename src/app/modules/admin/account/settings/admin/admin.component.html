@@ -242,37 +242,20 @@
                         </ngx-datatable-column>
 
                         <ngx-datatable-column
-                            [name]="'app.reputation' | transloco"
-                            prop="reputation"
-                            [width]="140"
-                            [canAutoResize]="false"
-                        >
-                            <ng-template
-                                ngx-datatable-cell-template
-                                let-value="value"
-                            >
-                                <div
-                                    class="flex items-center text-amber-500 w-full h-full"
-                                >
-                                    <span class="text-base font-medium">{{
-                                        value | number
-                                    }}</span>
-                                </div>
-                            </ng-template>
-                        </ngx-datatable-column>
-
-                        <ngx-datatable-column
                             [name]="'app.join_date' | transloco"
                             prop="joindateISO"
-                            [width]="130"
+                            [width]="160"
                             [canAutoResize]="false"
                         >
                             <ng-template
                                 ngx-datatable-cell-template
                                 let-value="value"
                             >
-                                <span class="text-base text-gray-500">{{
-                                    value | date: "dd/MM/yyyy"
+                                <span
+                                    class="text-base text-gray-500"
+                                    [title]="value | date: 'dd/MM/yyyy HH:mm'"
+                                >{{
+                                    value | timeago
                                 }}</span>
                             </ng-template>
                         </ngx-datatable-column>

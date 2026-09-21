@@ -27,6 +27,11 @@ export class UserService {
     set user(value: User) {
         if (value && value.avatar) {
             value.avatar = value.avatar.replace(/&#x2F;/gi, '/');
+            if (value.avatar === 'https://type.vnnull' || value.avatar === 'null') {
+                value.avatar = null;
+            } else if (!value.avatar.startsWith('http://') && !value.avatar.startsWith('https://') && !value.avatar.startsWith('data:') && !value.avatar.startsWith('assets/')) {
+                value.avatar = 'https://type.vn' + (value.avatar.startsWith('/') ? '' : '/') + value.avatar;
+            }
         }
         // Store the value
         this._user.next(value);

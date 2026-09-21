@@ -121,7 +121,7 @@
                 </div>
 
                 <!-- Email Admin Only -->
-                @if (user.reputation >= 100000000) {
+                @if (user?.reputation >= 100000000) {
                     <!-- Section -->
                     <div class="w-full mt-10">
                         <div class="text-secondary">
@@ -408,7 +408,7 @@
                     </div>
                 </div>
 
-                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                @if (user?.groups?.includes("nhóm-đã-mua-ai-type")) {
                     <div class="w-full mt-2">
                         <!-- Device Token Api -->
                         <mat-form-field
@@ -435,7 +435,7 @@
                     </div>
                 }
 
-                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                @if (user?.groups?.includes("nhóm-đã-mua-ai-type")) {
                     <div class="w-full mt-2">
                         <!-- Text2Speech Api -->
                         <mat-form-field
@@ -462,7 +462,7 @@
                     </div>
                 }
 
-                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                @if (user?.groups?.includes("nhóm-đã-mua-ai-type")) {
                     <div class="w-full mt-2">
                         <!-- Text2Speech Api -->
                         <mat-form-field
@@ -489,7 +489,7 @@
                     </div>
                 }
 
-                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                @if (user?.groups?.includes("nhóm-đã-mua-ai-type")) {
                     <div class="w-full mt-2">
                         <!-- Text2Speech Api -->
                         <mat-form-field
@@ -591,7 +591,7 @@
                         }
                     </div>
 
-                    @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
+                    @if (user?.groups?.includes("nhóm-đã-mua-ai-type")) {
                         <div class="flex items-center mt-2">
                             <!-- <mat-label class="text-secondary text-base mr-4">{{ 'app.auto_keys_of_gemini_ai_studio' | transloco }}</mat-label> -->
                             <button

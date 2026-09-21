@@ -6,19 +6,19 @@
         class="!w-10 !h-10 !p-1 flex items-center justify-center relative overflow-visible"
     >
         <div class="relative w-8 h-8 mx-auto my-auto rounded-full">
-            @if (user.avatar && user.avatar != "https://type.vnnull") {
+            @if (user.avatar && user.avatar !== "https://type.vnnull" && !avatarLoadFailed) {
                 <img
                     class="absolute inset-0 z-10 w-full h-full rounded-full object-cover transition-all"
                     [ngClass]="{
                         'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]':
                             isAiAgentEnabled,
                     }"
-                    src="{{ user.avatar }}"
+                    [src]="user.avatar"
                     alt="{{ user.name }}"
-                    crossorigin="anonymous"
+                    (error)="onAvatarError()"
                 />
             }
-            @if (!user.avatar || user.avatar == "https://type.vnnull") {
+            @if (!user.avatar || user.avatar === "https://type.vnnull" || avatarLoadFailed) {
                 <div
                     class="absolute inset-0 z-10 flex items-center justify-center w-full h-full rounded-full text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200 transition-all"
                     [ngClass]="{
@@ -26,7 +26,7 @@
                             isAiAgentEnabled,
                     }"
                 >
-                    {{ user.name.charAt(0) }}
+                    {{ user.name?.charAt(0) || user.email?.charAt(0) || 'U' }}
                 </div>
             }
             <!-- Status Dot (Aligned perfectly with the avatar circle) -->
