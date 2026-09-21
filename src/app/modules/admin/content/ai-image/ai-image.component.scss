@@ -30,6 +30,24 @@
 	padding: 0 8px !important;
 }
 
+.thumb-select-badge {
+	position: absolute;
+	top: 20px;
+	left: 20px;
+	z-index: 10;
+	transition: transform 0.15s ease;
+
+	&:hover {
+		transform: scale(1.1);
+	}
+}
+
+.selected-thumb {
+	outline: 3px solid #2563eb !important;
+	outline-offset: 2px;
+	box-shadow: 0 0 12px rgba(37, 99, 235, 0.4) !important;
+}
+
 .custom-dialog .mat-mdc-dialog-surface {
 	padding: 0 !important;
 	border-radius: 8px !important;

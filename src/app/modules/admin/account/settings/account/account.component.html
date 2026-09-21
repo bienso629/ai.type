@@ -344,73 +344,69 @@
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
-                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
-                    <div class="w-full mt-4">
-                        <!-- Chatbot Api -->
-                        <mat-form-field
-                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'"
+                <div class="w-full mt-4">
+                    <!-- Chatbot Api -->
+                    <mat-form-field
+                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{
+                            "app.integrate_simple_ai_chatbot" | transloco
+                        }}</mat-label>
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'feather:message-square'"
+                            matPrefix
+                        ></mat-icon>
+                        <input
+                            [formControlName]="'chatbot'"
+                            type="text"
+                            matInput
+                        />
+                    </mat-form-field>
+                    <div class="mt-1 text-md text-hint">
+                        {{ "app.integrate_chatbot_for_your" | transloco }}
+                        <a
+                            href="https://ai.type.vn/lien-he"
+                            target="_blank"
+                            class="font-semibold"
+                            >{{ "app.auto_contact" | transloco }}</a
                         >
-                            <mat-label>{{
-                                "app.integrate_simple_ai_chatbot" | transloco
-                            }}</mat-label>
-                            <mat-icon
-                                class="icon-size-4"
-                                [svgIcon]="'feather:message-square'"
-                                matPrefix
-                            ></mat-icon>
-                            <input
-                                [formControlName]="'chatbot'"
-                                type="text"
-                                matInput
-                            />
-                        </mat-form-field>
-                        <div class="mt-1 text-md text-hint">
-                            {{ "app.integrate_chatbot_for_your" | transloco }}
-                            <a
-                                href="https://ai.type.vn/lien-he"
-                                target="_blank"
-                                class="font-semibold"
-                                >{{ "app.auto_contact" | transloco }}</a
-                            >
-                            {{ "app.auto_receive_api" | transloco }}
-                        </div>
+                        {{ "app.auto_receive_api" | transloco }}
                     </div>
-                }
+                </div>
 
-                @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
-                    <div class="w-full mt-2">
-                        <!-- Device Token Api -->
-                        <mat-form-field
-                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'"
+                <div class="w-full mt-2">
+                    <!-- Device Token Api -->
+                    <mat-form-field
+                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>{{
+                            "app.integrate_x_crm" | transloco
+                        }}</mat-label>
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'feather:database'"
+                            matPrefix
+                        ></mat-icon>
+                        <input
+                            [formControlName]="'customer'"
+                            type="text"
+                            matInput
+                        />
+                    </mat-form-field>
+                    <div class="mt-1 text-md text-hint">
+                        {{ "app.integrate_zalo_crm_for" | transloco }}
+                        <a
+                            href="https://ai.type.vn/lien-he"
+                            target="_blank"
+                            class="font-semibold"
+                            >{{ "app.auto_contact" | transloco }}</a
                         >
-                            <mat-label>{{
-                                "app.integrate_x_crm" | transloco
-                            }}</mat-label>
-                            <mat-icon
-                                class="icon-size-4"
-                                [svgIcon]="'feather:database'"
-                                matPrefix
-                            ></mat-icon>
-                            <input
-                                [formControlName]="'customer'"
-                                type="text"
-                                matInput
-                            />
-                        </mat-form-field>
-                        <div class="mt-1 text-md text-hint">
-                            {{ "app.integrate_zalo_crm_for" | transloco }}
-                            <a
-                                href="https://ai.type.vn/lien-he"
-                                target="_blank"
-                                class="font-semibold"
-                                >{{ "app.auto_contact" | transloco }}</a
-                            >
-                            {{ "app.auto_receive_api" | transloco }}
-                        </div>
+                        {{ "app.auto_receive_api" | transloco }}
                     </div>
-                }
+                </div>
 
                 @if (user.groups?.includes("nhóm-đã-mua-ai-type")) {
                     <div class="w-full mt-2">

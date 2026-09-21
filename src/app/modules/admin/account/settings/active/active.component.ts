@@ -208,9 +208,15 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     }
 
     restoreLicense(): void {
+        const email = this.user?.email || this.multiAccountService.getItem('email') || this.multiAccountService.currentAccountId;
+        if (!email) {
+            this.toastr.error('Không tìm thấy email tài khoản để khôi phục.');
+            return;
+        }
+
         this._licenseKeyService
             .restore({
-                email: this.user.email,
+                email: email,
                 appId: 'ai.typing',
             })
             .pipe(takeUntil(this._unsubscribeAll))

@@ -42,7 +42,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         return this.plugins.find(p => p.id === id) || {
             id: id,
             name: id === 'colab_agent' ? 'Colab GPU Agent' : (id === 'ai_agent' ? 'AI Agent' : (id === 'tiktok_100' ? '100 TikTokers' : 'Quản lý Zalo')),
-            installed: true,
+            installed: false,
             enabled: false,
             canInstall: true,
             version: '1.0'
@@ -100,7 +100,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     id: 'zalo_reply',
                     name: 'Quản lý Zalo',
                     description: 'Tự động đọc và trả lời tin nhắn Zalo thông minh.',
-                    installed: true,
+                    installed: false,
                     canInstall: true,
                     enabled: false,
                     mode: 'tool',
@@ -116,10 +116,19 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     version: '1.0'
                 },
                 {
+                    id: 'colab_agent',
+                    name: 'Colab GPU Agent',
+                    description: 'Tự động hóa kết nối Google Colab GPU, bóc tách MinerU và thực thi code từ xa.',
+                    installed: false,
+                    canInstall: true,
+                    enabled: false,
+                    version: '1.0'
+                },
+                {
                     id: 'tiktok_100',
                     name: '100 TikTokers',
                     description: 'Tự động hóa theo dõi, phân tích xu hướng và khai thác nội dung từ 100 kênh TikTok.',
-                    installed: true,
+                    installed: false,
                     canInstall: false,
                     enabled: false,
                     version: '1.0'

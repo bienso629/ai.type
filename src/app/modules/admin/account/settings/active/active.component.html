@@ -187,7 +187,7 @@
 
         @if (canShowPaymentButton) {
             <div class="w-full mt-8">
-                <div class="flex flex-col items-start space-y-3">
+                <div class="flex items-center space-x-3">
                     <button
                         mat-flat-button
                         type="button"
@@ -198,8 +198,18 @@
                             class="icon-size-5"
                             [svgIcon]="'heroicons_outline:calendar'"
                         ></mat-icon>
-                        <span class="ml-2">Thêm ngày sử dụng</span>
+                        <mat-label class="ml-2">Thêm ngày sử dụng</mat-label>
                     </button>
+                    <a
+                        class="text-sm font-medium text-primary hover:underline cursor-pointer flex items-center"
+                        (click)="restoreLicense()"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-primary"
+                            [svgIcon]="'feather:refresh-cw'"
+                        ></mat-icon>
+                        <mat-label class="ml-2 cursor-pointer">Khôi phục tài khoản</mat-label>
+                    </a>
                 </div>
             </div>
         }
