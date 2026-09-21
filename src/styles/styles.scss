@@ -1638,6 +1638,19 @@ ngx-datatable {
 
         .datatable-footer {
             border-top: 1px solid rgba(179, 179, 179, 0.13) !important;
+
+            .mat-mdc-button-base {
+                font-size: 14px !important;
+                line-height: normal !important;
+
+                .mat-mdc-button-touch-target {
+                    display: none;
+                }
+
+                span, mat-label {
+                    font-size: 14px !important;
+                }
+            }
         }
     }
 

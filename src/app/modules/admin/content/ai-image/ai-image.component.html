@@ -36,7 +36,38 @@
             </div>
         </div>
 
-        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+        <div class="flex shrink-0 items-center gap-2 mt-6 sm:mt-0 sm:ml-4">
+            @if (imageUrls && imageUrls.length > 0) {
+                <button
+                    mat-stroked-button
+                    (click)="selectAllImages()"
+                    class="fuse-mat-dense font-medium"
+                    [matTooltip]="selectedImages.size === imageUrls.length ? 'Bỏ chọn toàn bộ' : 'Chọn toàn bộ ảnh'"
+                >
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="selectedImages.size === imageUrls.length ? 'heroicons_solid:check-circle' : 'heroicons_outline:check-circle'"
+                    ></mat-icon>
+                    <mat-label class="ml-2">{{ selectedImages.size === imageUrls.length ? 'Bỏ chọn hết' : 'Chọn tất cả (' + imageUrls.length + ')' }}</mat-label>
+                </button>
+
+                @if (selectedImages.size > 0) {
+                    <button
+                        mat-flat-button
+                        color="warn"
+                        (click)="deleteSelectedImages()"
+                        class="fuse-mat-dense font-medium animate-fade-in !bg-red-600 hover:!bg-red-700 !text-white"
+                        matTooltip="Xóa tất cả các hình ảnh đã chọn"
+                    >
+                        <mat-icon
+                            class="icon-size-4 !text-white"
+                            svgIcon="feather:trash-2"
+                        ></mat-icon>
+                        <mat-label class="ml-2">Xóa đã chọn ({{ selectedImages.size }})</mat-label>
+                    </button>
+                }
+            }
+
             @if (domains) {
                 <mat-form-field
                     stopPropagation
@@ -208,9 +239,11 @@
                                             }
                                         </button>
                                     </div>
-                                    <mat-hint>{{
-                                        "app.we_create_images_using" | transloco
-                                    }}</mat-hint>
+                                    <mat-hint class="block !text-gray-400 dark:!text-gray-500">
+                                        <span class="text-[11px] text-gray-400 dark:text-gray-500 font-normal leading-normal" style="font-size: 11px !important; color: #9ca3af !important;">
+                                            {{ "app.we_create_images_using" | transloco }}
+                                        </span>
+                                    </mat-hint>
                                 </mat-form-field>
 
                                 @if (referenceFiles.length > 0) {
@@ -332,6 +365,26 @@
                                                                 '%',
                                                         }"
                                                     >
+                                                        <!-- Selection Checkbox Badge -->
+                                                        <div
+                                                            class="thumb-select-badge cursor-pointer"
+                                                            (click)="toggleSelectImage(img, $event)"
+                                                            [matTooltip]="isImageSelected(img) ? 'Bỏ chọn' : 'Chọn mục này'"
+                                                        >
+                                                            <div
+                                                                class="w-6 h-6 rounded-md flex items-center justify-center transition-all shadow-md"
+                                                                [ngClass]="{
+                                                                    'bg-primary-600 text-white border-2 border-white': isImageSelected(img),
+                                                                    'bg-black/40 text-transparent hover:bg-black/60 border border-white/60': !isImageSelected(img)
+                                                                }"
+                                                            >
+                                                                <mat-icon
+                                                                    class="icon-size-4 !text-white"
+                                                                    [svgIcon]="'heroicons_solid:check'"
+                                                                ></mat-icon>
+                                                            </div>
+                                                        </div>
+
                                                         @if (
                                                             img
                                                                 .toLowerCase()
@@ -345,6 +398,7 @@
                                                                     img
                                                                 "
                                                                 class="thumb w-full h-auto object-cover rounded-2xl"
+                                                                [class.selected-thumb]="isImageSelected(img)"
                                                                 controls
                                                                 muted
                                                                 loop
@@ -432,6 +486,7 @@
                                                                     img
                                                                 "
                                                                 class="thumb w-full h-auto object-cover rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
+                                                                [class.selected-thumb]="isImageSelected(img)"
                                                                 (click)="
                                                                     editImage(
                                                                         img

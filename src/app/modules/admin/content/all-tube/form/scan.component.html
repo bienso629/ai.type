@@ -47,9 +47,11 @@
                                     class="icon-size-4"
                                     [svgIcon]="'feather:at-sign'"
                                 ></mat-icon>
-                                <mat-hint class="block">{{
-                                    "app.tiktoker_username_hint" | transloco
-                                }}</mat-hint>
+                                <mat-hint class="block !text-gray-400 dark:!text-gray-500">
+                                    <span class="text-[11px] text-gray-400 dark:text-gray-500 font-normal leading-normal" style="font-size: 11px !important; color: #9ca3af !important;">
+                                        {{ "app.tiktoker_username_hint" | transloco }}
+                                    </span>
+                                </mat-hint>
                                 <mat-error>{{
                                     "app.cannot_be_empty" | transloco
                                 }}</mat-error>

@@ -72,7 +72,9 @@
 }
 
 .captcha-actions a.check {
-    font-size: 20px !important;
+    font-size: 13px !important;
+    font-weight: 600;
+    white-space: nowrap;
     color: #eab308 !important; // Màu vàng mặc định
 }
 

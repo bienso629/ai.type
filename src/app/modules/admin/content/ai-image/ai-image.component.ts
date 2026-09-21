@@ -101,6 +101,70 @@ export class AIImageComponent
     rows = [];
 
     referenceFiles: ReferenceFile[] = []; // Lưu trữ ảnh bạn upload lên
+    selectedImages: Set<string> = new Set<string>();
+
+    isImageSelected(img: string): boolean {
+        return this.selectedImages.has(img);
+    }
+
+    toggleSelectImage(img: string, event?: MouseEvent): void {
+        if (event) {
+            event.stopPropagation();
+        }
+        if (this.selectedImages.has(img)) {
+            this.selectedImages.delete(img);
+        } else {
+            this.selectedImages.add(img);
+        }
+        this.cd.markForCheck();
+    }
+
+    selectAllImages(): void {
+        if (!this.imageUrls || this.imageUrls.length === 0) return;
+        if (this.selectedImages.size === this.imageUrls.length) {
+            this.selectedImages.clear();
+        } else {
+            this.imageUrls.forEach((img: string) => this.selectedImages.add(img));
+        }
+        this.cd.markForCheck();
+    }
+
+    clearSelectedImages(): void {
+        this.selectedImages.clear();
+        this.cd.markForCheck();
+    }
+
+    deleteSelectedImages(): void {
+        const count = this.selectedImages.size;
+        if (count === 0) return;
+
+        this.alert({
+            title: 'Xác nhận xóa nhiều ảnh',
+            message: `Chương trình sẽ xóa vĩnh viễn ${count} hình ảnh/video đã chọn khỏi danh sách và ổ đĩa?`,
+            confirm: `Xóa ${count} mục`,
+            cb: async () => {
+                const toDelete = Array.from(this.selectedImages);
+                if ((window as any).electron) {
+                    for (const filePath of toDelete) {
+                        try {
+                            await (window as any).electron.invoke(
+                                'delete-local-file',
+                                filePath,
+                            );
+                        } catch (e) {
+                            console.error('Failed to delete file via electron', filePath, e);
+                        }
+                    }
+                }
+
+                this.imageUrls = this.imageUrls.filter((img: string) => !this.selectedImages.has(img));
+                this.selectedImages.clear();
+                this.rebuildRows();
+                this.toastr.success(`Đã xóa thành công ${count} mục!`);
+                this.cd.markForCheck();
+            },
+        });
+    }
 
     @ViewChild('datatable', { static: false }) datatable: any;
 

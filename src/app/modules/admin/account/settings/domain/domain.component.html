@@ -236,9 +236,9 @@
                                     class="icon-size-5"
                                     [svgIcon]="'heroicons_outline:plus'"
                                 ></mat-icon>
-                                <mat-label class="ml-2">{{
+                                <span class="ml-2 text-sm font-medium">{{
                                     "app.add" | transloco
-                                }}</mat-label>
+                                }}</span>
                             </button>
                             <button
                                 class="ml-2 text-white !bg-indigo-600 hover:!bg-indigo-700 disabled:!bg-gray-300 disabled:!text-gray-500"
@@ -259,11 +259,11 @@
                                         [svgIcon]="'feather:rotate-cw'"
                                     ></mat-icon>
                                 }
-                                <mat-label class="ml-2">{{
+                                <span class="ml-2 text-sm font-medium">{{
                                     isAnalyzing
                                         ? "Đang phân tích..."
                                         : "Phân tích"
-                                }}</mat-label>
+                                }}</span>
                             </button>
                         </div>
                     </ng-template>

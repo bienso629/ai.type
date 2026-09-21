@@ -590,19 +590,35 @@
                 </mat-form-field>
             </div>
 
-            <div class="flex items-center justify-end mt-8">
-                <mat-label class="mr-2 text-sm text-gray-400"
-                    >Lưu cấu hình AI Agent</mat-label
-                >
-                <button
-                    class="ml-2"
-                    mat-flat-button
-                    type="button"
-                    color="primary"
-                    (click)="saveAiAgentKey(getPlugin('ai_agent'))"
-                >
-                    <span>Lưu</span>
-                </button>
+            <div class="w-full flex items-center justify-between mt-8">
+                <div class="text-sm text-gray-400">
+                    Phiên bản Plugin: v{{ getPlugin("ai_agent")?.version }}
+                </div>
+                <div class="flex items-center gap-3">
+                    @if (getPlugin("ai_agent")?.installed) {
+                        <div>
+                            <button
+                                mat-icon-button
+                                color="warn"
+                                (click)="uninstallPlugin(getPlugin('ai_agent'))"
+                                matTooltip="Gỡ cài đặt Plugin"
+                            >
+                                <mat-icon
+                                    class="icon-size-4 text-red-500"
+                                    [svgIcon]="'feather:trash-2'"
+                                ></mat-icon>
+                            </button>
+                        </div>
+                    }
+                    <button
+                        mat-flat-button
+                        type="button"
+                        color="primary"
+                        (click)="saveAiAgentKey(getPlugin('ai_agent'))"
+                    >
+                        <span>Lưu cấu hình</span>
+                    </button>
+                </div>
             </div>
         </mat-tab>
 
