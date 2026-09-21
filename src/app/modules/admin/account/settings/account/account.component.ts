@@ -44,6 +44,7 @@ export class SettingsAccountComponent implements OnInit {
     user: User;
     uniqueID: String;
     fbCookiePath: String = "C:\\Users\\Wing386\\Documents\\ai.type\\cookie.json";
+    isElectron: boolean = !!(window as any)?.electron;
 
     private unsubscribeLog: () => void;
     private unsubscribeRes: () => void;
@@ -290,34 +291,39 @@ export class SettingsAccountComponent implements OnInit {
                 }
             });
 
-        // Nhận phản hồi
-        this.unsubscribeRes = (window as any).electron.onToolsResponse((data: any) => {
-            if (data.action === 'get-facebook-cookies' && data.success) {
-                console.log('Cookies:', data.cookies); // Array cookie
-                console.log('Đã lưu file:', data.file); // Đường dẫn file .json trong Documents
-                // ...xử lý hiển thị hoặc lưu trữ tuỳ ý
-            } else if (data.action === 'facebook-login' && data.success) {
-                console.log('Đăng nhập Facebook thành công:', data.cookies);
-                // this.downloadCookie(); // Tải cookie về
-                // this.toastr.success('Đăng nhập Facebook thành công!');
+        // Nhận phản hồi nếu ở môi trường Electron
+        if (this.isElectron && (window as any).electron) {
+            if ((window as any).electron.onToolsResponse) {
+                this.unsubscribeRes = (window as any).electron.onToolsResponse((data: any) => {
+                    if (data.action === 'get-facebook-cookies' && data.success) {
+                        console.log('Cookies:', data.cookies); // Array cookie
+                        console.log('Đã lưu file:', data.file); // Đường dẫn file .json trong Documents
+                        // ...xử lý hiển thị hoặc lưu trữ tuỳ ý
+                    } else if (data.action === 'facebook-login' && data.success) {
+                        console.log('Đăng nhập Facebook thành công:', data.cookies);
+                        // this.downloadCookie(); // Tải cookie về
+                        // this.toastr.success('Đăng nhập Facebook thành công!');
+                    }
+                    else if (data.action === 'facebook-crawl' && data.success) {
+                        console.log('Crawl Facebook thành công:', data);
+                        // this.toastr.success('Crawl Facebook thành công!');
+                    } else if (data.action === 'zalo-crawl' && data.success) {
+                        this.toastr.success(`Đã trích xuất dữ liệu Zalo (UID: ${data.uid})`);
+                        console.log('File saved at:', data.path);
+                    }
+                    else {
+                        console.error('Lỗi:', data);
+                        this.toastr.error('Đã xảy ra lỗi trong quá trình xử lý.');
+                    }
+                });
             }
-            else if (data.action === 'facebook-crawl' && data.success) {
-                console.log('Crawl Facebook thành công:', data);
-                // this.toastr.success('Crawl Facebook thành công!');
-            } else if (data.action === 'zalo-crawl' && data.success) {
-                this.toastr.success(`Đã trích xuất dữ liệu Zalo (UID: ${data.uid})`);
-                console.log('File saved at:', data.path);
-            }
-            else {
-                console.error('Lỗi:', data);
-                this.toastr.error('Đã xảy ra lỗi trong quá trình xử lý.');
-            }
-        });
 
-        // Nhận phản hồi
-        this.unsubscribeLog = (window as any).electron.onToolsLog((msg: any) => {
-            console.log('Log từ main:', msg);
-        });
+            if ((window as any).electron.onToolsLog) {
+                this.unsubscribeLog = (window as any).electron.onToolsLog((msg: any) => {
+                    console.log('Log từ main:', msg);
+                });
+            }
+        }
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -341,7 +347,13 @@ export class SettingsAccountComponent implements OnInit {
             saveimages: [(settings && settings.saveimages) ? settings.saveimages : false],
             statusTypeLite: [true],
             autosave: [(settings && settings.autosave) ? settings.autosave : false],
-            autoSaveLocal: [(settings && settings.autoSaveLocal !== undefined) ? settings.autoSaveLocal : (localStorage.getItem('ai_type_auto_save_local') !== 'false')],
+            autoSaveLocal: [
+                this.isElectron
+                    ? ((settings && settings.autoSaveLocal !== undefined)
+                        ? settings.autoSaveLocal
+                        : (localStorage.getItem('ai_type_auto_save_local') !== 'false'))
+                    : false
+            ],
             closethread: [false],
             proccessing: [false],
             linkDonate: [(settings && settings.linkDonate) ? settings.linkDonate : ''],

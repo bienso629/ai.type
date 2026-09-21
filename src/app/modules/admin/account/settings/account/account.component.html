@@ -62,25 +62,27 @@
                         </mat-slide-toggle>
                     </div>
 
-                    <div class="full-width-toggle mb-4">
-                        <mat-slide-toggle
-                            [formControlName]="'autoSaveLocal'"
-                            [labelPosition]="'before'"
-                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
-                            [color]="'primary'"
-                        >
-                            <mat-label class="toggle-label text-md">
-                                {{
-                                    "account.personal.auto_save_local"
-                                        | transloco
-                                }}
-                                <span class="text-gray-400">{{
-                                    "account.personal.auto_save_local_hint"
-                                        | transloco
-                                }}</span>
-                            </mat-label>
-                        </mat-slide-toggle>
-                    </div>
+                    @if (isElectron) {
+                        <div class="full-width-toggle mb-4">
+                            <mat-slide-toggle
+                                [formControlName]="'autoSaveLocal'"
+                                [labelPosition]="'before'"
+                                class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                                [color]="'primary'"
+                            >
+                                <mat-label class="toggle-label text-md">
+                                    {{
+                                        "account.personal.auto_save_local"
+                                            | transloco
+                                    }}
+                                    <span class="text-gray-400">{{
+                                        "account.personal.auto_save_local_hint"
+                                            | transloco
+                                    }}</span>
+                                </mat-label>
+                            </mat-slide-toggle>
+                        </div>
+                    }
                 </div>
 
                 <div class="w-full mt-2 mb-4">
