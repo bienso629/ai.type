@@ -292,7 +292,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     details: any;
     articlePassword: string = '';
-    autoSaveLocal: boolean = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+    autoSaveLocal: boolean = !!(window as any)?.electron && (localStorage.getItem('ai_type_auto_save_local') !== 'false');
 
     toggleAutoSaveLocal(event: any) {
         this.autoSaveLocal = event.checked;

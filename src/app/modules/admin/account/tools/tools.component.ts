@@ -196,9 +196,9 @@ export class AIToolsComponent implements OnInit, OnDestroy {
                 this.isTiktokPluginActive = !!settings.tiktokPluginEnabled;
             }
         } else {
-            // Chạy trên browser dev mode thì đọc từ settings
-            this.isZaloInstalled = true;
-            this.isZaloRunningBackground = true;
+            // Trên môi trường web/không có electronAPI, không có binary zalo nên tắt hoàn toàn
+            this.isZaloInstalled = false;
+            this.isZaloRunningBackground = false;
             this.isTiktokPluginActive = !!settings.tiktokPluginEnabled;
         }
         this.cd.detectChanges();
