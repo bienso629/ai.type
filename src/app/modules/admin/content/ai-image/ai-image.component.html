@@ -598,6 +598,21 @@
                                         </ng-template>
                                     </ngx-datatable-column>
                                 </ngx-datatable>
+                            } @else {
+                                <div class="flex flex-col items-center justify-center py-20 px-4 text-center select-none">
+                                    <div class="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4 shadow-inner">
+                                        <mat-icon
+                                            class="icon-size-10 text-gray-400 dark:text-gray-500"
+                                            [svgIcon]="'heroicons_outline:photograph'"
+                                        ></mat-icon>
+                                    </div>
+                                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                                        Chưa có hình ảnh nào
+                                    </h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+                                        Nhập nội dung mô tả vào ô prompt ở trên để tạo hình ảnh mới bằng AI hoặc tải ảnh tham chiếu lên.
+                                    </p>
+                                </div>
                             }
                         </div>
                     </div>

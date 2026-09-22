@@ -337,16 +337,16 @@ try {
         <div class="p-0 mt-4 flex justify-end gap-2">
             <div class="flex gap-2">
                 <button
-                    mat-flat-button
-                    class="!bg-emerald-600 !text-white disabled:!bg-emerald-600 disabled:!text-white disabled:!opacity-100"
+                    mat-button
+                    class="!text-emerald-600 hover:!bg-emerald-50 dark:hover:!bg-emerald-950/30 font-medium"
                     (click)="aihelp($event)"
                     [disabled]="aiHelpLoading"
                 >
                     <mat-icon
-                        class="icon-size-4 !text-white"
+                        class="icon-size-4 !text-emerald-600"
                         [svgIcon]="'feather:droplet'"
                     ></mat-icon>
-                    <mat-label class="ml-2 !text-white">{{
+                    <mat-label class="ml-2 !text-emerald-600">{{
                         aiHelpLoading ? 'Đang xử lý...' : 'AI sửa'
                     }}</mat-label>
                 </button>
