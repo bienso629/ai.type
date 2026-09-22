@@ -6714,6 +6714,16 @@
                                                         "
                                                     >
                                                         <div
+                                                            cdkDragHandle
+                                                            class="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center shrink-0 mr-1.5 touch-none select-none rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                            matTooltip="Kéo thả để sắp xếp lại đoạn văn"
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4 text-current"
+                                                                [svgIcon]="'heroicons_outline:menu'"
+                                                            ></mat-icon>
+                                                        </div>
+                                                        <div
                                                             class="flex-1 text-base w-full min-w-0"
                                                             [class.cdk-drag-selected]="
                                                                 isSelected(item)
