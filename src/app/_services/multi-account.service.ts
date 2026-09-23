@@ -212,6 +212,10 @@ export class MultiAccountService {
         }
         
         await this.safeDbCall(async () => {
+            if (this.currentAccountId) {
+                localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
+                await db.sessions.where('id').notEqual(this.currentAccountId).modify({ isActive: 0 });
+            }
             const encrypted = this.encryptData(this.currentSessionData);
             await db.sessions.put({
                 id: this.currentAccountId!,

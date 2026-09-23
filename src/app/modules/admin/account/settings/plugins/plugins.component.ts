@@ -411,6 +411,40 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 // Ưu tiên 2: Không có file binary -> Sử dụng cấu hình "Sử dụng Google Colab" từ tab Tác vụ
                 this.colabSourceMode = 'config';
                 this.isColabLoggedIn = true; // Đã có cấu hình URL Colab từ xa
+
+                // Nạp danh sách tài khoản Google: Thử lấy từ electronAPI trước (tài khoản đã liên kết trên máy)
+                if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
+                    try {
+                        const authRes = await (window as any).electronAPI.getColabAuthStatus();
+                        if (authRes) {
+                            if (Array.isArray(authRes.accounts) && authRes.accounts.length > 0) {
+                                this.colabAccounts = authRes.accounts;
+                            }
+                            if (authRes.active_email) {
+                                this.colabActiveEmail = authRes.active_email;
+                            }
+                        }
+                    } catch(e) {}
+                }
+
+                // Nếu chưa có, thử nạp từ endpoint /auth_status của máy chủ Colab từ xa
+                if (this.colabAccounts.length === 0) {
+                    try {
+                        const authResp = await fetch(`${this.colabConfigUrl}/auth_status`, { signal: AbortSignal.timeout(3000) });
+                        if (authResp.ok) {
+                            const authData = await authResp.json();
+                            if (authData) {
+                                if (Array.isArray(authData.accounts) && authData.accounts.length > 0) {
+                                    this.colabAccounts = authData.accounts;
+                                }
+                                if (authData.active_email) {
+                                    this.colabActiveEmail = authData.active_email;
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+
                 try {
                     const resp = await fetch(`${this.colabConfigUrl}/status`, { signal: AbortSignal.timeout(3000) });
                     if (resp.ok) {
@@ -464,7 +498,8 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.toastr.error(res?.error || 'Không thể chuyển tài khoản.');
                 }
             } else {
-                const resp = await fetch('http://127.0.0.1:7868/switch_account', {
+                const baseUrl = this.colabConfigUrl || 'http://127.0.0.1:7868';
+                const resp = await fetch(`${baseUrl}/switch_account`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
@@ -496,7 +531,8 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.toastr.success(`Đã gỡ tài khoản ${email}`);
                 }
             } else {
-                const resp = await fetch('http://127.0.0.1:7868/remove_account', {
+                const baseUrl = this.colabConfigUrl || 'http://127.0.0.1:7868';
+                const resp = await fetch(`${baseUrl}/remove_account`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
@@ -645,7 +681,8 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
 
     async restartColabRuntime() {
         try {
-            const resp = await fetch('http://127.0.0.1:7868/restart_runtime', { method: 'POST' });
+            const baseUrl = this.colabConfigUrl || 'http://127.0.0.1:7868';
+            const resp = await fetch(`${baseUrl}/restart_runtime`, { method: 'POST' });
             if (resp.ok) {
                 this.toastr.success('Đã gửi yêu cầu khởi động lại Colab Runtime.');
                 setTimeout(() => this.checkColabStatus(), 1500);
