@@ -4498,13 +4498,14 @@ function startColabAgent() {
         let execPath = null;
         let args = ['--port', '7868'];
 
-        if (fs.existsSync(devScriptPath)) {
-            execPath = 'python3';
-            args = [devScriptPath, '--port', '7868'];
-        } else if (fs.existsSync(binaryPath)) {
+        // Ưu tiên 1: File binary colab_agent_linux trong Documents/ai.type/plugins
+        if (fs.existsSync(binaryPath)) {
             execPath = binaryPath;
         } else if (fs.existsSync(devBinaryPath)) {
             execPath = devBinaryPath;
+        } else if (fs.existsSync(devScriptPath)) {
+            execPath = 'python3';
+            args = [devScriptPath, '--port', '7868'];
         }
 
         if (execPath) {
@@ -4802,7 +4803,8 @@ ipcMain.handle('get-plugins-status', async (event) => {
         const userColabPath = path.join(userPluginsDir, 'colab_agent_linux');
         const devColabBinary = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
         const devColabScript = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
-        const colabInstalled = fs.existsSync(userColabPath);
+        const hasBinaryColabAgent = fs.existsSync(userColabPath);
+        const colabInstalled = hasBinaryColabAgent;
         const colabCanInstall = fs.existsSync(devColabBinary) || fs.existsSync(devColabScript);
         const colabEnabled = isColabAgentEnabled();
         let colabVersion = '1.0.1';
@@ -4851,6 +4853,7 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 name: 'Colab GPU Agent',
                 description: 'Tự động hóa kết nối Google Colab GPU, bóc tách MinerU và thực thi code từ xa.',
                 installed: colabInstalled,
+                hasBinary: hasBinaryColabAgent,
                 canInstall: colabCanInstall,
                 enabled: colabEnabled,
                 version: colabVersion

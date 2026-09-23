@@ -179,8 +179,8 @@
         "jobs": {
             "title": "Integrate modules for work",
             "tts_hint": "Convert text to speech.",
-            "sst_title": "Video subtitles",
-            "sst_hint": "Auto write posts based on video.",
+            "sst_title": "Use Google Colab",
+            "sst_hint": "Connect and utilize Google Colab resources.",
             "mxhauto_title": "Auto play Tiktok",
             "mxhauto_hint": "Automate your tasks such as: scheduling, auto posting, writing comments,..."
         },
