@@ -58,6 +58,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     collections: any[] = [];
     videoProjects: any[] = [];
     totalVideoProjects: number = 0;
+    private profileSyncInterval: any = null;
     statistics: any = null;
 
     totalArticles: number = 0;
@@ -172,8 +173,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
      * Lấy toàn bộ collection
      */
     collection() {
+        const username = this.user?.name || this.multiAccountService.getItem('user')?.name || 'admin';
         // Hiển thị cache tức thì (Optimistic UI)
-        const cacheKey = `dashboard_collections_${this.user.name}`;
+        const cacheKey = `dashboard_collections_${username}`;
         const cachedData = localStorage.getItem(cacheKey);
         if (cachedData) {
             try {
@@ -195,7 +197,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             (window as any).electron.listLocalCollections
         ) {
             (window as any).electron
-                .listLocalCollections({ username: this.user.name })
+                .listLocalCollections({ username: username })
                 .then((res: any) => {
                     if (res && res.success && res.data) {
                         this.collections = res.data;
@@ -230,9 +232,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     private fetchServerCollections(cacheKey: string) {
+        const username = this.user?.name || this.multiAccountService.getItem('user')?.name || 'admin';
         this._crawlService
             .collections({
-                username: this.user.name,
+                username: username,
                 page: { size: 100 },
                 includeUuid: false, // Tắt lấy mảng UUID để chống DB scan & Network payload khổng lồ
             })
@@ -284,9 +287,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
         (window as any)['profile_synced'] = true;
 
+        const username = this.user?.name || this.multiAccountService.getItem('user')?.name || 'admin';
         this._userClientService
             .profile({
-                name: this.user.name,
+                name: username,
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -362,11 +366,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     fetchDomains() {
+        const username = this.user?.name || this.multiAccountService.getItem('user')?.name || 'admin';
         if ((window as any)['dashboard_domains_preloaded']) {
             (window as any)['dashboard_domains_preloaded'] = false;
             try {
                 const cached = localStorage.getItem(
-                    `dashboard_domains_${this.user.name}`,
+                    `dashboard_domains_${username}`,
                 );
                 if (cached) {
                     this.allDomains = JSON.parse(cached);
@@ -383,7 +388,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             (window as any).electron &&
             (window as any).electron.listLocalDomains
         ) {
-            const currentUname = this.user?.name || localStorage.getItem('username');
+            const currentUname = username;
             (window as any).electron
                 .listLocalDomains({ username: currentUname })
                 .then((res: any) => {
@@ -414,9 +419,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     private fetchServerDomains() {
+        const username = this.user?.name || this.multiAccountService.getItem('user')?.name || 'admin';
         this._domainService
             .fetch({
-                username: this.user.name,
+                username: username,
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -551,8 +557,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     private fetchServerStatistics(forceRefresh: boolean = false) {
+        const username = this.user?.name || this.multiAccountService.getItem('user')?.name || 'admin';
         let payload: any = {
-            username: this.user.name,
+            username: username,
             reportYear: this.selectedYear,
         };
         if (forceRefresh) payload.refresh = true;
@@ -678,9 +685,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 }
 
                 // Wait for profile setup
-                let profileSyncInterval = setInterval(() => {
-                    if (this.user.name) {
-                        clearInterval(profileSyncInterval);
+                if (this.profileSyncInterval) {
+                    clearInterval(this.profileSyncInterval);
+                    this.profileSyncInterval = null;
+                }
+                this.profileSyncInterval = setInterval(() => {
+                    const currentUname = this.user?.name || this.multiAccountService.getItem('user')?.name;
+                    if (currentUname) {
+                        clearInterval(this.profileSyncInterval);
+                        this.profileSyncInterval = null;
                         this.account();
                         this.fetchDomains();
                         this.collection();
@@ -744,7 +757,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
-        // throw new Error('Method not implemented.');
+        if (this.profileSyncInterval) {
+            clearInterval(this.profileSyncInterval);
+            this.profileSyncInterval = null;
+        }
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
@@ -832,7 +848,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                             'delete-project',
                             {
                                 targetUuid: project.uuid,
-                                username: this.user.name,
+                                username: this.user?.name || 'admin',
                             },
                         );
                     } catch (e) {

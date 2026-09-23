@@ -292,22 +292,36 @@ export class ForumService {
         return this._categoriesCache$;
     }
 
-    public notification(dataForm: any): Observable<any> {
+    private _notificationsCacheMap = new Map<number, Observable<any>>();
+
+    public notification(dataForm: any, forceRefresh: boolean = false): Observable<any> {
+        const uid = dataForm?._uid;
+        if (!forceRefresh && uid && this._notificationsCacheMap.has(uid)) {
+            return this._notificationsCacheMap.get(uid)!;
+        }
+
         const url = `${this.config.settings.api[this.user.server]}/forum/notification/${dataForm._uid}`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
         };
 
-        return this.http.post<any>(url, data, options).pipe(
+        const obs$ = this.http.post<any>(url, data, options).pipe(
             map(data => {
                 return data;
             }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+            shareReplay(1),
+            catchError(err => {
+                if (uid) this._notificationsCacheMap.delete(uid);
+                return of({ success: false, error: err });
+            })
         );
+
+        if (uid) {
+            this._notificationsCacheMap.set(uid, obs$);
+        }
+
+        return obs$;
     }
 
     public following(dataForm: any): Observable<any> {

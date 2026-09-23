@@ -611,9 +611,15 @@ export class NotificationsComponent implements OnInit, OnDestroy {
             } catch (e) {}
         }
 
+        // Chỉ gọi API một lần duy nhất khi mở app để tránh spam request
+        if ((window as any)['notification_fetched']) {
+            return;
+        }
+
         // Trì hoãn 5 giây để nhường băng thông và Backend xử lý cho các màn hình chính (tránh nghẽn mạng lúc vừa vào app)
         setTimeout(() => {
-            if (!this.user || !this.user.id) return;
+            if (!this.user || !this.user.id || (window as any)['notification_fetched']) return;
+            (window as any)['notification_fetched'] = true;
             
             this._forumService.notification({
                 _uid: this.user.id

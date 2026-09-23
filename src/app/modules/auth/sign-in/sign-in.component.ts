@@ -1,5 +1,6 @@
 import {
     AfterViewInit,
+    ChangeDetectorRef,
     Component,
     OnDestroy,
     OnInit,
@@ -248,6 +249,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         private multiAccountService: MultiAccountService,
         private _matDialog: MatDialog,
         private _ngZone: NgZone,
+        private _changeDetectorRef: ChangeDetectorRef,
     ) {}
 
     generateCaptcha(retryCount = 0) {
@@ -341,6 +343,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
                     return acc;
                 });
+                this._changeDetectorRef.markForCheck();
             }
         });
     }

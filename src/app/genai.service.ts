@@ -338,7 +338,7 @@ export class GenaiService {
             const bypassUModelverse = (params.config as any)?.bypassUModelverse === true;
             let lastError: any = null;
 
-            // 1. Tầng 1: AI Agent (sontinh.type.vn)
+            // 1. Tầng 1: AI Agent (agent.type.vn)
             if (isAiAgentActive && !isVideoRequest && !bypassAiAgent) {
                 try {
                     const agentRes = await this.generateWithAiAgent(params, scope);
@@ -581,7 +581,7 @@ export class GenaiService {
         let isAiAgentActive = false;
         let secretApiKey = 'type-vn-local-agent-2026';
         const targetEndpoint = isImageRequest ? '/api/image' : '/api/chat';
-        let apiUrl = `https://sontinh.type.vn${targetEndpoint}`; // Fallback for Web/Mobile
+        let apiUrl = `https://agent.type.vn${targetEndpoint}`; // Fallback for Web/Mobile
 
         if (settings.enableAiAgent === true) {
             isAiAgentActive = true;
@@ -600,13 +600,13 @@ export class GenaiService {
                 secretApiKey = settings.aiAgentApiKey;
             }
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
-                // Giả định cú pháp setting là: URL|API_KEY (VD: https://sontinh.type.vn|my-secret)
+                // Giả định cú pháp setting là: URL|API_KEY (VD: https://agent.type.vn|my-secret)
                 const parts = secretApiKey.split('|');
                 const baseUrlClean = parts[0].replace(/\/api\/(chat|image)\/?$/, '');
                 apiUrl = baseUrlClean + targetEndpoint;
                 secretApiKey = parts[1] || 'type-vn-local-agent-2026';
             } else {
-                apiUrl = `https://sontinh.type.vn${targetEndpoint}`;
+                apiUrl = `https://agent.type.vn${targetEndpoint}`;
             }
         } else {
             // Web / Mobile / Another Account fallback logic
