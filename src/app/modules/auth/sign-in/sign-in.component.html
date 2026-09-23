@@ -133,18 +133,20 @@
                     </mat-error>
                 </mat-form-field>
 
-                <mat-form-field
-                    class="hidden w-full mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                >
-                    <mat-label>{{ "app.auto_server" | transloco }}</mat-label>
-                    <mat-select [formControlName]="'server'">
-                        @for (food of foods; track food) {
-                            <mat-option [value]="food.value">
-                                {{ food.viewValue }}
-                            </mat-option>
-                        }
-                    </mat-select>
-                </mat-form-field>
+                @if (isDev) {
+                    <mat-form-field
+                        class="w-full mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                    >
+                        <mat-label>{{ "app.auto_server" | transloco }}</mat-label>
+                        <mat-select [formControlName]="'server'">
+                            @for (food of foods; track food) {
+                                <mat-option [value]="food.value">
+                                    {{ food.viewValue }}
+                                </mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                }
 
                 <!-- Actions -->
                 <div class="inline-flex items-center justify-between w-full">

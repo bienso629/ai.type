@@ -56,8 +56,14 @@ export class InitialDataResolver
             this._shortcutsService.getAll()
         ]);
 
-        return this._userService.user$.pipe(
-            take(1),
+        // Nếu tài khoản bị token_mismatch, không tải API profile/crawl
+        if (this._multiAccountService.getItem('token_mismatch')) {
+            return baseResolvers;
+        }
+
+        const userSource$ = this._userService.user ? of(this._userService.user) : this._userService.user$.pipe(take(1));
+
+        return userSource$.pipe(
             switchMap(user => {
                 if (!user || !user.name) return baseResolvers;
                 

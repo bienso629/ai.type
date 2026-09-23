@@ -8,7 +8,7 @@ import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
 import { Observable, Subject, of, from } from 'rxjs';
-import { catchError, tap, map, takeUntil } from 'rxjs/operators';
+import { catchError, tap, map, takeUntil, shareReplay } from 'rxjs/operators';
 
 let options = {
     headers: new HttpHeaders({
@@ -23,6 +23,7 @@ export class ForumService {
     year: number = 2023;
     config: AppConfig;
     user: User;
+    private _categoriesCache$: Observable<any> | null = null;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
@@ -186,10 +187,14 @@ export class ForumService {
         );
     }
 
-    public category(dataForm?: any): Observable<any> {
+    public category(dataForm?: any, forceRefresh: boolean = false): Observable<any> {
+        if (!forceRefresh && this._categoriesCache$) {
+            return this._categoriesCache$;
+        }
+
         // Luôn gọi trực tiếp https://type.vn/api/categories từ Angular Http Client
         // để DevTools Network hiển thị rõ ràng và lấy dữ liệu chuyên mục mới nhất từ diễn đàn type.vn
-        return this.http.get<any>('https://type.vn/api/categories').pipe(
+        this._categoriesCache$ = this.http.get<any>('https://type.vn/api/categories').pipe(
             map((res: any) => {
                 const rawList = res?.categories || [];
                 const categories = rawList.map((item: any) => {
@@ -226,7 +231,9 @@ export class ForumService {
                     }
                 };
             }),
+            shareReplay(1),
             catchError((err) => {
+                this._categoriesCache$ = null;
                 console.warn('[ForumService] Lỗi gọi https://type.vn/api/categories trực tiếp, fallback sang local/server:', err);
                 const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
                 const electron = (window as any).electron;
@@ -282,6 +289,7 @@ export class ForumService {
                 });
             })
         );
+        return this._categoriesCache$;
     }
 
     public notification(dataForm: any): Observable<any> {

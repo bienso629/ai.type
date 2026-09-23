@@ -95,8 +95,10 @@ export class SettingsCreateLicenseKeyComponent implements OnInit, OnDestroy {
 			this.createForm.controls['appToken'].setValue(newToken);
 			this.licensekey(); // Re-generate license key with new app token
 		}
+		const targetUsername = this.createForm.value['email'] || this.createForm.value['customerName'] || this.user.name;
 		this._licenseKeyService.add({
-			username: this.user.name,
+			username: targetUsername,
+			owner: this.user.name,
 			licenseInfo: this.licenseInfo
 		})
 			.pipe(takeUntil(this._unsubscribeAll))
@@ -121,8 +123,10 @@ export class SettingsCreateLicenseKeyComponent implements OnInit, OnDestroy {
 
 	extend(): void {
 		this.isCreating = true;
+		const targetUsername = this.createForm.value['email'] || this.createForm.value['customerName'] || this.user.name;
 		this._licenseKeyService.extend({
-			username: this.user.name,
+			username: targetUsername,
+			owner: this.user.name,
 			licenseInfo: {
 				info: {
 					customerName: this.createForm.value['customerName'],

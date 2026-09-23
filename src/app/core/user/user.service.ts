@@ -19,22 +19,34 @@ export class UserService {
     // @ Accessors
     // -----------------------------------------------------------------------------------------------------
 
+    private _currentUser: User = null;
+
     /**
      * Setter & getter for user
      *
      * @param value
      */
     set user(value: User) {
-        if (value && value.avatar) {
-            value.avatar = value.avatar.replace(/&#x2F;/gi, '/');
-            if (value.avatar === 'https://type.vnnull' || value.avatar === 'null') {
+        if (value) {
+            if (value.avatar) {
+                value.avatar = value.avatar.replace(/&#x2F;/gi, '/').trim();
+                const invalidValues = ['https://type.vnnull', 'https://type.vn/null', 'https://type.vn/undefined', 'https://type.vn', 'https://type.vn/', 'null', 'undefined'];
+                if (invalidValues.includes(value.avatar) || value.avatar.endsWith('/null') || value.avatar.endsWith('/undefined')) {
+                    value.avatar = null;
+                } else if (!value.avatar.startsWith('http://') && !value.avatar.startsWith('https://') && !value.avatar.startsWith('data:') && !value.avatar.startsWith('assets/')) {
+                    value.avatar = 'https://type.vn' + (value.avatar.startsWith('/') ? '' : '/') + value.avatar;
+                }
+            } else {
                 value.avatar = null;
-            } else if (!value.avatar.startsWith('http://') && !value.avatar.startsWith('https://') && !value.avatar.startsWith('data:') && !value.avatar.startsWith('assets/')) {
-                value.avatar = 'https://type.vn' + (value.avatar.startsWith('/') ? '' : '/') + value.avatar;
             }
         }
+        this._currentUser = value;
         // Store the value
         this._user.next(value);
+    }
+
+    get user(): User {
+        return this._currentUser;
     }
 
     get user$(): Observable<User> {

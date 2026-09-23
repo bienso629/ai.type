@@ -26,7 +26,7 @@ export class NoAuthGuard  {
      * @param route
      * @param state
      */
-    canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean> | Promise<boolean> | boolean {
+    canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
         return this._check();
     }
 
@@ -46,7 +46,7 @@ export class NoAuthGuard  {
      * @param route
      * @param segments
      */
-    canLoad(route: Route, segments: UrlSegment[]): Observable<boolean> | Promise<boolean> | boolean {
+    canLoad(route: Route, segments: UrlSegment[]): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
         return this._check();
     }
 
@@ -59,7 +59,7 @@ export class NoAuthGuard  {
      *
      * @private
      */
-    private _check(): Observable<boolean> {
+    private _check(): Observable<boolean | UrlTree> {
         // Check the authentication status
         return this._authService.check()
             .pipe(
@@ -67,10 +67,7 @@ export class NoAuthGuard  {
                     // If the user is authenticated...
                     if (authenticated) {
                         // Redirect to the dashboard
-                        this._router.navigate(['dashboard']);
-
-                        // Prevent the access
-                        return of(false);
+                        return of(this._router.createUrlTree(['dashboard']));
                     }
 
                     // Allow the access

@@ -7,14 +7,14 @@
             <!-- <div class="text-secondary mt-2">{{ 'app.auto_add_the_number_of_days_using_t' | transloco }}</div> -->
 
             <div class="text-secondary leading-8 mt-4">
-                @if (activeInfo && activeInfo.user) {
+                @if (activeInfo && activeInfo.user && !isFreeLicense) {
                     <fuse-alert [appearance]="'outline'" [type]="'success'">
                         <div class="flex flex-col space-y-1">
                             <div class="flex items-center space-x-2 font-semibold">
-                                @if (isFreeLicense) {
-                                    <span class="text-green-600">Bản quyền: Miễn phí (Free)</span>
-                                } @else {
+                                @if (licenseCustomerEmail) {
                                     <span class="text-green-600">Bản quyền: Chính hãng ({{ licenseCustomerEmail }})</span>
+                                } @else {
+                                    <span class="text-green-600">Bản quyền: Miễn phí</span>
                                 }
                             </div>
                             <div>
@@ -33,7 +33,7 @@
                 }
             </div>
 
-            @if (activeInfo && activeInfo.user) {
+            @if (activeInfo && activeInfo.user && !isFreeLicense) {
                 <div class="text-secondary leading-8 mt-4">
                     <fuse-alert
                         [appearance]="'outline'"
@@ -52,7 +52,7 @@
             }
         </div>
 
-        @if (!(activeInfo && activeInfo.user)) {
+        @if (!(activeInfo && activeInfo.user && !isFreeLicense)) {
             <div class="w-full mt-12">
                 <mat-label class="text-base font-medium leading-8">{{
                     "app.enter_license_key" | transloco

@@ -65,7 +65,7 @@ export class AMXHComponent implements OnInit, OnDestroy {
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
-    updatePanels(): void {
+    async updatePanels(): Promise<void> {
         let settings: any = null;
         if (this._multiAccountService) {
             settings = this._multiAccountService.getItem('settings');
@@ -86,7 +86,19 @@ export class AMXHComponent implements OnInit, OnDestroy {
             mxhautoVal = String((this.user as any).settings.mxhauto).trim();
         }
 
-        const hasTiktok = !!(mxhautoVal && mxhautoVal !== '' && mxhautoVal !== 'http://localhost:404');
+        // Kiểm tra plugin 100 TikTokers từ settings hoặc trực tiếp từ Electron
+        let isTiktokPluginActive = !!(settings && settings.tiktokPluginEnabled);
+        if (!isTiktokPluginActive && typeof window !== 'undefined' && (window as any).electronAPI?.getPluginsStatus) {
+            try {
+                const plugins = await (window as any).electronAPI.getPluginsStatus();
+                const tiktokPlugin = plugins?.find((p: any) => p.id === 'tiktok_100');
+                if (tiktokPlugin?.enabled) {
+                    isTiktokPluginActive = true;
+                }
+            } catch (e) {}
+        }
+
+        const hasTiktok = isTiktokPluginActive || !!(mxhautoVal && mxhautoVal !== '' && mxhautoVal !== 'http://localhost:404');
 
         this.panels = this.allPanels.filter(p => {
             if (p.id === 'profiles' || p.id === 'script') {
@@ -227,6 +239,13 @@ export class AMXHComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
+                this.updatePanels();
+            });
+
+        // Subscribe to active account changes from multiAccountService
+        this._multiAccountService.activeAccount$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(() => {
                 this.updatePanels();
             });
     }

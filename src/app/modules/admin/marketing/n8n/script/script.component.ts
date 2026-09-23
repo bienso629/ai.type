@@ -584,12 +584,12 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         const username = this.user?.name || (this as any).currentUsername || 'admin';
         const platformParam = (this.platform && this.platform !== 'type') ? this.platform : 'tiktok';
 
-        // 2. Tải thêm từ server để đồng bộ mới nhất
+        // 2. Tải thêm từ server để đồng bộ mới nhất (filter 'all' để nạp đầy đủ 100 profiles của plugin)
         this._mxhautoService.profiles({
             profiles_root: this.getProfilesRoot(),
             host: '127.0.0.1',
             verify: true,
-            filter: 'running',
+            filter: 'all',
             include_accounts: true,
             platform: platformParam,
             username: username
@@ -1983,7 +1983,7 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
     // --- PROFILES & DATA ---
     getProfiles(): void {
         this._mxhautoService.profiles({
-            profiles_root: this.getProfilesRoot(), host: '127.0.0.1', verify: true, filter: "running", include_accounts: true, platform: this.platform || 'tiktok', username: this.user.name
+            profiles_root: this.getProfilesRoot(), host: '127.0.0.1', verify: true, filter: "all", include_accounts: true, platform: this.platform || 'tiktok', username: this.user.name
         }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
             next: async (result: any) => {
                 if (result && result.ok) {

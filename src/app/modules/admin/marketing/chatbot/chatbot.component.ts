@@ -417,12 +417,24 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             const avatar = document.createElement('div');
             avatar.className = 'avatar';
             if (m[2] === 'user') {
-                if (this.user?.avatar && this.user.avatar !== 'https://type.vnnull') {
+                const isValidAvatar = this.user?.avatar && 
+                    !this.user.avatar.includes('type.vnnull') && 
+                    !this.user.avatar.endsWith('/null') && 
+                    !this.user.avatar.endsWith('/undefined') && 
+                    this.user.avatar !== 'https://type.vn' && 
+                    this.user.avatar !== 'https://type.vn/';
+
+                if (isValidAvatar) {
                     const image = document.createElement('img');
                     image.src = this.user.avatar;
                     image.alt = this.user?.name ?? 'User';
                     image.className = 'w-full h-full rounded-full object-cover';
                     image.crossOrigin = 'anonymous';
+                    image.onerror = () => {
+                        image.remove();
+                        avatar.style.backgroundColor = '#9333ea';
+                        avatar.textContent = (this.user?.name || currentName || 'U').charAt(0).toUpperCase();
+                    };
                     avatar.appendChild(image);
                 } else {
                     avatar.style.backgroundColor = '#9333ea';
@@ -916,6 +928,15 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     this.renderMessages(localHist.messages);
                     this.cd.markForCheck();
                     return;
+                } else if (localHist?.success) {
+                    // Hộp thoại mới tạo hoặc rỗng trên máy
+                    this.messages = [];
+                    this.currentMessages = [];
+                    this.removeTyping();
+                    const chat = document.getElementById('chat');
+                    if (chat) chat.innerHTML = '';
+                    this.cd.markForCheck();
+                    return;
                 }
             } catch (e) {}
         }
@@ -932,9 +953,22 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         this.removeTyping();
                         this.renderMessages(data);
                         this.cd.markForCheck();
+                    } else {
+                        this.messages = [];
+                        this.currentMessages = [];
+                        this.removeTyping();
+                        const chat = document.getElementById('chat');
+                        if (chat) chat.innerHTML = '';
+                        this.cd.markForCheck();
                     }
                 },
                 error: () => {
+                    this.messages = [];
+                    this.currentMessages = [];
+                    this.removeTyping();
+                    const chat = document.getElementById('chat');
+                    if (chat) chat.innerHTML = '';
+                    this.cd.markForCheck();
                 },
                 complete: () => {
                 }
@@ -959,8 +993,36 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     title: 'Hội thoại mới'
                 });
             } catch (e) {}
+            await this.loadThreads();
+        } else {
+            try {
+                const threadId: any = await new Promise((resolve) => {
+                    this._chatbotService.createThread({
+                        username: this.user.name,
+                        name: 'Hội thoại mới',
+                        email: this.user.email,
+                        phone: this.help.textToNumber(this.user.name)
+                    }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                        next: (id) => resolve(id),
+                        error: () => resolve(null),
+                        complete: () => {}
+                    });
+                });
+                if (threadId) {
+                    this.currentThread = Number(threadId) || threadId;
+                }
+            } catch (e) {}
+            // Chèn ngay vào danh sách threadList phía client nếu chưa có
+            const existing = (this.threadList || []).find(t => String(t?.[0]) === String(this.currentThread));
+            if (!existing) {
+                const dateStr = new Date().toLocaleDateString('vi-VN', {
+                    hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+                });
+                this.threadList = [[this.currentThread, 'Hội thoại mới', 'Hội thoại mới', dateStr, null], ...(this.threadList || [])];
+                this.rebuildThreadRows();
+                this.calcThreadTableHeight();
+            }
         }
-        await this.loadThreads();
         this.toastr.success('Đã tạo cuộc hội thoại mới');
         this.cd.markForCheck();
     }

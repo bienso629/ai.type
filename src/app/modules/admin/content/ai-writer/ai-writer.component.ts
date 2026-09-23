@@ -4724,10 +4724,13 @@ ${contentFromDone || '(Chưa có văn bản)'}
     addCustomUser = (term: any) => ({ cid: term, name: term });
 
     forumCategory() {
-        this._forumService
-            .category({
-                _uid: this.user?.id || 0,
-            })
+        const category$ = this._forumService?.category({
+            _uid: this.user?.id || 0,
+        });
+        if (!category$) {
+            return;
+        }
+        category$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -6988,7 +6991,6 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
         }
 
         this.updateAgentContext();
-        this.forumCategory();
     }
 
     updateAgentContext() {
