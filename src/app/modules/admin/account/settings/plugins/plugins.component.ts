@@ -34,6 +34,8 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     isColabStarting: boolean = false;
     isColabAuthenticating: boolean = false;
     colabAuthCode: string = '';
+    colabConfigUrl: string = '';
+    colabSourceMode: 'binary' | 'config' = 'binary';
 
     user: User;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
@@ -195,6 +197,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             this.aiAgentModel = settings.aiAgentModel || 'glm-5.3';
             this.aiAgentMaxTurns = settings.aiAgentMaxTurns !== undefined ? Number(settings.aiAgentMaxTurns) : 25;
             this.aiAgentPrompt = settings.aiAgentPrompt || '';
+            this.checkColabStatus();
         } catch (err) {
             this.toastr.error('Lỗi khi lấy trạng thái plugin: ' + err.message);
         }
@@ -349,44 +352,94 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     async checkColabStatus() {
         this.colabChecking = true;
         try {
-            if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
-                const authRes = await (window as any).electronAPI.getColabAuthStatus();
-                if (authRes) {
-                    if (authRes.authenticated !== undefined) {
-                        this.isColabLoggedIn = authRes.authenticated;
-                    }
-                    if (Array.isArray(authRes.accounts) && authRes.accounts.length > 0) {
-                        this.colabAccounts = authRes.accounts;
-                    }
-                    if (authRes.active_email) {
-                        this.colabActiveEmail = authRes.active_email;
-                    }
+            // Lấy cấu hình sst ("Sử dụng Google Colab" trong Cài đặt -> Tài khoản)
+            let settings = this.multiAccountService.getItem('settings') || {};
+            try {
+                const lsSettings = localStorage.getItem('settings');
+                if (lsSettings) {
+                    settings = { ...settings, ...JSON.parse(lsSettings) };
                 }
-            }
+            } catch(e) {}
+            this.colabConfigUrl = (settings.sst || '').trim().replace(/\/+$/, '');
 
-            // Fallback trực tiếp tới Colab Agent Service trên máy cục bộ
-            if (this.colabAccounts.length === 0) {
-                try {
-                    const authResp = await fetch('http://127.0.0.1:7868/auth_status');
-                    if (authResp.ok) {
-                        const authData = await authResp.json();
-                        if (authData && authData.authenticated) {
-                            this.isColabLoggedIn = true;
-                            if (Array.isArray(authData.accounts) && authData.accounts.length > 0) {
-                                this.colabAccounts = authData.accounts;
-                            }
-                            if (authData.active_email) {
-                                this.colabActiveEmail = authData.active_email;
-                            }
+            const colabPlugin = this.getPlugin('colab_agent');
+            const hasBinary = !!(colabPlugin?.installed || colabPlugin?.hasBinary);
+
+            if (hasBinary) {
+                // Ưu tiên 1: Đã có file binary colab_agent_linux
+                this.colabSourceMode = 'binary';
+                if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
+                    const authRes = await (window as any).electronAPI.getColabAuthStatus();
+                    if (authRes) {
+                        if (authRes.authenticated !== undefined) {
+                            this.isColabLoggedIn = authRes.authenticated;
+                        }
+                        if (Array.isArray(authRes.accounts) && authRes.accounts.length > 0) {
+                            this.colabAccounts = authRes.accounts;
+                        }
+                        if (authRes.active_email) {
+                            this.colabActiveEmail = authRes.active_email;
                         }
                     }
-                } catch(e) {}
-            }
+                }
 
-            const resp = await fetch('http://127.0.0.1:7868/status');
-            if (resp.ok) {
-                this.colabStatus = await resp.json();
+                if (this.colabAccounts.length === 0) {
+                    try {
+                        const authResp = await fetch('http://127.0.0.1:7868/auth_status');
+                        if (authResp.ok) {
+                            const authData = await authResp.json();
+                            if (authData && authData.authenticated) {
+                                this.isColabLoggedIn = true;
+                                if (Array.isArray(authData.accounts) && authData.accounts.length > 0) {
+                                    this.colabAccounts = authData.accounts;
+                                }
+                                if (authData.active_email) {
+                                    this.colabActiveEmail = authData.active_email;
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+
+                const resp = await fetch('http://127.0.0.1:7868/status');
+                if (resp.ok) {
+                    this.colabStatus = await resp.json();
+                } else {
+                    this.colabStatus = { status: 'offline', is_connected: false };
+                }
+            } else if (this.colabConfigUrl) {
+                // Ưu tiên 2: Không có file binary -> Sử dụng cấu hình "Sử dụng Google Colab" từ tab Tác vụ
+                this.colabSourceMode = 'config';
+                this.isColabLoggedIn = true; // Đã có cấu hình URL Colab từ xa
+                try {
+                    const resp = await fetch(`${this.colabConfigUrl}/status`, { signal: AbortSignal.timeout(3000) });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        this.colabStatus = {
+                            status: data.status || 'running',
+                            is_connected: data.is_connected !== undefined ? data.is_connected : true,
+                            colab_url: this.colabConfigUrl,
+                            gpu: data.gpu || 'Colab GPU'
+                        };
+                    } else {
+                        this.colabStatus = {
+                            status: 'running',
+                            is_connected: true,
+                            colab_url: this.colabConfigUrl,
+                            gpu: 'Colab GPU (Cấu hình Tác vụ)'
+                        };
+                    }
+                } catch(err) {
+                    // Nếu máy chủ chưa mở /status, giữ URL cấu hình ở trạng thái sẵn sàng
+                    this.colabStatus = {
+                        status: 'configured',
+                        is_connected: true,
+                        colab_url: this.colabConfigUrl,
+                        gpu: 'Colab GPU (Cấu hình Tác vụ)'
+                    };
+                }
             } else {
+                this.colabSourceMode = 'binary';
                 this.colabStatus = { status: 'offline', is_connected: false };
             }
         } catch(e) {

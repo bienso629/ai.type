@@ -13,6 +13,8 @@
             </div>
 
             <div class="w-full mt-4">
+
+
                 <!-- Kích hoạt Colab GPU -->
                 <div class="full-width-toggle mb-4">
                     <mat-slide-toggle
@@ -134,8 +136,8 @@
                 </div>
             }
 
-            <!-- Trạng thái chưa có tài khoản Google nào -->
-            @if (!isColabLoggedIn) {
+            <!-- Trạng thái chưa có tài khoản Google nào (chỉ cần thiết khi dùng binary colab_agent_linux) -->
+            @if (!isColabLoggedIn && colabSourceMode === 'binary') {
                 <div
                     class="w-full sm:w-1/2 mt-4 p-4 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-800"
                 >
@@ -155,7 +157,7 @@
                         class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-3"
                     >
                         Đăng nhập tài khoản Google để ứng dụng có quyền tự động
-                        cấp phát và điều khiển GPU miễn phí từ Colab.
+                        cấp phát và điều khiển GPU miễn phí từ Colab qua binary cục bộ.
                     </p>
                     @if (!isColabAuthenticating) {
                         <div>
@@ -229,8 +231,8 @@
                 </div>
             }
 
-            <!-- Nút hành động Khởi chạy / Dừng GPU -->
-            @if (isColabLoggedIn) {
+            <!-- Nút hành động Khởi chạy / Dừng GPU (khi dùng binary) -->
+            @if (isColabLoggedIn && colabSourceMode === 'binary') {
                 <div class="flex items-center gap-3 mt-4">
                     @if (!colabStatus.is_connected) {
                         <button

@@ -179,8 +179,8 @@
         "jobs": {
             "title": "Tích hợp các module cho tác vụ",
             "tts_hint": "Đổi văn bản thành giọng nói.",
-            "sst_title": "Làm phụ đề cho video",
-            "sst_hint": "Tự động viết bài dựa vào video.",
+            "sst_title": "Sử dụng Google Colab",
+            "sst_hint": "Kết nối và sử dụng tài nguyên Google Colab.",
             "mxhauto_title": "Tự động chơi Tiktok",
             "mxhauto_hint": "Tự động hóa tác vụ của bạn như: Nhắc lịch, tự động đăng bài, viết comment,..."
         },
