@@ -69,12 +69,15 @@ export class UserComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 if (user) {
                     if (user.avatar) {
-                        user.avatar = user.avatar.replace(/&#x2F;/gi, '/');
-                        if (user.avatar === 'https://type.vnnull' || user.avatar === 'null') {
+                        user.avatar = user.avatar.replace(/&#x2F;/gi, '/').trim();
+                        const invalidValues = ['https://type.vnnull', 'https://type.vn/null', 'https://type.vn/undefined', 'https://type.vn', 'https://type.vn/', 'null', 'undefined'];
+                        if (invalidValues.includes(user.avatar) || user.avatar.endsWith('/null') || user.avatar.endsWith('/undefined')) {
                             user.avatar = null;
                         } else if (!user.avatar.startsWith('http://') && !user.avatar.startsWith('https://') && !user.avatar.startsWith('data:') && !user.avatar.startsWith('assets/')) {
                             user.avatar = 'https://type.vn' + (user.avatar.startsWith('/') ? '' : '/') + user.avatar;
                         }
+                    } else {
+                        user.avatar = null;
                     }
                     this.avatarLoadFailed = false;
                     this.user = user;
@@ -82,7 +85,8 @@ export class UserComponent implements OnInit, OnDestroy {
                     // Mark for check
                     this._changeDetectorRef.markForCheck();
                 } else {
-                    this._router.navigateByUrl('sign-out');
+                    this.user = null;
+                    this._changeDetectorRef.markForCheck();
                 }
             });
 

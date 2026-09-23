@@ -8,6 +8,7 @@ import {
     ElementRef,
     ChangeDetectionStrategy,
     NgZone,
+    isDevMode,
 } from '@angular/core';
 import {
     UntypedFormBuilder,
@@ -42,12 +43,15 @@ import { TelegramSupportDialogComponent } from './dialogs/telegram-support-dialo
     standalone: false,
 })
 export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
+    isDev: boolean = isDevMode();
     captchaStatus: boolean = false;
     captchaCode: string = '';
     captchaInput: string = '';
 
     foods = [
-        // { value: 'local', viewValue: 'Máy tính cá nhân' },
+        { value: 'local', viewValue: 'Máy tính cá nhân (local)' },
+        { value: 'vn.s1', viewValue: 'Việt Nam - TP.HCM/S1' },
+        { value: 'vn.s2', viewValue: 'Việt Nam - TP.HCM/S2' },
         { value: 'vn.s3', viewValue: 'Việt Nam - TP.HCM/S3 (ổn định)' },
     ];
 

@@ -9,7 +9,7 @@ import { HelperService } from 'app/helper.service';
 import { saveAs } from "file-saver";
 
 import { Observable, Subject, firstValueFrom, of, throwError, from } from 'rxjs';
-import { catchError, tap, map, takeUntil, switchMap } from 'rxjs/operators';
+import { catchError, tap, map, takeUntil, switchMap, shareReplay } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
 let options = {
@@ -48,10 +48,15 @@ export class WordpressService {
             });
     }
 
+    private _typeVnCategoriesCache$: Observable<any> | null = null;
+
     public categories(dataForm: any): Observable<any> {
         const domainStr = (dataForm?.domain || '').toLowerCase();
         if (domainStr.includes('type.vn')) {
-            return this.http.get<any>('https://type.vn/api/categories').pipe(
+            if (this._typeVnCategoriesCache$) {
+                return this._typeVnCategoriesCache$;
+            }
+            this._typeVnCategoriesCache$ = this.http.get<any>('https://type.vn/api/categories').pipe(
                 map((res: any) => {
                     const list = res?.categories || [];
                     return list.map((c: any) => {
@@ -70,8 +75,13 @@ export class WordpressService {
                         };
                     });
                 }),
-                catchError(this.handleError('typeVnCategoriesDirect', []))
+                shareReplay(1),
+                catchError((err) => {
+                    this._typeVnCategoriesCache$ = null;
+                    return this.handleError('typeVnCategoriesDirect', [])(err);
+                })
             );
+            return this._typeVnCategoriesCache$;
         }
 
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';

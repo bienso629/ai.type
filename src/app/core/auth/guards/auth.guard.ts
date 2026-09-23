@@ -2,6 +2,9 @@ import { Injectable } from '@angular/core';
 import { ActivatedRouteSnapshot, Route, Router, RouterStateSnapshot, UrlSegment, UrlTree } from '@angular/router';
 import { Observable, of, switchMap } from 'rxjs';
 import { AuthService } from 'app/core/auth/auth.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
+import { AuthUtils } from 'app/core/auth/auth.utils';
+import { UserService } from 'app/core/user/user.service';
 
 @Injectable({
     providedIn: 'root'
@@ -12,7 +15,9 @@ export class AuthGuard  {
      */
     constructor(
         private _authService: AuthService,
-        private _router: Router
+        private _router: Router,
+        private _multiAccountService: MultiAccountService,
+        private _userService: UserService
     ) {
     }
 
@@ -26,8 +31,8 @@ export class AuthGuard  {
      * @param route
      * @param state
      */
-    canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean> | Promise<boolean> | boolean {
-        const redirectUrl = state.url === '/sign-out' ? '/' : state.url;
+    canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
+        const redirectUrl = state.url;
         return this._check(redirectUrl);
     }
 
@@ -38,7 +43,7 @@ export class AuthGuard  {
      * @param state
      */
     canActivateChild(childRoute: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
-        const redirectUrl = state.url === '/sign-out' ? '/' : state.url;
+        const redirectUrl = state.url;
         return this._check(redirectUrl);
     }
 
@@ -48,7 +53,7 @@ export class AuthGuard  {
      * @param route
      * @param segments
      */
-    canLoad(route: Route, segments: UrlSegment[]): Observable<boolean> | Promise<boolean> | boolean {
+    canLoad(route: Route, segments: UrlSegment[]): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
         return this._check('/sign-in');
     }
 
@@ -57,12 +62,46 @@ export class AuthGuard  {
     // -----------------------------------------------------------------------------------------------------
 
     /**
-     * Check the authenticated status
+     * Check if current active license is free or invalid
+     */
+    private _isFreeOrInvalidLicense(parsed: any): boolean {
+        if (!parsed || !parsed.user) {
+            return true;
+        }
+        const user = parsed.user;
+        const appId = (user.appId || parsed.appId || '').toLowerCase();
+        const plan = (user.plan || user.type || parsed.plan || parsed.type || '').toLowerCase();
+        const customerName = (user.info?.customerName || '').toLowerCase();
+
+        // 1. Nếu đã có license key hoặc appToken hợp lệ từ server -> Hợp lệ, không phải free
+        if (user.licenseKey || user.appToken) {
+            return false;
+        }
+
+        // 2. Kiểm tra từ khóa free trực tiếp khi chưa có key chính thức
+        if (appId.includes('free') || plan.includes('free') || customerName.includes('miễn phí') || customerName.includes('free')) {
+            return true;
+        }
+
+        const customerEmail = String(user.info?.email || '').trim().toLowerCase();
+        if (!customerEmail || customerEmail === '0' || !customerEmail.includes('@')) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check the authenticated and licensed status
      *
      * @param redirectURL
      * @private
      */
-    private _check(redirectURL: string): Observable<boolean> {
+    private _check(redirectURL: string): Observable<boolean | UrlTree> {
+        const isSignOut = redirectURL.includes('sign-out');
+        if (isSignOut) {
+            return of(true);
+        }
+
         // Check the authentication status
         return this._authService.check()
             .pipe(
@@ -70,10 +109,62 @@ export class AuthGuard  {
                     // If the user is not authenticated...
                     if (!authenticated) {
                         // Redirect to the sign-in page
-                        this._router.navigate(['sign-in'], { queryParams: { redirectURL } });
+                        return of(this._router.createUrlTree(['/sign-in'], { queryParams: { redirectURL } }));
+                    }
 
-                        // Prevent the access
-                        return of(false);
+                    // Bắt buộc kiểm tra bản quyền trước khi dùng tính năng
+                    // Nếu đang truy cập trang /settings thì cho phép
+                    const isSettings = redirectURL.includes('settings') || redirectURL.startsWith('/settings');
+
+                    if (isSettings) {
+                        return of(true);
+                    }
+
+                    const isMismatch = this._multiAccountService.getItem('token_mismatch');
+                    const activeInfoStr = this._multiAccountService.getItem('active_info');
+
+                    let hasValidLicense = false;
+                    if (isMismatch !== true && isMismatch !== 'true' && activeInfoStr && activeInfoStr !== 'null' && activeInfoStr !== 'undefined') {
+                        try {
+                            const isExpired = AuthUtils.isLicenseKeyExpired(activeInfoStr);
+                            const parsed = AuthUtils._getActiveInfo(activeInfoStr);
+                            const userObj = parsed?.user;
+                            
+                            const activeOwners = [
+                                userObj?.username,
+                                userObj?.name,
+                                userObj?.email,
+                                userObj?.info?.customerName,
+                                userObj?.info?.email,
+                            ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
+
+                            const sessionUser = this._multiAccountService.getItem('user');
+                            const currentIdentifiers = [
+                                this._userService.user?.name,
+                                this._userService.user?.email,
+                                this._multiAccountService.getItem('username'),
+                                this._multiAccountService.getItem('email'),
+                                sessionUser?.name,
+                                sessionUser?.username,
+                                sessionUser?.email,
+                                this._multiAccountService.currentAccountId,
+                            ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
+
+                            const hasValidKey = !!(userObj?.licenseKey || userObj?.appToken);
+                            const isOwnerMatch = hasValidKey || activeOwners.length === 0 || currentIdentifiers.length === 0 ||
+                                currentIdentifiers.some((id) => activeOwners.includes(id));
+                            const isFree = this._isFreeOrInvalidLicense(parsed);
+
+                            if (!isExpired && isOwnerMatch && !isFree) {
+                                hasValidLicense = true;
+                            }
+                        } catch (e) {
+                            hasValidLicense = false;
+                        }
+                    }
+
+                    if (!hasValidLicense) {
+                        return of(this._router.createUrlTree(['/settings'], { queryParams: { tab: 'active' } }));
                     }
 
                     // Allow the access

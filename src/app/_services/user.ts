@@ -10,6 +10,8 @@ import { HelperService } from 'app/helper.service';
 import { Observable, Subject, of } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
+import { Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
 
 let options = {
     headers: new HttpHeaders({
@@ -23,13 +25,16 @@ export class UserClientService {
     config: AppConfig;
     user: User;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+    private _hasNotifiedTokenMismatch: boolean = false;
 
     constructor(
         private http: HttpClient,
         private _h: HelperService,
         private _userService: UserService,
         private _fuseConfigService: FuseConfigService,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private router: Router,
+        private toastr: ToastrService
     ) {
         // Subscribe to user changes
         this._userService.user$
@@ -85,12 +90,62 @@ export class UserClientService {
         return data;
     }
 
+    private checkAndHandleTokenMismatch(resOrErr: any): boolean {
+        let msg = '';
+        if (typeof resOrErr === 'string') {
+            msg = resOrErr;
+        } else if (resOrErr) {
+            msg = resOrErr.message || resOrErr.error?.message || (typeof resOrErr.error === 'string' ? resOrErr.error : '');
+            if (!msg && resOrErr.error && typeof resOrErr.error === 'object') {
+                msg = resOrErr.error.message || '';
+            }
+        }
+
+        const isMismatch = msg && (
+            msg.includes('appToken không khớp') || 
+            msg.includes('appToken') ||
+            msg.includes('Tài khoản này ko được phép truy cập') ||
+            msg.includes('không được phép truy cập')
+        );
+
+        if (isMismatch) {
+            // Xoá active_info không khớp của tài khoản hiện tại ngay lập tức
+            try {
+                this.multiAccountService.setItem('token_mismatch', true);
+                this.multiAccountService.removeItem('active_info');
+                localStorage.removeItem('active_info');
+                this.multiAccountService.forceSave();
+            } catch (e) { }
+
+            if (!this._hasNotifiedTokenMismatch) {
+                this._hasNotifiedTokenMismatch = true;
+                this.toastr.error(
+                    'Tài khoản này chưa có appToken riêng hoặc appToken không khớp. Vui lòng kích hoạt lại License Key để cấp appToken riêng cho tài khoản.',
+                    'Yêu cầu kích hoạt lại bản quyền',
+                    { timeOut: 8000 }
+                );
+
+                // Điều hướng tới tab kích hoạt nếu chưa ở trang settings
+                if (!this.router.url.includes('/settings')) {
+                    this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
+                }
+
+                // Reset cờ sau 5 giây để không spam thông báo
+                setTimeout(() => {
+                    this._hasNotifiedTokenMismatch = false;
+                }, 5000);
+            }
+            return true;
+        }
+        return false;
+    }
+
     private getServerKey(sessionUser?: any): string {
-        const candidate = (sessionUser && sessionUser.server) || this.user?.server || 'vn.s1';
+        const candidate = (sessionUser && sessionUser.server) || this.user?.server || 'vn.s3';
         if (this.config?.settings?.api && this.config.settings.api[candidate]) {
             return candidate;
         }
-        return 'vn.s1';
+        return 'vn.s3';
     }
 
     public updateProfile(dataForm: any): Observable<any> {
@@ -145,6 +200,9 @@ export class UserClientService {
         return this.http.put<any>(url, data, options).pipe(
             map(data => {
                 const decoded = this.decodeIfEncrypted(data);
+                if (decoded && (decoded.error || decoded.success === false)) {
+                    this.checkAndHandleTokenMismatch(decoded);
+                }
                 if (decoded && decoded.success && !decoded.data && dataForm.profile) {
                     decoded.data = dataForm.profile;
                 }
@@ -156,6 +214,7 @@ export class UserClientService {
                 }
             }),
             catchError((err) => {
+                this.checkAndHandleTokenMismatch(err);
                 console.warn('Lưu lên server không thành công, lưu dữ liệu cục bộ:', err);
                 return of({ success: true, message: 'Đã lưu cấu hình người dùng cục bộ.', data: dataForm?.profile });
             })
@@ -171,7 +230,8 @@ export class UserClientService {
             const localSettings = this.multiAccountService.getItem('settings') || {};
             const localEditor = this.multiAccountService.getItem('editor') || {};
             const localFollowing = this.multiAccountService.getItem('following_users') || [];
-            const localUser = this.multiAccountService.getItem('user') || this.user || { name: 'admin' };
+            const sessionUserName = this.multiAccountService.currentAccountId || 'user';
+            const localUser = this.multiAccountService.getItem('user') || this.user || { name: sessionUserName };
             return of({
                 success: true,
                 data: {
@@ -188,7 +248,8 @@ export class UserClientService {
             const localSettings = this.multiAccountService.getItem('settings') || {};
             const localEditor = this.multiAccountService.getItem('editor') || {};
             const localFollowing = this.multiAccountService.getItem('following_users') || [];
-            const localUser = this.multiAccountService.getItem('user') || this.user || { name: 'admin' };
+            const sessionUserName = this.multiAccountService.currentAccountId || 'user';
+            const localUser = this.multiAccountService.getItem('user') || this.user || { name: sessionUserName };
             return of({
                 success: true,
                 data: {
@@ -224,14 +285,20 @@ export class UserClientService {
 
         return this.http.post<any>(url, data, options).pipe(
             map(data => {
-                return this.decodeIfEncrypted(data);
+                const decoded = this.decodeIfEncrypted(data);
+                if (decoded && (decoded.error || decoded.success === false)) {
+                    this.checkAndHandleTokenMismatch(decoded);
+                }
+                return decoded;
             }),
             catchError((err) => {
+                this.checkAndHandleTokenMismatch(err);
                 console.warn('Không thể tải profile từ server, dùng dữ liệu cục bộ:', err);
                 const localSettings = this.multiAccountService.getItem('settings') || {};
                 const localEditor = this.multiAccountService.getItem('editor') || {};
                 const localFollowing = this.multiAccountService.getItem('following_users') || [];
-                const localUser = this.multiAccountService.getItem('user') || this.user || { name: 'admin' };
+                const sessionUserName = targetUsername || this.multiAccountService.currentAccountId || 'user';
+                const localUser = this.multiAccountService.getItem('user') || this.user || { name: sessionUserName };
                 return of({
                     success: true,
                     data: {

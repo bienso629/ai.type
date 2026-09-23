@@ -75,9 +75,89 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     // ===============================
 
     updateTime(): void {
-        // Đã tắt logic kiểm tra và thông báo kích hoạt phần mềm
-        if (this.intervalId) {
-            clearInterval(this.intervalId);
+        let activeInfo = this.multiAccountService.getItem('active_info');
+        const isMismatch = this.multiAccountService.getItem('token_mismatch');
+
+        if (isMismatch !== true && isMismatch !== 'true' && activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
+            const isLicenseKeyExpired =
+                AuthUtils.isLicenseKeyExpired(activeInfo);
+            // this.checkActiveInfo = AuthUtils._verifyActiveInfo(activeInfo, this.uuid);
+
+            let isFreeLicense = false;
+            let isOwnerMismatch = false;
+            try {
+                const parsed = AuthUtils._getActiveInfo(activeInfo);
+                const user = parsed?.user;
+                const appId = (user?.appId || parsed?.appId || '').toLowerCase();
+                const plan = (user?.plan || user?.type || parsed?.plan || parsed?.type || '').toLowerCase();
+                const customerName = (user?.info?.customerName || '').toLowerCase();
+                const customerEmail = String(user?.info?.email || '').trim().toLowerCase();
+
+                if (!user) {
+                    isFreeLicense = true;
+                } else if (user.licenseKey || user.appToken) {
+                    isFreeLicense = false;
+                } else if (appId.includes('free') || plan.includes('free') || customerName.includes('miễn phí') || customerName.includes('free')) {
+                    isFreeLicense = true;
+                } else if (!customerEmail || customerEmail === '0' || !customerEmail.includes('@')) {
+                    isFreeLicense = true;
+                }
+
+                const activeOwners = [
+                    user?.username,
+                    user?.name,
+                    user?.email,
+                    user?.info?.customerName,
+                    user?.info?.email,
+                ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
+
+                const sessionUser = this.multiAccountService.getItem('user');
+                const currentIdentifiers = [
+                    this.user?.name,
+                    this.user?.email,
+                    this.multiAccountService.getItem('username'),
+                    this.multiAccountService.getItem('email'),
+                    sessionUser?.name,
+                    sessionUser?.username,
+                    sessionUser?.email,
+                    this.multiAccountService.currentAccountId,
+                ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
+
+                const hasValidKey = !!(user?.licenseKey || user?.appToken);
+                const isMatch = hasValidKey || activeOwners.length === 0 || currentIdentifiers.length === 0 ||
+                    currentIdentifiers.some((id) => activeOwners.includes(id));
+                if (!isMatch) {
+                    isOwnerMismatch = true;
+                }
+            } catch (e) {
+                isFreeLicense = true;
+            }
+
+            if (isLicenseKeyExpired === true || isFreeLicense || isOwnerMismatch) {
+                if (this.router.url && this.router.url !== '/' && !this.router.url.includes('settings') && !this.router.url.includes('sign-in') && !this.router.url.includes('sign-out') && !this.router.url.includes('app')) {
+                    this.router.navigate(['/settings'], {
+                        queryParams: {
+                            tab: 'active',
+                        },
+                    });
+                }
+            } else {
+                // Phần mềm đã được kích hoạt
+                if (this.intervalId) {
+                    clearInterval(this.intervalId);
+                }
+
+                // Tự động đồng bộ với server để lấy trạng thái mới nhất
+                this.syncActiveInfo(activeInfo);
+            }
+        } else {
+            if (this.router.url && this.router.url !== '/' && !this.router.url.includes('settings') && !this.router.url.includes('sign-in') && !this.router.url.includes('sign-out') && !this.router.url.includes('app')) {
+                this.router.navigate(['/settings'], {
+                    queryParams: {
+                        tab: 'active',
+                    },
+                });
+            }
         }
     }
 
@@ -111,10 +191,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         this.lastSyncTime = now;
 
         const du = new DeviceUUID().parse();
+        const syncUsername = activeInfoObj.user.username || activeInfoObj.user.info?.customerName || this.user.name;
+        const syncEmail = activeInfoObj.user.email || activeInfoObj.user.info?.email || this.user.email;
+
         this._licenseKeyService
             .activate({
-                username: this.user.name,
-                email: this.user.email,
+                username: syncUsername,
+                email: syncEmail,
                 machine: {
                     uuid: this.uuid,
                     du: du,
@@ -135,6 +218,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                                 'active_info',
                                 newActiveInfo,
                             );
+                            try {
+                                localStorage.setItem('active_info', newActiveInfo);
+                                localStorage.setItem('ai_type_backup_active_info', newActiveInfo);
+                            } catch (e) {}
                             if ((window as any).electron) {
                                 await (window as any).electron.invoke(
                                     'register-license',
@@ -142,22 +229,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                                 );
                             }
                         }
-                    } else if (
-                        result &&
-                        result.success === false &&
-                        result.status === 403
-                    ) {
-                        // Key trên server đã bị xóa hoặc không hợp lệ -> Xóa bộ nhớ tạm và bắt nhập lại
-                        await this.multiAccountService.removeItem(
-                            'active_info',
-                        );
-                        this.router.navigate(['/settings'], {
-                            queryParams: { tab: 'active' },
-                        });
-                        this._translocoService
-                            .selectTranslate('app.software_not_activated')
-                            .pipe(take(1))
-                            .subscribe((t) => this.error(t));
                     }
                 },
                 error: (err) => {
@@ -269,9 +340,11 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 (window as any).electron.invoke('register-license', activeInfo);
             }
 
-            // Đã tắt logic kiểm tra và thông báo kích hoạt phần mềm từ Electron
+            // Lắng nghe lệnh force-renewal từ main.js
             (window as any).electron.onForceRenewal(() => {
-                // Tắt thông báo hết hạn bản quyền
+                this.router.navigate(['/settings'], {
+                    queryParams: { tab: 'active' },
+                });
             });
 
             (window as any).electron.onToolsResponse((data: any) => {

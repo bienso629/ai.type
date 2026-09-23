@@ -94,16 +94,16 @@ export class MXHAutoService {
             }
         } catch (e) {}
 
-        // Nếu plugin 100 TikTokers được bật hoặc cấu hình mxhauto trỏ local thì ưu tiên localhost:8000
+        // Ưu tiên 1: Nếu plugin 100 TikTokers được bật -> Dùng cổng cục bộ localhost:8000 của plugin
         if (settings.tiktokPluginEnabled) {
             return 'http://localhost:8000';
         }
 
-        let base = (settings.mxhauto || (this.config && this.config.settings && this.config.settings.mxhauto))
-            ? String(settings.mxhauto || this.config.settings.mxhauto).trim()
-            : 'http://localhost:8000';
+        // Ưu tiên 2: Nếu không bật plugin 100 TikTokers -> Chỉ dùng cấu hình 'Tự động chơi Tiktok' (mxhauto) nếu có cấu hình
+        const rawMxhauto = settings.mxhauto || (this.config && this.config.settings && this.config.settings.mxhauto);
+        let base = rawMxhauto ? String(rawMxhauto).trim() : '';
         if (!base || base === 'undefined' || base === 'null' || base === 'http://localhost:404') {
-            base = 'http://localhost:8000';
+            return '';
         }
         if (!/^https?:\/\//i.test(base)) {
             base = `http://${base}`;

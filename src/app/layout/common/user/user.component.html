@@ -5,42 +5,44 @@
         [matMenuTriggerFor]="userActions"
         class="!w-10 !h-10 !p-1 flex items-center justify-center relative overflow-visible"
     >
-        <div class="relative w-8 h-8 mx-auto my-auto rounded-full">
-            @if (user.avatar && user.avatar !== "https://type.vnnull" && !avatarLoadFailed) {
-                <img
-                    class="absolute inset-0 z-10 w-full h-full rounded-full object-cover transition-all"
-                    [ngClass]="{
-                        'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]':
-                            isAiAgentEnabled,
-                    }"
-                    [src]="user.avatar"
-                    alt="{{ user.name }}"
-                    (error)="onAvatarError()"
-                />
-            }
-            @if (!user.avatar || user.avatar === "https://type.vnnull" || avatarLoadFailed) {
+        @if (showAvatar) {
+            <div class="relative w-8 h-8 mx-auto my-auto rounded-full">
+                @if (user.avatar && !avatarLoadFailed) {
+                    <img
+                        class="absolute inset-0 z-10 w-full h-full rounded-full object-cover transition-all"
+                        [ngClass]="{
+                            'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]':
+                                isAiAgentEnabled,
+                        }"
+                        [src]="user.avatar"
+                        alt="{{ user.name }}"
+                        (error)="onAvatarError()"
+                    />
+                }
+                @if (!user.avatar || avatarLoadFailed) {
+                    <div
+                        class="absolute inset-0 z-10 flex items-center justify-center w-full h-full rounded-full text-sm font-semibold uppercase bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 transition-all"
+                        [ngClass]="{
+                            'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]':
+                                isAiAgentEnabled,
+                        }"
+                    >
+                        {{ user.name?.charAt(0) || user.email?.charAt(0) || 'U' }}
+                    </div>
+                }
+                <!-- Status Dot (Aligned perfectly with the avatar circle) -->
                 <div
-                    class="absolute inset-0 z-10 flex items-center justify-center w-full h-full rounded-full text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200 transition-all"
+                    class="absolute right-0 bottom-0 w-2.5 h-2.5 rounded-full border border-white z-20"
                     [ngClass]="{
-                        'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]':
-                            isAiAgentEnabled,
+                        'bg-green-500': user.status === 'online',
+                        'bg-amber-500': user.status === 'away',
+                        'bg-red-500': user.status === 'busy',
+                        'bg-gray-400': user.status === 'not-visible',
                     }"
-                >
-                    {{ user.name?.charAt(0) || user.email?.charAt(0) || 'U' }}
-                </div>
-            }
-            <!-- Status Dot (Aligned perfectly with the avatar circle) -->
-            <div
-                class="absolute right-0 bottom-0 w-2.5 h-2.5 rounded-full border border-white z-20"
-                [ngClass]="{
-                    'bg-green-500': user.status === 'online',
-                    'bg-amber-500': user.status === 'away',
-                    'bg-red-500': user.status === 'busy',
-                    'bg-gray-400': user.status === 'not-visible',
-                }"
-            ></div>
-        </div>
-        @if (!showAvatar || !user.avatar) {
+                ></div>
+            </div>
+        }
+        @if (!showAvatar) {
             <mat-icon [svgIcon]="'heroicons_outline:user-circle'"></mat-icon>
         }
     </button>

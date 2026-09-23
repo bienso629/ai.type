@@ -299,9 +299,29 @@ export class AuthUtils {
         };
 
         // Calculate the issued at and expiration dates
-        const date = new Date(data.expirationDate);
-        const iat = Math.floor(date.getTime() / 1000);
-        const exp = Math.floor((date.setDate(date.getDate() + 7)) / 1000);
+        let date: Date;
+        if (typeof data.expirationDate === 'number') {
+            date = new Date(data.expirationDate > 1e11 ? data.expirationDate : data.expirationDate * 1000);
+        } else if (typeof data.expirationDate === 'string') {
+            date = new Date(data.expirationDate);
+            if (isNaN(date.getTime())) {
+                const parts = data.expirationDate.split(/[\/\- :]/);
+                if (parts.length >= 3) {
+                    // Try DD/MM/YYYY
+                    date = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+                }
+            }
+        } else {
+            date = new Date();
+        }
+
+        if (isNaN(date.getTime())) {
+            date = new Date();
+            date.setDate(date.getDate() + 30);
+        }
+
+        const iat = Math.floor(Date.now() / 1000);
+        const exp = Math.floor((date.getTime() + 7 * 24 * 60 * 60 * 1000) / 1000);
 
         // Define token payload
         const payload = {
@@ -385,7 +405,20 @@ export class AuthUtils {
      * @param offsetSeconds
      */
     static isLicenseKeyExpired(token: string, offsetSeconds?: number): boolean {
-        // Luôn trả về false để vô hiệu hóa kiểm tra hết hạn phần mềm
-        return false;
+        // Return if there is no token
+        if (!token || token === '') {
+            return true;
+        }
+
+        // Get the expiration date
+        const date = this._getTokenExpirationDate(token);
+        offsetSeconds = offsetSeconds || 0;
+
+        if (date === null) {
+            return true;
+        }
+
+        // Check if the token is expired
+        return !(date.valueOf() > new Date().valueOf() + offsetSeconds * 1000);
     }
 }

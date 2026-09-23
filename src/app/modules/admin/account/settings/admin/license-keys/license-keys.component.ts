@@ -287,8 +287,10 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
             expirationDate: expirationDate.toISOString()
         };
 
+        const targetUsername = this.currentExtendRow?.info?.email || this.currentExtendRow?.info?.customerName || this.user.name;
         this._licenseKeyService.extend({
-            username: this.user.name,
+            username: targetUsername,
+            owner: this.user.name,
             licenseInfo: licenseInfo
         })
         .pipe(takeUntil(this._unsubscribeAll))

@@ -87,22 +87,44 @@ export class MultiAccountService {
         this.currentSessionData[key] = value;
         this.activeAccountSubject.next(this.currentSessionData);
 
-        if (this.currentAccountId) {
-            // Debounce ghi DB và mã hóa AES (Rất nặng CPU) để tránh lag khi gọi setItem liên tục
-            if (this.saveTimeout) {
-                clearTimeout(this.saveTimeout);
-            }
-            this.saveTimeout = setTimeout(() => {
-                this.saveToBackground();
-            }, 500);
+        // Đảm bảo luôn lưu xuống Storage ngay cả khi chưa gán currentAccountId
+        if (!this.currentAccountId) {
+            const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
+            this.currentAccountId = userObj?.email || userObj?.username || userObj?.name || 'default_user';
+            localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
         }
+
+        // Lưu bản backup cô lập theo từng accountId riêng biệt
+        if (key === 'active_info' && this.currentAccountId) {
+            try {
+                localStorage.setItem(`ai_type_active_info_${this.currentAccountId}`, typeof value === 'string' ? value : JSON.stringify(value));
+            } catch (e) {}
+        }
+
+        // Debounce ghi DB và mã hóa AES (Rất nặng CPU) để tránh lag khi gọi setItem liên tục
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+        }
+        this.saveTimeout = setTimeout(() => {
+            this.saveToBackground();
+        }, 500);
     }
 
     /**
      * Thay thế cho localStorage.getItem(key)
      */
     getItem(key: string): any {
-        return this.currentSessionData[key] !== undefined ? this.currentSessionData[key] : null;
+        if (this.currentSessionData[key] !== undefined && this.currentSessionData[key] !== null) {
+            return this.currentSessionData[key];
+        }
+        if (key === 'active_info' && this.currentAccountId) {
+            const backup = localStorage.getItem(`ai_type_active_info_${this.currentAccountId}`);
+            if (backup && backup !== 'null' && backup !== 'undefined') {
+                this.currentSessionData[key] = backup;
+                return backup;
+            }
+        }
+        return null;
     }
 
     /**
@@ -110,15 +132,23 @@ export class MultiAccountService {
      */
     async removeItem(key: string): Promise<void> {
         delete this.currentSessionData[key];
-        
-        if (this.currentAccountId) {
-            if (this.saveTimeout) {
-                clearTimeout(this.saveTimeout);
-            }
-            this.saveTimeout = setTimeout(() => {
-                this.saveToBackground();
-            }, 500);
+        if (key === 'active_info' && this.currentAccountId) {
+            localStorage.removeItem(`ai_type_active_info_${this.currentAccountId}`);
         }
+        this.activeAccountSubject.next(this.currentSessionData);
+        
+        if (!this.currentAccountId) {
+            const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
+            this.currentAccountId = userObj?.email || userObj?.username || userObj?.name || 'default_user';
+            localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
+        }
+
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+        }
+        this.saveTimeout = setTimeout(() => {
+            this.saveToBackground();
+        }, 500);
     }
 
     /**
@@ -175,7 +205,11 @@ export class MultiAccountService {
      * Lưu ngầm dữ liệu từ Cache xuống IndexedDB
      */
     private async saveToBackground(): Promise<void> {
-        if (!this.currentAccountId) return;
+        if (!this.currentAccountId) {
+            const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
+            this.currentAccountId = userObj?.email || userObj?.username || userObj?.name || 'default_user';
+            localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
+        }
         
         await this.safeDbCall(async () => {
             const encrypted = this.encryptData(this.currentSessionData);
@@ -216,10 +250,18 @@ export class MultiAccountService {
                 activeRecord = await db.sessions.where('isActive').equals(1).first();
             }
 
+            if (!activeRecord) {
+                activeRecord = await db.sessions.toCollection().first();
+                if (activeRecord) {
+                    await db.sessions.update(activeRecord.id, { isActive: 1 });
+                    activeRecord.isActive = 1;
+                }
+            }
+
             if (activeRecord && activeRecord.encryptedData) {
                 this.currentAccountId = activeRecord.id;
                 localStorage.setItem('ai_type_active_account_id', activeRecord.id);
-                this.currentSessionData = this.decryptData(activeRecord.encryptedData) || {};
+                this.currentSessionData = this.decryptData(activeRecord.encryptedData, activeRecord.id) || {};
                 
                 const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
                 const uname = userObj?.name || userObj?.username || this.currentAccountId;
@@ -229,8 +271,8 @@ export class MultiAccountService {
                 return this.currentSessionData;
             }
             
-            this.currentAccountId = null;
-            localStorage.removeItem('ai_type_active_account_id');
+            this.currentAccountId = 'default_user';
+            localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
             this.currentSessionData = {};
             this.syncActiveUserWithElectron(null);
             this.activeAccountSubject.next(null);
@@ -265,14 +307,14 @@ export class MultiAccountService {
         let existingData = await this.safeDbCall(async () => {
             const existingRecord = await db.sessions.get(accountId);
             if (existingRecord && existingRecord.encryptedData) {
-                return this.decryptData(existingRecord.encryptedData) || {};
+                return this.decryptData(existingRecord.encryptedData, accountId) || {};
             }
             return {};
         }, {});
 
         // Giữ lại accessToken nếu có trong existingData hoặc currentSessionData mà rawData không truyền
         const preservedToken = rawData.accessToken || existingData.accessToken || this.currentSessionData?.accessToken;
-        this.currentSessionData = { ...existingData, ...rawData }; 
+        this.currentSessionData = this.sanitizeAccountData(accountId, { ...existingData, ...rawData }); 
         if (preservedToken) {
             this.currentSessionData.accessToken = preservedToken;
         }
@@ -298,7 +340,7 @@ export class MultiAccountService {
             return allRecords
                 .filter(record => record != null)
                 .map(record => {
-                    const data = this.decryptData(record?.encryptedData || '');
+                    const data = this.decryptData(record?.encryptedData || '', record?.id);
                     return {
                         id: record?.id,
                         isActive: record?.isActive === 1,
@@ -321,7 +363,7 @@ export class MultiAccountService {
             
             this.currentAccountId = accountId;
             localStorage.setItem('ai_type_active_account_id', accountId);
-            this.currentSessionData = this.decryptData(targetAccount.encryptedData) || {};
+            this.currentSessionData = this.decryptData(targetAccount.encryptedData, accountId) || {};
             const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
             const uname = userObj?.name || userObj?.username || this.currentAccountId;
             this.syncActiveUserWithElectron(uname);
@@ -357,6 +399,51 @@ export class MultiAccountService {
     // 4. CÁC HÀM MÃ HÓA & GIẢI MÃ
     // ==========================================
     
+    private sanitizeAccountData(accountId: string, data: any): any {
+        if (!data) return data;
+        const userObj = data.user || data.profile;
+        const username = userObj?.name || userObj?.username || '';
+        const email = userObj?.email || accountId || '';
+
+        const isAdmin = (
+            email === 'noreply.typing.vn@gmail.com' ||
+            username === 'admin' ||
+            (Array.isArray(userObj?.groups) && userObj.groups.includes('lập-trình-ai-type'))
+        );
+
+        if (!isAdmin && data.settings) {
+            // Kiểm tra nếu settings đang chứa dấu hiệu của admin (SMTP typevn, nodebb admin token...)
+            const s = data.settings;
+            const hasAdminSignature = (
+                s.emailConfig_smtpUser === 'typevn@gmail.com' ||
+                s.emailConfig_nodebbToken === '001780c4-1e43-4e42-be0b-9a998e13715a' ||
+                (s.secretKey && s.secretKey.includes('AIzaSyCMje8tT-29bmn314Mu1Lb2T-ddgTB7EpU'))
+            );
+
+            if (hasAdminSignature) {
+                // Xoá triệt để các cấu hình nhạy cảm bị lây chéo từ admin
+                delete s.secretKey;
+                delete s.umodelverseKey;
+                delete s.umodelverseUrl;
+                delete s.umodelverseChatModel;
+                delete s.umodelverseImageModel;
+                delete s.umodelverseVideoModel;
+                delete s.chatbot;
+                delete s.emailConfig_nodebbUrl;
+                delete s.emailConfig_nodebbToken;
+                delete s.emailConfig_smtpHost;
+                delete s.emailConfig_smtpPort;
+                delete s.emailConfig_smtpUser;
+                delete s.emailConfig_smtpPass;
+                delete s.typelite_plugin;
+                delete s.downloader_plugin;
+                delete s.port;
+                s.enableUmodelverse = false;
+            }
+        }
+        return data;
+    }
+
     private encryptData(data: any): string {
         try {
             const jsonStr = JSON.stringify(data);
@@ -367,12 +454,16 @@ export class MultiAccountService {
         }
     }
 
-    private decryptData(encryptedStr: string): any {
+    public decryptData(encryptedStr: string, accountId?: string): any {
         if (!encryptedStr) return null;
         try {
             const bytes = CryptoJS.AES.decrypt(encryptedStr, SECRET_KEY);
             const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
-            return JSON.parse(decryptedStr);
+            let parsed = JSON.parse(decryptedStr);
+            if (accountId) {
+                parsed = this.sanitizeAccountData(accountId, parsed);
+            }
+            return parsed;
         } catch (error) {
             console.error('Lỗi giải mã dữ liệu tài khoản! Có thể sai SECRET_KEY.', error);
             return null;

@@ -56,14 +56,18 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
         const appId = (user.appId || this.activeInfo.appId || '').toLowerCase();
         const plan = (user.plan || user.type || this.activeInfo.plan || this.activeInfo.type || '').toLowerCase();
         const customerName = (user.info?.customerName || '').toLowerCase();
-        const customerEmail = String(user.info?.email || '').trim().toLowerCase();
 
-        // 1. Kiểm tra từ khóa free
+        // 1. Nếu đã có licenseKey hoặc appToken chính thức từ server -> Hợp lệ, không phải free
+        if (user.licenseKey || user.appToken) {
+            return false;
+        }
+
+        // 2. Kiểm tra từ khóa free trực tiếp khi chưa có key chính thức
         if (appId.includes('free') || plan.includes('free') || customerName.includes('miễn phí') || customerName.includes('free')) {
             return true;
         }
 
-        // 2. License Key chính hãng có email hợp lệ đính kèm (không phải rỗng hoặc '0')
+        const customerEmail = String(user.info?.email || '').trim().toLowerCase();
         if (!customerEmail || customerEmail === '0' || !customerEmail.includes('@')) {
             return true;
         }
@@ -162,16 +166,33 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                 .subscribe({
                     next: async (result) => {
                         if (result && result.success && result.data) {
+                            // Gắn định danh tài khoản kích hoạt vào data để không bao giờ bị owner mismatch
+                            const activatedDoc = {
+                                ...result.data,
+                                username: result.data.username || username,
+                                email: result.data.email || email,
+                                info: {
+                                    ...(result.data.info || {}),
+                                    customerName: result.data.info?.customerName || username,
+                                    email: result.data.info?.email || email
+                                }
+                            };
+
                             const activeInfo = AuthUtils._generateActiveInfo(
-                                result.data,
+                                activatedDoc,
                                 this.uuid,
                             );
 
                             if (activeInfo) {
+                                await this.multiAccountService.removeItem('token_mismatch');
                                 await this.multiAccountService.setItem(
                                     'active_info',
                                     activeInfo,
                                 );
+                                try {
+                                    localStorage.setItem('active_info', activeInfo);
+                                } catch (e) {}
+                                await this.multiAccountService.forceSave();
                                 this.activeInfo =
                                     AuthUtils._getActiveInfo(activeInfo);
                                 if ((window as any).electron) {
@@ -181,6 +202,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                                     );
                                 }
                             }
+                            this.refreshActiveInfo();
                             this._cdr.detectChanges();
 
                             this.toastr.success(
@@ -189,10 +211,11 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                                 ),
                             );
 
-                            // Cần delay một chút để ghi PouchDB hoàn tất trước khi restart
                             if (relaunchApp && (window as any).electron) {
                                 await this.multiAccountService.forceSave();
-                                (window as any).electron.relaunchApp();
+                                setTimeout(() => {
+                                    (window as any).electron.relaunchApp();
+                                }, 1200);
                             }
                         } else {
                             const errorMsg = result?.message || result?.error || this._translocoService.translate('app.key_invalid');
@@ -281,14 +304,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             `kích hoạt phần mềm | ai.type - công cụ tạo content`,
         );
 
-        const activeInfoStr = this.multiAccountService.getItem('active_info');
-        if (
-            activeInfoStr &&
-            activeInfoStr != 'null' &&
-            activeInfoStr != 'undefined'
-        ) {
-            this.activeInfo = AuthUtils._getActiveInfo(activeInfoStr);
-        }
+        this.refreshActiveInfo();
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -339,13 +355,51 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     }
 
     private refreshActiveInfo(): void {
+        const isMismatch = this.multiAccountService.getItem('token_mismatch');
+        if (isMismatch === true || isMismatch === 'true') {
+            this.activeInfo = {};
+            this._cdr.markForCheck();
+            return;
+        }
+
         const activeInfoStr = this.multiAccountService.getItem('active_info');
         if (
             activeInfoStr &&
             activeInfoStr != 'null' &&
             activeInfoStr != 'undefined'
         ) {
-            this.activeInfo = AuthUtils._getActiveInfo(activeInfoStr);
+            const parsed = AuthUtils._getActiveInfo(activeInfoStr);
+            const userObj = parsed?.user;
+            
+            const activeOwners = [
+                userObj?.username,
+                userObj?.name,
+                userObj?.email,
+                userObj?.info?.customerName,
+                userObj?.info?.email,
+            ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
+
+            const sessionUser = this.multiAccountService.getItem('user');
+            const currentIdentifiers = [
+                this.user?.name,
+                this.user?.email,
+                this.multiAccountService.getItem('username'),
+                this.multiAccountService.getItem('email'),
+                sessionUser?.name,
+                sessionUser?.username,
+                sessionUser?.email,
+                this.multiAccountService.currentAccountId,
+            ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
+
+            const hasValidKey = !!(userObj?.licenseKey || userObj?.appToken);
+            const isMatch = hasValidKey || activeOwners.length === 0 || currentIdentifiers.length === 0 ||
+                currentIdentifiers.some((id) => activeOwners.includes(id));
+
+            if (parsed && parsed.user && !isMatch) {
+                this.activeInfo = {};
+            } else {
+                this.activeInfo = parsed || {};
+            }
         } else {
             this.activeInfo = {};
         }

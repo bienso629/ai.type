@@ -14,15 +14,20 @@ export class FuseSplashScreenService
         private _router: Router
     )
     {
-        // Hide it on the first NavigationEnd event
+        // Hide it on the first NavigationEnd, NavigationCancel or NavigationError event
         this._router.events
             .pipe(
-                filter(event => event instanceof NavigationEnd),
+                filter(event => event instanceof NavigationEnd || (event as any).constructor?.name === 'NavigationCancel' || (event as any).constructor?.name === 'NavigationError'),
                 take(1)
             )
             .subscribe(() => {
                 this.hide();
             });
+
+        // Safety fallback: Tự động ẩn splash screen sau 2.5 giây tránh trường hợp router bị kẹt
+        setTimeout(() => {
+            this.hide();
+        }, 2500);
     }
 
     // -----------------------------------------------------------------------------------------------------
