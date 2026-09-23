@@ -1197,7 +1197,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         renderRafId = requestAnimationFrame(renderLoop);
 
         try {
-            console.log('[Chatbot] Đang gửi câu hỏi lên AI Agent (sontinh.type.vn) với dữ liệu FAISS cục bộ...');
+            console.log('[Chatbot] Đang gửi câu hỏi lên AI Agent (agent.type.vn) với dữ liệu FAISS cục bộ...');
             const sysInstruction = `Bạn là Trợ lý AI chuyên nghiệp phân tích và hỏi đáp tài liệu. Hãy trả lời câu hỏi của người dùng một cách mạch lạc, chi tiết, chính xác dựa trên các thông tin tài liệu đã trích xuất bên dưới:`;
 
             const response = await this._genaiService.generateContent(
@@ -1265,7 +1265,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             if (renderRafId) cancelAnimationFrame(renderRafId);
 
             console.error('[Chatbot AI Agent Error]:', err);
-            fullText = `<span class="text-red-500 font-medium">Lỗi phản hồi từ AI Agent (sontinh.type.vn): ${err?.message || err}</span>`;
+            fullText = `<span class="text-red-500 font-medium">Lỗi phản hồi từ AI Agent (agent.type.vn): ${err?.message || err}</span>`;
             bubble.innerHTML = fullText;
             botMessage[3] = fullText;
             this.renderMessages(this.currentMessages);

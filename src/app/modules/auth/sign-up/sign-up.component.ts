@@ -1,4 +1,5 @@
 import {
+    ChangeDetectorRef,
     Component,
     OnDestroy,
     OnInit,
@@ -57,6 +58,7 @@ export class AuthSignUpComponent implements OnInit, OnDestroy {
         private _userClientService: UserClientService,
         private _forumService: ForumService,
         private multiAccountService: MultiAccountService,
+        private _changeDetectorRef: ChangeDetectorRef,
     ) {}
 
     ngOnDestroy(): void {
@@ -92,6 +94,7 @@ export class AuthSignUpComponent implements OnInit, OnDestroy {
                     }
                     return acc;
                 });
+                this._changeDetectorRef.markForCheck();
             }
         });
     }
