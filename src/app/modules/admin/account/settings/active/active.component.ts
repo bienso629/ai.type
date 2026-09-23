@@ -184,6 +184,14 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                             );
 
                             if (activeInfo) {
+                                if (email && (!this.multiAccountService.currentAccountId || this.multiAccountService.currentAccountId === 'default_user')) {
+                                    this.multiAccountService.currentAccountId = email;
+                                }
+                                if (this.multiAccountService.currentAccountId) {
+                                    try {
+                                        localStorage.setItem('ai_type_active_account_id', this.multiAccountService.currentAccountId);
+                                    } catch (e) {}
+                                }
                                 await this.multiAccountService.removeItem('token_mismatch');
                                 await this.multiAccountService.setItem(
                                     'active_info',
@@ -212,6 +220,11 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                             );
 
                             if (relaunchApp && (window as any).electron) {
+                                if (this.multiAccountService.currentAccountId) {
+                                    try {
+                                        localStorage.setItem('ai_type_active_account_id', this.multiAccountService.currentAccountId);
+                                    } catch (e) {}
+                                }
                                 await this.multiAccountService.forceSave();
                                 setTimeout(() => {
                                     (window as any).electron.relaunchApp();
@@ -245,35 +258,38 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result) => {
-                    if (
-                        result &&
-                        result.success &&
-                        result.data &&
-                        result.data.success &&
-                        result.data.licenseKey
-                    ) {
+                    const rawKey =
+                        result?.data?.licenseKey ||
+                        result?.licenseKey ||
+                        result?.data?.data?.licenseKey ||
+                        (typeof result?.data === 'string' ? result.data : '');
+
+                    const cleanKey = String(rawKey || '')
+                        .toUpperCase()
+                        .replace(/[\s~`!@#$%^&*(){}\[\];:"'<,.>?\/\\|_+=-]/g, '');
+
+                    const isSuccess =
+                        (result?.success || result?.data?.success) && cleanKey.length >= 30;
+
+                    if (isSuccess) {
                         this.toastr.success(
                             'Khôi phục thành công! Đang kích hoạt...',
                         );
-                        // Điền vào form và tự động submit
-                        const key = result.data.licenseKey.replace(/-/g, '');
-                        if (key.length === 30) {
-                            this.activeForm.patchValue({
-                                licensekey1: key.substring(0, 5),
-                                licensekey2: key.substring(5, 10),
-                                licensekey3: key.substring(10, 15),
-                                licensekey4: key.substring(15, 20),
-                                licensekey5: key.substring(20, 25),
-                                licensekey6: key.substring(25, 30),
-                            });
-                            this.save();
-                        }
+                        // Điền vào form chuẩn xác bằng onDigitPaste
+                        this.onDigitPaste({
+                            clipboardData: { getData: () => cleanKey },
+                        });
+
+                        // Tự động kích hoạt lại và reload ứng dụng
+                        setTimeout(() => {
+                            this.save(true);
+                        }, 500);
                     } else {
-                        this.toastr.error(
+                        const errorMsg =
                             result?.data?.message ||
-                                result?.message ||
-                                'Không tìm thấy gói đăng ký nào.',
-                        );
+                            result?.message ||
+                            'Không tìm thấy gói đăng ký hoặc license key hợp lệ.';
+                        this.toastr.error(errorMsg);
                     }
                 },
                 error: (err) => {

@@ -187,19 +187,21 @@ export class AIToolsComponent implements OnInit, OnDestroy {
                     : false;
 
                 const tiktok = list.find((p: any) => p.id === 'tiktok_100');
-                this.isTiktokPluginActive = tiktok
-                    ? tiktok.installed && tiktok.enabled
-                    : !!settings.tiktokPluginEnabled;
+                const isTiktokEnabled = tiktok ? (tiktok.installed ? (tiktok.installed && tiktok.enabled) : tiktok.enabled) : false;
+                const hasMxhauto = !!(settings.mxhauto && String(settings.mxhauto).trim() !== '' && String(settings.mxhauto).trim() !== 'http://localhost:404');
+                this.isTiktokPluginActive = isTiktokEnabled || !!settings.tiktokPluginEnabled || hasMxhauto;
             } catch (e) {
                 this.isZaloInstalled = false;
                 this.isZaloRunningBackground = false;
-                this.isTiktokPluginActive = !!settings.tiktokPluginEnabled;
+                const hasMxhauto = !!(settings.mxhauto && String(settings.mxhauto).trim() !== '' && String(settings.mxhauto).trim() !== 'http://localhost:404');
+                this.isTiktokPluginActive = !!settings.tiktokPluginEnabled || hasMxhauto;
             }
         } else {
             // Trên môi trường web/không có electronAPI, không có binary zalo nên tắt hoàn toàn
             this.isZaloInstalled = false;
             this.isZaloRunningBackground = false;
-            this.isTiktokPluginActive = !!settings.tiktokPluginEnabled;
+            const hasMxhauto = !!(settings.mxhauto && String(settings.mxhauto).trim() !== '' && String(settings.mxhauto).trim() !== 'http://localhost:404');
+            this.isTiktokPluginActive = !!settings.tiktokPluginEnabled || hasMxhauto;
         }
         this.cd.detectChanges();
     }

@@ -173,7 +173,7 @@ export class LicenseKeyService {
 
         return this.http.post<any>(url, data, options).pipe(
             map(data => {
-                return data;
+                return this.decodeIfEncrypted(data);
             }),
             tap(_ => {
                 // this.log('restore');
