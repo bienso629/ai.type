@@ -8,7 +8,7 @@ import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
 import { Observable, Subject, of } from 'rxjs';
-import { catchError, tap, map, takeUntil } from 'rxjs/operators';
+import { catchError, tap, map, takeUntil, switchMap } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
 let options = {
@@ -115,12 +115,8 @@ export class LicenseKeyService {
     }
 
     public activate(dataForm: any): Observable<any> {
-        // let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
-        // activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
-
         dataForm.year = this.year;
         dataForm.appId = 'ai.typing';
-        // dataForm.appToken = activeInfo['user']['appToken'];
 
         const url = `${this.getServerUrl()}/licensekey/activate`;
 

@@ -241,7 +241,7 @@
 
         <!-- Content -->
         <div
-            class="relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card"
+            class="relative flex flex-col flex-auto divide-y overflow-hidden bg-card"
         >
             <ngx-datatable
                 [appScrollLock]="isLoading"
@@ -687,6 +687,7 @@
                                 </div>
                             </div>
                         }
+                        <div #chatBottomAnchor id="chatBottomAnchor" class="h-0 w-full shrink-0 pointer-events-none"></div>
                     </div>
                     <!-- Input section -->
                     <div

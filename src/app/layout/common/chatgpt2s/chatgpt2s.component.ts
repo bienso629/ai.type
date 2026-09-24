@@ -58,15 +58,21 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     @ViewChild('chatgptOrigin') private _chatgptOrigin: MatButton;
     @ViewChild('chatgptPanel') private _chatgptPanel: TemplateRef<any>;
 
-    scrollToBottom() {
+    scrollToBottom(immediate: boolean = false) {
         this._doScroll();
-        setTimeout(() => this._doScroll(), 100);
+        requestAnimationFrame(() => this._doScroll());
+        setTimeout(() => this._doScroll(), 50);
+        setTimeout(() => this._doScroll(), 150);
         setTimeout(() => this._doScroll(), 300);
         setTimeout(() => this._doScroll(), 600);
     }
 
     private _doScroll() {
         try {
+            const anchor = document.getElementById('chatBottomAnchor');
+            if (anchor && typeof anchor.scrollIntoView === 'function') {
+                anchor.scrollIntoView({ behavior: 'auto', block: 'end' });
+            }
             const el = document.getElementById('chatMessageList');
             if (el) {
                 el.scrollTop = el.scrollHeight;
