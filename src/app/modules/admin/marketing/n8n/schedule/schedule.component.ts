@@ -27,10 +27,12 @@ import { AppConfig } from 'app/core/config/app.config';
 import { BlogService } from 'app/_services/blog';
 import { ToastrService } from 'ngx-toastr';
 import {
-    ITimelineItem,
     TimelineComponent,
-    IItemTimeChangedEvent,
     TimelineViewMode,
+} from "angular-calendar-timeline";
+import type {
+    ITimelineItem,
+    IItemTimeChangedEvent,
 } from "angular-calendar-timeline";
 import localeVi from "@angular/common/locales/vi";
 import { registerLocaleData } from '@angular/common';
