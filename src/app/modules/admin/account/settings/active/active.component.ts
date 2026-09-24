@@ -184,14 +184,12 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                             );
 
                             if (activeInfo) {
-                                if (email && (!this.multiAccountService.currentAccountId || this.multiAccountService.currentAccountId === 'default_user')) {
-                                    this.multiAccountService.currentAccountId = email;
-                                }
-                                if (this.multiAccountService.currentAccountId) {
-                                    try {
-                                        localStorage.setItem('ai_type_active_account_id', this.multiAccountService.currentAccountId);
-                                    } catch (e) {}
-                                }
+                                const targetAccountId = email || this.multiAccountService.currentAccountId || 'default_user';
+                                this.multiAccountService.currentAccountId = targetAccountId;
+                                try {
+                                    localStorage.setItem('ai_type_active_account_id', targetAccountId);
+                                } catch (e) {}
+
                                 await this.multiAccountService.removeItem('token_mismatch');
                                 await this.multiAccountService.setItem(
                                     'active_info',
@@ -220,9 +218,10 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                             );
 
                             if (relaunchApp && (window as any).electron) {
-                                if (this.multiAccountService.currentAccountId) {
+                                const targetAccountId = email || this.multiAccountService.currentAccountId;
+                                if (targetAccountId) {
                                     try {
-                                        localStorage.setItem('ai_type_active_account_id', this.multiAccountService.currentAccountId);
+                                        localStorage.setItem('ai_type_active_account_id', targetAccountId);
                                     } catch (e) {}
                                 }
                                 await this.multiAccountService.forceSave();
@@ -269,16 +268,28 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                         .replace(/[\s~`!@#$%^&*(){}\[\];:"'<,.>?\/\\|_+=-]/g, '');
 
                     const isSuccess =
-                        (result?.success || result?.data?.success) && cleanKey.length >= 30;
+                        (result?.success || result?.data?.success) && cleanKey.length >= 25;
 
                     if (isSuccess) {
                         this.toastr.success(
                             'Khôi phục thành công! Đang kích hoạt...',
                         );
-                        // Điền vào form chuẩn xác bằng onDigitPaste
-                        this.onDigitPaste({
-                            clipboardData: { getData: () => cleanKey },
-                        });
+                        // Điền vào form theo khối gạch ngang hoặc fallback qua paste
+                        const parts = String(rawKey || '').trim().split('-');
+                        if (parts.length === 6) {
+                            this.activeForm.setValue({
+                                licensekey1: parts[0].toUpperCase(),
+                                licensekey2: parts[1].toUpperCase(),
+                                licensekey3: parts[2].toUpperCase(),
+                                licensekey4: parts[3].toUpperCase(),
+                                licensekey5: parts[4].toUpperCase(),
+                                licensekey6: parts[5].toUpperCase(),
+                            });
+                        } else {
+                            this.onDigitPaste({
+                                clipboardData: { getData: () => cleanKey },
+                            });
+                        }
 
                         // Tự động kích hoạt lại và reload ứng dụng
                         setTimeout(() => {

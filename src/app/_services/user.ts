@@ -185,7 +185,7 @@ export class UserClientService {
         dataForm.appToken = appToken;
 
         const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
-        const targetUsername = (dataForm && (dataForm.username || dataForm.name)) || sessionUser?.name || activeOwner;
+        const targetUsername = activeOwner || (dataForm && (dataForm.username || dataForm.name)) || sessionUser?.name;
         dataForm.username = targetUsername;
         dataForm.name = targetUsername;
 
@@ -271,7 +271,7 @@ export class UserClientService {
         dataForm.appToken = appToken;
 
         const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
-        const targetUsername = (dataForm && (dataForm.name || dataForm.username)) || sessionUser?.name || activeOwner;
+        const targetUsername = activeOwner || (dataForm && (dataForm.name || dataForm.username)) || sessionUser?.name;
         dataForm.name = targetUsername;
         dataForm.username = targetUsername;
 

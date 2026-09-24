@@ -105,14 +105,14 @@
                         <mat-label
                             class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-green-600 hover:bg-green-500 text-white"
                         >
-                            {{ row.info.customerName }}
+                            {{ row.info?.customerName || row.username || '---' }}
                         </mat-label>
                     </div>
                 } @else {
-                    {{ row.info.customerName }}
+                    {{ row.info?.customerName || row.username || '---' }}
                 }
                 <ng-template #elseTemplate>
-                    {{ row.info.customerName }}
+                    {{ row.info?.customerName || row.username || '---' }}
                 </ng-template>
             </ng-template>
         </ngx-datatable-column>
@@ -131,7 +131,7 @@
                 let-value="value"
                 let-row="row"
             >
-                {{ row.info.email }}
+                {{ row.info?.email || row.username || '---' }}
             </ng-template>
         </ngx-datatable-column>
 
