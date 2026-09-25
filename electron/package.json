@@ -41,6 +41,8 @@
             "yt-dlp-*",
             "edge-tts-*",
             "100tiktok-*",
+            "colab-agent-*",
+            "colab_agent_*",
             "crm/**/*",
             {
                 "from": "fallback/assets/video_frames",

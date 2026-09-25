@@ -4491,29 +4491,45 @@ function startColabAgent() {
     if (colabAgentProcess) return;
     try {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-        const binaryPath = path.join(userPluginsDir, 'colab_agent_linux');
-        const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
-        const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
+        const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
+        const legacyBinaryName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
         
-        let execPath = null;
+        const candidatePaths = [
+            path.join(userPluginsDir, binaryName),
+            path.join(userPluginsDir, legacyBinaryName),
+            process.resourcesPath ? path.join(process.resourcesPath, binaryName) : null,
+            process.resourcesPath ? path.join(process.resourcesPath, legacyBinaryName) : null,
+            path.resolve(__dirname, '..', binaryName),
+            path.resolve(__dirname, '..', legacyBinaryName),
+            path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux')
+        ].filter(Boolean);
+
+        let execPath = candidatePaths.find(p => fs.existsSync(p));
         let args = ['--port', '7868'];
 
-        // Ưu tiên 1: File binary colab_agent_linux trong Documents/ai.type/plugins
-        if (fs.existsSync(binaryPath)) {
-            execPath = binaryPath;
-        } else if (fs.existsSync(devBinaryPath)) {
-            execPath = devBinaryPath;
-        } else if (fs.existsSync(devScriptPath)) {
-            execPath = 'python3';
-            args = [devScriptPath, '--port', '7868'];
+        if (!execPath) {
+            const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
+            const userScriptPath = path.join(userPluginsDir, 'colab_agent.py');
+            if (fs.existsSync(userScriptPath)) {
+                execPath = 'python3';
+                args = [userScriptPath, '--port', '7868'];
+            } else if (fs.existsSync(devScriptPath)) {
+                execPath = 'python3';
+                args = [devScriptPath, '--port', '7868'];
+            }
         }
 
         if (execPath) {
+            if (execPath !== 'python3' && process.platform !== 'win32') {
+                try { fs.chmodSync(execPath, 0o755); } catch(e) {}
+            }
             colabAgentProcess = spawn(execPath, args, { stdio: 'pipe' });
             colabAgentProcess.stdout.on('data', (data) => console.log(`[Colab Agent Plugin] ${data}`));
             colabAgentProcess.stderr.on('data', (data) => console.error(`[Colab Agent Plugin] ${data}`));
             colabAgentProcess.on('exit', () => { colabAgentProcess = null; });
-            console.log('[Colab Agent Plugin] Đã khởi chạy tại http://127.0.0.1:7868');
+            console.log(`[Colab Agent Plugin] Đã khởi chạy (${execPath}) tại http://127.0.0.1:7868`);
+        } else {
+            console.warn('[Colab Agent Plugin] Không tìm thấy tệp thực thi colab-agent.');
         }
     } catch (e) {
         console.error('[Colab Agent Plugin] Lỗi start:', e);
@@ -4800,19 +4816,33 @@ ipcMain.handle('get-plugins-status', async (event) => {
         } catch(e) {}
 
         // Colab Agent Plugin
-        const userColabPath = path.join(userPluginsDir, 'colab_agent_linux');
+        const colabBinaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
+        const colabLegacyName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
+        const userColabPath = path.join(userPluginsDir, colabLegacyName);
+        const packagedColabPath = process.resourcesPath ? path.join(process.resourcesPath, colabBinaryName) : null;
+        const packagedColabLegacy = process.resourcesPath ? path.join(process.resourcesPath, colabLegacyName) : null;
+        const localColabPath = path.resolve(__dirname, '..', colabBinaryName);
         const devColabBinary = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
         const devColabScript = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
-        const hasBinaryColabAgent = fs.existsSync(userColabPath);
-        const colabInstalled = hasBinaryColabAgent;
-        const colabCanInstall = fs.existsSync(devColabBinary) || fs.existsSync(devColabScript);
+        const userColabScript = path.join(userPluginsDir, 'colab_agent.py');
+
+        const colabFoundBinary = [
+            path.join(userPluginsDir, colabBinaryName),
+            userColabPath,
+            packagedColabPath,
+            packagedColabLegacy,
+            localColabPath,
+            devColabBinary
+        ].find(p => p && fs.existsSync(p));
+
+        const hasBinaryColabAgent = !!colabFoundBinary;
+        const colabInstalled = hasBinaryColabAgent || fs.existsSync(userColabScript) || fs.existsSync(devColabScript);
+        const colabCanInstall = true;
         const colabEnabled = isColabAgentEnabled();
         let colabVersion = '1.0.1';
         try {
             const cp = require('child_process');
-            let binToProbe = null;
-            if (fs.existsSync(userColabPath)) binToProbe = userColabPath;
-            else if (fs.existsSync(devColabBinary)) binToProbe = devColabBinary;
+            let binToProbe = colabFoundBinary;
 
             if (binToProbe) {
                 const out = cp.execFileSync(binToProbe, ['--version'], { timeout: 1500, encoding: 'utf8' });
@@ -4903,19 +4933,34 @@ ipcMain.handle('install-plugin', async (event, pluginId) => {
             const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
             fs.mkdirSync(userPluginsDir, { recursive: true });
             
-            const userBinaryPath = path.join(userPluginsDir, 'colab_agent_linux');
-            const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
+            const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
+            const legacyBinaryName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
+            const userBinaryPath = path.join(userPluginsDir, legacyBinaryName);
+
+            const sourceCandidates = [
+                process.resourcesPath ? path.join(process.resourcesPath, binaryName) : null,
+                process.resourcesPath ? path.join(process.resourcesPath, legacyBinaryName) : null,
+                path.resolve(__dirname, '..', binaryName),
+                path.resolve(__dirname, '..', legacyBinaryName),
+                path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux')
+            ].filter(Boolean);
+
+            const foundSource = sourceCandidates.find(p => fs.existsSync(p));
             const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
             
-            if (fs.existsSync(devBinaryPath)) {
-                fs.copyFileSync(devBinaryPath, userBinaryPath);
-                fs.chmodSync(userBinaryPath, 0o755);
+            if (foundSource) {
+                fs.copyFileSync(foundSource, userBinaryPath);
+                if (process.platform !== 'win32') {
+                    try { fs.chmodSync(userBinaryPath, 0o755); } catch(e) {}
+                }
                 startColabAgent();
                 return { success: true, message: 'Đã cài đặt Colab GPU Agent thành công!' };
             } else if (fs.existsSync(devScriptPath)) {
                 const destScriptPath = path.join(userPluginsDir, 'colab_agent.py');
                 fs.copyFileSync(devScriptPath, destScriptPath);
-                fs.chmodSync(destScriptPath, 0o755);
+                if (process.platform !== 'win32') {
+                    try { fs.chmodSync(destScriptPath, 0o755); } catch(e) {}
+                }
                 startColabAgent();
                 return { success: true, message: 'Đã sao chép mã nguồn Colab Agent vào Documents/ai.type/plugins!' };
             }
@@ -5153,20 +5198,24 @@ ipcMain.handle('login-colab-google', async () => {
         const { shell } = require('electron');
         startColabAgent();
         
-        // Đợi daemon sẵn sàng
-        await new Promise(r => setTimeout(r, 600));
-
+        // Polling đợi daemon sẵn sàng (thử tối đa 12 lần, mỗi lần 500ms = 6 giây)
         let authUrl = null;
-        try {
-            const resp = await fetch('http://127.0.0.1:7868/auth_url');
-            if (resp.ok) {
-                const data = await resp.json();
-                authUrl = data.auth_url;
-            }
-        } catch(e) {}
+        for (let attempt = 0; attempt < 12; attempt++) {
+            await new Promise(r => setTimeout(r, 500));
+            try {
+                const resp = await fetch('http://127.0.0.1:7868/auth_url', { signal: AbortSignal.timeout(1000) });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data && data.auth_url) {
+                        authUrl = data.auth_url;
+                        break;
+                    }
+                }
+            } catch(e) {}
+        }
 
         if (!authUrl) {
-            return { success: false, error: 'Không thể kết nối tới Colab Agent Daemon.' };
+            return { success: false, error: 'Không thể kết nối tới Colab Agent Daemon. Hãy đảm bảo binary Colab Agent có quyền thực thi và cổng 7868 không bị chặn.' };
         }
 
         // Mở trình duyệt mặc định của hệ điều hành (Chrome/Firefox/Edge)
@@ -5203,10 +5252,17 @@ ipcMain.handle('exchange-colab-code', async (event, code) => {
 
 ipcMain.handle('start-colab-gpu', async () => {
     try {
-        if (!colabAgentProcess) {
-            startColabAgent();
-            await new Promise(r => setTimeout(r, 1500));
+        startColabAgent();
+        
+        // Đợi daemon sẵn sàng
+        for (let i = 0; i < 10; i++) {
+            try {
+                const testResp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(800) });
+                if (testResp.ok) break;
+            } catch(e) {}
+            await new Promise(r => setTimeout(r, 500));
         }
+
         const resp = await fetch('http://127.0.0.1:7868/start_gpu', { method: 'POST' });
         if (resp.ok) {
             const data = await resp.json();
@@ -5243,11 +5299,22 @@ ipcMain.handle('stop-colab-gpu', async () => {
 ipcMain.handle('check-colab-gpu-status', async () => {
     try {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-        const userColabPath = path.join(userPluginsDir, 'colab_agent_linux');
-        const userScriptPath = path.join(userPluginsDir, 'colab_agent.py');
-        const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
-        const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
-        const colabInstalled = fs.existsSync(userColabPath) || fs.existsSync(userScriptPath) || fs.existsSync(devBinaryPath) || fs.existsSync(devScriptPath);
+        const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
+        const legacyBinaryName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
+        
+        const candidatePaths = [
+            path.join(userPluginsDir, binaryName),
+            path.join(userPluginsDir, legacyBinaryName),
+            process.resourcesPath ? path.join(process.resourcesPath, binaryName) : null,
+            process.resourcesPath ? path.join(process.resourcesPath, legacyBinaryName) : null,
+            path.resolve(__dirname, '..', binaryName),
+            path.resolve(__dirname, '..', legacyBinaryName),
+            path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux'),
+            path.join(userPluginsDir, 'colab_agent.py'),
+            path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py')
+        ].filter(Boolean);
+
+        const colabInstalled = candidatePaths.some(p => fs.existsSync(p));
         const colabEnabled = isColabAgentEnabled();
         const pluginActive = colabInstalled && colabEnabled;
 
