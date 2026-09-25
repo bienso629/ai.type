@@ -72,6 +72,29 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
+    // Mở lại trang chủ Gemini / Reset về trang chính
+    webviewGoHome() {
+        const webview: any = document.querySelector(
+            '#webview-container-div webview',
+        );
+        if (webview && typeof webview.loadURL === 'function') {
+            webview.loadURL('https://gemini.google.com/app?hl=vi');
+        }
+    }
+
+    // Mở trang đăng nhập Google bằng Chrome thật (Stealth Login)
+    openLoginBrowser() {
+        const container = document.getElementById('webview-container-div');
+        if (container) {
+            const webview = container.querySelector('webview') as any;
+            if (webview && webview.executeJavaScript) {
+                webview.executeJavaScript(
+                    "window.location.href = 'https://gemini.google.com/trigger-stealth-login';",
+                );
+            }
+        }
+    }
+
     // ===============================
 
     updateTime(): void {
