@@ -199,7 +199,7 @@
                                 </mat-form-field>
                                 <button
                                     mat-flat-button
-                                    color="primary"
+                                    class="!text-default font-medium"
                                     (click)="submitColabAuthCode()"
                                     [disabled]="!colabAuthCode"
                                 >
@@ -210,7 +210,7 @@
                                     <span class="ml-2">Xác nhận</span>
                                 </button>
                                 <button
-                                    mat-stroked-button
+                                    mat-icon-button
                                     (click)="loginGoogleColab()"
                                     matTooltip="Mở lại trang đăng nhập"
                                 >
