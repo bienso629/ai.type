@@ -15,7 +15,7 @@ import {
     Optional,
     ChangeDetectionStrategy,
 } from '@angular/core';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeUrl, SafeResourceUrl } from '@angular/platform-browser';
 import { GoogleGenAI } from '@google/genai';
 import {
     MAT_DIALOG_DATA,
@@ -2844,22 +2844,32 @@ export class VideoTimelineDialogComponent
                 const file = e.target.files[0];
                 if (!file) return;
 
-                const originalPath = electronApi.getPathForFile(file);
-                if (!originalPath) {
-                    this.toastr.error('Không thể xác nhận đường dẫn file.');
-                    return;
+                let originalPath = '';
+                if (electronApi.getPathForFile) {
+                    try { originalPath = electronApi.getPathForFile(file) || ''; } catch (err) {}
+                }
+                if (!originalPath && (file as any).path) {
+                    originalPath = (file as any).path;
                 }
 
                 this.toastr.info('Đang xử lý hình ảnh, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(
-                    originalPath,
-                    customDir,
-                );
-                const finalPath = localFilePath.startsWith('file://')
-                    ? localFilePath
-                    : `file://${localFilePath.replace(/\\/g, '/')}`;
+                let finalPath = '';
+
+                if (originalPath && electronApi.selectLocalFile) {
+                    const localFilePath = await electronApi.selectLocalFile(
+                        originalPath,
+                        customDir,
+                    );
+                    finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath.replace(/\\/g, '/')}`;
+                } else if (originalPath) {
+                    finalPath = `file://${originalPath.replace(/\\/g, '/')}`;
+                } else {
+                    finalPath = URL.createObjectURL(file);
+                }
 
                 const firstScene = this.projectData.scenes[0];
                 if (!firstScene.images) firstScene.images = [];
@@ -2981,22 +2991,32 @@ export class VideoTimelineDialogComponent
                 const file = e.target.files[0];
                 if (!file) return;
 
-                const originalPath = electronApi.getPathForFile(file);
-                if (!originalPath) {
-                    this.toastr.error('Không thể xác nhận đường dẫn file.');
-                    return;
+                let originalPath = '';
+                if (electronApi.getPathForFile) {
+                    try { originalPath = electronApi.getPathForFile(file) || ''; } catch (err) {}
+                }
+                if (!originalPath && (file as any).path) {
+                    originalPath = (file as any).path;
                 }
 
                 this.toastr.info('Đang xử lý hình ảnh, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(
-                    originalPath,
-                    customDir,
-                );
-                const finalPath = localFilePath.startsWith('file://')
-                    ? localFilePath
-                    : `file://${localFilePath.replace(/\\/g, '/')}`;
+                let finalPath = '';
+
+                if (originalPath && electronApi.selectLocalFile) {
+                    const localFilePath = await electronApi.selectLocalFile(
+                        originalPath,
+                        customDir,
+                    );
+                    finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath.replace(/\\/g, '/')}`;
+                } else if (originalPath) {
+                    finalPath = `file://${originalPath.replace(/\\/g, '/')}`;
+                } else {
+                    finalPath = URL.createObjectURL(file);
+                }
 
                 const newItem = {
                     id: Date.now(),
@@ -3070,25 +3090,35 @@ export class VideoTimelineDialogComponent
                 const file = e.target.files[0];
                 if (!file) return;
 
-                const originalPath = electronApi.getPathForFile(file);
-                if (!originalPath) {
-                    this.toastr.error('Không thể xác nhận đường dẫn file.');
-                    return;
+                let originalPath = '';
+                if (electronApi.getPathForFile) {
+                    try { originalPath = electronApi.getPathForFile(file) || ''; } catch (err) {}
+                }
+                if (!originalPath && (file as any).path) {
+                    originalPath = (file as any).path;
                 }
 
                 this.toastr.info('Đang xử lý media, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(
-                    originalPath,
-                    customDir,
-                );
-                const finalPath = localFilePath.startsWith('file://')
-                    ? localFilePath
-                    : `file://${localFilePath.replace(/\\/g, '/')}`;
+                let finalPath = '';
+
+                if (originalPath && electronApi.selectLocalFile) {
+                    const localFilePath = await electronApi.selectLocalFile(
+                        originalPath,
+                        customDir,
+                    );
+                    finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath.replace(/\\/g, '/')}`;
+                } else if (originalPath) {
+                    finalPath = `file://${originalPath.replace(/\\/g, '/')}`;
+                } else {
+                    finalPath = URL.createObjectURL(file);
+                }
 
                 let realDur = 5;
-                if (electronApi.getMediaDuration) {
+                if (electronApi.getMediaDuration && finalPath.startsWith('file://')) {
                     try {
                         const durRes =
                             await electronApi.getMediaDuration(finalPath);
@@ -3247,25 +3277,35 @@ export class VideoTimelineDialogComponent
                 const file = e.target.files[0];
                 if (!file) return;
 
-                const originalPath = electronApi.getPathForFile(file);
-                if (!originalPath) {
-                    this.toastr.error('Không thể xác nhận đường dẫn file.');
-                    return;
+                let originalPath = '';
+                if (electronApi.getPathForFile) {
+                    try { originalPath = electronApi.getPathForFile(file) || ''; } catch (err) {}
+                }
+                if (!originalPath && (file as any).path) {
+                    originalPath = (file as any).path;
                 }
 
                 this.toastr.info('Đang xử lý file âm thanh, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(
-                    originalPath,
-                    customDir,
-                );
-                const finalPath = localFilePath.startsWith('file://')
-                    ? localFilePath
-                    : `file://${localFilePath.replace(/\\/g, '/')}`;
+                let finalPath = '';
+
+                if (originalPath && electronApi.selectLocalFile) {
+                    const localFilePath = await electronApi.selectLocalFile(
+                        originalPath,
+                        customDir,
+                    );
+                    finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath.replace(/\\/g, '/')}`;
+                } else if (originalPath) {
+                    finalPath = `file://${originalPath.replace(/\\/g, '/')}`;
+                } else {
+                    finalPath = URL.createObjectURL(file);
+                }
 
                 let realDur = 5;
-                if (electronApi.getMediaDuration) {
+                if (electronApi.getMediaDuration && finalPath.startsWith('file://')) {
                     try {
                         const durRes =
                             await electronApi.getMediaDuration(finalPath);
@@ -3531,25 +3571,35 @@ export class VideoTimelineDialogComponent
                 const file = e.target.files[0];
                 if (!file) return;
 
-                const originalPath = electronApi.getPathForFile(file);
-                if (!originalPath) {
-                    this.toastr.error('Không thể xác nhận đường dẫn file.');
-                    return;
+                let originalPath = '';
+                if (electronApi.getPathForFile) {
+                    try { originalPath = electronApi.getPathForFile(file) || ''; } catch (err) {}
+                }
+                if (!originalPath && (file as any).path) {
+                    originalPath = (file as any).path;
                 }
 
                 this.toastr.info('Đang xử lý file âm thanh, vui lòng đợi...');
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electronApi.selectLocalFile(
-                    originalPath,
-                    customDir,
-                );
-                const finalPath = localFilePath.startsWith('file://')
-                    ? localFilePath
-                    : `file://${localFilePath.replace(/\\/g, '/')}`;
+                let finalPath = '';
+
+                if (originalPath && electronApi.selectLocalFile) {
+                    const localFilePath = await electronApi.selectLocalFile(
+                        originalPath,
+                        customDir,
+                    );
+                    finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath.replace(/\\/g, '/')}`;
+                } else if (originalPath) {
+                    finalPath = `file://${originalPath.replace(/\\/g, '/')}`;
+                } else {
+                    finalPath = URL.createObjectURL(file);
+                }
 
                 let realDur = 5;
-                if (electronApi.getMediaDuration) {
+                if (electronApi.getMediaDuration && finalPath.startsWith('file://')) {
                     try {
                         const durRes =
                             await electronApi.getMediaDuration(finalPath);
@@ -3591,6 +3641,10 @@ export class VideoTimelineDialogComponent
                 this.updateRulerTicks();
                 this.saveData(true);
                 this.cd.detectChanges();
+                setTimeout(() => {
+                    this.initWaveSurfers();
+                    this.updateLines();
+                }, 200);
                 this.toastr.success(
                     'Đã thêm file âm thanh vào track âm thanh!',
                 );
@@ -6260,20 +6314,31 @@ export class VideoTimelineDialogComponent
                 return;
             }
             try {
-                const originalPath = electron.getPathForFile(file);
-                if (!originalPath) {
-                    this.toastr.error('Không thể xác nhận đường dẫn file.');
-                    return;
+                let originalPath = '';
+                if (electron && electron.getPathForFile) {
+                    try { originalPath = electron.getPathForFile(file) || ''; } catch (err) {}
                 }
+                if (!originalPath && (file as any).path) {
+                    originalPath = (file as any).path;
+                }
+
                 const uuid = this.projectData?.uuid || this.data?.uuid;
                 const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-                const localFilePath = await electron.selectLocalFile(
-                    originalPath,
-                    customDir,
-                );
-                const finalPath = localFilePath.startsWith('file://')
-                    ? localFilePath
-                    : `file://${localFilePath.replace(/\\/g, '/')}`;
+                let finalPath = '';
+
+                if (originalPath && electron && electron.selectLocalFile) {
+                    const localFilePath = await electron.selectLocalFile(
+                        originalPath,
+                        customDir,
+                    );
+                    finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath.replace(/\\/g, '/')}`;
+                } else if (originalPath) {
+                    finalPath = `file://${originalPath.replace(/\\/g, '/')}`;
+                } else {
+                    finalPath = URL.createObjectURL(file);
+                }
 
                 video.videoUrl = finalPath;
                 video.imageUrl = null;
@@ -7114,11 +7179,26 @@ export class VideoTimelineDialogComponent
         if (!file) return;
         try {
             const electron = (window as any).electron;
-            const originalPath = electron.getPathForFile(file);
-            const localPath = await electron.selectLocalFile(originalPath);
-            sub.audioUrl = localPath.startsWith('file://')
-                ? localPath
-                : `file://${localPath}`;
+            let originalPath = '';
+            if (electron && electron.getPathForFile) {
+                try { originalPath = electron.getPathForFile(file) || ''; } catch (err) {}
+            }
+            if (!originalPath && (file as any).path) {
+                originalPath = (file as any).path;
+            }
+
+            if (originalPath && electron && electron.selectLocalFile) {
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                const localPath = await electron.selectLocalFile(originalPath, customDir);
+                sub.audioUrl = localPath.startsWith('file://')
+                    ? localPath
+                    : `file://${localPath}`;
+            } else if (originalPath) {
+                sub.audioUrl = `file://${originalPath.replace(/\\/g, '/')}`;
+            } else {
+                sub.audioUrl = URL.createObjectURL(file);
+            }
 
             const audioObj = new Audio(
                 this.getRawMediaUrl(sub.audioUrl) as string,
@@ -7814,9 +7894,8 @@ export class VideoTimelineDialogComponent
 
                 if (sub.audioUrl) {
                     const p = new Promise<void>((resolve) => {
-                        const audioObj = new Audio(
-                            this.getRawMediaUrl(sub.audioUrl) as string,
-                        );
+                        const rawUrl = this.getRawMediaUrl(sub.audioUrl) as string;
+                        const audioObj = new Audio(rawUrl);
                         audioObj.addEventListener('loadedmetadata', () => {
                             sub.duration = audioObj.duration;
                             sub.maxDuration = sub.duration;
@@ -7824,14 +7903,29 @@ export class VideoTimelineDialogComponent
                             resolve();
                         });
                         audioObj.addEventListener('error', () => {
-                            console.error(
-                                'Không thể load audio:',
-                                sub.audioUrl,
-                            );
-                            // Xóa URL nếu file không tồn tại
-                            sub.audioUrl = null;
-                            sub.duration = 0;
-                            resolve();
+                            const fallbackUrl = this.getAudioPlayUrl(sub.audioUrl);
+                            if (fallbackUrl && fallbackUrl !== rawUrl) {
+                                const fbAudio = new Audio(fallbackUrl);
+                                fbAudio.addEventListener('loadedmetadata', () => {
+                                    sub.duration = fbAudio.duration;
+                                    sub.maxDuration = sub.duration;
+                                    updatedCount++;
+                                    resolve();
+                                });
+                                fbAudio.addEventListener('error', () => {
+                                    console.error(
+                                        'Không thể load audio:',
+                                        sub.audioUrl,
+                                    );
+                                    resolve();
+                                });
+                            } else {
+                                console.error(
+                                    'Không thể load audio:',
+                                    sub.audioUrl,
+                                );
+                                resolve();
+                            }
                         });
                     });
                     promises.push(p);
@@ -8002,26 +8096,35 @@ export class VideoTimelineDialogComponent
             const file = e.target.files[0];
             if (!file) return;
 
-            const originalPath = electronApi.getPathForFile(file);
-            if (!originalPath) {
-                this.toastr.error('Không thể xác nhận đường dẫn file.');
-                return;
+            let originalPath = '';
+            if (electronApi.getPathForFile) {
+                try { originalPath = electronApi.getPathForFile(file) || ''; } catch (err) {}
+            }
+            if (!originalPath && (file as any).path) {
+                originalPath = (file as any).path;
             }
 
             this.toastr.info('Đang xử lý file, vui lòng đợi...');
 
             const uuid = this.projectData?.uuid || this.data?.uuid;
             const customDir = uuid ? `tts/admin/${uuid}` : undefined;
-            const localFilePath = await electronApi.selectLocalFile(
-                originalPath,
-                customDir,
-            );
-            const finalPath = localFilePath.startsWith('file://')
-                ? localFilePath
-                : `file://${localFilePath.replace(/\\/g, '/')}`;
+            let finalPath = '';
+
+            if (originalPath && electronApi.selectLocalFile) {
+                const localFilePath = await electronApi.selectLocalFile(
+                    originalPath,
+                    customDir,
+                );
+                finalPath = localFilePath.startsWith('file://')
+                    ? localFilePath
+                    : `file://${localFilePath.replace(/\\/g, '/')}`;
+            } else if (originalPath) {
+                finalPath = `file://${originalPath.replace(/\\/g, '/')}`;
+            } else {
+                finalPath = URL.createObjectURL(file);
+            }
             this.unmarkDeletedKey(finalPath);
-            this.unmarkDeletedKey(originalPath);
-            this.unmarkDeletedKey(localFilePath);
+            if (originalPath) this.unmarkDeletedKey(originalPath);
 
             if (!this.projectData) this.projectData = { scenes: [] };
             if (
@@ -8146,7 +8249,10 @@ export class VideoTimelineDialogComponent
 
             this.saveData(true);
             this.cd.detectChanges();
-            setTimeout(() => this.updateLines(), 150);
+            setTimeout(() => {
+                this.initWaveSurfers();
+                this.updateLines();
+            }, 150);
             this.toastr.success('Đã thêm file thành công!');
         };
 
@@ -14003,7 +14109,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         }
     }
 
-    private safeUrlCache: { [url: string]: SafeUrl } = {};
+    private safeUrlCache: { [url: string]: SafeResourceUrl | SafeUrl } = {};
     getRawMediaUrl(url: string | null): string | null {
         if (!url) return url;
         if (typeof url !== 'string') return url;
@@ -14021,10 +14127,12 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             cleanUrl.startsWith('https://') ||
             cleanUrl.startsWith('data:') ||
             cleanUrl.startsWith('blob:') ||
-            cleanUrl.startsWith('media://') ||
-            cleanUrl.startsWith('mediacors://') ||
             cleanUrl.startsWith('assets/')
         ) {
+            cleanUrl = cleanUrl + hash;
+        } else if (cleanUrl.startsWith('media://')) {
+            cleanUrl = cleanUrl.replace(/^media:\/+/i, 'mediacors:///') + hash;
+        } else if (cleanUrl.startsWith('mediacors://')) {
             cleanUrl = cleanUrl + hash;
         } else if (cleanUrl.startsWith('src/assets/')) {
             cleanUrl = cleanUrl.substring(4) + hash;
@@ -14041,12 +14149,14 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
                 originalPath = '/' + originalPath;
             }
 
-            cleanUrl = `media://${originalPath.replace(/\\/g, '/')}${hash}`;
+            cleanUrl = originalPath.startsWith('/')
+                ? `mediacors://${originalPath.replace(/\\/g, '/')}${hash}`
+                : `mediacors:///${originalPath.replace(/\\/g, '/')}${hash}`;
         }
         return cleanUrl;
     }
 
-    getSafeUrl(url: string | null): SafeUrl | string | null {
+    getSafeUrl(url: string | null): SafeResourceUrl | SafeUrl | string | null {
         if (!url) return url;
         if (typeof url !== 'string') return url;
 
@@ -14057,7 +14167,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         const rawUrl = this.getRawMediaUrl(url);
         if (!rawUrl) return url;
 
-        const safeUrl = this.sanitizer.bypassSecurityTrustUrl(rawUrl);
+        const safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(rawUrl);
         this.safeUrlCache[url] = safeUrl;
         return safeUrl;
     }
