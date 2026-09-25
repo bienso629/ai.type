@@ -57,38 +57,73 @@
             <div class="flex items-center mt-4 sm:mt-0">
                 <button
                     mat-icon-button
-                    class="ml-0"
-                    (click)="openVideoSettings()"
-                    matTooltip="Prompt tạo video"
+                    [matMenuTriggerFor]="toolsMenu"
+                    matTooltip="Tools"
                 >
                     <mat-icon
-                        class="icon-size-4 text-indigo-500 hover:text-indigo-600"
-                        [svgIcon]="'heroicons_outline:film'"
+                        class="icon-size-5 text-gray-600 hover:text-gray-800"
+                        [svgIcon]="'heroicons_outline:dots-vertical'"
                     ></mat-icon>
                 </button>
-                @if (audioList.length > 0) {
+
+                <mat-menu #toolsMenu="matMenu">
                     <button
-                        mat-icon-button
-                        class="ml-0"
-                        (click)="clear()"
-                        [matTooltip]="'app.auto_refresh_content' | transloco"
+                        mat-menu-item
+                        (click)="openVideoSettings()"
                     >
                         <mat-icon
-                            class="icon-size-4 text-red-600"
-                            [svgIcon]="'feather:repeat'"
+                            class="icon-size-4 text-indigo-500"
+                            [svgIcon]="'heroicons_outline:film'"
                         ></mat-icon>
+                        <span>Prompt tạo video</span>
                     </button>
-                }
-                <button
-                    mat-icon-button
-                    (click)="exportProject()"
-                    [matTooltip]="'app.auto_export_project_ait' | transloco"
-                >
-                    <mat-icon
-                        class="icon-size-4 text-gray-500 hover:text-primary-500"
-                        [svgIcon]="'heroicons_outline:download'"
-                    ></mat-icon>
-                </button>
+                    @if (audioList.length > 0) {
+                        <button
+                            mat-menu-item
+                            (click)="clear()"
+                        >
+                            <mat-icon
+                                class="icon-size-4 text-red-600"
+                                [svgIcon]="'feather:repeat'"
+                            ></mat-icon>
+                            <span>{{ 'app.auto_refresh_content' | transloco }}</span>
+                        </button>
+                    }
+                    <button
+                        mat-menu-item
+                        (click)="exportProject()"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-gray-500"
+                            [svgIcon]="'heroicons_outline:download'"
+                        ></mat-icon>
+                        <span>{{ 'app.auto_export_project_ait' | transloco }}</span>
+                    </button>
+                    @if (isVoiceGenerated) {
+                        <button
+                            mat-menu-item
+                            (click)="uploadToArchiveOrg()"
+                            [disabled]="isUploadingArchive || isGlobalProcessing"
+                        >
+                            @if (isUploadingArchive) {
+                                <mat-icon
+                                    class="animate-spin icon-size-4 text-emerald-600"
+                                    [svgIcon]="'feather:loader'"
+                                ></mat-icon>
+                            }
+                            @if (!isUploadingArchive) {
+                                <mat-icon
+                                    class="icon-size-4 text-emerald-600"
+                                    [svgIcon]="'heroicons_outline:cloud-upload'"
+                                ></mat-icon>
+                            }
+                            <span>{{
+                                t("app.upload_to_archive_org") ||
+                                    "Upload lên archive.org"
+                            }}</span>
+                        </button>
+                    }
+                </mat-menu>
             </div>
         </div>
 
@@ -102,10 +137,10 @@
                             <div class="flex items-center mb-2">
                                 <span
                                     class="text-sm font-semibold text-gray-500 uppercase tracking-wider"
-                                    >{{ t("app.editor") }}</span
+                                    >{{ t("app.audio_player") || "Trình phát audio" }}</span
                                 >
                             </div>
-                            <div id="waveform" class="w-full"></div>
+                            <div id="waveform" class="w-full min-h-[80px]"></div>
                         </div>
 
                         <div class="flex items-center justify-between">
@@ -218,39 +253,11 @@
                                         }
                                         @if (!isGlobalProcessing) {
                                             <mat-icon
-                                                [svgIcon]="'feather:mic'"
+                                                [svgIcon]="'feather:volume-2'"
                                             ></mat-icon>
                                         }
                                         <span class="ml-2">{{
                                             t("app.create_voice")
-                                        }}</span>
-                                    </button>
-                                }
-
-                                @if (isVoiceGenerated) {
-                                    <button
-                                        mat-flat-button
-                                        (click)="uploadToArchiveOrg()"
-                                        [disabled]="
-                                            isUploadingArchive ||
-                                            isGlobalProcessing
-                                        "
-                                        class="ml-2 !bg-emerald-700 hover:!bg-emerald-800 !text-white"
-                                    >
-                                        @if (isUploadingArchive) {
-                                            <mat-icon
-                                                class="animate-spin icon-size-4 text-white"
-                                                [svgIcon]="'feather:loader'"
-                                            ></mat-icon>
-                                        }
-                                        @if (!isUploadingArchive) {
-                                            <mat-icon
-                                                [svgIcon]="'heroicons_outline:cloud-upload'"
-                                            ></mat-icon>
-                                        }
-                                        <span class="ml-2">{{
-                                            t("app.upload_to_archive_org") ||
-                                                "Upload lên archive.org"
                                         }}</span>
                                     </button>
                                 }
@@ -584,7 +591,7 @@
                                                         [svgIcon]="
                                                             clip.localFilePath
                                                                 ? 'heroicons_outline:refresh'
-                                                                : 'heroicons_outline:microphone'
+                                                                : 'heroicons_outline:volume-up'
                                                         "
                                                     >
                                                     </mat-icon>

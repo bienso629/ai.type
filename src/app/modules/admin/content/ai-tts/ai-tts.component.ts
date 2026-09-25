@@ -1833,6 +1833,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             safeAudioUrl = safePath.startsWith('/')
                                 ? `file://${safePath}`
                                 : `file:///${safePath}`;
+                        } else if (originalClip.rawUrl) {
+                            hasAnyAudio = true;
+                            safeAudioUrl = originalClip.rawUrl;
                         }
                     }
 
@@ -2181,14 +2184,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                                             ? `file://${safePath}`
                                             : `file:///${safePath}`;
                                     } else {
-                                        sub.audioUrl = null;
-                                        originalClip.localFilePath = null; // Xóa đường dẫn hỏng khỏi clip gốc
+                                        sub.audioUrl = originalClip.rawUrl || sub.audioUrl || null;
                                     }
                                 } catch (e) {
-                                    sub.audioUrl = null;
+                                    sub.audioUrl = originalClip.rawUrl || sub.audioUrl || null;
                                 }
                             } else {
-                                sub.audioUrl = null;
+                                sub.audioUrl = originalClip.rawUrl || sub.audioUrl || null;
                             }
                         }
                     }
@@ -3282,7 +3284,36 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.toastr.success(`Đã chia nhỏ thành ${parts.length} đoạn ngắn.`);
     }
 
-    private createAudioClipFromFile(file: File): Promise<AudioClip> {
+    private async createAudioClipFromFile(file: File): Promise<AudioClip> {
+        let localPath: string | null = null;
+        let audioFileName: string | null = null;
+        const electronApi = (window as any).electron;
+
+        if (electronApi) {
+            try {
+                let originalPath = '';
+                if (electronApi.getPathForFile) {
+                    originalPath = electronApi.getPathForFile(file);
+                } else if ((file as any).path) {
+                    originalPath = (file as any).path;
+                }
+
+                if (originalPath && electronApi.selectLocalFile) {
+                    const customDir = this.uuid ? `tts/admin/${this.uuid}` : undefined;
+                    const resPath = await electronApi.selectLocalFile(originalPath, customDir);
+                    if (resPath) {
+                        localPath = resPath.replace(/^file:\/\//i, '');
+                        audioFileName = localPath.split(/[\\/]/).pop() || file.name;
+                    }
+                } else if (originalPath) {
+                    localPath = originalPath;
+                    audioFileName = originalPath.split(/[\\/]/).pop() || file.name;
+                }
+            } catch (e) {
+                console.warn('Lỗi khi lấy đường dẫn local cho audio file:', e);
+            }
+        }
+
         return new Promise((resolve) => {
             const objectUrl = URL.createObjectURL(file);
             const audio = new Audio();
@@ -3296,6 +3327,24 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     url: this.sanitizer.bypassSecurityTrustUrl(objectUrl),
                     description: file.name.replace(/\.[^/.]+$/, ''),
                     voice: 'nam-calm',
+                    localFilePath: localPath || (file as any).path || null,
+                    audioFileName: audioFileName || file.name,
+                    username: this.uuid ? `admin/${this.uuid}` : 'admin',
+                });
+            };
+            audio.onerror = () => {
+                resolve({
+                    id: this.generateId(),
+                    name: file.name,
+                    duration: 5,
+                    file: file,
+                    rawUrl: objectUrl,
+                    url: this.sanitizer.bypassSecurityTrustUrl(objectUrl),
+                    description: file.name.replace(/\.[^/.]+$/, ''),
+                    voice: 'nam-calm',
+                    localFilePath: localPath || (file as any).path || null,
+                    audioFileName: audioFileName || file.name,
+                    username: this.uuid ? `admin/${this.uuid}` : 'admin',
                 });
             };
             audio.src = objectUrl;

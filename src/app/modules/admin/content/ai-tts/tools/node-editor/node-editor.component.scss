@@ -31,6 +31,21 @@
   .faint-shadow-menu {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03) !important;
     border: none !important;
+
+    .mat-mdc-menu-item, .mat-menu-item {
+      .rounded-full mat-icon,
+      .rounded-full .mat-icon {
+        margin: 0 !important;
+        margin-right: 0 !important;
+        margin-inline-end: 0 !important;
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        font-size: 20px !important;
+        line-height: 20px !important;
+      }
+    }
   }
 
   .scrollable-menu {

@@ -26,7 +26,7 @@ import { DirectorModeComponent } from '../director-mode.component';
 import { CharacterDialogComponent } from '../character-dialog.component';
 import { AudioGenerationComponent } from '../audio-generation.component';
 import { MagicPromptDialogComponent } from './magic-prompt-dialog.component';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeUrl, SafeResourceUrl } from '@angular/platform-browser';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { GenaiService } from 'app/genai.service';
 import { ToastrService } from 'ngx-toastr';
@@ -150,6 +150,9 @@ export class NodeEditorComponent
     editingType: 'scene' | 'character' | 'master' | 'none' = 'none';
     editingCharacter: any = null;
     isGeneratingPrompt: boolean = false;
+
+    playingAudioNodeId: string | null = null;
+    private currentAudioInstance: HTMLAudioElement | null = null;
 
     constructor(
         private route: ActivatedRoute,
@@ -279,6 +282,12 @@ export class NodeEditorComponent
     }
 
     ngOnDestroy(): void {
+        if (this.currentAudioInstance) {
+            this.currentAudioInstance.pause();
+            this.currentAudioInstance = null;
+        }
+        this.playingAudioNodeId = null;
+
         if (this.mouseMoveListener)
             window.removeEventListener('mousemove', this.mouseMoveListener);
         if (this.mouseUpListener)
@@ -4049,23 +4058,38 @@ export class NodeEditorComponent
         });
     }
 
-    private safeUrlCache: { [url: string]: SafeUrl | string } = {};
+    private safeUrlCache: { [url: string]: SafeResourceUrl | SafeUrl | string } = {};
 
-    getSafeUrl(url: string | null): SafeUrl | string | null {
+    getSafeUrl(url: string | null): SafeResourceUrl | SafeUrl | string | null {
         if (!url) return null;
-        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        if (
+            url.startsWith('http://') ||
+            url.startsWith('https://') ||
+            url.startsWith('blob:') ||
+            url.startsWith('data:')
+        ) {
+            return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+        }
 
-        let cleanUrl = url.replace('unsafe:', '');
+        let cleanUrl = url.replace(/^unsafe:/, '');
 
-        // Sử dụng cấu trúc media://SMART_FIND/ để Chromium phân tích URL hợp lệ có hostname
         if (cleanUrl.startsWith('file://')) {
-            const originalPath = cleanUrl.replace('file://', '');
-            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}`;
+            let originalPath = cleanUrl.replace(/^file:\/\//i, '');
+            if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+                originalPath = '/' + originalPath;
+            }
+            cleanUrl = `mediacors://SMART_FIND/?path=${encodeURIComponent(originalPath)}`;
+        } else if (cleanUrl.startsWith('media://')) {
+            cleanUrl = cleanUrl.replace(/^media:\/+/i, 'mediacors:///');
+        } else if (cleanUrl.startsWith('/')) {
+            cleanUrl = `mediacors://SMART_FIND/?path=${encodeURIComponent(cleanUrl)}`;
+        } else if (/^[a-zA-Z]:[\\/]/.test(cleanUrl)) {
+            cleanUrl = `mediacors://SMART_FIND/?path=${encodeURIComponent(cleanUrl.replace(/\\/g, '/'))}`;
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
 
-        const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
+        const safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(cleanUrl);
         this.safeUrlCache[cleanUrl] = safeUrl;
         return safeUrl;
     }
@@ -4579,37 +4603,172 @@ export class NodeEditorComponent
         }
     }
 
-    onAudioError(event: any, node: NodeItem) {
-        if (!node.data.audioUrl) return;
-        console.error('Lỗi tải Audio:', event);
-        console.error('URL thực tế trong thẻ audio:', event.target?.src);
-        console.error('URL gốc trong node.data:', node.data.audioUrl);
-        const errorMsg = event.target?.error
-            ? ` (Mã lỗi: ${event.target.error.code})`
-            : '';
-        this.toastr.error(
-            `Lỗi tải âm thanh từ: ${node.data.audioUrl}${errorMsg}`,
-        );
-    }
+    getSafeAudioUrl(url: string | null): SafeResourceUrl | SafeUrl | string | null {
+        if (!url) return null;
+        if (
+            url.startsWith('http://') ||
+            url.startsWith('https://') ||
+            url.startsWith('blob:') ||
+            url.startsWith('data:')
+        ) {
+            return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+        }
 
-    toggleAudio(node: NodeItem, audioEl: HTMLAudioElement, event: Event) {
-        if (!node.data.audioUrl || !audioEl) return;
-        event.stopPropagation();
+        let cleanUrl = url.replace(/^unsafe:/, '');
+        let targetPath = '';
 
-        if (audioEl.paused) {
-            const playPromise = audioEl.play();
-            if (playPromise !== undefined) {
-                playPromise.catch((error) => {
-                    console.error('Audio playback error:', error);
-                    this.toastr.error(
-                        'Không thể phát âm thanh: ' + error.message,
-                    );
-                });
+        if (cleanUrl.startsWith('file://')) {
+            targetPath = cleanUrl.replace(/^file:\/\//i, '');
+        } else if (cleanUrl.startsWith('media://')) {
+            targetPath = cleanUrl.replace(/^media:\/+/i, '');
+        } else if (cleanUrl.startsWith('mediacors://')) {
+            targetPath = cleanUrl.replace(/^mediacors:\/+/i, '');
+            if (targetPath.toLowerCase().startsWith('smart_find/')) {
+                const qIdx = targetPath.indexOf('?');
+                if (qIdx !== -1) {
+                    const p = new URLSearchParams(targetPath.substring(qIdx + 1));
+                    targetPath = p.get('path') || targetPath;
+                }
             }
         } else {
-            audioEl.pause();
+            targetPath = cleanUrl;
         }
-        this.cdr.detectChanges();
+
+        if (!/^[a-zA-Z]:/.test(targetPath) && !targetPath.startsWith('/')) {
+            targetPath = '/' + targetPath;
+        }
+
+        // Native media:// protocol trong Electron hỗ trợ byte-range streaming hoàn hảo cho audio
+        const mediaUrl = `media:///${targetPath.replace(/^[\/\\]+/, '')}`;
+        if (this.safeUrlCache[mediaUrl]) return this.safeUrlCache[mediaUrl];
+
+        const safe = this.sanitizer.bypassSecurityTrustResourceUrl(mediaUrl);
+        this.safeUrlCache[mediaUrl] = safe;
+        return safe;
+    }
+
+    onAudioError(event: any, node: NodeItem) {
+        if (!node.data.audioUrl) return;
+        console.warn('Lỗi tải Audio thẻ DOM:', { raw: node.data.audioUrl });
+    }
+
+    async toggleAudio(node: NodeItem, audioEl: HTMLAudioElement, event: Event) {
+        if (!node.data.audioUrl) return;
+        event.stopPropagation();
+
+        // 1. Nếu node này đang phát, dừng lại
+        if (this.playingAudioNodeId === node.id) {
+            if (this.currentAudioInstance) {
+                this.currentAudioInstance.pause();
+                this.currentAudioInstance.currentTime = 0;
+                this.currentAudioInstance = null;
+            }
+            if (audioEl) {
+                audioEl.pause();
+                audioEl.currentTime = 0;
+            }
+            this.playingAudioNodeId = null;
+            this.cdr.detectChanges();
+            return;
+        }
+
+        // 2. Dừng bất kỳ âm thanh nào khác đang phát trước đó
+        if (this.currentAudioInstance) {
+            this.currentAudioInstance.pause();
+            this.currentAudioInstance.currentTime = 0;
+            this.currentAudioInstance = null;
+        }
+        this.playingAudioNodeId = null;
+
+        const rawUrl = node.data.audioUrl;
+        let cleanPath = rawUrl.replace(/^unsafe:/, '');
+        if (cleanPath.startsWith('file://')) {
+            cleanPath = cleanPath.replace(/^file:\/\//i, '');
+        } else if (cleanPath.startsWith('media://')) {
+            cleanPath = cleanPath.replace(/^media:\/+/i, '');
+        } else if (cleanPath.startsWith('mediacors://')) {
+            cleanPath = cleanPath.replace(/^mediacors:\/+/i, '');
+            if (cleanPath.toLowerCase().startsWith('smart_find/')) {
+                const qIdx = cleanPath.indexOf('?');
+                if (qIdx !== -1) {
+                    const p = new URLSearchParams(cleanPath.substring(qIdx + 1));
+                    cleanPath = p.get('path') || cleanPath;
+                }
+            }
+        }
+        if (!/^[a-zA-Z]:/.test(cleanPath) && !cleanPath.startsWith('/')) {
+            cleanPath = '/' + cleanPath;
+        }
+
+        // 3. Thử phát qua thẻ DOM audioEl trước
+        let playedViaDom = false;
+        if (audioEl) {
+            try {
+                // Đảm bảo audioEl có source hợp lệ
+                const desiredSrc = `media:///${cleanPath.replace(/^[\/\\]+/, '')}`;
+                if (!audioEl.src || !audioEl.src.includes(encodeURIComponent(cleanPath).slice(0, 20))) {
+                    audioEl.src = desiredSrc;
+                    audioEl.load();
+                }
+                await audioEl.play();
+                this.playingAudioNodeId = node.id;
+                this.currentAudioInstance = audioEl;
+                playedViaDom = true;
+                this.cdr.detectChanges();
+            } catch (domErr: any) {
+                console.warn('Phát bằng DOM audioEl không thành công, chuyển sang runtime Audio fallback:', domErr);
+            }
+        }
+
+        if (playedViaDom) return;
+
+        // 4. Fallback: Phát trực tiếp qua đối tượng new Audio() và nạp Base64 nếu môi trường Electron hỗ trợ
+        try {
+            let playableSrc = `media:///${cleanPath.replace(/^[\/\\]+/, '')}`;
+
+            // Kiểm tra đọc file nhị phân qua Electron IPC nếu có
+            const electron = (window as any).electron;
+            if (electron && typeof electron.invoke === 'function') {
+                try {
+                    const fileBuffer = await electron.invoke('read-file-buffer', cleanPath);
+                    if (fileBuffer) {
+                        const blob = new Blob([fileBuffer], { type: 'audio/mpeg' });
+                        playableSrc = URL.createObjectURL(blob);
+                    }
+                } catch (e) {
+                    // Nếu không có handler read-file-buffer thì dùng đường dẫn media://
+                }
+            }
+
+            const runtimeAudio = new Audio(playableSrc);
+            this.currentAudioInstance = runtimeAudio;
+            this.playingAudioNodeId = node.id;
+
+            runtimeAudio.onended = () => {
+                if (this.playingAudioNodeId === node.id) {
+                    this.playingAudioNodeId = null;
+                    this.currentAudioInstance = null;
+                    this.cdr.detectChanges();
+                }
+            };
+
+            runtimeAudio.onerror = (e) => {
+                console.error('Lỗi phát âm thanh runtime Audio:', e);
+                this.playingAudioNodeId = null;
+                this.currentAudioInstance = null;
+                this.toastr.error('Không thể phát âm thanh: Nguồn tệp không tồn tại hoặc định dạng không hỗ trợ.');
+                this.cdr.detectChanges();
+            };
+
+            await runtimeAudio.play();
+            this.cdr.detectChanges();
+        } catch (finalErr: any) {
+            this.playingAudioNodeId = null;
+            this.currentAudioInstance = null;
+            this.cdr.detectChanges();
+            console.error('Không thể phát âm thanh:', finalErr);
+            this.toastr.error('Không thể phát âm thanh: ' + (finalErr?.message || 'Lỗi không xác định'));
+        }
     }
 
     openMagicPromptDialog() {

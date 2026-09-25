@@ -21,6 +21,7 @@ import { NodeEditorComponent } from 'app/modules/admin/content/ai-tts/tools/node
 import { MagicPromptDialogComponent } from 'app/modules/admin/content/ai-tts/tools/node-editor/magic-prompt-dialog.component';
 import { SharedModule } from 'app/shared.module';
 import { TranslocoModule } from '@jsverse/transloco';
+import { MatMenuModule } from '@angular/material/menu';
 
 const Routes: Route[] = [
     {
@@ -65,6 +66,7 @@ const Routes: Route[] = [
         MagicPromptDialogComponent,
         NodeEditorComponent,
         SharedModule,
+        MatMenuModule,
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
