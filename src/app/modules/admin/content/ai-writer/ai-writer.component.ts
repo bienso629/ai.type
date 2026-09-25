@@ -2834,6 +2834,50 @@ ${content}`;
     }
 
     /**
+     * Trích xuất các cụm từ ghép / từ khóa tiềm năng từ văn bản tiếng Việt khi NLP server không gán dấu _
+     */
+    extractKeywordsFallback(text: string): string[] {
+        if (!text) return [];
+        const cleanText = this.removeHTML.transform(text)
+            .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'<>\[\]\\|]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const stopWords = new Set([
+            'và', 'là', 'của', 'có', 'trong', 'được', 'với', 'cho', 'một', 'các',
+            'những', 'đã', 'sẽ', 'đang', 'ở', 'đến', 'từ', 'vào', 'khi', 'như',
+            'nhưng', 'mà', 'ra', 'về', 'này', 'đó', 'thì', 'lại', 'qua', 'lên',
+            'xuống', 'làm', 'bị', 'do', 'để', 'theo', 'rất', 'quá', 'cũng', 'hay',
+            'hoặc', 'tại', 'bởi', 'vì', 'nếu', 'dù', 'thế', 'nào', 'ai', 'gì',
+            'sao', 'đâu', 'nhiều', 'ít', 'rồi', 'chỉ', 'mới', 'vẫn', 'cả', 'ngay',
+            'thôi', 'luôn', 'biết', 'thấy', 'muốn', 'người', 'nhất', 'việc', 'bản',
+            'gã', 'kẻ', 'cái', 'con', 'từng', 'bỗng', 'chính', 'vừa', 'nhau', 'giữa'
+        ]);
+
+        const words = cleanText.split(' ').map(w => w.trim()).filter(w => w.length > 1);
+        const candidates = new Map<string, number>();
+
+        // Quét bigram (2 từ)
+        for (let i = 0; i < words.length - 1; i++) {
+            const w1 = words[i].toLowerCase();
+            const w2 = words[i + 1].toLowerCase();
+
+            if (!stopWords.has(w1) && !stopWords.has(w2)) {
+                const phrase2 = `${words[i]} ${words[i + 1]}`;
+                const key2 = phrase2.toLowerCase();
+                candidates.set(key2, (candidates.get(key2) || 0) + 1);
+            }
+        }
+
+        // Ưu tiên các cụm từ xuất hiện nhiều lần hoặc có ý nghĩa
+        const sorted = Array.from(candidates.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(entry => entry[0]);
+
+        return Array.from(new Set(sorted)).slice(0, 25);
+    }
+
+    /**
      * Lọc từ khoá trong một đoạn văn
      */
     keyword(source: any, index: number) {
@@ -2904,8 +2948,8 @@ ${content}`;
                         this.selectedIndex = 0;
                         
                         if (result && result.success && result.data) {
-                            let str = result.data[1];
-                            let arr = (str || '').split(' ');
+                            let str = result.data[1] || '';
+                            let arr = str.split(' ');
 
                             arr.map((item: string) => {
                                 if (item.indexOf('_') >= 0) {
@@ -2914,14 +2958,25 @@ ${content}`;
                                             /[@!^&\/\\#,+()$~%.'":*?<>{}\[\]]/g,
                                             '',
                                         )
-                                        .replace(/[_]/g, ' ');
+                                        .replace(/[_]/g, ' ')
+                                        .trim();
 
-                                    if (!this.arr_keyword.includes(kw)) {
+                                    if (kw && !this.arr_keyword.includes(kw)) {
                                         this.arr_keyword.push(kw);
                                     }
                                 }
                             });
                             
+                            // Nếu backend NLP trả về raw fallback text (không có gạch dưới _) do lỗi Python / remote server
+                            if (this.arr_keyword.length === 0) {
+                                const fallbackList = this.extractKeywordsFallback(str || safeContent);
+                                fallbackList.forEach(kw => {
+                                    if (kw && !this.arr_keyword.includes(kw)) {
+                                        this.arr_keyword.push(kw);
+                                    }
+                                });
+                            }
+
                             if (this.arr_keyword.length === 0) {
                                 this.toastr.warning(`Máy chủ xử lý thành công nhưng không tìm thấy từ khoá ghép nào trong đoạn văn.`, '0 từ khoá');
                             } else {
@@ -2935,7 +2990,18 @@ ${content}`;
                     error: (err) => { 
                         this.stepper.selectedIndex = 0;
                         this.selectedIndex = 0;
-                        this.toastr.error('Máy chủ NLP báo lỗi hoặc không thể xử lý đoạn văn này (Lỗi 500).', 'Lỗi máy chủ');
+                        // Khi API lỗi 500, kích hoạt fallback ngay tại client để người dùng luôn có từ khoá
+                        const fallbackList = this.extractKeywordsFallback(safeContent);
+                        if (fallbackList.length > 0) {
+                            fallbackList.forEach(kw => {
+                                if (kw && !this.arr_keyword.includes(kw)) {
+                                    this.arr_keyword.push(kw);
+                                }
+                            });
+                            this.toastr.success(`Đã trích xuất ${this.arr_keyword.length} từ khoá từ Dàn ý.`);
+                        } else {
+                            this.toastr.error('Máy chủ NLP báo lỗi hoặc không thể xử lý đoạn văn này.', 'Lỗi máy chủ');
+                        }
                         this.cd.markForCheck();
                     },
                     complete: () => {
@@ -2945,6 +3011,150 @@ ${content}`;
         } else {
             this.toastr.warning('Dàn ý chưa có nội dung chữ nào để tìm từ khoá!', 'Trống');
         }
+    }
+
+    /**
+     * Xuất danh sách từ khoá ra file văn bản (.txt)
+     */
+    exportKeywordList() {
+        if (!this.arr_keyword || this.arr_keyword.length === 0) {
+            this.toastr.warning('Chưa có từ khoá nào để xuất!', 'Danh sách trống');
+            return;
+        }
+        const textContent = this.arr_keyword.join('\n');
+        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `danh_sach_tu_khoa_${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.toastr.success(`Đã xuất ${this.arr_keyword.length} từ khoá ra file.`, 'Xuất thành công');
+    }
+
+    /**
+     * Nhập danh sách từ khoá từ file văn bản (.txt / .csv / .json)
+     */
+    importKeywordList(event: any) {
+        const file = event.target?.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e: any) => {
+            const content = e.target.result;
+            if (content && typeof content === 'string') {
+                let imported: string[] = [];
+                if (file.name.endsWith('.json')) {
+                    try {
+                        const parsed = JSON.parse(content);
+                        if (Array.isArray(parsed)) {
+                            imported = parsed.map((item: any) => String(item).trim()).filter(Boolean);
+                        }
+                    } catch (err) {
+                        this.toastr.error('Định dạng file JSON không hợp lệ!', 'Lỗi nhập file');
+                        return;
+                    }
+                } else {
+                    imported = content
+                        .split(/[\r\n,]+/)
+                        .map((item: string) => item.trim())
+                        .filter((item: string) => item.length > 0);
+                }
+
+                if (imported.length > 0) {
+                    if (!this.arr_keyword) this.arr_keyword = [];
+                    let addedCount = 0;
+                    imported.forEach((kw: string) => {
+                        if (!this.arr_keyword.includes(kw)) {
+                            this.arr_keyword.push(kw);
+                            addedCount++;
+                        }
+                    });
+                    this.cd.markForCheck();
+                    this.toastr.success(`Đã nhập thành công ${addedCount} từ khoá mới (Tổng: ${this.arr_keyword.length}).`, 'Nhập thành công');
+                } else {
+                    this.toastr.warning('Không tìm thấy từ khoá hợp lệ trong file.', 'File trống');
+                }
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file, 'UTF-8');
+    }
+
+    /**
+     * Xuất danh sách Dàn ý ra file văn bản (.txt)
+     */
+    exportOutlineList() {
+        if (!this.done || this.done.length === 0) {
+            this.toastr.warning('Chưa có đoạn văn nào trong Dàn ý để xuất!', 'Dàn ý trống');
+            return;
+        }
+        const textLines = this.done.map((item: any) => {
+            if (typeof item === 'string') {
+                return this.removeHTML.transform(item);
+            }
+            return JSON.stringify(item);
+        });
+        const textContent = textLines.join('\n\n');
+        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `danh_sach_dan_y_${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.toastr.success(`Đã xuất ${this.done.length} đoạn trong Dàn ý ra file.`, 'Xuất thành công');
+    }
+
+    /**
+     * Nhập danh sách Dàn ý từ file văn bản (.txt / .json)
+     */
+    importOutlineList(event: any) {
+        const file = event.target?.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e: any) => {
+            const content = e.target.result;
+            if (content && typeof content === 'string') {
+                let paragraphs: string[] = [];
+                if (file.name.endsWith('.json')) {
+                    try {
+                        const parsed = JSON.parse(content);
+                        if (Array.isArray(parsed)) {
+                            paragraphs = parsed.map((item: any) => String(item).trim()).filter(Boolean);
+                        } else if (parsed && Array.isArray(parsed.contents)) {
+                            paragraphs = parsed.contents.map((item: any) => String(item).trim()).filter(Boolean);
+                        }
+                    } catch (err) {
+                        this.toastr.error('Định dạng file JSON không hợp lệ!', 'Lỗi nhập file');
+                        return;
+                    }
+                } else {
+                    paragraphs = content
+                        .split(/\n\s*\n/)
+                        .map((p: string) => p.trim())
+                        .filter((p: string) => p.length > 0);
+                }
+
+                if (paragraphs.length > 0) {
+                    if (!this.done) this.done = [];
+                    paragraphs.forEach((p: string) => {
+                        this.done.push(p);
+                    });
+                    this.cd.markForCheck();
+                    this.toastr.success(`Đã thêm ${paragraphs.length} đoạn văn vào Dàn ý.`, 'Nhập thành công');
+                } else {
+                    this.toastr.warning('Không tìm thấy nội dung hợp lệ trong file.', 'File trống');
+                }
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file, 'UTF-8');
     }
 
     /**
@@ -4100,9 +4310,24 @@ ${contentFromDone || '(Chưa có văn bản)'}
 
     clearitem(i: number, data?: any, backup?: string) {
         if (data) {
-            this.trash.push(data[i]);
+            const removedItem = data[i];
+            this.trash.push(removedItem);
             data.splice(i, 1);
             this.toastr.success(`Xoá nội dung xong.`);
+
+            // Nếu người dùng xóa ảnh trong source.img thì đồng bộ xóa luôn trong thumbnail của step1
+            if (data === this.source?.img && typeof removedItem === 'string' && this.detectForm?.get('step1')?.get('thumbnail')) {
+                const match = removedItem.match(/src=["']([^"']+)["']/);
+                const imgSrc = match && match[1] ? match[1] : '';
+                if (imgSrc) {
+                    const currentThumb = this.detectForm.get('step1').get('thumbnail').value || '';
+                    const thumbs = currentThumb.split('\n').filter((t: string) => t.trim() !== '');
+                    const newThumbs = thumbs.filter((t: string) => !t.includes(imgSrc) && !imgSrc.includes(t));
+                    if (thumbs.length !== newThumbs.length) {
+                        this.detectForm.get('step1').get('thumbnail').setValue(newThumbs.join('\n'));
+                    }
+                }
+            }
 
             this.showComments();
 
@@ -6212,40 +6437,11 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
             this.detectForm.get('step2').get('url').setValue(urlVal);
         }
 
-        let thumbVal = editor.thumbnail || editor.source?.thumbnail || '';
-        if (!thumbVal && editor.source?.img && Array.isArray(editor.source.img) && editor.source.img.length > 0) {
-            const firstImg = editor.source.img[0];
-            if (typeof firstImg === 'string') {
-                const match = firstImg.match(/src=["']([^"']+)["']/);
-                thumbVal = match && match[1] ? match[1] : firstImg;
-            }
-        }
-
+        let thumbVal = editor.thumbnail !== undefined ? (editor.thumbnail || '') : (editor.source?.thumbnail || '');
         if (thumbVal) {
             this.detectForm.get('step1').get('thumbnail').setValue(thumbVal);
-
-            if (!this.source.img) {
-                this.source.img = [];
-            }
-            const thumbnails = thumbVal.split('\n').filter((p: string) => p.trim() !== '');
-            thumbnails.forEach((thumb: string) => {
-                if (this.isImage(thumb)) {
-                    let cleanB64 = thumb;
-                    if (thumb.startsWith('data:image/')) {
-                        cleanB64 = thumb.replace(/;name=[^;]+;/, ';');
-                    }
-                    let exists = false;
-                    for (let i = 0; i < this.source.img.length; i++) {
-                        if (typeof this.source.img[i] === 'string' && (this.source.img[i].includes(cleanB64) || this.source.img[i].includes(thumb))) {
-                            exists = true;
-                            break;
-                        }
-                    }
-                    if (!exists) {
-                        this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="${cleanB64}" /></p>`);
-                    }
-                }
-            });
+        } else {
+            this.detectForm.get('step1').get('thumbnail').setValue('');
         }
 
         let descVal = editor.description || editor.source?.description || '';
@@ -7037,8 +7233,28 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
     removeThumbnail(index: number) {
         const list = this.thumbnailsList;
         if (index >= 0 && index < list.length) {
+            const removedUrl = list[index];
             list.splice(index, 1);
             this.detectForm.get('step1').get('thumbnail').setValue(list.join('\n'));
+
+            // Đồng bộ xóa ảnh trong source.img nếu có
+            if (removedUrl && this.source && Array.isArray(this.source.img)) {
+                this.source.img = this.source.img.filter((imgItem: any) => {
+                    if (typeof imgItem === 'string') {
+                        return !imgItem.includes(removedUrl);
+                    }
+                    return true;
+                });
+            }
+            if (removedUrl && this.details && this.details.source && Array.isArray(this.details.source.img)) {
+                this.details.source.img = this.details.source.img.filter((imgItem: any) => {
+                    if (typeof imgItem === 'string') {
+                        return !imgItem.includes(removedUrl);
+                    }
+                    return true;
+                });
+            }
+
             this.update(false); // Lưu ngay lập tức
             this.cd.markForCheck();
         }

@@ -61,6 +61,60 @@
         </div>
     }
 
+    <!-- Top Toolbar -->
+    <div
+        class="flex items-center justify-between px-4 py-2 border-b bg-gray-50/80 dark:bg-gray-800/40 shrink-0"
+    >
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Danh sách Profiles ({{ totalProfiles }})
+            </span>
+            @if (selected.length > 0) {
+                <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 font-medium">
+                    Đã chọn {{ selected.length }}
+                </span>
+            }
+        </div>
+
+        <div class="flex items-center gap-2">
+            <input
+                type="file"
+                #topProfileFileInput
+                style="display: none"
+                accept=".json,.txt,.csv"
+                (change)="importProfiles($event)"
+            />
+
+            <button
+                mat-stroked-button
+                color="primary"
+                class="!rounded-lg !text-xs !py-1 !px-3 shadow-xs"
+                (click)="topProfileFileInput.click()"
+                matTooltip="Nhập danh sách profiles từ file JSON, TXT hoặc CSV"
+            >
+                <mat-icon
+                    [svgIcon]="'feather:upload'"
+                    class="icon-size-4 mr-1.5 text-green-600"
+                ></mat-icon>
+                <span>Nhập Profiles</span>
+            </button>
+
+            <button
+                mat-flat-button
+                color="primary"
+                class="!rounded-lg !text-xs !py-1 !px-3 shadow-xs"
+                (click)="exportProfiles()"
+                matTooltip="Xuất danh sách profiles ra file JSON"
+            >
+                <mat-icon
+                    [svgIcon]="'feather:download'"
+                    class="icon-size-4 mr-1.5"
+                ></mat-icon>
+                <span>{{ selected.length > 0 ? 'Xuất đã chọn (' + selected.length + ')' : 'Xuất tất cả' }}</span>
+            </button>
+        </div>
+    </div>
+
     <!-- Table -->
     <div class="flex-auto relative overflow-hidden">
         <ngx-datatable
@@ -402,7 +456,37 @@
                             }
                         </div>
 
-                        <div class="flex shrink-0 items-center">
+                        <div class="flex shrink-0 items-center gap-1">
+                            <input
+                                type="file"
+                                #profileFileInput
+                                style="display: none"
+                                accept=".json,.txt,.csv"
+                                (change)="importProfiles($event)"
+                            />
+
+                            <button
+                                mat-icon-button
+                                (click)="profileFileInput.click()"
+                                [matTooltip]="'Nhập danh sách Profiles (.json, .txt, .csv)'"
+                            >
+                                <mat-icon
+                                    [svgIcon]="'feather:upload'"
+                                    class="icon-size-4 text-green-600"
+                                ></mat-icon>
+                            </button>
+
+                            <button
+                                mat-icon-button
+                                (click)="exportProfiles()"
+                                [matTooltip]="selected.length > 0 ? 'Xuất ' + selected.length + ' profiles đã chọn (.json)' : 'Xuất tất cả profiles (.json)'"
+                            >
+                                <mat-icon
+                                    [svgIcon]="'feather:download'"
+                                    class="icon-size-4 text-blue-600"
+                                ></mat-icon>
+                            </button>
+
                             <button
                                 mat-icon-button
                                 (click)="refresh()"

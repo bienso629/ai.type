@@ -3863,6 +3863,40 @@
                                                         từ khoá trong
                                                         bài.</mat-label
                                                     >
+
+                                                    <input
+                                                        type="file"
+                                                        #keywordFileInput
+                                                        style="display: none"
+                                                        accept=".txt,.csv,.json"
+                                                        (change)="importKeywordList($event)"
+                                                    />
+
+                                                    <button
+                                                        mat-icon-button
+                                                        class="ml-auto icon-size-8"
+                                                        (click)="keywordFileInput.click(); $event.stopPropagation()"
+                                                        matTooltipPosition="above"
+                                                        matTooltip="Nhập danh sách từ khoá (.txt, .csv, .json)"
+                                                    >
+                                                        <mat-icon
+                                                            class="icon-size-4 text-green-600"
+                                                            [svgIcon]="'feather:upload'"
+                                                        ></mat-icon>
+                                                    </button>
+
+                                                    <button
+                                                        mat-icon-button
+                                                        class="ml-1 icon-size-8"
+                                                        (click)="exportKeywordList(); $event.stopPropagation()"
+                                                        matTooltipPosition="above"
+                                                        matTooltip="Xuất danh sách từ khoá ra file (.txt)"
+                                                    >
+                                                        <mat-icon
+                                                            class="icon-size-4 text-blue-600"
+                                                            [svgIcon]="'feather:download'"
+                                                        ></mat-icon>
+                                                    </button>
                                                 </mat-panel-title>
                                             </mat-expansion-panel-header>
                                             @if (arr_keyword.length > 0) {
@@ -6640,6 +6674,7 @@
                                             }
                                         </div>
                                     </mat-expansion-panel>
+
                                 </mat-accordion>
                             </mat-tab>
                         </mat-tab-group>
@@ -7398,7 +7433,34 @@
                                             ></mat-icon>
                                             <mat-label>Tìm từ khoá</mat-label>
                                         </button>
+                                        <button
+                                            mat-menu-item
+                                            (click)="exportOutlineList()"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                svgIcon="feather:download"
+                                            ></mat-icon>
+                                            <mat-label>Xuất danh sách Dàn ý (.txt)</mat-label>
+                                        </button>
+                                        <button
+                                            mat-menu-item
+                                            (click)="outlineFileInput.click()"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                svgIcon="feather:upload"
+                                            ></mat-icon>
+                                            <mat-label>Nhập danh sách Dàn ý (.txt, .json)</mat-label>
+                                        </button>
                                     </mat-menu>
+                                    <input
+                                        type="file"
+                                        #outlineFileInput
+                                        style="display: none"
+                                        accept=".txt,.json"
+                                        (change)="importOutlineList($event)"
+                                    />
                                     <mat-menu #forumActions="matMenu">
                                         <div
                                             (click)="$event.stopPropagation()"
