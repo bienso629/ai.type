@@ -398,6 +398,23 @@
                                                                     <button
                                                                         mat-menu-item
                                                                         (click)="
+                                                                            reusePromptFromImage(
+                                                                                img
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-amber-500"
+                                                                            svgIcon="heroicons_outline:refresh"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Dùng lại
+                                                                            prompt</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
                                                                             attachToPrompt(
                                                                                 img
                                                                             )
@@ -489,6 +506,23 @@
                                                                     <button
                                                                         mat-menu-item
                                                                         (click)="
+                                                                            reusePromptFromImage(
+                                                                                img
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-amber-500"
+                                                                            svgIcon="heroicons_outline:refresh"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Dùng lại
+                                                                            prompt</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
                                                                             attachToPrompt(
                                                                                 img
                                                                             )
@@ -577,18 +611,12 @@
                                             ngx-datatable-footer-template
                                             let-rowCount="rowCount"
                                         >
-                                            <div class="flex items-center justify-between w-full h-full px-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800 select-none">
-                                                <div class="flex items-center text-sm text-secondary">
-                                                    <span>Tổng số: <strong class="text-default font-semibold">{{ imageUrls.length }}</strong> hình ảnh</span>
-                                                    @if (selectedImages.size > 0) {
-                                                        <span class="ml-2 text-primary font-medium">(Đã chọn: {{ selectedImages.size }})</span>
-                                                    }
-                                                </div>
-
+                                            <div class="flex items-center justify-between w-full h-full px-4 bg-gray-50 dark:bg-gray-800 select-none">
                                                 <div class="flex items-center gap-2">
                                                     @if (imageUrls && imageUrls.length > 0) {
                                                         <button
-                                                            mat-stroked-button
+                                                            mat-flat-button
+                                                            color="primary"
                                                             (click)="selectAllImages()"
                                                             class="fuse-mat-dense font-medium"
                                                             [matTooltip]="selectedImages.size === imageUrls.length ? 'Bỏ chọn toàn bộ' : 'Chọn toàn bộ ảnh'"
@@ -615,6 +643,13 @@
                                                                 <mat-label class="ml-2">Xóa đã chọn ({{ selectedImages.size }})</mat-label>
                                                             </button>
                                                         }
+                                                    }
+                                                </div>
+
+                                                <div class="flex items-center text-sm text-secondary">
+                                                    <span>Tổng số: <strong class="text-default font-semibold">{{ imageUrls.length }}</strong> hình ảnh</span>
+                                                    @if (selectedImages.size > 0) {
+                                                        <span class="ml-2 text-primary font-medium">(Đã chọn: {{ selectedImages.size }})</span>
                                                     }
                                                 </div>
                                             </div>

@@ -13,6 +13,11 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
+import { GenaiService } from 'app/genai.service';
+import {
+    extractPromptFromImageBase64,
+    extractPromptFromImageBytes,
+} from './image-metadata.helper';
 
 // --- INTERFACES ---
 interface LayerBase {
@@ -237,13 +242,16 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
     }
 
     fontGroups: any[] = [];
+    aiPrompt: string = '';
+    isGeneratingAi: boolean = false;
 
     constructor(
         public dialogRef: MatDialogRef<ImageEditorDialogComponent>,
         @Inject(MAT_DIALOG_DATA)
-        public data: { imageUrl: string; username: string },
+        public data: { imageUrl: string; username: string; prompt?: string },
         private toastr: ToastrService,
         private cdr: ChangeDetectorRef,
+        private genaiService: GenaiService,
     ) {
         this.saveTrigger.pipe(debounceTime(1000)).subscribe(() => {
             if (!this.isUndoing) this.saveStateToStorage();
@@ -253,6 +261,9 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
     ngOnInit(): void {
         this.refreshGradientPresets();
         this.loadAvailableFonts();
+        if (this.data?.prompt) {
+            this.aiPrompt = this.data.prompt;
+        }
         let src = this.data.imageUrl;
         if (
             !src.startsWith('http') &&
@@ -262,6 +273,44 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
             src = 'file:///' + src;
         this.originalUrl = src;
         this.initCanvas(this.originalUrl, true);
+        this.extractPromptFromOriginalImage();
+    }
+
+    async extractPromptFromOriginalImage(): Promise<void> {
+        if (this.aiPrompt) return;
+        try {
+            const cleanPath = (this.data.imageUrl || '')
+                .replace(/^file:\/\/\//, '')
+                .replace(/^file:\/\//, '');
+
+            let meta = null;
+            if ((window as any).electron?.readFileBase64) {
+                try {
+                    const res = await (window as any).electron.readFileBase64(cleanPath);
+                    if (res && res.success && res.base64) {
+                        meta = extractPromptFromImageBase64(res.base64);
+                    }
+                } catch {}
+            }
+
+            if (!meta) {
+                try {
+                    const fetchUrl = cleanPath.startsWith('/') ? 'file://' + cleanPath : 'file:///' + cleanPath;
+                    const response = await fetch(fetchUrl);
+                    if (response.ok) {
+                        const arrayBuffer = await response.arrayBuffer();
+                        meta = extractPromptFromImageBytes(new Uint8Array(arrayBuffer));
+                    }
+                } catch {}
+            }
+
+            if (meta?.prompt) {
+                this.aiPrompt = meta.prompt;
+                this.cdr.markForCheck();
+            }
+        } catch (e) {
+            console.warn('Lỗi đọc prompt metadata trong dialog:', e);
+        }
     }
 
     async loadAvailableFonts(): Promise<void> {
@@ -1224,6 +1273,86 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
             this.applyState(d);
         } catch {}
     }
+    async generateWithAi() {
+        if (!this.aiPrompt?.trim() || this.isGeneratingAi) return;
+
+        this.isGeneratingAi = true;
+        this.cdr.markForCheck();
+
+        try {
+            // Lấy canvas hiện tại làm ảnh tham chiếu
+            const currentCanvas = this.canvasRef.nativeElement;
+            const currentDataUrl = currentCanvas.toDataURL('image/png');
+            const base64Data = currentDataUrl.split(',')[1];
+
+            // Xác định tỷ lệ ảnh gần nhất
+            const currentRatio = currentCanvas.width / currentCanvas.height;
+            let ratioStr = '1:1';
+            if (currentRatio > 1.5) ratioStr = '16:9';
+            else if (currentRatio > 1.2) ratioStr = '4:3';
+            else if (currentRatio < 0.6) ratioStr = '9:16';
+            else if (currentRatio < 0.8) ratioStr = '3:4';
+
+            const generateOptions = {
+                model: 'gemini-3.1-flash-image-preview',
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [
+                            { text: this.aiPrompt.trim() },
+                            {
+                                inlineData: {
+                                    data: base64Data,
+                                    mimeType: 'image/png',
+                                },
+                            } as any,
+                        ],
+                    },
+                ],
+                config: {
+                    responseModalities: ['TEXT', 'IMAGE'],
+                    imageConfig: {
+                        aspectRatio: ratioStr,
+                    },
+                },
+            };
+
+            const response = await this.genaiService.generateContent(generateOptions);
+            const candidates = response?.candidates;
+
+            let newImageBase64 = '';
+            let newMimeType = 'image/png';
+
+            if (candidates?.[0]?.content?.parts) {
+                for (const part of candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        newImageBase64 = part.inlineData.data;
+                        newMimeType = part.inlineData.mimeType || 'image/png';
+                        break;
+                    } else if ((part as any).image) {
+                        newImageBase64 = (part as any).image.data;
+                        newMimeType = (part as any).image.mimeType || 'image/png';
+                        break;
+                    }
+                }
+            }
+
+            if (newImageBase64) {
+                const newSrc = `data:${newMimeType};base64,${newImageBase64}`;
+                this.initCanvas(newSrc, false);
+                this.toastr.success('AI đã chỉnh sửa hình ảnh!');
+            } else {
+                this.toastr.warning('Không nhận được hình ảnh trả về từ AI.');
+            }
+        } catch (err: any) {
+            console.error('Lỗi tạo ảnh AI trong Editor:', err);
+            this.toastr.error('Lỗi khi áp dụng AI: ' + (err.message || 'Vui lòng thử lại.'));
+        } finally {
+            this.isGeneratingAi = false;
+            this.cdr.markForCheck();
+        }
+    }
+
     saveImage() {
         this.processing = true;
         this.saveStateToStorage();
@@ -1242,6 +1371,7 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
                 success: true,
                 dataUrl: t.toDataURL(this.output.format, this.output.quality),
                 format: this.output.format,
+                prompt: this.aiPrompt?.trim() || '',
             });
         }, 100);
     }

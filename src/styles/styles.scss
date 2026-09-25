@@ -1649,11 +1649,18 @@ ngx-datatable {
 
     &.material {
         .datatable-header {
-            border-bottom: 1px solid rgba(179, 179, 179, 0.13) !important;
+            border-bottom: 1px solid #e2e8f0 !important;
         }
 
         .datatable-footer {
-            border-top: 1px solid rgba(179, 179, 179, 0.13) !important;
+            border-top: 1px solid #e2e8f0 !important;
+            width: 100% !important;
+
+            .datatable-footer-inner {
+                width: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+            }
 
             .mat-mdc-button-base {
                 font-size: 14px !important;
@@ -1666,6 +1673,18 @@ ngx-datatable {
                 span, mat-label {
                     font-size: 14px !important;
                 }
+            }
+        }
+    }
+
+    .dark & {
+        &.material {
+            .datatable-header {
+                border-bottom: 1px solid #334155 !important;
+            }
+
+            .datatable-footer {
+                border-top: 1px solid #334155 !important;
             }
         }
     }

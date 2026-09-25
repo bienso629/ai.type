@@ -35,6 +35,12 @@ import { DomainService } from 'app/_services/domain';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 import { MyKeysService } from 'app/_services/mykey';
 import { WordpressService } from 'app/_services/wordpress';
+import {
+    embedPromptToImageBase64,
+    extractPromptFromImageBytes,
+    extractPromptFromImageBase64,
+    ImagePromptMetadata,
+} from './tools/image-metadata.helper';
 
 interface ReferenceFile {
     base64Data: string;
@@ -317,6 +323,25 @@ export class AIImageComponent
                         mimeType,
                     );
                     ext = 'jpg';
+                    mimeType = 'image/jpeg';
+                }
+
+                // Nếu có prompt (nhập từ dialog hoặc giữ lại từ ảnh gốc), nhúng vào metadata ảnh
+                if (result.prompt) {
+                    try {
+                        const metadata: ImagePromptMetadata = {
+                            prompt: result.prompt,
+                            modelId: 'gemini-3.1-flash-image-preview',
+                            createdAt: Date.now(),
+                        };
+                        base64Content = embedPromptToImageBase64(
+                            base64Content,
+                            mimeType,
+                            metadata,
+                        );
+                    } catch (e) {
+                        console.warn('Lỗi nhúng prompt vào ảnh chỉnh sửa:', e);
+                    }
                 }
 
                 const newFileName = `edited_${new Date().getTime()}.${ext}`;
@@ -377,6 +402,76 @@ export class AIImageComponent
             });
         } catch (err) {
             this.toastr.error('Không thể đọc file ảnh để chia sẻ.');
+        }
+    }
+
+    /**
+     * Tái sử dụng prompt từ metadata nhúng trong ảnh (PNG chunk tEXt / JPEG COM)
+     */
+    async reusePromptFromImage(imagePath: string) {
+        try {
+            let cleanPath = imagePath
+                .replace(/^file:\/\/\//, '')
+                .replace(/^file:\/\//, '');
+
+            let meta: ImagePromptMetadata | null = null;
+
+            // 1. Nếu đang chạy trong môi trường Electron, ưu tiên dùng readFileBase64 để đọc trực tiếp file cục bộ
+            if ((window as any).electron?.readFileBase64) {
+                try {
+                    const res = await (window as any).electron.readFileBase64(cleanPath);
+                    if (res && res.success && res.base64) {
+                        meta = extractPromptFromImageBase64(res.base64);
+                    }
+                } catch (electronErr) {
+                    console.warn('Electron readFileBase64 error, fallback fetch:', electronErr);
+                }
+            }
+
+            // 2. Dự phòng thử đọc qua fetch
+            if (!meta) {
+                try {
+                    const fetchUrl = cleanPath.startsWith('/') ? 'file://' + cleanPath : 'file:///' + cleanPath;
+                    const response = await fetch(fetchUrl);
+                    if (response.ok) {
+                        const arrayBuffer = await response.arrayBuffer();
+                        meta = extractPromptFromImageBytes(new Uint8Array(arrayBuffer));
+                    }
+                } catch (fetchErr) {
+                    console.warn('Fetch image failed:', fetchErr);
+                }
+            }
+
+            if (!meta || !meta.prompt) {
+                this.toastr.warning('Ảnh này không chứa thông tin metadata prompt.');
+                return;
+            }
+
+            // Điền lại thông tin vào Form
+            if (this.form) {
+                this.form.get('prompt')?.setValue(meta.prompt);
+
+                if (meta.modelId && this.form.get('modelId')) {
+                    this.form.get('modelId')?.setValue(meta.modelId);
+                }
+
+                if (meta.aspectRatio && this.form.get('aspectRatio')) {
+                    this.form.get('aspectRatio')?.setValue(meta.aspectRatio);
+                }
+            }
+
+            // Cuộn lên đầu trang hoặc focus vào ô prompt để người dùng tiện chỉnh sửa
+            const promptEl = document.querySelector('textarea[formControlName="prompt"], input[formControlName="prompt"]') as HTMLElement;
+            if (promptEl) {
+                promptEl.focus();
+                promptEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            this.toastr.success('Đã tải prompt từ ảnh vào ô nhập liệu!');
+            this.cd.markForCheck();
+        } catch (err: any) {
+            console.error('Lỗi khi đọc prompt từ ảnh:', err);
+            this.toastr.error('Không thể đọc thông tin prompt từ ảnh.');
         }
     }
 
@@ -691,8 +786,14 @@ export class AIImageComponent
                             `Tiêu tốn: ${usage?.totalTokenCount || 0} tokens`,
                         );
 
-                        // 2. LOGIC QUAN TRỌNG: Gửi lên Server
-                        await this.processAndUploadImage(rawBase64, mimeType);
+                        // 2. LOGIC QUAN TRỌNG: Gửi lên Server và lưu cục bộ (kèm metadata Prompt)
+                        const metadata: ImagePromptMetadata = {
+                            prompt: promptValue,
+                            modelId: modelId,
+                            aspectRatio: selectedRatio,
+                            createdAt: Date.now(),
+                        };
+                        await this.processAndUploadImage(rawBase64, mimeType, metadata);
                     }
                 }
 
@@ -797,12 +898,26 @@ export class AIImageComponent
     }
 
     // Hàm phụ để xử lý upload giúp code sạch hơn
-    async processAndUploadImage(rawBase64: string, mimeType: string) {
+    async processAndUploadImage(
+        rawBase64: string,
+        mimeType: string,
+        metadata?: ImagePromptMetadata
+    ) {
         let finalBase64 = rawBase64;
-        try {
-            finalBase64 = await this.convertToPng(rawBase64, mimeType);
-        } catch (e) {
-            console.warn('Failed to convert to PNG', e);
+        let finalMime = mimeType;
+
+        // Nhúng metadata (prompt, model, aspectRatio,...) trực tiếp vào ảnh
+        // embedPromptToImageBase64 tự động phân tích magic bytes (PNG tEXt chunk hoặc JPEG COM marker)
+        if (metadata) {
+            try {
+                finalBase64 = embedPromptToImageBase64(
+                    finalBase64,
+                    finalMime,
+                    metadata
+                );
+            } catch (embedErr) {
+                console.warn('Lỗi nhúng metadata prompt vào ảnh:', embedErr);
+            }
         }
 
         const thumbnail = await Promise.all([
