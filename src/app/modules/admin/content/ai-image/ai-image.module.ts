@@ -21,6 +21,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatSliderModule } from '@angular/material/slider';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { TextFieldModule } from '@angular/cdk/text-field';
 
 const Routes: Route[] = [
     {
@@ -60,6 +61,7 @@ const Routes: Route[] = [
         MatSliderModule,       // <--- THÊM CÁI NÀY
         MatSlideToggleModule,  // <--- THÊM CÁI NÀY (Nguyên nhân chính gây lỗi)
         MatTooltipModule,      // <--- THÊM CÁI NÀY
+        TextFieldModule,
 
         TimeagoModule.forRoot(),
         SharedModule

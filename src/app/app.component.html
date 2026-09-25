@@ -140,6 +140,7 @@
             <!-- Nút Back -->
             <button
                 (click)="webviewGoBack()"
+                title="Quay lại"
                 style="
                     background: none;
                     border: none;
@@ -165,6 +166,73 @@
                 >
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
+            </button>
+            <!-- Nút Tải lại / Về trang chủ -->
+            <button
+                (click)="webviewGoHome()"
+                title="Tải lại trang chủ"
+                style="
+                    background: none;
+                    border: none;
+                    color: #aaa;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 4px;
+                    border-radius: 4px;
+                    margin-right: 4px;
+                "
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    style="width: 16px; height: 16px"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+            </button>
+            <!-- Nút Đăng nhập Google -->
+            <button
+                (click)="openLoginBrowser()"
+                title="Đăng nhập Google"
+                style="
+                    background: #1a73e8;
+                    border: none;
+                    color: #fff;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 4px;
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                    margin-right: 8px;
+                    font-size: 11px;
+                    font-weight: 500;
+                "
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    style="width: 13px; height: 13px"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                    <polyline points="10 17 15 12 10 7"></polyline>
+                    <line x1="15" y1="12" x2="3" y2="12"></line>
+                </svg>
+                <span>Đăng nhập</span>
             </button>
             <!-- Nút đóng -->
             <button

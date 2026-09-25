@@ -593,6 +593,18 @@ export class AIImageComponent
         return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
     }
 
+    onPromptKeydown(event: KeyboardEvent) {
+        if (event.key === 'Enter') {
+            if (event.shiftKey || event.ctrlKey) {
+                // Cho phép xuống dòng bình thường
+                return;
+            }
+            // Bấm Enter đơn thuần thì kích hoạt tạo ảnh
+            event.preventDefault();
+            this.createImg();
+        }
+    }
+
     async createImg() {
         const promptValue = this.form.get('prompt')?.value;
         if (!promptValue || this.loading) return;
