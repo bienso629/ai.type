@@ -114,6 +114,7 @@ jobs:
             -authenticationKeyIssuerID ${{ secrets.APP_STORE_ISSUER_ID }} \
             DEVELOPMENT_TEAM=7Q9KE7THG2 \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             archive
 
       - name: Export & Upload to TestFlight
