@@ -853,6 +853,161 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             });
     }
 
+    /**
+     * Xuất danh sách profiles và accounts/nhân cách ra file JSON
+     */
+    exportProfiles(): void {
+        const targetList =
+            this.selected && this.selected.length > 0
+                ? this.selected
+                : this.profiles;
+
+        if (!targetList || targetList.length === 0) {
+            this.toastr.warning('Chưa có profile nào để xuất!', 'Danh sách trống');
+            return;
+        }
+
+        const exportData = targetList.map((item: any) => ({
+            profile: item.profile,
+            vpn: item.vpn,
+            proxy: item.proxy,
+            accounts: item.accounts ? item.accounts.map((acc: any) => ({
+                platform: acc.platform || 'tiktok',
+                email: acc.email || '',
+                alias: acc.alias || '',
+                note: acc.note || '',
+                active: acc.active !== undefined ? acc.active : true,
+            })) : [],
+        }));
+
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `danh_sach_profiles_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        this.toastr.success(
+            `Đã xuất ${targetList.length} profile ra file JSON thành công!`,
+            'Xuất Profiles',
+        );
+    }
+
+    /**
+     * Nhập danh sách profiles từ file JSON hoặc TXT/CSV
+     */
+    importProfiles(event: any): void {
+        const file = event.target?.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e: any) => {
+            const content = e.target.result;
+            if (!content || typeof content !== 'string') {
+                this.toastr.error('File không có nội dung!', 'Lỗi nhập file');
+                return;
+            }
+
+            let importedItems: any[] = [];
+            if (file.name.endsWith('.json')) {
+                try {
+                    const parsed = JSON.parse(content);
+                    if (Array.isArray(parsed)) {
+                        importedItems = parsed;
+                    } else if (parsed && Array.isArray(parsed.profiles)) {
+                        importedItems = parsed.profiles;
+                    }
+                } catch (err) {
+                    this.toastr.error('Định dạng JSON không hợp lệ!', 'Lỗi nhập file');
+                    return;
+                }
+            } else {
+                // Tách theo dòng cho file .txt hoặc .csv (mỗi dòng 1 profile hoặc profile,email,alias)
+                const lines = content.split(/[\r\n]+/).map((l) => l.trim()).filter((l) => l.length > 0);
+                importedItems = lines.map((line) => {
+                    const parts = line.split(',');
+                    const pName = parts[0]?.trim();
+                    const accEmail = parts[1]?.trim();
+                    const accAlias = parts[2]?.trim();
+                    const item: any = { profile: pName };
+                    if (accEmail) {
+                        item.accounts = [{
+                            platform: 'tiktok',
+                            email: accEmail,
+                            alias: accAlias || '',
+                            active: true,
+                        }];
+                    }
+                    return item;
+                });
+            }
+
+            if (!importedItems || importedItems.length === 0) {
+                this.toastr.warning('Không tìm thấy thông tin profile nào trong file.', 'File trống');
+                return;
+            }
+
+            const rootPath = this.getProfilesRoot();
+            let successCount = 0;
+
+            for (const item of importedItems) {
+                const profileName = item.profile || item.name;
+                if (!profileName) continue;
+
+                // Cài proxy nếu có
+                if (item.proxy) {
+                    this._mxhautoService.setProfileProxy({
+                        profiles_root: rootPath,
+                        profile: profileName,
+                        proxy: item.proxy,
+                    }).subscribe();
+                }
+
+                // Cài VPN nếu có
+                if (item.vpn && typeof item.vpn === 'object') {
+                    this._mxhautoService.setProfileVpn(profileName, {
+                        enabled: item.vpn.enabled !== false,
+                        location: item.vpn.location || 'optimal',
+                        profiles_root: rootPath,
+                        username: this.user ? this.user.name : '',
+                    }).subscribe();
+                }
+
+                // Nhập accounts / Nhân cách
+                if (item.accounts && Array.isArray(item.accounts) && item.accounts.length > 0) {
+                    for (const acc of item.accounts) {
+                        if (acc.email || acc.alias || acc.note) {
+                            this._mxhautoService.addAccount({
+                                profiles_root: rootPath,
+                                platform: acc.platform || 'tiktok',
+                                email: acc.email || '',
+                                alias: acc.alias || '',
+                                note: typeof acc.note === 'object' ? JSON.stringify(acc.note) : (acc.note || ''),
+                                profiles: [profileName],
+                                active: acc.active !== undefined ? acc.active : true,
+                                username: this.user ? this.user.name : '',
+                            }).subscribe();
+                        }
+                    }
+                }
+                successCount++;
+            }
+
+            this.toastr.success(
+                `Đã nhập thành công ${successCount} profiles vào hệ thống.`,
+                'Nhập Profiles',
+            );
+            setTimeout(() => this.refresh(), 1000);
+            event.target.value = '';
+        };
+
+        reader.readAsText(file, 'UTF-8');
+    }
+
     ngOnDestroy(): void {
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
