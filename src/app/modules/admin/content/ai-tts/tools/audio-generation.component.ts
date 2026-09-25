@@ -274,18 +274,43 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
     async checkColabStatus() {
         try {
             let connected = false;
+
+            // Kiểm tra cấu hình sst từ cài đặt người dùng
+            let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+            try {
+                const lsSettings = localStorage.getItem('settings');
+                if (lsSettings) {
+                    settings = { ...settings, ...JSON.parse(lsSettings) };
+                }
+            } catch (e) {}
+            const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+
             if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
                 const res = await (window as any).electronAPI.checkColabGpuStatus();
                 connected = !!(res && res.is_connected);
             } else {
-                const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
-                if (resp.ok) {
-                    const data = await resp.json();
-                    connected = !!(data && data.is_connected);
-                }
+                try {
+                    const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        connected = !!(data && data.is_connected);
+                    }
+                } catch (e) {}
             }
-            let omniVoices: any[] = [];
+
+            // Nếu daemon local chưa connected nhưng có sstUrl, ping thử tới endpoint sstUrl/status để kiểm tra kết nối thực sự
+            if (!connected && sstUrl) {
+                try {
+                    const sstResp = await fetch(`${sstUrl}/status`, { signal: AbortSignal.timeout(2000) });
+                    if (sstResp.ok) {
+                        const sstData = await sstResp.json();
+                        connected = !!(sstData && sstData.is_connected);
+                    }
+                } catch (e) {}
+            }
+
             if (connected) {
+                let omniVoices: any[] = [];
                 if ((window as any).electron && (window as any).electron.invoke) {
                     try {
                         const dynamicVoices = await (window as any).electron.invoke('get-colab-voices');
