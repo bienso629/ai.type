@@ -3822,6 +3822,37 @@ export class VideoTimelineDialogComponent
                         'tts-ausync-generate',
                         payload,
                     );
+                } else if (config.selectedVoice?.startsWith('omnivoice-') || config.selectedVoice === 'omnivoice') {
+                    const targetVoiceName = config.selectedVoice.replace('omnivoice-', '');
+                    const refAudioName = targetVoiceName.endsWith('.wav') || targetVoiceName.endsWith('.mp3')
+                        ? targetVoiceName
+                        : `${targetVoiceName}.wav`;
+                    const niceFilename = `${prefix}_${slug}`;
+
+                    let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+                    try {
+                        const lsSettings = localStorage.getItem('settings');
+                        if (lsSettings) {
+                            settings = { ...settings, ...JSON.parse(lsSettings) };
+                        }
+                    } catch (e) {}
+                    const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+
+                    const payload = {
+                        text: text,
+                        voice_id: targetVoiceName,
+                        ref_audio_name: refAudioName,
+                        ref_text: '',
+                        speed: config.selectedRate || 1.0,
+                        num_step: 16,
+                        filename: niceFilename,
+                        username: subPath,
+                        sst_url: sstUrl,
+                    };
+                    res = await electronApi.invoke(
+                        'tts-type-generate',
+                        payload,
+                    );
                 } else {
                     // Mặc định fallback Edge TTS nếu không khớp
                     const niceFilename = `${prefix}_${slug}`;

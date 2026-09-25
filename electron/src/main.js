@@ -7981,14 +7981,15 @@ ipcMain.handle("get-colab-voices", async () => {
 });
 
 ipcMain.handle("tts-type-generate", async (event, payload) => {
-    const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username, ref_audio_base64 } = payload;
+    const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username, ref_audio_base64, colab_url, sst_url } = payload;
 
     // Kiểm tra xem có kết nối Colab GPU đang hoạt động hay không
-    let colabBaseUrl = null;
+    let colabBaseUrl = colab_url || sst_url || null;
     try {
-        if (colabMcpClient && colabMcpClient.isConnected && colabMcpClient.baseUrl) {
+        if (!colabBaseUrl && colabMcpClient && colabMcpClient.isConnected && colabMcpClient.baseUrl) {
             colabBaseUrl = colabMcpClient.baseUrl;
-        } else {
+        }
+        if (!colabBaseUrl) {
             // Thử kiểm tra daemon local cổng 7868
             const localResp = await fetch("http://127.0.0.1:7868/status", { signal: AbortSignal.timeout(1500) });
             if (localResp.ok) {

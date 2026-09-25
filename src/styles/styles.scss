@@ -380,7 +380,7 @@ hr {
             height: 18px !important;
             min-width: 18px !important;
             min-height: 18px !important;
-            margin-right: 10px !important;
+            margin-right: 10px;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -390,6 +390,13 @@ hr {
                 width: 18px !important;
                 height: 18px !important;
             }
+        }
+
+        /* Khi icon nằm trong wrapper hoặc có class !m-0 thì không bị margin-right làm lệch */
+        .\!m-0,
+        .rounded-full .mat-icon,
+        div:not(.mat-mdc-menu-item-text) > .mat-icon {
+            margin-right: 0 !important;
         }
     }
 
@@ -567,7 +574,7 @@ hr {
             height: 18px !important;
             min-width: 18px !important;
             min-height: 18px !important;
-            margin-right: 10px !important;
+            margin-right: 10px;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -577,6 +584,13 @@ hr {
                 width: 18px !important;
                 height: 18px !important;
             }
+        }
+
+        /* Khi icon nằm trong wrapper hoặc có class !m-0 thì không bị margin-right làm lệch */
+        .\!m-0,
+        .rounded-full .mat-icon,
+        div:not(.mat-mdc-menu-item-text) > .mat-icon {
+            margin-right: 0 !important;
         }
     }
 

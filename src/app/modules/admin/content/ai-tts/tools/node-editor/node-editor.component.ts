@@ -137,6 +137,8 @@ export class NodeEditorComponent
     nodeHeights: { [id: string]: number } = {};
 
     availableModels: string[] = ['3.1 Pro'];
+    imageModels: string[] = [];
+    videoModels: string[] = [];
     filteredModels: string[] = [];
     filteredModelGroups: { name: string; models: string[] }[] = [];
     selectedModel: string = '3.1 Pro';
@@ -374,14 +376,93 @@ export class NodeEditorComponent
 
     async loadModels() {
         try {
-            const models = await this.genaiService.getUModelverseModels();
-            const allModels = ['Local ComfyUI'];
-            if (models && models.length > 0) {
-                allModels.push(...models);
+            let mitomModels: string[] = [];
+            let imageList: string[] = ['Local ComfyUI'];
+            let videoList: string[] = [];
+
+            try {
+                const res = await fetch('https://api-vn-sg.mitom.ai/v1/models');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && Array.isArray(data.data)) {
+                        for (const item of data.data) {
+                            const mid = item.id;
+                            if (!mid) continue;
+
+                            const chargeItems = new Set<string>();
+                            if (Array.isArray(item.pricing)) {
+                                for (const p of item.pricing) {
+                                    if (Array.isArray(p.Rates)) {
+                                        for (const r of p.Rates) {
+                                            if (r.ChargeItem) {
+                                                chargeItems.add(r.ChargeItem);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            const lower = mid.toLowerCase();
+                            const isVideo =
+                                chargeItems.has('video_duration') ||
+                                chargeItems.has('input_video_duration') ||
+                                lower.includes('video') ||
+                                lower.includes('i2v') ||
+                                lower.includes('t2v') ||
+                                lower.includes('r2v') ||
+                                lower.includes('kling') ||
+                                lower.includes('vidu') ||
+                                lower.includes('hailuo') ||
+                                lower.includes('happyhorse') ||
+                                lower.includes('wan2') ||
+                                lower.includes('wan3');
+
+                            const isImage =
+                                chargeItems.has('image_count') ||
+                                chargeItems.has('input_image_count') ||
+                                lower.includes('image') ||
+                                lower.includes('flux') ||
+                                lower.includes('seedream') ||
+                                lower.includes('midjourney') ||
+                                lower.includes('dall-e') ||
+                                lower.includes('sdxl') ||
+                                lower.includes('stable-diffusion');
+
+                            if (isVideo && !lower.includes('image-pro') && !lower.includes('image-edit')) {
+                                videoList.push(mid);
+                            } else if (isImage) {
+                                imageList.push(mid);
+                            }
+                            mitomModels.push(mid);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Lỗi tải danh sách models từ https://api-vn-sg.mitom.ai/v1/models:', err);
             }
-            this.availableModels = allModels;
-            this.filteredModels = [...this.availableModels];
-            this.filteredModelGroups = this.groupModels(this.filteredModels);
+
+            // Fallback sang umodelverse nếu mitom không lấy được
+            if (mitomModels.length === 0) {
+                const fallbackModels = await this.genaiService.getUModelverseModels();
+                if (fallbackModels && fallbackModels.length > 0) {
+                    mitomModels = fallbackModels;
+                    for (const m of fallbackModels) {
+                        const lower = m.toLowerCase();
+                        if (lower.includes('video') || lower.includes('kling') || lower.includes('wan') || lower.includes('sora') || lower.includes('pika') || lower.includes('luma')) {
+                            videoList.push(m);
+                        } else if (lower.includes('image') || lower.includes('flux') || lower.includes('dall-e') || lower.includes('midjourney')) {
+                            imageList.push(m);
+                        }
+                    }
+                }
+            }
+
+            this.imageModels = Array.from(new Set(imageList));
+            this.videoModels = Array.from(new Set(videoList));
+            this.availableModels = Array.from(new Set(['Local ComfyUI', ...this.imageModels, ...this.videoModels, ...mitomModels]));
+
+            // Lọc danh sách theo chế độ đang mở
+            this.filterModels(this.modelSearchValue || '');
 
             const settings = this.multiAccountService.getItem('settings') || {};
 
@@ -391,14 +472,17 @@ export class NodeEditorComponent
                 localStorage.getItem('ai_type_selected_model');
             if (
                 savedModel &&
-                (this.availableModels.includes(savedModel) ||
+                (this.imageModels.includes(savedModel) ||
+                    this.availableModels.includes(savedModel) ||
                     Object.keys(MODEL_HINTS).some(
                         (k) => k.toLowerCase() === savedModel.toLowerCase(),
                     ))
             ) {
                 this.selectedModel = savedModel;
-            } else if (!this.availableModels.includes(this.selectedModel)) {
-                this.selectedModel = this.availableModels[0];
+            } else if (this.imageModels.length > 0) {
+                this.selectedModel = this.imageModels.find((m) => m !== 'Local ComfyUI') || this.imageModels[0];
+            } else {
+                this.selectedModel = this.availableModels[0] || 'Local ComfyUI';
             }
 
             const savedVideoModel =
@@ -407,22 +491,24 @@ export class NodeEditorComponent
                 localStorage.getItem('ai_type_selected_video_model');
             if (
                 savedVideoModel &&
-                (this.availableModels.includes(savedVideoModel) ||
+                (this.videoModels.includes(savedVideoModel) ||
+                    this.availableModels.includes(savedVideoModel) ||
                     Object.keys(MODEL_HINTS).some(
                         (k) =>
                             k.toLowerCase() === savedVideoModel.toLowerCase(),
                     ))
             ) {
                 this.selectedVideoModel = savedVideoModel;
-            } else {
-                const defaultVideoModel = this.availableModels.find(
+            } else if (this.videoModels.length > 0) {
+                const defaultVideoModel = this.videoModels.find(
                     (m) =>
-                        m.toLowerCase().includes('video') ||
-                        m.toLowerCase().includes('seedance') ||
-                        m.toLowerCase().includes('kling'),
+                        m.toLowerCase().includes('wan') ||
+                        m.toLowerCase().includes('kling') ||
+                        m.toLowerCase().includes('vidu'),
                 );
-                this.selectedVideoModel =
-                    defaultVideoModel || this.availableModels[0];
+                this.selectedVideoModel = defaultVideoModel || this.videoModels[0];
+            } else {
+                this.selectedVideoModel = this.availableModels[0] || '';
             }
 
             this.cdr.detectChanges();
@@ -3306,11 +3392,21 @@ export class NodeEditorComponent
     }
 
     filterModels(query: string) {
+        const targetList =
+            this.globalActiveModality === 'VIDEO'
+                ? this.videoModels
+                : this.imageModels;
+
+        const baseList =
+            targetList && targetList.length > 0
+                ? targetList
+                : this.availableModels;
+
         if (!query) {
-            this.filteredModels = [...this.availableModels];
+            this.filteredModels = [...baseList];
         } else {
             const lowerQuery = query.toLowerCase();
-            const matchedFromApi = this.availableModels.filter((m) =>
+            const matchedFromApi = baseList.filter((m) =>
                 m.toLowerCase().includes(lowerQuery),
             );
 
@@ -3318,7 +3414,7 @@ export class NodeEditorComponent
             const matchedFromHints = Object.keys(MODEL_HINTS).filter(
                 (hintKey) =>
                     hintKey.toLowerCase().includes(lowerQuery) &&
-                    !this.availableModels.some(
+                    !baseList.some(
                         (m) => m.toLowerCase() === hintKey.toLowerCase(),
                     ),
             );
@@ -3329,6 +3425,13 @@ export class NodeEditorComponent
     }
 
     groupModels(models: string[]): { name: string; models: string[] }[] {
+        if (this.globalActiveModality === 'IMAGE') {
+            return [{ name: 'Mô hình tạo hình ảnh', models: models }];
+        }
+        if (this.globalActiveModality === 'VIDEO') {
+            return [{ name: 'Mô hình tạo video', models: models }];
+        }
+
         const textModels = [];
         const imageModels = [];
         const videoModels = [];
@@ -3341,7 +3444,9 @@ export class NodeEditorComponent
                 lower.includes('midjourney') ||
                 lower.includes('stable-diffusion') ||
                 lower.includes('imagen') ||
-                lower.includes('flux')
+                lower.includes('flux') ||
+                lower.includes('image') ||
+                lower.includes('seedream')
             ) {
                 imageModels.push(m);
             } else if (
@@ -3350,7 +3455,12 @@ export class NodeEditorComponent
                 lower.includes('pika') ||
                 lower.includes('luma') ||
                 lower.includes('kling') ||
-                lower.includes('video')
+                lower.includes('video') ||
+                lower.includes('wan2') ||
+                lower.includes('wan3') ||
+                lower.includes('vidu') ||
+                lower.includes('happyhorse') ||
+                lower.includes('hailuo')
             ) {
                 videoModels.push(m);
             } else if (
@@ -3369,12 +3479,12 @@ export class NodeEditorComponent
         }
 
         const groups = [];
-        if (textModels.length)
-            groups.push({ name: 'Text / Ngôn ngữ', models: textModels });
         if (imageModels.length)
             groups.push({ name: 'Hình ảnh', models: imageModels });
         if (videoModels.length)
             groups.push({ name: 'Video', models: videoModels });
+        if (textModels.length)
+            groups.push({ name: 'Text / Ngôn ngữ', models: textModels });
         if (otherModels.length)
             groups.push({ name: 'Khác', models: otherModels });
         return groups;
@@ -4005,6 +4115,37 @@ export class NodeEditorComponent
                         };
                         res = await (window as any).electron.invoke(
                             'tts-ausync-generate',
+                            payload,
+                        );
+                    } else if (config.selectedVoice.startsWith('omnivoice-') || config.selectedVoice === 'omnivoice') {
+                        const targetVoiceName = config.selectedVoice.replace('omnivoice-', '');
+                        const refAudioName = targetVoiceName.endsWith('.wav') || targetVoiceName.endsWith('.mp3')
+                            ? targetVoiceName
+                            : `${targetVoiceName}.wav`;
+                        const niceFilename = `${prefix}_${slug}`;
+
+                        let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+                        try {
+                            const lsSettings = localStorage.getItem('settings');
+                            if (lsSettings) {
+                                settings = { ...settings, ...JSON.parse(lsSettings) };
+                            }
+                        } catch (e) {}
+                        const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+
+                        const payload = {
+                            text: sub.text,
+                            voice_id: targetVoiceName,
+                            ref_audio_name: refAudioName,
+                            ref_text: '',
+                            speed: config.selectedRate || 1.0,
+                            num_step: 16,
+                            filename: niceFilename,
+                            username: subPath,
+                            sst_url: sstUrl,
+                        };
+                        res = await (window as any).electron.invoke(
+                            'tts-type-generate',
                             payload,
                         );
                     }

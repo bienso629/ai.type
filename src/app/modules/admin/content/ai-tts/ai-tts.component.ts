@@ -168,23 +168,48 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         try {
             let connected = false;
             let pluginActive = false;
+
+            // Kiểm tra cấu hình sst từ cài đặt người dùng
+            let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+            try {
+                const lsSettings = localStorage.getItem('settings');
+                if (lsSettings) {
+                    settings = { ...settings, ...JSON.parse(lsSettings) };
+                }
+            } catch (e) {}
+            const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+
             if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
                 const res = await (window as any).electronAPI.checkColabGpuStatus();
                 connected = !!(res && res.is_connected);
                 pluginActive = !!(res && res.plugin_active);
             } else {
-                const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
-                if (resp.ok) {
-                    const data = await resp.json();
-                    connected = !!(data && data.is_connected);
-                    pluginActive = true;
-                }
+                try {
+                    const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        connected = !!(data && data.is_connected);
+                        pluginActive = true;
+                    }
+                } catch (e) {}
             }
+
+            // Nếu daemon local chưa connected nhưng có sstUrl, ping thử tới endpoint sstUrl/status để kiểm tra kết nối thực sự
+            if (!connected && sstUrl) {
+                try {
+                    const sstResp = await fetch(`${sstUrl}/status`, { signal: AbortSignal.timeout(2000) });
+                    if (sstResp.ok) {
+                        const sstData = await sstResp.json();
+                        connected = !!(sstData && sstData.is_connected);
+                    }
+                } catch (e) {}
+            }
+
             this.isColabPluginActive = pluginActive;
-            this.updateColabVoices(connected);
+            await this.updateColabVoices(connected);
         } catch (e) {
             this.isColabPluginActive = false;
-            this.updateColabVoices(false);
+            await this.updateColabVoices(false);
         }
     }
 
@@ -204,7 +229,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
             }
 
-            // Fallback nếu không đọc được từ Electron
             if (omniVoices.length === 0) {
                 omniVoices = [
                     { id: 'omnivoice-yenai', name: 'Yenai' },
@@ -218,9 +242,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.voiceList.push(ov);
                 } else {
                     existing.name = ov.name;
+                    existing.audioFile = ov.audioFile;
+                    existing.refText = ov.refText;
                 }
             });
         } else {
+            // Khi Colab GPU chưa kích hoạt hoặc tắt, xóa sạch khỏi danh sách chọn
             this.voiceList = this.voiceList.filter(v => !v.id.startsWith('omnivoice-'));
             if (!this.selectedVoice || this.selectedVoice.startsWith('omnivoice-')) {
                 this.selectedVoice = 'vi-VN-HoaiMyNeural';
@@ -233,6 +260,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 });
             }
         }
+
         this.cd.detectChanges();
     }
 
@@ -564,6 +592,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         : `${targetVoiceName}.wav`;
                     const selectedVoiceObj = this.voiceList.find(v => v.id === clipVoice);
 
+                    let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+                    try {
+                        const lsSettings = localStorage.getItem('settings');
+                        if (lsSettings) {
+                            settings = { ...settings, ...JSON.parse(lsSettings) };
+                        }
+                    } catch (e) {}
+                    const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+
                     const payload = {
                         text: clip.description,
                         voice_id: targetVoiceName,
@@ -573,6 +610,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         num_step: 16,
                         filename: niceFilename,
                         username: subPath,
+                        sst_url: sstUrl,
                     };
 
                     res = await (window as any).electron.invoke(
