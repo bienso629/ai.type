@@ -1382,12 +1382,46 @@
                                 />
                             </mat-slider>
                         </div>
+
+                        <!-- Ô Prompt & Nút AI chỉnh sửa ảnh trước khi lưu -->
+                        <div class="flex flex-col gap-1 mb-4">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                AI Prompt (chỉnh sửa / tạo lại):
+                            </span>
+                            <mat-form-field appearance="outline" class="w-full text-sm fuse-mat-dense mb-0" subscriptSizing="dynamic">
+                                <textarea
+                                    matInput
+                                    rows="3"
+                                    [(ngModel)]="aiPrompt"
+                                    placeholder="Nhập mô tả muốn AI chỉnh sửa hoặc tái tạo..."
+                                    [disabled]="isGeneratingAi || processing"
+                                    (keydown.enter)="$event.ctrlKey ? generateWithAi() : null"
+                                ></textarea>
+                                <button
+                                    matSuffix
+                                    mat-icon-button
+                                    color="accent"
+                                    class="mr-1 self-end mb-1 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
+                                    (click)="generateWithAi()"
+                                    [disabled]="!aiPrompt?.trim() || isGeneratingAi || processing"
+                                    [matTooltip]="'Áp dụng AI (Ctrl + Enter)'"
+                                >
+                                    @if (!isGeneratingAi) {
+                                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
+                                    }
+                                    @if (isGeneratingAi) {
+                                        <mat-spinner [diameter]="16"></mat-spinner>
+                                    }
+                                </button>
+                            </mat-form-field>
+                        </div>
+
                         <button
                             mat-flat-button
                             color="primary"
                             class="w-full"
                             (click)="saveImage()"
-                            [disabled]="processing"
+                            [disabled]="processing || isGeneratingAi"
                         >
                             @if (!processing) {
                                 <span>{{
