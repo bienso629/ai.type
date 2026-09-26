@@ -26,10 +26,10 @@ import { Subject, takeUntil } from 'rxjs';
                     class="flex items-center gap-2 text-lg font-bold text-gray-800 dark:text-gray-100"
                 >
                     <mat-icon
-                        [svgIcon]="'feather:user-plus'"
+                        [svgIcon]="isNewProfile ? 'feather:plus-circle' : 'feather:user-plus'"
                         class="text-primary-600 icon-size-5"
                     ></mat-icon>
-                    <span>Thêm mới tài khoản & Nhân cách</span>
+                    <span>{{ isNewProfile ? 'Tạo mới Profile' : 'Thêm mới tài khoản & Nhân cách' }}</span>
                 </div>
                 <button type="button" mat-icon-button (click)="onNoClick()">
                     <mat-icon [svgIcon]="'feather:x'"></mat-icon>
@@ -39,14 +39,29 @@ import { Subject, takeUntil } from 'rxjs';
             <p
                 class="text-sm text-gray-500 dark:text-gray-400 mb-4 leading-relaxed"
             >
-                Vui lòng điền đầy đủ thông tin tài khoản để hệ thống có thể kết
-                nối và tự động.
+                {{ isNewProfile ? 'Tạo profile trình duyệt mới và thiết lập danh tính cho profile.' : 'Vui lòng điền đầy đủ thông tin tài khoản để hệ thống có thể kết nối và tự động.' }}
             </p>
         </div>
 
         <!-- Form -->
         <div class="flex flex-col gap-3">
             <form [formGroup]="editForm" class="flex flex-col gap-3">
+                @if (isNewProfile) {
+                    <mat-form-field
+                        class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                    >
+                        <mat-label>Tên Profile*</mat-label>
+                        <input
+                            [formControlName]="'profileName'"
+                            placeholder="Ví dụ: Profile101 hoặc Tên Profile..."
+                            type="text"
+                            required
+                            matInput
+                        />
+                    </mat-form-field>
+                }
+
                 <mat-form-field
                     class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
                     [subscriptSizing]="'dynamic'"
@@ -169,12 +184,19 @@ export class AddAccountDialog implements OnInit, OnDestroy {
         @Inject(MAT_DIALOG_DATA) public data: any,
     ) {}
 
+    get isNewProfile(): boolean {
+        return !!this.data?.isNewProfile;
+    }
+
     ngOnInit(): void {
         const available = this.personas.filter((p) => p.id !== 99);
         const rand = available[Math.floor(Math.random() * available.length)];
         this.selectedPersona = rand;
 
+        const defaultProfileName = (this.data['item']['profiles'] && this.data['item']['profiles'][0]) || '';
+
         this.editForm = this._formBuilder.group({
+            profileName: [defaultProfileName, this.isNewProfile ? Validators.required : []],
             profiles_root: [
                 this.data['item']['profiles_root'],
                 Validators.required,
@@ -185,7 +207,7 @@ export class AddAccountDialog implements OnInit, OnDestroy {
             proxy: [''],
             personaId: [rand.id],
             note: [JSON.stringify(rand), Validators.required],
-            profiles: [this.data['item']['profiles'], Validators.required],
+            profiles: [this.data['item']['profiles'] || [], Validators.required],
             active: [this.data['item']['active'], Validators.required],
         });
     }
@@ -212,7 +234,7 @@ export class AddAccountDialog implements OnInit, OnDestroy {
         }
     }
 
-    save() {
+    async save() {
         if (this.editForm.valid) {
             let finalNote = this.editForm.get('note').value;
             if (!this.isCustomNote && this.selectedPersona) {
@@ -221,7 +243,28 @@ export class AddAccountDialog implements OnInit, OnDestroy {
 
             const proxyVal = (this.editForm.get('proxy')?.value || '').trim();
             const rootPath = this.editForm.get('profiles_root').value;
-            const profiles = this.editForm.get('profiles').value;
+            let profiles = this.editForm.get('profiles').value;
+
+            if (this.isNewProfile) {
+                let pName = (this.editForm.get('profileName')?.value || '').trim();
+                const numMatch = pName.match(/^(?:profile)?0*(\d+)$/i);
+                if (numMatch) {
+                    pName = `Profile${numMatch[1].padStart(3, '0')}`;
+                }
+                profiles = [pName];
+                this.data['item']['profiles'] = profiles;
+                this.data['item']['profile'] = pName;
+
+                // Tạo thư mục profile vật lý trên đĩa
+                if (typeof window !== 'undefined' && (window as any).electron?.invoke) {
+                    try {
+                        await (window as any).electron.invoke('create-profile-dirs', {
+                            profilesRoot: rootPath,
+                            profiles: [pName],
+                        });
+                    } catch (err) {}
+                }
+            }
 
             if (proxyVal && profiles && profiles.length > 0) {
                 this._mxhautoService

@@ -4491,31 +4491,57 @@ function startColabAgent() {
     if (colabAgentProcess) return;
     try {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        if (!fs.existsSync(userPluginsDir)) {
+            fs.mkdirSync(userPluginsDir, { recursive: true });
+        }
         const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
         const legacyBinaryName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
         
         const candidatePaths = [
             path.join(userPluginsDir, binaryName),
-            path.join(userPluginsDir, legacyBinaryName),
-            process.resourcesPath ? path.join(process.resourcesPath, binaryName) : null,
-            process.resourcesPath ? path.join(process.resourcesPath, legacyBinaryName) : null,
-            path.resolve(__dirname, '..', binaryName),
-            path.resolve(__dirname, '..', legacyBinaryName),
-            path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux')
+            path.join(userPluginsDir, legacyBinaryName)
         ].filter(Boolean);
 
         let execPath = candidatePaths.find(p => fs.existsSync(p));
         let args = ['--port', '7868'];
 
         if (!execPath) {
-            const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
             const userScriptPath = path.join(userPluginsDir, 'colab_agent.py');
             if (fs.existsSync(userScriptPath)) {
                 execPath = 'python3';
                 args = [userScriptPath, '--port', '7868'];
+            }
+        }
+
+        // Tự động sao chép binary hoặc script vào Documents/ai.type/plugins nếu chưa có
+        if (!execPath) {
+            const sourceCandidates = [
+                process.resourcesPath ? path.join(process.resourcesPath, binaryName) : null,
+                process.resourcesPath ? path.join(process.resourcesPath, legacyBinaryName) : null,
+                path.resolve(__dirname, '..', binaryName),
+                path.resolve(__dirname, '..', legacyBinaryName),
+                path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux')
+            ].filter(Boolean);
+
+            const foundSource = sourceCandidates.find(p => fs.existsSync(p));
+            const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
+
+            if (foundSource) {
+                const userBinaryPath = path.join(userPluginsDir, legacyBinaryName);
+                fs.copyFileSync(foundSource, userBinaryPath);
+                if (process.platform !== 'win32') {
+                    try { fs.chmodSync(userBinaryPath, 0o755); } catch(e) {}
+                }
+                execPath = userBinaryPath;
+                args = ['--port', '7868'];
             } else if (fs.existsSync(devScriptPath)) {
+                const destScriptPath = path.join(userPluginsDir, 'colab_agent.py');
+                fs.copyFileSync(devScriptPath, destScriptPath);
+                if (process.platform !== 'win32') {
+                    try { fs.chmodSync(destScriptPath, 0o755); } catch(e) {}
+                }
                 execPath = 'python3';
-                args = [devScriptPath, '--port', '7868'];
+                args = [destScriptPath, '--port', '7868'];
             }
         }
 
@@ -4529,7 +4555,7 @@ function startColabAgent() {
             colabAgentProcess.on('exit', () => { colabAgentProcess = null; });
             console.log(`[Colab Agent Plugin] Đã khởi chạy (${execPath}) tại http://127.0.0.1:7868`);
         } else {
-            console.warn('[Colab Agent Plugin] Không tìm thấy tệp thực thi colab-agent.');
+            console.warn('[Colab Agent Plugin] Không tìm thấy tệp thực thi trong Documents/ai.type/plugins.');
         }
     } catch (e) {
         console.error('[Colab Agent Plugin] Lỗi start:', e);
@@ -4599,12 +4625,6 @@ function startZaloPlugin() {
         if (fs.existsSync(userBinaryPath)) {
             binaryPath = userBinaryPath;
             cmd = binaryPath;
-        } else if (fs.existsSync(devBinaryPath)) {
-            binaryPath = devBinaryPath;
-            cmd = binaryPath;
-        } else if (fs.existsSync(devScriptPath)) {
-            cmd = 'python3';
-            args = [devScriptPath];
         }
 
         if (cmd) {
@@ -4697,14 +4717,14 @@ function startTiktokPlugin() {
     if (tiktokPluginProcess) return;
     try {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const tiktokBinaryName = process.platform === 'win32' ? '100tiktok-win.exe' : (process.platform === 'darwin' ? '100tiktok-mac' : '100tiktok-linux');
         const candidateBinaries = [
+            path.join(userPluginsDir, tiktokBinaryName),
             path.join(userPluginsDir, '100tiktok-linux'),
             path.join(userPluginsDir, '100tiktok_linux'),
             path.join(userPluginsDir, '100tiktok.exe'),
-            path.join(userPluginsDir, '100tiktok'),
-            path.join(userPluginsDir, '100tiktok-mac'),
-            path.join(userPluginsDir, '100tiktok-windows.exe')
-        ];
+            path.join(userPluginsDir, '100tiktok')
+        ].filter(Boolean);
         
         let binaryPath = candidateBinaries.find(p => fs.existsSync(p));
         let cmd = '';
@@ -4715,15 +4735,6 @@ function startTiktokPlugin() {
                 fs.chmodSync(binaryPath, 0o755);
             } catch(e) {}
             cmd = binaryPath;
-        } else {
-            const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', '100 tiktokers', 'app.py');
-            const devDistPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', '100 tiktokers', 'dist', '100tiktok-linux');
-            if (fs.existsSync(devDistPath)) {
-                cmd = devDistPath;
-            } else if (fs.existsSync(devScriptPath)) {
-                cmd = 'python3';
-                args = [devScriptPath];
-            }
         }
 
         if (cmd) {
@@ -4819,24 +4830,21 @@ ipcMain.handle('get-plugins-status', async (event) => {
         const colabBinaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
         const colabLegacyName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
         const userColabPath = path.join(userPluginsDir, colabLegacyName);
-        const packagedColabPath = process.resourcesPath ? path.join(process.resourcesPath, colabBinaryName) : null;
-        const packagedColabLegacy = process.resourcesPath ? path.join(process.resourcesPath, colabLegacyName) : null;
-        const localColabPath = path.resolve(__dirname, '..', colabBinaryName);
-        const devColabBinary = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'dist', 'colab_agent_linux');
-        const devColabScript = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
         const userColabScript = path.join(userPluginsDir, 'colab_agent.py');
 
         const colabFoundBinary = [
             path.join(userPluginsDir, colabBinaryName),
             userColabPath,
-            packagedColabPath,
-            packagedColabLegacy,
-            localColabPath,
-            devColabBinary
+            process.resourcesPath ? path.join(process.resourcesPath, colabBinaryName) : null,
+            process.resourcesPath ? path.join(process.resourcesPath, colabLegacyName) : null,
+            path.resolve(__dirname, '..', colabBinaryName),
+            path.resolve(__dirname, '..', colabLegacyName)
         ].find(p => p && fs.existsSync(p));
 
         const hasBinaryColabAgent = !!colabFoundBinary;
-        const colabInstalled = hasBinaryColabAgent || fs.existsSync(userColabScript) || fs.existsSync(devColabScript);
+        const diskAccounts = readColabDiskAccounts();
+        const hasAccounts = diskAccounts && Array.isArray(diskAccounts.accounts) && diskAccounts.accounts.length > 0;
+        const colabInstalled = hasBinaryColabAgent || fs.existsSync(userColabScript) || hasAccounts;
         const colabCanInstall = true;
         const colabEnabled = isColabAgentEnabled();
         let colabVersion = '1.0.1';
@@ -4856,6 +4864,15 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 }
             }
         } catch(e) {}
+
+        const tiktokBinaryName = process.platform === 'win32' ? '100tiktok-win.exe' : (process.platform === 'darwin' ? '100tiktok-mac' : '100tiktok-linux');
+        const tiktokFound = [
+            path.join(userPluginsDir, tiktokBinaryName),
+            path.join(userPluginsDir, '100tiktok-linux'),
+            path.join(userPluginsDir, '100tiktok_linux'),
+            path.join(userPluginsDir, '100tiktok.exe'),
+            path.join(userPluginsDir, '100tiktok')
+        ].some(p => p && fs.existsSync(p));
 
         return [
             {
@@ -4892,13 +4909,8 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 id: 'tiktok_100',
                 name: '100 TikTokers',
                 description: 'Tự động hóa theo dõi, phân tích xu hướng và khai thác nội dung từ 100 kênh TikTok.',
-                installed: [
-                    path.join(userPluginsDir, '100tiktok-linux'),
-                    path.join(userPluginsDir, '100tiktok_linux'),
-                    path.join(userPluginsDir, '100tiktok.exe'),
-                    path.join(userPluginsDir, '100tiktok')
-                ].some(p => fs.existsSync(p)),
-                canInstall: false,
+                installed: tiktokFound,
+                canInstall: true,
                 enabled: isTiktokPluginEnabled(),
                 version: '1.0'
             }
@@ -4910,10 +4922,10 @@ ipcMain.handle('get-plugins-status', async (event) => {
 
 ipcMain.handle('install-plugin', async (event, pluginId) => {
     try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        fs.mkdirSync(userPluginsDir, { recursive: true });
+
         if (pluginId === 'zalo_reply') {
-            const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-            fs.mkdirSync(userPluginsDir, { recursive: true });
-            
             const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
             const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'dist', 'zalo_auto_reply_linux');
             const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'zalo_auto_reply.py');
@@ -4930,9 +4942,6 @@ ipcMain.handle('install-plugin', async (event, pluginId) => {
         } else if (pluginId === 'ai_agent') {
             return { success: true, message: 'Plugin AI Agent đã sẵn sàng. Hãy copy file ai_agent_linux vào thư mục plugins.' };
         } else if (pluginId === 'colab_agent') {
-            const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-            fs.mkdirSync(userPluginsDir, { recursive: true });
-            
             const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
             const legacyBinaryName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
             const userBinaryPath = path.join(userPluginsDir, legacyBinaryName);
@@ -4965,8 +4974,55 @@ ipcMain.handle('install-plugin', async (event, pluginId) => {
                 return { success: true, message: 'Đã sao chép mã nguồn Colab Agent vào Documents/ai.type/plugins!' };
             }
             return { success: false, error: 'Không tìm thấy file nguồn Colab Agent.' };
+        } else if (pluginId === 'tiktok_100') {
+            const tiktokBinaryName = process.platform === 'win32' ? '100tiktok-win.exe' : (process.platform === 'darwin' ? '100tiktok-mac' : '100tiktok-linux');
+            const destBinaryPath = path.join(userPluginsDir, tiktokBinaryName);
+
+            const sourceCandidates = [
+                process.resourcesPath ? path.join(process.resourcesPath, tiktokBinaryName) : null,
+                process.resourcesPath ? path.join(process.resourcesPath, '100tiktok-linux') : null,
+                path.resolve(__dirname, '..', tiktokBinaryName),
+                path.resolve(__dirname, '..', '100tiktok-linux'),
+                path.join(__dirname, '..', '..', '..', 'apps', 'plugins', '100 tiktokers', 'dist', '100tiktok-linux'),
+                path.join(__dirname, '..', '..', '..', 'apps', 'plugins', '100 tiktokers', 'dist', 'windows', '100tiktok-win.exe')
+            ].filter(Boolean);
+
+            const foundSource = sourceCandidates.find(p => fs.existsSync(p));
+            if (foundSource) {
+                fs.copyFileSync(foundSource, destBinaryPath);
+                if (process.platform !== 'win32') {
+                    try { fs.chmodSync(destBinaryPath, 0o755); } catch(e) {}
+                }
+                startTiktokPlugin();
+                return { success: true, message: 'Đã cài đặt 100 TikTokers thành công!' };
+            }
+            return { success: false, error: 'Không tìm thấy file nguồn 100 TikTokers.' };
         }
         return { success: false, error: 'Plugin không xác định.' };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Đảm bảo tạo thư mục profile trên đĩa khi người dùng nhập danh sách
+ipcMain.handle('create-profile-dirs', async (event, { profilesRoot, profiles }) => {
+    try {
+        const root = profilesRoot || (process.platform === 'win32' ? 'D:\\OperaProfiles' : path.join(os.homedir(), 'OperaProfiles'));
+        if (!fs.existsSync(root)) {
+            fs.mkdirSync(root, { recursive: true });
+        }
+        const created = [];
+        if (Array.isArray(profiles)) {
+            for (const p of profiles) {
+                if (!p || typeof p !== 'string') continue;
+                const pDir = path.join(root, p.trim());
+                if (!fs.existsSync(pDir)) {
+                    fs.mkdirSync(pDir, { recursive: true });
+                    created.push(p.trim());
+                }
+            }
+        }
+        return { success: true, createdCount: created.length, root };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -5316,7 +5372,9 @@ ipcMain.handle('check-colab-gpu-status', async () => {
 
         const colabInstalled = candidatePaths.some(p => fs.existsSync(p));
         const colabEnabled = isColabAgentEnabled();
-        const pluginActive = colabInstalled && colabEnabled;
+        const diskAccounts = readColabDiskAccounts();
+        const hasAccounts = diskAccounts && Array.isArray(diskAccounts.accounts) && diskAccounts.accounts.length > 0;
+        const pluginActive = colabEnabled && (colabInstalled || hasAccounts || fs.existsSync(path.join(os.homedir(), ".config", "colab-cli")));
 
         if (colabMcpClient && colabMcpClient.isConnected && colabMcpClient.baseUrl) {
             return { success: true, plugin_active: pluginActive, is_connected: true, colab_url: colabMcpClient.baseUrl };

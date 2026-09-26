@@ -362,13 +362,9 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             } catch(e) {}
             this.colabConfigUrl = (settings.sst || '').trim().replace(/\/+$/, '');
 
-            const colabPlugin = this.getPlugin('colab_agent');
-            const hasBinary = !!(colabPlugin?.installed || colabPlugin?.hasBinary);
-
-            if (hasBinary) {
-                // Ưu tiên 1: Đã có file binary colab_agent_linux
-                this.colabSourceMode = 'binary';
-                if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
+            // Bước 1: Luôn nạp thông tin đăng nhập Google Colab từ Electron (đọc từ ổ đĩa hoặc daemon)
+            if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
+                try {
                     const authRes = await (window as any).electronAPI.getColabAuthStatus();
                     if (authRes) {
                         if (authRes.authenticated !== undefined) {
@@ -376,105 +372,91 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                         }
                         if (Array.isArray(authRes.accounts) && authRes.accounts.length > 0) {
                             this.colabAccounts = authRes.accounts;
+                            this.isColabLoggedIn = true;
                         }
                         if (authRes.active_email) {
                             this.colabActiveEmail = authRes.active_email;
                         }
                     }
-                }
+                } catch(e) {}
+            }
 
-                if (this.colabAccounts.length === 0) {
-                    try {
-                        const authResp = await fetch('http://127.0.0.1:7868/auth_status');
-                        if (authResp.ok) {
-                            const authData = await authResp.json();
-                            if (authData && authData.authenticated) {
-                                this.isColabLoggedIn = true;
-                                if (Array.isArray(authData.accounts) && authData.accounts.length > 0) {
-                                    this.colabAccounts = authData.accounts;
-                                }
-                                if (authData.active_email) {
-                                    this.colabActiveEmail = authData.active_email;
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                }
-
-                const resp = await fetch('http://127.0.0.1:7868/status');
+            // Bước 2: Kiểm tra daemon local (cổng 7868)
+            let localOnline = false;
+            try {
+                const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1000) });
                 if (resp.ok) {
                     this.colabStatus = await resp.json();
-                } else {
+                    localOnline = true;
+                }
+            } catch(e) {}
+
+            // Nếu daemon local online, thử lấy thêm auth từ local daemon nếu chưa có
+            if (localOnline && this.colabAccounts.length === 0) {
+                try {
+                    const authResp = await fetch('http://127.0.0.1:7868/auth_status');
+                    if (authResp.ok) {
+                        const authData = await authResp.json();
+                        if (authData && authData.authenticated) {
+                            this.isColabLoggedIn = true;
+                            if (Array.isArray(authData.accounts) && authData.accounts.length > 0) {
+                                this.colabAccounts = authData.accounts;
+                            }
+                            if (authData.active_email) {
+                                this.colabActiveEmail = authData.active_email;
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // Xác định sourceMode: Ưu tiên 'binary' nếu đã cài hoặc có tài khoản local, ngược lại nếu có config URL thì dùng 'config'
+            const colabPlugin = this.getPlugin('colab_agent');
+            const hasBinary = !!(colabPlugin?.installed || colabPlugin?.hasBinary);
+
+            if (hasBinary || this.isColabLoggedIn || !this.colabConfigUrl) {
+                this.colabSourceMode = 'binary';
+                if (!localOnline) {
                     this.colabStatus = { status: 'offline', is_connected: false };
                 }
             } else if (this.colabConfigUrl) {
-                // Ưu tiên 2: Không có file binary -> Sử dụng cấu hình "Sử dụng Google Colab" từ tab Tác vụ
                 this.colabSourceMode = 'config';
-                this.isColabLoggedIn = true; // Đã có cấu hình URL Colab từ xa
+                this.isColabLoggedIn = true;
 
-                // Nạp danh sách tài khoản Google: Thử lấy từ electronAPI trước (tài khoản đã liên kết trên máy)
-                if ((window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
+                // Thử kiểm tra URL cấu hình từ xa nếu local không online
+                if (!localOnline) {
                     try {
-                        const authRes = await (window as any).electronAPI.getColabAuthStatus();
-                        if (authRes) {
-                            if (Array.isArray(authRes.accounts) && authRes.accounts.length > 0) {
-                                this.colabAccounts = authRes.accounts;
-                            }
-                            if (authRes.active_email) {
-                                this.colabActiveEmail = authRes.active_email;
-                            }
+                        const resp = await fetch(`${this.colabConfigUrl}/status`, { signal: AbortSignal.timeout(3000) });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.colabStatus = {
+                                status: data.status || 'running',
+                                is_connected: data.is_connected !== undefined ? data.is_connected : true,
+                                colab_url: this.colabConfigUrl,
+                                gpu: data.gpu || 'Colab GPU'
+                            };
+                        } else {
+                            this.colabStatus = {
+                                status: 'running',
+                                is_connected: true,
+                                colab_url: this.colabConfigUrl,
+                                gpu: 'Colab GPU (Cấu hình Tác vụ)'
+                            };
                         }
-                    } catch(e) {}
-                }
-
-                // Nếu chưa có, thử nạp từ endpoint /auth_status của máy chủ Colab từ xa
-                if (this.colabAccounts.length === 0) {
-                    try {
-                        const authResp = await fetch(`${this.colabConfigUrl}/auth_status`, { signal: AbortSignal.timeout(3000) });
-                        if (authResp.ok) {
-                            const authData = await authResp.json();
-                            if (authData) {
-                                if (Array.isArray(authData.accounts) && authData.accounts.length > 0) {
-                                    this.colabAccounts = authData.accounts;
-                                }
-                                if (authData.active_email) {
-                                    this.colabActiveEmail = authData.active_email;
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                }
-
-                try {
-                    const resp = await fetch(`${this.colabConfigUrl}/status`, { signal: AbortSignal.timeout(3000) });
-                    if (resp.ok) {
-                        const data = await resp.json();
+                    } catch(err) {
                         this.colabStatus = {
-                            status: data.status || 'running',
-                            is_connected: data.is_connected !== undefined ? data.is_connected : true,
-                            colab_url: this.colabConfigUrl,
-                            gpu: data.gpu || 'Colab GPU'
-                        };
-                    } else {
-                        this.colabStatus = {
-                            status: 'running',
+                            status: 'configured',
                             is_connected: true,
                             colab_url: this.colabConfigUrl,
                             gpu: 'Colab GPU (Cấu hình Tác vụ)'
                         };
                     }
-                } catch(err) {
-                    // Nếu máy chủ chưa mở /status, giữ URL cấu hình ở trạng thái sẵn sàng
-                    this.colabStatus = {
-                        status: 'configured',
-                        is_connected: true,
-                        colab_url: this.colabConfigUrl,
-                        gpu: 'Colab GPU (Cấu hình Tác vụ)'
-                    };
                 }
             } else {
                 this.colabSourceMode = 'binary';
-                this.colabStatus = { status: 'offline', is_connected: false };
+                if (!localOnline) {
+                    this.colabStatus = { status: 'offline', is_connected: false };
+                }
             }
         } catch(e) {
             this.colabStatus = { status: 'offline', is_connected: false };

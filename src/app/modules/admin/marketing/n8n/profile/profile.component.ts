@@ -11,7 +11,7 @@ import {
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { interval, Subject, takeUntil } from 'rxjs';
+import { interval, Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { FuseConfigService } from '@fuse/services/config';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
@@ -203,6 +203,46 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
                     }
                 },
             });
+    }
+
+    createNewProfile() {
+        // Tự động tìm số profile tiếp theo
+        let nextIndex = 0;
+        if (this.profiles && this.profiles.length > 0) {
+            const indices = this.profiles
+                .map((p) => {
+                    const m = (p.profile || '').match(/^(?:profile)?0*(\d+)$/i);
+                    return m ? parseInt(m[1], 10) : -1;
+                })
+                .filter((n) => n >= 0);
+            if (indices.length > 0) {
+                nextIndex = Math.max(...indices) + 1;
+            } else {
+                nextIndex = this.profiles.length;
+            }
+        }
+        const defaultProfileName = `Profile${String(nextIndex).padStart(3, '0')}`;
+
+        const dialogRef = this.dialog.open(AddAccountDialog, {
+            width: '560px',
+            panelClass: 'dlg-primary',
+            data: {
+                user: this.user,
+                isNewProfile: true,
+                item: {
+                    profiles_root: this.getProfilesRoot(),
+                    profiles: [defaultProfileName],
+                    platform: 'tiktok',
+                    active: true,
+                },
+            },
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result && result.data) {
+                this.getProfiles(false);
+            }
+        });
     }
 
     addAcc(row: any) {
@@ -954,8 +994,36 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             const rootPath = this.getProfilesRoot();
             let successCount = 0;
 
+            // 1. Chuẩn hóa tên profile và thu thập danh sách tên profile
+            const profileNamesToEnsure: string[] = [];
             for (const item of importedItems) {
-                const profileName = item.profile || item.name;
+                let pName = item.profile || item.name;
+                if (!pName) continue;
+                pName = String(pName).trim();
+                // Chuẩn hóa tên (nếu là số 0 -> Profile000, 1 -> Profile001, Profile1 -> Profile001)
+                const numMatch = pName.match(/^(?:profile)?0*(\d+)$/i);
+                if (numMatch) {
+                    pName = `Profile${numMatch[1].padStart(3, '0')}`;
+                }
+                item.profile = pName;
+                profileNamesToEnsure.push(pName);
+            }
+
+            // 2. Tạo thư mục profile vật lý trên đĩa cứng qua Electron IPC nếu đang chạy Electron
+            if (typeof window !== 'undefined' && (window as any).electron?.invoke) {
+                try {
+                    await (window as any).electron.invoke('create-profile-dirs', {
+                        profilesRoot: rootPath,
+                        profiles: profileNamesToEnsure,
+                    });
+                } catch (err) {
+                    console.warn('Lỗi khi gọi create-profile-dirs IPC:', err);
+                }
+            }
+
+            // 3. Lưu thông tin Proxy, VPN, Accounts vào cơ sở dữ liệu
+            for (const item of importedItems) {
+                const profileName = item.profile;
                 if (!profileName) continue;
 
                 // Cài proxy nếu có
@@ -1001,7 +1069,12 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
                 `Đã nhập thành công ${successCount} profiles vào hệ thống.`,
                 'Nhập Profiles',
             );
-            setTimeout(() => this.refresh(), 1000);
+
+            // Nạp lại danh sách profiles ngay lập tức
+            setTimeout(() => {
+                this.getProfiles(false);
+            }, 600);
+
             event.target.value = '';
         };
 
