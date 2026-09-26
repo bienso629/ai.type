@@ -50,25 +50,21 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
 
     get isFreeLicense(): boolean {
         if (!this.activeInfo || !this.activeInfo.user) {
-            return false;
+            return true;
         }
         const user = this.activeInfo.user;
         const appId = (user.appId || this.activeInfo.appId || '').toLowerCase();
         const plan = (user.plan || user.type || this.activeInfo.plan || this.activeInfo.type || '').toLowerCase();
         const customerName = (user.info?.customerName || '').toLowerCase();
 
-        // 1. Nếu đã có licenseKey hoặc appToken chính thức từ server -> Hợp lệ, không phải free
-        if (user.licenseKey || user.appToken) {
-            return false;
-        }
-
-        // 2. Kiểm tra từ khóa free trực tiếp khi chưa có key chính thức
+        // Kiểm tra từ khóa free trực tiếp
         if (appId.includes('free') || plan.includes('free') || customerName.includes('miễn phí') || customerName.includes('free')) {
             return true;
         }
 
+        // Nếu không có email người mua hàng chính hãng hoặc email không hợp lệ -> Tài khoản miễn phí
         const customerEmail = String(user.info?.email || '').trim().toLowerCase();
-        if (!customerEmail || customerEmail === '0' || !customerEmail.includes('@')) {
+        if (!customerEmail || customerEmail === '0' || customerEmail === 'null' || !customerEmail.includes('@')) {
             return true;
         }
 
@@ -76,7 +72,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     }
 
     get canShowPaymentButton(): boolean {
-        return !!(this.activeInfo && this.activeInfo.user && !this.isFreeLicense);
+        return !!(this.activeInfo && this.activeInfo.user && !this.isFreeLicense && this.licenseCustomerEmail);
     }
 
     config: AppConfig;
@@ -230,12 +226,34 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                                 }, 1200);
                             }
                         } else {
-                            const errorMsg = result?.message || result?.error || this._translocoService.translate('app.key_invalid');
-                            this.toastr.error(errorMsg);
+                            let errorMsg = result?.message || result?.error;
+                            if (result?.status === 403 || (errorMsg && errorMsg.includes('ko được phép truy cập'))) {
+                                errorMsg = 'Mã bản quyền không đúng hoặc tài khoản này không được phép kích hoạt.';
+                            } else if (result?.error && typeof result.error === 'string' && (result.error.includes('Http failure') || result.error.includes('Unknown Error'))) {
+                                errorMsg = 'Không thể kết nối đến máy chủ xác thực bản quyền. Vui lòng kiểm tra lại mạng.';
+                            }
+                            this.toastr.error(errorMsg || this._translocoService.translate('app.key_invalid'));
                         }
                     },
                     error: (err) => {
-                        this.toastr.error(err?.message || 'Lỗi kết nối máy chủ kích hoạt.');
+                        let msg = 'Lỗi kết nối máy chủ kích hoạt.';
+                        if (err?.error && typeof err.error === 'object' && err.error.message) {
+                            msg = err.error.message;
+                        } else if (typeof err?.error === 'string' && err.error.trim()) {
+                            try {
+                                const parsed = JSON.parse(err.error);
+                                msg = parsed.message || parsed.error || msg;
+                            } catch (e) {
+                                msg = err.error;
+                            }
+                        } else if (err?.message) {
+                            if (err.message.includes('Http failure response') || err.message.includes('0 Unknown Error')) {
+                                msg = 'Không thể kết nối đến máy chủ xác thực bản quyền. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.';
+                            } else {
+                                msg = err.message;
+                            }
+                        }
+                        this.toastr.error(msg);
                     },
                     complete: () => {},
                 });
@@ -243,9 +261,14 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     }
 
     restoreLicense(): void {
+        if (this.isFreeLicense) {
+            this.toastr.warning('Tài khoản miễn phí không có lịch sử thanh toán để khôi phục.');
+            return;
+        }
+
         const email = this.user?.email || this.multiAccountService.getItem('email') || this.multiAccountService.currentAccountId;
-        if (!email) {
-            this.toastr.error('Không tìm thấy email tài khoản để khôi phục.');
+        if (!email || !email.includes('@')) {
+            this.toastr.error('Không tìm thấy email tài khoản hợp lệ để khôi phục.');
             return;
         }
 
@@ -304,7 +327,13 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                     }
                 },
                 error: (err) => {
-                    this.toastr.error('Có lỗi xảy ra khi khôi phục.');
+                    let msg = 'Có lỗi xảy ra khi khôi phục thanh toán.';
+                    if (err?.error && typeof err.error === 'object' && err.error.message) {
+                        msg = err.error.message;
+                    } else if (err?.message && (err.message.includes('Http failure response') || err.message.includes('0 Unknown Error'))) {
+                        msg = 'Không thể kết nối đến máy chủ khôi phục bản quyền. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.';
+                    }
+                    this.toastr.error(msg);
                 },
             });
     }

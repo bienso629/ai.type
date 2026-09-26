@@ -14162,9 +14162,9 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         ) {
             cleanUrl = cleanUrl + hash;
         } else if (cleanUrl.startsWith('media://')) {
-            cleanUrl = cleanUrl.replace(/^media:\/+/i, 'mediacors:///') + hash;
-        } else if (cleanUrl.startsWith('mediacors://')) {
             cleanUrl = cleanUrl + hash;
+        } else if (cleanUrl.startsWith('mediacors://')) {
+            cleanUrl = cleanUrl.replace(/^mediacors:\/+/i, 'media:///') + hash;
         } else if (cleanUrl.startsWith('src/assets/')) {
             cleanUrl = cleanUrl.substring(4) + hash;
         } else {
@@ -14181,8 +14181,8 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             }
 
             cleanUrl = originalPath.startsWith('/')
-                ? `mediacors://${originalPath.replace(/\\/g, '/')}${hash}`
-                : `mediacors:///${originalPath.replace(/\\/g, '/')}${hash}`;
+                ? `media://${originalPath.replace(/\\/g, '/')}${hash}`
+                : `media:///${originalPath.replace(/\\/g, '/')}${hash}`;
         }
         return cleanUrl;
     }
