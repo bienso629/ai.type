@@ -7433,34 +7433,7 @@
                                             ></mat-icon>
                                             <mat-label>Tìm từ khoá</mat-label>
                                         </button>
-                                        <button
-                                            mat-menu-item
-                                            (click)="exportOutlineList()"
-                                        >
-                                            <mat-icon
-                                                class="icon-size-4"
-                                                svgIcon="feather:download"
-                                            ></mat-icon>
-                                            <mat-label>Xuất danh sách Dàn ý (.txt)</mat-label>
-                                        </button>
-                                        <button
-                                            mat-menu-item
-                                            (click)="outlineFileInput.click()"
-                                        >
-                                            <mat-icon
-                                                class="icon-size-4"
-                                                svgIcon="feather:upload"
-                                            ></mat-icon>
-                                            <mat-label>Nhập danh sách Dàn ý (.txt, .json)</mat-label>
-                                        </button>
                                     </mat-menu>
-                                    <input
-                                        type="file"
-                                        #outlineFileInput
-                                        style="display: none"
-                                        accept=".txt,.json"
-                                        (change)="importOutlineList($event)"
-                                    />
                                     <mat-menu #forumActions="matMenu">
                                         <div
                                             (click)="$event.stopPropagation()"
