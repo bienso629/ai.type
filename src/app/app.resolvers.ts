@@ -19,6 +19,12 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
 })
 export class InitialDataResolver 
 {
+    private static _cachedResult: any = null;
+
+    public static resetCache(): void {
+        InitialDataResolver._cachedResult = null;
+    }
+
     /**
      * Constructor
      */
@@ -47,6 +53,12 @@ export class InitialDataResolver
      */
     resolve(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<any>
     {
+        // Nếu đã từng tải dữ liệu ban đầu 1 lần thành công thì trả về ngay lập tức,
+        // tuyệt đối KHÔNG block router navigation 5s mỗi khi người dùng đổi màn hình.
+        if (InitialDataResolver._cachedResult) {
+            return of(InitialDataResolver._cachedResult);
+        }
+
         // Fork join multiple API endpoint calls to wait all of them to finish
         const baseResolvers = forkJoin([
             this._navigationService.get(),
@@ -58,7 +70,11 @@ export class InitialDataResolver
 
         // Nếu tài khoản bị token_mismatch, không tải API profile/crawl
         if (this._multiAccountService.getItem('token_mismatch')) {
-            return baseResolvers;
+            return baseResolvers.pipe(
+                tap(res => {
+                    InitialDataResolver._cachedResult = res;
+                })
+            );
         }
 
         const userSource$ = this._userService.user ? of(this._userService.user) : this._userService.user$.pipe(take(1));
@@ -206,7 +222,11 @@ export class InitialDataResolver
                     profile$,
                     collections$,
                     statistics$
-                ]);
+                ]).pipe(
+                    tap(res => {
+                        InitialDataResolver._cachedResult = res;
+                    })
+                );
             })
         );
     }

@@ -703,7 +703,7 @@
                     cdkAutosizeMaxRows="5"
                 ></textarea>
 
-                <!-- Right Action Buttons Stack (Attach only) -->
+                <!-- Right Action Buttons Stack (Attach & Send) -->
                 <div class="sidebar-prompt-actions">
                     <button
                         mat-icon-button
@@ -721,6 +721,15 @@
                                 >sync</mat-icon
                             >
                         }
+                    </button>
+                    <button
+                        mat-icon-button
+                        class="sidebar-prompt-send"
+                        title="Gửi yêu cầu (Enter)"
+                        (click)="sendPrompt()"
+                        [disabled]="isProcessingPrompt || (!promptText?.trim() && attachedImages.length === 0 && attachedProps.length === 0)"
+                    >
+                        <mat-icon class="icon-size-4">arrow_upward</mat-icon>
                     </button>
                 </div>
             </div>

@@ -231,8 +231,8 @@
                 </div>
             }
 
-            <!-- Nút hành động Khởi chạy / Dừng GPU (khi dùng binary) -->
-            @if (isColabLoggedIn && colabSourceMode === 'binary') {
+            <!-- Nút hành động Khởi chạy / Dừng GPU -->
+            @if (isColabLoggedIn) {
                 <div class="flex items-center gap-3 mt-4">
                     @if (!colabStatus.is_connected) {
                         <button

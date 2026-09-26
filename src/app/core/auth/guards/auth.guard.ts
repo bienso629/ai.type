@@ -10,6 +10,9 @@ import { UserService } from 'app/core/user/user.service';
     providedIn: 'root'
 })
 export class AuthGuard  {
+    public static _cachedActiveInfoStr: string | null = null;
+    public static _cachedHasValidLicense: boolean = false;
+
     /**
      * Constructor
      */
@@ -125,6 +128,11 @@ export class AuthGuard  {
 
                     let hasValidLicense = false;
                     if (isMismatch !== true && isMismatch !== 'true' && activeInfoStr && activeInfoStr !== 'null' && activeInfoStr !== 'undefined') {
+                        // Fast-path: Kiểm tra cache RAM của license validation để chuyển route tức thì
+                        if (AuthGuard._cachedActiveInfoStr === activeInfoStr && AuthGuard._cachedHasValidLicense) {
+                            return of(true);
+                        }
+
                         try {
                             const isExpired = AuthUtils.isLicenseKeyExpired(activeInfoStr);
                             const parsed = AuthUtils._getActiveInfo(activeInfoStr);
@@ -161,6 +169,13 @@ export class AuthGuard  {
                         } catch (e) {
                             hasValidLicense = false;
                         }
+
+                        // Lưu vào cache
+                        AuthGuard._cachedActiveInfoStr = activeInfoStr;
+                        AuthGuard._cachedHasValidLicense = hasValidLicense;
+                    } else {
+                        AuthGuard._cachedActiveInfoStr = null;
+                        AuthGuard._cachedHasValidLicense = false;
                     }
 
                     if (!hasValidLicense) {

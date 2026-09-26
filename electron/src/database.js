@@ -32,6 +32,36 @@ function getTiktokDataDir(app) {
     return tiktokDir;
 }
 
+function initSqliteSchemaViaPython(tiktokDbPath) {
+    try {
+        const { execFileSync } = require('child_process');
+        const pyScript = `
+import sqlite3
+conn = sqlite3.connect(${JSON.stringify(tiktokDbPath)})
+conn.execute('''
+    CREATE TABLE IF NOT EXISTS livestream_analyses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        room_id TEXT NOT NULL,
+        date_str TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        nickname TEXT,
+        title TEXT,
+        hls_url TEXT,
+        analysis_text TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+conn.execute('''CREATE INDEX IF NOT EXISTS idx_room_date ON livestream_analyses(room_id, date_str)''')
+conn.commit()
+conn.close()
+`;
+        execFileSync('python3', ['-c', pyScript]);
+        console.log('[Python SQLite Fallback] Đã khởi tạo cấu trúc bảng tiktok.sqlite thành công!');
+    } catch (err) {
+        console.error('[Python SQLite Fallback Error]:', err.message);
+    }
+}
+
 function saveToSqliteViaPython(tiktokDbPath, record) {
     try {
         const { execFileSync } = require('child_process');
@@ -186,9 +216,8 @@ function initDatabase(app, ipcMain) {
         }
     } else {
         console.log('[SQLite Fallback] Electron database running with safe JSON & Python SQLite fallback in Documents/ai.type/data/tiktok.');
-        // Khởi tạo tiktok.sqlite bằng Python nếu better-sqlite3 native không có sẵn
-        saveToSqliteViaPython(tiktokDbPath, { room_id: 'init', date_str: '', timestamp: 0, nickname: '', title: '', hls_url: '', analysis_text: '' });
-        clearSqliteViaPython(tiktokDbPath, 'init');
+        // Khởi tạo cấu trúc bảng tiktok.sqlite trực tiếp bằng Python
+        initSqliteSchemaViaPython(tiktokDbPath);
     }
 
     // --- IPC HANDLERS ---

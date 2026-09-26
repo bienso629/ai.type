@@ -159,6 +159,12 @@ export class AuthService {
         this._authenticated = false;
         this.accessToken = null;
         this._userService.user = null;
+        try {
+            const { InitialDataResolver } = require('app/app.resolvers');
+            if (InitialDataResolver && InitialDataResolver.resetCache) {
+                InitialDataResolver.resetCache();
+            }
+        } catch(e) {}
 
         return from(this.multiAccountService.clearActiveSession()).pipe(
             map(() => true)
@@ -188,7 +194,12 @@ export class AuthService {
      */
 
     check(): Observable<boolean> {
-        // Ép Angular phải chờ MultiAccountService load xong dữ liệu từ IndexedDB
+        // Fast-path: Nếu tài khoản đã xác thực và có trong RAM, trả về of(true) ngay lập tức để chuyển trang không bị giật lag
+        if (this._authenticated && this._userService.user && this.accessToken && !AuthUtils.isTokenExpired(this.accessToken)) {
+            return of(true);
+        }
+
+        // Ép Angular phải chờ MultiAccountService load xong dữ liệu từ IndexedDB trong lần đầu khởi động
         return from(this.multiAccountService.isReady).pipe(
             switchMap(() => {
                 // Chỉ khôi phục khi có tài khoản thực sự active trong IndexedDB

@@ -124,7 +124,10 @@ export class MXHAutoService {
             ? `profiles_root=${encodeURIComponent(dataForm.profiles_root)}&`
             : '';
 
-        let url = `${this.getBaseUrl()}/v1/opera/profiles/list?${profilesRootParam}host=${dataForm.host}${(dataForm.verify) ? "&verify=" + dataForm.verify : ""}${(dataForm.filter) ? "&filter=" + dataForm.filter : ""}${(dataForm.include_accounts) ? "&include_accounts=" + dataForm.include_accounts : ""}${(dataForm.platform) ? "&platform=" + dataForm.platform : ""}`;
+        const includeAllParam = dataForm.include_all ? '&include_all=true' : '&include_all=true';
+        const limitParam = dataForm.limit ? `&limit=${dataForm.limit}` : '&limit=1000';
+
+        let url = `${this.getBaseUrl()}/v1/opera/profiles/list?${profilesRootParam}host=${dataForm.host}${(dataForm.verify) ? "&verify=" + dataForm.verify : ""}${(dataForm.filter) ? "&filter=" + dataForm.filter : ""}${(dataForm.include_accounts) ? "&include_accounts=" + dataForm.include_accounts : ""}${(dataForm.platform) ? "&platform=" + dataForm.platform : ""}${includeAllParam}${limitParam}`;
 
         // let data = {
         //     params: this._h.encrypt(dataForm, dataForm.appToken)
