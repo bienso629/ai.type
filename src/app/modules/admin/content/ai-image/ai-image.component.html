@@ -449,6 +449,24 @@
                                                                     <button
                                                                         mat-menu-item
                                                                         (click)="
+                                                                            downloadImageWithURL(
+                                                                                getImageSrc(img)
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-emerald-500"
+                                                                            svgIcon="feather:download"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Tải
+                                                                            về
+                                                                            máy (Gallery)</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
                                                                             deleteImage(
                                                                                 img,
                                                                                 rowIndex *
@@ -570,6 +588,24 @@
                                                                             >Tải
                                                                             lên
                                                                             Website</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
+                                                                            downloadImageWithURL(
+                                                                                getImageSrc(img)
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-emerald-500"
+                                                                            svgIcon="feather:download"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Tải
+                                                                            về
+                                                                            máy (Gallery)</span
                                                                         >
                                                                     </button>
                                                                     <button

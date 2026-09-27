@@ -1,3 +1,4 @@
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -98,7 +99,8 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         private multiAccountService: MultiAccountService,
         private _matDialog: MatDialog,
         private _forumService: ForumService,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+        private http: HttpClient
     ) {
         this.titleService.setTitle(`admin | ai.type - công cụ tạo content`);
     }
@@ -329,30 +331,70 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             return;
         }
 
-        if (!(window as any).electronAPI || !(window as any).electronAPI.fetchForumUsers) {
-            this.toastr.error('Chưa kết nối được với hệ thống Electron.');
-            return;
-        }
-
         this.n8nLoading = true;
         this.cd.detectChanges();
 
-        try {
-            const config = {
-                nodebbUrl: settings.emailConfig_nodebbUrl,
-                nodebbToken: settings.emailConfig_nodebbToken
-            };
-            const result = await (window as any).electronAPI.fetchForumUsers(config);
-            if (result && result.success) {
-                this.forumUsers = result.users;
-                this.tempForumUsers = [...result.users];
-                this.forumUsers = [...this.forumUsers];
-                this.toastr.success(`Đã tải ${this.forumUsers.length} thành viên.`);
-            } else {
-                this.toastr.error('Lỗi khi tải thành viên: ' + (result?.error || 'Unknown'));
+        const config = {
+            nodebbUrl: settings.emailConfig_nodebbUrl.replace(/\/+$/, ''),
+            nodebbToken: settings.emailConfig_nodebbToken.trim()
+        };
+
+        // Nếu có Electron, gọi qua Electron IPC
+        if ((window as any).electronAPI && (window as any).electronAPI.fetchForumUsers) {
+            try {
+                const result = await (window as any).electronAPI.fetchForumUsers(config);
+                if (result && result.success) {
+                    this.forumUsers = result.users;
+                    this.tempForumUsers = [...result.users];
+                    this.forumUsers = [...this.forumUsers];
+                    this.toastr.success(`Đã tải ${this.forumUsers.length} thành viên.`);
+                } else {
+                    this.toastr.error('Lỗi khi tải thành viên: ' + (result?.error || 'Unknown'));
+                }
+            } catch (error) {
+                this.toastr.error('Lỗi kết nối Electron: ' + error.message);
             }
-        } catch (error) {
-            this.toastr.error('Lỗi kết nối Electron: ' + error.message);
+            this.n8nLoading = false;
+            this.cd.detectChanges();
+            return;
+        }
+
+        // Môi trường Web / iPad / Mobile (không có Electron): Gọi trực tiếp API NodeBB
+        try {
+            let allUsers: any[] = [];
+            let currentPage = 1;
+            let totalPages = 1;
+
+            do {
+                const url = `${config.nodebbUrl}/api/admin/manage/users?_uid=1&page=${currentPage}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${config.nodebbToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const resJson = await response.json();
+                const responseData = resJson.response || resJson;
+                totalPages = responseData.pagination ? responseData.pagination.pageCount : 1;
+
+                const userList = responseData.users || [];
+                for (const user of userList) {
+                    if (user.email) allUsers.push(user);
+                }
+                currentPage++;
+            } while (currentPage <= totalPages);
+
+            this.forumUsers = allUsers;
+            this.tempForumUsers = [...allUsers];
+            this.forumUsers = [...this.forumUsers];
+            this.toastr.success(`Đã tải ${this.forumUsers.length} thành viên.`);
+        } catch (error: any) {
+            console.error('Lỗi lấy danh sách thành viên trực tiếp qua API:', error);
+            this.toastr.error('Lỗi khi tải thành viên qua API: ' + (error.message || error));
         }
 
         this.n8nLoading = false;
@@ -363,20 +405,41 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         const settings = this.multiAccountService.getItem('settings') || {};
         if (!settings.emailConfig_nodebbUrl || !settings.emailConfig_nodebbToken) return;
 
-        if (!(window as any).electronAPI || !(window as any).electronAPI.fetchForumGroups) return;
+        const config = {
+            nodebbUrl: settings.emailConfig_nodebbUrl.replace(/\/+$/, ''),
+            nodebbToken: settings.emailConfig_nodebbToken.trim()
+        };
 
+        if ((window as any).electronAPI && (window as any).electronAPI.fetchForumGroups) {
+            try {
+                const result = await (window as any).electronAPI.fetchForumGroups(config);
+                if (result && result.success) {
+                    this.forumGroups = result.groups;
+                    this.cd.detectChanges();
+                }
+            } catch (error) {
+                console.error('Lỗi tải nhóm NodeBB qua Electron', error);
+            }
+            this.cd.detectChanges();
+            return;
+        }
+
+        // Fallback gọi trực tiếp API qua fetch trên iPad/Web
         try {
-            const config = {
-                nodebbUrl: settings.emailConfig_nodebbUrl,
-                nodebbToken: settings.emailConfig_nodebbToken
-            };
-            const result = await (window as any).electronAPI.fetchForumGroups(config);
-            if (result && result.success) {
-                this.forumGroups = result.groups;
+            const url = `${config.nodebbUrl}/api/v3/groups?_uid=1`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${config.nodebbToken}`
+                }
+            });
+            if (response.ok) {
+                const resJson = await response.json();
+                const responseData = resJson.response || resJson;
+                this.forumGroups = responseData.groups || responseData;
                 this.cd.detectChanges();
             }
         } catch (error) {
-            console.error('Lỗi tải nhóm NodeBB', error);
+            console.error('Lỗi tải nhóm NodeBB qua fetch:', error);
         }
         this.cd.detectChanges();
     }
@@ -455,27 +518,51 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     async onUserGroupChange(row: any, newSelectedGroups: string[]) {
         const settings = this.multiAccountService.getItem('settings') || {};
         const config = {
-            nodebbUrl: settings.emailConfig_nodebbUrl,
-            nodebbToken: settings.emailConfig_nodebbToken
+            nodebbUrl: (settings.emailConfig_nodebbUrl || 'https://type.vn').replace(/\/+$/, ''),
+            nodebbToken: (settings.emailConfig_nodebbToken || '').trim()
         };
 
         const original = row._originalGroups || [];
         const added = newSelectedGroups.filter(slug => !original.includes(slug));
         const removed = original.filter(slug => !newSelectedGroups.includes(slug));
 
-        if (added.length > 0) {
-            await (window as any).electronAPI.addForumUsersToGroups({
-                userIds: [row.uid],
-                groupSlugs: added,
-                config: config
-            });
-        }
-        if (removed.length > 0) {
-            await (window as any).electronAPI.removeForumUsersFromGroups({
-                userIds: [row.uid],
-                groupSlugs: removed,
-                config: config
-            });
+        if ((window as any).electronAPI && (window as any).electronAPI.addForumUsersToGroups) {
+            if (added.length > 0) {
+                await (window as any).electronAPI.addForumUsersToGroups({
+                    userIds: [row.uid],
+                    groupSlugs: added,
+                    config: config
+                });
+            }
+            if (removed.length > 0) {
+                await (window as any).electronAPI.removeForumUsersFromGroups({
+                    userIds: [row.uid],
+                    groupSlugs: removed,
+                    config: config
+                });
+            }
+        } else {
+            // Chạy trực tiếp trên Web / iPad qua fetch
+            for (const slug of added) {
+                try {
+                    await fetch(`${config.nodebbUrl}/api/v3/groups/${slug}/membership/${row.uid}?_uid=1`, {
+                        method: 'PUT',
+                        headers: { Authorization: `Bearer ${config.nodebbToken}` }
+                    });
+                } catch (e) {
+                    console.error(`Lỗi thêm user vào nhóm ${slug}:`, e);
+                }
+            }
+            for (const slug of removed) {
+                try {
+                    await fetch(`${config.nodebbUrl}/api/v3/groups/${slug}/membership/${row.uid}?_uid=1`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${config.nodebbToken}` }
+                    });
+                } catch (e) {
+                    console.error(`Lỗi xóa user khỏi nhóm ${slug}:`, e);
+                }
+            }
         }
         
         row._originalGroups = [...newSelectedGroups];

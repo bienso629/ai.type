@@ -24,6 +24,7 @@ import { ToastrService } from 'ngx-toastr';
 import { LicenseKeyService } from 'app/_services/licensekey';
 
 import { FontService } from './_services/font.service';
+import { GenaiService } from './genai.service';
 
 @Component({
     selector: 'app-root',
@@ -197,6 +198,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private _licenseKeyService: LicenseKeyService,
         private _fontService: FontService,
         private _titleService: Title,
+        private _genaiService: GenaiService,
     ) {
         // Khôi phục tài khoản đang Active
         this.multiAccountService.loadActiveAccount();
@@ -808,132 +810,202 @@ if tunnel_url:
         }
 
         try {
-            // Khởi tạo file ghi âm mới trên backend
-            await (window as any).electron.invoke('init-system-audio');
+            const isElectron = !!(window as any).electron?.invoke;
 
-            // Lấy danh sách các màn hình/cửa sổ đang mở
-            const sources = await (window as any).electron.invoke(
-                'desktop-capturer-get-sources',
-                { types: ['window', 'screen'] },
-            );
+            let stream: MediaStream;
 
-            // Lấy màn hình đầu tiên (thường là màn hình chính)
-            const mainScreen = sources.find((s: any) =>
-                s.id.startsWith('screen:'),
-            );
+            if (isElectron) {
+                // Khởi tạo file ghi âm mới trên backend Desktop
+                await (window as any).electron.invoke('init-system-audio');
 
-            if (!mainScreen) {
-                console.error('Không tìm thấy màn hình.');
-                return;
+                // Lấy danh sách các màn hình/cửa sổ đang mở
+                const sources = await (window as any).electron.invoke(
+                    'desktop-capturer-get-sources',
+                    { types: ['window', 'screen'] },
+                );
+
+                const mainScreen = sources.find((s: any) =>
+                    s.id.startsWith('screen:'),
+                );
+
+                if (!mainScreen) {
+                    console.error('Không tìm thấy màn hình.');
+                    return;
+                }
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        mandatory: {
+                            chromeMediaSource: 'desktop',
+                            chromeMediaSourceId: mainScreen.id,
+                        },
+                    } as any,
+                    video: {
+                        mandatory: {
+                            chromeMediaSource: 'desktop',
+                            chromeMediaSourceId: mainScreen.id,
+                        },
+                    } as any,
+                });
+            } else {
+                // Môi trường iPad / Mobile / Web browser: Yêu cầu quyền Microphone chuẩn
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: false,
+                });
             }
 
-            // Yêu cầu quyền truy cập Audio/Video từ Hệ Điều Hành
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    mandatory: {
-                        chromeMediaSource: 'desktop',
-                        chromeMediaSourceId: mainScreen.id,
-                    },
-                } as any,
-                video: {
-                    mandatory: {
-                        chromeMediaSource: 'desktop',
-                        chromeMediaSourceId: mainScreen.id,
-                    },
-                } as any, // Bắt buộc phải có cả video thì API desktop capture mới nhả audio
-            });
-
-            // Lọc bỏ hình ảnh, chỉ giữ lại kênh âm thanh
+            // Lọc bỏ hình ảnh nếu có, chỉ giữ lại kênh âm thanh
             const audioTrack = stream.getAudioTracks()[0];
             const audioStream = new MediaStream([audioTrack]);
 
-            // Khởi tạo bộ ghi âm
-            this.mediaRecorder = new MediaRecorder(audioStream, {
-                mimeType: 'audio/webm;codecs=opus',
-            });
+            // Xác định mimeType phù hợp nhất của thiết bị
+            let options: MediaRecorderOptions = {};
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                options = { mimeType: 'audio/webm;codecs=opus' };
+            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                options = { mimeType: 'audio/mp4' };
+            } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+                options = { mimeType: 'audio/aac' };
+            }
+
+            this.mediaRecorder = new MediaRecorder(audioStream, options);
             const audioChunks: Blob[] = [];
 
             this.mediaRecorder.ondataavailable = (e: any) => {
-                if (e.data.size > 0) {
+                if (e.data && e.data.size > 0) {
                     audioChunks.push(e.data);
                 }
             };
 
             this.mediaRecorder.onstop = async () => {
                 this.toastr.info(
-                    'Hệ thống đang dùng Gemini để dịch âm thanh thành văn bản...',
+                    'Hệ thống đang dịch âm thanh thành văn bản...',
                     'Đang xử lý',
                 );
 
                 try {
-                    // Gộp tất cả chunk thành 1 cục Blob duy nhất
-                    const audioBlob = new Blob(audioChunks, {
-                        type: 'audio/webm;codecs=opus',
-                    });
-                    const arrayBuffer = await audioBlob.arrayBuffer();
-                    const uint8Array = new Uint8Array(arrayBuffer);
+                    const actualMime = options.mimeType || 'audio/webm';
+                    const audioBlob = new Blob(audioChunks, { type: actualMime });
 
-                    // Gửi MỘT LẦN duy nhất xuống main.js và nhận lại đường dẫn file
-                    const savedAudioPath = await (
-                        window as any
-                    ).electron.invoke('save-system-audio', uint8Array);
+                    if (isElectron) {
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        const uint8Array = new Uint8Array(arrayBuffer);
+                        const savedAudioPath = await (
+                            window as any
+                        ).electron.invoke('save-system-audio', uint8Array);
 
-                    // Lấy API key từ settings
-                    const settings =
-                        this.multiAccountService.getItem('settings');
-                    const secretKeyStr = settings?.secretKey || '';
-                    const secretKeys = secretKeyStr
-                        ? secretKeyStr.split(';')
-                        : [];
-                    const geminiKey =
-                        secretKeys.length > 1
-                            ? secretKeys[1]
-                            : secretKeys[0] || '';
+                        const settings =
+                            this.multiAccountService.getItem('settings');
+                        const secretKeyStr = settings?.secretKey || '';
+                        const secretKeys = secretKeyStr
+                            ? secretKeyStr.split(';')
+                            : [];
+                        const geminiKey =
+                            secretKeys.length > 1
+                                ? secretKeys[1]
+                                : secretKeys[0] || '';
 
-                    if (geminiKey) {
-                        const text = await (window as any).electron.invoke(
-                            'transcribe-system-audio',
-                            { apiKey: geminiKey, audioPath: savedAudioPath },
-                        );
-                        if (text) {
-                            window.dispatchEvent(
-                                new CustomEvent('stt-transcribed', {
-                                    detail: text,
-                                }),
+                        if (geminiKey) {
+                            const text = await (window as any).electron.invoke(
+                                'transcribe-system-audio',
+                                { apiKey: geminiKey, audioPath: savedAudioPath },
+                            );
+                            if (text) {
+                                window.dispatchEvent(
+                                    new CustomEvent('stt-transcribed', {
+                                        detail: text,
+                                    }),
+                                );
+                            }
+                        } else {
+                            this.toastr.warning(
+                                'Chưa cấu hình API Key của Gemini trong Cài đặt',
+                                'Lỗi cấu hình',
                             );
                         }
                     } else {
-                        this.toastr.warning(
-                            'Chưa cấu hình API Key của Gemini trong Cài đặt',
-                            'Lỗi cấu hình',
-                        );
+                        // iPad / Mobile / Web browser: Chuyển Blob thành base64 và gửi trực tiếp cho Gemini
+                        const base64Audio = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const b64 = (reader.result as string).split(',')[1];
+                                resolve(b64);
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(audioBlob);
+                        });
+
+                        const res: any = await this._genaiService.generateContent({
+                            model: 'gemini-2.5-flash',
+                            contents: [
+                                {
+                                    role: 'user',
+                                    parts: [
+                                        {
+                                            inlineData: {
+                                                mimeType: actualMime,
+                                                data: base64Audio,
+                                            },
+                                        },
+                                        {
+                                            text: 'Hãy chép lại chính xác từng lời nói trong đoạn âm thanh này sang văn bản tiếng Việt. Chỉ trả về nội dung lời nói, không giải thích gì thêm.',
+                                        },
+                                    ],
+                                },
+                            ],
+                        });
+
+                        const transcribedText =
+                            res?.text ||
+                            res?.candidates?.[0]?.content?.parts?.[0]?.text ||
+                            '';
+
+                        if (transcribedText) {
+                            window.dispatchEvent(
+                                new CustomEvent('stt-transcribed', {
+                                    detail: transcribedText.trim(),
+                                }),
+                            );
+                        } else {
+                            this.toastr.warning(
+                                'Không nhận diện được giọng nói trong đoạn thu âm.',
+                            );
+                        }
                     }
                 } catch (e) {
                     console.error('Lỗi xử lý file hoặc dịch STT:', e);
                     this.toastr.error(
-                        'Có lỗi xảy ra khi nhờ Gemini dịch âm thanh.',
+                        'Có lỗi xảy ra khi dịch âm thanh.',
                         'Lỗi phân tích',
                     );
                 }
 
-                // Tắt luồng mic/loa
+                // Tắt luồng mic
                 stream.getTracks().forEach((track: any) => track.stop());
             };
 
-            // Cắt nhỏ file âm thanh mỗi 1000ms (1 giây) nhưng chỉ lưu vào mảng
+            // Bắt đầu ghi âm
             this.setRecordingState(true);
             this.mediaRecorder.start(1000);
             this.toastr.info(
-                'Đang ghi âm toàn hệ thống. Bấm lại nút Micro để kết thúc.',
+                'Đang ghi âm qua Microphone. Bấm lại nút Micro để kết thúc và chép lời.',
                 'Bắt đầu ghi âm',
             );
-        } catch (err) {
-            console.error('Lỗi thu âm hệ thống:', err);
+        } catch (err: any) {
+            console.error('Lỗi thu âm:', err);
             this.setRecordingState(false);
-            this.toastr.error(
-                'Không thể khởi động ghi âm. Vui lòng kiểm tra quyền truy cập.',
-                'Lỗi hệ thống',
-            );
+            if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+                this.toastr.error(
+                    'Quyền truy cập Microphone bị từ chối. Vui lòng cho phép quyền trong Cài đặt Safari/Thiết bị.',
+                    'Quyền truy cập',
+                );
+            } else {
+                this.toastr.error(
+                    'Không thể khởi động ghi âm. Vui lòng kiểm tra quyền truy cập Microphone.',
+                    'Lỗi hệ thống',
+                );
+            }
         }
     }
 

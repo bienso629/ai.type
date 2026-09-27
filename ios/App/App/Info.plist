@@ -68,5 +68,15 @@
 	<true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập Microphone để ghi âm và chuyển đổi giọng nói thành văn bản.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập Camera để chụp ảnh và quét tài liệu.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập Thư viện ảnh để chọn và lưu hình ảnh, video.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Ứng dụng cần quyền lưu hình ảnh vào Thư viện ảnh (Gallery) của bạn.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Ứng dụng cần quyền nhận dạng giọng nói để chuyển lời nói thành văn bản tự động.</string>
 </dict>
 </plist>
