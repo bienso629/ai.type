@@ -1841,8 +1841,7 @@
                                                     mat-icon-button
                                                     class="ml-0 icon-size-8"
                                                     (click)="
-                                                        clearall($event);
-                                                        source.text = []
+                                                        confirmClearAll($event, source.text, 'đoạn văn bản')
                                                     "
                                                     [matBadge]="
                                                         source.text.length
@@ -3244,8 +3243,7 @@
                                                     mat-icon-button
                                                     class="ml-0 icon-size-8"
                                                     (click)="
-                                                        clearall($event);
-                                                        source.word = []
+                                                        confirmClearAll($event, source.word, 'từ khóa/giải thích')
                                                     "
                                                     [matBadge]="
                                                         source.word.length
@@ -3689,8 +3687,7 @@
                                                     mat-icon-button
                                                     class="ml-0 icon-size-8"
                                                     (click)="
-                                                        clearall($event);
-                                                        source.a = []
+                                                        confirmClearAll($event, source.a, 'liên kết bài viết')
                                                     "
                                                     [matBadge]="source.a.length"
                                                     matBadgePosition="above after"
@@ -5118,8 +5115,7 @@
                                                             | transloco
                                                     "
                                                     (click)="
-                                                        clearall($event);
-                                                        source.p = []
+                                                        confirmClearAll($event, source.p, 'thẻ đoạn văn P')
                                                     "
                                                 >
                                                     xoá ({{

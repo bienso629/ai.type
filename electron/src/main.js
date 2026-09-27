@@ -10461,10 +10461,7 @@ ipcMain.handle('register-license', (event, token) => {
     currentLicense = token;
 });
 
-// Kiểm tra mỗi 5 phút (Đã vô hiệu hóa kiểm tra và ép kích hoạt phần mềm)
-setInterval(() => {
-    // Đã tắt logic kiểm tra hết hạn license key
-}, 5 * 60 * 1000);
+// Đã tắt hoàn toàn logic kiểm tra hết hạn license key định kỳ
 
 // =====================================================================
 // MODEL CONTEXT PROTOCOL (MCP) CLIENT FOR GOOGLE COLAB GPU
