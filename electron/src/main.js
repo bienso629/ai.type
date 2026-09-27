@@ -4822,25 +4822,21 @@ ipcMain.handle('get-plugins-status', async (event) => {
         const userColabPath = path.join(userPluginsDir, colabLegacyName);
         const userColabScript = path.join(userPluginsDir, 'colab_agent.py');
 
-        const colabFoundBinary = [
+        const userColabFoundBinary = [
             path.join(userPluginsDir, colabBinaryName),
             userColabPath,
-            process.resourcesPath ? path.join(process.resourcesPath, colabBinaryName) : null,
-            process.resourcesPath ? path.join(process.resourcesPath, colabLegacyName) : null,
-            path.resolve(__dirname, '..', colabBinaryName),
-            path.resolve(__dirname, '..', colabLegacyName)
+            path.join(userPluginsDir, 'colab-agent-linux'),
+            path.join(userPluginsDir, 'colab_agent_linux')
         ].find(p => p && fs.existsSync(p));
 
-        const hasBinaryColabAgent = !!colabFoundBinary;
-        const diskAccounts = readColabDiskAccounts();
-        const hasAccounts = diskAccounts && Array.isArray(diskAccounts.accounts) && diskAccounts.accounts.length > 0;
-        const colabInstalled = hasBinaryColabAgent || fs.existsSync(userColabScript) || hasAccounts;
+        const hasBinaryColabAgent = !!userColabFoundBinary;
+        const colabInstalled = hasBinaryColabAgent || fs.existsSync(userColabScript);
         const colabCanInstall = true;
         const colabEnabled = isColabAgentEnabled();
         let colabVersion = '1.0.1';
         try {
             const cp = require('child_process');
-            let binToProbe = colabFoundBinary;
+            let binToProbe = userColabFoundBinary;
 
             if (binToProbe) {
                 const out = cp.execFileSync(binToProbe, ['--version'], { timeout: 1500, encoding: 'utf8' });

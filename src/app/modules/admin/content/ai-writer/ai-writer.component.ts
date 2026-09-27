@@ -1722,23 +1722,33 @@ ${content}`;
                             console.warn('Upload CDN thất bại, fallback lưu local:', e);
                         }
 
-                        const res = await (window as any).electron.invoke('save-base64', {
-                            base64: base64Str,
-                            fileName: fileName,
-                            folder: 'thumbnails',
-                            username: this.user.name
-                        });
+                        let localPath = '';
+                        if ((window as any).electron?.invoke) {
+                            try {
+                                const res = await (window as any).electron.invoke('save-base64', {
+                                    base64: base64Str,
+                                    fileName: fileName,
+                                    folder: 'thumbnails',
+                                    username: this.user.name
+                                });
+                                if (res && res.success) {
+                                    localPath = res.path;
+                                }
+                            } catch (e) {
+                                console.warn('Lưu local qua electron thất bại:', e);
+                            }
+                        }
 
-                        const finalImgSrc = cdnUrl || (res && res.success ? `file://${res.path}` : '');
+                        const finalImgSrc = cdnUrl || (localPath ? `file://${localPath}` : `data:image/png;base64,${base64Str}`);
 
                         if (finalImgSrc) {
                             this.source.img.unshift(
                                 `<p id="source-img-${uuid.v4()}"><img src="${finalImgSrc}" /></p>`
                             );
-                            this.toastr.success(cdnUrl ? 'Hình ảnh đã tạo và tải lên CDN thành công!' : 'Hình ảnh đã tạo thành công và lưu vào ổ cứng.');
+                            this.toastr.success(cdnUrl ? 'Hình ảnh đã tạo và tải lên CDN thành công!' : (localPath ? 'Hình ảnh đã tạo thành công và lưu vào ổ cứng.' : 'Hình ảnh đã tạo thành công!'));
                             this.cd.markForCheck();
                         } else {
-                            this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Unknown error'));
+                            this.toastr.error('Lưu ảnh thất bại.');
                         }
                     } else {
                         console.error('Invalid image response from UModelverse:', response);
@@ -3442,18 +3452,24 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 }
 
                 let localPath = '';
-                const res = await (window as any).electron.invoke('save-base64', {
-                    base64: base64Str,
-                    fileName: fileName,
-                    folder: 'thumbnails',
-                    username: this.user.name
-                });
-                if (res && res.success) {
-                    localPath = res.path;
+                if ((window as any).electron?.invoke) {
+                    try {
+                        const res = await (window as any).electron.invoke('save-base64', {
+                            base64: base64Str,
+                            fileName: fileName,
+                            folder: 'thumbnails',
+                            username: this.user.name
+                        });
+                        if (res && res.success) {
+                            localPath = res.path;
+                        }
+                    } catch (e) {
+                        console.warn('Lưu local qua electron thất bại:', e);
+                    }
                 }
 
-                const finalImgSrc = cdnUrl || (localPath ? `file://${localPath}` : '');
-                const thumbValue = cdnUrl || localPath;
+                const finalImgSrc = cdnUrl || (localPath ? `file://${localPath}` : `data:image/png;base64,${base64Str}`);
+                const thumbValue = cdnUrl || localPath || `data:image/png;base64,${base64Str}`;
 
                 if (finalImgSrc) {
                     const existingValue = this.detectForm.get('step1').get('thumbnail').value || '';
@@ -3465,10 +3481,10 @@ ${contentFromDone || '(Chưa có văn bản)'}
 
                     this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="${finalImgSrc}" /></p>`);
 
-                    this.toastr.success(cdnUrl ? 'Ảnh minh họa đã tạo và tải lên CDN thành công!' : 'Ảnh minh họa đã tạo và lưu vào ổ cứng.');
+                    this.toastr.success(cdnUrl ? 'Ảnh minh họa đã tạo và tải lên CDN thành công!' : (localPath ? 'Ảnh minh họa đã tạo và lưu vào ổ cứng.' : 'Ảnh minh họa đã tạo thành công!'));
                     this.cd.markForCheck();
                 } else {
-                    this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Lỗi không xác định'));
+                    this.toastr.error('Lưu ảnh thất bại.');
                 }
             } else {
                 this.toastr.error('Không nhận được dữ liệu ảnh từ máy chủ AI!');
@@ -3546,26 +3562,32 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 }
 
                 let localPath = '';
-                const res = await (window as any).electron.invoke('save-base64', {
-                    base64: base64Str,
-                    fileName: fileName,
-                    folder: 'thumbnails',
-                    username: this.user.name
-                });
-                if (res && res.success) {
-                    localPath = res.path;
+                if ((window as any).electron?.invoke) {
+                    try {
+                        const res = await (window as any).electron.invoke('save-base64', {
+                            base64: base64Str,
+                            fileName: fileName,
+                            folder: 'thumbnails',
+                            username: this.user.name
+                        });
+                        if (res && res.success) {
+                            localPath = res.path;
+                        }
+                    } catch (e) {
+                        console.warn('Lưu local qua electron thất bại:', e);
+                    }
                 }
 
-                const finalImgSrc = cdnUrl || (localPath ? `file://${localPath}` : '');
+                const finalImgSrc = cdnUrl || (localPath ? `file://${localPath}` : `data:image/png;base64,${base64Str}`);
 
                 if (finalImgSrc) {
                     this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="${finalImgSrc}" /></p>`);
                     this.update(false); // Lưu lại ngay lập tức
 
-                    this.toastr.success(cdnUrl ? 'Ảnh minh họa đã tạo và tải lên CDN thành công!' : 'Ảnh minh họa đã tạo và lưu vào ổ cứng.');
+                    this.toastr.success(cdnUrl ? 'Ảnh minh họa đã tạo và tải lên CDN thành công!' : (localPath ? 'Ảnh minh họa đã tạo và lưu vào ổ cứng.' : 'Ảnh minh họa đã tạo thành công!'));
                     this.cd.markForCheck();
                 } else {
-                    this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Lỗi không xác định'));
+                    this.toastr.error('Lưu ảnh thất bại.');
                 }
             } else {
                 this.toastr.error('Không nhận được dữ liệu ảnh từ máy chủ AI!');

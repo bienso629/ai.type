@@ -359,7 +359,7 @@
                                                             </div>
                                                         </div>
 
-                                                        @if (
+                                                         @if (
                                                             img
                                                                 .toLowerCase()
                                                                 .endsWith(
@@ -367,10 +367,7 @@
                                                                 )
                                                         ) {
                                                             <video
-                                                                [src]="
-                                                                    'file:///' +
-                                                                    img
-                                                                "
+                                                                [src]="getImageSrc(img)"
                                                                 class="thumb w-full h-auto object-cover rounded-2xl"
                                                                 [class.selected-thumb]="isImageSelected(img)"
                                                                 controls
@@ -472,10 +469,7 @@
                                                             </div>
                                                         } @else {
                                                             <img
-                                                                [src]="
-                                                                    'file:///' +
-                                                                    img
-                                                                "
+                                                                [src]="getImageSrc(img)"
                                                                 class="thumb w-full h-auto object-cover rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
                                                                 [class.selected-thumb]="isImageSelected(img)"
                                                                 (click)="

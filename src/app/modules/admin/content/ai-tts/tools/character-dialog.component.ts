@@ -261,14 +261,6 @@ export class CharacterDialogComponent {
             return;
         }
 
-        const electron = (window as any).electron;
-        if (!electron || !electron.saveBase64) {
-            this.toastr.error(
-                'Lỗi cấu hình. Tính năng này yêu cầu App Desktop (Electron).',
-            );
-            return;
-        }
-
         const settings = this.multiAccountService.getItem('settings');
         let secretKey;
         try {
@@ -415,23 +407,43 @@ export class CharacterDialogComponent {
                     /[^a-zA-Z0-9_.]/g,
                     '',
                 );
-            const uuid = this.data?.uuid || this.data?.projectUuid;
-            const username = this.data?.username || 'anonymous';
-            const saveParams: any = {
-                base64: base64Data,
-                fileName: fileName,
-            };
-            if (uuid) {
-                saveParams.customDir = `tts/${username}/${uuid}`;
+            let finalPath = '';
+            const electron = (window as any).electron;
+            if (electron && electron.saveBase64) {
+                const uuid = this.data?.uuid || this.data?.projectUuid;
+                const username = this.data?.username || 'anonymous';
+                const saveParams: any = {
+                    base64: base64Data,
+                    fileName: fileName,
+                };
+                if (uuid) {
+                    saveParams.customDir = `tts/${username}/${uuid}`;
+                } else {
+                    saveParams.folder = 'avatars';
+                    saveParams.username = username;
+                }
+
+                const result = await electron.saveBase64(saveParams);
+                if (result && result.success) {
+                    finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                } else {
+                    throw new Error(result?.error || 'Lỗi lưu file.');
+                }
             } else {
-                saveParams.folder = 'avatars';
-                saveParams.username = username;
+                // Fallback cho iPad / Web: upload CDN hoặc dùng Data URL
+                try {
+                    const cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Data, fileName, 'avatars');
+                    if (cdnUrl) {
+                        finalPath = cdnUrl;
+                    } else {
+                        finalPath = `data:image/png;base64,${base64Data}`;
+                    }
+                } catch (e) {
+                    finalPath = `data:image/png;base64,${base64Data}`;
+                }
             }
 
-            const result = await electron.saveBase64(saveParams);
-
-            if (result && result.success) {
-                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+            if (finalPath) {
                 if (!this.editingChar.avatarUrls) {
                     this.editingChar.avatarUrls = [];
                 }
@@ -442,8 +454,6 @@ export class CharacterDialogComponent {
                 }
 
                 this.toastr.success('Đã tạo ảnh nhân vật thành công!');
-            } else {
-                throw new Error(result.error || 'Lỗi lưu file.');
             }
         } catch (error: any) {
             console.error('Error generating avatar:', error);

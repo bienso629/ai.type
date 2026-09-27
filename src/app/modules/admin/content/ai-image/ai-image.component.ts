@@ -346,7 +346,7 @@ export class AIImageComponent
 
                 const newFileName = `edited_${new Date().getTime()}.${ext}`;
 
-                if ((window as any).electron) {
+                if ((window as any).electron?.saveBase64) {
                     await (window as any).electron.saveBase64({
                         base64: base64Content,
                         fileName: newFileName,
@@ -355,9 +355,43 @@ export class AIImageComponent
                     });
                     this.toastr.success('Đã lưu ảnh chỉnh sửa!');
                     this.fetch();
+                } else {
+                    // Môi trường Web / iPad: Upload trực tiếp lên CDN thumbnails
+                    try {
+                        const thumbnail = await this._blogService.uploadThumbnailPromise({
+                            imageData: base64Content,
+                            folder: 'thumbnails',
+                            username: this.user.name,
+                            ext: ext,
+                            mimeType: mimeType,
+                        });
+                        if (thumbnail && thumbnail[0] && thumbnail[0].img) {
+                            this.imageUrls.unshift(thumbnail[0].img);
+                            this.rebuildRows();
+                            this.toastr.success('Đã lưu ảnh chỉnh sửa lên đám mây!');
+                            this.cd.markForCheck();
+                        } else {
+                            this.downloadImage(`data:${mimeType};base64,${base64Content}`, newFileName);
+                            this.toastr.success('Đã tải ảnh chỉnh sửa về thiết bị!');
+                        }
+                    } catch (e) {
+                        this.downloadImage(`data:${mimeType};base64,${base64Content}`, newFileName);
+                        this.toastr.success('Đã tải ảnh chỉnh sửa về thiết bị!');
+                    }
                 }
             }
         });
+    }
+
+    getImageSrc(img: string): string {
+        if (!img) return '';
+        if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:') || img.startsWith('blob:')) {
+            return img;
+        }
+        if (img.startsWith('file://')) {
+            return img;
+        }
+        return 'file:///' + img;
     }
 
     async shareImage(imgPath: string) {
@@ -1064,30 +1098,34 @@ export class AIImageComponent
                 this.alldomains();
             });
 
-        this.unsubscribeRes = (window as any).electron.onToolsResponse(
-            (data: {
-                action: string;
-                success: any;
-                cookies: any;
-                file: any;
-            }) => {
-                if (data.action === 'dreamina.capcut') {
-                    console.log('data:', data);
-                } else {
-                    console.error('Lỗi:', data);
-                    this.toastr.error('Đã xảy ra lỗi trong quá trình xử lý.');
-                }
-            },
-        );
+        if ((window as any).electron?.onToolsResponse) {
+            this.unsubscribeRes = (window as any).electron.onToolsResponse(
+                (data: {
+                    action: string;
+                    success: any;
+                    cookies: any;
+                    file: any;
+                }) => {
+                    if (data.action === 'dreamina.capcut') {
+                        console.log('data:', data);
+                    } else {
+                        console.error('Lỗi:', data);
+                        this.toastr.error('Đã xảy ra lỗi trong quá trình xử lý.');
+                    }
+                },
+            );
+        }
 
-        this.unsubscribeLog = (window as any).electron.onToolsLog(
-            (msg: any) => {
-                console.log('Log từ main:', msg);
-                if (msg.indexOf('Đã tải') > -1) {
-                    this.fetch();
-                }
-            },
-        );
+        if ((window as any).electron?.onToolsLog) {
+            this.unsubscribeLog = (window as any).electron.onToolsLog(
+                (msg: any) => {
+                    console.log('Log từ main:', msg);
+                    if (msg.indexOf('Đã tải') > -1) {
+                        this.fetch();
+                    }
+                },
+            );
+        }
     }
 
     ngAfterViewInit() {

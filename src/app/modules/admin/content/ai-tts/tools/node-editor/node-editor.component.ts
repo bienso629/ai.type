@@ -2177,12 +2177,6 @@ export class NodeEditorComponent
             }
 
             const electron = (window as any).electron;
-            if (!electron || !electron.saveBase64) {
-                this.toastr.error(
-                    'Lỗi cấu hình. Yêu cầu App Desktop (Electron).',
-                );
-                return;
-            }
 
             this.toastr.info('Đang gửi yêu cầu tạo hình nhân vật...');
 
@@ -2222,20 +2216,40 @@ export class NodeEditorComponent
                     const username = this.projectData?.username || 'anonymous';
                     const projectUuid =
                         this.uuid || this.projectData?.uuid || 'default';
-                    const result = await electron.saveBase64({
-                        base64: base64Data,
-                        fileName: `char_${Date.now()}.png`,
-                        folder: 'characters',
-                        username: username,
-                        customDir: `tts/${username}/${projectUuid}`,
-                    });
+                    let finalAvatarUrl = '';
 
-                    if (result && result.success) {
-                        targetCharacter.avatarUrl = `file://${result.path.replace(/\\/g, '/')}`;
+                    if (electron && electron.saveBase64) {
+                        const result = await electron.saveBase64({
+                            base64: base64Data,
+                            fileName: `char_${Date.now()}.png`,
+                            folder: 'characters',
+                            username: username,
+                            customDir: `tts/${username}/${projectUuid}`,
+                        });
+
+                        if (result && result.success) {
+                            finalAvatarUrl = `file://${result.path.replace(/\\/g, '/')}`;
+                        } else {
+                            this.toastr.error('Lỗi khi lưu ảnh xuống đĩa');
+                        }
+                    } else {
+                        // Fallback iPad / Web
+                        try {
+                            const cdnUrl = await this.genaiService.uploadBase64ToCdn(
+                                base64Data,
+                                `char_${Date.now()}.png`,
+                                'characters'
+                            );
+                            finalAvatarUrl = cdnUrl || `data:image/png;base64,${base64Data}`;
+                        } catch (e) {
+                            finalAvatarUrl = `data:image/png;base64,${base64Data}`;
+                        }
+                    }
+
+                    if (finalAvatarUrl) {
+                        targetCharacter.avatarUrl = finalAvatarUrl;
                         this.toastr.success('Đã tạo hình nhân vật thành công!');
                         this.saveProject();
-                    } else {
-                        this.toastr.error('Lỗi khi lưu ảnh xuống đĩa');
                     }
                 } else {
                     this.toastr.error('Không nhận được ảnh từ AI');
@@ -2252,12 +2266,6 @@ export class NodeEditorComponent
             this.editingType === 'master'
         ) {
             const electron = (window as any).electron;
-            if (!electron || !electron.saveBase64) {
-                this.toastr.error(
-                    'Lỗi cấu hình. Yêu cầu App Desktop (Electron).',
-                );
-                return;
-            }
 
             let targetModality = forceModality || 'IMAGE';
             if (!forceModality) {
@@ -2717,17 +2725,36 @@ export class NodeEditorComponent
                                     );
 
                                 if (base64Data) {
-                                    const saveResult =
-                                        await electron.saveBase64({
-                                            base64: base64Data,
-                                            fileName: `scene_${nodesMapping[i].id}_${Date.now()}.png`,
-                                            folder: 'storyboards',
-                                            username: username,
-                                            customDir: `tts/${username}/${projectUuid}`,
-                                        });
+                                    let localPath = '';
+                                    const fileName = `scene_${nodesMapping[i].id}_${Date.now()}.png`;
 
-                                    if (saveResult && saveResult.success) {
-                                        const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                    if (electron && electron.saveBase64) {
+                                        const saveResult =
+                                            await electron.saveBase64({
+                                                base64: base64Data,
+                                                fileName: fileName,
+                                                folder: 'storyboards',
+                                                username: username,
+                                                customDir: `tts/${username}/${projectUuid}`,
+                                            });
+
+                                        if (saveResult && saveResult.success) {
+                                            localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                        }
+                                    } else {
+                                        try {
+                                            const cdnUrl = await this.genaiService.uploadBase64ToCdn(
+                                                base64Data,
+                                                fileName,
+                                                'storyboards'
+                                            );
+                                            localPath = cdnUrl || `data:image/png;base64,${base64Data}`;
+                                        } catch (e) {
+                                            localPath = `data:image/png;base64,${base64Data}`;
+                                        }
+                                    }
+
+                                    if (localPath) {
                                         nodesMapping[i].data.imageUrl =
                                             localPath;
                                         nodesMapping[i].data.isVideo = false;
@@ -2753,15 +2780,16 @@ export class NodeEditorComponent
                                             }
                                         }
 
-                                        if (electron.createThumbnail) {
+                                        if (electron && electron.createThumbnail && localPath.startsWith('file://')) {
                                             try {
+                                                const sourcePath = localPath.replace('file://', '');
                                                 const thumbPath =
-                                                    saveResult.path.replace(
+                                                    sourcePath.replace(
                                                         '.png',
                                                         '_thumb.jpg',
                                                     );
                                                 await electron.createThumbnail({
-                                                    source: saveResult.path,
+                                                    source: sourcePath,
                                                     target: thumbPath,
                                                     width: 200,
                                                 });
@@ -3011,17 +3039,36 @@ export class NodeEditorComponent
                                             },
                                         );
 
-                                    const saveResult =
-                                        await electron.saveBase64({
-                                            base64: base64Data,
-                                            fileName: `scene_${nodesMapping[i].id}_${Date.now()}.png`,
-                                            folder: 'storyboards',
-                                            username: username,
-                                            customDir: `tts/${username}/${projectUuid}`,
-                                        });
+                                    let localPath = '';
+                                    const fileName = `scene_${nodesMapping[i].id}_${Date.now()}.png`;
 
-                                    if (saveResult && saveResult.success) {
-                                        const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                    if (electron && electron.saveBase64) {
+                                        const saveResult =
+                                            await electron.saveBase64({
+                                                base64: base64Data,
+                                                fileName: fileName,
+                                                folder: 'storyboards',
+                                                username: username,
+                                                customDir: `tts/${username}/${projectUuid}`,
+                                            });
+
+                                        if (saveResult && saveResult.success) {
+                                            localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                        }
+                                    } else {
+                                        try {
+                                            const cdnUrl = await this.genaiService.uploadBase64ToCdn(
+                                                base64Data,
+                                                fileName,
+                                                'storyboards'
+                                            );
+                                            localPath = cdnUrl || `data:image/png;base64,${base64Data}`;
+                                        } catch (e) {
+                                            localPath = `data:image/png;base64,${base64Data}`;
+                                        }
+                                    }
+
+                                    if (localPath) {
                                         nodesMapping[i].data.imageUrl =
                                             localPath;
                                         nodesMapping[i].data.isVideo = false;
@@ -3048,15 +3095,16 @@ export class NodeEditorComponent
                                         }
 
                                         // Tạo thumbnail file
-                                        if (electron.createThumbnail) {
+                                        if (electron && electron.createThumbnail && localPath.startsWith('file://')) {
                                             try {
+                                                const sourcePath = localPath.replace('file://', '');
                                                 const thumbPath =
-                                                    saveResult.path.replace(
+                                                    sourcePath.replace(
                                                         '.png',
                                                         '_thumb.jpg',
                                                     );
                                                 await electron.createThumbnail({
-                                                    source: saveResult.path,
+                                                    source: sourcePath,
                                                     target: thumbPath,
                                                     width: 200,
                                                 });
