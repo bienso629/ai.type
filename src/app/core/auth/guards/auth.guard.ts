@@ -76,20 +76,22 @@ export class AuthGuard  {
         const plan = (user.plan || user.type || parsed.plan || parsed.type || '').toLowerCase();
         const customerName = (user.info?.customerName || '').toLowerCase();
 
-        // 1. Nếu đã có license key hoặc appToken hợp lệ từ server -> Hợp lệ, không phải free
-        if (user.licenseKey || user.appToken) {
-            return false;
-        }
-
-        // 2. Kiểm tra từ khóa free trực tiếp khi chưa có key chính thức
+        // 1. Kiểm tra từ khóa free trực tiếp
         if (appId.includes('free') || plan.includes('free') || customerName.includes('miễn phí') || customerName.includes('free')) {
             return true;
         }
 
+        // 2. Phải có email khách hàng hợp lệ (không phải rỗng, không phải '0', có chứa '@')
         const customerEmail = String(user.info?.email || '').trim().toLowerCase();
-        if (!customerEmail || customerEmail === '0' || !customerEmail.includes('@')) {
+        if (!customerEmail || customerEmail === '0' || customerEmail === 'null' || !customerEmail.includes('@')) {
             return true;
         }
+
+        // 3. Phải có licenseKey hoặc appToken
+        if (!user.licenseKey && !user.appToken) {
+            return true;
+        }
+
         return false;
     }
 

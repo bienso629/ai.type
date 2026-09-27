@@ -118,12 +118,14 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 if (!user) {
                     isFreeLicense = true;
-                } else if (user.licenseKey || user.appToken) {
-                    isFreeLicense = false;
                 } else if (appId.includes('free') || plan.includes('free') || customerName.includes('miễn phí') || customerName.includes('free')) {
                     isFreeLicense = true;
-                } else if (!customerEmail || customerEmail === '0' || !customerEmail.includes('@')) {
+                } else if (!customerEmail || customerEmail === '0' || customerEmail === 'null' || !customerEmail.includes('@')) {
                     isFreeLicense = true;
+                } else if (!user.licenseKey && !user.appToken) {
+                    isFreeLicense = true;
+                } else {
+                    isFreeLicense = false;
                 }
 
                 const activeOwners = [
