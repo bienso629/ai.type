@@ -33,7 +33,7 @@
                 }
             </div>
 
-            @if (activeInfo && activeInfo.user) {
+            @if (activeInfo && activeInfo.user && !isFreeLicense) {
                 <div class="text-secondary leading-8 mt-4">
                     <fuse-alert
                         [appearance]="'outline'"
