@@ -98,91 +98,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     // ===============================
 
     updateTime(): void {
+        // Đã vô hiệu hóa logic tự động ép chuyển hướng sang màn hình Active/Gia hạn
         let activeInfo = this.multiAccountService.getItem('active_info');
-        const isMismatch = this.multiAccountService.getItem('token_mismatch');
-
-        if (isMismatch !== true && isMismatch !== 'true' && activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
-            const isLicenseKeyExpired =
-                AuthUtils.isLicenseKeyExpired(activeInfo);
-            // this.checkActiveInfo = AuthUtils._verifyActiveInfo(activeInfo, this.uuid);
-
-            let isFreeLicense = false;
-            let isOwnerMismatch = false;
-            try {
-                const parsed = AuthUtils._getActiveInfo(activeInfo);
-                const user = parsed?.user;
-                const appId = (user?.appId || parsed?.appId || '').toLowerCase();
-                const plan = (user?.plan || user?.type || parsed?.plan || parsed?.type || '').toLowerCase();
-                const customerName = (user?.info?.customerName || '').toLowerCase();
-                const customerEmail = String(user?.info?.email || '').trim().toLowerCase();
-
-                if (!user) {
-                    isFreeLicense = true;
-                } else if (appId.includes('free') || plan.includes('free') || customerName.includes('miễn phí') || customerName.includes('free')) {
-                    isFreeLicense = true;
-                } else if (!customerEmail || customerEmail === '0' || customerEmail === 'null' || !customerEmail.includes('@')) {
-                    isFreeLicense = true;
-                } else if (!user.licenseKey && !user.appToken) {
-                    isFreeLicense = true;
-                } else {
-                    isFreeLicense = false;
-                }
-
-                const activeOwners = [
-                    user?.username,
-                    user?.name,
-                    user?.email,
-                    user?.info?.customerName,
-                    user?.info?.email,
-                ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
-
-                const sessionUser = this.multiAccountService.getItem('user');
-                const currentIdentifiers = [
-                    this.user?.name,
-                    this.user?.email,
-                    this.multiAccountService.getItem('username'),
-                    this.multiAccountService.getItem('email'),
-                    sessionUser?.name,
-                    sessionUser?.username,
-                    sessionUser?.email,
-                    this.multiAccountService.currentAccountId,
-                ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
-
-                const hasValidKey = !!(user?.licenseKey || user?.appToken);
-                const isMatch = hasValidKey || activeOwners.length === 0 || currentIdentifiers.length === 0 ||
-                    currentIdentifiers.some((id) => activeOwners.includes(id));
-                if (!isMatch) {
-                    isOwnerMismatch = true;
-                }
-            } catch (e) {
-                isFreeLicense = true;
-            }
-
-            if (isLicenseKeyExpired === true || isFreeLicense || isOwnerMismatch) {
-                if (this.router.url && this.router.url !== '/' && !this.router.url.includes('settings') && !this.router.url.includes('sign-in') && !this.router.url.includes('sign-out') && !this.router.url.includes('app')) {
-                    this.router.navigate(['/settings'], {
-                        queryParams: {
-                            tab: 'active',
-                        },
-                    });
-                }
-            } else {
-                // Phần mềm đã được kích hoạt
-                if (this.intervalId) {
-                    clearInterval(this.intervalId);
-                }
-
-                // Tự động đồng bộ với server để lấy trạng thái mới nhất
-                this.syncActiveInfo(activeInfo);
-            }
-        } else {
-            if (this.router.url && this.router.url !== '/' && !this.router.url.includes('settings') && !this.router.url.includes('sign-in') && !this.router.url.includes('sign-out') && !this.router.url.includes('app')) {
-                this.router.navigate(['/settings'], {
-                    queryParams: {
-                        tab: 'active',
-                    },
-                });
-            }
+        if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
+            this.syncActiveInfo(activeInfo);
         }
     }
 
@@ -343,10 +262,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             '100vw',
         );
 
-        // 2. Thiết lập bộ đếm (Timer)
-        this.intervalId = setInterval(() => {
-            this.updateTime();
-        }, this.ONE_HOUR_MS);
+        // Đã xóa bộ đếm chu kỳ kiểm tra license
 
         // Subscribe to user changes
         this._userService.user$

@@ -1436,10 +1436,57 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     /**
+     * Xoá toàn bộ có hộp thoại xác nhận
+     */
+    confirmClearAll(event: MouseEvent, targetList: any[], listName: string = 'đoạn văn bản') {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        if (!targetList || targetList.length === 0) {
+            this.toastr.info('Danh sách hiện đang trống.');
+            return;
+        }
+
+        const count = targetList.length;
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xác nhận xóa nhanh',
+            message: `Bạn có chắc chắn muốn xóa toàn bộ <span class="font-semibold text-red-600">${count}</span> ${listName} này không? Thao tác này không thể hoàn tác.`,
+            icon: {
+                show: true,
+                name: 'feather:alert-triangle',
+                color: 'warn'
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Xóa ngay',
+                    color: 'warn'
+                },
+                cancel: {
+                    show: true,
+                    label: 'Hủy'
+                }
+            },
+            dismissible: true
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                targetList.length = 0;
+                this.clearall(event);
+            }
+        });
+    }
+
+    /**
      * Xoá toàn bộ
      */
-    clearall(event: MouseEvent) {
-        event.preventDefault();
+    clearall(event?: MouseEvent) {
+        if (event) {
+            event.preventDefault();
+        }
 
         // tinh toan lai done
         this.seo = this.seoScore.transform({
