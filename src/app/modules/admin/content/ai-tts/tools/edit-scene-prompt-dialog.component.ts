@@ -843,10 +843,6 @@ Instructions:
         }
 
         const electron = (window as any).electron;
-        if (!electron || !electron.saveBase64) {
-            this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
-            return;
-        }
 
         const apiKey = this.getGeminiKey();
         if (!apiKey) {
@@ -1036,21 +1032,39 @@ Instructions:
             }
 
             const fileName = `scene_${Date.now()}.png`;
-            const result = await electron.saveBase64({
-                base64: base64Data,
-                fileName: fileName,
-                folder: 'scenes',
-                username: 'ai_type',
-                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`,
-            });
+            let finalPath = '';
+            if (electron && electron.saveBase64) {
+                const result = await electron.saveBase64({
+                    base64: base64Data,
+                    fileName: fileName,
+                    folder: 'scenes',
+                    username: 'ai_type',
+                    customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`,
+                });
 
-            if (result && result.success) {
-                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                if (result && result.success) {
+                    finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                } else {
+                    throw new Error(result?.error || 'Lỗi lưu file.');
+                }
+            } else {
+                // Fallback iPad / Web: upload CDN hoặc gán Data URL
+                try {
+                    const cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Data, fileName, 'scenes');
+                    if (cdnUrl) {
+                        finalPath = cdnUrl;
+                    } else {
+                        finalPath = `data:image/png;base64,${base64Data}`;
+                    }
+                } catch (e) {
+                    finalPath = `data:image/png;base64,${base64Data}`;
+                }
+            }
+
+            if (finalPath) {
                 this.cacheBuster = Date.now();
                 this.editingScenePrompt.imageUrl = finalPath;
                 this.toastr.success('Đã tạo Storyboard thành công!');
-            } else {
-                throw new Error(result.error || 'Lỗi lưu file.');
             }
         } catch (error: any) {
             console.error('Error generating scene image:', error);

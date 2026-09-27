@@ -6195,7 +6195,6 @@ export class VideoTimelineDialogComponent
         if (!video.prompt) return;
 
         const electron = (window as any).electron;
-        if (!electron || !electron.saveBase64) return;
 
         const apiKey = this.getGeminiKey();
         if (!apiKey) return;
@@ -6302,14 +6301,32 @@ export class VideoTimelineDialogComponent
 
             if (base64Data) {
                 const fileName = `scene_auto_${Date.now()}_${sceneIdx}_${vIdx}.png`;
-                const result = await electron.saveBase64({
-                    base64: base64Data,
-                    fileName: fileName,
-                    customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`,
-                });
+                let finalPath = '';
+                if (electron && electron.saveBase64) {
+                    const result = await electron.saveBase64({
+                        base64: base64Data,
+                        fileName: fileName,
+                        customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`,
+                    });
 
-                if (result && result.success) {
-                    const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                    if (result && result.success) {
+                        finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                    }
+                } else {
+                    // Fallback iPad / Web: upload CDN hoặc gán Data URL
+                    try {
+                        const cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Data, fileName, 'scenes');
+                        if (cdnUrl) {
+                            finalPath = cdnUrl;
+                        } else {
+                            finalPath = `data:image/png;base64,${base64Data}`;
+                        }
+                    } catch (e) {
+                        finalPath = `data:image/png;base64,${base64Data}`;
+                    }
+                }
+
+                if (finalPath) {
                     video.imageUrl = finalPath;
                     this.saveData();
                     this.cd.detectChanges();
