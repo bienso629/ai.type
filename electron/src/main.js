@@ -4513,7 +4513,7 @@ function startColabAgent() {
             }
         }
 
-        // Tự động sao chép binary hoặc script vào Documents/ai.type/plugins nếu chưa có
+        // Chạy trực tiếp từ bundle app hoặc dev folder nếu userPluginsDir chưa có file, KHÔNG tự động copy vào Documents/ai.type/plugins
         if (!execPath) {
             const sourceCandidates = [
                 process.resourcesPath ? path.join(process.resourcesPath, binaryName) : null,
@@ -4527,21 +4527,11 @@ function startColabAgent() {
             const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'colab', 'colab_agent.py');
 
             if (foundSource) {
-                const userBinaryPath = path.join(userPluginsDir, legacyBinaryName);
-                fs.copyFileSync(foundSource, userBinaryPath);
-                if (process.platform !== 'win32') {
-                    try { fs.chmodSync(userBinaryPath, 0o755); } catch(e) {}
-                }
-                execPath = userBinaryPath;
+                execPath = foundSource;
                 args = ['--port', '7868'];
             } else if (fs.existsSync(devScriptPath)) {
-                const destScriptPath = path.join(userPluginsDir, 'colab_agent.py');
-                fs.copyFileSync(devScriptPath, destScriptPath);
-                if (process.platform !== 'win32') {
-                    try { fs.chmodSync(destScriptPath, 0o755); } catch(e) {}
-                }
                 execPath = 'python3';
-                args = [destScriptPath, '--port', '7868'];
+                args = [devScriptPath, '--port', '7868'];
             }
         }
 
@@ -5058,15 +5048,22 @@ ipcMain.handle('uninstall-plugin', async (event, pluginId) => {
             writeAiAgentConfig({ enable: false });
             return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
         } else if (pluginId === 'colab_agent') {
-            const userColabPath = path.join(userPluginsDir, 'colab_agent_linux');
-            const userScriptPath = path.join(userPluginsDir, 'colab_agent.py');
             stopColabAgent();
-            if (fs.existsSync(userColabPath)) {
-                fs.unlinkSync(userColabPath);
-            }
-            if (fs.existsSync(userScriptPath)) {
-                fs.unlinkSync(userScriptPath);
-            }
+            const colabFiles = [
+                path.join(userPluginsDir, 'colab_agent_linux'),
+                path.join(userPluginsDir, 'colab-agent-linux'),
+                path.join(userPluginsDir, 'colab_agent.exe'),
+                path.join(userPluginsDir, 'colab-agent-win.exe'),
+                path.join(userPluginsDir, 'colab_agent_macos'),
+                path.join(userPluginsDir, 'colab-agent-macos'),
+                path.join(userPluginsDir, 'colab_agent.py'),
+                path.join(userPluginsDir, 'colab_agent.json')
+            ];
+            colabFiles.forEach(f => {
+                if (fs.existsSync(f)) {
+                    try { fs.unlinkSync(f); } catch(e) {}
+                }
+            });
             return { success: true, message: 'Đã gỡ cài đặt Colab Agent thành công!' };
         } else if (pluginId === 'tiktok_100') {
             stopTiktokPlugin();

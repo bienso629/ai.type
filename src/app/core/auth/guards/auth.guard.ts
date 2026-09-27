@@ -117,74 +117,7 @@ export class AuthGuard  {
                         return of(this._router.createUrlTree(['/sign-in'], { queryParams: { redirectURL } }));
                     }
 
-                    // Bắt buộc kiểm tra bản quyền trước khi dùng tính năng
-                    // Nếu đang truy cập trang /settings thì cho phép
-                    const isSettings = redirectURL.includes('settings') || redirectURL.startsWith('/settings');
-
-                    if (isSettings) {
-                        return of(true);
-                    }
-
-                    const isMismatch = this._multiAccountService.getItem('token_mismatch');
-                    const activeInfoStr = this._multiAccountService.getItem('active_info');
-
-                    let hasValidLicense = false;
-                    if (isMismatch !== true && isMismatch !== 'true' && activeInfoStr && activeInfoStr !== 'null' && activeInfoStr !== 'undefined') {
-                        // Fast-path: Kiểm tra cache RAM của license validation để chuyển route tức thì
-                        if (AuthGuard._cachedActiveInfoStr === activeInfoStr && AuthGuard._cachedHasValidLicense) {
-                            return of(true);
-                        }
-
-                        try {
-                            const isExpired = AuthUtils.isLicenseKeyExpired(activeInfoStr);
-                            const parsed = AuthUtils._getActiveInfo(activeInfoStr);
-                            const userObj = parsed?.user;
-                            
-                            const activeOwners = [
-                                userObj?.username,
-                                userObj?.name,
-                                userObj?.email,
-                                userObj?.info?.customerName,
-                                userObj?.info?.email,
-                            ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
-
-                            const sessionUser = this._multiAccountService.getItem('user');
-                            const currentIdentifiers = [
-                                this._userService.user?.name,
-                                this._userService.user?.email,
-                                this._multiAccountService.getItem('username'),
-                                this._multiAccountService.getItem('email'),
-                                sessionUser?.name,
-                                sessionUser?.username,
-                                sessionUser?.email,
-                                this._multiAccountService.currentAccountId,
-                            ].filter((val) => typeof val === 'string' && val.trim().length > 0).map((v: string) => v.trim().toLowerCase());
-
-                            const hasValidKey = !!(userObj?.licenseKey || userObj?.appToken);
-                            const isOwnerMatch = hasValidKey || activeOwners.length === 0 || currentIdentifiers.length === 0 ||
-                                currentIdentifiers.some((id) => activeOwners.includes(id));
-                            const isFree = this._isFreeOrInvalidLicense(parsed);
-
-                            if (!isExpired && isOwnerMatch && !isFree) {
-                                hasValidLicense = true;
-                            }
-                        } catch (e) {
-                            hasValidLicense = false;
-                        }
-
-                        // Lưu vào cache
-                        AuthGuard._cachedActiveInfoStr = activeInfoStr;
-                        AuthGuard._cachedHasValidLicense = hasValidLicense;
-                    } else {
-                        AuthGuard._cachedActiveInfoStr = null;
-                        AuthGuard._cachedHasValidLicense = false;
-                    }
-
-                    if (!hasValidLicense) {
-                        return of(this._router.createUrlTree(['/settings'], { queryParams: { tab: 'active' } }));
-                    }
-
-                    // Allow the access
+                    // Allow the access once authenticated
                     return of(true);
                 })
             );
