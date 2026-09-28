@@ -1,0 +1,41 @@
+        try {
+            console.log('[Chatbot] Đang gọi API đồng bộ server (bot.type.vn)...');
+            const response: any = await this._chatbotService.streamMessage(payload);
+
+            if (response && response.body) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let done = false;
+                let buffer = '';
+
+                while (!done) {
+                    const { value, done: readerDone } = await reader.read();
+                    done = readerDone;
+                    if (value) {
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || ''; 
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const dataStr = line.slice(6).trim();
+                                    if (dataStr === '[DONE]') continue;
+                                    const parsed = JSON.parse(dataStr);
+                                    
+                                    if (parsed.error) {
+                                        this.toastr.error(parsed.error);
+                                    } else if (parsed.chunk !== undefined) {
+                                        if (isFirstChunk) {
+                                            isFirstChunk = false;
+                                            bubble.innerHTML = '';
+                                        }
+                                        targetText += parsed.chunk;
+                                    }
+                                } catch (e) {
+                                }
+                            }
+                        }
+                    }
+                }
+            }

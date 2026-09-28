@@ -1,0 +1,30 @@
+        try {
+            console.log('[Chatbot] Đang gửi câu hỏi lên AI Agent (agent.type.vn) với dữ liệu FAISS cục bộ...');
+            const sysInstruction = `Bạn là Trợ lý AI chuyên nghiệp phân tích và hỏi đáp tài liệu. Hãy trả lời câu hỏi của người dùng một cách mạch lạc, chi tiết, chính xác dựa trên các thông tin tài liệu đã trích xuất bên dưới:`;
+
+            const response = await this._genaiService.generateContent(
+                {
+                    model: 'gemini-2.0-flash',
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: `${msg}\n\n[DỮ LIỆU TÀI LIỆU LOCAL FAISS TRÍCH XUẤT]:\n${finalMessage}` }]
+                        }
+                    ],
+                    config: {
+                        systemInstruction: sysInstruction,
+                        onStream: (streamText: string, isFinal: boolean) => {
+                            if (isFirstChunk) {
+                                isFirstChunk = false;
+                                bubble.innerHTML = '';
+                            }
+                            if (isFinal) {
+                                targetText = streamText;
+                            } else {
+                                targetText += streamText;
+                            }
+                        }
+                    } as any
+                },
+                'chatbot-rag'
+            );
