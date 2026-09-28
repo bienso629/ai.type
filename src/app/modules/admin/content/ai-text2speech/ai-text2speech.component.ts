@@ -230,13 +230,13 @@ export class AIText2SpeechComponent
         const niceFilename = `${slug}_${this.generateId()}.mp3`;
 
         try {
-            // Khởi tạo UniversalEdgeTTS chạy được trên Web/Capacitor
+            // Khởi tạo EdgeTTSBrowser chạy được trên Web/Capacitor
             // Chuyển rate/pitch (số dương/âm thành chuỗi +10% hoặc -10Hz...)
             // Ở đây mặc định edge-tts nhận rate: '+0%', pitch: '+0Hz'
             const rateStr = rate >= 0 ? `+${rate}%` : `${rate}%`;
             const pitchStr = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
 
-            const tts = new UniversalEdgeTTS(text, voice, {
+            const tts = new EdgeTTSBrowser(text, voice, {
                 rate: rateStr,
                 pitch: pitchStr,
             });
