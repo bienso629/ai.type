@@ -60,7 +60,7 @@
     <div class="flex-auto flex flex-col md:flex-row h-full overflow-hidden">
         <!-- CỘT TRÁI: DANH SÁCH FILES (Tài liệu) -->
         <div
-            class="w-full md:w-[420px] lg:w-[460px] shrink-0 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900 h-full overflow-hidden"
+            class="w-full md:w-72 lg:w-80 shrink-0 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900 h-full overflow-hidden"
         >
             <!-- Header Cột Trái -->
             <div
@@ -222,23 +222,6 @@
                                 <div
                                     class="flex items-center w-full h-full gap-3 my-auto min-w-0 pr-2"
                                 >
-                                    <mat-icon
-                                        class="icon-size-6 shrink-0"
-                                        [ngClass]="
-                                            row.filename
-                                                ?.toLowerCase()
-                                                ?.endsWith('.pdf')
-                                                ? 'text-red-500'
-                                                : 'text-blue-500'
-                                        "
-                                        [svgIcon]="
-                                            row.filename
-                                                ?.toLowerCase()
-                                                ?.endsWith('.pdf')
-                                                ? 'feather:file-text'
-                                                : 'feather:file'
-                                        "
-                                    ></mat-icon>
                                     <div class="min-w-0 flex-1">
                                         <div
                                             class="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1 truncate leading-snug"
@@ -299,7 +282,7 @@
                         </ngx-datatable-column>
                         <!-- Cột 3: Nút thao tác -->
                         <ngx-datatable-column
-                            [width]="60"
+                            [width]="100"
                             [sortable]="false"
                             [canAutoResize]="false"
                             [draggable]="false"
@@ -311,7 +294,7 @@
                                 ngx-datatable-cell-template
                             >
                                 <div
-                                    class="flex items-center justify-center w-full h-full"
+                                    class="flex items-center justify-center w-full h-full gap-1"
                                 >
                                     @if (indexingFilename === row.filename) {
                                         <button
@@ -367,6 +350,18 @@
                                             ></mat-icon>
                                         </button>
                                     }
+                                    
+                                    <button
+                                        mat-icon-button
+                                        (click)="deletePdf(row.doc_type === 'None' || !row.doc_type ? '' : row.doc_type, row.filename, rowIndex)"
+                                        [matTooltip]="'Xóa tài liệu này'"
+                                        class="transition-colors text-gray-400 hover:text-red-500"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="'feather:trash-2'"
+                                        ></mat-icon>
+                                    </button>
                                 </div>
                             </ng-template>
                         </ngx-datatable-column>
@@ -561,7 +556,7 @@
                                             'Tóm tắt ngắn gọn các nội dung quan trọng nhất trong các tài liệu đã tải lên'
                                         )
                                     "
-                                    class="px-4 py-2.5 rounded-md bg-slate-100 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 border border-slate-200 dark:border-gray-700 text-xs font-medium text-left flex items-center gap-2 transition-all shadow-2xs hover:border-blue-300 cursor-pointer"
+                                    class="px-4 py-2.5 rounded-md bg-slate-100 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 border border-slate-200 dark:border-gray-700 text-sm font-medium text-left flex items-center gap-2 transition-all shadow-2xs hover:border-blue-300 cursor-pointer"
                                 >
                                     <mat-icon
                                         class="icon-size-4 text-blue-500"
@@ -579,7 +574,7 @@
                                             'Liệt kê danh sách các điểm lưu ý, điều khoản hoặc quy định quan trọng nhất'
                                         )
                                     "
-                                    class="px-4 py-2.5 rounded-md bg-slate-100 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 border border-slate-200 dark:border-gray-700 text-xs font-medium text-left flex items-center gap-2 transition-all shadow-2xs hover:border-blue-300 cursor-pointer"
+                                    class="px-4 py-2.5 rounded-md bg-slate-100 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 border border-slate-200 dark:border-gray-700 text-sm font-medium text-left flex items-center gap-2 transition-all shadow-2xs hover:border-blue-300 cursor-pointer"
                                 >
                                     <mat-icon
                                         class="icon-size-4 text-indigo-500"
@@ -597,7 +592,7 @@
                                             'Tìm kiếm các thông số kỹ thuật, số liệu hoặc báo cáo chi tiết trong file'
                                         )
                                     "
-                                    class="px-4 py-2.5 rounded-md bg-slate-100 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 border border-slate-200 dark:border-gray-700 text-xs font-medium text-left flex items-center gap-2 transition-all shadow-2xs hover:border-blue-300 cursor-pointer"
+                                    class="px-4 py-2.5 rounded-md bg-slate-100 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 border border-slate-200 dark:border-gray-700 text-sm font-medium text-left flex items-center gap-2 transition-all shadow-2xs hover:border-blue-300 cursor-pointer"
                                 >
                                     <mat-icon
                                         class="icon-size-4 text-emerald-500"

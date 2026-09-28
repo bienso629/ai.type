@@ -779,10 +779,10 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             this.rebuildThreadRows();
             this.calcThreadTableHeight();
             if (!this.currentThread && this.threadList.length > 0) {
-                this.selectThread(this.threadList[0][0]);
+                // this.selectThread(this.threadList[0][0]);
             }
             this.cd.markForCheck();
-            return;
+            // return removed for sync
         }
 
         this._chatbotService.loadThreads({
@@ -927,7 +927,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     this.removeTyping();
                     this.renderMessages(localHist.messages);
                     this.cd.markForCheck();
-                    return;
+                    // return removed
                 } else if (localHist?.success) {
                     // Hộp thoại mới tạo hoặc rỗng trên máy
                     this.messages = [];
@@ -936,7 +936,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     const chat = document.getElementById('chat');
                     if (chat) chat.innerHTML = '';
                     this.cd.markForCheck();
-                    return;
+                    // return removed
                 }
             } catch (e) {}
         }
@@ -976,52 +976,56 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     }
 
     async createThread(): Promise<void> {
-        const newId = Date.now();
-        this.currentThread = newId;
         this.currentMessages = [];
         this.messages = [];
         const chat = document.getElementById('chat');
         if (chat) chat.innerHTML = '';
+
+        let serverThreadId: any = null;
+        try {
+            serverThreadId = await new Promise((resolve) => {
+                this._chatbotService.createThread({
+                    username: this.user.name,
+                    name: 'Hội thoại mới',
+                    email: this.user.email,
+                    phone: this.help.textToNumber(this.user.name)
+                }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                    next: (id) => resolve(id),
+                    error: () => resolve(null),
+                    complete: () => {}
+                });
+            });
+        } catch (e) {}
+
+        if (serverThreadId) {
+            this.currentThread = Number(serverThreadId) || serverThreadId;
+        } else {
+            this.currentThread = Date.now(); // Fallback if server fails
+        }
 
         const electron = (window as any).electron;
         if (electron && electron.invoke) {
             try {
                 await electron.invoke('save-local-chatbot-history', {
                     username: this.user?.name || 'admin',
-                    threadId: newId,
+                    threadId: this.currentThread,
                     messages: [],
                     title: 'Hội thoại mới'
                 });
             } catch (e) {}
-            await this.loadThreads();
-        } else {
-            try {
-                const threadId: any = await new Promise((resolve) => {
-                    this._chatbotService.createThread({
-                        username: this.user.name,
-                        name: 'Hội thoại mới',
-                        email: this.user.email,
-                        phone: this.help.textToNumber(this.user.name)
-                    }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                        next: (id) => resolve(id),
-                        error: () => resolve(null),
-                        complete: () => {}
-                    });
-                });
-                if (threadId) {
-                    this.currentThread = Number(threadId) || threadId;
-                }
-            } catch (e) {}
-            // Chèn ngay vào danh sách threadList phía client nếu chưa có
-            const existing = (this.threadList || []).find(t => String(t?.[0]) === String(this.currentThread));
-            if (!existing) {
-                const dateStr = new Date().toLocaleDateString('vi-VN', {
-                    hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
-                });
-                this.threadList = [[this.currentThread, 'Hội thoại mới', 'Hội thoại mới', dateStr, null], ...(this.threadList || [])];
-                this.rebuildThreadRows();
-                this.calcThreadTableHeight();
-            }
+        }
+        
+        await this.loadThreads();
+        
+        // Chèn ngay vào danh sách threadList phía client nếu chưa có
+        const existing = (this.threadList || []).find(t => String(t?.[0]) === String(this.currentThread));
+        if (!existing) {
+            const dateStr = new Date().toLocaleDateString('vi-VN', {
+                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+            });
+            this.threadList = [[this.currentThread, 'Hội thoại mới', 'Hội thoại mới', dateStr, null], ...(this.threadList || [])];
+            this.rebuildThreadRows();
+            this.calcThreadTableHeight();
         }
         this.toastr.success('Đã tạo cuộc hội thoại mới');
         this.cd.markForCheck();
@@ -1535,11 +1539,13 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                             }
                         }
                     }
-                    this.fileRows = files;
+                    const existingFilenames = new Set(this.fileRows.map(r => (r.filename || '').toLowerCase()));
+                    const filesToAdd = files.filter(f => !existingFilenames.has((f.filename || '').toLowerCase()));
+                    this.fileRows = [...this.fileRows, ...filesToAdd];
                     this.applyFileFilter();
                 } else {
                     this.toastr.warning(res?.error || 'Không thể quét tệp trong thư mục.');
-                    this.fileRows = [];
+                    
                     this.applyFileFilter();
                 }
             } catch (err) {
@@ -1618,11 +1624,13 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     if (localIndexedFiles[f.filename] || localIndexedFiles[baseName] || localIndexedFiles[`${f.filename}.md`]) {
                         f.is_indexed = true;
                         const match = localIndexedFiles[f.filename] || localIndexedFiles[baseName] || localIndexedFiles[`${f.filename}.md`];
-                        if (match?.doc_type) f.doc_type = match.doc_type;
+                        if (match?.doc_type && match.doc_type !== 'None' && (!f.doc_type || f.doc_type === 'None')) f.doc_type = match.doc_type;
                     }
                 }
 
-                this.fileRows = files;
+                const existingFilenames = new Set(this.fileRows.map(r => (r.filename || '').toLowerCase()));
+                    const filesToAdd = files.filter(f => !existingFilenames.has((f.filename || '').toLowerCase()));
+                    this.fileRows = [...this.fileRows, ...filesToAdd];
                 this.applyFileFilter();
                 this.cd.markForCheck();
             },
@@ -2602,7 +2610,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 this.loadChatbotSettings();
 
                 const savedFolderPath = localStorage.getItem('chatbot_document_folder_path') || this.multiAccountService.getItem('chatbot_document_folder_path');
-                if (savedFolderPath) {
+                if (false) { // savedFolderPath
                     this.selectedFolderPath = savedFolderPath;
                     this.loadFilesFromFolder(savedFolderPath);
                 } else {

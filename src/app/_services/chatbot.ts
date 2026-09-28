@@ -57,6 +57,26 @@ export class ChatbotService {
             });
     }
 
+    private getApiUrl(): string {
+        let apiUrl = "https://bot.type.vn";
+        try {
+            const settings = this.multiAccountService.getItem('settings');
+            if (settings && settings.chatbot) {
+                apiUrl = settings.chatbot.trim();
+            } else if (this.config && this.config.settings && this.config.settings.chatbot) {
+                apiUrl = this.config.settings.chatbot.trim();
+            }
+        } catch (e) {
+            console.error('[ChatbotService] Error getting API URL', e);
+        }
+        
+        apiUrl = apiUrl.replace(/\/$/, "");
+        if (apiUrl && !apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+            apiUrl = 'https://' + apiUrl;
+        }
+        return apiUrl;
+    }
+
     public initDB(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
@@ -65,7 +85,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.chatbot}/init-db/${dataForm.username}`;
+        const url = `${this.getApiUrl()}/init-db/${dataForm.username}`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
@@ -95,7 +115,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.chatbot}/reindex-file`;
+        const url = `${this.getApiUrl()}/reindex-file`;
 
         // Thêm các header chứng thực nếu cần
         return this.http.post<any>(url, dataForm, {
@@ -117,7 +137,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        return this.http.get<IndexProgressResponse>(`${this.config.settings.chatbot}/index-progress/${dataForm.username}?t=${timestamp}`, {
+        return this.http.get<IndexProgressResponse>(`${this.getApiUrl()}/index-progress/${dataForm.username}?t=${timestamp}`, {
             headers: new HttpHeaders({
                 'content-type': 'application/json',
                 'x-api-key': activeInfo['user']['appToken'],
@@ -133,7 +153,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.chatbot}/threads`;
+        const url = `${this.getApiUrl()}/threads`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -159,7 +179,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.chatbot}/messages`;
+        const url = `${this.getApiUrl()}/messages`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -185,7 +205,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.chatbot}/messages/${dataForm.username}/${dataForm.currentThread}`;
+        const url = `${this.getApiUrl()}/messages/${dataForm.username}/${dataForm.currentThread}`;
 
         return this.http.get<any>(url, {
             headers: new HttpHeaders({
@@ -211,7 +231,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/threads/${dataForm.username}`;
+        let url = `${this.getApiUrl()}/threads/${dataForm.username}`;
 
         return this.http.get<any>(url, {
             headers: new HttpHeaders({
@@ -241,7 +261,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/messages/${dataForm.username}/${dataForm.threadId}`;
+        let url = `${this.getApiUrl()}/messages/${dataForm.username}/${dataForm.threadId}`;
 
         return this.http.get<any>(url, {
             headers: new HttpHeaders({
@@ -269,7 +289,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = appToken;
 
-        const url = `${this.config.settings.chatbot}/messages`;
+        const url = `${this.getApiUrl()}/messages`;
 
         // Dùng Fetch API để có thể đọc ReadableStream
         return fetch(url, {
@@ -290,7 +310,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.chatbot}/upload-pdf`;
+        const url = `${this.getApiUrl()}/upload-pdf`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -315,7 +335,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.chatbot}/upload-mineru-result`;
+        const url = `${this.getApiUrl()}/upload-mineru-result`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -336,7 +356,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/list-files/${dataForm.username}`;
+        let url = `${this.getApiUrl()}/list-files/${dataForm.username}`;
 
         return this.http.get<any>(url, {
             headers: new HttpHeaders({
@@ -362,7 +382,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/delete-file/${dataForm.username}?doc_type=${dataForm.doc_type}&filename=${dataForm.filename}`;
+        let url = `${this.getApiUrl()}/delete-file/${dataForm.username}?doc_type=${dataForm.doc_type}&filename=${dataForm.filename}`;
 
         return this.http.delete<any>(url, {
             headers: new HttpHeaders({
@@ -388,7 +408,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/reindex-file`;
+        let url = `${this.getApiUrl()}/reindex-file`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -415,7 +435,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/index-files/${dataForm.username}`;
+        let url = `${this.getApiUrl()}/index-files/${dataForm.username}`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -441,7 +461,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/crawl-domains`;
+        let url = `${this.getApiUrl()}/crawl-domains`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -467,7 +487,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/save-content-url`;
+        let url = `${this.getApiUrl()}/save-content-url`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -493,7 +513,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/trigger-index-domain`;
+        let url = `${this.getApiUrl()}/trigger-index-domain`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
@@ -519,7 +539,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/settings/chatbot/${dataForm.username}`;
+        let url = `${this.getApiUrl()}/settings/chatbot/${dataForm.username}`;
 
         return this.http.get<any>(url, {
             headers: new HttpHeaders({
@@ -545,7 +565,7 @@ export class ChatbotService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${this.config.settings.chatbot}/settings/chatbot`;
+        let url = `${this.getApiUrl()}/settings/chatbot`;
 
         return this.http.post<any>(url, dataForm, {
             headers: new HttpHeaders({
