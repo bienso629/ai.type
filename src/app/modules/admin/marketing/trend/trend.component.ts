@@ -947,7 +947,7 @@ export class AIFacePostComponent
         localStorage.removeItem('auto_create_content_the_last_id');
 
         // Nhận phản hồi, theo dõi hoạt động từ main process
-        this.unsubscribeRes = (window as any).electron.onToolsResponse(
+        if ((window as any).electron) { this.unsubscribeRes = (window as any).electron.onToolsResponse(
             (data: { action: string; success: any; posts: any }) => {
                 if (data.action === 'facebook-crawl-stream' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
@@ -974,10 +974,10 @@ export class AIFacePostComponent
                     this.cd.markForCheck();
                 }
             },
-        );
+        ); }
 
         // Nhận phản hồi
-        this.unsubscribeLog = (window as any).electron.onToolsLog(
+        if ((window as any).electron) { this.unsubscribeLog = (window as any).electron.onToolsLog(
             (msg: any) => {
                 this.loading = false;
                 console.log('Log từ main:', msg);
@@ -985,7 +985,7 @@ export class AIFacePostComponent
                 // lam moi lai giao dien
                 this.cd.markForCheck();
             },
-        );
+        ); }
     }
 
     ngAfterContentChecked(): void { }

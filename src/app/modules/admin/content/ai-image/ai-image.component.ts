@@ -1072,7 +1072,8 @@ export class AIImageComponent
                 this.alldomains();
             });
 
-        this.unsubscribeRes = (window as any).electron.onToolsResponse(
+        if ((window as any).electron) {
+            this.unsubscribeRes = (window as any).electron.onToolsResponse(
             (data: {
                 action: string;
                 success: any;
@@ -1086,16 +1087,17 @@ export class AIImageComponent
                     this.toastr.error('Đã xảy ra lỗi trong quá trình xử lý.');
                 }
             },
-        );
+        ); }
 
-        this.unsubscribeLog = (window as any).electron.onToolsLog(
+        if ((window as any).electron) {
+            this.unsubscribeLog = (window as any).electron.onToolsLog(
             (msg: any) => {
                 console.log('Log từ main:', msg);
                 if (msg.indexOf('Đã tải') > -1) {
                     this.fetch();
                 }
             },
-        );
+        ); }
     }
 
     ngAfterViewInit() {

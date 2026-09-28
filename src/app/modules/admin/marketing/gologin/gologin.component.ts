@@ -667,18 +667,20 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
         this.page.size = 300;
 
         // Nhận phản hồi, theo dõi hoạt động từ main process
+        if ((window as any).electron) {
         this.unsubscribeRes = (window as any).electron.onToolsResponse(
             (data: any) => {
                 console.log('Crawl Facebook thành công:', data);
             },
-        );
+        ); }
 
         // Nhận phản hồi
+        if ((window as any).electron) {
         this.unsubscribeLog = (window as any).electron.onToolsLog(
             (msg: any) => {
                 console.log('Log từ main:', msg);
             },
-        );
+        ); }
     }
 
     ngAfterViewInit() {
