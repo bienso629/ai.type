@@ -1,4 +1,4 @@
-import { EdgeTTSBrowser } from 'edge-tts-universal';
+import { UniversalEdgeTTS } from 'edge-tts-universal';
 import {
     ChangeDetectorRef,
     Component,
@@ -605,7 +605,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
                         const pitchStr = pitchNum >= 0 ? `+${pitchNum}Hz` : `${pitchNum}Hz`;
 
-                        const tts = new EdgeTTSBrowser(clip.description, clipVoice, {
+                        const tts = new UniversalEdgeTTS(clip.description, clipVoice, {
                             rate: rateStr,
                             pitch: pitchStr,
                         });

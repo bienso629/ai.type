@@ -236,7 +236,7 @@ export class AIText2SpeechComponent
             const rateStr = rate >= 0 ? `+${rate}%` : `${rate}%`;
             const pitchStr = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
 
-            const tts = new EdgeTTSBrowser(text, voice, {
+            const tts = new UniversalEdgeTTS(text, voice, {
                 rate: rateStr,
                 pitch: pitchStr,
             });
