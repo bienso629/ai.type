@@ -1,3 +1,4 @@
+import { EdgeTTSBrowser } from 'edge-tts-universal';
 import {
     ChangeDetectorRef,
     Component,
@@ -538,11 +539,17 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 return;
             }
 
-            if (!(window as any).electron || !(window as any).electron.invoke) {
-                this.toastr.error('Cần chạy trên App Desktop (Electron).');
+            
+            const edgeVoicesTemp = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+            const clipVoiceTemp = clip.voice || this.selectedVoice;
+            const isEdgeVoiceTemp = edgeVoicesTemp.includes(clipVoiceTemp);
+
+            if (!isEdgeVoiceTemp && (!(window as any).electron || !(window as any).electron.invoke)) {
+                this.toastr.error('Tính năng này (giọng ngoài Edge TTS) cần chạy trên App Desktop (Electron).');
                 resolve();
                 return;
             }
+
 
             clip.isProcessing = true;
             this.cd.markForCheck();
@@ -574,19 +581,48 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             try {
                 const fileSuffix = this.uuid;
                 if (isEdgeVoice) {
-                    const niceFilename = `${prefix}_${slug}_${fileSuffix}`;
-                    const payload = {
-                        text: clip.description,
-                        voice: clipVoice,
-                        rate: clip.rate || 1.0,
-                        pitch: clip.pitch || 0,
-                        filename: niceFilename,
-                        username: subPath,
-                    };
-                    res = await (window as any).electron.invoke(
-                        'tts-generate',
-                        payload,
-                    );
+                    const niceFilename = `${prefix}_${slug}_${fileSuffix}.mp3`;
+                    
+                    if ((window as any).electron && (window as any).electron.invoke) {
+                        const payload = {
+                            text: clip.description,
+                            voice: clipVoice,
+                            rate: clip.rate || 1.0,
+                            pitch: clip.pitch || 0,
+                            filename: niceFilename,
+                            username: subPath,
+                        };
+                        res = await (window as any).electron.invoke(
+                            'tts-generate',
+                            payload,
+                        );
+                    } else {
+                        // CHẠY BẰNG BROWSER/CAPACITOR (IPAD)
+                        const rateNum = clip.rate || 1.0;
+                        const pitchNum = clip.pitch || 0;
+                        
+                        const ratePercent = Math.round((rateNum - 1.0) * 100);
+                        const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
+                        const pitchStr = pitchNum >= 0 ? `+${pitchNum}Hz` : `${pitchNum}Hz`;
+
+                        const tts = new EdgeTTSBrowser(clip.description, clipVoice, {
+                            rate: rateStr,
+                            pitch: pitchStr,
+                        });
+
+                        const result = await tts.synthesize();
+                        const arrayBuffer = await result.audio.arrayBuffer();
+                        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+                        const fullUrl = URL.createObjectURL(blob);
+
+                        // Trả về url giả định để logic bên dưới load
+                        res = { success: true, url: fullUrl, filePath: niceFilename };
+                        
+                        // Fake luồng localFilePath cho browser
+                        clip['localFilePath'] = niceFilename;
+                        clip.rawUrl = fullUrl; 
+                        clip.url = this.sanitizer.bypassSecurityTrustUrl(fullUrl);
+                    }
                 } else if (clipVoice.startsWith('omnivoice-') || clipVoice === 'omnivoice') {
                     const niceFilename = `${prefix}_${slug}_${fileSuffix}`;
                     const targetVoiceName = clipVoice.replace('omnivoice-', '');
@@ -693,11 +729,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         clip['localFilePath'] = rawPath;
                         clip.audioFileName = rawPath.split(/[\\/]/).pop();
                         clip.username = subPath;
-                        clip.rawUrl = null; // Bắt buộc set null để load lại blob mới
                         clip.isProcessing = false;
 
-                        // Load lại blob để wavesurfer có thể play được
-                        await this.loadLocalAudioContent(clip);
+                        // Nếu res có sẵn fake blob URL từ browser/iPad thì giữ lại, ngược lại load từ electron
+                        if (!(window as any).electron && res.url && res.url.startsWith('blob:')) {
+                            clip.rawUrl = res.url;
+                            clip.url = this.sanitizer.bypassSecurityTrustUrl(res.url);
+                        } else {
+                            clip.rawUrl = null;
+                            await this.loadLocalAudioContent(clip);
+                        }
 
                         if (!this.isGlobalProcessing) {
                             this.playClip(clip);

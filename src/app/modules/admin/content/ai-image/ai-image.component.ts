@@ -1,3 +1,5 @@
+import { Media } from '@capacitor-community/media';
+import { Capacitor } from '@capacitor/core';
 import {
     AfterContentChecked,
     ChangeDetectorRef,
@@ -950,6 +952,7 @@ export class AIImageComponent
             console.warn('Không thể upload ảnh lên local daemon, hiển thị ảnh tạm thời trên trình duyệt.', uploadErr);
             // Fallback: Hiển thị trực tiếp base64 lên giao diện
             const base64Url = `data:${finalMime || 'image/png'};base64,${finalBase64}`;
+            if (!this.imageUrls) this.imageUrls = [];
             this.imageUrls.unshift(base64Url);
             this.rebuildRows();
             this.form.get('prompt')?.enable();
@@ -981,7 +984,11 @@ export class AIImageComponent
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result) this.imageUrls = result.files;
+                    if (result && result.files) {
+                        this.imageUrls = result.files;
+                    } else {
+                        if (!this.imageUrls) this.imageUrls = [];
+                    }
                 },
                 complete: () => {
                     this.rebuildRows();
@@ -1127,7 +1134,57 @@ export class AIImageComponent
 
     ngAfterContentChecked(): void {}
 
+    
+    async loadNativeGallery() {
+        if (!Capacitor.isNativePlatform()) {
+            // Silent return on web/desktop
+            return;
+        }
+
+        try {
+            // Xin quyền truy cập Thư viện ảnh
+            let permission = await (Media as any).requestPermissions();
+            if (permission.publicStorage !== 'granted') {
+                this.toastr.error('Sếp chưa cấp quyền truy cập thư viện ảnh!');
+                return;
+            }
+
+            // Quét và lấy tất cả ảnh/video
+            const mediaResponse = await Media.getMedias({
+                quantity: 100, // Lấy tạm 100 tấm gần nhất cho nhanh
+                sort: [{ key: 'creationDate', ascending: false }]
+            });
+
+            const medias = mediaResponse.medias;
+            if (medias && medias.length > 0) {
+                // Đẩy vào mảng imageUrls hiện tại của sếp
+                if (!this.imageUrls) this.imageUrls = [];
+                
+                // Ở Capacitor, đường dẫn local lấy qua WebView sẽ dùng url thực tế từ Capacitor
+                // webviewPath là thứ có thể gắn thẳng vào src của <img>
+                medias.forEach(m => {
+                    if (m.data) {
+                        // MediaAsset.data chứa base64 string của ảnh thumbnail
+                        const base64Url = `data:image/jpeg;base64,${m.data}`;
+                        this.imageUrls.push(base64Url);
+                    }
+                });
+
+                this.rebuildRows();
+                this.cd.detectChanges();
+                // Silent success
+            } else {
+                // Silent empty
+            }
+
+        } catch (err) {
+            console.error(err);
+            this.toastr.error('Có lỗi xảy ra khi đọc Gallery: ' + err.message);
+        }
+    }
+
     ngOnInit(): void {
+        this.loadNativeGallery();
         this.form = this._formBuilder.group({
             prompt: [''],
             aspectRatio: ['16:9'],
