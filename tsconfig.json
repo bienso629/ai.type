@@ -18,6 +18,7 @@
         "module": "ES2022",
         "useDefineForClassFields": false,
         "paths": {
+            "playcanvas": ["../node_modules/playcanvas"],
             "stream": ["./node_modules/stream-browserify"],
             "ngx-timeago/language-strings/*": ["../node_modules/ngx-timeago/language-strings/*"]
         }
