@@ -150,12 +150,12 @@
             <button
                 mat-mini-fab
                 [color]="isRecording ? 'warn' : 'primary'"
-                [class.animate-pulse]="isRecording"
+                
                 (click)="startRecording()"
                 [matTooltip]="'app.auto_system_recording' | transloco"
                 matTooltipPosition="left"
             >
-                <mat-icon class="icon-size-4" svgIcon="feather:mic"></mat-icon>
+                <mat-icon [class.animate-pulse]="isRecording" class="icon-size-4" svgIcon="feather:mic"></mat-icon>
             </button>
 
             <!-- <button mat-mini-fab [color]="'primary'" [routerLink]="['/help']">
