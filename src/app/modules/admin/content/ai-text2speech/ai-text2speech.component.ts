@@ -1,4 +1,3 @@
-import { EdgeTTSBrowser } from 'edge-tts-universal';
 import {
     AfterViewInit,
     Component,
@@ -236,16 +235,23 @@ export class AIText2SpeechComponent
             const rateStr = rate >= 0 ? `+${rate}%` : `${rate}%`;
             const pitchStr = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
 
-            const tts = new EdgeTTSBrowser(text, voice, {
-                rate: rateStr,
-                pitch: pitchStr,
+            // Gọi API HTTP trực tiếp cho lẹ
+            const response = await fetch('https://edge-tts.vercel.app/api/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: text,
+                    voice: voice,
+                    rate: rateStr,
+                    pitch: pitchStr
+                })
             });
 
-            // Synthesize
-            const result = await tts.synthesize();
-            
-            // Lấy ArrayBuffer và tạo Blob URL
-            const arrayBuffer = await result.audio.arrayBuffer();
+            if (!response.ok) {
+                throw new Error('Lỗi từ API Edge TTS');
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
             const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
             const fullUrl = URL.createObjectURL(blob);
 
