@@ -307,7 +307,7 @@
                                 <ngx-datatable
                                     [appScrollLock]="loading"
                                     #datatable
-                                    class="material grid fullscreen image-thumbnails"
+                                    class="material fullscreen image-thumbnails"
                                     [rows]="rows"
                                     [virtualization]="true"
                                     [scrollbarV]="true"
@@ -331,7 +331,7 @@
                                                     let i = $index
                                                 ) {
                                                     <div
-                                                        class="thumb-wrap p-3 box-border"
+                                                        class="thumb-wrap"
                                                         [ngStyle]="{
                                                             flex:
                                                                 '0 0 ' +
@@ -359,7 +359,7 @@
                                                             </div>
                                                         </div>
 
-                                                         @if (
+                                                        @if (
                                                             img
                                                                 .toLowerCase()
                                                                 .endsWith(
@@ -367,7 +367,10 @@
                                                                 )
                                                         ) {
                                                             <video
-                                                                [src]="getImageSrc(img)"
+                                                                [src]="
+                                                                    'file:///' +
+                                                                    img
+                                                                "
                                                                 class="thumb w-full h-auto object-cover rounded-2xl"
                                                                 [class.selected-thumb]="isImageSelected(img)"
                                                                 controls
@@ -449,24 +452,6 @@
                                                                     <button
                                                                         mat-menu-item
                                                                         (click)="
-                                                                            downloadImageWithURL(
-                                                                                getImageSrc(img)
-                                                                            )
-                                                                        "
-                                                                    >
-                                                                        <mat-icon
-                                                                            class="icon-size-4 text-emerald-500"
-                                                                            svgIcon="feather:download"
-                                                                        ></mat-icon>
-                                                                        <span
-                                                                            >Tải
-                                                                            về
-                                                                            máy (Gallery)</span
-                                                                        >
-                                                                    </button>
-                                                                    <button
-                                                                        mat-menu-item
-                                                                        (click)="
                                                                             deleteImage(
                                                                                 img,
                                                                                 rowIndex *
@@ -487,7 +472,10 @@
                                                             </div>
                                                         } @else {
                                                             <img
-                                                                [src]="getImageSrc(img)"
+                                                                [src]="
+                                                                    'file:///' +
+                                                                    img
+                                                                "
                                                                 class="thumb w-full h-auto object-cover rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
                                                                 [class.selected-thumb]="isImageSelected(img)"
                                                                 (click)="
@@ -588,24 +576,6 @@
                                                                             >Tải
                                                                             lên
                                                                             Website</span
-                                                                        >
-                                                                    </button>
-                                                                    <button
-                                                                        mat-menu-item
-                                                                        (click)="
-                                                                            downloadImageWithURL(
-                                                                                getImageSrc(img)
-                                                                            )
-                                                                        "
-                                                                    >
-                                                                        <mat-icon
-                                                                            class="icon-size-4 text-emerald-500"
-                                                                            svgIcon="feather:download"
-                                                                        ></mat-icon>
-                                                                        <span
-                                                                            >Tải
-                                                                            về
-                                                                            máy (Gallery)</span
                                                                         >
                                                                     </button>
                                                                     <button

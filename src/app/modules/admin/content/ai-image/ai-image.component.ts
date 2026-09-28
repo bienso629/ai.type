@@ -165,7 +165,6 @@ export class AIImageComponent
 
                 this.imageUrls = this.imageUrls.filter((img: string) => !this.selectedImages.has(img));
                 this.selectedImages.clear();
-                this.saveLocalImages();
                 this.rebuildRows();
                 this.toastr.success(`Đã xóa thành công ${count} mục!`);
                 this.cd.markForCheck();
@@ -347,7 +346,7 @@ export class AIImageComponent
 
                 const newFileName = `edited_${new Date().getTime()}.${ext}`;
 
-                if ((window as any).electron?.saveBase64) {
+                if ((window as any).electron) {
                     await (window as any).electron.saveBase64({
                         base64: base64Content,
                         fileName: newFileName,
@@ -356,63 +355,9 @@ export class AIImageComponent
                     });
                     this.toastr.success('Đã lưu ảnh chỉnh sửa!');
                     this.fetch();
-                } else {
-                    // Môi trường Web / iPad: Upload trực tiếp lên CDN
-                    let savedUrl = '';
-                    try {
-                        const cdnUrl = await this._genaiService.uploadBase64ToCdn(
-                            base64Content,
-                            newFileName,
-                            'thumbnails'
-                        );
-                        if (cdnUrl) {
-                            savedUrl = cdnUrl;
-                        }
-                    } catch (cdnErr) {
-                        console.warn('Upload CDN thất bại:', cdnErr);
-                    }
-
-                    if (!savedUrl) {
-                        try {
-                            const thumbnail = await this._blogService.uploadThumbnailPromise({
-                                imageData: base64Content,
-                                folder: 'thumbnails',
-                                username: this.user.name,
-                                ext: ext,
-                                mimeType: mimeType,
-                            });
-                            if (thumbnail && thumbnail[0] && thumbnail[0].img) {
-                                savedUrl = thumbnail[0].img;
-                            }
-                        } catch (thumbErr) {
-                            console.warn('Lỗi gọi uploadThumbnailPromise:', thumbErr);
-                        }
-                    }
-
-                    if (savedUrl) {
-                        this.imageUrls.unshift(savedUrl);
-                        this.saveLocalImages();
-                        this.rebuildRows();
-                        this.toastr.success('Đã lưu ảnh chỉnh sửa!');
-                        this.cd.markForCheck();
-                    } else {
-                        this.downloadImage(`data:${mimeType};base64,${base64Content}`, newFileName);
-                        this.toastr.success('Đã tải ảnh chỉnh sửa về thiết bị!');
-                    }
                 }
             }
         });
-    }
-
-    getImageSrc(img: string): string {
-        if (!img) return '';
-        if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:') || img.startsWith('blob:')) {
-            return img;
-        }
-        if (img.startsWith('file://')) {
-            return img;
-        }
-        return 'file:///' + img;
     }
 
     async shareImage(imgPath: string) {
@@ -599,30 +544,10 @@ export class AIImageComponent
                 this.toastr.success('Lưu ảnh chỉnh sửa thành công!');
                 this.fetch();
             } else {
-                let savedUrl = '';
-                try {
-                    savedUrl = await this._genaiService.uploadBase64ToCdn(
-                        base64Content,
-                        newFileName,
-                        'thumbnails'
-                    );
-                } catch (e) {
-                    console.warn('Upload CDN ảnh chỉnh sửa thất bại:', e);
-                }
-
-                if (savedUrl) {
-                    this.imageUrls.unshift(savedUrl);
-                    this.saveLocalImages();
-                    this.rebuildRows();
-                    this.toastr.success('Lưu ảnh chỉnh sửa thành công!');
-                    this.cd.markForCheck();
-                } else {
-                    const link = document.createElement('a');
-                    link.href = base64Data;
-                    link.download = newFileName;
-                    link.click();
-                    this.toastr.success('Đã tải ảnh chỉnh sửa về thiết bị!');
-                }
+                const link = document.createElement('a');
+                link.href = base64Data;
+                link.download = newFileName;
+                link.click();
             }
         } catch (e) {
             this.toastr.error('Lỗi khi lưu ảnh');
@@ -648,7 +573,6 @@ export class AIImageComponent
                 }
 
                 this.imageUrls.splice(index, 1);
-                this.saveLocalImages();
                 this.rebuildRows();
                 this.toastr.success('Xóa hình ảnh khỏi danh sách thành công!');
             },
@@ -894,93 +818,31 @@ export class AIImageComponent
     }
 
     /**
-     * Hàm hỗ trợ tải ảnh trực tiếp về thư viện ảnh (Gallery) của thiết bị
+     * Hàm hỗ trợ tải ảnh trực tiếp về trình duyệt
      */
     private downloadImage(base64Data: string, fileName: string) {
-        try {
-            let mimeType = 'image/png';
-            let rawBase64 = base64Data;
-            if (base64Data.startsWith('data:')) {
-                const match = base64Data.match(/^data:([a-zA-Z0-9]+\/[^;]+);base64,/);
-                if (match) mimeType = match[1];
-                rawBase64 = base64Data.split(',')[1];
-            }
-
-            const byteCharacters = atob(rawBase64);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: mimeType });
-            const blobUrl = URL.createObjectURL(blob);
-
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = fileName;
-            link.setAttribute('download', fileName);
-            link.rel = 'noopener';
-            document.body.appendChild(link);
-            link.click();
-
-            setTimeout(() => {
-                document.body.removeChild(link);
-                URL.revokeObjectURL(blobUrl);
-            }, 1000);
-        } catch (e) {
-            console.warn('Lỗi khi downloadImage bằng Blob:', e);
-            const link = document.createElement('a');
-            link.href = base64Data;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            setTimeout(() => {
-                document.body.removeChild(link);
-            }, 500);
-        }
+        const link = document.createElement('a');
+        link.href = base64Data;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     downloadImageWithURL(url: string) {
-        if (!url) return;
-        if (url.startsWith('data:')) {
-            const ext = url.includes('image/jpeg') ? 'jpg' : 'png';
-            this.downloadImage(url, `image_${Date.now()}.${ext}`);
-            this.toastr.success('Đang tải hình ảnh về máy...');
-            return;
-        }
-
-        this.http.get(url, { responseType: 'blob' }).subscribe({
-            next: (blob) => {
-                const blobUrl = URL.createObjectURL(blob);
+        this.http.get(url, { responseType: 'blob' }).subscribe(
+            (blob) => {
                 const link = document.createElement('a');
-                link.href = blobUrl;
-                const ext = blob.type.includes('jpeg') ? 'jpg' : (blob.type.includes('mp4') ? 'mp4' : 'png');
-                const fileName = `media_${Date.now()}.${ext}`;
-                link.download = fileName;
-                link.setAttribute('download', fileName);
-                link.rel = 'noopener';
+                link.href = URL.createObjectURL(blob);
+                link.download = `${uuid.v4()}`;
                 document.body.appendChild(link);
                 link.click();
-
-                setTimeout(() => {
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(blobUrl);
-                }, 1000);
-
-                this.toastr.success('Đã tải tệp về Gallery thiết bị!');
+                document.body.removeChild(link);
             },
-            error: (error) => {
+            (error) => {
                 console.error('Error downloading:', error);
-                // Fallback nếu không fetch được blob do CORS
-                const link = document.createElement('a');
-                link.href = url;
-                link.target = '_blank';
-                link.download = `media_${Date.now()}`;
-                document.body.appendChild(link);
-                link.click();
-                setTimeout(() => document.body.removeChild(link), 500);
             },
-        });
+        );
     }
 
     private convertToPng(base64: string, mimeType: string): Promise<string> {
@@ -1035,28 +897,6 @@ export class AIImageComponent
         });
     }
 
-    private getLocalImages(): string[] {
-        try {
-            const raw = localStorage.getItem(`ai_images_${this.user?.name || 'guest'}`);
-            return raw ? JSON.parse(raw) : [];
-        } catch {
-            return [];
-        }
-    }
-
-    private saveLocalImages(): void {
-        try {
-            // Lưu tối đa 200 URL ảnh gần nhất vào LocalStorage
-            const urlsToSave = (this.imageUrls || []).slice(0, 200);
-            localStorage.setItem(
-                `ai_images_${this.user?.name || 'guest'}`,
-                JSON.stringify(urlsToSave)
-            );
-        } catch (e) {
-            console.warn('Không thể lưu danh sách ảnh vào LocalStorage:', e);
-        }
-    }
-
     // Hàm phụ để xử lý upload giúp code sạch hơn
     async processAndUploadImage(
         rawBase64: string,
@@ -1080,70 +920,30 @@ export class AIImageComponent
             }
         }
 
-        let ext = 'png';
-        if (finalMime.includes('jpeg') || finalMime.includes('jpg')) ext = 'jpg';
-        else if (finalMime.includes('webp')) ext = 'webp';
+        const thumbnail = await Promise.all([
+            this._blogService.uploadThumbnailPromise({
+                imageData: finalBase64,
+                folder: 'thumbnails',
+                username: this.user.name,
+                ext: 'png',
+                mimeType: 'image/png',
+            }),
+        ]);
 
-        const fileName = `ai_img_${Date.now()}.${ext}`;
-        let uploadedUrl: string | null = null;
-
-        // 1. Nếu có Electron: ưu tiên gọi Electron lưu local hoặc qua uploadThumbnailPromise
-        if ((window as any).electron) {
-            try {
-                const thumbnail = await Promise.all([
-                    this._blogService.uploadThumbnailPromise({
-                        imageData: finalBase64,
-                        folder: 'thumbnails',
-                        username: this.user.name,
-                        ext: ext,
-                        mimeType: finalMime,
-                    }),
-                ]);
-                if (thumbnail && thumbnail[0] && thumbnail[0][0]?.img) {
-                    uploadedUrl = thumbnail[0][0].img;
+        // Lưu vào danh sách hiển thị với URL đã upload thành công
+        if (thumbnail && thumbnail[0]) {
+            thumbnail.forEach((image) => {
+                if (image && image['img']) {
+                    this.imageUrls.unshift(image['img']);
+                    this.rebuildRows();
+                    this.form.get('prompt')?.enable();
+                    this.loading = false;
+                    this.toastr.success('Tạo hình ảnh thành công!');
+                    this.cd.markForCheck();
+                } else {
+                    this.toastr.warning('Không thể tạo hình ảnh.');
                 }
-            } catch (e) {
-                console.warn('Upload qua blogService trong Electron thất bại:', e);
-            }
-        }
-
-        // 2. Nếu chưa có URL (iPad / Web browser / Electron lỗi puppeteer): upload trực tiếp lên CDN
-        if (!uploadedUrl) {
-            try {
-                uploadedUrl = await this._genaiService.uploadBase64ToCdn(
-                    finalBase64,
-                    fileName,
-                    'thumbnails'
-                );
-            } catch (cdnErr) {
-                console.warn('Upload lên CDN thất bại:', cdnErr);
-            }
-        }
-
-        // 3. Fallback: Nếu không upload được lên cả hai, dùng Data URI trực tiếp
-        if (!uploadedUrl) {
-            uploadedUrl = `data:${finalMime};base64,${finalBase64}`;
-        }
-
-        // Tự động lưu ảnh về máy / Gallery cho người dùng trên thiết bị di động / iPad / Web
-        if (!(window as any).electron) {
-            try {
-                this.downloadImage(`data:${finalMime};base64,${finalBase64}`, fileName);
-            } catch (dlErr) {
-                console.warn('Lỗi tự động tải ảnh về máy:', dlErr);
-            }
-        }
-
-        if (uploadedUrl) {
-            this.imageUrls.unshift(uploadedUrl);
-            this.saveLocalImages();
-            this.rebuildRows();
-            this.form.get('prompt')?.enable();
-            this.loading = false;
-            this.toastr.success('Đã lưu ảnh về máy và đồng bộ lên CDN thành công!');
-            this.cd.markForCheck();
-        } else {
-            this.toastr.warning('Không thể tạo hình ảnh.');
+            });
         }
     }
 
@@ -1161,39 +961,29 @@ export class AIImageComponent
     }
 
     fetch() {
-        // Tải ảnh đã lưu trong bộ nhớ cục bộ (cho Web / iPad)
-        const cached = this.getLocalImages();
-        if (cached && cached.length > 0) {
-            this.imageUrls = cached;
-            this.rebuildRows();
-            this.cd.markForCheck();
-        }
-
-        // Nếu có server puppeteer local (Electron), tải danh sách file từ ổ đĩa
-        if ((window as any).electron) {
-            this._blogService
-                .allFiles({
-                    username: this.user.name,
-                    folder: 'thumbnails',
-                })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: async (result) => {
-                        if (result && result.files && result.files.length > 0) {
-                            // Gộp với danh sách ảnh hiện có (ưu tiên ảnh mới)
-                            const set = new Set(result.files);
-                            const extras = (this.imageUrls || []).filter(
-                                (url: string) => !set.has(url)
-                            );
-                            this.imageUrls = [...result.files, ...extras];
+        this._blogService
+            .allFiles({
+                username: this.user.name,
+                folder: 'thumbnails',
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result) this.imageUrls = result.files;
+                },
+                complete: () => {
+                    this.rebuildRows();
+                    this.cd.markForCheck();
+                    setTimeout(() => {
+                        if (this.datatable) {
+                            this.datatable.recalculate();
+                            this.detectGrid();
+                            this.rebuildRows();
+                            this.cd.detectChanges();
                         }
-                    },
-                    complete: () => {
-                        this.rebuildRows();
-                        this.cd.markForCheck();
-                    },
-                });
-        }
+                    }, 100);
+                },
+            });
     }
 
     readFile = (e: any) => {
@@ -1282,39 +1072,43 @@ export class AIImageComponent
                 this.alldomains();
             });
 
-        if ((window as any).electron?.onToolsResponse) {
-            this.unsubscribeRes = (window as any).electron.onToolsResponse(
-                (data: {
-                    action: string;
-                    success: any;
-                    cookies: any;
-                    file: any;
-                }) => {
-                    if (data.action === 'dreamina.capcut') {
-                        console.log('data:', data);
-                    } else {
-                        console.error('Lỗi:', data);
-                        this.toastr.error('Đã xảy ra lỗi trong quá trình xử lý.');
-                    }
-                },
-            );
-        }
+        this.unsubscribeRes = (window as any).electron.onToolsResponse(
+            (data: {
+                action: string;
+                success: any;
+                cookies: any;
+                file: any;
+            }) => {
+                if (data.action === 'dreamina.capcut') {
+                    console.log('data:', data);
+                } else {
+                    console.error('Lỗi:', data);
+                    this.toastr.error('Đã xảy ra lỗi trong quá trình xử lý.');
+                }
+            },
+        );
 
-        if ((window as any).electron?.onToolsLog) {
-            this.unsubscribeLog = (window as any).electron.onToolsLog(
-                (msg: any) => {
-                    console.log('Log từ main:', msg);
-                    if (msg.indexOf('Đã tải') > -1) {
-                        this.fetch();
-                    }
-                },
-            );
-        }
+        this.unsubscribeLog = (window as any).electron.onToolsLog(
+            (msg: any) => {
+                console.log('Log từ main:', msg);
+                if (msg.indexOf('Đã tải') > -1) {
+                    this.fetch();
+                }
+            },
+        );
     }
 
     ngAfterViewInit() {
         // TÍNH TOÁN NGAY KHI KHỞI TẠO (QUAN TRỌNG)
         this.detectGrid();
+        setTimeout(() => {
+            if (this.datatable) {
+                this.datatable.recalculate();
+                this.detectGrid();
+                this.rebuildRows();
+                this.cd.detectChanges();
+            }
+        }, 150);
     }
 
     ngAfterContentChecked(): void {}
