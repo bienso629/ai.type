@@ -1,4 +1,3 @@
-import { EdgeTTSBrowser } from 'edge-tts-universal';
 import {
     ChangeDetectorRef,
     Component,
@@ -605,13 +604,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
                         const pitchStr = pitchNum >= 0 ? `+${pitchNum}Hz` : `${pitchNum}Hz`;
 
-                        const tts = new EdgeTTSBrowser(clip.description, clipVoice, {
-                            rate: rateStr,
-                            pitch: pitchStr,
+                        // Gọi API HTTP trực tiếp cho lẹ
+                        const response = await fetch('https://edge-tts.vercel.app/api/tts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                text: clip.description,
+                                voice: clipVoice,
+                                rate: rateStr,
+                                pitch: pitchStr
+                            })
                         });
 
-                        const result = await tts.synthesize();
-                        const arrayBuffer = await result.audio.arrayBuffer();
+                        if (!response.ok) {
+                            throw new Error('Lỗi API Edge TTS: ' + response.statusText);
+                        }
+
+                        const arrayBuffer = await response.arrayBuffer();
                         const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
                         const fullUrl = URL.createObjectURL(blob);
 
