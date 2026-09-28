@@ -194,19 +194,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 } catch (e) {}
             }
 
-            // Kiểm tra thêm qua auth accounts nếu chưa active
-            if (!pluginActive && (window as any).electronAPI && (window as any).electronAPI.getColabAuthStatus) {
-                try {
-                    const authRes = await (window as any).electronAPI.getColabAuthStatus();
-                    if (authRes && ((Array.isArray(authRes.accounts) && authRes.accounts.length > 0) || authRes.authenticated)) {
-                        pluginActive = true;
-                    }
-                } catch (e) {}
-            }
 
-            if (!pluginActive && sstUrl) {
-                pluginActive = true;
-            }
 
             // Nếu daemon local chưa connected nhưng có sstUrl, ping thử tới endpoint sstUrl/status để kiểm tra kết nối thực sự
             if (!connected && sstUrl) {
