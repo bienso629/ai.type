@@ -232,7 +232,7 @@
             }
 
             <!-- Nút hành động Khởi chạy / Dừng GPU -->
-            @if (isColabLoggedIn) {
+            @if (getPlugin('colab_agent')?.enabled && isColabLoggedIn) {
                 <div class="flex items-center gap-3 mt-4">
                     @if (!colabStatus.is_connected) {
                         <button
@@ -285,7 +285,7 @@
             }
 
             <!-- Trạng thái GPU (ở dưới cùng, không border, rounded, bg, padding) -->
-            @if (isColabLoggedIn) {
+            @if (getPlugin('colab_agent')?.enabled && isColabLoggedIn) {
                 <div class="w-full mt-6">
                     <div class="flex items-center gap-2">
                         <span

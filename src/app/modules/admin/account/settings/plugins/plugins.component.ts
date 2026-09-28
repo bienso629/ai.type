@@ -156,6 +156,9 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             const tiktokPlugin = this.plugins.find(p => p.id === 'tiktok_100');
             if (tiktokPlugin) tiktokPlugin.enabled = settings.tiktokPluginEnabled || false;
             
+            const colabAgentPlugin = this.plugins.find(p => p.id === 'colab_agent');
+            if (colabAgentPlugin) colabAgentPlugin.enabled = settings.colabPluginEnabled || false;
+            
             this.zaloPluginMode = settings.zaloPluginMode || 'tool';
             this.aiAgentApiKey = settings.aiAgentApiKey || 'type-vn-local-agent-2026';
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
@@ -437,16 +440,16 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                             };
                         } else {
                             this.colabStatus = {
-                                status: 'running',
-                                is_connected: true,
+                                status: 'offline',
+                                is_connected: false,
                                 colab_url: this.colabConfigUrl,
                                 gpu: 'Colab GPU (Cấu hình Tác vụ)'
                             };
                         }
                     } catch(err) {
                         this.colabStatus = {
-                            status: 'configured',
-                            is_connected: true,
+                            status: 'offline',
+                            is_connected: false,
                             colab_url: this.colabConfigUrl,
                             gpu: 'Colab GPU (Cấu hình Tác vụ)'
                         };
