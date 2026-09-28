@@ -93,12 +93,12 @@
         <button
             mat-mini-fab
             [color]="isRecording ? 'warn' : 'primary'"
-            [class.animate-pulse]="isRecording"
+            
             (click)="startRecording()"
             [matTooltip]="'app.auto_system_recording' | transloco"
             matTooltipPosition="left"
         >
-            <mat-icon svgIcon="feather:mic"></mat-icon>
+            <mat-icon [class.animate-pulse]="isRecording" svgIcon="feather:mic"></mat-icon>
         </button>
         <button mat-mini-fab [routerLink]="['/ai-writer']">
             <mat-icon>add</mat-icon>
