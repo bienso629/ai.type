@@ -236,7 +236,7 @@ export class AIText2SpeechComponent
             const pitchStr = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
 
             // Gọi trực tiếp API Edge TTS (WebSocket) theo lệnh
-            const arrayBuffer = await (async () => {
+            const arrayBuffer: any = await (async () => {
                 
             return new Promise((resolve, reject) => {
                 const ws = new WebSocket('wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4');
