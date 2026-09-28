@@ -605,7 +605,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         const pitchStr = pitchNum >= 0 ? `+${pitchNum}Hz` : `${pitchNum}Hz`;
 
                         // Gọi trực tiếp API Edge TTS (WebSocket) theo lệnh
-                        const arrayBuffer = await (async () => {
+                        const arrayBuffer: any = await (async () => {
                             const text = clip.description;
                             const voice = clipVoice;
                             
