@@ -1,3 +1,4 @@
+import { EdgeTTSBrowser } from 'edge-tts-universal';
 import {
     AfterViewInit,
     Component,
@@ -221,59 +222,47 @@ export class AIText2SpeechComponent
         rate: number,
         pitch: number,
     ) {
-        if (!(window as any).electron || !(window as any).electron.invoke) {
-            this.toastr.error(
-                'Tính năng này chỉ hoạt động trên ứng dụng Desktop.',
-            );
-            return;
-        }
-
-        this.toastr.info('Đang xử lý giọng đọc', 'System');
+        this.toastr.info('Đang xử lý giọng đọc qua WebSocket...', 'System');
         this.isGenerating = true;
 
         const shortText = text.substring(0, 60);
         const slug = this.toSlug(shortText);
-        const niceFilename = `${slug}_${this.generateId()}`;
-
-        const payload = {
-            text: text,
-            voice: voice,
-            rate: rate, // <--- Gửi Rate
-            pitch: pitch, // <--- Gửi Pitch
-            filename: niceFilename,
-            username: this.user?.name || 'anonymous',
-        };
+        const niceFilename = `${slug}_${this.generateId()}.mp3`;
 
         try {
-            const res = await (window as any).electron.invoke(
-                'tts-generate',
-                payload,
-            );
+            // Khởi tạo UniversalEdgeTTS chạy được trên Web/Capacitor
+            // Chuyển rate/pitch (số dương/âm thành chuỗi +10% hoặc -10Hz...)
+            // Ở đây mặc định edge-tts nhận rate: '+0%', pitch: '+0Hz'
+            const rateStr = rate >= 0 ? `+${rate}%` : `${rate}%`;
+            const pitchStr = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
 
-            if (res && res.success) {
-                const fullUrl = res.url;
-                const filename = res.filePath
-                    ? res.filePath.split(/[\\/]/).pop()
-                    : `${payload.filename}.mp3`;
+            const tts = new EdgeTTSBrowser(text, voice, {
+                rate: rateStr,
+                pitch: pitchStr,
+            });
 
-                this.generatedAudioUrl = fullUrl;
-                this.downloadMP3Href =
-                    this.domSanitizer.bypassSecurityTrustUrl(fullUrl);
-                this.nameMP3Href = filename;
+            // Synthesize
+            const result = await tts.synthesize();
+            
+            // Lấy ArrayBuffer và tạo Blob URL
+            const arrayBuffer = await result.audio.arrayBuffer();
+            const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+            const fullUrl = URL.createObjectURL(blob);
 
-                this.wavesurfer.load(fullUrl);
-                this.wavesurfer.once('interaction', () => {
-                    this.wavesurfer.play();
-                });
+            this.generatedAudioUrl = fullUrl;
+            this.downloadMP3Href = this.domSanitizer.bypassSecurityTrustUrl(fullUrl);
+            this.nameMP3Href = niceFilename;
 
-                this.toastr.success('Chuyển đổi thành công!');
-            } else {
-                this.toastr.error(res.error || 'Lỗi từ bộ xử lý TTS.');
-            }
-        } catch (err: any) {
-            console.error(err);
-            this.toastr.error('Lỗi khi gọi ứng dụng: ' + err.message);
-        } finally {
+            this.wavesurfer.load(fullUrl);
+            this.wavesurfer.once('interaction', () => {
+                this.wavesurfer.play();
+            });
+
+            this.isGenerating = false;
+            this.toastr.success('Chuyển đổi thành công!');
+        } catch (e) {
+            console.error('Edge TTS Error:', e);
+            this.toastr.error('Lỗi khi đọc giọng Edge TTS: ' + e.message);
             this.isGenerating = false;
         }
     }
