@@ -430,7 +430,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 // Thử kiểm tra URL cấu hình từ xa nếu local không online
                 if (!localOnline) {
                     try {
-                        const resp = await fetch(`${this.colabConfigUrl}/status`, { signal: AbortSignal.timeout(3000) });
+                        const resp = await this.fetchWithTimeout(`${this.getColabBaseUrl()}/status`, {}, 5000);
                         if (resp.ok) {
                             const data = await resp.json();
                             this.colabStatus = {
@@ -484,7 +484,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.toastr.error(res?.error || 'Không thể chuyển tài khoản.');
                 }
             } else {
-                const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
+                const baseUrl = this.getColabBaseUrl();
                 const resp = await fetch(`${baseUrl}/switch_account`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -517,7 +517,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.toastr.success(`Đã gỡ tài khoản ${email}`);
                 }
             } else {
-                const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
+                const baseUrl = this.getColabBaseUrl();
                 const resp = await fetch(`${baseUrl}/remove_account`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -535,6 +535,33 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             this.toastr.error('Lỗi xóa tài khoản: ' + e.message);
         }
         this.cd.detectChanges();
+    }
+
+    /**
+     * Phân giải URL gốc của Colab Agent một cách thông minh.
+     * Trên Desktop (Electron): dùng URL cấu hình như bình thường.
+     * Trên Web/iPad (Capacitor): nếu URL cấu hình là địa chỉ local (localhost/127.0.0.1/LAN)
+     * thì thay bằng URL công khai, vì iPad không thể tự gọi tới máy tính qua địa chỉ đó.
+     */
+    getColabBaseUrl(): string {
+        const fallback = 'https://colab.type.vn';
+        if ((window as any).electronAPI) {
+            return (this.colabConfigUrl || '').trim() || fallback;
+        }
+        const url = (this.colabConfigUrl || '').trim();
+        if (!url || /localhost|127\.0\.0\.1|^https?:\/\/(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/i.test(url)) {
+            return fallback;
+        }
+        return url;
+    }
+
+    /**
+     * Fetch kèm thời gian chờ, tương thích cả Safari/iOS cũ (không có AbortSignal.timeout).
+     */
+    fetchWithTimeout(url: string, options: any = {}, timeoutMs: number = 8000): Promise<Response> {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
     }
 
     async loginGoogleColab() {
@@ -555,10 +582,10 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             }
         } else {
             // Dành cho Web/iPad (Capacitor) gọi thẳng vào Colab Agent Daemon
-            const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
+            const baseUrl = this.getColabBaseUrl();
             this.toastr.info('Đang lấy đường dẫn xác thực từ Colab Agent...');
             try {
-                const resp = await fetch(`${baseUrl}/auth_url`, { signal: AbortSignal.timeout(3000) });
+                const resp = await this.fetchWithTimeout(`${baseUrl}/auth_url`, {}, 8000);
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data && data.auth_url) {
@@ -617,7 +644,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
 
         // Dành cho Web/iPad (Capacitor): gọi thẳng API /exchange_token của Colab Agent Daemon
         if (!(window as any).electronAPI || !(window as any).electronAPI.exchangeColabCode) {
-            const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
+            const baseUrl = this.getColabBaseUrl();
             this.toastr.info('Đang kiểm tra và xác thực mã Google Colab...');
             try {
                 const resp = await fetch(`${baseUrl}/exchange_token`, {
@@ -720,7 +747,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
 
     async restartColabRuntime() {
         try {
-            const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
+            const baseUrl = this.getColabBaseUrl();
             const resp = await fetch(`${baseUrl}/restart_runtime`, { method: 'POST' });
             if (resp.ok) {
                 this.toastr.success('Đã gửi yêu cầu khởi động lại Colab Runtime.');
