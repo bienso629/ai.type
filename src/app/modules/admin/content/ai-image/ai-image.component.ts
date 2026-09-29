@@ -1225,6 +1225,15 @@ export class AIImageComponent
         }
     }
 
+    
+    resolveMediaSrc(url: string): string {
+        if (!url) return '';
+        if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://')) {
+            return url;
+        }
+        return 'file:///' + url;
+    }
+
     ngOnInit(): void {
         this.loadNativeGallery();
         this.form = this._formBuilder.group({
