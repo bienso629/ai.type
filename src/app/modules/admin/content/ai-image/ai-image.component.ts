@@ -92,6 +92,8 @@ export class AIImageComponent
 
     form: UntypedFormGroup;
     imageUrls: any = [];
+    // Danh sach anh Gallery native (base64) - giu lai de khoi bi fetch() ghi de mat
+    private nativeGalleryUrls: string[] = [];
     loading: boolean = false;
 
     cols: number;
@@ -1030,11 +1032,9 @@ export class AIImageComponent
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result && result.files) {
-                        this.imageUrls = result.files;
-                    } else {
-                        if (!this.imageUrls) this.imageUrls = [];
-                    }
+                    // Giu nguyen anh Gallery native va gop them anh server vao sau
+                    const serverFiles: string[] = (result && result.files) ? result.files : [];
+                    this.imageUrls = [...this.nativeGalleryUrls, ...serverFiles];
                 },
                 complete: () => {
                     this.rebuildRows();
@@ -1183,51 +1183,45 @@ export class AIImageComponent
     
     async loadNativeGallery() {
         if (!Capacitor.isNativePlatform()) {
-            // Silent return on web/desktop
+            // Khong chay tren web/desktop
             return;
         }
 
         try {
-            // Xin quyền truy cập Thư viện ảnh
-            const permission = await (Media as any).requestPermissions();
-            const photosPerm = permission?.photos || permission?.publicStorage;
-            // iOS có thể trả 'granted' (Full Access) hoặc 'limited' (một phần) — đều đọc được ảnh
-            if (photosPerm !== 'granted' && photosPerm !== 'limited') {
-                this.toastr.error('Sếp chưa cấp quyền truy cập thư viện ảnh!');
-                return;
-            }
-
-            // Quét và lấy tất cả ảnh/video
+            // Luu y: plugin iOS KHONG co method requestPermissions.
+            // getMedias() tu dong hien popup xin quyen neu chua duoc cap.
             const mediaResponse = await Media.getMedias({
-                quantity: 100, // Lấy tạm 100 tấm gần nhất cho nhanh
+                quantity: 200, // Lay 200 tam gan nhat
+                thumbnailWidth: 512,
+                thumbnailHeight: 512,
+                thumbnailQuality: 80,
+                types: 'photos',
                 sort: [{ key: 'creationDate', ascending: false }]
             });
 
-            const medias = mediaResponse.medias;
-            if (medias && medias.length > 0) {
-                // Đẩy vào mảng imageUrls hiện tại của sếp
-                if (!this.imageUrls) this.imageUrls = [];
-                
-                // Ở Capacitor, đường dẫn local lấy qua WebView sẽ dùng url thực tế từ Capacitor
-                // webviewPath là thứ có thể gắn thẳng vào src của <img>
-                medias.forEach(m => {
+            const medias = mediaResponse?.medias || [];
+            if (medias.length > 0) {
+                const galleryUrls: string[] = [];
+                medias.forEach((m: any) => {
                     if (m.data) {
-                        // MediaAsset.data chứa base64 string của ảnh thumbnail
-                        const base64Url = `data:image/jpeg;base64,${m.data}`;
-                        this.imageUrls.push(base64Url);
+                        galleryUrls.push(`data:image/jpeg;base64,${m.data}`);
                     }
                 });
 
+                // Danh dau kho native de khong bi fetch() tu server ghi de mat
+                this.nativeGalleryUrls = galleryUrls;
+
+                // Gop: gallery native dung dau, anh server o sau
+                this.imageUrls = [...this.nativeGalleryUrls, ...this.imageUrls.filter((u: string) => !u.startsWith('data:image/jpeg;base64,'))];
+
                 this.rebuildRows();
                 this.cd.detectChanges();
-                // Silent success
-            } else {
-                // Silent empty
             }
+            // Silent success/empty - khong toast tru khi loi
 
-        } catch (err) {
-            console.error(err);
-            this.toastr.error('Có lỗi xảy ra khi đọc Gallery: ' + err.message);
+        } catch (err: any) {
+            // Nguoi tu choi quyen hoac loi khac - chi ghi log, khong lam don giao dien
+            console.error('loadNativeGallery error:', err);
         }
     }
 
