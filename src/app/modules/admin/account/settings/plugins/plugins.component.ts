@@ -7,6 +7,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
 import { Title } from '@angular/platform-browser';
+import { Browser } from '@capacitor/browser';
 
 @Component({
     selector: 'settings-plugins',
@@ -483,7 +484,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.toastr.error(res?.error || 'Không thể chuyển tài khoản.');
                 }
             } else {
-                const baseUrl = this.colabConfigUrl || 'http://127.0.0.1:7868';
+                const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
                 const resp = await fetch(`${baseUrl}/switch_account`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -516,7 +517,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.toastr.success(`Đã gỡ tài khoản ${email}`);
                 }
             } else {
-                const baseUrl = this.colabConfigUrl || 'http://127.0.0.1:7868';
+                const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
                 const resp = await fetch(`${baseUrl}/remove_account`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -554,15 +555,26 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             }
         } else {
             // Dành cho Web/iPad (Capacitor) gọi thẳng vào Colab Agent Daemon
-            const baseUrl = this.colabConfigUrl || 'http://127.0.0.1:7868';
+            const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
             this.toastr.info('Đang lấy đường dẫn xác thực từ Colab Agent...');
             try {
                 const resp = await fetch(`${baseUrl}/auth_url`, { signal: AbortSignal.timeout(3000) });
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data && data.auth_url) {
-                        window.open(data.auth_url, '_blank');
-                        this.toastr.info('Vui lòng xác thực tài khoản Google, sau đó copy mã và dán vào ô xác thực.');
+                        // Trên app Native (Capacitor/iPad) phải dùng Browser plugin để mở trình duyệt trong app
+                        if ((window as any).Capacitor && (window as any).Capacitor.isNativePlatform && (window as any).Capacitor.isNativePlatform()) {
+                            try {
+                                await Browser.open({ url: data.auth_url, presentationStyle: 'fullscreen' });
+                                this.toastr.info('Vui lòng chọn tài khoản Google, bấm "Cho phép" (Allow), copy mã xác thực rồi quay lại app dán vào ô bên dưới.');
+                            } catch (browserErr) {
+                                console.warn('Browser plugin lỗi, fallback sang window.open:', browserErr);
+                                window.open(data.auth_url, '_blank');
+                            }
+                        } else {
+                            window.open(data.auth_url, '_blank');
+                        }
+                        this.startClipboardWatcher();
                     } else {
                         this.toastr.error('Không tìm thấy đường dẫn xác thực từ Agent.');
                     }
@@ -603,7 +615,32 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             return;
         }
 
-        if (!(window as any).electronAPI || !(window as any).electronAPI.exchangeColabCode) return;
+        // Dành cho Web/iPad (Capacitor): gọi thẳng API /exchange_token của Colab Agent Daemon
+        if (!(window as any).electronAPI || !(window as any).electronAPI.exchangeColabCode) {
+            const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
+            this.toastr.info('Đang kiểm tra và xác thực mã Google Colab...');
+            try {
+                const resp = await fetch(`${baseUrl}/exchange_token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: this.colabAuthCode.trim() })
+                });
+                const res = await resp.json();
+                if (resp.ok && res && res.success) {
+                    this.isColabLoggedIn = true;
+                    this.isColabAuthenticating = false;
+                    this.colabAuthCode = '';
+                    this.toastr.success(res.message || 'Đã liên kết tài khoản Google Colab thành công!');
+                    this.checkColabStatus();
+                } else {
+                    this.toastr.error(this.formatErrorMessage(res?.error || 'Mã xác thực không hợp lệ hoặc đã hết hạn.'));
+                }
+            } catch (e: any) {
+                this.toastr.error(this.formatErrorMessage('Lỗi kết nối tới Colab Agent: ' + e.message));
+            }
+            this.cd.detectChanges();
+            return;
+        }
 
         this.toastr.info('Đang kiểm tra và xác thực mã Google Colab...');
         try {
@@ -683,7 +720,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
 
     async restartColabRuntime() {
         try {
-            const baseUrl = this.colabConfigUrl || 'http://127.0.0.1:7868';
+            const baseUrl = this.colabConfigUrl || 'https://colab.type.vn';
             const resp = await fetch(`${baseUrl}/restart_runtime`, { method: 'POST' });
             if (resp.ok) {
                 this.toastr.success('Đã gửi yêu cầu khởi động lại Colab Runtime.');
