@@ -1,4 +1,5 @@
 import { Media } from '@capacitor-community/media';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import {
     AfterContentChecked,
@@ -900,6 +901,48 @@ export class AIImageComponent
     }
 
     // Hàm phụ để xử lý upload giúp code sạch hơn
+
+    /**
+     * Lưu ảnh vừa tạo vào Thư viện ảnh (Photos) của thiết bị Native (iPad/Android).
+     * Luồng: base64 -> ghi file tạm vào Cache -> savePhoto (Media plugin) -> xóa file tạm.
+     */
+    private async saveGeneratedImageToPhotos(finalBase64: string, mime: string = 'image/png'): Promise<void> {
+        if (!Capacitor.isNativePlatform()) {
+            return;
+        }
+        try {
+            // Chuẩn hóa base64 thuần (bỏ header data URL nếu có)
+            let pureBase64 = finalBase64;
+            const commaIdx = finalBase64.indexOf(',');
+            if (finalBase64.startsWith('data:') && commaIdx > -1) {
+                pureBase64 = finalBase64.substring(commaIdx + 1);
+            }
+
+            const ext = mime.includes('jpeg') ? 'jpg' : mime.includes('webp') ? 'webp' : 'png';
+            const fileName = `aitype_${Date.now()}.${ext}`;
+
+            // Ghi file tạm vào bộ nhớ Cache của app
+            const written = await Filesystem.writeFile({
+                path: fileName,
+                data: pureBase64,
+                directory: Directory.Cache,
+                recursive: true,
+            });
+
+            // Yêu cầu plugin Media lưu vào Photos (addOnly permission)
+            await (Media as any).savePhoto({ path: written.uri });
+
+            // Dọn file tạm
+            try {
+                await Filesystem.deleteFile({ path: fileName, directory: Directory.Cache });
+            } catch (e) {
+                // ignore cleanup error
+            }
+        } catch (saveErr) {
+            console.warn('Không thể lưu ảnh vào Photos:', saveErr);
+        }
+    }
+
     async processAndUploadImage(
         rawBase64: string,
         mimeType: string,
@@ -921,6 +964,9 @@ export class AIImageComponent
                 console.warn('Lỗi nhúng metadata prompt vào ảnh:', embedErr);
             }
         }
+
+        // Lưu vào Photos của thiết bị (iPad/Android) ngay khi tạo xong
+        this.saveGeneratedImageToPhotos(finalBase64, finalMime);
 
         try {
             const thumbnail = await Promise.all([
@@ -1143,8 +1189,10 @@ export class AIImageComponent
 
         try {
             // Xin quyền truy cập Thư viện ảnh
-            let permission = await (Media as any).requestPermissions();
-            if (permission.publicStorage !== 'granted') {
+            const permission = await (Media as any).requestPermissions();
+            const photosPerm = permission?.photos || permission?.publicStorage;
+            // iOS có thể trả 'granted' (Full Access) hoặc 'limited' (một phần) — đều đọc được ảnh
+            if (photosPerm !== 'granted' && photosPerm !== 'limited') {
                 this.toastr.error('Sếp chưa cấp quyền truy cập thư viện ảnh!');
                 return;
             }
