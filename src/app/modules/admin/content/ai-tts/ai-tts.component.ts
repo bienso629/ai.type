@@ -1571,7 +1571,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     openVideoSettings() {
         const dialogRef = this.dialog.open(VideoEditorSettingsDialogComponent, {
-            width: '400px',
+            width: '560px',
+            panelClass: 'dlg-primary',
             data: {
                 extraPrompt: this.extraPrompt,
                 videoFormat: this.videoFormat,

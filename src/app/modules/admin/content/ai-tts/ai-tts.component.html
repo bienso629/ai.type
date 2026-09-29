@@ -54,76 +54,71 @@
                 </div>
             </div>
 
-            <div class="flex items-center mt-4 sm:mt-0">
+            <div class="flex items-center mt-4 sm:mt-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full overflow-hidden divide-x divide-gray-300 dark:divide-gray-600 shadow-sm">
                 <button
                     mat-icon-button
-                    [matMenuTriggerFor]="toolsMenu"
-                    matTooltip="Tools"
+                    type="button"
+                    class="!rounded-none p-0 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
+                    (click)="openVideoSettings()"
+                    [matTooltip]="'Prompt tạo video'"
                 >
                     <mat-icon
-                        class="icon-size-5 text-gray-600 hover:text-gray-800"
-                        [svgIcon]="'heroicons_outline:dots-vertical'"
+                        class="icon-size-5 text-indigo-500"
+                        [svgIcon]="'heroicons_outline:film'"
                     ></mat-icon>
                 </button>
 
-                <mat-menu #toolsMenu="matMenu">
+                @if (audioList.length > 0) {
                     <button
-                        mat-menu-item
-                        (click)="openVideoSettings()"
+                        mat-icon-button
+                        type="button"
+                        class="!rounded-none p-0 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
+                        (click)="clear()"
+                        [matTooltip]="'app.auto_refresh_content' | transloco"
                     >
                         <mat-icon
-                            class="icon-size-4 text-indigo-500"
-                            [svgIcon]="'heroicons_outline:film'"
+                            class="icon-size-5 text-red-600"
+                            [svgIcon]="'feather:repeat'"
                         ></mat-icon>
-                        <span>Prompt tạo video</span>
                     </button>
-                    @if (audioList.length > 0) {
-                        <button
-                            mat-menu-item
-                            (click)="clear()"
-                        >
+                }
+
+                <button
+                    mat-icon-button
+                    type="button"
+                    class="!rounded-none p-0 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
+                    (click)="exportProject()"
+                    [matTooltip]="'app.auto_export_project_ait' | transloco"
+                >
+                    <mat-icon
+                        class="icon-size-5 text-gray-600"
+                        [svgIcon]="'heroicons_outline:download'"
+                    ></mat-icon>
+                </button>
+
+                @if (isVoiceGenerated) {
+                    <button
+                        mat-icon-button
+                        type="button"
+                        class="!rounded-none p-0 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
+                        (click)="uploadToArchiveOrg()"
+                        [disabled]="isUploadingArchive || isGlobalProcessing"
+                        [matTooltip]="t('app.upload_to_archive_org') || 'Upload lên archive.org'"
+                    >
+                        @if (isUploadingArchive) {
                             <mat-icon
-                                class="icon-size-4 text-red-600"
-                                [svgIcon]="'feather:repeat'"
+                                class="animate-spin icon-size-5 text-emerald-600"
+                                [svgIcon]="'feather:loader'"
                             ></mat-icon>
-                            <span>{{ 'app.auto_refresh_content' | transloco }}</span>
-                        </button>
-                    }
-                    <button
-                        mat-menu-item
-                        (click)="exportProject()"
-                    >
-                        <mat-icon
-                            class="icon-size-4 text-gray-500"
-                            [svgIcon]="'heroicons_outline:download'"
-                        ></mat-icon>
-                        <span>{{ 'app.auto_export_project_ait' | transloco }}</span>
+                        }
+                        @if (!isUploadingArchive) {
+                            <mat-icon
+                                class="icon-size-5 text-emerald-600"
+                                [svgIcon]="'heroicons_outline:cloud-upload'"
+                            ></mat-icon>
+                        }
                     </button>
-                    @if (isVoiceGenerated) {
-                        <button
-                            mat-menu-item
-                            (click)="uploadToArchiveOrg()"
-                            [disabled]="isUploadingArchive || isGlobalProcessing"
-                        >
-                            @if (isUploadingArchive) {
-                                <mat-icon
-                                    class="animate-spin icon-size-4 text-emerald-600"
-                                    [svgIcon]="'feather:loader'"
-                                ></mat-icon>
-                            }
-                            @if (!isUploadingArchive) {
-                                <mat-icon
-                                    class="icon-size-4 text-emerald-600"
-                                    [svgIcon]="'heroicons_outline:cloud-upload'"
-                                ></mat-icon>
-                            }
-                            <span>{{
-                                t("app.upload_to_archive_org") ||
-                                    "Upload lên archive.org"
-                            }}</span>
-                        </button>
-                    }
-                </mat-menu>
+                }
             </div>
         </div>
 

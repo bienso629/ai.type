@@ -32,8 +32,18 @@ export class VideoEditorSettingsDialogComponent {
 
     onVideoAttachmentSelected(event: any) {
         if (event.target.files && event.target.files.length > 0) {
-            this.attachedVideoFiles = Array.from(event.target.files);
+            const newFiles: File[] = Array.from(event.target.files);
+            this.attachedVideoFiles = [...this.attachedVideoFiles, ...newFiles];
+            event.target.value = '';
         }
+    }
+
+    removeFile(index: number) {
+        this.attachedVideoFiles.splice(index, 1);
+    }
+
+    clearAllFiles() {
+        this.attachedVideoFiles = [];
     }
 
     submit(action: 'create' | 'script') {

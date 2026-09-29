@@ -78,8 +78,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
             <!-- Form (Scrollable) -->
             <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
                 <mat-form-field
-                    appearance="outline"
-                    class="w-full fuse-mat-dense"
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
                 >
                     <mat-label>S3 Access Key*</mat-label>
                     <input
@@ -94,8 +94,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
                 </mat-form-field>
 
                 <mat-form-field
-                    appearance="outline"
-                    class="w-full fuse-mat-dense"
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
                 >
                     <mat-label>S3 Secret Key*</mat-label>
                     <input
@@ -111,8 +111,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
                 </mat-form-field>
 
                 <mat-form-field
-                    appearance="outline"
-                    class="w-full fuse-mat-dense"
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
                 >
                     <mat-label>Tiêu đề tác phẩm (Title)*</mat-label>
                     <input
@@ -125,8 +125,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
 
                 <div class="flex gap-4">
                     <mat-form-field
-                        appearance="outline"
-                        class="flex-1 fuse-mat-dense"
+                            class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
                     >
                         <mat-label>Tác giả (Creator)</mat-label>
                         <input
@@ -137,8 +137,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
                     </mat-form-field>
 
                     <mat-form-field
-                        appearance="outline"
-                        class="flex-1 fuse-mat-dense"
+                            class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
                     >
                         <mat-label>Bộ sưu tập (Collection)</mat-label>
                         <input
