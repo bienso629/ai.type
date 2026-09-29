@@ -1,170 +1,196 @@
 <ng-container *transloco="let t">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold m-0">Prompt tạo video</h2>
-        <button mat-icon-button (click)="cancel()">
-            <mat-icon
-                class="icon-size-5"
-                [svgIcon]="'heroicons_outline:x'"
-            ></mat-icon>
-        </button>
-    </div>
-
-    <mat-dialog-content
-        class="flex flex-col gap-4 p-0 overflow-x-hidden scrollbar-hide !max-h-none"
-        style="min-width: 350px"
-    >
-        <div class="flex flex-col gap-4">
-            <div class="relative flex items-center w-full">
-                <mat-form-field
-                    class="w-full fuse-mat-dense field-hidden-subscript"
+    <div class="flex flex-col min-w-[460px] max-h-[calc(90vh-48px)] overflow-hidden">
+        <!-- Header -->
+        <div class="shrink-0 pb-2">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100">
+                    <mat-icon
+                        [svgIcon]="'heroicons_outline:film'"
+                        class="text-emerald-500 icon-size-6"
+                    ></mat-icon>
+                    <span>Prompt tạo video</span>
+                </div>
+                <button
+                    type="button"
+                    mat-icon-button
+                    (click)="cancel()"
+                    class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400"
                 >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:x'"
+                    ></mat-icon>
+                </button>
+            </div>
+
+            <p class="text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                Tùy chỉnh phong cách nội dung, định dạng, tỷ lệ khung hình và độ dài để hệ thống tự động dựng video.
+            </p>
+        </div>
+
+        <!-- Form (Scrollable) -->
+        <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
+            <div class="flex flex-col w-full gap-2">
+                <mat-form-field
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Prompt / Phong cách</mat-label>
                     <input
                         matInput
                         type="text"
                         [(ngModel)]="extraPrompt"
-                        [ngClass]="
-                            attachedVideoFiles.length > 0 ? 'pr-20' : 'pr-10'
-                        "
-                        [placeholder]="
-                            'app.auto_for_example_follow_the_cyberpu'
-                                | transloco
-                        "
+                        [placeholder]="'app.auto_for_example_follow_the_cyberpu' | transloco"
                     />
                 </mat-form-field>
 
-                <div class="absolute right-1 flex items-center">
+                <div class="flex items-center gap-1.5">
                     <button
                         mat-icon-button
-                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 w-8 h-8 min-h-8 flex items-center justify-center relative"
-                        [matTooltip]="
-                            'app.auto_attach_images_reference_docume'
-                                | transloco
-                        "
+                        type="button"
+                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 relative"
+                        [matTooltip]="'app.auto_attach_images_reference_docume' | transloco"
                         (click)="videoAttachment.click()"
                         [disabled]="isAnalyzing"
                     >
                         <mat-icon
-                            class="icon-size-4"
+                            class="icon-size-5"
                             [svgIcon]="'heroicons_outline:paper-clip'"
                         ></mat-icon>
                         @if (attachedVideoFiles.length > 0) {
                             <span
-                                class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold z-10"
+                                class="absolute top-1 right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold"
                             >
                                 {{ attachedVideoFiles.length }}
                             </span>
                         }
-
-                        <input
-                            #videoAttachment
-                            type="file"
-                            multiple
-                            accept="image/*,.pdf,.txt,.md"
-                            (change)="onVideoAttachmentSelected($event)"
-                            class="hidden"
-                            [title]="'app.auto_attached_document' | transloco"
-                        />
                     </button>
+                    <input
+                        #videoAttachment
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.txt,.md"
+                        (change)="onVideoAttachmentSelected($event)"
+                        class="hidden"
+                        [title]="'app.auto_attached_document' | transloco"
+                    />
 
                     @if (attachedVideoFiles.length > 0) {
-                        <button
-                            mat-icon-button
-                            class="text-red-500 hover:bg-red-50 hover:text-red-600 w-8 h-8 min-h-8 flex items-center justify-center ml-1"
-                            (click)="attachedVideoFiles = []"
-                            [matTooltip]="
-                                'app.auto_delete_attachment' | transloco
-                            "
-                        >
-                            <mat-icon class="icon-size-4">close</mat-icon>
-                        </button>
+                        <div class="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                            @for (file of attachedVideoFiles; track $index) {
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded border border-gray-200 dark:border-gray-600 max-w-[180px]" [title]="file.name">
+                                    <span class="truncate">{{ file.name }}</span>
+                                    <button type="button" class="hover:text-red-500 flex items-center justify-center" (click)="removeFile($index)">
+                                        <mat-icon class="icon-size-3.5">close</mat-icon>
+                                    </button>
+                                </span>
+                            }
+                        </div>
                     }
                 </div>
             </div>
 
             <mat-form-field
-                class="w-full field-hidden-subscript fuse-mat-dense"
+                class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
             >
+                <mat-label>Định dạng</mat-label>
                 <mat-select
                     [(ngModel)]="videoFormat"
                     [placeholder]="'app.auto_format' | transloco"
                 >
                     <mat-option value="video">Video</mat-option>
                     <mat-option value="comic">{{ t("app.comic") }}</mat-option>
-                    <mat-option value="slide">{{
-                        t("app.slide_static")
-                    }}</mat-option>
+                    <mat-option value="slide">{{ t("app.slide_static") }}</mat-option>
                     <mat-option value="podcast">Podcast</mat-option>
                 </mat-select>
             </mat-form-field>
 
-            <mat-form-field
-                class="w-full field-hidden-subscript fuse-mat-dense"
-            >
-                <mat-select
-                    [(ngModel)]="aspectRatio"
-                    [placeholder]="'app.auto_rate' | transloco"
+            <div class="flex gap-4">
+                <mat-form-field
+                    class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
                 >
-                    <mat-option value="16:9">16:9</mat-option>
-                    <mat-option value="9:16">9:16</mat-option>
-                    <mat-option value="4:3">4:3</mat-option>
-                    <mat-option value="3:4">3:4</mat-option>
-                </mat-select>
-            </mat-form-field>
+                    <mat-label>Tỷ lệ khung hình</mat-label>
+                    <mat-select
+                        [(ngModel)]="aspectRatio"
+                        [placeholder]="'app.auto_rate' | transloco"
+                    >
+                        <mat-option value="16:9">16:9</mat-option>
+                        <mat-option value="9:16">9:16</mat-option>
+                        <mat-option value="4:3">4:3</mat-option>
+                        <mat-option value="3:4">3:4</mat-option>
+                    </mat-select>
+                </mat-form-field>
 
-            <mat-form-field
-                class="w-full field-hidden-subscript fuse-mat-dense"
-            >
-                <mat-select
-                    [(ngModel)]="maxDuration"
-                    [placeholder]="t('app.duration')"
+                <mat-form-field
+                    class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
                 >
-                    <mat-option [value]="0">{{
-                        "app.auto_freedom" | transloco
-                    }}</mat-option>
-                    <mat-option [value]="4">4s</mat-option>
-                    <mat-option [value]="6">6s</mat-option>
-                    <mat-option [value]="8">8s</mat-option>
-                    <mat-option [value]="10">10s</mat-option>
-                </mat-select>
-            </mat-form-field>
+                    <mat-label>Thời lượng</mat-label>
+                    <mat-select
+                        [(ngModel)]="maxDuration"
+                        [placeholder]="t('app.duration')"
+                    >
+                        <mat-option [value]="0">{{ "app.auto_freedom" | transloco }}</mat-option>
+                        <mat-option [value]="4">4s</mat-option>
+                        <mat-option [value]="6">6s</mat-option>
+                        <mat-option [value]="8">8s</mat-option>
+                        <mat-option [value]="10">10s</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
         </div>
-    </mat-dialog-content>
 
-    <mat-dialog-actions class="p-0 mt-4 mb-0 flex-col gap-3">
-        <button
-            class="bg-green-500 text-white w-full m-0"
-            (click)="submit('create')"
-            mat-flat-button
-            [disabled]="isAnalyzing"
-        >
-            @if (isAnalyzing) {
-                <mat-icon
-                    class="animate-spin icon-size-4 text-white"
-                    [svgIcon]="'feather:loader'"
-                ></mat-icon>
-            }
-            @if (!isAnalyzing) {
-                <mat-icon class="icon-size-4 text-white">voice_chat</mat-icon>
-            }
-            <mat-label class="ml-2 text-white">
-                {{ isAnalyzing ? "Đang phân tích..." : "Dựng video" }}
-            </mat-label>
-        </button>
-
-        @if (hasVideoProject) {
+        <!-- Footer -->
+        <div class="shrink-0 flex items-center justify-end gap-3 mt-6">
             <button
-                class="bg-blue-600 hover:bg-blue-700 text-white w-full m-0"
-                (click)="submit('script')"
-                mat-flat-button
+                type="button"
+                mat-button
+                (click)="cancel()"
+                class="text-gray-600 dark:text-gray-300 font-medium"
             >
-                <mat-icon
-                    class="icon-size-4 text-white"
-                    [svgIcon]="'heroicons_outline:document-text'"
-                ></mat-icon>
-                <mat-label class="ml-2 text-white">{{
-                    "app.auto_script_1" | transloco
+                Hủy
+            </button>
+
+            @if (hasVideoProject) {
+                <button
+                    type="button"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-md"
+                    (click)="submit('script')"
+                    mat-flat-button
+                >
+                    <mat-icon
+                        class="icon-size-5 mr-1.5 text-white"
+                        [svgIcon]="'heroicons_outline:document-text'"
+                    ></mat-icon>
+                    <span>{{ "app.auto_script_1" | transloco }}</span>
+                </button>
+            }
+
+            <button
+                type="button"
+                mat-flat-button
+                class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-md"
+                (click)="submit('create')"
+                [disabled]="isAnalyzing"
+            >
+                @if (isAnalyzing) {
+                    <mat-icon
+                        class="animate-spin icon-size-5 text-white"
+                        [svgIcon]="'feather:loader'"
+                    ></mat-icon>
+                }
+                @if (!isAnalyzing) {
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:video-camera'"
+                    ></mat-icon>
+                }
+                <mat-label class="ml-2">{{
+                    isAnalyzing ? "Đang phân tích..." : "Dựng video"
                 }}</mat-label>
             </button>
-        }
-    </mat-dialog-actions>
+        </div>
+    </div>
 </ng-container>

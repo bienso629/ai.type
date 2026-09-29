@@ -267,8 +267,16 @@ hr {
     color: white !important;
 }
 
-.mat-mdc-dialog-container .mdc-dialog__surface {
+.mat-mdc-dialog-container .mdc-dialog__surface,
+.mat-dialog-container .mdc-dialog__surface {
     border-radius: 6px !important;
+    border: none !important;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 0 0 4px rgba(0, 0, 0, 0.04), 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14), 0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+}
+
+.dark .mat-mdc-dialog-container .mdc-dialog__surface,
+.dark .mat-dialog-container .mdc-dialog__surface {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 4px rgba(255, 255, 255, 0.04), 0 11px 15px -7px rgba(0, 0, 0, 0.4), 0 24px 38px 3px rgba(0, 0, 0, 0.28), 0 9px 46px 8px rgba(0, 0, 0, 0.24) !important;
 }
 
 .mat-mdc-select-panel,
@@ -753,6 +761,10 @@ hr {
 .mdc-dialog__container,
 .mat-mdc-dialog-surface {
     max-height: 90vh !important;
+}
+
+/* Chỉ ẩn overflow ở surface để không bị cắt mất shadow của dialog */
+.mat-mdc-dialog-surface {
     overflow: hidden !important;
 }
 
@@ -798,8 +810,11 @@ hr {
 
 /* styles.css (global) */
 .cdk-overlay-pane .mat-mdc-dialog-container.dlg-stacked .mdc-dialog__surface {
-    box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 12px 32px rgba(0, 0, 0, .28);
     border-radius: 16px;
+}
+.dark .cdk-overlay-pane .mat-mdc-dialog-container.dlg-stacked .mdc-dialog__surface {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(0, 0, 0, .5);
 }
 
 .audio-player-wrapper,
