@@ -53,46 +53,90 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     popupTitle = 'Gemini';
     popupFavicon =
         'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64';
+    popupHomeUrl = 'https://gemini.google.com/app?hl=vi';
 
     // Toggle webview: ẩn/hiện nhanh
     toggleWebview() {
         this.isWebviewVisible = !this.isWebviewVisible;
     }
 
+    // Lấy thẻ webview đang được hiển thị trong container
+    private getActiveWebview(): any {
+        const container = document.getElementById('webview-container-div');
+        if (!container) return null;
+        const webviews = Array.from(container.querySelectorAll('webview')) as any[];
+        if (webviews.length === 0) return null;
+        const visibleWv = webviews.find(
+            (wv) => wv.style.display !== 'none' && wv.offsetParent !== null,
+        );
+        return visibleWv || webviews.find((wv) => wv.style.display !== 'none') || webviews[webviews.length - 1];
+    }
+
     // Nút quay lại trang trước trong webview
     webviewGoBack() {
-        const webview: any = document.querySelector(
-            '#webview-container-div webview',
-        );
-        if (
-            webview &&
-            typeof webview.goBack === 'function' &&
-            webview.canGoBack()
-        ) {
-            webview.goBack();
+        const webview = this.getActiveWebview();
+        if (webview) {
+            try {
+                if (typeof webview.canGoBack === 'function' && webview.canGoBack()) {
+                    webview.goBack();
+                    return;
+                }
+            } catch (err) {}
+            if (typeof webview.executeJavaScript === 'function') {
+                webview.executeJavaScript('window.history.back();');
+            }
         }
     }
 
-    // Mở lại trang chủ Gemini / Reset về trang chính
+    // Mở lại trang chủ của webview hiện tại hoặc tải lại trang
     webviewGoHome() {
-        const webview: any = document.querySelector(
-            '#webview-container-div webview',
-        );
-        if (webview && typeof webview.loadURL === 'function') {
-            webview.loadURL('https://gemini.google.com/app?hl=vi');
+        const webview = this.getActiveWebview();
+        if (webview) {
+            const homeUrl = this.popupHomeUrl || webview.getAttribute('src');
+            if (homeUrl && typeof webview.loadURL === 'function') {
+                webview.loadURL(homeUrl);
+            } else if (typeof webview.reload === 'function') {
+                webview.reload();
+            }
         }
+    }
+
+    // Kiểm tra xem công cụ hiện tại có phải công cụ thuộc hệ sinh thái Google hay không
+    get isGoogleTool(): boolean {
+        const url = (this.popupHomeUrl || '').toLowerCase();
+        const title = (this.popupTitle || '').toLowerCase();
+        return (
+            url.includes('google.com') ||
+            url.includes('gemini') ||
+            url.includes('colab') ||
+            title.includes('google') ||
+            title.includes('gemini') ||
+            title.includes('colab')
+        );
     }
 
     // Mở trang đăng nhập Google bằng Chrome thật (Stealth Login)
     openLoginBrowser() {
-        const container = document.getElementById('webview-container-div');
-        if (container) {
-            const webview = container.querySelector('webview') as any;
-            if (webview && webview.executeJavaScript) {
-                webview.executeJavaScript(
-                    "window.location.href = 'https://gemini.google.com/trigger-stealth-login';",
-                );
-            }
+        const webview = this.getActiveWebview();
+        if (webview && typeof webview.executeJavaScript === 'function') {
+            // Kích hoạt stealth login qua navigation ảo mà không làm thay đổi URL trang hiện tại
+            webview.executeJavaScript(`
+                (function() {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = 'https://accounts.google.com/ServiceLogin?trigger-stealth-login=true';
+                    document.body.appendChild(iframe);
+                    setTimeout(() => {
+                        try { document.body.removeChild(iframe); } catch(e){}
+                    }, 5000);
+                })();
+            `).catch(() => {
+                // Fallback nếu webview chưa có document body (đang load hoặc lỗi)
+                if (typeof webview.loadURL === 'function') {
+                    const curUrl = webview.getURL ? webview.getURL() : (this.popupHomeUrl || 'https://accounts.google.com/ServiceLogin');
+                    webview.loadURL(`https://accounts.google.com/ServiceLogin?trigger-stealth-login=true&continue=${encodeURIComponent(curUrl)}`);
+                }
+            });
         }
     }
 
@@ -306,6 +350,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.popupTitle = e.detail.title;
                 }
                 if (e.detail.url) {
+                    this.popupHomeUrl = e.detail.url;
                     try {
                         const domain = new URL(e.detail.url).hostname;
                         this.popupFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
