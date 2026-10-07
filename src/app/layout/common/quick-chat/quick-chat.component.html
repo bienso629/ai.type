@@ -191,36 +191,6 @@
                         </div>
                     </div>
 
-                    <p class="text-sm text-gray-500 mb-2 mt-4">
-                        {{
-                            "app.auto_to_fully_use_google_s_tools_pl"
-                                | transloco
-                        }}
-                    </p>
-                    <div class="flex gap-2">
-                        <button
-                            mat-flat-button
-                            color="primary"
-                            (click)="openLoginBrowser()"
-                            [matTooltip]="
-                                'app.auto_open_a_private_browser_to_sign'
-                                    | transloco
-                            "
-                        >
-                            {{ "app.auto_log_in_2" | transloco }}
-                        </button>
-                        <button
-                            mat-flat-button
-                            color="warn"
-                            (click)="clearWebviewCookie()"
-                            [matTooltip]="
-                                'app.auto_delete_all_cookies_session_of'
-                                    | transloco
-                            "
-                        >
-                            {{ "app.auto_delete_cookie" | transloco }}
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>

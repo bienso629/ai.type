@@ -5791,6 +5791,11 @@ app.whenReady().then(async () => {
 
                     const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
 
+                    let targetLoginUrl = loginUrl;
+                    if (!targetLoginUrl || targetLoginUrl.includes('trigger-stealth-login')) {
+                        targetLoginUrl = 'https://accounts.google.com/ServiceLogin';
+                    }
+
                     const chromeArgs = [
                         `--remote-debugging-port=${CHROME_DEBUG_PORT}`,
                         `--user-data-dir=${googleAuthDir}`,
@@ -5800,7 +5805,7 @@ app.whenReady().then(async () => {
                         '--disable-features=ChromeSigninInterceptEnabled,DialMediaRouteProvider',
                         '--disable-infobars',
                         `--window-size=550,750`,
-                        loginUrl
+                        targetLoginUrl
                     ];
 
                     sendToRenderer("tools-log", `[Gemini-Auth] Mở: ${realChromePath}`);
@@ -5892,8 +5897,14 @@ app.whenReady().then(async () => {
 
                             for (const p of pages) {
                                 try {
-                                    const url = p.url();
-                                    if (url.includes('gemini.google') && !url.includes('accounts.google.com')) {
+                                    const pageUrl = p.url();
+                                    if (
+                                        pageUrl.includes('myaccount.google.com') ||
+                                        (pageUrl.includes('google.com') &&
+                                            !pageUrl.includes('accounts.google.com') &&
+                                            !pageUrl.includes('signin') &&
+                                            !pageUrl.includes('ServiceLogin'))
+                                    ) {
                                         isLoggedIn = true;
                                         break;
                                     }
@@ -5902,38 +5913,21 @@ app.whenReady().then(async () => {
                         }
                         if (!isLoggedIn) throw new Error("Timeout waiting for login");
                     } catch (waitErr) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] Popup đã bị đóng hoặc hết gi�?!");
+                        sendToRenderer("tools-log", "[Google-Auth] Cửa sổ đăng nhập đã đóng hoặc hết thời gian chờ.");
                         if (syncInterval) clearInterval(syncInterval);
                         try { await stealthBrowser.close(); } catch (e) { }
                         try { chromeProcess.kill(); } catch (e) { }
                         isGeminiAuthRunning = false;
-
-                        if (!webviewContents.isDestroyed()) {
-                            webviewContents.loadURL('https://gemini.google.com/app?hl=vi');
-                        }
                         return;
                     }
 
-                    sendToRenderer("tools-log", "[Gemini-Auth] 🎉 �?ăng nhập thành công! �?ang xác thực với Gemini...");
+                    sendToRenderer("tools-log", "[Google-Auth] Đăng nhập thành công! Đang đồng bộ cookie...");
 
-                    // QUAN TRỌNG: Sau khi login Google, cần truy cập gemini.google để domain đó tạo cookie xác thực riêng
-                    let activePage = loginPage;
-                    try {
-                        if (activePage.isClosed()) {
-                            const pages = await stealthBrowser.pages();
-                            activePage = pages[pages.length - 1];
-                        }
-                        await activePage.goto('https://gemini.google.com/app?hl=vi', { waitUntil: 'networkidle2', timeout: 30000 });
-                    } catch (navErr) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] ⚠�? Gemini chậm tải, vẫn tiếp tục lấy cookie...");
-                        const pages = await stealthBrowser.pages();
-                        if (pages.length > 0) activePage = pages[pages.length - 1];
-                    }
-
-                    // Ch�? thêm 2 giây để cookie ổn định
+                    // Chờ thêm 2 giây để cookie ổn định
                     await new Promise(resolve => setTimeout(resolve, 2000));
 
-                    sendToRenderer("tools-log", "[Gemini-Auth] �?ang chuyển cookie...");
+                    const pages = await stealthBrowser.pages();
+                    let activePage = pages.find(p => !p.isClosed()) || pages[0];
 
                     if (!activePage || activePage.isClosed()) {
                         throw new Error("Không tìm thấy tab để lấy cookie!");
@@ -5943,7 +5937,7 @@ app.whenReady().then(async () => {
                     try {
                         const chromeUA = await stealthBrowser.userAgent();
                         webviewContents.setUserAgent(chromeUA);
-                        sendToRenderer("tools-log", `[Gemini-Auth] �?ã đồng bộ User-Agent: ${chromeUA.substring(0, 30)}...`);
+                        sendToRenderer("tools-log", `[Google-Auth] Đã đồng bộ User-Agent: ${chromeUA.substring(0, 30)}...`);
 
                         try {
                             const fs = require('fs');
@@ -5951,19 +5945,18 @@ app.whenReady().then(async () => {
                             fs.writeFileSync(uaPath, chromeUA, 'utf-8');
                         } catch (e) { }
                     } catch (e) {
-                        sendToRenderer("tools-log", `[Gemini-Auth] Lỗi đồng bộ UA: ${e.message}`);
+                        sendToRenderer("tools-log", `[Google-Auth] Lỗi đồng bộ UA: ${e.message}`);
                     }
 
-                    // Hút TOÀN BỘ cookie từ Chrome (không chỉ google.com)
+                    // Hút TOÀN BỘ cookie từ Chrome
                     const client = await activePage.createCDPSession();
                     const { cookies: allCookies } = await client.send('Network.getAllCookies');
+                    await client.detach();
 
-                    // Lấy toàn bộ cookie để hỗ trợ cả Youtube, bên thứ 3 (tránh bị thiếu cookie session)
                     const googleCookies = allCookies;
+                    sendToRenderer("tools-log", `[Google-Auth] Thu được ${googleCookies.length} cookie.`);
 
-                    sendToRenderer("tools-log", `[Gemini-Auth] Thu được ${googleCookies.length} cookie.`);
-
-                    // Import cookie vào Electron
+                    // Import cookie vào Electron session
                     let importedCount = 0;
                     for (const cookie of googleCookies) {
                         try {
@@ -5983,10 +5976,8 @@ app.whenReady().then(async () => {
                             if (cookie.expires && cookie.expires > 0) {
                                 cookieObj.expirationDate = cookie.expires;
                             } else {
-                                // Nếu là session cookie, gán th�?i gian 1 năm để tránh mất khi tắt ứng dụng
                                 cookieObj.expirationDate = Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 365);
                             }
-                            // __Host- cookies MUST NOT have a domain attribute
                             if (cookie.name.startsWith('__Host-')) {
                                 delete cookieObj.domain;
                             }
@@ -5996,51 +5987,21 @@ app.whenReady().then(async () => {
                             }
                             importedCount++;
                         } catch (cookieErr) {
-                            sendToRenderer("tools-log", `[Gemini-Auth] Lỗi import cookie ${cookie.name}: ${cookieErr.message}`);
-                            console.log(`[Gemini-Auth] Lỗi import cookie ${cookie.name}: ${cookieErr.message}`);
+                            sendToRenderer("tools-log", `[Google-Auth] Lỗi import cookie ${cookie.name}: ${cookieErr.message}`);
                         }
                     }
 
-                    sendToRenderer("tools-log", `[Gemini-Auth] ✅ �?ã import ${importedCount}/${googleCookies.length} cookie thành công!`);
+                    sendToRenderer("tools-log", `[Google-Auth] Đã import ${importedCount}/${googleCookies.length} cookie thành công!`);
 
-                    // �?ồng bộ Local Storage và Session Storage lần cuối
-                    // [BỎ QUA] Tránh làm h�?ng IndexedDB
-                    /*
-                    try {
-                        const lsData = await activePage.evaluate(() => JSON.stringify(localStorage));
-                        const ssData = await activePage.evaluate(() => JSON.stringify(sessionStorage));
-                        if (!webviewContents.isDestroyed()) {
-                            if (lsData) {
-                                await webviewContents.executeJavaScript(`
-                                    try {
-                                        const data = ${lsData};
-                                        for (let key in data) localStorage.setItem(key, data[key]);
-                                    } catch(e){}
-                                `);
-                            }
-                            if (ssData) {
-                                await webviewContents.executeJavaScript(`
-                                    try {
-                                        const data = ${ssData};
-                                        for (let key in data) sessionStorage.setItem(key, data[key]);
-                                    } catch(e){}
-                                `);
-                            }
-                        }
-                    } catch (e) { }
-                    */
-
-                    // �?óng Chrome
+                    // Đóng Chrome
                     try {
                         await stealthBrowser.close();
-                    } catch (closeErr) {
-                        // Chrome có thể đã đóng
-                    }
+                    } catch (closeErr) { }
                     try { chromeProcess.kill(); } catch (e) { }
 
-                    // Reload webview
+                    // Tải lại trang webview hiện tại để áp dụng cookie, giữ nguyên URL
                     if (!webviewContents.isDestroyed()) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] �?ang tải lại trang...");
+                        sendToRenderer("tools-log", "[Google-Auth] Đang làm mới trang web hiện tại...");
                         webviewContents.reloadIgnoringCache();
                     }
 

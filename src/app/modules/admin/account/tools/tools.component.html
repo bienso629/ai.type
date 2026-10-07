@@ -525,11 +525,7 @@
                                         rowHeight="1:1"
                                     >
 
-                                        @if (
-                                            user.groups?.includes(
-                                                "nhóm-đã-mua-ai-type"
-                                            ) || isZaloInstalled
-                                        ) {
+                                        @if (isZaloInstalled) {
                                             <mat-grid-tile
                                                 class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                                 [routerLink]="['/zalo']"
