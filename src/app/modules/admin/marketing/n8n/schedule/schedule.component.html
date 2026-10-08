@@ -239,105 +239,84 @@
         </div>
     </div>
 
-    <!-- Ultra Smooth 60fps Hover Slide Chat Panel (Expands to w-[500px] on hover, collapses smoothly to w-12 on mouseleave) -->
-    <div
-        class="relative shrink-0 h-full w-12 z-40 select-none bg-gray-50 border-l border-gray-200"
-    >
-        <!-- Hardware-Accelerated Overlay Drawer Container -->
-        <div
-            class="absolute right-0 top-0 bottom-0 h-full bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col overflow-hidden"
-            (mouseenter)="onChatMouseEnter()"
-            (mouseleave)="onChatMouseLeave()"
-            [style.width]="
-                isChatHovered || isChatFocused || isChatPinned
-                    ? '500px'
-                    : '48px'
-            "
-            style="
-                will-change: width;
-                transition: width 280ms cubic-bezier(0.16, 1, 0.3, 1);
-            "
+    <!-- Nút Ẩn/Hiện Trợ lý AI Chat xoay dọc sát mép khi đang ẩn -->
+    @if (!isChatOpened) {
+        <button
+            type="button"
+            (click)="toggleChat()"
+            class="absolute right-0 top-28 z-30 flex flex-col items-center gap-2 py-3 px-1.5 bg-white hover:bg-gray-50 border border-r-0 border-gray-200 rounded-l-xl shadow-md text-gray-700 hover:text-primary transition-all cursor-pointer select-none group"
+            matTooltip="Hiện Trợ lý AI Chat"
         >
-            <!-- Collapsed Vertical Handle Indicator (Visible when collapsed) -->
-            @if (!(isChatHovered || isChatFocused || isChatPinned)) {
-                <div
-                    class="absolute inset-0 flex flex-col items-center justify-between py-6 px-1 cursor-pointer bg-white hover:bg-gray-50 transition-colors z-20"
-                >
-                    <div class="flex flex-col items-center gap-3">
-                        <div
-                            class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center"
-                        >
-                            <mat-icon
-                                [svgIcon]="'feather:message-circle'"
-                                class="icon-size-5"
-                            ></mat-icon>
-                        </div>
-                        <span
-                            class="text-xs font-bold [writing-mode:vertical-lr] rotate-180 tracking-wider text-gray-600 uppercase"
-                            >Trợ lý AI Chat</span
-                        >
-                    </div>
-                    @if (chatHistory.length > 0) {
-                        <div
-                            class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"
-                        ></div>
-                    }
-                </div>
+            <div
+                class="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0"
+            >
+                <mat-icon
+                    [svgIcon]="'feather:message-circle'"
+                    class="icon-size-4"
+                ></mat-icon>
+            </div>
+            <span
+                class="text-[11px] font-bold [writing-mode:vertical-lr] rotate-180 tracking-wider text-gray-700 group-hover:text-primary uppercase py-1"
+                >Trợ lý AI Chat</span
+            >
+            @if (chatHistory.length > 0) {
+                <span
+                    class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
+                ></span>
             }
+        </button>
+    }
 
-            <!-- Expanded Panel Content Container (min-w-[500px] prevents text reflow during width animation for 60fps smoothness) -->
-            <div class="flex flex-col w-full h-full min-w-[500px] bg-white">
-                <!-- Header -->
-                <div
-                    class="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/90 shrink-0"
-                >
-                    <div class="flex items-center space-x-2">
-                        <mat-icon
-                            class="text-primary icon-size-5"
-                            [svgIcon]="'heroicons_outline:calendar'"
-                        ></mat-icon>
-                        <span class="font-bold text-sm text-gray-800"
-                            >Lên kế hoạch công việc của bạn</span
-                        >
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        <button
-                            mat-icon-button
-                            class="text-gray-400 hover:text-red-500"
-                            (click)="clearChatHistory()"
-                            matTooltip="Xóa bớt lịch sử chat"
-                        >
-                            <mat-icon
-                                class="icon-size-4"
-                                [svgIcon]="'heroicons_outline:trash'"
-                            ></mat-icon>
-                        </button>
-                        <button
-                            mat-icon-button
-                            class="text-gray-400 hover:text-gray-700"
-                            (click)="isChatPinned = !isChatPinned"
-                            [matTooltip]="
-                                isChatPinned
-                                    ? 'Bỏ ghim (Hover để mở)'
-                                    : 'Ghim cố định khung chat'
-                            "
-                        >
-                            <mat-icon
-                                class="icon-size-4"
-                                [ngClass]="
-                                    isChatPinned
-                                        ? 'text-primary'
-                                        : 'text-gray-400'
-                                "
-                                [svgIcon]="
-                                    isChatPinned
-                                        ? 'heroicons_solid:bookmark'
-                                        : 'heroicons_outline:bookmark'
-                                "
-                            ></mat-icon>
-                        </button>
-                    </div>
+    <!-- Slide Chat Drawer Container (Điều khiển qua nút bấm Ẩn/Hiện, không hover) -->
+    <div
+        class="fixed sm:absolute right-0 top-0 bottom-0 h-full w-[500px] max-w-full bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col overflow-visible transition-transform duration-280 ease-out"
+        [class.translate-x-full]="!isChatOpened"
+        [class.translate-x-0]="isChatOpened"
+    >
+        <!-- Nút thu nhỏ/ẩn bám sát mép sidebar khi đang mở (không chữ Ẩn) -->
+        @if (isChatOpened) {
+            <button
+                type="button"
+                (click)="toggleChat()"
+                class="absolute -left-7 top-28 z-50 w-7 h-10 flex items-center justify-center bg-white hover:bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg shadow-md text-gray-600 hover:text-primary transition-all cursor-pointer select-none"
+                matTooltip="Ẩn Trợ lý AI Chat"
+            >
+                <mat-icon
+                    [svgIcon]="'heroicons_outline:chevron-double-right'"
+                    class="icon-size-4"
+                ></mat-icon>
+            </button>
+        }
+
+        <!-- Expanded Panel Content Container -->
+        <div class="flex flex-col w-full h-full min-w-0 bg-white overflow-hidden">
+            <!-- Header -->
+            <div
+                class="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/90 shrink-0"
+            >
+                <div class="flex items-center space-x-2">
+                    <mat-icon
+                        class="text-primary icon-size-5"
+                        [svgIcon]="'heroicons_outline:calendar'"
+                    ></mat-icon>
+                    <span class="font-bold text-sm text-gray-800"
+                        >Lên kế hoạch công việc của bạn</span
+                    >
                 </div>
+                <div class="flex items-center space-x-1">
+                    <button
+                        mat-icon-button
+                        class="text-gray-400 hover:text-red-500"
+                        (click)="clearChatHistory()"
+                        matTooltip="Xóa bớt lịch sử chat"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'heroicons_outline:trash'"
+                        ></mat-icon>
+                    </button>
+                </div>
+            </div>
 
                 <div class="flex flex-col flex-auto h-full overflow-hidden">
                     <div class="flex-auto overflow-y-auto" #chatScroll>
@@ -685,7 +664,6 @@
             </div>
         </div>
     </div>
-</div>
 
 <ng-template #taskDetailDialog>
     <div

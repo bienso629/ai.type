@@ -319,31 +319,14 @@ Yêu cầu:${styleInstructions}
         }
     }
 
-    // [NEW] Biến trạng thái Slide Chat rộng (Hover & Pin)
-    isChatHovered: boolean = false;
+    // Biến trạng thái Slide Chat (Bật / Tắt theo nút bấm Ẩn/Hiện)
+    isChatOpened: boolean = false;
     isChatFocused: boolean = false;
     isChatPinned: boolean = false;
-    private chatHoverTimeout: any = null;
 
-    onChatMouseEnter() {
-        if (this.chatHoverTimeout) {
-            clearTimeout(this.chatHoverTimeout);
-            this.chatHoverTimeout = null;
-        }
-        if (!this.isChatHovered) {
-            this.isChatHovered = true;
-            this.cd.detectChanges();
-        }
-    }
-
-    onChatMouseLeave() {
-        if (this.chatHoverTimeout) {
-            clearTimeout(this.chatHoverTimeout);
-        }
-        this.chatHoverTimeout = setTimeout(() => {
-            this.isChatHovered = false;
-            this.cd.detectChanges();
-        }, 250);
+    toggleChat(): void {
+        this.isChatOpened = !this.isChatOpened;
+        this.cd.detectChanges();
     }
 
     isTaskDone(t: any): boolean {
@@ -395,6 +378,7 @@ Yêu cầu:${styleInstructions}
         }
         this.chatPrompt = text;
         this.isChatFocused = true;
+        this.isChatOpened = true;
         this.cd.detectChanges();
         const textarea = document.querySelector('textarea[placeholder*="prompt"]') as HTMLTextAreaElement;
         if (textarea) textarea.focus();
@@ -3628,6 +3612,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
     usePromptSuggestion(text: string) {
         this.chatPrompt = text;
         this.isChatFocused = true;
+        this.isChatOpened = true;
         this.cd.detectChanges();
     }
 
