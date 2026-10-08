@@ -261,11 +261,6 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     }
 
     restoreLicense(): void {
-        if (this.isFreeLicense) {
-            this.toastr.warning('Tài khoản miễn phí không có lịch sử thanh toán để khôi phục.');
-            return;
-        }
-
         const email = this.user?.email || this.multiAccountService.getItem('email') || this.multiAccountService.currentAccountId;
         if (!email || !email.includes('@')) {
             this.toastr.error('Không tìm thấy email tài khoản hợp lệ để khôi phục.');

@@ -3378,10 +3378,10 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
             if (/^<h2\b/i.test(clean)) {
                 sourceH2.push(clean);
                 sourceH.push(clean);
-                trashHeadings.push(clean);
+                doneParagraphs.push(clean);
             } else if (/^<h[1-6]\b/i.test(clean)) {
                 sourceH.push(clean);
-                trashHeadings.push(clean);
+                doneParagraphs.push(clean);
             } else if (/^<p\b/i.test(clean)) {
                 sourceP.push(clean);
                 doneParagraphs.push(clean);
@@ -3453,7 +3453,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 wp_task_id: taskId
             },
             done: doneParagraphs,
-            trash: trashHeadings,
+            trash: [],
             seo: {
                 mainkey: title,
                 title: { length: title.length, text: title, words: title.split(/\s+/).length, characters: title.length, findmainkey: 0 },

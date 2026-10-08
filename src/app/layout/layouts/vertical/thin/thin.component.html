@@ -27,7 +27,7 @@
 </fuse-vertical-navigation>
 
 <!-- Wrapper -->
-<div class="flex flex-col flex-auto w-full min-w-0 min-h-0 overflow-hidden">
+<div class="layout-main-wrapper flex flex-col flex-auto w-full min-w-0 min-h-0 overflow-hidden">
     <!-- Header -->
     <div
         class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b dark:border-b bg-card dark:bg-transparent print:hidden"
@@ -107,7 +107,7 @@
     </div>
 
     <!-- Content -->
-    <div class="flex flex-col flex-auto min-h-0 overflow-hidden">
+    <div class="layout-content-container flex flex-col flex-auto min-h-0 overflow-hidden">
         <!-- *ngIf="true" hack is required here for router-outlet to work correctly.
   Otherwise, layout changes won't be registered and the view won't be updated! -->
         @if (true) {
@@ -117,9 +117,9 @@
 
     <!-- Footer -->
     <div
-        class="relative flex flex-wrap items-center justify-between w-full p-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden gap-x-2 gap-y-1"
+        class="layout-footer relative flex flex-wrap items-center justify-between w-full p-3 sm:p-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden gap-x-2 gap-y-1"
     >
-        <div class="font-normal text-base text-secondary flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div class="font-normal text-xs sm:text-base text-secondary flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>
                 {{ "app.footer_powered_by_ai" | transloco }} &copy;
                 {{ currentYear }}, {{ "app.footer_version" | transloco }}

@@ -19,7 +19,7 @@
                 <div class="w-full mt-4">
                     <!-- Secret Key -->
                     <mat-form-field
-                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'"
                     >
                         <mat-label>{{
@@ -228,7 +228,7 @@
 
                 <div class="flex flex-col mt-4">
                     <mat-form-field
-                        class="flex-auto w-1/2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                        class="flex-auto w-full md:w-1/2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'"
                     >
                         <mat-label class="">{{
@@ -264,7 +264,7 @@
                 <div class="w-full mt-4">
                     <!-- Search API Key -->
                     <mat-form-field
-                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'"
                     >
                         <mat-label>{{
@@ -305,7 +305,7 @@
                 <div class="w-full mt-2">
                     <!-- N8N -->
                     <mat-form-field
-                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'"
                     >
                         <mat-label>{{
@@ -349,7 +349,7 @@
                 <div class="w-full mt-4">
                     <!-- Chatbot Api -->
                     <mat-form-field
-                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'"
                     >
                         <mat-label>{{
@@ -381,7 +381,7 @@
                 <div class="w-full mt-2">
                     <!-- Device Token Api -->
                     <mat-form-field
-                        class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                        class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'"
                     >
                         <mat-label>{{
@@ -414,7 +414,7 @@
                     <div class="w-full mt-2">
                         <!-- Device Token Api -->
                         <mat-form-field
-                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'"
                         >
                             <mat-label>{{
@@ -441,7 +441,7 @@
                     <div class="w-full mt-2">
                         <!-- Text2Speech Api -->
                         <mat-form-field
-                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'"
                         >
                             <mat-label>{{
@@ -468,7 +468,7 @@
                     <div class="w-full mt-2">
                         <!-- Text2Speech Api -->
                         <mat-form-field
-                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'"
                         >
                             <mat-label>{{
@@ -495,7 +495,7 @@
                     <div class="w-full mt-2">
                         <!-- Text2Speech Api -->
                         <mat-form-field
-                            class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'"
                         >
                             <mat-label>{{
@@ -538,7 +538,7 @@
                         "
                     ></div>
 
-                    <div class="flex flex-col w-1/2 mt-2">
+                    <div class="flex flex-col w-full md:w-1/2 mt-2">
                         @for (key of geminiKeys; track key; let i = $index) {
                             <div class="flex mt-2">
                                 <mat-form-field
@@ -649,7 +649,7 @@
                     >
                         <div class="w-full mt-4">
                             <mat-form-field
-                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'"
                             >
                                 <mat-label>{{
@@ -673,7 +673,7 @@
 
                         <div class="w-full mt-2">
                             <mat-form-field
-                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'"
                             >
                                 <mat-label>{{
@@ -720,7 +720,7 @@
                     >
                         <div class="w-full mt-2">
                             <mat-form-field
-                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'"
                             >
                                 <mat-label>{{
@@ -744,7 +744,7 @@
                                         track model
                                     ) {
                                         <mat-option [value]="model">
-                                            {{ model }}
+                                             {{ model }}
                                         </mat-option>
                                     }
                                 </mat-autocomplete>
@@ -756,7 +756,7 @@
 
                         <div class="w-full mt-2">
                             <mat-form-field
-                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'"
                             >
                                 <mat-label>{{
@@ -780,7 +780,7 @@
                                         track model
                                     ) {
                                         <mat-option [value]="model">
-                                            {{ model }}
+                                             {{ model }}
                                         </mat-option>
                                     }
                                 </mat-autocomplete>
@@ -792,7 +792,7 @@
 
                         <div class="w-full mt-2">
                             <mat-form-field
-                                class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'"
                             >
                                 <mat-label>{{
