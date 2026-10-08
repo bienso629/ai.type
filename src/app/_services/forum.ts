@@ -8,7 +8,8 @@ import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 
 import { Observable, Subject, of, from } from 'rxjs';
-import { catchError, tap, map, takeUntil, shareReplay } from 'rxjs/operators';
+import { catchError, tap, map, takeUntil, shareReplay, switchMap } from 'rxjs/operators';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 let options = {
     headers: new HttpHeaders({
@@ -48,21 +49,132 @@ export class ForumService {
             });
     }
 
+    private _loginDirectTypeVn(dataForm: any): Observable<any> {
+        return from(
+            (async () => {
+                const getCookieStr = (headers: any) => {
+                    const cookie = headers?.['set-cookie'] || headers?.['Set-Cookie'] || '';
+                    if (Array.isArray(cookie)) {
+                        return cookie.map(c => c.split(';')[0]).join('; ');
+                    }
+                    return cookie ? cookie.split(';')[0] : '';
+                };
+
+                // 1. Lấy CSRF token và initial session cookie từ /api/config
+                const configRes = await CapacitorHttp.get({
+                    url: 'https://type.vn/api/config',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const csrfToken = configRes.data?.csrf_token;
+                const initialCookie = getCookieStr(configRes.headers);
+
+                if (!csrfToken) {
+                    throw new Error('Không thể khởi tạo phiên đăng nhập từ type.vn');
+                }
+
+                // 2. Thực hiện đăng nhập vào /login
+                const loginRes = await CapacitorHttp.post({
+                    url: 'https://type.vn/login',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/plain, */*',
+                        'x-csrf-token': csrfToken,
+                        'Cookie': initialCookie
+                    },
+                    data: {
+                        username: dataForm.username,
+                        password: dataForm.password,
+                        _csrf: csrfToken
+                    }
+                });
+
+                if (loginRes.status !== 200) {
+                    return {
+                        success: false,
+                        data: {
+                            status: { code: 'error', message: 'Tài khoản hoặc mật khẩu không chính xác.' }
+                        }
+                    };
+                }
+
+                const sessionCookie = getCookieStr(loginRes.headers) || initialCookie;
+
+                // 3. Lấy định danh slug người dùng hiện tại qua /api/me
+                const meRes = await CapacitorHttp.get({
+                    url: 'https://type.vn/api/me',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cookie': sessionCookie
+                    }
+                });
+
+                const rawMe = typeof meRes.data === 'string' ? meRes.data : '';
+                const userSlug = rawMe.replace(/^\/user\//, '') || dataForm.username;
+
+                // 4. Lấy chi tiết hồ sơ tài khoản từ /api/user/:slug
+                const userRes = await CapacitorHttp.get({
+                    url: `https://type.vn/api/user/${encodeURIComponent(userSlug)}`,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cookie': sessionCookie
+                    }
+                });
+
+                const u = userRes.data;
+                if (!u || !u.uid) {
+                    throw new Error('Không thể tải thông tin tài khoản từ diễn đàn.');
+                }
+
+                return {
+                    success: true,
+                    data: {
+                        status: { code: 'ok', message: 'OK' },
+                        response: {
+                            uid: u.uid,
+                            username: u.username || dataForm.username,
+                            picture: u.picture || null,
+                            postcount: u.postcount || 0,
+                            reputation: u.reputation || 0,
+                            status: u.status || 'online'
+                        }
+                    }
+                };
+            })()
+        ).pipe(
+            catchError((err) => {
+                console.error('[ForumService] Lỗi đăng nhập trực tiếp qua type.vn:', err);
+                return of({
+                    success: false,
+                    data: {
+                        status: { code: 'error', message: err?.message || 'Lỗi kết nối diễn đàn.' }
+                    }
+                });
+            })
+        );
+    }
+
     public loginv3(dataForm: any): Observable<any> {
-        const url = `${this.config.settings.api[dataForm.server]}/forum/login/v3`;
+        const serverKey = dataForm.server || 'vn.s3';
+        const serverUrl = this.config?.settings?.api?.[serverKey];
+        const url = `${serverUrl}/forum/login/v3`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
         };
 
         return this.http.post<any>(url, data, options).pipe(
-            map(data => {
-                return data;
+            switchMap(res => {
+                // Nếu server trả về kết quả hợp lệ
+                if (res && res.data && res.data.status && res.data.status.code === 'ok') {
+                    return of(res);
+                }
+                // Nếu server trả về lỗi hoặc 500, fallback sang đăng nhập trực tiếp type.vn
+                return this._loginDirectTypeVn(dataForm);
             }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+            catchError((_) => {
+                // Khi API gateway trung gian 500 / 502 / mạng ngắt, tự động xác thực trực tiếp qua type.vn
+                return this._loginDirectTypeVn(dataForm);
+            })
         );
     }
 
