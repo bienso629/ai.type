@@ -282,7 +282,9 @@
                         </ngx-datatable-column>
                         <!-- Cột 3: Nút thao tác -->
                         <ngx-datatable-column
-                            [width]="100"
+                            [width]="80"
+                            [minWidth]="80"
+                            [maxWidth]="80"
                             [sortable]="false"
                             [canAutoResize]="false"
                             [draggable]="false"
@@ -294,13 +296,14 @@
                                 ngx-datatable-cell-template
                             >
                                 <div
-                                    class="flex items-center justify-center w-full h-full gap-1"
+                                    class="flex items-center justify-end w-full h-full gap-1 pr-1"
                                 >
                                     @if (indexingFilename === row.filename) {
                                         <button
                                             mat-icon-button
                                             disabled
                                             [matTooltip]="'Đang học tài liệu...'"
+                                            class="w-7 h-7 min-w-7 min-h-7 p-0 flex items-center justify-center leading-none"
                                         >
                                             <mat-icon
                                                 class="icon-size-4 animate-spin text-blue-500"
@@ -321,7 +324,7 @@
                                                 )
                                             "
                                             [matTooltip]="'Đã học (Bấm để học lại)'"
-                                            class="transition-colors"
+                                            class="w-7 h-7 min-w-7 min-h-7 p-0 flex items-center justify-center leading-none transition-colors"
                                         >
                                             <mat-icon
                                                 class="icon-size-4 text-green-500"
@@ -342,7 +345,7 @@
                                                 )
                                             "
                                             [matTooltip]="'Chưa học (Bấm để học tài liệu này)'"
-                                            class="transition-colors"
+                                            class="w-7 h-7 min-w-7 min-h-7 p-0 flex items-center justify-center leading-none transition-colors"
                                         >
                                             <mat-icon
                                                 class="icon-size-4 text-amber-500"
@@ -355,7 +358,7 @@
                                         mat-icon-button
                                         (click)="deletePdf(row.doc_type === 'None' || !row.doc_type ? '' : row.doc_type, row.filename, rowIndex)"
                                         [matTooltip]="'Xóa tài liệu này'"
-                                        class="transition-colors text-gray-400 hover:text-red-500"
+                                        class="w-7 h-7 min-w-7 min-h-7 p-0 flex items-center justify-center leading-none transition-colors text-gray-400 hover:text-red-500"
                                     >
                                         <mat-icon
                                             class="icon-size-4"
@@ -417,16 +420,6 @@
                                                 >
                                             </button>
                                         }
-                                        <div
-                                            class="page-count font-medium text-secondary"
-                                        >
-                                            Đã chọn
-                                            {{
-                                                selected ? selected.length : 0
-                                            }}
-                                            trong
-                                            {{ filteredFileRows.length }} file
-                                        </div>
                                     </div>
 
                                     <!-- Nút Colab GPU ở bên phải footer (bỏ border) -->
@@ -860,13 +853,13 @@
                                         [class.text-blue-600]="
                                             currentThread === t.id
                                         "
-                                        [title]="t.name || t.title"
+                                        [title]="t.title || (t.name && t.name !== 'admin' && t.name !== user?.name ? t.name : '') || ('Hộp thoại #' + t.id)"
                                     >
                                         {{
-                                            t.name
-                                                ? t.name
-                                                : t.title
-                                                  ? t.title
+                                            t.title
+                                                ? t.title
+                                                : (t.name && t.name !== 'admin' && t.name !== user?.name)
+                                                  ? t.name
                                                   : "Hộp thoại #" + t.id
                                         }}
                                     </div>

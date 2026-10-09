@@ -229,18 +229,33 @@ export class LogService {
     }
 
     public checkseo(url: string): Observable<any> {
-        return this.http.get<any>('https://rankmath.com/analyze/v2/json/?u=' + encodeURIComponent(url) + '&is_subpage=1', {
-            headers: new HttpHeaders({
-                'Accept': 'application/json'
-            })
-        }).pipe(
-            map(data => {
-                return data;
+        let activeInfo = this.multiAccountService.getItem('active_info');
+        activeInfo = AuthUtils._getActiveInfo(activeInfo);
+
+        const dataForm: any = {
+            links: [url],
+            year: this.year,
+            appId: 'ai.typing',
+            appToken: (activeInfo && activeInfo['user'] && activeInfo['user']['appToken']) || ''
+        };
+
+        const serverKey = (this.user && this.user.server) || 'local';
+        const baseUrl = (this.config && this.config.settings && this.config.settings.api && this.config.settings.api[serverKey]) || 'http://localhost:1122/v1';
+        const apiUrl = `${baseUrl}/crawl/link/seo`;
+
+        const secretKey = (this.config && this.config.settings && this.config.settings.gen) || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
+        const data = {
+            params: this._h.encrypt(dataForm, secretKey)
+        };
+
+        return this.http.post<any>(apiUrl, data, options).pipe(
+            map(res => {
+                if (res && res.data) {
+                    return res.data;
+                }
+                return res;
             }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+            catchError(this.handleError('checkseo', null))
         );
     }
 

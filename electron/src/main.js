@@ -10665,9 +10665,10 @@ ipcMain.handle('save-local-chatbot-history', async (event, { username, threadId,
         const dateStr = new Date().toLocaleDateString('vi-VN', {
             hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
         });
-        const firstUserMsg = (messages || []).find(m => m[2] === 'user')?.[3];
-        const computedTitle = (firstUserMsg ? firstUserMsg.slice(0, 60) : null) || 
-                              (title && title !== 'Hội thoại mới' ? title.slice(0, 60) : null) || 
+        const userMsgs = (messages || []).filter(m => m[2] === 'user');
+        const lastUserMsg = userMsgs.length > 0 ? userMsgs[userMsgs.length - 1]?.[3] : null;
+        const computedTitle = (lastUserMsg ? lastUserMsg.slice(0, 100) : null) || 
+                              (title && title !== 'Hội thoại mới' && title !== 'admin' ? title.slice(0, 100) : null) || 
                               (title || 'Hội thoại mới');
 
         const threadItem = {

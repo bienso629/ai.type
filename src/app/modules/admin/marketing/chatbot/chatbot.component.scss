@@ -205,13 +205,50 @@
 
 .chatbot-file-table {
     background: transparent !important;
+    box-shadow: none !important;
 
     .datatable-header {
         background: #f8fafc !important;
         border-bottom: 1px solid #e2e8f0 !important;
+        box-shadow: none !important;
+
+        .datatable-header-cell {
+            padding: 0.6rem 0.5rem !important;
+        }
+
+        .datatable-row-left,
+        .datatable-row-right {
+            background-image: none !important;
+        }
+    }
+
+    .datatable-body {
+        .datatable-row-left,
+        .datatable-row-right {
+            background-image: none !important;
+        }
     }
 
     .datatable-body-row {
         border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+
+        .datatable-body-cell {
+            padding: 0.5rem 0.5rem !important;
+
+            button.mat-mdc-icon-button {
+                --mdc-icon-button-state-layer-size: 28px;
+                width: 28px !important;
+                height: 28px !important;
+                padding: 0 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+
+                .mat-mdc-button-touch-target {
+                    width: 28px !important;
+                    height: 28px !important;
+                }
+            }
+        }
     }
 }
