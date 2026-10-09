@@ -282,59 +282,7 @@ export class SettingsAccountComponent implements OnInit {
             .subscribe((data: any) => {
                 if (this.accountForm) {
                     const settings = data?.settings || {};
-                    this.accountForm.reset({
-                        emailConfig_nodebbUrl: settings.emailConfig_nodebbUrl || '',
-                        emailConfig_nodebbToken: settings.emailConfig_nodebbToken || '',
-                        emailConfig_smtpHost: settings.emailConfig_smtpHost || '',
-                        emailConfig_smtpPort: settings.emailConfig_smtpPort || '',
-                        emailConfig_smtpUser: settings.emailConfig_smtpUser || '',
-                        emailConfig_smtpPass: settings.emailConfig_smtpPass || '',
-                        saveimages: settings.saveimages || false,
-                        statusTypeLite: true,
-                        autosave: settings.autosave || false,
-                        autoSaveLocal: this.isElectron
-                            ? (settings.autoSaveLocal !== undefined
-                                ? settings.autoSaveLocal
-                                : (localStorage.getItem('ai_type_auto_save_local') !== 'false'))
-                            : false,
-                        closethread: false,
-                        proccessing: false,
-                        linkDonate: settings.linkDonate || '',
-                        language: settings.language || 'vi',
-                        secretKey: settings.secretKey || '',
-                        searchAPIKey: settings.searchAPIKey || '',
-                        port: settings.port || '',
-                        typelite_plugin: settings.typelite_plugin || '',
-                        chatbot: settings.chatbot || '',
-                        customer: settings.customer || '',
-                        bigdata: settings.bigdata || '',
-                        downloader_plugin: settings.downloader_plugin || '',
-                        tts: settings.tts || '',
-                        sst: settings.sst || '',
-                        mxhauto: settings.mxhauto || '',
-                        n8n: settings.n8n || '',
-                        figmaToken: settings.figmaToken || '',
-                        figmaMcp: settings.figmaMcp || '',
-                        umodelverseUrl: settings.umodelverseUrl || '',
-                        umodelverseKey: settings.umodelverseKey || '',
-                        umodelverseChatModel: settings.umodelverseChatModel || '',
-                        umodelverseImageModel: settings.umodelverseImageModel || '',
-                        umodelverseVideoModel: settings.umodelverseVideoModel || '',
-                        enableUmodelverse: settings.enableUmodelverse !== undefined ? settings.enableUmodelverse : false,
-                        customCookies: settings.customCookies || '',
-                    }, { emitEvent: false });
-
-                    if (settings.secretKey) {
-                        this.geminiKeys = settings.secretKey.split(';').filter((k: string) => k.trim() !== '');
-                        if (this.geminiKeys.length === 0) {
-                            this.geminiKeys = [''];
-                        }
-                    } else {
-                        this.geminiKeys = [''];
-                    }
-                    this.geminiKeysVisibility = this.geminiKeys.map(() => false);
-
-                    this.cd.markForCheck();
+                    this.applySettingsToForm(settings);
                 }
             });
 
@@ -464,6 +412,79 @@ export class SettingsAccountComponent implements OnInit {
             .catch(err => {
                 console.warn('Could not fetch umodelverse models', err);
             });
+
+        // Nếu settings rỗng và có user, chủ động gọi fetch profile để lấp đầy form
+        if (!settings || Object.keys(settings).length === 0) {
+            const currentUname = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username');
+            if (currentUname) {
+                this._userClientService.profile({ name: currentUname })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe(res => {
+                        if (res && res.success && res.data && res.data.settings) {
+                            this.multiAccountService.setItem('settings', res.data.settings);
+                            this.applySettingsToForm(res.data.settings);
+                        }
+                    });
+            }
+        }
+    }
+
+    public applySettingsToForm(settings: any): void {
+        if (!this.accountForm) return;
+        settings = settings || {};
+        this.accountForm.reset({
+            emailConfig_nodebbUrl: settings.emailConfig_nodebbUrl || '',
+            emailConfig_nodebbToken: settings.emailConfig_nodebbToken || '',
+            emailConfig_smtpHost: settings.emailConfig_smtpHost || '',
+            emailConfig_smtpPort: settings.emailConfig_smtpPort || '',
+            emailConfig_smtpUser: settings.emailConfig_smtpUser || '',
+            emailConfig_smtpPass: settings.emailConfig_smtpPass || '',
+            saveimages: settings.saveimages || false,
+            statusTypeLite: true,
+            autosave: settings.autosave || false,
+            autoSaveLocal: this.isElectron
+                ? (settings.autoSaveLocal !== undefined
+                    ? settings.autoSaveLocal
+                    : (localStorage.getItem('ai_type_auto_save_local') !== 'false'))
+                : false,
+            closethread: false,
+            proccessing: false,
+            linkDonate: settings.linkDonate || '',
+            language: settings.language || 'vi',
+            secretKey: settings.secretKey || '',
+            searchAPIKey: settings.searchAPIKey || '',
+            port: settings.port || '',
+            typelite_plugin: settings.typelite_plugin || '',
+            chatbot: settings.chatbot || '',
+            customer: settings.customer || '',
+            bigdata: settings.bigdata || '',
+            downloader_plugin: settings.downloader_plugin || '',
+            tts: settings.tts || '',
+            sst: settings.sst || '',
+            mxhauto: settings.mxhauto || '',
+            n8n: settings.n8n || '',
+            figmaToken: settings.figmaToken || '',
+            figmaMcp: settings.figmaMcp || '',
+            umodelverseUrl: settings.umodelverseUrl || '',
+            umodelverseKey: settings.umodelverseKey || '',
+            umodelverseChatModel: settings.umodelverseChatModel || '',
+            umodelverseImageModel: settings.umodelverseImageModel || '',
+            umodelverseVideoModel: settings.umodelverseVideoModel || '',
+            enableUmodelverse: settings.enableUmodelverse !== undefined ? settings.enableUmodelverse : false,
+            customCookies: settings.customCookies || '',
+        }, { emitEvent: false });
+
+        if (settings.secretKey) {
+            this.geminiKeys = settings.secretKey.split(';').filter((k: string) => k.trim() !== '');
+            if (this.geminiKeys.length === 0) {
+                this.geminiKeys = [''];
+            }
+        } else {
+            this.geminiKeys = [''];
+        }
+        this.geminiKeysVisibility = this.geminiKeys.map(() => false);
+
+        this.cd.markForCheck();
     }
 
     private setupAutocompleteFilters(): void {

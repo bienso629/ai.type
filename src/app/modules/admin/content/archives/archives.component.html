@@ -40,9 +40,9 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex shrink-0 items-center mt-0 sm:ml-4 gap-2">
+        <div class="flex flex-1 sm:flex-initial items-center mt-2 sm:mt-0 sm:ml-4 gap-2 w-full sm:w-auto">
             <ng-select
-                class="custom-select-ai-writer max-w-60"
+                class="custom-select-ai-writer flex-1 sm:w-60 min-w-0"
                 [placeholder]="'app.search_by_episode' | transloco"
                 [items]="collections"
                 (clear)="onClearCollection()"
@@ -73,7 +73,7 @@
                 </ng-template>
             </ng-select>
             <mat-form-field
-                class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix ml-2"
+                class="flex-1 sm:w-60 min-w-0 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix ml-1 sm:ml-2"
                 appearance="fill"
             >
                 <input
@@ -112,7 +112,7 @@
             [offset]="pageNumber"
             (page)="setPage($event)"
             (scroll)="onTableScroll($event)"
-            [headerHeight]="50"
+            [headerHeight]="isMobile ? 38 : 50"
             [footerHeight]="50"
             [rowHeight]="50"
             [scrollbarV]="true"
@@ -123,9 +123,9 @@
                 totalMessage: 'tác vụ',
             }"
         >
-            <!-- Column Templates -->
+            <!-- Column Checkbox -->
             <ngx-datatable-column
-                [width]="30"
+                [width]="isMobile ? 36 : 30"
                 [sortable]="false"
                 [canAutoResize]="false"
                 [draggable]="false"
@@ -134,105 +134,246 @@
                 [checkboxable]="displayCheck"
             ></ngx-datatable-column>
 
-            <!-- Column Templates -->
-            <ngx-datatable-column
-                name="{{ 'app.task_id' | transloco }}"
-                [width]="150"
-                [sortable]="false"
-                [canAutoResize]="false"
-                [draggable]="false"
-                [resizeable]="false"
-            >
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    @if (row && row.isGroupHeader) {
-                        <div
-                            class="flex items-center font-bold text-sm text-blue-600 dark:text-blue-400 gap-2 whitespace-nowrap"
-                        >
-                            <mat-icon
-                                class="icon-size-4 text-blue-500 shrink-0"
-                                svgIcon="heroicons_solid:clock"
-                            ></mat-icon>
-                            <span>{{ row.groupTitle }} ({{ row.count }})</span>
-                        </div>
-                    }
-                    @if (row && !row.isGroupHeader && row.uuid) {
-                        <div class="flex items-center justify-self-stretch">
-                            <mat-label
-                                matTooltipPosition="above"
-                                [matTooltip]="
-                                    'app.continue_editing_content' | transloco
-                                "
-                                (click)="openRowArticle(row)"
-                                class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800"
+            <!-- Column Task ID (ẩn trên mobile, gộp badge vào cột tiêu đề) -->
+            @if (!isMobile) {
+                <ngx-datatable-column
+                    name="{{ 'app.task_id' | transloco }}"
+                    [width]="150"
+                    [sortable]="false"
+                    [canAutoResize]="false"
+                    [draggable]="false"
+                    [resizeable]="false"
+                >
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        @if (row && row.isGroupHeader) {
+                            <div
+                                class="flex items-center font-bold text-sm text-blue-600 dark:text-blue-400 gap-2 whitespace-nowrap"
                             >
-                                {{ row.uuid }}
-                            </mat-label>
-                        </div>
-                    }
-                </ng-template>
-            </ngx-datatable-column>
+                                <mat-icon
+                                    class="icon-size-4 text-blue-500 shrink-0"
+                                    svgIcon="heroicons_solid:clock"
+                                ></mat-icon>
+                                <span>{{ row.groupTitle }} ({{ row.count }})</span>
+                            </div>
+                        }
+                        @if (row && !row.isGroupHeader && row.uuid) {
+                            <div class="flex items-center justify-self-stretch">
+                                <mat-label
+                                    matTooltipPosition="above"
+                                    [matTooltip]="
+                                        'app.continue_editing_content' | transloco
+                                    "
+                                    (click)="openRowArticle(row)"
+                                    class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800"
+                                >
+                                    {{ row.uuid }}
+                                </mat-label>
+                            </div>
+                        }
+                    </ng-template>
+                </ngx-datatable-column>
+            }
 
-            <!-- Column Templates -->
+            <!-- Column Title (Card layout linh hoạt cho mobile) -->
             <ngx-datatable-column
                 name="{{ 'app.title' | transloco }}"
-                [width]="550"
+                [width]="isMobile ? 240 : 550"
                 [sortable]="false"
                 [canAutoResize]="true"
                 [draggable]="false"
                 [resizeable]="true"
             >
                 <ng-template let-row="row" ngx-datatable-cell-template>
+                    @if (row && row.isGroupHeader) {
+                        <div
+                            class="flex items-center font-bold text-xs sm:text-sm text-blue-600 dark:text-blue-400 gap-1.5 whitespace-nowrap"
+                        >
+                            <mat-icon
+                                class="icon-size-3.5 sm:icon-size-4 text-blue-500 shrink-0"
+                                svgIcon="heroicons_solid:clock"
+                            ></mat-icon>
+                            <span>{{ row.groupTitle }} ({{ row.count }})</span>
+                        </div>
+                    }
                     @if (row && !row.isGroupHeader && row.uuid) {
                         <div
-                            class="flex items-center w-full gap-2 my-auto cursor-pointer"
+                            class="flex flex-col justify-center w-full min-w-0 py-0.5 my-auto cursor-pointer"
                             (click)="openRowArticle(row)"
                         >
-                            @if (isRowEncrypted(row)) {
-                                <mat-icon
-                                    class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto"
-                                    [svgIcon]="'feather:lock'"
-                                    [matTooltip]="'Nội dung đã được mã hóa AES-256'"
-                                ></mat-icon>
+                            <div class="flex items-center w-full gap-1.5 min-w-0">
+                                @if (isRowEncrypted(row)) {
+                                    <mat-icon
+                                        class="icon-size-3.5 sm:icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto"
+                                        [svgIcon]="'feather:lock'"
+                                        [matTooltip]="'Nội dung đã được mã hóa AES-256'"
+                                    ></mat-icon>
+                                }
+                                <p
+                                    class="row-title text-base font-normal truncate flex-1 leading-normal hover:underline text-gray-900 dark:text-gray-100"
+                                    [matTooltip]="row.title"
+                                >
+                                    {{ row.title }}
+                                </p>
+                            </div>
+
+                            @if (isMobile) {
+                                <div class="flex items-center gap-1.5 mt-0.5 text-[10.5px] text-secondary leading-none">
+                                    <span class="px-1 py-0.5 rounded bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 font-medium font-mono text-[9.5px]">
+                                        {{ row.uuid }}
+                                    </span>
+                                    @if (getDomainString(row)) {
+                                        <span
+                                            class="text-blue-600 dark:text-blue-400 truncate max-w-[120px]"
+                                            (click)="$event.stopPropagation(); openWPPost(row)"
+                                        >
+                                            {{ getDomainString(row) }}
+                                        </span>
+                                    }
+                                    @if (row.used >= 0) {
+                                        <span class="text-gray-400">·</span>
+                                        <span>{{ row.used }} lần</span>
+                                    }
+                                    <span class="text-gray-400">·</span>
+                                    <span>{{ getDateGroup(row) }}</span>
+                                </div>
                             }
-                            <p
-                                class="font-normal truncate flex-1 my-auto leading-normal hover:underline"
-                                [matTooltip]="row.title"
+                        </div>
+                    }
+                </ng-template>
+            </ngx-datatable-column>
+
+            <!-- Column Domain (Desktop) -->
+            @if (!isMobile) {
+                <ngx-datatable-column
+                    name="Domain"
+                    [width]="120"
+                    [sortable]="false"
+                    [canAutoResize]="false"
+                    [draggable]="false"
+                    [resizeable]="true"
+                >
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        @if (!row?.isGroupHeader && getDomainString(row)) {
+                            <span
+                                class="truncate block w-full text-blue-600 cursor-pointer hover:underline"
+                                [matTooltip]="getDomainString(row)"
+                                (click)="$event.stopPropagation(); openWPPost(row)"
                             >
-                                {{ row.title }}
-                            </p>
-                        </div>
-                    }
-                </ng-template>
-            </ngx-datatable-column>
+                                {{ getDomainString(row) }}
+                            </span>
+                        }
+                    </ng-template>
+                </ngx-datatable-column>
+            }
 
-            <!-- Column Templates -->
+            <!-- Column Usage (Desktop) -->
+            @if (!isMobile) {
+                <ngx-datatable-column
+                    name="{{ 'app.usage' | transloco }}"
+                    [width]="150"
+                    [sortable]="false"
+                    [canAutoResize]="false"
+                    [draggable]="false"
+                    [resizeable]="false"
+                >
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        @if (row && !row.isGroupHeader && row.uuid) {
+                            <div class="flex items-center justify-self-stretch">
+                                @if (row.used < 0) {
+                                    <mat-label
+                                        class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white"
+                                        >{{
+                                            "app.unconfirmed_1" | transloco
+                                        }}</mat-label
+                                    >
+                                }
+                                @if (row.used >= 0) {
+                                    <mat-label
+                                        >{{ row.used }}
+                                        {{ "app.times" | transloco }}</mat-label
+                                    >
+                                }
+                            </div>
+                        }
+                    </ng-template>
+                </ngx-datatable-column>
+            }
 
-            <!-- Column Domain -->
+            <!-- Column Last Modified (Desktop) -->
+            @if (!isMobile) {
+                <ngx-datatable-column
+                    name="{{ 'app.last_modified' | transloco }}"
+                    [width]="130"
+                    [sortable]="false"
+                    [canAutoResize]="false"
+                    [draggable]="false"
+                    [resizeable]="false"
+                >
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        @if (row && !row.isGroupHeader && row.uuid) {
+                            <span class="text-base font-medium text-secondary">
+                                {{ getDateGroup(row) }}
+                            </span>
+                        }
+                    </ng-template>
+                </ngx-datatable-column>
+            }
+
+            <!-- Column Collaborators (Desktop) -->
+            @if (!isMobile) {
+                <ngx-datatable-column
+                    name="{{ 'app.collaborators' | transloco }}"
+                    [width]="120"
+                    [sortable]="false"
+                    [canAutoResize]="false"
+                    [draggable]="false"
+                    [resizeable]="false"
+                >
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        @if (row && !row.isGroupHeader && row.uuid) {
+                            <ng-select
+                                [(ngModel)]="row.authors"
+                                [multiple]="true"
+                                [closeOnSelect]="false"
+                                [searchable]="false"
+                                appendTo="body"
+                                bindLabel="username"
+                                bindValue="username"
+                                [placeholder]="'app.invite_to_write' | transloco"
+                                class="w-full custom-select-archives"
+                            >
+                                @for (user of following_users; track user) {
+                                    <ng-option [value]="user.username">{{
+                                        user.username
+                                    }}</ng-option>
+                                }
+                                <ng-template ng-footer-tmp>
+                                    <button
+                                        mat-flat-button
+                                        class="w-full"
+                                        [color]="'primary'"
+                                        (click)="together(row.uuid, row.authors)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="'feather:mail'"
+                                        ></mat-icon>
+                                        <span class="ml-2">{{
+                                            "app.auto_send_an_invitation_letter"
+                                                | transloco
+                                        }}</span>
+                                    </button>
+                                </ng-template>
+                            </ng-select>
+                        }
+                    </ng-template>
+                </ngx-datatable-column>
+            }
+
+            <!-- Column Actions (Menu 3 chấm trên mobile, dãy nút trên desktop) -->
             <ngx-datatable-column
-                name="Domain"
-                [width]="120"
-                [sortable]="false"
-                [canAutoResize]="false"
-                [draggable]="false"
-                [resizeable]="true"
-            >
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    @if (!row?.isGroupHeader && getDomainString(row)) {
-                        <span
-                            class="truncate block w-full text-blue-600 cursor-pointer hover:underline"
-                            [matTooltip]="getDomainString(row)"
-                            (click)="$event.stopPropagation(); openWPPost(row)"
-                        >
-                            {{ getDomainString(row) }}
-                        </span>
-                    }
-                </ng-template>
-            </ngx-datatable-column>
-
-            <!-- Column Templates -->
-            <ngx-datatable-column
-                name="{{ 'app.usage' | transloco }}"
-                [width]="150"
+                name=""
+                [width]="isMobile ? 48 : 240"
                 [sortable]="false"
                 [canAutoResize]="false"
                 [draggable]="false"
@@ -240,162 +381,133 @@
             >
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     @if (row && !row.isGroupHeader && row.uuid) {
-                        <div class="flex items-center justify-self-stretch">
-                            @if (row.used < 0) {
-                                <mat-label
-                                    class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white"
-                                    >{{
-                                        "app.unconfirmed_1" | transloco
-                                    }}</mat-label
-                                >
-                            }
-                            @if (row.used >= 0) {
-                                <mat-label
-                                    >{{ row.used }}
-                                    {{ "app.times" | transloco }}</mat-label
-                                >
-                            }
-                        </div>
-                    }
-                </ng-template>
-            </ngx-datatable-column>
-
-            <!-- Column Templates -->
-            <ngx-datatable-column
-                name="{{ 'app.last_modified' | transloco }}"
-                [width]="130"
-                [sortable]="false"
-                [canAutoResize]="false"
-                [draggable]="false"
-                [resizeable]="false"
-            >
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    @if (row && !row.isGroupHeader && row.uuid) {
-                        <span class="text-base font-medium text-secondary">
-                            {{ getDateGroup(row) }}
-                        </span>
-                    }
-                </ng-template>
-            </ngx-datatable-column>
-
-            <!-- Column Templates -->
-            <ngx-datatable-column
-                name="{{ 'app.collaborators' | transloco }}"
-                [width]="120"
-                [sortable]="false"
-                [canAutoResize]="false"
-                [draggable]="false"
-                [resizeable]="false"
-            >
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    <!--Using ng-option and for loop-->
-                    @if (row && !row.isGroupHeader && row.uuid) {
-                        <ng-select
-                            [(ngModel)]="row.authors"
-                            [multiple]="true"
-                            [closeOnSelect]="false"
-                            [searchable]="false"
-                            appendTo="body"
-                            bindLabel="username"
-                            bindValue="username"
-                            [placeholder]="'app.invite_to_write' | transloco"
-                            class="w-full custom-select-archives"
-                        >
-                            <!-- <ng-template ng-header-tmp>
-            <button mat-flat-button>Select all</button>
-            <button mat-flat-button>Unselect all</button>
-          </ng-template> -->
-                            @for (user of following_users; track user) {
-                                <ng-option [value]="user.username">{{
-                                    user.username
-                                }}</ng-option>
-                            }
-                            <ng-template ng-footer-tmp>
+                        @if (isMobile) {
+                            <div class="flex items-center justify-end w-full">
                                 <button
-                                    mat-flat-button
-                                    class="w-full"
-                                    [color]="'primary'"
-                                    (click)="together(row.uuid, row.authors)"
+                                    mat-icon-button
+                                    [matMenuTriggerFor]="rowActionsMenu"
+                                    (click)="$event.stopPropagation()"
+                                    class="w-7 h-7 min-w-[28px] p-0 text-gray-500 rounded-full"
                                 >
                                     <mat-icon
                                         class="icon-size-4"
-                                        [svgIcon]="'feather:mail'"
+                                        [svgIcon]="'feather:more-vertical'"
                                     ></mat-icon>
-                                    <span class="ml-2">{{
-                                        "app.auto_send_an_invitation_letter"
-                                            | transloco
-                                    }}</span>
                                 </button>
-                            </ng-template>
-                        </ng-select>
-                    }
-                </ng-template>
-            </ngx-datatable-column>
+                                <mat-menu #rowActionsMenu="matMenu">
+                                    <button mat-menu-item (click)="openRowArticle(row)">
+                                        <mat-icon
+                                            class="icon-size-4 text-primary"
+                                            [svgIcon]="'feather:edit-3'"
+                                        ></mat-icon>
+                                        <span>Mở chỉnh sửa</span>
+                                    </button>
 
-            <!-- Column Templates -->
-            <ngx-datatable-column
-                name=""
-                [width]="240"
-                [sortable]="false"
-                [canAutoResize]="false"
-                [draggable]="false"
-                [resizeable]="false"
-            >
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    @if (row && !row.isGroupHeader && row.uuid) {
-                        <div
-                            class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-0 mr-0"
-                        >
-                            @if (
-                                row.has_script ||
-                                row.hasScript ||
-                                hasScriptProject(row)
-                            ) {
-                                <button
-                                    mat-icon-button
-                                    (click)="openRowScript(row)"
-                                    class="transition-colors"
-                                    [matTooltip]="'Xem kịch bản'"
-                                >
-                                    <mat-icon
-                                        class="icon-size-4 text-red-500"
-                                        [svgIcon]="'feather:feather'"
-                                    ></mat-icon>
-                                </button>
-                            }
-                            @if (
-                                row.has_video ||
-                                row.hasVideo ||
-                                hasVideoProject(row)
-                            ) {
-                                <button
-                                    mat-icon-button
-                                    (click)="openRowVideo(row)"
-                                    class="transition-colors"
-                                    [matTooltip]="'Kịch bản video'"
-                                >
-                                    <mat-icon
-                                        class="icon-size-4 text-blue-500"
-                                        [svgIcon]="'heroicons_outline:film'"
-                                    ></mat-icon>
-                                </button>
-                            }
-                            <button
-                                mat-icon-button
-                                [routerLink]="['/amxh']"
-                                [queryParams]="{
-                                    tab: 'share',
-                                    uuid: row.uuid,
-                                    user: user.name,
-                                }"
-                                class="transition-colors"
+                                    <button mat-menu-item (click)="openRowScript(row)">
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:feather'"
+                                        ></mat-icon>
+                                        <span>Xem kịch bản</span>
+                                    </button>
+                                    <button mat-menu-item (click)="openRowVideo(row)">
+                                        <mat-icon
+                                            class="icon-size-4 text-blue-500"
+                                            [svgIcon]="'heroicons_outline:film'"
+                                        ></mat-icon>
+                                        <span>Kịch bản video</span>
+                                    </button>
+                                    <button
+                                        mat-menu-item
+                                        [routerLink]="['/amxh']"
+                                        [queryParams]="{
+                                            tab: 'share',
+                                            uuid: row.uuid,
+                                            user: user.name,
+                                        }"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-green-500"
+                                            [svgIcon]="'feather:share-2'"
+                                        ></mat-icon>
+                                        <span>Chia sẻ MXH</span>
+                                    </button>
+
+                                    <button mat-menu-item (click)="openInviteDialog(row)">
+                                        <mat-icon
+                                            class="icon-size-4 text-purple-500"
+                                            [svgIcon]="'feather:user-plus'"
+                                        ></mat-icon>
+                                        <span>Mời viết cùng</span>
+                                    </button>
+
+                                    <mat-divider></mat-divider>
+
+                                    <button mat-menu-item (click)="deleteRowArticle(row)">
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:trash-2'"
+                                        ></mat-icon>
+                                        <span class="text-red-500">Xóa bài viết</span>
+                                    </button>
+                                </mat-menu>
+                            </div>
+                        }
+                        @if (!isMobile) {
+                            <div
+                                class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-0 mr-0"
                             >
-                                <mat-icon
-                                    class="icon-size-4 text-green-500"
-                                    [svgIcon]="'feather:share-2'"
-                                ></mat-icon>
-                            </button>
-                        </div>
+                                @if (
+                                    row.has_script ||
+                                    row.hasScript ||
+                                    hasScriptProject(row)
+                                ) {
+                                    <button
+                                        mat-icon-button
+                                        (click)="openRowScript(row)"
+                                        class="transition-colors"
+                                        [matTooltip]="'Xem kịch bản'"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-red-500"
+                                            [svgIcon]="'feather:feather'"
+                                        ></mat-icon>
+                                    </button>
+                                }
+                                @if (
+                                    row.has_video ||
+                                    row.hasVideo ||
+                                    hasVideoProject(row)
+                                ) {
+                                    <button
+                                        mat-icon-button
+                                        (click)="openRowVideo(row)"
+                                        class="transition-colors"
+                                        [matTooltip]="'Kịch bản video'"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-blue-500"
+                                            [svgIcon]="'heroicons_outline:film'"
+                                        ></mat-icon>
+                                    </button>
+                                }
+                                <button
+                                    mat-icon-button
+                                    [routerLink]="['/amxh']"
+                                    [queryParams]="{
+                                        tab: 'share',
+                                        uuid: row.uuid,
+                                        user: user.name,
+                                    }"
+                                    class="transition-colors"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-green-500"
+                                        [svgIcon]="'feather:share-2'"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        }
                     }
                 </ng-template>
             </ngx-datatable-column>
@@ -420,20 +532,20 @@
                     let-offset="offset"
                     let-isVisible="isVisible"
                 >
-                    <div class="flex w-full items-center justify-between">
-                        <div class="flex-1 min-w-0 flex items-center pl-4">
+                    <div class="flex w-full items-center justify-between px-2 sm:px-4">
+                        <div class="flex-1 min-w-0 flex items-center gap-1 sm:gap-2">
                             <!-- Nút thao tác nằm trước dòng chữ 'Đã chọn...' -->
                             @if (selected && selected.length > 0) {
                                 <button
                                     mat-flat-button
-                                    class="bg-red-500 text-white mr-2"
+                                    class="bg-red-500 text-white px-2 sm:px-4 min-w-0"
                                     (click)="deleteSelected()"
                                 >
                                     <mat-icon
-                                        class="icon-size-5"
+                                        class="icon-size-4 sm:icon-size-5"
                                         [svgIcon]="'feather:trash-2'"
                                     ></mat-icon>
-                                    <mat-label class="ml-2"
+                                    <mat-label class="ml-1 sm:ml-2 text-xs sm:text-sm"
                                         >{{
                                             "app.delete_selected" | transloco
                                         }}
@@ -444,27 +556,27 @@
                             @if (selected && selected.length > 0) {
                                 <button
                                     mat-flat-button
-                                    class="bg-blue-500 text-white mr-2"
+                                    class="bg-blue-500 text-white px-2 sm:px-4 min-w-0"
                                     (click)="openBulkEditDialog()"
                                     [disabled]="bulkEditInProgress"
                                 >
                                     @if (!bulkEditInProgress) {
                                         <mat-icon
-                                            class="icon-size-5"
+                                            class="icon-size-4 sm:icon-size-5"
                                             [svgIcon]="'feather:edit-2'"
                                         ></mat-icon>
                                     }
                                     @if (bulkEditInProgress) {
                                         <div
-                                            class="w-5 h-5 inline-flex items-center justify-center"
+                                            class="w-4 h-4 sm:w-5 sm:h-5 inline-flex items-center justify-center"
                                         >
                                             <mat-spinner
-                                                [diameter]="20"
+                                                [diameter]="16"
                                                 class="text-white"
                                             ></mat-spinner>
                                         </div>
                                     }
-                                    <mat-label class="ml-2">{{
+                                    <mat-label class="ml-1 sm:ml-2 text-xs sm:text-sm">{{
                                         bulkEditInProgress
                                             ? "Đang sửa (" +
                                               bulkEditProgress +
@@ -476,14 +588,14 @@
                                 </button>
                             }
 
-                            <div class="page-count font-medium text-secondary">
+                            <div class="page-count font-medium text-secondary text-xs sm:text-sm truncate">
                                 Đã chọn
                                 {{
                                     selectedCountReal
                                         ? selectedCountReal.toLocaleString()
                                         : 0
                                 }}
-                                trong
+                                /
                                 {{
                                     realTotalCount
                                         ? realTotalCount.toLocaleString()
@@ -494,15 +606,15 @@
                         </div>
 
                         <!-- Actions -->
-                        <div class="flex shrink-0 items-center pr-4">
+                        <div class="flex shrink-0 items-center">
                             @if (selected.length > 0) {
                                 <a
                                     [href]="downloadJsonHref"
                                     [download]="user.name + '.links.json'"
                                     [color]="'primary'"
-                                    class="ml-0"
+                                    class="text-xs sm:text-sm font-semibold text-primary ml-1"
                                 >
-                                    Xuất dữ liệu
+                                    Xuất JSON
                                 </a>
                             }
                         </div>
@@ -605,3 +717,76 @@
         </div>
     </div>
 </ng-template>
+
+<!-- Dialog mời viết cùng (Collaborators) chuẩn style app Fuse Material -->
+<ng-template #inviteDialog>
+    <div class="flex flex-col bg-card rounded-xl overflow-hidden w-full">
+        <!-- Dialog Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b bg-gray-50 dark:bg-gray-800/60 shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-purple-600 dark:text-purple-400" [svgIcon]="'feather:user-plus'"></mat-icon>
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 m-0 leading-tight">
+                        Mời viết cùng
+                    </h3>
+                    <p class="text-xs text-secondary m-0 mt-0.5">
+                        {{ 'app.collaborators' | transloco }}
+                    </p>
+                </div>
+            </div>
+            <button mat-icon-button mat-dialog-close class="w-8 h-8 text-gray-400 hover:text-gray-600">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
+            </button>
+        </div>
+
+        @if (inviteRow) {
+            <!-- Dialog Body -->
+            <div class="p-6 flex flex-col gap-4">
+                <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 text-xs">
+                    <span class="text-secondary">Bài viết: </span>
+                    <span class="font-medium text-gray-800 dark:text-gray-200 line-clamp-2">
+                        {{ inviteRow.title || inviteRow.uuid }}
+                    </span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        {{ 'app.invite_to_write' | transloco }}
+                    </label>
+                    <mat-form-field appearance="outline" class="w-full fuse-mat-dense">
+                        <mat-select
+                            [(ngModel)]="inviteRow.authors"
+                            [multiple]="true"
+                            [placeholder]="'app.invite_to_write' | transloco"
+                        >
+                            @for (user of following_users; track user.username || user) {
+                                <mat-option [value]="user.username || user">
+                                    {{ user.username || user }}
+                                </mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </div>
+
+            <!-- Dialog Actions -->
+            <div class="flex items-center justify-end gap-2.5 px-6 py-4 border-t bg-gray-50 dark:bg-gray-800/60 shrink-0">
+                <button mat-button mat-dialog-close>
+                    Đóng
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    (click)="saveInvite(inviteRow.uuid, inviteRow.authors)"
+                >
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
+                    <mat-label class="ml-2">{{ 'app.auto_send_an_invitation_letter' | transloco }}</mat-label>
+                </button>
+            </div>
+        }
+    </div>
+</ng-template>
+
+

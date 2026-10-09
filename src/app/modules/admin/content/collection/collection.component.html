@@ -331,7 +331,7 @@
                         [count]="totalElements"
                         [offset]="pageNumber"
                         (page)="setPage($event)"
-                        [headerHeight]="50"
+                        [headerHeight]="isMobile ? 38 : 50"
                         [footerHeight]="50"
                         [rowHeight]="50"
                         [scrollbarV]="true"
@@ -351,37 +351,39 @@
                             [checkboxable]="true"
                         ></ngx-datatable-column>
 
-                        <ngx-datatable-column
-                            name="Mã tác vụ"
-                            [width]="150"
-                            [sortable]="false"
-                            [canAutoResize]="false"
-                            [draggable]="false"
-                            [resizeable]="false"
-                        >
-                            <ng-template
-                                let-row="row"
-                                ngx-datatable-cell-template
+                        @if (!isMobile) {
+                            <ngx-datatable-column
+                                name="Mã tác vụ"
+                                [width]="150"
+                                [sortable]="false"
+                                [canAutoResize]="false"
+                                [draggable]="false"
+                                [resizeable]="false"
                             >
-                                @if (row) {
-                                    <div
-                                        class="flex items-center justify-self-stretch"
-                                    >
-                                        <mat-label
-                                            matTooltipPosition="above"
-                                            [matTooltip]="
-                                                'app.continue_editing_content'
-                                                    | transloco
-                                            "
-                                            (click)="openArticle(row)"
-                                            class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800"
+                                <ng-template
+                                    let-row="row"
+                                    ngx-datatable-cell-template
+                                >
+                                    @if (row) {
+                                        <div
+                                            class="flex items-center justify-self-stretch"
                                         >
-                                            {{ row.uuid }}
-                                        </mat-label>
-                                    </div>
-                                }
-                            </ng-template>
-                        </ngx-datatable-column>
+                                            <mat-label
+                                                matTooltipPosition="above"
+                                                [matTooltip]="
+                                                    'app.continue_editing_content'
+                                                        | transloco
+                                                "
+                                                (click)="openArticle(row)"
+                                                class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800"
+                                            >
+                                                {{ row.uuid }}
+                                            </mat-label>
+                                        </div>
+                                    }
+                                </ng-template>
+                            </ngx-datatable-column>
+                        }
 
                         <ngx-datatable-column
                             name="Tiêu đề"
@@ -397,84 +399,105 @@
                             >
                                 @if (row) {
                                     <div
-                                        class="flex items-center gap-1.5 w-full my-auto cursor-pointer"
+                                        class="flex flex-col justify-center w-full my-auto py-0.5 cursor-pointer"
                                         (click)="openArticle(row)"
                                     >
-                                        @if (row.is_encrypted) {
-                                            <mat-icon
-                                                class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto"
-                                                [svgIcon]="'feather:lock'"
-                                                [matTooltip]="'Nội dung đã được mã hóa AES-256'"
-                                            ></mat-icon>
+                                        <div class="flex items-center gap-1.5 w-full min-w-0">
+                                            @if (row.is_encrypted) {
+                                                <mat-icon
+                                                    class="icon-size-3.5 sm:icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto"
+                                                    [svgIcon]="'feather:lock'"
+                                                    [matTooltip]="'Nội dung đã được mã hóa AES-256'"
+                                                ></mat-icon>
+                                            }
+                                            <p
+                                                class="row-title text-base font-normal truncate flex-1 leading-normal hover:underline text-gray-900 dark:text-gray-100"
+                                                [matTooltip]="row.title"
+                                            >
+                                                {{ row.title }}
+                                            </p>
+                                        </div>
+
+                                        @if (isMobile) {
+                                            <div class="flex items-center gap-1.5 mt-0.5 text-[10.5px] text-secondary leading-none">
+                                                <span class="px-1 py-0.5 rounded bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 font-medium font-mono text-[9.5px]">
+                                                    {{ row.uuid }}
+                                                </span>
+                                                @if (row.used >= 0) {
+                                                    <span class="text-gray-400">·</span>
+                                                    <span>{{ row.used }} lần</span>
+                                                }
+                                                @if (getDateGroup(row)) {
+                                                    <span class="text-gray-400">·</span>
+                                                    <span>{{ getDateGroup(row) }}</span>
+                                                }
+                                            </div>
                                         }
-                                        <p
-                                            class="font-normal truncate hover:text-clip my-auto leading-normal hover:underline"
+                                    </div>
+                                }
+                            </ng-template>
+                        </ngx-datatable-column>
+
+                        @if (!isMobile) {
+                            <ngx-datatable-column
+                                name="Sử dụng"
+                                [width]="120"
+                                [sortable]="false"
+                                [canAutoResize]="false"
+                                [draggable]="false"
+                                [resizeable]="false"
+                            >
+                                <ng-template
+                                    let-row="row"
+                                    ngx-datatable-cell-template
+                                >
+                                    @if (row) {
+                                        <div
+                                            class="flex items-center justify-self-stretch"
                                         >
-                                            {{ row.title }}
-                                        </p>
-                                    </div>
-                                }
-                            </ng-template>
-                        </ngx-datatable-column>
+                                            @if (row.used < 0) {
+                                                <mat-label
+                                                    class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white"
+                                                    >{{
+                                                        "app.unconfirmed"
+                                                            | transloco
+                                                    }}</mat-label
+                                                >
+                                            }
+                                            @if (row.used >= 0) {
+                                                <mat-label
+                                                    >{{ row.used }} lần</mat-label
+                                                >
+                                            }
+                                        </div>
+                                    }
+                                </ng-template>
+                            </ngx-datatable-column>
 
-                        <ngx-datatable-column
-                            name="Sử dụng"
-                            [width]="120"
-                            [sortable]="false"
-                            [canAutoResize]="false"
-                            [draggable]="false"
-                            [resizeable]="false"
-                        >
-                            <ng-template
-                                let-row="row"
-                                ngx-datatable-cell-template
+                            <ngx-datatable-column
+                                name="Ngày chỉnh sửa"
+                                [width]="150"
+                                [sortable]="false"
+                                [canAutoResize]="false"
+                                [draggable]="false"
+                                [resizeable]="false"
                             >
-                                @if (row) {
-                                    <div
-                                        class="flex items-center justify-self-stretch"
-                                    >
-                                        @if (row.used < 0) {
-                                            <mat-label
-                                                class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white"
-                                                >{{
-                                                    "app.unconfirmed"
-                                                        | transloco
-                                                }}</mat-label
-                                            >
-                                        }
-                                        @if (row.used >= 0) {
-                                            <mat-label
-                                                >{{ row.used }} lần</mat-label
-                                            >
-                                        }
-                                    </div>
-                                }
-                            </ng-template>
-                        </ngx-datatable-column>
-
-                        <ngx-datatable-column
-                            name="Ngày chỉnh sửa"
-                            [width]="150"
-                            [sortable]="false"
-                            [canAutoResize]="false"
-                            [draggable]="false"
-                            [resizeable]="false"
-                        >
-                            <ng-template
-                                let-row="row"
-                                ngx-datatable-cell-template
-                            >
-                                @if (row) {
-                                    <span class="text-secondary text-sm">
-                                        {{ getDateGroup(row) }}
-                                    </span>
-                                }
-                            </ng-template>
-                        </ngx-datatable-column>
+                                <ng-template
+                                    let-row="row"
+                                    ngx-datatable-cell-template
+                                >
+                                    @if (row) {
+                                        <span class="text-secondary text-sm">
+                                            {{ getDateGroup(row) }}
+                                        </span>
+                                    }
+                                </ng-template>
+                            </ngx-datatable-column>
+                        }
 
                         <ngx-datatable-column
                             name=""
-                            [width]="240"
+                            [width]="isMobile ? 48 : 240"
                             [sortable]="false"
                             [canAutoResize]="false"
                             [draggable]="false"
@@ -485,84 +508,152 @@
                                 ngx-datatable-cell-template
                             >
                                 @if (row) {
-                                    <div
-                                        class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-4"
-                                    >
-                                        @if (
-                                            row.has_script ||
-                                            row.hasScript ||
-                                            hasScriptProject(row)
-                                        ) {
+                                    @if (isMobile) {
+                                        <div class="flex items-center justify-end w-full">
                                             <button
                                                 mat-icon-button
-                                                matTooltipPosition="above"
-                                                matTooltip="Xem kịch bản"
-                                                (click)="openRowScript(row)"
-                                                class="transition-colors"
+                                                [matMenuTriggerFor]="collectionRowActionsMenu"
+                                                (click)="$event.stopPropagation()"
+                                                class="w-7 h-7 min-w-[28px] p-0 text-gray-500 rounded-full"
                                             >
                                                 <mat-icon
-                                                    class="icon-size-4 text-red-500"
-                                                    [svgIcon]="'feather:feather'"
+                                                    class="icon-size-4"
+                                                    [svgIcon]="'feather:more-vertical'"
                                                 ></mat-icon>
                                             </button>
-                                        }
-                                        @if (
-                                            row.has_video ||
-                                            row.hasVideo ||
-                                            hasVideoProject(row)
-                                        ) {
-                                            <button
-                                                mat-icon-button
-                                                matTooltipPosition="above"
-                                                matTooltip="Xem kịch bản video cho bài '{{
-                                                    row.title
-                                                }}'"
-                                                (click)="openRowVideo(row)"
-                                                class="transition-colors"
-                                            >
-                                                <mat-icon
-                                                    class="icon-size-4 text-blue-500"
-                                                    [svgIcon]="'feather:film'"
-                                                ></mat-icon>
-                                            </button>
-                                        }
-                                        @if (permissionScriptCommentLike) {
-                                            <button
-                                                mat-icon-button
-                                                matTooltipPosition="above"
-                                                matTooltip="Chia sẻ bài viết '{{
-                                                    row.title
-                                                }}' lên các trang mạng xã hội cùng lúc"
-                                                [routerLink]="['/amxh']"
-                                                [queryParams]="{
-                                                    tab: 'share',
-                                                    uuid: row.uuid,
-                                                    user: user.name,
-                                                }"
-                                                class="transition-colors"
-                                            >
-                                                <mat-icon
-                                                    class="icon-size-4 text-green-500"
-                                                    [svgIcon]="'feather:share-2'"
-                                                ></mat-icon>
-                                            </button>
-                                        }
-                                        <button
-                                            mat-icon-button
-                                            matTooltipPosition="above"
-                                            [matTooltip]="
-                                                'app.auto_remove_from_album'
-                                                    | transloco
-                                            "
-                                            (click)="removeFromCollection(row)"
-                                            class="transition-colors"
+                                             <mat-menu #collectionRowActionsMenu="matMenu">
+                                                <button mat-menu-item (click)="openRowArticle(row)">
+                                                    <mat-icon
+                                                        class="icon-size-4 text-primary"
+                                                        [svgIcon]="'feather:edit-3'"
+                                                    ></mat-icon>
+                                                    <span>Mở chỉnh sửa</span>
+                                                </button>
+
+                                                <button mat-menu-item (click)="openRowScript(row)">
+                                                    <mat-icon
+                                                        class="icon-size-4 text-red-500"
+                                                        [svgIcon]="'feather:feather'"
+                                                    ></mat-icon>
+                                                    <span>Xem kịch bản</span>
+                                                </button>
+                                                <button mat-menu-item (click)="openRowVideo(row)">
+                                                    <mat-icon
+                                                        class="icon-size-4 text-blue-500"
+                                                        [svgIcon]="'heroicons_outline:film'"
+                                                    ></mat-icon>
+                                                    <span>Kịch bản video</span>
+                                                </button>
+                                                @if (permissionScriptCommentLike) {
+                                                    <button
+                                                        mat-menu-item
+                                                        [routerLink]="['/amxh']"
+                                                        [queryParams]="{
+                                                            tab: 'share',
+                                                            uuid: row.uuid,
+                                                            user: user.name,
+                                                        }"
+                                                    >
+                                                        <mat-icon
+                                                            class="icon-size-4 text-green-500"
+                                                            [svgIcon]="'feather:share-2'"
+                                                        ></mat-icon>
+                                                        <span>Chia sẻ MXH</span>
+                                                    </button>
+                                                }
+
+                                                <mat-divider></mat-divider>
+
+                                                <button mat-menu-item (click)="removeFromCollection(row)">
+                                                    <mat-icon
+                                                        class="icon-size-4 text-red-500"
+                                                        [svgIcon]="'feather:trash-2'"
+                                                    ></mat-icon>
+                                                    <span class="text-red-500">{{ 'app.auto_remove_from_album' | transloco }}</span>
+                                                </button>
+                                            </mat-menu>
+                                        </div>
+                                    }
+                                    @if (!isMobile) {
+                                        <div
+                                            class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-4"
                                         >
-                                            <mat-icon
-                                                class="icon-size-4 text-gray-500 hover:text-red-500"
-                                                [svgIcon]="'feather:trash-2'"
-                                            ></mat-icon>
-                                        </button>
-                                    </div>
+                                            @if (
+                                                row.has_script ||
+                                                row.hasScript ||
+                                                hasScriptProject(row)
+                                            ) {
+                                                <button
+                                                    mat-icon-button
+                                                    matTooltipPosition="above"
+                                                    matTooltip="Xem kịch bản"
+                                                    (click)="openRowScript(row)"
+                                                    class="transition-colors"
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-4 text-red-500"
+                                                        [svgIcon]="'feather:feather'"
+                                                    ></mat-icon>
+                                                </button>
+                                            }
+                                            @if (
+                                                row.has_video ||
+                                                row.hasVideo ||
+                                                hasVideoProject(row)
+                                            ) {
+                                                <button
+                                                    mat-icon-button
+                                                    matTooltipPosition="above"
+                                                    matTooltip="Xem kịch bản video cho bài '{{
+                                                        row.title
+                                                    }}'"
+                                                    (click)="openRowVideo(row)"
+                                                    class="transition-colors"
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-4 text-blue-500"
+                                                        [svgIcon]="'feather:film'"
+                                                    ></mat-icon>
+                                                </button>
+                                            }
+                                            @if (permissionScriptCommentLike) {
+                                                <button
+                                                    mat-icon-button
+                                                    matTooltipPosition="above"
+                                                    matTooltip="Chia sẻ bài viết '{{
+                                                        row.title
+                                                    }}' lên các trang mạng xã hội cùng lúc"
+                                                    [routerLink]="['/amxh']"
+                                                    [queryParams]="{
+                                                        tab: 'share',
+                                                        uuid: row.uuid,
+                                                        user: user.name,
+                                                    }"
+                                                    class="transition-colors"
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-4 text-green-500"
+                                                        [svgIcon]="'feather:share-2'"
+                                                    ></mat-icon>
+                                                </button>
+                                            }
+                                            <button
+                                                mat-icon-button
+                                                matTooltipPosition="above"
+                                                [matTooltip]="
+                                                    'app.auto_remove_from_album'
+                                                        | transloco
+                                                "
+                                                (click)="removeFromCollection(row)"
+                                                class="transition-colors"
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-4 text-gray-500 hover:text-red-500"
+                                                    [svgIcon]="'feather:trash-2'"
+                                                ></mat-icon>
+                                            </button>
+                                        </div>
+                                    }
                                 }
                             </ng-template>
                         </ngx-datatable-column>
@@ -578,34 +669,34 @@
                                 let-isVisible="isVisible"
                             >
                                 <div
-                                    class="flex w-full items-center justify-between px-4"
+                                    class="flex w-full items-center justify-between px-2 sm:px-4"
                                 >
                                     <div
                                         class="flex-1 min-w-0 flex items-center"
                                     >
                                         <div
-                                            class="page-count !p-0 !h-auto !leading-normal text-secondary font-medium flex items-center"
+                                            class="page-count !p-0 !h-auto !leading-normal text-secondary font-medium flex items-center text-xs sm:text-sm"
                                         >
                                             @if (selectedCount > 0) {
                                                 <button
                                                     mat-flat-button
-                                                    class="bg-amber-500 hover:bg-amber-600 text-white mr-3"
+                                                    class="bg-amber-500 hover:bg-amber-600 text-white mr-2 sm:mr-3 text-xs sm:text-sm px-2 sm:px-3 h-8 min-h-8"
                                                     (click)="
                                                         removeSelectedFromCollection()
                                                     "
                                                 >
                                                     <mat-icon
-                                                        class="icon-size-4 mr-1.5"
+                                                        class="icon-size-4 mr-1 sm:mr-1.5"
                                                         [svgIcon]="'feather:trash-2'"
                                                     ></mat-icon>
-                                                    <mat-label class="ml-2">{{
+                                                    <mat-label class="ml-1 sm:ml-2">{{
                                                         "app.auto_remove_selected_items"
                                                             | transloco
                                                     }}</mat-label>
                                                 </button>
                                             }
 
-                                            <span
+                                            <span class="truncate"
                                                 >Đã chọn
                                                 {{
                                                     selectedCount
@@ -628,7 +719,7 @@
                                             class="flex shrink-0 items-center ml-auto"
                                         >
                                             <a
-                                                class="inline-flex items-center text-sm font-medium text-primary hover:underline cursor-pointer select-none"
+                                                class="inline-flex items-center text-xs sm:text-sm font-medium text-primary hover:underline cursor-pointer select-none"
                                                 [class.opacity-50]="
                                                     isRefreshingCollection
                                                 "
@@ -640,14 +731,14 @@
                                             >
                                                 @if (!isRefreshingCollection) {
                                                     <mat-icon
-                                                        class="icon-size-4 mr-1.5 text-primary"
+                                                        class="icon-size-4 mr-1 sm:mr-1.5 text-primary"
                                                         [svgIcon]="'feather:refresh-cw'"
                                                     ></mat-icon>
                                                 }
                                                 @if (isRefreshingCollection) {
                                                     <mat-spinner
                                                         [diameter]="14"
-                                                        class="mr-1.5"
+                                                        class="mr-1 sm:mr-1.5"
                                                     ></mat-spinner>
                                                 }
                                                 <span>{{

@@ -20,8 +20,9 @@ import { CrawlService } from 'app/_services/crawl';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
-import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config/config.service';
+import { AppConfig } from 'app/core/config/app.config';
+import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { ForumService } from 'app/_services/forum';
 import { BlogService } from 'app/_services/blog';
 import { FormControl } from '@angular/forms';
@@ -108,11 +109,15 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     selected = [];
     ColumnMode = ColumnMode;
     SelectionType = SelectionType;
+    isMobile: boolean = false;
 
     selectedCollections: any;
     collections: any[] = [];
 
     @ViewChild('bulkEditDialog') bulkEditDialogTemplate: TemplateRef<any>;
+    @ViewChild('inviteDialog') inviteDialogTemplate: TemplateRef<any>;
+    inviteDialogRef: any;
+    inviteRow: any = null;
     bulkEditPrompt: string = '';
     bulkEditImageBase64: string = null;
     bulkEditDialogRef: any;
@@ -312,6 +317,125 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 }
             });
         });
+    }
+
+    deleteRowArticle(row: any) {
+        if (!row || !row.uuid) return;
+
+        this.ensureUnlocked(row, (unlocked) => {
+            if (!unlocked) return;
+
+            const dialogRef = this._fuseConfirmationService.open({
+                title: 'Xác nhận xóa',
+                message: `Bạn có chắc muốn xóa bài viết "<b>${row.title || row.uuid}</b>"? Hành động này không thể hoàn tác.`,
+                icon: {
+                    show: true,
+                    name: 'heroicons_outline:exclamation',
+                    color: 'warn',
+                },
+                actions: {
+                    confirm: {
+                        show: true,
+                        label: 'Xóa ngay',
+                        color: 'warn',
+                    },
+                    cancel: {
+                        show: true,
+                        label: 'Hủy',
+                    },
+                },
+                dismissible: true,
+            });
+
+            dialogRef.afterClosed().subscribe((result) => {
+                if (result === 'confirmed') {
+                    const uuid = row.uuid;
+                    const username = this.getCurrentUsername();
+
+                    if (
+                        (window as any).electron &&
+                        (window as any).electron.deleteLocalArticle
+                    ) {
+                        if (
+                            row.is_local ||
+                            (row.uuid && row.uuid.startsWith('local_'))
+                        ) {
+                            (window as any).electron.deleteLocalArticle({
+                                uuid: row.uuid,
+                                username: username,
+                            });
+                        }
+                    }
+
+                    if (!row.is_local) {
+                        this._crawlService
+                            .detail({ uuid: row.uuid, username: username })
+                            .pipe(takeUntil(this._unsubscribeAll))
+                            .subscribe({
+                                next: (res: any) => {
+                                    if (res && res.success && res.data) {
+                                        const fullDoc = res.data;
+                                        const payload = {
+                                            ...fullDoc,
+                                            uuid: fullDoc.uuid || row.uuid,
+                                            username: username,
+                                            _deleted: true,
+                                            trash: true,
+                                            new_version: -1,
+                                        };
+                                        this._crawlService
+                                            .archiveUpdate(payload)
+                                            .pipe(takeUntil(this._unsubscribeAll))
+                                            .subscribe();
+                                    }
+                                },
+                            });
+                    }
+
+                    this.toastr.success(`Đã xóa bài viết ${uuid}.`);
+
+                    this.masterLoadedRows = (
+                        this.masterLoadedRows || []
+                    ).filter((r: any) => r && r.uuid !== uuid);
+                    this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
+                    this.totalElements = this.rows.length;
+                    this.cache = {};
+                    this.selected = this.selected.filter(
+                        (r: any) => r && r.uuid !== uuid,
+                    );
+                    this.cd.detectChanges();
+                }
+            });
+        });
+    }
+
+    openInviteDialog(row: any) {
+        if (!row) return;
+        this.inviteRow = {
+            ...row,
+            authors: Array.isArray(row.authors) ? [...row.authors] : [],
+        };
+        if (this.inviteDialogTemplate) {
+            this.inviteDialogRef = this._matDialog.open(this.inviteDialogTemplate, {
+                panelClass: 'custom-dialog-invite',
+                width: '440px',
+                maxWidth: '92vw',
+                disableClose: false,
+            });
+        }
+    }
+
+    saveInvite(rowUuid: string, authors: any[]) {
+        if (!rowUuid) return;
+        this.together(rowUuid, authors);
+        // Cập nhật lại authors cho row gốc trong masterLoadedRows
+        const target = (this.masterLoadedRows || []).find((r: any) => r && r.uuid === rowUuid);
+        if (target) {
+            target.authors = [...(authors || [])];
+        }
+        if (this.inviteDialogRef) {
+            this.inviteDialogRef.close();
+        }
     }
 
     // Bulk Edit Logic
@@ -1521,6 +1645,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         private _genaiService: GenaiService,
         private _blogService: BlogService,
         public _matDialog: MatDialog,
+        private _fuseMediaWatcherService: FuseMediaWatcherService,
     ) {
         this.titleService.setTitle(`lưu trữ | ai.type - công cụ tạo content`);
 
@@ -1804,6 +1929,17 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     },
                 });
         }
+
+        // Lắng nghe thay đổi kích thước màn hình để tối ưu hiển thị cho mobile
+        this._fuseMediaWatcherService.onMediaChange$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(({ matchingAliases }) => {
+                this.isMobile = !matchingAliases.includes('md');
+                if (this.table) {
+                    this.table.recalculate();
+                }
+                this.cd.markForCheck();
+            });
     }
 
     error(message?: string) {

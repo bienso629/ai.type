@@ -23,6 +23,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 import { GenaiService } from 'app/genai.service';
 import { BlogService } from 'app/_services/blog';
@@ -74,6 +75,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     selected = [];
     ColumnMode = ColumnMode;
     SelectionType = SelectionType;
+    isMobile: boolean = false;
 
     permissionText2Voice: boolean = false;
     permissionScriptCommentLike: boolean = false;
@@ -94,6 +96,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         private _genaiService: GenaiService,
         private _blogService: BlogService,
         public _matDialog: MatDialog,
+        private _fuseMediaWatcherService: FuseMediaWatcherService,
     ) {
         this.titleService.setTitle(
             `tập của bạn | ai.type - công cụ tạo content`,
@@ -112,7 +115,17 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
             });
     }
 
-    ngOnInit(): void {}
+    ngOnInit(): void {
+        this._fuseMediaWatcherService.onMediaChange$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(({ matchingAliases }) => {
+                this.isMobile = !matchingAliases.includes('md');
+                if (this.table) {
+                    this.table.recalculate();
+                }
+                this.cd.markForCheck();
+            });
+    }
 
     ngAfterViewInit(): void {
         setTimeout(() => {
@@ -1011,6 +1024,18 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         callback: (unlocked: boolean, password?: string) => void,
     ) {
         callback(true);
+    }
+
+    copy(uuid: string) {
+        if (!uuid) return;
+        this.clipboard.copy(
+            `/#/archive/${this.user?.name || 'admin'}/${uuid}`,
+        );
+        this.toastr.success(`Copy link mã ${uuid} xong.`);
+    }
+
+    openRowArticle(row: any) {
+        this.openArticle(row);
     }
 
     openRowScript(row: any) {

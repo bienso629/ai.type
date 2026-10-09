@@ -1,0 +1,51 @@
+2026-10-09 16:54:31,823 INFO unified_app: Logging initialized. Level=INFO, TTY=True, file=/home/yenai/Documents/Projects/Typing/ai.type/app.log
+2026-10-09 16:54:31,922 INFO unified_app: [router] Included profiles_router
+2026-10-09 16:54:31,938 INFO unified_app: [router] Included accounts_router
+2026-10-09 16:54:31,948 INFO unified_app: [router] Included optional search_click_router
+2026-10-09 16:54:31,950 INFO unified_app: [router] Included optional like_click_router
+2026-10-09 16:54:31,952 INFO unified_app: [router] Included optional captcha_auto_router
+2026-10-09 16:54:31,954 INFO unified_app: [router] Included optional comment_click_router
+2026-10-09 16:54:31,958 INFO unified_app: [router] Included optional opera_ai_router
+2026-10-09 16:54:32,018 INFO uvicorn.error: Started server process [1100939]
+2026-10-09 16:54:32,018 INFO uvicorn.error: Waiting for application startup.
+2026-10-09 16:54:32,018 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-10-09 16:54:32,018 INFO uvicorn.error: Application startup complete.
+2026-10-09 16:54:32,018 ERROR uvicorn.error: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): [errno 98] address already in use
+2026-10-09 16:54:32,018 INFO uvicorn.error: Waiting for application shutdown.
+2026-10-09 16:54:32,019 INFO uvicorn.error: Application shutdown complete.
+2026-10-09 17:16:08,933 INFO unified_app: Logging initialized. Level=INFO, TTY=True, file=/home/yenai/Documents/Projects/Typing/ai.type/app.log
+2026-10-09 17:16:09,025 INFO unified_app: [router] Included profiles_router
+2026-10-09 17:16:09,042 INFO unified_app: [router] Included accounts_router
+2026-10-09 17:16:09,052 INFO unified_app: [router] Included optional search_click_router
+2026-10-09 17:16:09,053 INFO unified_app: [router] Included optional like_click_router
+2026-10-09 17:16:09,056 INFO unified_app: [router] Included optional captcha_auto_router
+2026-10-09 17:16:09,058 INFO unified_app: [router] Included optional comment_click_router
+2026-10-09 17:16:09,062 INFO unified_app: [router] Included optional opera_ai_router
+2026-10-09 17:16:53,681 INFO unified_app: Logging initialized. Level=INFO, TTY=True, file=/home/yenai/Documents/Projects/Typing/ai.type/app.log
+2026-10-09 17:16:53,776 INFO unified_app: [router] Included profiles_router
+2026-10-09 17:16:53,792 INFO unified_app: [router] Included accounts_router
+2026-10-09 17:16:53,803 INFO unified_app: [router] Included optional search_click_router
+2026-10-09 17:16:53,805 INFO unified_app: [router] Included optional like_click_router
+2026-10-09 17:16:53,809 INFO unified_app: [router] Included optional captcha_auto_router
+2026-10-09 17:16:53,811 INFO unified_app: [router] Included optional comment_click_router
+2026-10-09 17:16:53,814 INFO unified_app: [router] Included optional opera_ai_router
+2026-10-09 17:16:53,886 INFO uvicorn.error: Started server process [1116123]
+2026-10-09 17:16:53,886 INFO uvicorn.error: Waiting for application startup.
+2026-10-09 17:16:53,887 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-10-09 17:16:53,887 INFO uvicorn.error: Application startup complete.
+2026-10-09 17:16:53,887 ERROR uvicorn.error: [Errno 98] error while attempting to bind on address ('0.0.0.0', 7171): [errno 98] address already in use
+2026-10-09 17:16:53,887 INFO uvicorn.error: Waiting for application shutdown.
+2026-10-09 17:16:53,887 INFO uvicorn.error: Application shutdown complete.
+2026-10-09 17:17:26,580 INFO unified_app: Logging initialized. Level=INFO, TTY=True, file=/home/yenai/Documents/Projects/Typing/ai.type/app.log
+2026-10-09 17:17:26,672 INFO unified_app: [router] Included profiles_router
+2026-10-09 17:17:26,689 INFO unified_app: [router] Included accounts_router
+2026-10-09 17:17:26,700 INFO unified_app: [router] Included optional search_click_router
+2026-10-09 17:17:26,702 INFO unified_app: [router] Included optional like_click_router
+2026-10-09 17:17:26,705 INFO unified_app: [router] Included optional captcha_auto_router
+2026-10-09 17:17:26,707 INFO unified_app: [router] Included optional comment_click_router
+2026-10-09 17:17:26,710 INFO unified_app: [router] Included optional opera_ai_router
+2026-10-09 17:17:26,775 INFO uvicorn.error: Started server process [1116768]
+2026-10-09 17:17:26,775 INFO uvicorn.error: Waiting for application startup.
+2026-10-09 17:17:26,775 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-10-09 17:17:26,776 INFO uvicorn.error: Application startup complete.
+2026-10-09 17:17:26,776 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)

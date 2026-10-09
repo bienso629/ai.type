@@ -18,7 +18,7 @@
                             <div
                                 class="flex items-center justify-center h-full w-full"
                             >
-                                <div class="flex flex-col w-full max-w-[280px] sm:max-w-5xl px-2 sm:px-6 mx-auto">
+                                <div class="flex flex-col w-full max-w-[280px] sm:max-w-4xl px-2 sm:px-6 mx-auto">
                                     <mat-label
                                         class="text-sm mb-2 text-gray-400"
                                         >{{
@@ -195,7 +195,7 @@
                             <div
                                 class="flex items-center justify-center h-full w-full"
                             >
-                                <div class="flex flex-col w-full max-w-[280px] sm:max-w-5xl px-2 sm:px-6 mx-auto">
+                                <div class="flex flex-col w-full max-w-[280px] sm:max-w-4xl px-2 sm:px-6 mx-auto">
                                     <mat-label
                                         class="text-sm mb-2 text-gray-400"
                                         >{{
@@ -472,7 +472,7 @@
                             <div
                                 class="flex items-center justify-center h-full w-full"
                             >
-                                <div class="flex flex-col w-full max-w-[280px] sm:max-w-5xl px-2 sm:px-6 mx-auto">
+                                <div class="flex flex-col w-full max-w-[280px] sm:max-w-4xl px-2 sm:px-6 mx-auto">
                                     <mat-label
                                         class="text-sm mb-2 text-gray-400"
                                         >{{
@@ -555,37 +555,11 @@
                                             </mat-grid-tile>
                                         }
                                         <mat-grid-tile
-                                            class="rounded-lg border border-opacity-100 hover:border hover:border-opacity-90 bg-card"
-                                            [class.cursor-pointer]="
-                                                user.groups?.includes(
-                                                    'nhóm-seo-và-phân-tích'
-                                                )
-                                            "
-                                            [class.cursor-not-allowed]="
-                                                !user.groups?.includes(
-                                                    'nhóm-seo-và-phân-tích'
-                                                )
-                                            "
-                                            [class.hover:bg-gray-50]="
-                                                user.groups?.includes(
-                                                    'nhóm-seo-và-phân-tích'
-                                                )
-                                            "
-                                            [routerLink]="
-                                                user.groups?.includes(
-                                                    'nhóm-seo-và-phân-tích'
-                                                )
-                                                    ? ['/links']
-                                                    : null
-                                            "
+                                            class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                            [routerLink]="['/links']"
                                         >
                                             <div
                                                 class="flex flex-col items-center text-center p-1 sm:p-4 w-full h-full justify-center"
-                                                [class.opacity-50]="
-                                                    !user.groups?.includes(
-                                                        'nhóm-seo-và-phân-tích'
-                                                    )
-                                                "
                                             >
                                                 <mat-icon
                                                     class="icon-size-4 sm:icon-size-5 shrink-0"
@@ -603,70 +577,31 @@
                                                     }}
                                                 </p>
                                             </div>
-                                            <div
-                                                class="border-t border-l text-[10px] sm:text-xs rounded-tl-lg px-1.5 py-0.5 absolute bottom-0 right-0 flex items-center gap-1"
-                                                [class.text-green-600]="
-                                                    user.groups?.includes(
-                                                        'nhóm-seo-và-phân-tích'
-                                                    )
-                                                "
-                                                [class.text-gray-400]="
-                                                    !user.groups?.includes(
-                                                        'nhóm-seo-và-phân-tích'
-                                                    )
-                                                "
-                                            >
-                                                @if (
-                                                    !user.groups?.includes(
-                                                        "nhóm-seo-và-phân-tích"
-                                                    )
-                                                ) {
-                                                    <mat-icon
-                                                        class="icon-size-3 text-gray-400"
-                                                        [svgIcon]="'feather:lock'"
-                                                    ></mat-icon>
-                                                }
-                                                {{ "app.activate" | transloco }}
-                                            </div>
                                         </mat-grid-tile>
-                                        @if (
-                                            user.groups?.includes(
-                                                "nhóm-đã-mua-ai-type"
-                                            )
-                                        ) {
-                                            <mat-grid-tile
-                                                class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
-                                                [routerLink]="['/gscr']"
+                                        <mat-grid-tile
+                                            class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                            [routerLink]="['/gscr']"
+                                        >
+                                            <div
+                                                class="flex flex-col items-center text-center p-1 sm:p-4 w-full h-full justify-center"
                                             >
-                                                <div
-                                                    class="flex flex-col items-center text-center p-1 sm:p-4 w-full h-full justify-center"
+                                                <mat-icon
+                                                    class="icon-size-4 sm:icon-size-5 shrink-0"
+                                                    [svgIcon]="'feather:pie-chart'"
+                                                ></mat-icon>
+                                                <mat-label class="mt-2 text-xs sm:text-md font-semibold text-center leading-tight">{{
+                                                        "app.report"
+                                                            | transloco
+                                                    }}</mat-label
                                                 >
-                                                    <mat-icon
-                                                        class="icon-size-4 sm:icon-size-5 shrink-0"
-                                                        [svgIcon]="'feather:pie-chart'"
-                                                    ></mat-icon>
-                                                    <mat-label class="mt-2 text-xs sm:text-md font-semibold text-center leading-tight">{{
-                                                            "app.report"
-                                                                | transloco
-                                                        }}</mat-label
-                                                    >
-                                                    <p class="mt-1 text-[11px] sm:text-sm px-2 sm:px-4 line-clamp-2 sm:line-clamp-3 text-center text-secondary leading-snug">
-                                                        {{
-                                                            "app.report_analytics_desc"
-                                                                | transloco
-                                                        }}
-                                                    </p>
-                                                </div>
-                                                <div
-                                                    class="border-t border-l text-[10px] sm:text-xs rounded-tl-lg px-1.5 py-0.5 absolute bottom-0 right-0 text-green-600"
-                                                >
+                                                <p class="mt-1 text-[11px] sm:text-sm px-2 sm:px-4 line-clamp-2 sm:line-clamp-3 text-center text-secondary leading-snug">
                                                     {{
-                                                        "app.activate"
+                                                        "app.report_analytics_desc"
                                                             | transloco
                                                     }}
-                                                </div>
-                                            </mat-grid-tile>
-                                        }
+                                                </p>
+                                            </div>
+                                        </mat-grid-tile>
                                         @if (isTiktokPluginActive) {
                                             <mat-grid-tile
                                                 class="rounded-lg border border-opacity-100 hover:border hover:border-opacity-90 bg-card"

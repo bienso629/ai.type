@@ -115,10 +115,30 @@ export class SettingsStyleComponent implements OnInit {
         let styles: any = this.multiAccountService.getItem('styles') || [];
         this.styles = styles;
 
+        this.multiAccountService.activeAccount$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((account: any) => {
+                if (account && account.styles && account.styles.length > 0) {
+                    this.styles = account.styles;
+                    this.cd.markForCheck();
+                }
+            });
+
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
+                if (user && user.name && (!this.styles || this.styles.length === 0)) {
+                    this._userClientService.profile({ name: user.name })
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe(res => {
+                            if (res && res.success && res.data && res.data.styles) {
+                                this.styles = res.data.styles;
+                                this.multiAccountService.setItem('styles', this.styles);
+                                this.cd.markForCheck();
+                            }
+                        });
+                }
             });
     }
 

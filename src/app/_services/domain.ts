@@ -50,8 +50,8 @@ export class DomainService {
     public fetch(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
         const electron = (window as any).electron;
-        if (isAutoSaveLocal) {
-            if (electron && electron.listLocalDomains) {
+        if (electron && isAutoSaveLocal) {
+            if (electron.listLocalDomains) {
                 return from(electron.listLocalDomains()).pipe(
                     map((result: any) => {
                         const localDomains = (result && result.success && Array.isArray(result.data)) ? result.data : [];

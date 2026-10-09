@@ -104,9 +104,9 @@ export class MXHAutoService {
             return base;
         }
 
-        // Ưu tiên 2: Nếu plugin 100 TikTokers được bật -> Dùng cổng cục bộ localhost:8000 của plugin
+        // Ưu tiên 2: Nếu plugin 100 TikTokers được bật -> Dùng cổng cục bộ localhost:48921 của plugin
         if (settings.tiktokPluginEnabled) {
-            return 'http://localhost:8000';
+            return 'http://localhost:48921';
         }
         // Mặc định không có server
         return '';

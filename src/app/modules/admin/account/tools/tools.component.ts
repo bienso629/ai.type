@@ -59,7 +59,7 @@ export class AIToolsComponent implements OnInit, OnDestroy {
     rowHeight: string = '1:1';
 
     gridByBreakpoint = {
-        xl: 5,
+        xl: 4,
         lg: 4,
         md: 4,
         sm: 3,
