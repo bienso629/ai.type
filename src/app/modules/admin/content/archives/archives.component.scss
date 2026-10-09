@@ -164,4 +164,45 @@ ng-select {
             padding: 0 !important;
         }
     }
+
+    // Tinh chỉnh ngx-datatable trên mobile
+    @media (max-width: 768px) {
+        .ngx-datatable.material {
+            .datatable-header {
+                height: 38px !important;
+                line-height: 38px !important;
+
+                .datatable-header-cell {
+                    padding: 0 4px !important;
+                    font-size: 12px !important;
+                    font-weight: 600 !important;
+                }
+            }
+
+            .datatable-body {
+                .datatable-body-cell {
+                    padding: 0 4px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                }
+
+                .datatable-body-row {
+                    border-bottom: 1px solid #f1f5f9;
+                }
+            }
+
+            .datatable-footer {
+                height: 50px !important;
+                padding: 0 4px !important;
+            }
+        }
+
+        .dark .ngx-datatable.material {
+            .datatable-body {
+                .datatable-body-row {
+                    border-bottom: 1px solid #1e293b;
+                }
+            }
+        }
+    }
 }

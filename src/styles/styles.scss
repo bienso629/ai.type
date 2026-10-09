@@ -681,8 +681,13 @@ hr {
 
 .custom-dialog-bulk .mdc-dialog__surface,
 .custom-dialog-bulk .mat-mdc-dialog-surface,
-.custom-dialog-bulk .mat-dialog-container {
+.custom-dialog-bulk .mat-dialog-container,
+.custom-dialog-invite .mdc-dialog__surface,
+.custom-dialog-invite .mat-mdc-dialog-surface,
+.custom-dialog-invite .mat-dialog-container {
     padding: 0 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
 }
 
 /* Ensure menu popups (especially form menus like custom-gologin-menu) do not get constrained with scrolls and have crisp borders/rounded corners */
@@ -1830,6 +1835,12 @@ ngx-datatable {
                 }
             }
         }
+    }
+
+    /* Đảm bảo tiêu đề bài viết trong ngx-datatable luôn giữ đúng kích thước chuẩn 16px (text-base) */
+    .row-title {
+        font-size: 1rem !important; /* 16px */
+        line-height: 1.5 !important;
     }
 }
 

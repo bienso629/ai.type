@@ -103,6 +103,8 @@ export const appRoutes: Route[] = [
             { path: 'payment',        loadChildren: () => import('app/modules/microsites/payment/payment.module').then(m => m.PaymentModule) },
             { path: 'settings',       loadChildren: () => import('app/modules/admin/account/settings/settings.module').then(m => m.SettingsModule) },
             { path: 'profile',        loadChildren: () => import('app/modules/admin/account/profile/profile.module').then(m => m.ProfileModule) },
+            { path: 'links',          loadChildren: () => import('app/modules/admin/marketing/seo-links/seo-links.module').then(m => m.LinksModule) },
+            { path: 'gscr',           loadChildren: () => import('app/modules/admin/marketing/seo-report/seo-report.module').then(m => m.GSCReportModule) },
 
             // --- Routes protected by nhóm-đã-mua-ai-type ---
             { path: 'import',      canActivate: [PermissionGuard], data: { requiredGroup: 'nhóm-đã-mua-ai-type' }, loadChildren: () => import('app/modules/admin/content/sitemap/sitemap.module').then(m => m.SitemapModule) },
@@ -117,12 +119,6 @@ export const appRoutes: Route[] = [
             { path: 'ai-crawl',  canActivate: [PermissionGuard], data: { requiredGroup: 'nhóm-thu-thập-dữ-liệu' }, loadChildren: () => import('app/modules/admin/content/ai-crawl/ai-crawl.module').then(m => m.AIWordModule) },
             { path: 'face2node', canActivate: [PermissionGuard], data: { requiredGroup: 'nhóm-thu-thập-dữ-liệu' }, loadChildren: () => import('app/modules/admin/marketing/trend/trend.module').then(m => m.AIFacePostModule) },
             { path: 'data',      canActivate: [PermissionGuard], data: { requiredGroup: 'nhóm-thu-thập-dữ-liệu' }, loadChildren: () => import('app/modules/admin/marketing/bigdata/bigdata.module').then(m => m.BigDataModule) },
-
-            // --- Routes protected by nhóm-seo-và-phân-tích ---
-            { path: 'links', canActivate: [PermissionGuard], data: { requiredGroup: 'nhóm-seo-và-phân-tích' }, loadChildren: () => import('app/modules/admin/marketing/seo-links/seo-links.module').then(m => m.LinksModule) },
-
-            // --- Routes protected by nhóm-đã-mua-ai-type (Báo cáo) ---
-            { path: 'gscr',  canActivate: [PermissionGuard], data: { requiredGroup: 'nhóm-đã-mua-ai-type' }, loadChildren: () => import('app/modules/admin/marketing/seo-report/seo-report.module').then(m => m.GSCReportModule) },
 
             // --- Routes protected by nhóm-tự-động-hóa ---
             { path: 'amxh',     canActivate: [PermissionGuard], data: { requiredGroup: 'nhóm-tự-động-hóa' }, loadChildren: () => import('app/modules/admin/marketing/n8n/n8n.module').then(m => m.AMXHModule) },

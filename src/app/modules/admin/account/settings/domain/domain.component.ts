@@ -138,7 +138,8 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             return;
         }
 
-        if (isAutoSaveLocal) {
+        // Nếu có electron nhưng không bật autoSaveLocal hoặc ngược lại, chỉ chặn khi electron thật sự tồn tại
+        if (electron && isAutoSaveLocal) {
             this.rows = [];
             this.cd.markForCheck();
             return;
@@ -148,12 +149,14 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     private fetchServerDomains() {
+        const electron = (window as any).electron;
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal) return;
-        if (!this.user || !this.user.name) return;
+        if (electron && isAutoSaveLocal) return;
+        const currentUname = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username');
+        if (!currentUname) return;
 
         this._domainService.fetch({
-            username: this.user.name
+            username: currentUname
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -256,10 +259,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
     
     fetchStats() {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        const username = this.user?.name || 'admin';
-
-        if (!isAutoSaveLocal && !this.user) return;
+        const username = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username') || 'admin';
 
         this._crawlService.statistics({ username: username, reportYear: this.selectedYear })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -645,6 +645,24 @@ Trả về ĐÚNG định dạng JSON mảng các object:
                     this.styles = this.multiAccountService.getItem('styles') || [];
                     this.fetch();
                     this.fetchStats();
+                }
+            });
+
+        this.multiAccountService.activeAccount$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((account: any) => {
+                if (account) {
+                    const settings = account.settings || {};
+                    this.domainTargets = settings.domainTargets || {};
+                    this.domainStyles = settings.domainStyles || {};
+                    if (this.rows && this.rows.length > 0) {
+                        this.rows.forEach(r => {
+                            r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum);
+                            r.writingStyle = this.domainStyles[r.domain] || '';
+                        });
+                        this.rows = [...this.rows];
+                        this.cd.markForCheck();
+                    }
                 }
             });
     }

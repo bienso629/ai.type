@@ -4700,9 +4700,6 @@ function isTiktokPluginEnabled() {
     return false;
 }
 
-let tiktokPluginRestartCount = 0;
-let tiktokPluginRestartTimeout = null;
-
 function startTiktokPlugin() {
     if (tiktokPluginProcess) return;
     try {
@@ -4718,7 +4715,7 @@ function startTiktokPlugin() {
         
         let binaryPath = candidateBinaries.find(p => fs.existsSync(p));
         let cmd = '';
-        let args = [];
+        let args = ['--port', '48921'];
 
         if (binaryPath) {
             try {
@@ -4728,7 +4725,7 @@ function startTiktokPlugin() {
         }
 
         if (cmd) {
-            killPort(8000);
+            killPort(48921);
             tiktokPluginProcess = spawn(cmd, args, { stdio: 'pipe' });
             console.log(`[100 TikTokers Plugin] Khởi chạy: ${cmd} ${args.join(' ')}`);
 
@@ -4743,24 +4740,7 @@ function startTiktokPlugin() {
             tiktokPluginProcess.on('exit', (code) => {
                 console.log(`[100 TikTokers Plugin] Đã thoát với mã ${code}`);
                 tiktokPluginProcess = null;
-
-                if (isTiktokPluginEnabled() && tiktokPluginRestartCount < 5) {
-                    tiktokPluginRestartCount++;
-                    console.log(`[100 TikTokers Plugin] Đang thử khởi động lại lần thứ ${tiktokPluginRestartCount}/5 sau 3 giây...`);
-                    if (tiktokPluginRestartTimeout) clearTimeout(tiktokPluginRestartTimeout);
-                    tiktokPluginRestartTimeout = setTimeout(() => {
-                        startTiktokPlugin();
-                    }, 3000);
-                } else if (tiktokPluginRestartCount >= 5) {
-                    console.error('[100 TikTokers Plugin] Khởi động lại thất bại quá 5 lần. Dừng lại.');
-                }
             });
-
-            setTimeout(() => {
-                if (tiktokPluginProcess && !tiktokPluginProcess.killed) {
-                    tiktokPluginRestartCount = 0;
-                }
-            }, 10000);
         } else {
             console.warn('[100 TikTokers Plugin] Không tìm thấy file 100tiktok-linux trong Documents/ai.type/plugins.');
         }
@@ -4777,7 +4757,7 @@ function stopTiktokPlugin() {
             console.log('[100 TikTokers Plugin] Đã tắt');
         } catch (e) {}
     }
-    killPort(8000);
+    killPort(48921);
 }
 
 ipcMain.handle('toggle-tiktok-plugin', (event, enable) => {
