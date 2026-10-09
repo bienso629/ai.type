@@ -56,13 +56,22 @@ export class AIToolsComponent implements OnInit, OnDestroy {
     isTiktokPluginActive: boolean = false;
 
     cols: number;
+    rowHeight: string = '1:1';
 
     gridByBreakpoint = {
-        xl: 4,
+        xl: 5,
         lg: 4,
-        md: 3,
+        md: 4,
         sm: 3,
-        xs: 3,
+        xs: 2,
+    };
+
+    rowHeightByBreakpoint = {
+        xl: '1:1',
+        lg: '1:1',
+        md: '1:1',
+        sm: '1:1',
+        xs: '1:1',
     };
 
     public swipe: SwiperOptions = {
@@ -140,19 +149,25 @@ export class AIToolsComponent implements OnInit, OnDestroy {
                 if (result.matches) {
                     if (result.breakpoints[Breakpoints.XSmall]) {
                         this.cols = this.gridByBreakpoint.xs;
+                        this.rowHeight = this.rowHeightByBreakpoint.xs;
                     }
                     if (result.breakpoints[Breakpoints.Small]) {
                         this.cols = this.gridByBreakpoint.sm;
+                        this.rowHeight = this.rowHeightByBreakpoint.sm;
                     }
                     if (result.breakpoints[Breakpoints.Medium]) {
                         this.cols = this.gridByBreakpoint.md;
+                        this.rowHeight = this.rowHeightByBreakpoint.md;
                     }
                     if (result.breakpoints[Breakpoints.Large]) {
                         this.cols = this.gridByBreakpoint.lg;
+                        this.rowHeight = this.rowHeightByBreakpoint.lg;
                     }
                     if (result.breakpoints[Breakpoints.XLarge]) {
                         this.cols = this.gridByBreakpoint.xl;
+                        this.rowHeight = this.rowHeightByBreakpoint.xl;
                     }
+                    this.cd.markForCheck();
                 }
             });
     }

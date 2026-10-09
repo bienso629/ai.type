@@ -53,18 +53,6 @@ import { MatDialogRef } from '@angular/material/dialog';
                         }}</span>
                     </div>
                 </div>
-                <div class="flex sm:hidden">
-                    <a
-                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
-                        [routerLink]="'./..'"
-                    >
-                        <mat-icon
-                            class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"
-                        ></mat-icon>
-                        <span class="ml-1 text-base">quay lại</span>
-                    </a>
-                </div>
                 <!-- Title -->
                 <!-- <div class="mt-2">
           <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
@@ -74,7 +62,7 @@ import { MatDialogRef } from '@angular/material/dialog';
             </div>
 
             <!-- Actions -->
-            <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <div class="flex shrink-0 items-center mt-0 sm:ml-4">
                 <button
                     mat-icon-button
                     matTooltip="Đóng"

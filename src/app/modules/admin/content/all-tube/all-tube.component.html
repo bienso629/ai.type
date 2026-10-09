@@ -25,20 +25,6 @@
                         }}</span>
                     </div>
                 </div>
-                <div class="flex sm:hidden">
-                    <a
-                        class="inline-flex items-center -ml-1.5 text-secondary font-medium"
-                        [routerLink]="'./..'"
-                    >
-                        <mat-icon
-                            class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"
-                        ></mat-icon>
-                        <span class="ml-1 text-base">{{
-                            "app.back" | transloco
-                        }}</span>
-                    </a>
-                </div>
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
@@ -49,7 +35,7 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+        <div class="flex shrink-0 items-center mt-0 sm:ml-4">
             <a
                 mat-flat-button
                 [matMenuTriggerFor]="play"

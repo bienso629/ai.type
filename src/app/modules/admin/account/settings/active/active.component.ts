@@ -213,7 +213,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                                 ),
                             );
 
-                            if (relaunchApp && (window as any).electron) {
+                            if (relaunchApp) {
                                 const targetAccountId = email || this.multiAccountService.currentAccountId;
                                 if (targetAccountId) {
                                     try {
@@ -222,7 +222,11 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                                 }
                                 await this.multiAccountService.forceSave();
                                 setTimeout(() => {
-                                    (window as any).electron.relaunchApp();
+                                    if ((window as any).electron && (window as any).electron.relaunchApp) {
+                                        (window as any).electron.relaunchApp();
+                                    } else {
+                                        window.location.reload();
+                                    }
                                 }, 1200);
                             }
                         } else {
