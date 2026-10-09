@@ -765,24 +765,29 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
     async loadThreads(): Promise<void> {
         const electron = (window as any).electron;
+        const localQuestionMap = new Map<string, string>();
         let localThreads: any[] = [];
+
         if (electron && electron.invoke) {
             try {
                 const res = await electron.invoke('list-local-chatbot-threads', this.user?.name || 'admin');
                 if (res?.success && res.threads) {
                     localThreads = res.threads;
+                    localThreads.forEach(t => {
+                        if (t.title && t.title !== 'admin' && t.title !== 'Hội thoại mới') {
+                            localQuestionMap.set(String(t.id), t.title);
+                        }
+                    });
                 }
             } catch (e) {}
 
-            // Trong môi trường Desktop: Ưu tiên tuyệt đối danh sách local trên máy
-            this.threadList = localThreads.map(t => [t.id, t.title, t.title, t.updated_at || '', t.phone || null]);
-            this.rebuildThreadRows();
-            this.calcThreadTableHeight();
-            if (!this.currentThread && this.threadList.length > 0) {
-                // this.selectThread(this.threadList[0][0]);
+            // Trong môi trường Desktop: Hiển thị ngay lập tức danh sách local
+            if (localThreads.length > 0) {
+                this.threadList = localThreads.map(t => [t.id, t.title, t.title, t.updated_at || '', t.phone || null]);
+                this.rebuildThreadRows();
+                this.calcThreadTableHeight();
+                this.cd.markForCheck();
             }
-            this.cd.markForCheck();
-            // return removed for sync
         }
 
         this._chatbotService.loadThreads({
@@ -790,13 +795,87 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         }).pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (data) => {
-                    if (data) {
-                        this.threadList = data;
+                    if (data && Array.isArray(data)) {
+                        // Kết hợp dữ liệu server với câu hỏi gần nhất từ local hoặc lấy tin nhắn cuối
+                        const processedList = await Promise.all(data.map(async (item: any) => {
+                            const threadId = String(item[0]);
+                            let questionTitle = localQuestionMap.get(threadId) || item[1] || '';
+
+                            // Nếu chưa có câu hỏi (hoặc title rỗng/là admin), kiểm tra lịch sử cục bộ
+                            if ((!questionTitle || questionTitle === 'admin' || questionTitle === 'Hội thoại mới') && electron && electron.invoke) {
+                                try {
+                                    const localHist = await electron.invoke('get-local-chatbot-history', {
+                                        username: this.user?.name || 'admin',
+                                        threadId: item[0]
+                                    });
+                                    if (localHist?.success && localHist.messages?.length > 0) {
+                                        const userMsgs = localHist.messages.filter((m: any) => m[2] === 'user');
+                                        if (userMsgs.length > 0) {
+                                            questionTitle = userMsgs[userMsgs.length - 1][3] || '';
+                                        }
+                                    }
+                                } catch (e) {}
+                            }
+
+                            // Nếu vẫn chưa có câu hỏi, tra cứu qua getMessage từ server
+                            if (!questionTitle || questionTitle === 'admin' || questionTitle === 'Hội thoại mới') {
+                                try {
+                                    const srvMsgs: any = await new Promise((resolve) => {
+                                        this._chatbotService.getMessage({
+                                            username: this.user.name,
+                                            currentThread: item[0]
+                                        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                                            next: (msgs) => resolve(msgs),
+                                            error: () => resolve([])
+                                        });
+                                    });
+                                    if (Array.isArray(srvMsgs) && srvMsgs.length > 0) {
+                                        const userMsgs = srvMsgs.filter((m: any) => m[2] === 'user');
+                                        if (userMsgs.length > 0) {
+                                            let rawQ = userMsgs[userMsgs.length - 1][3] || '';
+                                            if (rawQ.includes('\n\n[DỮ LIỆU')) {
+                                                rawQ = rawQ.split('\n\n[DỮ LIỆU')[0].trim();
+                                            } else if (rawQ.includes('[DỮ LIỆU')) {
+                                                rawQ = rawQ.split('[DỮ LIỆU')[0].trim();
+                                            }
+                                            questionTitle = rawQ;
+                                            // Lưu cache vào local để lần sau hiển thị tức thì
+                                            if (electron && electron.invoke && questionTitle) {
+                                                await electron.invoke('save-local-chatbot-history', {
+                                                    username: this.user?.name || 'admin',
+                                                    threadId: item[0],
+                                                    messages: srvMsgs,
+                                                    title: questionTitle.slice(0, 80)
+                                                });
+                                            }
+                                        }
+                                    }
+                                } catch (e) {}
+                            }
+
+                            if (questionTitle) {
+                                if (questionTitle.includes('\n\n[DỮ LIỆU')) {
+                                    questionTitle = questionTitle.split('\n\n[DỮ LIỆU')[0].trim();
+                                } else if (questionTitle.includes('[DỮ LIỆU')) {
+                                    questionTitle = questionTitle.split('[DỮ LIỆU')[0].trim();
+                                }
+                            }
+
+                            return [
+                                item[0],
+                                questionTitle || item[1] || '',
+                                questionTitle || item[2] || '',
+                                item[3] || '',
+                                item[4] ?? null
+                            ];
+                        }));
+
+                        this.threadList = processedList;
                         this.rebuildThreadRows();
                         this.calcThreadTableHeight();
 
-                        if (data.length > 0 && !this.currentThread) {
-                            this.selectThread(data[0][0]);
+                        if (processedList.length > 0 && !this.currentThread) {
+                            this.selectThread(processedList[0][0]);
                         }
 
                         this.cd.markForCheck();
@@ -915,6 +994,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
         // Kiểm tra và hiển thị ngay lịch sử trò chuyện đã lưu trên máy (0ms)
         const electron = (window as any).electron;
+        let hasLocalMessages = false;
         if (electron && electron.invoke) {
             try {
                 const localHist = await electron.invoke('get-local-chatbot-history', {
@@ -922,12 +1002,12 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     threadId: threadId
                 });
                 if (localHist?.success && localHist?.messages?.length > 0) {
+                    hasLocalMessages = true;
                     this.messages = localHist.messages;
                     this.currentMessages = localHist.messages;
                     this.removeTyping();
                     this.renderMessages(localHist.messages);
                     this.cd.markForCheck();
-                    // return removed
                 } else if (localHist?.success) {
                     // Hộp thoại mới tạo hoặc rỗng trên máy
                     this.messages = [];
@@ -936,7 +1016,6 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     const chat = document.getElementById('chat');
                     if (chat) chat.innerHTML = '';
                     this.cd.markForCheck();
-                    // return removed
                 }
             } catch (e) {}
         }
@@ -947,13 +1026,15 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         }).pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (data) => {
+                    // Chỉ render và ghi đè từ server nếu server có tin nhắn,
+                    // hoặc máy cục bộ chưa có tin nhắn nào
                     if (data && data.length > 0) {
                         this.messages = data;
                         this.currentMessages = data;
                         this.removeTyping();
                         this.renderMessages(data);
                         this.cd.markForCheck();
-                    } else {
+                    } else if (!hasLocalMessages) {
                         this.messages = [];
                         this.currentMessages = [];
                         this.removeTyping();
@@ -963,12 +1044,14 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     }
                 },
                 error: () => {
-                    this.messages = [];
-                    this.currentMessages = [];
-                    this.removeTyping();
-                    const chat = document.getElementById('chat');
-                    if (chat) chat.innerHTML = '';
-                    this.cd.markForCheck();
+                    if (!hasLocalMessages) {
+                        this.messages = [];
+                        this.currentMessages = [];
+                        this.removeTyping();
+                        const chat = document.getElementById('chat');
+                        if (chat) chat.innerHTML = '';
+                        this.cd.markForCheck();
+                    }
                 },
                 complete: () => {
                 }
@@ -1101,17 +1184,17 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         // 1. Tạo tin nhắn người dùng
         const userMessage = [this.currentMessages.length + 1, this.currentThread, 'user', msg, null, null, timeStr];
 
-        // Cập nhật tiêu đề hộp thoại ngay lập tức theo câu hỏi đầu tiên của người dùng
-        const firstUserQuestion = msg.trim();
+        // Cập nhật tiêu đề hộp thoại ngay lập tức theo câu hỏi cuối cùng của người dùng
+        const lastUserQuestion = msg.trim();
         const currentThreadRow = (this.threadRows || []).find(r => String(r.id) === String(this.currentThread));
-        if (currentThreadRow && (currentThreadRow.title === 'Hội thoại mới' || !currentThreadRow.title || currentThreadRow.title.startsWith('Hội thoại #'))) {
-            currentThreadRow.title = firstUserQuestion;
-            currentThreadRow.name = firstUserQuestion;
+        if (currentThreadRow) {
+            currentThreadRow.title = lastUserQuestion;
+            currentThreadRow.name = lastUserQuestion;
         }
         const currentThreadItem = (this.threadList || []).find(t => String(t?.[0]) === String(this.currentThread));
         if (currentThreadItem) {
-            currentThreadItem[1] = firstUserQuestion;
-            currentThreadItem[2] = firstUserQuestion;
+            currentThreadItem[1] = lastUserQuestion;
+            currentThreadItem[2] = lastUserQuestion;
         }
         this.rebuildThreadRows();
         this.cd.markForCheck();
@@ -1253,8 +1336,9 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 const electron = (window as any).electron;
                 if (electron && electron.invoke) {
                     try {
-                        const firstQuestion = (this.currentMessages || []).find(m => m[2] === 'user')?.[3] || msg;
-                        const titlePreview = firstQuestion ? (firstQuestion.slice(0, 50) + (firstQuestion.length > 50 ? '...' : '')) : 'Hội thoại';
+                        const userMsgs = (this.currentMessages || []).filter(m => m[2] === 'user');
+                        const lastQuestion = (userMsgs.length > 0 ? userMsgs[userMsgs.length - 1]?.[3] : null) || msg;
+                        const titlePreview = lastQuestion ? (lastQuestion.slice(0, 80) + (lastQuestion.length > 80 ? '...' : '')) : 'Hội thoại';
                         await electron.invoke('save-local-chatbot-history', {
                             username: this.user?.name || 'admin',
                             threadId: this.currentThread,
