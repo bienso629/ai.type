@@ -90,18 +90,6 @@ interface ScreenplayLine {
                             >
                         </div>
                     </div>
-                    <div class="flex sm:hidden">
-                        <a
-                            class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer"
-                            [routerLink]="['/collection']"
-                        >
-                            <mat-icon
-                                class="icon-size-4 text-secondary"
-                                [svgIcon]="'heroicons_solid:chevron-left'"
-                            ></mat-icon>
-                            <span class="ml-1 text-base">quay lại</span>
-                        </a>
-                    </div>
                 </div>
 
                 <!-- Right Actions: Nút Dựng video -->
