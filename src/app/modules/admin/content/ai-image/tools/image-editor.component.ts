@@ -1293,19 +1293,26 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
             else if (currentRatio < 0.6) ratioStr = '9:16';
             else if (currentRatio < 0.8) ratioStr = '3:4';
 
+            const userPrompt = this.aiPrompt.trim();
+            const editInstruction = `You are performing an image editing task on the provided input image.
+CRITICAL EDITING RULES:
+1. PRESERVE THE ORIGINAL IMAGE: Do NOT generate a completely new image or change the overall scene. Keep the exact composition, perspective, camera angle, primary subjects, identity/face, pose, lighting, and background structure of the input image intact.
+2. PRECISE MODIFICATION: Only modify, add, remove, or replace the specific elements requested by the user below. Everything else must remain consistent with the original image.
+3. User instruction for edit: "${userPrompt}"`;
+
             const generateOptions = {
                 model: 'gemini-3.1-flash-image-preview',
                 contents: [
                     {
                         role: 'user',
                         parts: [
-                            { text: this.aiPrompt.trim() },
                             {
                                 inlineData: {
                                     data: base64Data,
                                     mimeType: 'image/png',
                                 },
                             } as any,
+                            { text: editInstruction },
                         ],
                     },
                 ],

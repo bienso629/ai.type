@@ -1386,14 +1386,14 @@
                         <!-- Ô Prompt & Nút AI chỉnh sửa ảnh trước khi lưu -->
                         <div class="flex flex-col gap-1 mb-4">
                             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                AI Prompt (chỉnh sửa / tạo lại):
+                                AI Prompt chỉnh sửa ảnh:
                             </span>
                             <mat-form-field appearance="outline" class="w-full text-sm fuse-mat-dense mb-0" subscriptSizing="dynamic">
                                 <textarea
                                     matInput
                                     rows="3"
                                     [(ngModel)]="aiPrompt"
-                                    placeholder="Nhập mô tả muốn AI chỉnh sửa hoặc tái tạo..."
+                                    placeholder="Nhập yêu cầu sửa ảnh (giữ nguyên bố cục ảnh cũ)..."
                                     [disabled]="isGeneratingAi || processing"
                                     (keydown.enter)="$event.ctrlKey ? generateWithAi() : null"
                                 ></textarea>
