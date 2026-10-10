@@ -767,12 +767,31 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const electron = (window as any).electron;
         const localQuestionMap = new Map<string, string>();
         let localThreads: any[] = [];
+        let deletedThreadIds: string[] = [];
+
+        // Lấy danh sách ID các hộp thoại đã xóa từ localStorage
+        try {
+            const storedDeleted = localStorage.getItem('deleted_chatbot_threads');
+            if (storedDeleted) {
+                deletedThreadIds = JSON.parse(storedDeleted) || [];
+            }
+        } catch (e) {}
 
         if (electron && electron.invoke) {
             try {
+                const delRes = await electron.invoke('get-local-deleted-chatbot-threads', this.user?.name || 'admin');
+                if (delRes?.success && Array.isArray(delRes.deleted)) {
+                    delRes.deleted.forEach((id: any) => {
+                        const sId = String(id);
+                        if (!deletedThreadIds.includes(sId)) deletedThreadIds.push(sId);
+                    });
+                }
+            } catch (e) {}
+
+            try {
                 const res = await electron.invoke('list-local-chatbot-threads', this.user?.name || 'admin');
                 if (res?.success && res.threads) {
-                    localThreads = res.threads;
+                    localThreads = (res.threads || []).filter((t: any) => !deletedThreadIds.includes(String(t.id)));
                     localThreads.forEach(t => {
                         if (t.title && t.title !== 'admin' && t.title !== 'Hội thoại mới') {
                             localQuestionMap.set(String(t.id), t.title);
@@ -796,8 +815,11 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (data) => {
                     if (data && Array.isArray(data)) {
+                        // Loại bỏ các thread người dùng đã xóa
+                        const activeData = data.filter((item: any) => !deletedThreadIds.includes(String(item[0])));
+
                         // Kết hợp dữ liệu server với câu hỏi gần nhất từ local hoặc lấy tin nhắn cuối
-                        const processedList = await Promise.all(data.map(async (item: any) => {
+                        const processedList = await Promise.all(activeData.map(async (item: any) => {
                             const threadId = String(item[0]);
                             let questionTitle = localQuestionMap.get(threadId) || item[1] || '';
 
@@ -917,6 +939,19 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
         dialogRef.afterClosed().subscribe(async (result) => {
             if (result === 'confirmed') {
+                const sThreadId = String(threadId);
+
+                // Lưu ID đã xóa vào localStorage để đảm bảo F5 không bao giờ bị hiện lại
+                try {
+                    let deletedList: string[] = [];
+                    const stored = localStorage.getItem('deleted_chatbot_threads');
+                    if (stored) deletedList = JSON.parse(stored) || [];
+                    if (!deletedList.includes(sThreadId)) {
+                        deletedList.push(sThreadId);
+                        localStorage.setItem('deleted_chatbot_threads', JSON.stringify(deletedList));
+                    }
+                } catch (e) {}
+
                 const electron = (window as any).electron;
                 if (electron && electron.invoke) {
                     try {
@@ -927,9 +962,9 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     } catch (e) {}
                 }
 
-                this.threadList = (this.threadList || []).filter(t => String(t?.[0]) !== String(threadId));
+                this.threadList = (this.threadList || []).filter(t => String(t?.[0]) !== sThreadId);
                 this.rebuildThreadRows();
-                if (String(this.currentThread) === String(threadId)) {
+                if (String(this.currentThread) === sThreadId) {
                     this.currentThread = null;
                     this.currentMessages = [];
                     this.messages = [];
@@ -969,6 +1004,17 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
         dialogRef.afterClosed().subscribe(async (result) => {
             if (result === 'confirmed') {
+                try {
+                    let deletedList: string[] = [];
+                    const stored = localStorage.getItem('deleted_chatbot_threads');
+                    if (stored) deletedList = JSON.parse(stored) || [];
+                    (this.threadList || []).forEach(t => {
+                        const sId = String(t?.[0]);
+                        if (!deletedList.includes(sId)) deletedList.push(sId);
+                    });
+                    localStorage.setItem('deleted_chatbot_threads', JSON.stringify(deletedList));
+                } catch (e) {}
+
                 const electron = (window as any).electron;
                 if (electron && electron.invoke) {
                     try {

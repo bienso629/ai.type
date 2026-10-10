@@ -5,6 +5,14 @@
             cursor: default !important;
         }
     }
+
+    .ngx-datatable.material .datatable-body-cell.flex.justify-end {
+        .datatable-body-cell-label {
+            width: 100% !important;
+            display: flex !important;
+            justify-content: flex-end !important;
+        }
+    }
 }
 
 .example-margin {

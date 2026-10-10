@@ -51,8 +51,9 @@ export class WordpressService {
     private _typeVnCategoriesCache$: Observable<any> | null = null;
 
     public categories(dataForm: any): Observable<any> {
-        const domainStr = (dataForm?.domain || '').toLowerCase();
-        if (domainStr.includes('type.vn')) {
+        const domainStr = (dataForm?.domain || '').toLowerCase().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+        const isTypeVnForum = domainStr === 'type.vn' || domainStr === 'www.type.vn';
+        if (isTypeVnForum) {
             if (this._typeVnCategoriesCache$) {
                 return this._typeVnCategoriesCache$;
             }

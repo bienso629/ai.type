@@ -125,23 +125,20 @@
                                             ) {
                                                 <mat-option
                                                     [value]="item"
-                                                    class="py-2 mb-2"
+                                                    class="!h-auto !py-2.5 mb-1"
                                                 >
-                                                    <label
-                                                        class="line-clamp-1"
-                                                        >{{
-                                                            item.title ||
-                                                                ("app.no_title"
-                                                                    | transloco)
-                                                        }}</label
-                                                    >
-                                                    <label
-                                                        class="line-clamp-1 text-gray-300"
-                                                        >{{
-                                                            item.ids.length
-                                                        }}
-                                                        link(s)</label
-                                                    >
+                                                    <div class="flex flex-col justify-center min-w-0 leading-snug">
+                                                        <span class="truncate font-medium text-gray-800 dark:text-gray-100 text-sm">
+                                                            {{
+                                                                item.title ||
+                                                                    ("app.no_title"
+                                                                        | transloco)
+                                                            }}
+                                                        </span>
+                                                        <span class="truncate mt-0.5" style="color: #94a3b8 !important;">
+                                                            {{ item.ids.length }} link(s)
+                                                        </span>
+                                                    </div>
                                                 </mat-option>
                                             }
                                         </mat-autocomplete>
@@ -176,20 +173,20 @@
                                             @for (item of links; track item) {
                                                 <mat-option
                                                     [value]="item.link"
-                                                    class="py-2 mb-2"
+                                                    class="!h-auto !py-2.5 mb-1"
                                                 >
-                                                    <label
-                                                        class="line-clamp-1"
-                                                        >{{
-                                                            item.title ||
-                                                                ("app.no_title"
-                                                                    | transloco)
-                                                        }}</label
-                                                    >
-                                                    <label
-                                                        class="line-clamp-1 text-gray-300"
-                                                        >{{ item.link }}</label
-                                                    >
+                                                    <div class="flex flex-col justify-center min-w-0 leading-snug">
+                                                        <span class="truncate font-medium text-gray-800 dark:text-gray-100 text-sm">
+                                                            {{
+                                                                item.title ||
+                                                                    ("app.no_title"
+                                                                        | transloco)
+                                                            }}
+                                                        </span>
+                                                        <span class="truncate mt-0.5" style="color: #94a3b8 !important;">
+                                                            {{ item.link }}
+                                                        </span>
+                                                    </div>
                                                 </mat-option>
                                             }
                                         </mat-autocomplete>
@@ -292,23 +289,23 @@
                                             @for (item of domains; track item) {
                                                 <mat-option
                                                     [value]="item"
-                                                    class="py-2 mb-2"
+                                                    class="!h-auto !py-2.5 mb-1"
                                                 >
-                                                    <label
-                                                        class="line-clamp-1 text-gray-300"
-                                                        >{{
-                                                            item.name ||
-                                                                "Tiêu đề"
-                                                        }}</label
-                                                    >
-                                                    <label
-                                                        class="line-clamp-1"
-                                                        >{{
-                                                            cleanDomain(
-                                                                item.domain
-                                                            )
-                                                        }}</label
-                                                    >
+                                                    <div class="flex flex-col justify-center min-w-0 leading-snug">
+                                                        <span class="truncate font-medium text-gray-800 dark:text-gray-100 text-sm">
+                                                            {{
+                                                                cleanDomain(
+                                                                    item.domain
+                                                                )
+                                                            }}
+                                                        </span>
+                                                        <span class="truncate mt-0.5" style="color: #94a3b8 !important;">
+                                                            {{
+                                                                item.name ||
+                                                                    "Tiêu đề"
+                                                            }}
+                                                        </span>
+                                                    </div>
                                                 </mat-option>
                                             }
                                         </mat-autocomplete>
@@ -569,11 +566,12 @@
 
                             <ngx-datatable-column
                                 name=""
-                                [width]="100"
+                                [width]="90"
                                 [sortable]="false"
                                 [canAutoResize]="false"
                                 [draggable]="false"
                                 [resizeable]="false"
+                                cellClass="flex items-center justify-end"
                             >
                                 <ng-template
                                     let-row="row"
@@ -582,13 +580,13 @@
                                 >
                                     @if (row) {
                                         <div
-                                            class="flex items-center justify-end"
+                                            class="w-full flex items-center justify-end pr-3"
                                         >
                                             @if (
                                                 row.href && row.href.length > 0
                                             ) {
                                                 <a
-                                                    class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
+                                                    class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white shrink-0"
                                                     [href]="row.href[0]"
                                                     target="_blank"
                                                     matTooltipPosition="above"

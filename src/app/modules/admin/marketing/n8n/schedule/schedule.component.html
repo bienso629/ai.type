@@ -1,4 +1,4 @@
-<div class="flex flex-col sm:flex-row flex-auto w-full h-full bg-white">
+<div class="relative flex flex-col sm:flex-row flex-auto w-full h-full bg-white overflow-hidden">
     <div class="flex-1 min-w-0 relative h-full">
         @if (isLoadingSchedule) {
             <div class="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xs z-50 flex flex-col items-center justify-center gap-3 select-none">
@@ -198,7 +198,6 @@
                                 : 1)
                         "
                         class="panel-item group transition-colors hover:bg-gray-50"
-                        [class.bg-amber-50]="item.isTotalRow"
                         style="
                             width: 100%;
                             display: flex;
@@ -212,7 +211,6 @@
                         >
                             <span
                                 class="item-name font-medium text-gray-800 truncate"
-                                [class.text-amber-900]="item.isTotalRow"
                                 [title]="cleanDomain(item.name)"
                                 >{{ cleanDomain(item.name) }}</span
                             >
@@ -269,9 +267,11 @@
 
     <!-- Slide Chat Drawer Container (Điều khiển qua nút bấm Ẩn/Hiện, không hover) -->
     <div
-        class="fixed sm:absolute right-0 top-0 bottom-0 h-full w-[500px] max-w-full bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col overflow-visible transition-transform duration-280 ease-out"
+        class="fixed sm:absolute right-0 top-0 bottom-0 h-full w-[500px] max-w-full bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col overflow-visible transition-all duration-280 ease-out"
         [class.translate-x-full]="!isChatOpened"
         [class.translate-x-0]="isChatOpened"
+        [class.invisible]="!isChatOpened"
+        [class.pointer-events-none]="!isChatOpened"
     >
         <!-- Nút thu nhỏ/ẩn bám sát mép sidebar khi đang mở (không chữ Ẩn) -->
         @if (isChatOpened) {
