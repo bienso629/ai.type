@@ -1321,7 +1321,9 @@ CRITICAL EDITING RULES:
                     imageConfig: {
                         aspectRatio: ratioStr,
                     },
-                },
+                    isImageEdit: true,
+                    bypassModelOverride: true,
+                } as any,
             };
 
             const response = await this.genaiService.generateContent(generateOptions);
@@ -1347,6 +1349,10 @@ CRITICAL EDITING RULES:
             if (newImageBase64) {
                 const newSrc = `data:${newMimeType};base64,${newImageBase64}`;
                 this.initCanvas(newSrc, false);
+                setTimeout(() => {
+                    this.recordHistory();
+                    this.saveStateToStorage();
+                }, 100);
                 this.toastr.success('AI đã chỉnh sửa hình ảnh!');
             } else {
                 this.toastr.warning('Không nhận được hình ảnh trả về từ AI.');
