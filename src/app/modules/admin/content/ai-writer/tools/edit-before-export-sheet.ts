@@ -510,46 +510,85 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
     }
 
     categories(): void {
+        const formVal = this.editorForm.value || {};
+        const domainVal = formVal.domain || (this.domain ? this.domain.domain : '');
+
+        const applyCategories = (result: any[]) => {
+            if (result && Array.isArray(result) && result.length > 0) {
+                this.categoryitems = result.map((item: any) => {
+                    const catId = item.id !== undefined ? item.id : item.cid;
+                    let catName = item.name || '';
+                    if (catName) {
+                        // Decode các thẻ HTML entities của NodeBB
+                        catName = catName
+                            .replace(/&lsqb;/gi, '[')
+                            .replace(/&rsqb;/gi, ']');
+                        // Dịch thành tiếng việt
+                        if (
+                            catName.includes(
+                                '[[category:uncategorized]]',
+                            )
+                        ) {
+                            catName = catName.replace(
+                                '[[category:uncategorized]]',
+                                'Chưa phân loại',
+                            );
+                        }
+                    }
+                    return {
+                        ...item,
+                        id: catId,
+                        cid: catId,
+                        name: catName,
+                    };
+                });
+                this.cdr.markForCheck();
+                return true;
+            }
+            return false;
+        };
+
+        const tryDirectFetchCategories = async () => {
+            if (!domainVal) return false;
+            let targetUrl = domainVal.trim();
+            if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+                targetUrl = 'https://' + targetUrl;
+            }
+            if (targetUrl.endsWith('/')) targetUrl = targetUrl.slice(0, -1);
+            try {
+                const resp = await fetch(`${targetUrl}/wp-json/wp/v2/categories?per_page=100`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        return applyCategories(data);
+                    }
+                }
+            } catch (e) {
+                console.warn('Lỗi gọi trực tiếp danh mục từ WP REST API:', e);
+            }
+            return false;
+        };
+
         this._wordpressService
-            .categories(this.editorForm.value)
+            .categories(formVal)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
-                    if (result && Array.isArray(result)) {
-                        this.categoryitems = result.map((item: any) => {
-                            const catId = item.id !== undefined ? item.id : item.cid;
-                            let catName = item.name || '';
-                            if (catName) {
-                                // Decode các thẻ HTML entities của NodeBB
-                                catName = catName
-                                    .replace(/&lsqb;/gi, '[')
-                                    .replace(/&rsqb;/gi, ']');
-                                // Dịch thành tiếng việt
-                                if (
-                                    catName.includes(
-                                        '[[category:uncategorized]]',
-                                    )
-                                ) {
-                                    catName = catName.replace(
-                                        '[[category:uncategorized]]',
-                                        'Chưa phân loại',
-                                    );
-                                }
-                            }
-                            return {
-                                ...item,
-                                id: catId,
-                                cid: catId,
-                                name: catName,
-                            };
-                        });
-                        this.cdr.markForCheck();
-                    } else {
-                        this.toastr.warning('Lấy danh mục thất bại.');
+                    const ok = applyCategories(result);
+                    if (!ok) {
+                        const fallbackOk = await tryDirectFetchCategories();
+                        if (!fallbackOk) {
+                            this.toastr.warning('Lấy danh mục thất bại.');
+                        }
                     }
                 },
-                error: () => {
-                    this.toastr.warning('Lấy danh mục thất bại.');
+                error: async () => {
+                    const fallbackOk = await tryDirectFetchCategories();
+                    if (!fallbackOk) {
+                        this.toastr.warning('Lấy danh mục thất bại.');
+                    }
                 },
                 complete: () => {},
             });
@@ -648,19 +687,59 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
     }
 
     tags(): void {
+        const formVal = this.editorForm.value || {};
+        const domainVal = formVal.domain || (this.domain ? this.domain.domain : '');
+
+        const applyTags = (result: any[]) => {
+            if (result && Array.isArray(result) && result.length > 0) {
+                this.tagitems = result;
+                this.cdr.markForCheck();
+                return true;
+            }
+            return false;
+        };
+
+        const tryDirectFetchTags = async () => {
+            if (!domainVal) return false;
+            let targetUrl = domainVal.trim();
+            if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+                targetUrl = 'https://' + targetUrl;
+            }
+            if (targetUrl.endsWith('/')) targetUrl = targetUrl.slice(0, -1);
+            try {
+                const resp = await fetch(`${targetUrl}/wp-json/wp/v2/tags?per_page=100`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        return applyTags(data);
+                    }
+                }
+            } catch (e) {
+                console.warn('Lỗi gọi trực tiếp tags từ WP REST API:', e);
+            }
+            return false;
+        };
+
         this._wordpressService
-            .tags(this.editorForm.value)
+            .tags(formVal)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result) {
-                        this.tagitems = result;
-                    } else {
-                        this.toastr.warning('Lấy thẻ thất bại.');
+                    const ok = applyTags(result);
+                    if (!ok) {
+                        const fallbackOk = await tryDirectFetchTags();
+                        if (!fallbackOk) {
+                            this.toastr.warning('Lấy thẻ thất bại.');
+                        }
                     }
                 },
-                error: () => {
-                    this.toastr.warning('Lấy thẻ thất bại.');
+                error: async () => {
+                    const fallbackOk = await tryDirectFetchTags();
+                    if (!fallbackOk) {
+                        this.toastr.warning('Lấy thẻ thất bại.');
+                    }
                 },
                 complete: () => {},
             });
@@ -1275,10 +1354,25 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                             `${this.domain['domain']}.account`,
                             `${oha}`,
                         );
+                        const cleanD = (this.domain['domain'] || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                        if (cleanD && cleanD !== this.domain['domain']) {
+                            const ohaClean: String = this._h.encrypt(
+                                {
+                                    username: this.editorForm.get('username').value,
+                                    apppass: this.editorForm.get('apppass').value,
+                                },
+                                `${cleanD}.account.key`,
+                            );
+                            localStorage.setItem(`${cleanD}.account`, `${ohaClean}`);
+                        }
                     } else {
                         localStorage.removeItem(
                             `${this.domain['domain']}.account`,
                         );
+                        const cleanD = (this.domain['domain'] || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                        if (cleanD) {
+                            localStorage.removeItem(`${cleanD}.account`);
+                        }
                     }
                 },
             });
@@ -1335,10 +1429,25 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                                 `${this.domain['domain']}.account`,
                                 `${oha}`,
                             );
+                            const cleanD = (this.domain['domain'] || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                            if (cleanD && cleanD !== this.domain['domain']) {
+                                const ohaClean: String = this._h.encrypt(
+                                    {
+                                        username: this.editorForm.get('username').value,
+                                        apppass: this.editorForm.get('apppass').value,
+                                    },
+                                    `${cleanD}.account.key`,
+                                );
+                                localStorage.setItem(`${cleanD}.account`, `${ohaClean}`);
+                            }
                         } else {
                             localStorage.removeItem(
                                 `${this.domain['domain']}.account`,
                             );
+                            const cleanD = (this.domain['domain'] || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                            if (cleanD) {
+                                localStorage.removeItem(`${cleanD}.account`);
+                            }
                         }
                     },
                 });
@@ -1382,10 +1491,25 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                                 `${this.domain['domain']}.account`,
                                 `${oha}`,
                             );
+                            const cleanD = (this.domain['domain'] || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                            if (cleanD && cleanD !== this.domain['domain']) {
+                                const ohaClean: String = this._h.encrypt(
+                                    {
+                                        username: this.editorForm.get('username').value,
+                                        apppass: this.editorForm.get('apppass').value,
+                                    },
+                                    `${cleanD}.account.key`,
+                                );
+                                localStorage.setItem(`${cleanD}.account`, `${ohaClean}`);
+                            }
                         } else {
                             localStorage.removeItem(
                                 `${this.domain['domain']}.account`,
                             );
+                            const cleanD = (this.domain['domain'] || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                            if (cleanD) {
+                                localStorage.removeItem(`${cleanD}.account`);
+                            }
                         }
                     },
                 });
@@ -1504,16 +1628,43 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             this.sanitizeQuillContent(fullContent),
         );
 
-        let domainacc: any = localStorage.getItem(
-            `${this.domain['domain']}.account`,
-        );
-        if (domainacc) {
-            domainacc = this._h.decrypt(
-                domainacc,
-                `${this.domain['domain']}.account.key`,
-            );
-            this.editorForm.controls['username'].setValue(domainacc.username);
-            this.editorForm.controls['apppass'].setValue(domainacc.apppass);
+        // Tìm kiếm credentials từ nhiều key khác nhau (với hoặc không có https/http)
+        const rawDomain = (this.domain && this.domain['domain']) ? this.domain['domain'] : '';
+        const cleanDomain = rawDomain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+        const candidateKeys = [
+            cleanDomain,
+            rawDomain,
+            `https://${cleanDomain}`,
+            `http://${cleanDomain}`
+        ].filter(Boolean);
+
+        let resolvedUsername = this.editorForm.get('username')?.value || this.domain?.username || this.domain?.wp_username || '';
+        let resolvedApppass = this.editorForm.get('apppass')?.value || this.domain?.password || this.domain?.wp_password || '';
+
+        for (const domKey of candidateKeys) {
+            let accRaw = localStorage.getItem(`${domKey}.account`);
+            if (accRaw) {
+                try {
+                    let decrypted: any = this._h.decrypt(accRaw, `${domKey}.account.key`);
+                    if (!decrypted && domKey !== cleanDomain) {
+                        decrypted = this._h.decrypt(accRaw, `${cleanDomain}.account.key`);
+                    }
+                    if (decrypted && (decrypted.username || decrypted.apppass)) {
+                        if (decrypted.username) resolvedUsername = decrypted.username;
+                        if (decrypted.apppass) resolvedApppass = decrypted.apppass;
+                        break;
+                    }
+                } catch (e) {
+                    console.error('Lỗi giải mã credentials từ key:', domKey, e);
+                }
+            }
+        }
+
+        if (resolvedUsername) {
+            this.editorForm.controls['username'].setValue(resolvedUsername);
+        }
+        if (resolvedApppass) {
+            this.editorForm.controls['apppass'].setValue(resolvedApppass);
         }
 
         if (this.data.function === 'share' || this.data.function === 'update') {

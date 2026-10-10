@@ -2767,14 +2767,41 @@ function registerLocalArticlesHandlers() {
 
             const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
             const apiUrl = `${domain}/wp-json/wp/v2/categories?per_page=100`;
+            const authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
             const headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
-                ...buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password)
+                ...authHeader
             };
 
-            const resp = await fetch(apiUrl, { method: 'GET', headers });
-            if (!resp.ok) {
-                return { success: false, error: `WordPress phản hồi lỗi HTTP ${resp.status}`, data: [] };
+            let resp = null;
+            try {
+                resp = await fetch(apiUrl, { method: 'GET', headers, signal: AbortSignal.timeout(10000) });
+            } catch (err) {
+                // Thử fallback http nếu domain https bị lỗi kết nối
+                if (domain.startsWith('https://')) {
+                    const httpUrl = apiUrl.replace('https://', 'http://');
+                    try {
+                        resp = await fetch(httpUrl, { method: 'GET', headers, signal: AbortSignal.timeout(10000) });
+                    } catch (e2) {}
+                }
+            }
+
+            // Nếu 401 Unauthorized hoặc 403 Forbidden với auth header, thử request public không header
+            if ((!resp || resp.status === 401 || resp.status === 403) && authHeader.Authorization) {
+                try {
+                    const publicResp = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0' },
+                        signal: AbortSignal.timeout(10000)
+                    });
+                    if (publicResp.ok) {
+                        resp = publicResp;
+                    }
+                } catch (e3) {}
+            }
+
+            if (!resp || !resp.ok) {
+                return { success: false, error: resp ? `WordPress phản hồi lỗi HTTP ${resp.status}` : 'Không thể kết nối đến WordPress', data: [] };
             }
             const data = await resp.json();
             return { success: true, data: Array.isArray(data) ? data : [] };
@@ -2840,14 +2867,39 @@ function registerLocalArticlesHandlers() {
 
             const effectiveAuth = await getEffectiveWpAuth(domain, username, apppass || password);
             const apiUrl = `${domain}/wp-json/wp/v2/tags?per_page=100`;
+            const authHeader = buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password);
             const headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0',
-                ...buildWpAuthHeader(effectiveAuth.username, effectiveAuth.password)
+                ...authHeader
             };
 
-            const resp = await fetch(apiUrl, { method: 'GET', headers });
-            if (!resp.ok) {
-                return { success: false, error: `WordPress phản hồi lỗi HTTP ${resp.status}`, data: [] };
+            let resp = null;
+            try {
+                resp = await fetch(apiUrl, { method: 'GET', headers, signal: AbortSignal.timeout(10000) });
+            } catch (err) {
+                if (domain.startsWith('https://')) {
+                    const httpUrl = apiUrl.replace('https://', 'http://');
+                    try {
+                        resp = await fetch(httpUrl, { method: 'GET', headers, signal: AbortSignal.timeout(10000) });
+                    } catch (e2) {}
+                }
+            }
+
+            if ((!resp || resp.status === 401 || resp.status === 403) && authHeader.Authorization) {
+                try {
+                    const publicResp = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI.Type/1.0' },
+                        signal: AbortSignal.timeout(10000)
+                    });
+                    if (publicResp.ok) {
+                        resp = publicResp;
+                    }
+                } catch (e3) {}
+            }
+
+            if (!resp || !resp.ok) {
+                return { success: false, error: resp ? `WordPress phản hồi lỗi HTTP ${resp.status}` : 'Không thể kết nối đến WordPress', data: [] };
             }
             const data = await resp.json();
             return { success: true, data: Array.isArray(data) ? data : [] };
