@@ -309,7 +309,10 @@ export class GenaiService {
 
         if (isUModelverse) {
             // Khi Mì Tôm AI được bật trong tài khoản, ưu tiên áp dụng model của Mì Tôm AI
-            if (isImageRequest && !isImageEdit && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
+            if (isImageRequest && this._umodelverseImageModel) {
+                // Nếu người dùng đã cài đặt model ảnh riêng trong Mì Tôm AI, ưu tiên dùng model đó
+                params.model = this._umodelverseImageModel;
+            } else if (isImageRequest && !isImageEdit && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
                 params.model = this._umodelverseImageModel || 'dall-e-3';
             } else if (!bypassModelOverride && !isImageEdit) {
                 if (params.model?.startsWith('gemini-3.8-flash') || params.model?.startsWith('gemini-3.7-flash') || params.model?.startsWith('gemini-3.6-flash')) {
@@ -1385,15 +1388,20 @@ export class GenaiService {
                     console.log(`[UModelverse Image] Tạo ảnh thành công bằng Gemini Compatible Interface!`);
                     return geminiData;
                 } else {
-                    console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại, lỗi:`, geminiData?.error?.message || geminiResponse.status);
-                    if (isImageEdit) {
-                        throw new Error(geminiData?.error?.message || `Proxy Gemini model ${activeModel} thất bại với mã lỗi ${geminiResponse.status}`);
+                    console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại (mã ${geminiResponse.status}):`, geminiData?.error?.message || geminiResponseText);
+                    // Nếu proxy UModelverse không hỗ trợ endpoint Gemini Native /v1beta/models, chuyển activeModel sang model hình ảnh Mì Tôm AI (hoặc dall-e-3) để tiếp tục thử OpenAI format
+                    if (this._umodelverseImageModel && this._umodelverseImageModel !== activeModel) {
+                        activeModel = this._umodelverseImageModel;
+                    } else if (activeModel.includes('gemini')) {
+                        activeModel = this._umodelverseImageModel || 'dall-e-3';
                     }
                 }
             } catch (e: any) {
                 console.warn(`[UModelverse Image] Lỗi khi gọi Gemini Interface:`, e.message);
-                if (isImageEdit) {
-                    throw e; // Để hệ thống fallback sang Tầng 3 (Google GenAI SDK)
+                if (this._umodelverseImageModel && this._umodelverseImageModel !== activeModel) {
+                    activeModel = this._umodelverseImageModel;
+                } else if (activeModel.includes('gemini')) {
+                    activeModel = this._umodelverseImageModel || 'dall-e-3';
                 }
             }
         }
@@ -1418,7 +1426,17 @@ export class GenaiService {
                     size: size,
                     aspect_ratio: ratioStr,
                     image: b64DataUris[0],
+                    ref_image: b64DataUris[0],
                     images: b64DataUris
+                },
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    n: 1,
+                    size: size,
+                    aspect_ratio: ratioStr,
+                    image: b64DataUris[0],
+                    ref_image: b64DataUris[0]
                 },
                 {
                     model: activeModel,
@@ -1431,7 +1449,8 @@ export class GenaiService {
                 {
                     model: activeModel,
                     prompt: promptText,
-                    image: b64DataUris[0]
+                    image: b64DataUris[0],
+                    ref_image: b64DataUris[0]
                 },
                 {
                     model: activeModel,

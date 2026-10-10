@@ -1030,14 +1030,32 @@ fuse-vertical-navigation {
 .cdk-overlay-container {
     z-index: 10000 !important;
     max-width: var(--main-pane-width, 100vw);
-    overflow: hidden;
+    overflow: visible !important;
+}
+
+.cdk-global-overlay-wrapper {
+    overflow: visible !important;
 }
 
 .cdk-overlay-pane.edit2export {
-    mat-bottom-sheet-container {
+    z-index: 10000 !important;
+    overflow: visible !important;
+    position: relative !important;
+
+    mat-bottom-sheet-container,
+    .mat-bottom-sheet-container {
         transform: none !important;
+        overflow: visible !important;
+    }
+
+    ng-dropdown-panel {
+        z-index: 99999999 !important;
     }
 }
+
+
+
+
 
 ng-select {
     cursor: pointer;
@@ -1195,17 +1213,11 @@ ng-dropdown-panel {
         height: auto !important;
     }
 
-    &.custom-select-ai-writer {
-        width: auto !important;
-        min-width: 100% !important;
-        max-width: none !important;
-
-        &.ng-select-top,
-        &.ng-select-bottom {
-            width: auto !important;
-            min-width: 100% !important;
-            max-width: none !important;
-        }
+    &.custom-select-export-panel {
+        z-index: 99999999 !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.25) !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: #ffffff !important;
     }
 
     .ng-dropdown-panel-items {
@@ -1329,7 +1341,14 @@ ng-dropdown-panel {
             }
         }
     }
+
+    &.custom-select-export-panel {
+        background-color: #0f172a !important;
+        border: 1px solid #334155 !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+    }
 }
+
 
 .ql-editor p,
 .ql-editor ol,
