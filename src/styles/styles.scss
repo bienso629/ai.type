@@ -361,7 +361,6 @@ hr {
             span {
                 font-size: inherit !important;
                 line-height: inherit !important;
-                color: inherit !important;
                 white-space: normal !important;
                 text-align: left !important;
                 justify-content: flex-start !important;
@@ -370,8 +369,7 @@ hr {
         }
 
         .mdc-list-item__primary-text,
-        .mat-mdc-menu-item-text,
-        span {
+        .mat-mdc-menu-item-text {
             font-size: 0.875rem !important; /* text-sm */
             color: #1e293b !important;
             white-space: nowrap !important;
@@ -422,8 +420,7 @@ hr {
         border-color: #93c5fd !important;
         color: #0284c7 !important;
 
-        .mdc-list-item__primary-text,
-        span {
+        .mdc-list-item__primary-text {
             color: #0284c7 !important;
             font-weight: 500 !important;
         }
@@ -558,14 +555,12 @@ hr {
             span {
                 font-size: inherit !important;
                 line-height: inherit !important;
-                color: inherit !important;
                 white-space: normal !important;
             }
         }
 
         .mdc-list-item__primary-text,
-        .mat-mdc-menu-item-text,
-        span {
+        .mat-mdc-menu-item-text {
             font-size: 0.875rem !important; /* text-sm */
             color: #f8fafc !important;
             white-space: nowrap !important;
@@ -616,8 +611,7 @@ hr {
         border-color: #3b82f6 !important;
         color: #60a5fa !important;
 
-        .mdc-list-item__primary-text,
-        span {
+        .mdc-list-item__primary-text {
             color: #60a5fa !important;
             font-weight: 500 !important;
         }
@@ -1039,6 +1033,12 @@ fuse-vertical-navigation {
     overflow: hidden;
 }
 
+.cdk-overlay-pane.edit2export {
+    mat-bottom-sheet-container {
+        transform: none !important;
+    }
+}
+
 ng-select {
     cursor: pointer;
 
@@ -1193,6 +1193,19 @@ ng-dropdown-panel {
         min-width: 160px !important;
         max-width: 200px !important;
         height: auto !important;
+    }
+
+    &.custom-select-ai-writer {
+        width: auto !important;
+        min-width: 100% !important;
+        max-width: none !important;
+
+        &.ng-select-top,
+        &.ng-select-bottom {
+            width: auto !important;
+            min-width: 100% !important;
+            max-width: none !important;
+        }
     }
 
     .ng-dropdown-panel-items {
@@ -2221,8 +2234,7 @@ html:has(auth-sign-in) {
 
     .mdc-list-item__primary-text,
     .mat-mdc-menu-item-text,
-    .mat-option-text,
-    span {
+    .mat-option-text {
         color: #1e293b !important;
         font-weight: 500 !important;
         opacity: 1 !important;
@@ -2246,8 +2258,7 @@ html:has(auth-sign-in) {
 
     .mdc-list-item__primary-text,
     .mat-mdc-menu-item-text,
-    .mat-option-text,
-    span {
+    .mat-option-text {
         color: #f8fafc !important;
         font-weight: 500 !important;
         opacity: 1 !important;

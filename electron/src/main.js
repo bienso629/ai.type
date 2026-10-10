@@ -10735,9 +10735,36 @@ ipcMain.handle('delete-local-chatbot-thread', async (event, { username, threadId
             list = list.filter(t => String(t.id) !== String(threadId));
             fs.writeFileSync(indexFile, JSON.stringify(list, null, 2), 'utf-8');
         }
+
+        // Lưu ID cuộc hội thoại đã xóa vào deleted_threads.json để không bao giờ bị server đồng bộ lại
+        const deletedFile = path.join(userChatDir, 'deleted_threads.json');
+        let deletedList = [];
+        if (fs.existsSync(deletedFile)) {
+            try { deletedList = JSON.parse(fs.readFileSync(deletedFile, 'utf-8')) || []; } catch (e) {}
+        }
+        if (!deletedList.includes(String(threadId))) {
+            deletedList.push(String(threadId));
+            fs.writeFileSync(deletedFile, JSON.stringify(deletedList, null, 2), 'utf-8');
+        }
+
         return { success: true };
     } catch (e) {
         return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('get-local-deleted-chatbot-threads', async (event, username) => {
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const userChatDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'chatbot', safeUser);
+        const deletedFile = path.join(userChatDir, 'deleted_threads.json');
+        if (fs.existsSync(deletedFile)) {
+            const list = JSON.parse(fs.readFileSync(deletedFile, 'utf-8')) || [];
+            return { success: true, deleted: list };
+        }
+        return { success: true, deleted: [] };
+    } catch (e) {
+        return { success: false, deleted: [] };
     }
 });
 
@@ -10746,10 +10773,32 @@ ipcMain.handle('clear-all-local-chatbot-threads', async (event, username) => {
         const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
         const userChatDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'chatbot', safeUser);
         if (fs.existsSync(userChatDir)) {
+            const indexFile = path.join(userChatDir, 'threads_index.json');
+            let currentIds = [];
+            if (fs.existsSync(indexFile)) {
+                try {
+                    const list = JSON.parse(fs.readFileSync(indexFile, 'utf-8')) || [];
+                    currentIds = list.map(t => String(t.id));
+                } catch (e) {}
+            }
+
             const files = fs.readdirSync(userChatDir);
             for (const f of files) {
-                try { fs.unlinkSync(path.join(userChatDir, f)); } catch (err) {}
+                if (f !== 'deleted_threads.json') {
+                    try { fs.unlinkSync(path.join(userChatDir, f)); } catch (err) {}
+                }
             }
+
+            // Ghi nhớ tất cả các thread đã xóa
+            const deletedFile = path.join(userChatDir, 'deleted_threads.json');
+            let deletedList = [];
+            if (fs.existsSync(deletedFile)) {
+                try { deletedList = JSON.parse(fs.readFileSync(deletedFile, 'utf-8')) || []; } catch (e) {}
+            }
+            currentIds.forEach(id => {
+                if (!deletedList.includes(id)) deletedList.push(id);
+            });
+            fs.writeFileSync(deletedFile, JSON.stringify(deletedList, null, 2), 'utf-8');
         }
         return { success: true };
     } catch (e) {

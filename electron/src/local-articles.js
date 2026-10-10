@@ -2721,8 +2721,10 @@ function registerLocalArticlesHandlers() {
             }
             if (domain.endsWith('/')) domain = domain.slice(0, -1);
 
-            // Trường hợp đặc biệt: domain là type.vn (sử dụng API diễn đàn NodeBB)
-            if (domain.includes('type.vn')) {
+            // Trường hợp đặc biệt: domain chính xác là diễn đàn type.vn (sử dụng API diễn đàn NodeBB)
+            const cleanDomainHost = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+            const isTypeVnForum = cleanDomainHost === 'type.vn' || cleanDomainHost === 'www.type.vn';
+            if (isTypeVnForum) {
                 try {
                     const onlineResp = await fetch('https://type.vn/api/categories', {
                         headers: { 'User-Agent': 'Mozilla/5.0 AI.Type/1.0' },

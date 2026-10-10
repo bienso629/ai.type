@@ -446,6 +446,7 @@ Yêu cầu:${styleInstructions}
     }
 
     ngOnInit(): void {
+        this.isChatOpened = false;
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
@@ -648,6 +649,9 @@ ${domainRows.join('\n')}
         if (this.data) {
             this.captions = this.data || [];
         }
+
+        this.isChatOpened = false;
+        this.cd.detectChanges();
     }
 
   private safeDate(d: any): Date {
