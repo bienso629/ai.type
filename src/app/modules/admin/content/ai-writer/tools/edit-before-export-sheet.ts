@@ -166,7 +166,8 @@ try {
                                 (remove)="onRemoveCategory($event)"
                                 (change)="onChangeCategory($event)"
                                 [loading]="loading"
-                                appendTo="body"
+                                panelClass="custom-select-ai-writer custom-select-export-panel"
+                                appendTo=".cdk-overlay-pane.edit2export"
                             >
                                 <ng-template ng-tag-tmp let-search="searchTerm">
                                     <mat-label class="text-base"
@@ -191,7 +192,8 @@ try {
                                 (remove)="onRemoveTag($event)"
                                 (change)="onChangeTag($event)"
                                 [loading]="loading"
-                                appendTo="body"
+                                panelClass="custom-select-ai-writer custom-select-export-panel"
+                                appendTo=".cdk-overlay-pane.edit2export"
                             >
                                 <ng-template ng-tag-tmp let-search="searchTerm">
                                     <mat-label class="text-base"
