@@ -1397,22 +1397,40 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             try {
                 const queryTerms = (msg || '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
                 if (queryTerms.length > 0) {
-                    // Lọc các file có tên hoặc chủ đề liên quan đến câu hỏi trước
-                    const candidateFiles = this.fileRows.filter(f => {
+                    // Ưu tiên các file được người dùng chọn (checkbox), tiếp theo là file có tên khớp từ khóa, sau cùng là toàn bộ file
+                    let candidateFiles: any[] = [];
+                    if (this.selected && this.selected.length > 0) {
+                        candidateFiles = [...this.selected];
+                    }
+                    const nameMatched = this.fileRows.filter(f => {
                         const fname = (f.filename || '').toLowerCase();
                         return queryTerms.some(term => fname.includes(term));
                     });
-                    const targetFiles = candidateFiles.length > 0 ? candidateFiles.slice(0, 3) : this.fileRows.slice(0, 2);
+                    for (const f of nameMatched) {
+                        if (!candidateFiles.some(c => c.filename === f.filename)) {
+                            candidateFiles.push(f);
+                        }
+                    }
+                    // Nếu chưa đủ, lấy thêm các tài liệu khác trong danh sách
+                    for (const f of this.fileRows) {
+                        if (candidateFiles.length >= 8) break;
+                        if (!candidateFiles.some(c => c.filename === f.filename)) {
+                            candidateFiles.push(f);
+                        }
+                    }
 
+                    const targetFiles = candidateFiles.slice(0, 8);
                     const extractedChunks: { score: number; text: string; file: string }[] = [];
+
                     for (const tf of targetFiles) {
                         try {
                             const baseName = (tf.filename || '').replace(/\.[^/.]+$/, '');
                             const dType = tf.doc_type && tf.doc_type !== 'None' ? tf.doc_type : 'qa_detailed';
                             const jsonUrl = `https://bot.type.vn/pdfs/${dType}/${this.user.name}/${encodeURIComponent(baseName)}.mineru.json`;
 
+                            // Tăng range lên 1.5MB để bao quát hầu hết các chương cốt lõi
                             const resp = await fetch(jsonUrl, {
-                                headers: { 'Range': 'bytes=0-300000' }
+                                headers: { 'Range': 'bytes=0-1500000' }
                             });
                             if (resp.ok || resp.status === 206) {
                                 const textData = await resp.text();
@@ -1421,20 +1439,31 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                                     const parsedJson = JSON.parse(textData);
                                     mdText = parsedJson.markdown || '';
                                 } catch (pErr) {
-                                    // Trường hợp text bị cắt ngang do byte range, trích xuất chuỗi markdown
-                                    const mdMatch = textData.match(/"markdown"\s*:\s*"([\s\S]*?)(?:","|"\})/);
-                                    if (mdMatch && mdMatch[1]) {
-                                        mdText = mdMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                                    // Xử lý khi chuỗi JSON bị ngắt quãng do Byte Range
+                                    const mdIdx = textData.indexOf('"markdown":');
+                                    if (mdIdx !== -1) {
+                                        let rawSub = textData.substring(mdIdx + 11).trim();
+                                        if (rawSub.startsWith('"')) rawSub = rawSub.substring(1);
+                                        // Tìm vị trí kết thúc field markdown nếu có
+                                        const endIdx = rawSub.search(/",\s*"[a-zA-Z0-9_-]+"\s*:/);
+                                        if (endIdx !== -1) {
+                                            rawSub = rawSub.substring(0, endIdx);
+                                        }
+                                        mdText = rawSub.replace(/\\n/g, '\n').replace(/\\"/g, '"');
                                     }
                                 }
 
                                 if (mdText) {
-                                    const paragraphs = mdText.split(/\n\n+/).filter(p => p.trim().length > 30);
+                                    const paragraphs = mdText.split(/\n\n+/).filter(p => p.trim().length > 25);
                                     for (const p of paragraphs) {
                                         const lowerP = p.toLowerCase();
                                         let score = 0;
                                         for (const term of queryTerms) {
-                                            if (lowerP.includes(term)) score += 1;
+                                            if (lowerP.includes(term)) {
+                                                // Tính điểm theo tần suất xuất hiện
+                                                const matches = lowerP.split(term).length - 1;
+                                                score += matches;
+                                            }
                                         }
                                         if (score > 0) {
                                             extractedChunks.push({ score, text: p.trim(), file: tf.filename });
@@ -1447,7 +1476,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
                     if (extractedChunks.length > 0) {
                         extractedChunks.sort((a, b) => b.score - a.score);
-                        const topChunks = extractedChunks.slice(0, 4);
+                        const topChunks = extractedChunks.slice(0, 6);
                         foundContext = topChunks.map(c => `[Tài liệu: ${c.file}]\n${c.text}`).join('\n\n---\n\n');
                         console.log('[Chatbot] Đã trích xuất ngữ cảnh trực tiếp từ tài liệu máy chủ cho iPad:', topChunks.length, 'đoạn');
                     }
