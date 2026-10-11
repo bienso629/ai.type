@@ -2574,11 +2574,27 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
 
     detectGrid(): void {
         const w = window.innerWidth;
-        if (w >= 1280) this.gridSize = 4;
-        else if (w >= 768) this.gridSize = 3;
-        else this.gridSize = 2;
+        let containerW = 750;
+        if (w < 640) {
+            containerW = w;
+            this.gridSize = 2;
+        } else if (w < 768) {
+            containerW = 460;
+            this.gridSize = 2;
+        } else if (w < 1024) {
+            containerW = 480;
+            this.gridSize = 2;
+        } else if (w < 1280) {
+            containerW = 540;
+            this.gridSize = 3;
+        } else if (w < 1536) {
+            containerW = 700;
+            this.gridSize = 4;
+        } else {
+            containerW = 750;
+            this.gridSize = 4;
+        }
 
-        const containerW = 750;
         const cellWidth = (containerW - 32) / this.gridSize;
         this.rowHeight = Math.round(cellWidth) + 12;
     }
