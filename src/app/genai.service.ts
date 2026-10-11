@@ -1419,16 +1419,38 @@ export class GenaiService {
 
         if (b64DataUris.length > 0) {
             candidateRequests.push(
+                // 1. Chuẩn OpenAI Image-to-Image / Edit phổ biến nhất (dùng size, prompt, ref_image, image)
                 {
                     model: activeModel,
                     prompt: promptText,
                     n: 1,
                     size: size,
-                    aspect_ratio: ratioStr,
                     image: b64DataUris[0],
-                    ref_image: b64DataUris[0],
+                    ref_image: b64DataUris[0]
+                },
+                // 2. Chuẩn nạp mảng images (một số proxy Midjourney/Flux/SDXL tương thích)
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    n: 1,
+                    size: size,
                     images: b64DataUris
                 },
+                // 3. Chuẩn tối giản chỉ image tham chiếu + prompt
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    image: b64DataUris[0],
+                    ref_image: b64DataUris[0]
+                },
+                // 4. Chuẩn có cả image và images
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    image: b64DataUris[0],
+                    images: b64DataUris
+                },
+                // 5. Chuẩn kèm aspect_ratio nếu model đặc thù yêu cầu (đặt ở cuối để ưu tiên chuẩn không có aspect_ratio trước)
                 {
                     model: activeModel,
                     prompt: promptText,
@@ -1437,35 +1459,26 @@ export class GenaiService {
                     aspect_ratio: ratioStr,
                     image: b64DataUris[0],
                     ref_image: b64DataUris[0]
-                },
-                {
-                    model: activeModel,
-                    prompt: promptText,
-                    n: 1,
-                    size: size,
-                    aspect_ratio: ratioStr,
-                    images: b64DataUris
-                },
-                {
-                    model: activeModel,
-                    prompt: promptText,
-                    image: b64DataUris[0],
-                    ref_image: b64DataUris[0]
-                },
-                {
-                    model: activeModel,
-                    prompt: promptText,
-                    images: b64DataUris
                 }
             );
         } else {
-            candidateRequests.push({
-                model: activeModel,
-                prompt: promptText,
-                n: 1,
-                size: size,
-                aspect_ratio: ratioStr
-            });
+            candidateRequests.push(
+                // 1. Chuẩn OpenAI tiêu chuẩn: model, prompt, n, size (không có aspect_ratio)
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    n: 1,
+                    size: size
+                },
+                // 2. Chuẩn có aspect_ratio cho các model sinh ảnh đặc thù
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    n: 1,
+                    size: size,
+                    aspect_ratio: ratioStr
+                }
+            );
         }
 
         // Option: Format siêu tối giản (bỏ n, size, image) để bypass các strict validation của model khác
@@ -1556,7 +1569,7 @@ export class GenaiService {
                         ]
                     };
                 } else {
-                    lastErrorMsg = (data?.error && data.error.message) || `HTTP Error: ${response.status}`;
+                    lastErrorMsg = (data?.error && data.error.message) || data?.message || (typeof data?.error === 'string' ? data.error : '') || `HTTP Error: ${response.status}`;
                     console.warn(`[UModelverse Image] Cấu hình request ${i} thất bại:`, lastErrorMsg);
 
                     // Nếu lỗi do model không tồn tại thì không cần thử các format payload nữa, break ra để fallback model
