@@ -917,6 +917,18 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         this.rebuildThreadRows();
                         this.calcThreadTableHeight();
 
+                        // Đồng bộ cache xuống localStorage cho iPad, Tablet và Web
+                        try {
+                            const uName = this.user?.name || 'admin';
+                            const cachedToSave = processedList.map(item => ({
+                                id: item[0],
+                                title: item[1] || item[2] || ('Hộp thoại #' + item[0]),
+                                updated_at: item[3] || '',
+                                phone: item[4] ?? null
+                            }));
+                            localStorage.setItem(`chatbot_threads_${uName}`, JSON.stringify(cachedToSave));
+                        } catch (cacheErr) {}
+
                         if (processedList.length > 0 && !this.currentThread) {
                             this.selectThread(processedList[0][0]);
                         }
@@ -1125,6 +1137,12 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         this.currentMessages = data;
                         this.removeTyping();
                         this.renderMessages(data);
+
+                        try {
+                            const uName = this.user?.name || 'admin';
+                            localStorage.setItem(`chatbot_history_${uName}_${threadId}`, JSON.stringify(data));
+                        } catch (cacheErr) {}
+
                         this.cd.markForCheck();
                     } else if (!hasLocalMessages) {
                         this.messages = [];
@@ -1371,6 +1389,71 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 }
             } catch (srvCtxErr) {
                 console.warn('[Chatbot] Lỗi truy vấn ngữ cảnh server:', srvCtxErr);
+            }
+        }
+
+        // Cơ chế dự phòng thông minh cho iPad/Tablet/Web: Quét nội dung tài liệu trực tiếp từ máy chủ bot.type.vn
+        if (!foundContext && this.fileRows && this.fileRows.length > 0) {
+            try {
+                const queryTerms = (msg || '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
+                if (queryTerms.length > 0) {
+                    // Lọc các file có tên hoặc chủ đề liên quan đến câu hỏi trước
+                    const candidateFiles = this.fileRows.filter(f => {
+                        const fname = (f.filename || '').toLowerCase();
+                        return queryTerms.some(term => fname.includes(term));
+                    });
+                    const targetFiles = candidateFiles.length > 0 ? candidateFiles.slice(0, 3) : this.fileRows.slice(0, 2);
+
+                    const extractedChunks: { score: number; text: string; file: string }[] = [];
+                    for (const tf of targetFiles) {
+                        try {
+                            const baseName = (tf.filename || '').replace(/\.[^/.]+$/, '');
+                            const dType = tf.doc_type && tf.doc_type !== 'None' ? tf.doc_type : 'qa_detailed';
+                            const jsonUrl = `https://bot.type.vn/pdfs/${dType}/${this.user.name}/${encodeURIComponent(baseName)}.mineru.json`;
+
+                            const resp = await fetch(jsonUrl, {
+                                headers: { 'Range': 'bytes=0-300000' }
+                            });
+                            if (resp.ok || resp.status === 206) {
+                                const textData = await resp.text();
+                                let mdText = '';
+                                try {
+                                    const parsedJson = JSON.parse(textData);
+                                    mdText = parsedJson.markdown || '';
+                                } catch (pErr) {
+                                    // Trường hợp text bị cắt ngang do byte range, trích xuất chuỗi markdown
+                                    const mdMatch = textData.match(/"markdown"\s*:\s*"([\s\S]*?)(?:","|"\})/);
+                                    if (mdMatch && mdMatch[1]) {
+                                        mdText = mdMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                                    }
+                                }
+
+                                if (mdText) {
+                                    const paragraphs = mdText.split(/\n\n+/).filter(p => p.trim().length > 30);
+                                    for (const p of paragraphs) {
+                                        const lowerP = p.toLowerCase();
+                                        let score = 0;
+                                        for (const term of queryTerms) {
+                                            if (lowerP.includes(term)) score += 1;
+                                        }
+                                        if (score > 0) {
+                                            extractedChunks.push({ score, text: p.trim(), file: tf.filename });
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (fErr) {}
+                    }
+
+                    if (extractedChunks.length > 0) {
+                        extractedChunks.sort((a, b) => b.score - a.score);
+                        const topChunks = extractedChunks.slice(0, 4);
+                        foundContext = topChunks.map(c => `[Tài liệu: ${c.file}]\n${c.text}`).join('\n\n---\n\n');
+                        console.log('[Chatbot] Đã trích xuất ngữ cảnh trực tiếp từ tài liệu máy chủ cho iPad:', topChunks.length, 'đoạn');
+                    }
+                }
+            } catch (fallbackErr) {
+                console.warn('[Chatbot] Lỗi fallback trích xuất tài liệu máy chủ:', fallbackErr);
             }
         }
 
@@ -1893,9 +1976,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     }
                 }
 
-                const existingFilenames = new Set(this.fileRows.map(r => (r.filename || '').toLowerCase()));
-                    const filesToAdd = files.filter(f => !existingFilenames.has((f.filename || '').toLowerCase()));
-                    this.fileRows = [...this.fileRows, ...filesToAdd];
+                this.fileRows = files;
                 this.applyFileFilter();
                 this.cd.markForCheck();
             },
