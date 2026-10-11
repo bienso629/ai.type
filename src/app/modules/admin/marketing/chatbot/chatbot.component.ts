@@ -807,6 +807,27 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 this.calcThreadTableHeight();
                 this.cd.markForCheck();
             }
+        } else {
+            // Môi trường Web, Mobile, iPad (không có Electron)
+            try {
+                const uName = this.user?.name || 'admin';
+                const storedThreads = localStorage.getItem(`chatbot_threads_${uName}`);
+                if (storedThreads) {
+                    const parsed = JSON.parse(storedThreads) || [];
+                    localThreads = parsed.filter((t: any) => !deletedThreadIds.includes(String(t.id)));
+                    localThreads.forEach(t => {
+                        if (t.title && t.title !== 'admin' && t.title !== 'Hội thoại mới') {
+                            localQuestionMap.set(String(t.id), t.title);
+                        }
+                    });
+                    if (localThreads.length > 0) {
+                        this.threadList = localThreads.map(t => [t.id, t.title, t.title, t.updated_at || '', t.phone || null]);
+                        this.rebuildThreadRows();
+                        this.calcThreadTableHeight();
+                        this.cd.markForCheck();
+                    }
+                }
+            } catch (e) {}
         }
 
         this._chatbotService.loadThreads({
@@ -950,6 +971,14 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         deletedList.push(sThreadId);
                         localStorage.setItem('deleted_chatbot_threads', JSON.stringify(deletedList));
                     }
+                    const uName = this.user?.name || 'admin';
+                    localStorage.removeItem(`chatbot_history_${uName}_${sThreadId}`);
+                    const storedT = localStorage.getItem(`chatbot_threads_${uName}`);
+                    if (storedT) {
+                        const parsed = JSON.parse(storedT) || [];
+                        const filtered = parsed.filter((t: any) => String(t.id) !== sThreadId);
+                        localStorage.setItem(`chatbot_threads_${uName}`, JSON.stringify(filtered));
+                    }
                 } catch (e) {}
 
                 const electron = (window as any).electron;
@@ -1064,6 +1093,23 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     this.cd.markForCheck();
                 }
             } catch (e) {}
+        } else {
+            // Môi trường Web / Mobile / iPad
+            try {
+                const uName = this.user?.name || 'admin';
+                const cached = localStorage.getItem(`chatbot_history_${uName}_${threadId}`);
+                if (cached) {
+                    const parsedMsgs = JSON.parse(cached);
+                    if (Array.isArray(parsedMsgs) && parsedMsgs.length > 0) {
+                        hasLocalMessages = true;
+                        this.messages = parsedMsgs;
+                        this.currentMessages = parsedMsgs;
+                        this.removeTyping();
+                        this.renderMessages(parsedMsgs);
+                        this.cd.markForCheck();
+                    }
+                }
+            } catch (e) {}
         }
 
         this._chatbotService.selectThread({
@@ -1141,6 +1187,23 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     messages: [],
                     title: 'Hội thoại mới'
                 });
+            } catch (e) {}
+        } else {
+            try {
+                const uName = this.user?.name || 'admin';
+                localStorage.setItem(`chatbot_history_${uName}_${this.currentThread}`, JSON.stringify([]));
+                let cachedThreads: any[] = [];
+                const stored = localStorage.getItem(`chatbot_threads_${uName}`);
+                if (stored) cachedThreads = JSON.parse(stored) || [];
+                const nowStr = new Date().toLocaleDateString('vi-VN', {
+                    hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+                });
+                cachedThreads.unshift({
+                    id: this.currentThread,
+                    title: 'Hội thoại mới',
+                    updated_at: nowStr
+                });
+                localStorage.setItem(`chatbot_threads_${uName}`, JSON.stringify(cachedThreads));
             } catch (e) {}
         }
         
@@ -1269,9 +1332,11 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             return;
         }
 
-        // Tự động tìm kiếm ngữ cảnh từ thư mục FAISS cục bộ: Documents/ai.type/data/faiss/{username}
+        // Tự động tìm kiếm ngữ cảnh: Ưu tiên Local FAISS (Desktop) -> Dự phòng Server bot.type.vn (iPad, Tablet, Web)
         const electron = (window as any).electron;
         let finalMessage = msg;
+        let foundContext = '';
+
         if (electron && electron.invoke) {
             try {
                 const localContext = await electron.invoke('get-local-faiss-context', {
@@ -1280,10 +1345,37 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     maxChunks: 4
                 });
                 if (localContext?.success && localContext?.context) {
+                    foundContext = localContext.context;
                     console.log('[Chatbot] Đã tìm thấy ngữ cảnh FAISS cục bộ:', localContext.chunksCount, 'đoạn');
-                    finalMessage = `${msg}\n\n[DỮ LIỆU TÀI LIỆU LOCAL FAISS TRÍCH XUẤT TỪ DOCUMENTS/AI.TYPE/DATA/FAISS]:\n${localContext.context}`;
                 }
             } catch (e) {}
+        }
+
+        // Nếu trên iPad / Tablet / Web hoặc local chưa có ngữ cảnh, gọi lên máy chủ bot.type.vn
+        if (!foundContext) {
+            try {
+                const serverContextRes: any = await new Promise((resolve) => {
+                    this._chatbotService.queryFaissContext({
+                        username: this.user.name,
+                        query: msg,
+                        doc_types: this.selectedDocType ? [this.selectedDocType] : null,
+                        max_chunks: 4
+                    }).subscribe({
+                        next: (res) => resolve(res),
+                        error: () => resolve(null)
+                    });
+                });
+                if (serverContextRes?.success && serverContextRes?.context) {
+                    foundContext = serverContextRes.context;
+                    console.log('[Chatbot] Đã lấy ngữ cảnh FAISS từ máy chủ bot.type.vn:', serverContextRes.chunks_count, 'đoạn');
+                }
+            } catch (srvCtxErr) {
+                console.warn('[Chatbot] Lỗi truy vấn ngữ cảnh server:', srvCtxErr);
+            }
+        }
+
+        if (foundContext) {
+            finalMessage = `${msg}\n\n[DỮ LIỆU TÀI LIỆU TRÍCH XUẤT]:\n${foundContext}`;
         }
 
         const payload = {
@@ -1339,7 +1431,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     contents: [
                         {
                             role: 'user',
-                            parts: [{ text: `${msg}\n\n[DỮ LIỆU TÀI LIỆU LOCAL FAISS TRÍCH XUẤT]:\n${finalMessage}` }]
+                            parts: [{ text: finalMessage }]
                         }
                     ],
                     config: {
@@ -1378,13 +1470,38 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 botMessage[3] = finalReply;
                 this.renderMessages(this.currentMessages);
 
+                const userMsgs = (this.currentMessages || []).filter(m => m[2] === 'user');
+                const lastQuestion = (userMsgs.length > 0 ? userMsgs[userMsgs.length - 1]?.[3] : null) || msg;
+                const titlePreview = lastQuestion ? (lastQuestion.slice(0, 80) + (lastQuestion.length > 80 ? '...' : '')) : 'Hội thoại';
+
+                // Lưu vào cache localStorage để hỗ trợ iPad, Web, Tablet
+                try {
+                    const uName = this.user?.name || 'admin';
+                    localStorage.setItem(`chatbot_history_${uName}_${this.currentThread}`, JSON.stringify(this.currentMessages));
+                    let cachedThreads: any[] = [];
+                    const storedThreads = localStorage.getItem(`chatbot_threads_${uName}`);
+                    if (storedThreads) cachedThreads = JSON.parse(storedThreads) || [];
+                    const existIdx = cachedThreads.findIndex(t => String(t.id) === String(this.currentThread));
+                    const nowStr = new Date().toLocaleDateString('vi-VN', {
+                        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+                    });
+                    if (existIdx >= 0) {
+                        cachedThreads[existIdx].title = titlePreview;
+                        cachedThreads[existIdx].updated_at = nowStr;
+                    } else {
+                        cachedThreads.unshift({
+                            id: this.currentThread,
+                            title: titlePreview,
+                            updated_at: nowStr
+                        });
+                    }
+                    localStorage.setItem(`chatbot_threads_${uName}`, JSON.stringify(cachedThreads));
+                } catch (cacheErr) {}
+
                 // Lưu lại toàn bộ nội dung câu hỏi & câu trả lời vào thư mục máy tính cục bộ
                 const electron = (window as any).electron;
                 if (electron && electron.invoke) {
                     try {
-                        const userMsgs = (this.currentMessages || []).filter(m => m[2] === 'user');
-                        const lastQuestion = (userMsgs.length > 0 ? userMsgs[userMsgs.length - 1]?.[3] : null) || msg;
-                        const titlePreview = lastQuestion ? (lastQuestion.slice(0, 80) + (lastQuestion.length > 80 ? '...' : '')) : 'Hội thoại';
                         await electron.invoke('save-local-chatbot-history', {
                             username: this.user?.name || 'admin',
                             threadId: this.currentThread,

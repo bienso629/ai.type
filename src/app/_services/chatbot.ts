@@ -218,6 +218,23 @@ export class ChatbotService {
         );
     }
 
+    public queryFaissContext(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info');
+        const appToken = activeInfo ? (AuthUtils._getActiveInfo(activeInfo)?.['user']?.['appToken'] || '') : '';
+
+        const url = `${this.getApiUrl()}/query-faiss-context`;
+
+        return this.http.post<any>(url, dataForm, {
+            headers: new HttpHeaders({
+                'content-type': 'application/json',
+                'x-api-key': appToken,
+            })
+        }).pipe(
+            map(data => data),
+            catchError(this.handleError('server', []))
+        );
+    }
+
     public getMessage(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
