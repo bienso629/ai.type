@@ -2159,7 +2159,44 @@ ${content}`;
                 }
 
                 this.toastr.info(`Đang tìm kiếm backlink cho "${keyword}"...`);
-                const links: any = await this.googleSearch(query, 0);
+                let links: any[] = [];
+                try {
+                    const searchRes: any = await this.googleSearch(query, 0);
+                    if (searchRes && Array.isArray(searchRes)) {
+                        links = searchRes;
+                    } else if (searchRes && searchRes.items && Array.isArray(searchRes.items)) {
+                        links = searchRes.items;
+                    }
+                } catch (searchErr) {
+                    console.warn('[createlink] Google Search API không khả dụng, chuyển sang AI tạo backlink ngữ cảnh:', searchErr);
+                }
+
+                // Nếu Google Custom Search không có kết quả hoặc gặp lỗi trên iPad, tự động fallback AI tạo backlink ngữ cảnh
+                if (!links || links.length === 0) {
+                    try {
+                        const targetDomain = domainStr || 'type.vn';
+                        const promptText = `Hãy tạo 4 đến 6 liên kết backlink bài viết phù hợp, chuẩn SEO cho từ khóa "${keyword}" trên website "${targetDomain}".
+Định dạng trả về duy nhất là JSON mảng các đối tượng:
+[
+  {"title": "Tiêu đề bài viết hấp dẫn chứa từ khóa", "link": "https://${targetDomain}/duong-dan-bai-viet-chuan-seo"}
+]`;
+                        const aiResponse = await this._genaiService.generateContent({
+                            model: 'gemini-2.0-flash',
+                            contents: [{ role: 'user', parts: [{ text: promptText }] }],
+                        });
+
+                        const rawText = aiResponse?.text || '';
+                        const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+                        if (jsonMatch) {
+                            const parsed = JSON.parse(jsonMatch[0]);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                links = parsed;
+                            }
+                        }
+                    } catch (aiErr) {
+                        console.warn('[createlink] AI fallback tạo backlink thất bại:', aiErr);
+                    }
+                }
 
                 if (links && Array.isArray(links) && links.length > 0) {
                     if (!this.source.a) {
@@ -2169,7 +2206,10 @@ ${content}`;
                     const topLinks = links.slice(0, 10);
                     topLinks.forEach((link: any) => {
                         const title = link.title || link.link;
-                        const url = link.link;
+                        let url = link.link || link.url || '#';
+                        if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+                            url = `https://${domainStr || 'type.vn'}/${url.replace(/^\/+/, '')}`;
+                        }
                         this.source.a.push(
                             `<p id="source-a-${uuid.v4()}">Xem thêm: <a href="${url}" title="${title}" target="_blank">${title}</a></p>`
                         );
@@ -2180,11 +2220,11 @@ ${content}`;
                     this.toastr.success(`Đã thêm ${topLinks.length} backlink vào block Thêm Backlink.`);
                     this.cd.markForCheck();
                 } else {
-                    this.toastr.info(`Không tìm thấy kết quả nào cho từ khóa "${keyword}".`);
+                    this.toastr.info(`Không tìm thấy kết quả backlink nào cho từ khóa "${keyword}".`);
                 }
             } catch (error: any) {
-                console.error('Lỗi khi tìm kiếm Google API:', error);
-                this.toastr.error('Lỗi khi tìm kiếm Google API.');
+                console.error('Lỗi khi tìm kiếm hoặc tạo backlink:', error);
+                this.toastr.error('Lỗi khi tạo backlink.');
             }
         } else {
             if (!this.source.a) {

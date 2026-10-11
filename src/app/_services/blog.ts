@@ -243,17 +243,65 @@ export class BlogService {
         );
     }
 
-    public googleSearchPromise(dataForm: any) {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+    public async googleSearchPromise(dataForm: any): Promise<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); 
+        if (activeInfo) activeInfo = AuthUtils._getActiveInfo(activeInfo);
 
-        dataForm.year = this.year;
-        dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
+        if (activeInfo && activeInfo['user']) {
+            dataForm.year = this.year;
+            dataForm.appId = 'ai.typing';
+            dataForm.appToken = activeInfo['user']['appToken'];
+        }
 
-        const url = `${this.config.settings.puppeteer}/cdn/google/search`;
+        const isDesktop = !!((window as any).electron);
 
-        return firstValueFrom(this.http.post<any>(url, dataForm, options));
+        // 1. Nếu trên môi trường Desktop (có Electron), ưu tiên gọi qua route local cdn/google/search
+        if (isDesktop && this.config?.settings?.puppeteer) {
+            try {
+                const url = `${this.config.settings.puppeteer}/cdn/google/search`;
+                const res = await firstValueFrom(this.http.post<any>(url, dataForm, options));
+                if (res && Array.isArray(res)) {
+                    return res;
+                }
+            } catch (desktopErr) {
+                console.warn('[BlogService] Lỗi gọi googleSearch qua local puppeteer:', desktopErr);
+            }
+        }
+
+        // 2. Dự phòng cho iPad, Tablet, Web hoặc khi Desktop puppeteer không phản hồi: Gọi trực tiếp Google Custom Search API
+        try {
+            const searchAPIKey = dataForm.searchAPIKey;
+            const query = dataForm.query;
+            const idx = dataForm.index || 0;
+            const searchType = dataForm.searchType;
+
+            if (searchAPIKey && Array.isArray(searchAPIKey) && searchAPIKey[idx]) {
+                const parts = searchAPIKey[idx].split(':');
+                if (parts.length >= 2) {
+                    const CX = parts[0];
+                    const API_KEY = parts[1];
+                    const googleUrl = `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&key=${API_KEY}&cx=${CX}${searchType ? '&searchType=' + searchType : ''}`;
+                    const res = await firstValueFrom(this.http.get<any>(googleUrl));
+                    if (res && res.items) {
+                        return res.items;
+                    }
+                }
+            }
+        } catch (directErr) {
+            console.warn('[BlogService] Lỗi gọi trực tiếp Google Custom Search API:', directErr);
+        }
+
+        // 3. Dự phòng qua API server dự phòng
+        try {
+            if (this.config?.settings?.api && this.user?.server) {
+                const res = await firstValueFrom(this.googleSearch(dataForm));
+                if (res && (res.items || Array.isArray(res))) {
+                    return res.items || res;
+                }
+            }
+        } catch (srvErr) {}
+
+        return [];
     }
 
     public synonym(dataForm: any): Observable<any> {
