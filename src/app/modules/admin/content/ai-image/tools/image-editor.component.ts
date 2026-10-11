@@ -1285,8 +1285,12 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
             const currentDataUrl = currentCanvas.toDataURL('image/png');
             const base64Data = currentDataUrl.split(',')[1];
 
+            // Lưu kích thước gốc của canvas hiện tại
+            const origWidth = currentCanvas.width;
+            const origHeight = currentCanvas.height;
+
             // Xác định tỷ lệ ảnh gần nhất
-            const currentRatio = currentCanvas.width / currentCanvas.height;
+            const currentRatio = origWidth / origHeight;
             let ratioStr = '1:1';
             if (currentRatio > 1.5) ratioStr = '16:9';
             else if (currentRatio > 1.2) ratioStr = '4:3';
@@ -1296,8 +1300,8 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
             const userPrompt = this.aiPrompt.trim();
             const editInstruction = `You are performing an image editing task on the provided input image.
 CRITICAL EDITING RULES:
-1. PRESERVE THE ORIGINAL IMAGE: Do NOT generate a completely new image or change the overall scene. Keep the exact composition, perspective, camera angle, primary subjects, identity/face, pose, lighting, and background structure of the input image intact.
-2. PRECISE MODIFICATION: Only modify, add, remove, or replace the specific elements requested by the user below. Everything else must remain consistent with the original image.
+1. PRESERVE THE ORIGINAL IMAGE & COMPOSITION: Keep the exact resolution, aspect ratio (${origWidth}x${origHeight}), composition, perspective, camera angle, primary subjects, identity/face, pose, lighting, and background structure of the input image intact.
+2. PRECISE MODIFICATION ONLY: Only modify, add, remove, or replace the specific elements requested by the user below. Everything else must remain identical to the original image.
 3. User instruction for edit: "${userPrompt}"`;
 
             const generateOptions = {
@@ -1320,6 +1324,7 @@ CRITICAL EDITING RULES:
                     responseModalities: ['TEXT', 'IMAGE'],
                     imageConfig: {
                         aspectRatio: ratioStr,
+                        imageSize: `${origWidth}x${origHeight}`,
                     },
                     isImageEdit: true,
                     bypassModelOverride: true,
@@ -1347,15 +1352,50 @@ CRITICAL EDITING RULES:
             }
 
             if (newImageBase64) {
-                const newSrc = `data:${newMimeType};base64,${newImageBase64}`;
-                this.initCanvas(newSrc, false);
-                setTimeout(() => {
-                    this.fitToScreen();
-                    this.recordHistory();
-                    this.saveStateToStorage();
-                    this.cdr.markForCheck();
-                }, 100);
-                this.toastr.success('AI đã chỉnh sửa hình ảnh!');
+                const rawSrc = `data:${newMimeType};base64,${newImageBase64}`;
+
+                // Đảm bảo ảnh mới giữ nguyên kích thước pixel gốc của canvas ban đầu
+                const tempImg = new Image();
+                tempImg.crossOrigin = 'anonymous';
+                tempImg.onload = () => {
+                    let finalSrc = rawSrc;
+                    // Nếu kích thước trả về khác kích thước canvas gốc, căn chỉnh đưa về đúng kích thước chuẩn
+                    if (tempImg.width !== origWidth || tempImg.height !== origHeight) {
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = origWidth;
+                        tempCanvas.height = origHeight;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        if (tempCtx) {
+                            tempCtx.imageSmoothingEnabled = true;
+                            tempCtx.imageSmoothingQuality = 'high';
+                            tempCtx.drawImage(tempImg, 0, 0, origWidth, origHeight);
+                            finalSrc = tempCanvas.toDataURL(newMimeType, 1.0);
+                        }
+                    }
+
+                    this.initCanvas(finalSrc, false);
+                    setTimeout(() => {
+                        this.output.width = origWidth;
+                        this.output.height = origHeight;
+                        this.output.aspectRatio = origWidth / origHeight;
+                        this.fitToScreen();
+                        this.recordHistory();
+                        this.saveStateToStorage();
+                        this.cdr.markForCheck();
+                    }, 50);
+                    this.toastr.success('AI đã chỉnh sửa hình ảnh!');
+                };
+                tempImg.onerror = () => {
+                    this.initCanvas(rawSrc, false);
+                    setTimeout(() => {
+                        this.fitToScreen();
+                        this.recordHistory();
+                        this.saveStateToStorage();
+                        this.cdr.markForCheck();
+                    }, 50);
+                    this.toastr.success('AI đã chỉnh sửa hình ảnh!');
+                };
+                tempImg.src = rawSrc;
             } else {
                 this.toastr.warning('Không nhận được hình ảnh trả về từ AI.');
             }
