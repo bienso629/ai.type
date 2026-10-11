@@ -147,6 +147,27 @@ export class FileListDialogComponent implements AfterViewInit {
                                 pkl_base64: result.pkl_base64
                             });
 
+                            // Đồng bộ kết quả bóc tách, bản FAISS, PKL và metadata lên bot.type.vn
+                            try {
+                                const jsonPayload = (typeof result.data === 'string')
+                                    ? result.data
+                                    : (result.data ? JSON.stringify(result.data) : (typeof result === 'string' ? result : JSON.stringify(result)));
+                                await new Promise((resolve) => {
+                                    this._chatbotService.uploadMinerUResult({
+                                        username: this.username,
+                                        filename: filename,
+                                        doc_type: doc_type,
+                                        content_json: jsonPayload,
+                                        faiss_base64: result.faiss_base64 || null,
+                                        pkl_base64: result.pkl_base64 || null,
+                                        markdown: result.markdown || null
+                                    }).subscribe({
+                                        next: (res) => resolve(res),
+                                        error: () => resolve(null)
+                                    });
+                                });
+                            } catch (e) {}
+
                             const targetRow = this.rows?.find(r => r.filename === filename);
                             if (targetRow) {
                                 targetRow.is_indexed = true;
