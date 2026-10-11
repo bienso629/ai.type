@@ -145,6 +145,26 @@ export class AIImageComponent
         this.cd.markForCheck();
     }
 
+    // Danh sách ảnh đã xóa được lưu trữ cục bộ để tránh bị fetch lại trên iPad/Tablet
+    private getDeletedImages(): Set<string> {
+        try {
+            const raw = localStorage.getItem('ai_type_deleted_images_' + (this.user?.name || 'default'));
+            return new Set<string>(raw ? JSON.parse(raw) : []);
+        } catch (e) {
+            return new Set<string>();
+        }
+    }
+
+    private saveDeletedImages(deletedSet: Set<string>): void {
+        try {
+            // Giới hạn tối đa 500 ảnh đã xóa gần nhất để tránh phình dung lượng localStorage
+            const arr = Array.from(deletedSet).slice(-500);
+            localStorage.setItem('ai_type_deleted_images_' + (this.user?.name || 'default'), JSON.stringify(arr));
+        } catch (e) {
+            console.error('Không thể lưu danh sách ảnh đã xóa vào localStorage', e);
+        }
+    }
+
     deleteSelectedImages(): void {
         const count = this.selectedImages.size;
         if (count === 0) return;
@@ -155,6 +175,13 @@ export class AIImageComponent
             confirm: `Xóa ${count} mục`,
             cb: async () => {
                 const toDelete = Array.from(this.selectedImages);
+
+                // 1. Cập nhật blacklist vào localStorage để khi F5 / fetch() không bị phục hồi lại
+                const deletedSet = this.getDeletedImages();
+                toDelete.forEach((url) => deletedSet.add(url));
+                this.saveDeletedImages(deletedSet);
+
+                // 2. Nếu đang chạy trên Electron Desktop thì xóa file trên đĩa
                 if ((window as any).electron) {
                     for (const filePath of toDelete) {
                         try {
@@ -168,6 +195,34 @@ export class AIImageComponent
                     }
                 }
 
+                // 3. Nếu là file server (URL http/https hoặc tên file), gọi API server để xóa triệt để
+                for (const filePath of toDelete) {
+                    if (!filePath.startsWith('data:')) {
+                        try {
+                            const filename = filePath.split('/').pop() || filePath;
+                            this._blogService
+                                .deleteImage({
+                                    username: this.user?.name,
+                                    fileName: filename,
+                                    file: filename,
+                                    imagePath: filePath,
+                                    folder: 'thumbnails',
+                                })
+                                .pipe(takeUntil(this._unsubscribeAll))
+                                .subscribe({
+                                    next: () => {},
+                                    error: (err) => console.warn('Lỗi gọi API xóa ảnh server:', err),
+                                });
+                        } catch (e) {
+                            console.warn('Lỗi gửi request xóa ảnh server:', e);
+                        }
+                    }
+                }
+
+                // 4. Loại bỏ khỏi danh sách nativeGalleryUrls (nếu có)
+                this.nativeGalleryUrls = this.nativeGalleryUrls.filter((img: string) => !this.selectedImages.has(img));
+
+                // 5. Cập nhật lại giao diện người dùng
                 this.imageUrls = this.imageUrls.filter((img: string) => !this.selectedImages.has(img));
                 this.selectedImages.clear();
                 this.rebuildRows();
@@ -566,6 +621,12 @@ export class AIImageComponent
             message: `Chương trình sẽ xóa tấm hình này khỏi danh sách hiển thị?`,
             confirm: 'Xóa ngay',
             cb: async () => {
+                // 1. Ghi nhận vào blacklist localStorage
+                const deletedSet = this.getDeletedImages();
+                deletedSet.add(filePath);
+                this.saveDeletedImages(deletedSet);
+
+                // 2. Xóa qua Electron nếu ở Desktop
                 if ((window as any).electron) {
                     try {
                         await (window as any).electron.invoke(
@@ -577,9 +638,37 @@ export class AIImageComponent
                     }
                 }
 
-                this.imageUrls.splice(index, 1);
+                // 3. Xóa trên server nếu là file URL server
+                if (!filePath.startsWith('data:')) {
+                    try {
+                        const filename = filePath.split('/').pop() || filePath;
+                        this._blogService
+                            .deleteImage({
+                                username: this.user?.name,
+                                fileName: filename,
+                                file: filename,
+                                imagePath: filePath,
+                                folder: 'thumbnails',
+                            })
+                            .pipe(takeUntil(this._unsubscribeAll))
+                            .subscribe({
+                                next: () => {},
+                                error: (err) => console.warn('Lỗi gọi API xóa ảnh server:', err),
+                            });
+                    } catch (e) {
+                        console.warn('Lỗi gửi request xóa ảnh server:', e);
+                    }
+                }
+
+                // 4. Loại bỏ khỏi native gallery (nếu có)
+                this.nativeGalleryUrls = this.nativeGalleryUrls.filter((img: string) => img !== filePath);
+
+                // 5. Cập nhật giao diện
+                this.imageUrls = this.imageUrls.filter((img: string) => img !== filePath);
+                this.selectedImages.delete(filePath);
                 this.rebuildRows();
                 this.toastr.success('Xóa hình ảnh khỏi danh sách thành công!');
+                this.cd.markForCheck();
             },
         });
     }
@@ -1032,9 +1121,11 @@ export class AIImageComponent
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    // Giu nguyen anh Gallery native va gop them anh server vao sau
+                    const deletedSet = this.getDeletedImages();
+                    // Giu nguyen anh Gallery native va gop them anh server vao sau, loc bo cac anh da bi xoa
                     const serverFiles: string[] = (result && result.files) ? result.files : [];
-                    this.imageUrls = [...this.nativeGalleryUrls, ...serverFiles];
+                    const combined = [...this.nativeGalleryUrls, ...serverFiles];
+                    this.imageUrls = combined.filter((u: string) => !deletedSet.has(u));
                 },
                 complete: () => {
                     this.rebuildRows();
@@ -1208,11 +1299,12 @@ export class AIImageComponent
                     }
                 });
 
-                // Danh dau kho native de khong bi fetch() tu server ghi de mat
-                this.nativeGalleryUrls = galleryUrls;
+                // Lọc bỏ các ảnh đã bị xóa khỏi native gallery
+                const deletedSet = this.getDeletedImages();
+                this.nativeGalleryUrls = galleryUrls.filter((u: string) => !deletedSet.has(u));
 
-                // Gop: gallery native dung dau, anh server o sau
-                this.imageUrls = [...this.nativeGalleryUrls, ...this.imageUrls.filter((u: string) => !u.startsWith('data:image/jpeg;base64,'))];
+                // Gop: gallery native dung dau, anh server o sau (đều đã lọc các ảnh bị xóa)
+                this.imageUrls = [...this.nativeGalleryUrls, ...this.imageUrls.filter((u: string) => !u.startsWith('data:image/jpeg;base64,') && !deletedSet.has(u))];
 
                 this.rebuildRows();
                 this.cd.detectChanges();
