@@ -1393,6 +1393,24 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         });
                     } catch (e) {}
                 }
+
+                // Đồng bộ nội dung hội thoại chat RAG lên máy chủ bot.type.vn
+                try {
+                    this._chatbotService.syncMessages({
+                        username: this.user.name,
+                        thread_id: this.currentThread,
+                        user_message: msg,
+                        bot_message: finalReply,
+                        sources: [],
+                        ip_address: "127.0.0.1",
+                        sender_info: electron ? "ai.type Desktop" : "ai.type Web/Mobile"
+                    }).subscribe({
+                        next: () => console.log('[Chatbot] Đã đồng bộ tin nhắn RAG lên server bot.type.vn'),
+                        error: (err) => console.warn('[Chatbot] Cảnh báo đồng bộ tin nhắn lên server:', err)
+                    });
+                } catch (syncChatErr) {
+                    console.warn('[Chatbot] Lỗi gọi syncMessages:', syncChatErr);
+                }
             }
         } catch (err: any) {
             isRendering = false;
@@ -1923,7 +1941,10 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                                 username: this.user.name,
                                 filename: filename,
                                 doc_type: doc_type,
-                                content_json: jsonPayload
+                                content_json: jsonPayload,
+                                faiss_base64: result.faiss_base64 || null,
+                                pkl_base64: result.pkl_base64 || null,
+                                markdown: result.markdown || null
                             }).subscribe({
                                 next: (res) => resolve(res),
                                 error: (err) => {
