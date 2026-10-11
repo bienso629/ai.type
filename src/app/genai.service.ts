@@ -1428,37 +1428,49 @@ export class GenaiService {
                     image: b64DataUris[0],
                     ref_image: b64DataUris[0]
                 },
-                // 2. Chuẩn nạp mảng images (một số proxy Midjourney/Flux/SDXL tương thích)
+                // 2. Chuẩn chỉ dùng 'image' đơn lẻ
                 {
                     model: activeModel,
                     prompt: promptText,
                     n: 1,
                     size: size,
-                    images: b64DataUris
+                    image: b64DataUris[0]
                 },
-                // 3. Chuẩn tối giản chỉ image tham chiếu + prompt
+                // 3. Chuẩn chỉ dùng 'ref_image' đơn lẻ
                 {
                     model: activeModel,
                     prompt: promptText,
-                    image: b64DataUris[0],
+                    n: 1,
+                    size: size,
                     ref_image: b64DataUris[0]
                 },
-                // 4. Chuẩn có cả image và images
+                // 4. Chuẩn tối giản chỉ image tham chiếu + prompt
                 {
                     model: activeModel,
                     prompt: promptText,
-                    image: b64DataUris[0],
-                    images: b64DataUris
+                    image: b64DataUris[0]
                 },
-                // 5. Chuẩn kèm aspect_ratio nếu model đặc thù yêu cầu (đặt ở cuối để ưu tiên chuẩn không có aspect_ratio trước)
+                // 5. Chuẩn tối giản chỉ ref_image tham chiếu + prompt
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    ref_image: b64DataUris[0]
+                },
+                // 6. Chuẩn OpenAI tiêu chuẩn bỏ image tham chiếu nếu proxy chỉ hỗ trợ text2image
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    n: 1,
+                    size: size
+                },
+                // 7. Chuẩn kèm aspect_ratio nếu model đặc thù yêu cầu (đặt ở cuối để ưu tiên chuẩn không có aspect_ratio trước)
                 {
                     model: activeModel,
                     prompt: promptText,
                     n: 1,
                     size: size,
                     aspect_ratio: ratioStr,
-                    image: b64DataUris[0],
-                    ref_image: b64DataUris[0]
+                    image: b64DataUris[0]
                 }
             );
         } else {
