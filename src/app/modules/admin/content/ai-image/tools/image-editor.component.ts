@@ -1350,8 +1350,10 @@ CRITICAL EDITING RULES:
                 const newSrc = `data:${newMimeType};base64,${newImageBase64}`;
                 this.initCanvas(newSrc, false);
                 setTimeout(() => {
+                    this.fitToScreen();
                     this.recordHistory();
                     this.saveStateToStorage();
+                    this.cdr.markForCheck();
                 }, 100);
                 this.toastr.success('AI đã chỉnh sửa hình ảnh!');
             } else {
