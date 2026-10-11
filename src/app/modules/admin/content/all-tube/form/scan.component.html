@@ -176,11 +176,11 @@
 
                         <ngx-datatable-column
                             [name]="'app.video_title' | transloco"
-                            [width]="400"
+                            [flexGrow]="1"
                             [sortable]="false"
-                            [canAutoResize]="false"
+                            [canAutoResize]="true"
                             [draggable]="false"
-                            [resizeable]="false"
+                            [resizeable]="true"
                         >
                             <ng-template
                                 let-row="row"
@@ -197,33 +197,39 @@
 
                         <ngx-datatable-column
                             [name]="'app.data_type' | transloco"
-                            [width]="200"
+                            [width]="160"
                             [sortable]="false"
                             [canAutoResize]="false"
                             [draggable]="false"
                             [resizeable]="false"
+                            headerClass="text-right"
+                            cellClass="text-right"
                         >
                             <ng-template
                                 let-row="row"
                                 ngx-datatable-cell-template
                             >
-                                {{ row.id.kind || "video" }}
+                                <div class="text-right w-full">
+                                    {{ row.id.kind || "video" }}
+                                </div>
                             </ng-template>
                         </ngx-datatable-column>
 
                         <ngx-datatable-column
                             name="Video ID"
-                            [width]="200"
+                            [width]="180"
                             [sortable]="false"
                             [canAutoResize]="false"
                             [draggable]="false"
                             [resizeable]="false"
+                            headerClass="text-right"
+                            cellClass="text-right"
                         >
                             <ng-template
                                 let-row="row"
                                 ngx-datatable-cell-template
                             >
-                                <p class="font-normal truncate hover:text-clip">
+                                <p class="font-normal truncate hover:text-clip text-right w-full">
                                     {{ row.id.videoId || row.id.playlistId }}
                                 </p>
                             </ng-template>
@@ -231,18 +237,20 @@
 
                         <ngx-datatable-column
                             [name]="'app.functions' | transloco"
-                            [width]="300"
+                            [width]="240"
                             [sortable]="false"
                             [canAutoResize]="false"
                             [draggable]="false"
                             [resizeable]="false"
+                            headerClass="text-right"
+                            cellClass="text-right"
                         >
                             <ng-template
                                 let-row="row"
                                 ngx-datatable-cell-template
                             >
                                 <div
-                                    class="flex items-center justify-self-stretch"
+                                    class="flex items-center justify-end w-full"
                                 >
                                     <mat-label
                                         (click)="singleDownload(row)"
