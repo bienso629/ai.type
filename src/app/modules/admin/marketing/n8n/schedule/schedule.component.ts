@@ -104,7 +104,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     maxZoomIndex: number;
     currentZoomIndex: number;
 
-    isLoadingSchedule: boolean = false;
+    isLoadingSchedule: boolean = true;
     items: ICustomTimelineItem[] = [];
     
     timelineStartDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1, 0, 0, 0, 0);
@@ -1310,15 +1310,18 @@ ${domainRows.join('\n')}
         
         this.updateTotalSummaryRow();
         this.saveScriptState();
-        this.isLoadingSchedule = false;
-        this.cd.markForCheck();
         this.toastr.success('Hoàn thành lên kế hoạch cho tên miền!');
         
-        // Cuộn timeline tới khung giờ hiện tại và zoom to nhất để nhìn rõ chữ
+        // Cuộn timeline tới khung giờ hiện tại, tính lại vị trí các item rồi mới mở hiển thị mượt mà
         setTimeout(() => {
             this.scrollToToday();
+            if (this.timelineComponent && typeof (this.timelineComponent as any)['_recalculateItemPositions'] === 'function') {
+                (this.timelineComponent as any)['_recalculateItemPositions']();
+            }
+            this.isLoadingSchedule = false;
             this.cd.markForCheck();
-        }, 100);
+            this.cd.detectChanges();
+        }, 150);
     }
 
     private getNextValidDate(date: Date): Date {
