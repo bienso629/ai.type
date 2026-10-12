@@ -596,7 +596,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             payload,
                         );
                     } else {
-                        // CHẠY BẰNG BROWSER/CAPACITOR (IPAD)
+                        // CHẠY BẰNG BROWSER/CAPACITOR (IPAD/TABLET) THÔNG QUA REST PROXY
                         const rateNum = clip.rate || 1.0;
                         const pitchNum = clip.pitch || 0;
                         
@@ -604,72 +604,41 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
                         const pitchStr = pitchNum >= 0 ? `+${pitchNum}Hz` : `${pitchNum}Hz`;
 
-                        // Gọi trực tiếp API Edge TTS (WebSocket) theo lệnh
-                        const arrayBuffer: any = await (async () => {
-                            const text = clip.description;
-                            const voice = clipVoice;
-                            
-            return new Promise((resolve, reject) => {
-                const ws = new WebSocket('wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4');
-                let audioChunks = [];
-                
-                ws.onopen = () => {
-                    const date = new Date().toString();
-                    const configMsg = `X-Timestamp:${date}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`;
-                    ws.send(configMsg);
-                    
-                    const reqId = Math.random().toString(36).substring(2);
-                    const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voice}'><prosody pitch='${pitchStr}' rate='${rateStr}' volume='+0%'>${text}</prosody></voice></speak>`;
-                    const ssmlMsg = `X-RequestId:${reqId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${date}\r\nPath:ssml\r\n\r\n${ssml}`;
-                    ws.send(ssmlMsg);
-                };
-                
-                ws.onmessage = async (event) => {
-                    if (event.data instanceof Blob) {
-                        const buffer = await event.data.arrayBuffer();
-                        const view = new Uint8Array(buffer);
-                        // Tìm "Path:audio\r\n" để tách header
-                        const headerStr = "Path:audio\r\n";
-                        let headerEnd = -1;
-                        for (let i = 0; i < view.length - 4; i++) {
-                            if (view[i] === 13 && view[i+1] === 10 && view[i+2] === 13 && view[i+3] === 10) {
-                                headerEnd = i + 4;
-                                break;
-                            }
+                        let proxyBaseUrl = 'https://apiv1.type.vn/v1';
+                        if (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') {
+                            proxyBaseUrl = 'http://localhost:1122/v1';
                         }
-                        if (headerEnd !== -1) {
-                            audioChunks.push(buffer.slice(headerEnd));
-                        } else {
-                            audioChunks.push(buffer);
-                        }
-                    } else if (typeof event.data === 'string') {
-                        if (event.data.includes('Path:turn.end')) {
-                            ws.close();
-                            const totalLength = audioChunks.reduce((acc, val) => acc + val.byteLength, 0);
-                            const finalBuffer = new Uint8Array(totalLength);
-                            let offset = 0;
-                            for (const chunk of audioChunks) {
-                                finalBuffer.set(new Uint8Array(chunk), offset);
-                                offset += chunk.byteLength;
-                            }
-                            resolve(finalBuffer.buffer);
-                        }
-                    }
-                };
-                
-                ws.onerror = (err) => {
-                    reject(new Error('WebSocket lỗi: Không thể kết nối tới Edge TTS API trực tiếp (có thể do Origin bị chặn)'));
-                };
-            });
+                        const proxyUrl = `${proxyBaseUrl}/tts/generate`;
 
-                        })();
-                        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+                        const response = await fetch(proxyUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                text: clip.description,
+                                voice: clipVoice,
+                                rate: rateStr,
+                                pitch: pitchStr,
+                            }),
+                        });
+
+                        const data = await response.json();
+                        if (!response.ok || !data.success || !data.audioBase64) {
+                            throw new Error(data.message || data.error || 'Lỗi tạo âm thanh qua proxy server.');
+                        }
+
+                        // Chuyển Base64 thành Blob Audio
+                        const binaryStr = atob(data.audioBase64);
+                        const len = binaryStr.length;
+                        const bytes = new Uint8Array(len);
+                        for (let i = 0; i < len; i++) {
+                            bytes[i] = binaryStr.charCodeAt(i);
+                        }
+                        const blob = new Blob([bytes.buffer], { type: 'audio/mpeg' });
                         const fullUrl = URL.createObjectURL(blob);
 
-                        // Trả về url giả định để logic bên dưới load
                         res = { success: true, url: fullUrl, filePath: niceFilename };
-                        
-                        // Fake luồng localFilePath cho browser
                         clip['localFilePath'] = niceFilename;
                         clip.rawUrl = fullUrl; 
                         clip.url = this.sanitizer.bypassSecurityTrustUrl(fullUrl);
@@ -953,11 +922,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     async generateEdgeTTSLocal(clip: AudioClip): Promise<void> {
-        if (!(window as any).electron || !(window as any).electron.invoke) {
-            this.toastr.error('Cần chạy trên App Desktop (Electron).');
-            return;
-        }
-
         clip.isProcessing = true;
         this.cd.markForCheck();
 
@@ -968,11 +932,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const shortText = clip.description.substring(0, 50);
         const slug = this.toSlug(shortText);
 
-        const niceFilename = `${prefix}_${slug}`;
+        const niceFilename = `${prefix}_${slug}.mp3`;
 
         const payload = {
             text: clip.description,
-            voice: clip.voice, // Lấy đúng giọng trên giao diện (Nam Minh/Hoài My)
+            voice: clip.voice || this.selectedVoice, // Lấy đúng giọng trên giao diện (Nam Minh/Hoài My)
             rate: clip.rate || 1.0,
             pitch: clip.pitch || 0,
             filename: niceFilename,
@@ -980,20 +944,81 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         };
 
         try {
-            // BƯỚC 1: SINH AUDIO GỐC (EDGE TTS) + FILE .VTT
-            const ttsRes = await (window as any).electron.invoke(
-                'tts-generate',
-                payload,
-            );
+            if ((window as any).electron && (window as any).electron.invoke) {
+                // BƯỚC 1: SINH AUDIO GỐC (EDGE TTS) + FILE .VTT
+                const ttsRes = await (window as any).electron.invoke(
+                    'tts-generate',
+                    payload,
+                );
 
-            if (ttsRes && ttsRes.success) {
-                clip.audioFileName = ttsRes.filePath.split(/[\\/]/).pop();
+                if (ttsRes && ttsRes.success) {
+                    clip.audioFileName = ttsRes.filePath.split(/[\\/]/).pop();
+                    clip.username = subPath;
+                    clip['localFilePath'] = ttsRes.filePath;
+                    clip.rawUrl = null;
+                    clip.isProcessing = false;
+
+                    await this.loadLocalAudioContent(clip);
+
+                    if (!this.isGlobalProcessing) {
+                        this.playClip(clip);
+                    }
+
+                    this.saveToLocal();
+                    this.toastr.success(`Đã tạo: ${clip.audioFileName}`);
+                } else {
+                    this.handleTTSError(
+                        clip,
+                        ttsRes.error || 'Lỗi tạo giọng đọc gốc.',
+                    );
+                }
+            } else {
+                // CHẠY TRÊN BROWSER / CAPACITOR (IPAD)
+                const rateNum = clip.rate || 1.0;
+                const pitchNum = clip.pitch || 0;
+                const ratePercent = Math.round((rateNum - 1.0) * 100);
+                const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
+                const pitchStr = pitchNum >= 0 ? `+${pitchNum}Hz` : `${pitchNum}Hz`;
+
+                let proxyBaseUrl = 'https://apiv1.type.vn/v1';
+                if (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') {
+                    proxyBaseUrl = 'http://localhost:1122/v1';
+                }
+                const proxyUrl = `${proxyBaseUrl}/tts/generate`;
+
+                const response = await fetch(proxyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: clip.description,
+                        voice: clip.voice || this.selectedVoice,
+                        rate: rateStr,
+                        pitch: pitchStr,
+                    }),
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success || !data.audioBase64) {
+                    throw new Error(data.message || data.error || 'Lỗi tạo âm thanh qua proxy server.');
+                }
+
+                const binaryStr = atob(data.audioBase64);
+                const len = binaryStr.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
+                }
+                const blob = new Blob([bytes.buffer], { type: 'audio/mpeg' });
+                const fullUrl = URL.createObjectURL(blob);
+
+                clip.audioFileName = niceFilename;
                 clip.username = subPath;
-                clip['localFilePath'] = ttsRes.filePath;
-                clip.rawUrl = null;
+                clip['localFilePath'] = niceFilename;
+                clip.rawUrl = fullUrl;
+                clip.url = this.sanitizer.bypassSecurityTrustUrl(fullUrl);
                 clip.isProcessing = false;
-
-                await this.loadLocalAudioContent(clip);
 
                 if (!this.isGlobalProcessing) {
                     this.playClip(clip);
@@ -1001,11 +1026,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 this.saveToLocal();
                 this.toastr.success(`Đã tạo: ${clip.audioFileName}`);
-            } else {
-                this.handleTTSError(
-                    clip,
-                    ttsRes.error || 'Lỗi tạo giọng đọc gốc.',
-                );
             }
         } catch (err: any) {
             console.error(err);
