@@ -12,6 +12,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { SharedModule } from 'app/shared.module';
 import { AIText2SpeechComponent } from 'app/modules/admin/content/ai-text2speech/ai-text2speech.component';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 
 const Routes: Route[] = [
@@ -40,6 +41,7 @@ const Routes: Route[] = [
         MatSelectModule,
         MatInputModule,
         MatDialogModule,
+        MatSlideToggleModule,
         SharedModule
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],
