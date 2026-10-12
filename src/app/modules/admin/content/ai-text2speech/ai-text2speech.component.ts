@@ -7,6 +7,7 @@ import {
     Optional,
     ViewEncapsulation,
     ChangeDetectionStrategy,
+    ChangeDetectorRef,
 } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -23,6 +24,7 @@ import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { ToastrService } from 'ngx-toastr';
 import { MatSelectChange } from '@angular/material/select';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'ai-text2speech',
@@ -54,6 +56,13 @@ export class AIText2SpeechComponent
     generatedAudioUrl: string | null = null;
     isGenerating: boolean = false;
 
+    voiceList: any[] = [
+        { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Chuẩn)' },
+        { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Truyền cảm)' },
+    ];
+    isColabConnected: boolean = false;
+    isColabPluginActive: boolean = false;
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
@@ -66,6 +75,8 @@ export class AIText2SpeechComponent
         private toastr: ToastrService,
         private router: Router,
         private titleService: Title,
+        private multiAccountService: MultiAccountService,
+        private cd: ChangeDetectorRef,
         @Optional() @Inject(MAT_DIALOG_DATA) public data: any,
         @Optional() public dialogRef?: MatDialogRef<AIText2SpeechComponent>,
     ) {
@@ -103,6 +114,7 @@ export class AIText2SpeechComponent
 
     ngOnInit(): void {
         this.fetchAudioWithHeader();
+        this.checkColabStatus();
     }
 
     ngOnDestroy(): void {
@@ -116,10 +128,96 @@ export class AIText2SpeechComponent
         }
     }
 
+    async checkColabStatus() {
+        try {
+            let connected = false;
+            let pluginActive = false;
+
+            let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+            try {
+                const lsSettings = localStorage.getItem('settings');
+                if (lsSettings) {
+                    settings = { ...settings, ...JSON.parse(lsSettings) };
+                }
+            } catch (e) {}
+            const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+
+            if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
+                const res = await (window as any).electronAPI.checkColabGpuStatus();
+                connected = !!(res && res.is_connected);
+                pluginActive = !!(res && res.plugin_active);
+            } else {
+                try {
+                    const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        connected = !!(data && data.is_connected);
+                        pluginActive = true;
+                    }
+                } catch (e) {}
+            }
+
+            if (!connected && sstUrl) {
+                try {
+                    const sstResp = await fetch(`${sstUrl}/status`, { signal: AbortSignal.timeout(2000) });
+                    if (sstResp.ok) {
+                        const sstData = await sstResp.json();
+                        connected = !!(sstData && sstData.is_connected);
+                        if (connected) pluginActive = true;
+                    }
+                } catch (e) {}
+            }
+
+            this.isColabPluginActive = pluginActive;
+            this.isColabConnected = connected;
+
+            if (connected) {
+                let omniVoices: any[] = [];
+                if ((window as any).electron && (window as any).electron.invoke) {
+                    try {
+                        const dynamicVoices = await (window as any).electron.invoke('get-colab-voices');
+                        if (Array.isArray(dynamicVoices) && dynamicVoices.length > 0) {
+                            omniVoices = dynamicVoices;
+                        }
+                    } catch (err) {
+                        console.error('Lỗi lấy danh sách OmniVoice:', err);
+                    }
+                }
+
+                if (omniVoices.length === 0) {
+                    omniVoices = [
+                        { id: 'omnivoice-yenai', name: 'OmniVoice - Yenai (Colab GPU)' },
+                        { id: 'omnivoice-mpsg', name: 'OmniVoice - MPSG (Colab GPU)' },
+                    ];
+                }
+
+                omniVoices.forEach(ov => {
+                    const existing = this.voiceList.find(v => v.id === ov.id);
+                    const displayName = ov.name.includes('Colab') ? ov.name : `OmniVoice - ${ov.name} (Colab GPU)`;
+                    if (!existing) {
+                        this.voiceList.push({ ...ov, name: displayName });
+                    } else {
+                        existing.name = displayName;
+                    }
+                });
+            } else {
+                this.voiceList = this.voiceList.filter(v => !v.id.startsWith('omnivoice-'));
+                const currentVoice = this.text2speechForm?.get('voice')?.value;
+                if (currentVoice && currentVoice.startsWith('omnivoice-')) {
+                    this.text2speechForm.get('voice')?.setValue('vi-VN-NamMinhNeural');
+                }
+            }
+            this.cd.detectChanges();
+        } catch (e) {
+            this.isColabConnected = false;
+            this.isColabPluginActive = false;
+        }
+    }
+
     onVoiceChange(event: MatSelectChange) {
-        // Edge voices không có file sample tĩnh, các giọng cũ thì load sample
+        // Edge voices và Colab voices không có file sample tĩnh
         const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
-        if (!edgeVoices.includes(event.value)) {
+        if (!edgeVoices.includes(event.value) && !event.value?.startsWith('omnivoice-')) {
             this.wavesurfer.load(`assets/audios/${event.value}.wav`);
             this.wavesurfer.once('interaction', () => {
                 this.wavesurfer.play();
@@ -169,6 +267,12 @@ export class AIText2SpeechComponent
         if (edgeVoices.includes(voice)) {
             // [MỚI] Truyền thêm rate và pitch
             this.generateEdgeTTSLocal(text, voice, rate, pitch);
+            return;
+        }
+
+        // Logic Colab GPU OmniVoice
+        if (voice.startsWith('omnivoice-') || voice === 'omnivoice') {
+            this.generateOmniVoiceColab(text, voice, rate);
             return;
         }
         // -------------------------------------------------
@@ -311,6 +415,110 @@ export class AIText2SpeechComponent
             this.toastr.error('Lỗi khi đọc giọng Edge TTS: ' + e.message);
             this.isGenerating = false;
         }
+    }
+
+    async generateOmniVoiceColab(text: string, voice: string, rate: number) {
+        this.toastr.info('Đang gửi tác vụ tới Colab GPU OmniVoice...', 'Colab GPU');
+        this.isGenerating = true;
+
+        const shortText = text.substring(0, 50);
+        const slug = this.toSlug(shortText);
+        const fileSuffix = this.generateId();
+        const niceFilename = `omnivoice_${slug}_${fileSuffix}`;
+
+        const targetVoiceName = voice.replace('omnivoice-', '');
+        const refAudioName = targetVoiceName.endsWith('.wav') || targetVoiceName.endsWith('.mp3')
+            ? targetVoiceName
+            : `${targetVoiceName}.wav`;
+        const selectedVoiceObj = this.voiceList.find(v => v.id === voice);
+
+        let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+        try {
+            const lsSettings = localStorage.getItem('settings');
+            if (lsSettings) {
+                settings = { ...settings, ...JSON.parse(lsSettings) };
+            }
+        } catch (e) {}
+        const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+
+        const username = this.user?.name || 'anonymous';
+        const subPath = `${username}/text2speech`;
+
+        const payload = {
+            text: text,
+            voice_id: targetVoiceName,
+            ref_audio_name: refAudioName,
+            ref_text: selectedVoiceObj?.refText || '',
+            speed: rate || 1.0,
+            num_step: 16,
+            filename: niceFilename,
+            username: subPath,
+            sst_url: sstUrl,
+        };
+
+        try {
+            let res: any;
+            if ((window as any).electron && (window as any).electron.invoke) {
+                res = await (window as any).electron.invoke('tts-type-generate', payload);
+            } else if (sstUrl) {
+                const resp = await fetch(`${sstUrl}/tts_generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(60000)
+                });
+                if (resp.ok) {
+                    res = await resp.json();
+                } else {
+                    const errText = await resp.text();
+                    throw new Error(errText || 'Lỗi server Colab GPU');
+                }
+            } else {
+                throw new Error('Không tìm thấy kết nối Electron hoặc địa chỉ Colab GPU SST.');
+            }
+
+            if (res && res.success !== false && !res.error) {
+                const rawPath = res.filePath || res.url || res.result;
+                if (!rawPath) {
+                    throw new Error('Tạo giọng đọc thành công nhưng không nhận được đường dẫn audio.');
+                }
+
+                let finalAudioUrl = rawPath;
+                if (
+                    !rawPath.startsWith('http://') &&
+                    !rawPath.startsWith('https://') &&
+                    !rawPath.startsWith('blob:') &&
+                    !rawPath.startsWith('file://') &&
+                    !rawPath.startsWith('media://')
+                ) {
+                    let cleanPath = rawPath.replace(/\\/g, '/');
+                    if (cleanPath.startsWith('/')) {
+                        finalAudioUrl = `media://${cleanPath}`;
+                    } else {
+                        finalAudioUrl = `media:///${cleanPath}`;
+                    }
+                }
+
+                this.generatedAudioUrl = finalAudioUrl;
+                this.downloadMP3Href = this.domSanitizer.bypassSecurityTrustUrl(finalAudioUrl);
+                this.nameMP3Href = `${niceFilename}.wav`;
+
+                this.wavesurfer.load(finalAudioUrl);
+                this.wavesurfer.once('interaction', () => {
+                    this.wavesurfer.play();
+                });
+
+                this.isGenerating = false;
+                this.toastr.success('Tạo giọng đọc Colab GPU OmniVoice thành công!');
+            } else {
+                throw new Error(res?.error || 'Lỗi không xác định từ Colab GPU OmniVoice.');
+            }
+        } catch (err: any) {
+            console.error('OmniVoice error:', err);
+            this.toastr.error('Lỗi khi tạo giọng đọc Colab GPU: ' + (err?.message || err));
+            this.isGenerating = false;
+        }
+        this.cd.detectChanges();
     }
 
     insertIntoParagraph() {
