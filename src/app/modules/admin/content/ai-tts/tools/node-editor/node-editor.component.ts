@@ -4313,6 +4313,7 @@ export class NodeEditorComponent
     }
 
     private safeUrlCache: { [url: string]: SafeResourceUrl | SafeUrl | string } = {};
+    private safeAudioUrlCache: { [url: string]: SafeUrl | string } = {};
 
     getSafeUrl(url: string | null): SafeResourceUrl | SafeUrl | string | null {
         if (!url) return null;
@@ -4857,7 +4858,7 @@ export class NodeEditorComponent
         }
     }
 
-    getSafeAudioUrl(url: string | null): SafeResourceUrl | SafeUrl | string | null {
+    getSafeAudioUrl(url: string | null): SafeUrl | string | null {
         if (!url) return null;
         if (
             url.startsWith('http://') ||
@@ -4865,7 +4866,7 @@ export class NodeEditorComponent
             url.startsWith('blob:') ||
             url.startsWith('data:')
         ) {
-            return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+            return this.sanitizer.bypassSecurityTrustUrl(url);
         }
 
         let cleanUrl = url.replace(/^unsafe:/, '');
@@ -4894,10 +4895,10 @@ export class NodeEditorComponent
 
         // Native media:// protocol trong Electron hỗ trợ byte-range streaming hoàn hảo cho audio
         const mediaUrl = `media:///${targetPath.replace(/^[\/\\]+/, '')}`;
-        if (this.safeUrlCache[mediaUrl]) return this.safeUrlCache[mediaUrl];
+        if (this.safeAudioUrlCache[mediaUrl]) return this.safeAudioUrlCache[mediaUrl];
 
-        const safe = this.sanitizer.bypassSecurityTrustResourceUrl(mediaUrl);
-        this.safeUrlCache[mediaUrl] = safe;
+        const safe = this.sanitizer.bypassSecurityTrustUrl(mediaUrl);
+        this.safeAudioUrlCache[mediaUrl] = safe;
         return safe;
     }
 
