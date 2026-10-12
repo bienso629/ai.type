@@ -220,7 +220,7 @@
                                             )
                                         "
                                         [src]="
-                                            getSafeUrl(
+                                            getSafeVideoUrl(
                                                 node.data.isVideo
                                                     ? node.data.videoUrl ||
                                                           node.data.imageUrl
@@ -237,10 +237,13 @@
                                         (timeupdate)="
                                             onVideoTimeUpdate(node, videoEl)
                                         "
+                                        (error)="
+                                            onVideoError($event, node)
+                                        "
                                         (click)="
                                             !videoEl.paused
                                                 ? videoEl.pause()
-                                                : null;
+                                                : playVideo(videoEl, $event);
                                             $event.preventDefault();
                                             $event.stopPropagation()
                                         "
@@ -342,8 +345,7 @@
                                                     $event.stopPropagation()
                                                 "
                                                 (click)="
-                                                    videoEl.play();
-                                                    $event.stopPropagation()
+                                                    playVideo(videoEl, $event)
                                                 "
                                             >
                                                 @if (videoEl.paused) {
