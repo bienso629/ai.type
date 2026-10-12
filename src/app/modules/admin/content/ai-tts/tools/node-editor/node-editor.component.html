@@ -597,13 +597,7 @@
                                         <audio
                                             #audioEl
                                             [hidden]="true"
-                                            [src]="
-                                                node.data.audioUrl
-                                                    ? getSafeAudioUrl(
-                                                          node.data.audioUrl
-                                                      )
-                                                    : null
-                                            "
+                                            preload="none"
                                             (loadedmetadata)="
                                                 updateDuration(
                                                     node,
