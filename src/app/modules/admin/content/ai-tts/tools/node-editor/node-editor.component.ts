@@ -4339,6 +4339,7 @@ export class NodeEditorComponent
 
     private safeUrlCache: { [url: string]: SafeResourceUrl | SafeUrl | string } = {};
     private safeAudioUrlCache: { [url: string]: SafeUrl | string } = {};
+    private safeVideoUrlCache: { [url: string]: SafeResourceUrl | SafeUrl | string } = {};
 
     getSafeUrl(url: string | null): SafeResourceUrl | SafeUrl | string | null {
         if (!url) return null;
@@ -4372,6 +4373,69 @@ export class NodeEditorComponent
         const safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(cleanUrl);
         this.safeUrlCache[cleanUrl] = safeUrl;
         return safeUrl;
+    }
+
+    getSafeVideoUrl(url: string | null): SafeResourceUrl | SafeUrl | string | null {
+        if (!url) return null;
+        if (
+            url.startsWith('http://') ||
+            url.startsWith('https://') ||
+            url.startsWith('blob:') ||
+            url.startsWith('data:')
+        ) {
+            return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+        }
+
+        let cleanUrl = url.replace(/^unsafe:/, '');
+        let targetPath = '';
+
+        if (cleanUrl.startsWith('file://')) {
+            targetPath = cleanUrl.replace(/^file:\/\//i, '');
+        } else if (cleanUrl.startsWith('media://')) {
+            targetPath = cleanUrl.replace(/^media:\/+/i, '');
+        } else if (cleanUrl.startsWith('mediacors://')) {
+            targetPath = cleanUrl.replace(/^mediacors:\/+/i, '');
+            if (targetPath.toLowerCase().startsWith('smart_find/')) {
+                const qIdx = targetPath.indexOf('?');
+                if (qIdx !== -1) {
+                    const p = new URLSearchParams(targetPath.substring(qIdx + 1));
+                    targetPath = p.get('path') || targetPath;
+                }
+            }
+        } else {
+            targetPath = cleanUrl;
+        }
+
+        if (!/^[a-zA-Z]:/.test(targetPath) && !targetPath.startsWith('/')) {
+            targetPath = '/' + targetPath;
+        }
+
+        // Dùng media:/// protocol để Electron stream byte-range (HTTP 206) cho thẻ <video>
+        const mediaUrl = `media:///${targetPath.replace(/^[\/\\]+/, '')}`;
+        if (this.safeVideoUrlCache[mediaUrl]) return this.safeVideoUrlCache[mediaUrl];
+
+        const safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(mediaUrl);
+        this.safeVideoUrlCache[mediaUrl] = safeUrl;
+        return safeUrl;
+    }
+
+    playVideo(videoEl: HTMLVideoElement, event?: Event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        if (videoEl) {
+            const promise = videoEl.play();
+            if (promise !== undefined) {
+                promise.catch(err => {
+                    console.warn('Lỗi khi phát video:', err);
+                });
+            }
+        }
+    }
+
+    onVideoError(event: any, node: any) {
+        console.warn('Lỗi tải video thẻ DOM:', { node: node?.id, error: event });
     }
 
     updateDuration(node: NodeItem, durationSec: number) {
