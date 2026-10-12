@@ -62,6 +62,7 @@ export class AIText2SpeechComponent
     ];
     isColabConnected: boolean = false;
     isColabPluginActive: boolean = false;
+    isColabConnecting: boolean = false;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -141,11 +142,16 @@ export class AIText2SpeechComponent
                 }
             } catch (e) {}
             const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+            if (settings && settings.colabPluginEnabled) {
+                pluginActive = true;
+            }
 
             if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
                 const res = await (window as any).electronAPI.checkColabGpuStatus();
                 connected = !!(res && res.is_connected);
-                pluginActive = !!(res && res.plugin_active);
+                if (res && res.plugin_active !== undefined) {
+                    pluginActive = !!res.plugin_active;
+                }
             } else {
                 try {
                     const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
@@ -169,48 +175,120 @@ export class AIText2SpeechComponent
             }
 
             this.isColabPluginActive = pluginActive;
-            this.isColabConnected = connected;
+            await this.updateColabVoices(connected);
+        } catch (e) {
+            this.isColabPluginActive = false;
+            await this.updateColabVoices(false);
+        }
+    }
 
-            if (connected) {
-                let omniVoices: any[] = [];
-                if ((window as any).electron && (window as any).electron.invoke) {
-                    try {
-                        const dynamicVoices = await (window as any).electron.invoke('get-colab-voices');
-                        if (Array.isArray(dynamicVoices) && dynamicVoices.length > 0) {
-                            omniVoices = dynamicVoices;
-                        }
-                    } catch (err) {
-                        console.error('Lỗi lấy danh sách OmniVoice:', err);
+    async updateColabVoices(connected: boolean) {
+        this.isColabConnected = connected;
+
+        if (connected) {
+            let omniVoices: any[] = [];
+            if ((window as any).electron && (window as any).electron.invoke) {
+                try {
+                    const dynamicVoices = await (window as any).electron.invoke('get-colab-voices');
+                    if (Array.isArray(dynamicVoices) && dynamicVoices.length > 0) {
+                        omniVoices = dynamicVoices;
                     }
-                }
-
-                if (omniVoices.length === 0) {
-                    omniVoices = [
-                        { id: 'omnivoice-yenai', name: 'OmniVoice - Yenai (Colab GPU)' },
-                        { id: 'omnivoice-mpsg', name: 'OmniVoice - MPSG (Colab GPU)' },
-                    ];
-                }
-
-                omniVoices.forEach(ov => {
-                    const existing = this.voiceList.find(v => v.id === ov.id);
-                    const displayName = ov.name.includes('Colab') ? ov.name : `OmniVoice - ${ov.name} (Colab GPU)`;
-                    if (!existing) {
-                        this.voiceList.push({ ...ov, name: displayName });
-                    } else {
-                        existing.name = displayName;
-                    }
-                });
-            } else {
-                this.voiceList = this.voiceList.filter(v => !v.id.startsWith('omnivoice-'));
-                const currentVoice = this.text2speechForm?.get('voice')?.value;
-                if (currentVoice && currentVoice.startsWith('omnivoice-')) {
-                    this.text2speechForm.get('voice')?.setValue('vi-VN-NamMinhNeural');
+                } catch (err) {
+                    console.error('Lỗi lấy danh sách OmniVoice:', err);
                 }
             }
+
+            if (omniVoices.length === 0) {
+                omniVoices = [
+                    { id: 'omnivoice-yenai', name: 'OmniVoice - Yenai (Colab GPU)' },
+                    { id: 'omnivoice-mpsg', name: 'OmniVoice - MPSG (Colab GPU)' },
+                ];
+            }
+
+            omniVoices.forEach(ov => {
+                const existing = this.voiceList.find(v => v.id === ov.id);
+                const displayName = ov.name.includes('Colab') ? ov.name : `OmniVoice - ${ov.name} (Colab GPU)`;
+                if (!existing) {
+                    this.voiceList.push({ ...ov, name: displayName });
+                } else {
+                    existing.name = displayName;
+                }
+            });
+        } else {
+            this.voiceList = this.voiceList.filter(v => !v.id.startsWith('omnivoice-'));
+            const currentVoice = this.text2speechForm?.get('voice')?.value;
+            if (currentVoice && currentVoice.startsWith('omnivoice-')) {
+                this.text2speechForm.get('voice')?.setValue('vi-VN-NamMinhNeural');
+            }
+        }
+        this.cd.detectChanges();
+    }
+
+    async toggleColabGpu(enable: boolean) {
+        if (this.isColabConnecting) return;
+
+        if (enable) {
+            await this.openColabBridge();
+        } else {
+            await this.stopColabBridge();
+        }
+    }
+
+    async stopColabBridge() {
+        if (this.isColabConnecting) return;
+
+        this.isColabConnecting = true;
+        this.cd.detectChanges();
+        this.toastr.info('Đang ngắt kết nối và tắt máy ảo Colab GPU...', 'Colab GPU');
+
+        try {
+            if ((window as any).electronAPI && (window as any).electronAPI.stopColabGpu) {
+                const res = await (window as any).electronAPI.stopColabGpu();
+                if (res && res.success) {
+                    this.toastr.success(res.message || 'Đã tắt máy ảo Colab GPU thành công.', 'Colab GPU');
+                } else {
+                    this.toastr.warning(res?.error || 'Không thể dừng máy ảo Colab GPU.', 'Colab GPU');
+                }
+            } else {
+                await fetch('http://127.0.0.1:7868/stop_gpu', { method: 'POST', signal: AbortSignal.timeout(3000) });
+                this.toastr.success('Đã gửi yêu cầu tắt máy ảo Colab GPU.', 'Colab GPU');
+            }
+        } catch (e: any) {
+            this.toastr.warning('Lỗi khi tắt Colab GPU: ' + (e?.message || e), 'Colab GPU');
+        } finally {
+            await this.updateColabVoices(false);
+            this.isColabConnecting = false;
             this.cd.detectChanges();
-        } catch (e) {
-            this.isColabConnected = false;
-            this.isColabPluginActive = false;
+        }
+    }
+
+    async openColabBridge() {
+        if (this.isColabConnecting) return;
+
+        if (!(window as any).electronAPI || !(window as any).electronAPI.startColabGpu) {
+            this.toastr.warning('Chỉ hỗ trợ kích hoạt Colab GPU trên ứng dụng Desktop Electron.');
+            return;
+        }
+
+        this.isColabConnecting = true;
+        this.cd.detectChanges();
+        this.toastr.info('Đang kết nối & khởi chạy máy ảo GPU Tesla T4 trên Colab...', 'Colab GPU');
+
+        try {
+            const res = await (window as any).electronAPI.startColabGpu();
+            if (res && res.success) {
+                this.toastr.success(res.message || `Đã kết nối GPU Colab (${res.gpu || 'Tesla T4'}) thành công!`, 'Colab GPU');
+                await this.updateColabVoices(true);
+            } else {
+                this.toastr.error(res?.error || 'Không thể khởi tạo GPU Colab. Vui lòng kiểm tra tab Plugins trong Cài đặt.', 'Colab GPU');
+                await this.updateColabVoices(false);
+            }
+        } catch (e: any) {
+            this.toastr.error('Lỗi kết nối Colab Agent Plugin: ' + (e?.message || e), 'Colab GPU');
+            await this.updateColabVoices(false);
+        } finally {
+            this.isColabConnecting = false;
+            this.cd.detectChanges();
         }
     }
 
