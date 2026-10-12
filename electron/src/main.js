@@ -9321,11 +9321,33 @@ ipcMain.handle('ai:fetch-html', async (event, targetUrl) => {
 });
 ipcMain.handle('extract-last-frame', async (event, videoPath) => {
     try {
-        let videoPathDecoded = videoPath.replace(/^file:\/\//, '');
-        if (process.platform === 'win32' && videoPathDecoded.startsWith('/')) {
-            videoPathDecoded = videoPathDecoded.slice(1);
+        if (!videoPath) return { success: false, error: 'Empty video path' };
+        let clean = String(videoPath).trim();
+        clean = clean.replace(/^unsafe:/i, '')
+            .replace(/^media:\/{2,3}/i, '/')
+            .replace(/^mediacors:\/{2,3}/i, '/')
+            .replace(/^file:\/{2,3}/i, '/');
+        try {
+            clean = decodeURIComponent(clean.split('?')[0].split('#')[0]);
+        } catch (e) {
+            clean = clean.split('?')[0].split('#')[0];
         }
-        if (!fs.existsSync(videoPathDecoded)) return { success: false, error: 'Video file not found: ' + videoPathDecoded };
+        if (clean.startsWith('//')) clean = clean.replace(/^\/+/, '/');
+        if (process.platform === 'win32' && clean.startsWith('/')) {
+            clean = clean.slice(1);
+        }
+
+        let videoPathDecoded = clean;
+        if (!fs.existsSync(videoPathDecoded)) {
+            // Thử tìm trong thư mục dữ liệu Downloads / AI.TYPING
+            const downloadsPath = app.getPath('downloads');
+            const aiTypingPath = path.join(downloadsPath, 'AI.TYPING', path.basename(clean));
+            if (fs.existsSync(aiTypingPath)) {
+                videoPathDecoded = aiTypingPath;
+            } else {
+                return { success: false, error: 'Video file not found: ' + videoPathDecoded };
+            }
+        }
 
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
         const videoDir = getVideoWorkingDir(videoPathDecoded);

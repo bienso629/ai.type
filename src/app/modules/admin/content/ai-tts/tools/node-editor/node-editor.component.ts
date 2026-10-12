@@ -2620,22 +2620,26 @@ export class NodeEditorComponent
                                         prevNode?.data?.sceneData?.videos?.[0]
                                             ?.videoUrl;
                                     if (previousVideoUrl) {
-                                        let cleanUrl = previousVideoUrl.replace(
-                                            'file://',
-                                            '',
-                                        );
+                                        let cleanUrl = String(previousVideoUrl || '');
                                         if (
                                             typeof cleanUrl !== 'string' &&
                                             (cleanUrl as any)
                                                 .changingThisBreaksApplicationSecurity
                                         ) {
-                                            cleanUrl = (
-                                                cleanUrl as any
-                                            ).changingThisBreaksApplicationSecurity.replace(
-                                                'file://',
-                                                '',
-                                            );
+                                            cleanUrl = String((cleanUrl as any).changingThisBreaksApplicationSecurity || '');
                                         }
+                                        cleanUrl = cleanUrl
+                                            .replace(/^unsafe:/i, '')
+                                            .replace(/^media:\/{2,3}/i, '/')
+                                            .replace(/^mediacors:\/{2,3}/i, '/')
+                                            .replace(/^file:\/{2,3}/i, '/');
+                                        try {
+                                            cleanUrl = decodeURIComponent(cleanUrl.split('?')[0].split('#')[0]);
+                                        } catch (e) {
+                                            cleanUrl = cleanUrl.split('?')[0].split('#')[0];
+                                        }
+                                        if (cleanUrl.startsWith('//')) cleanUrl = cleanUrl.replace(/^\/+/, '/');
+
                                         const electron = (window as any)
                                             .electron;
                                         if (
@@ -3713,47 +3717,56 @@ export class NodeEditorComponent
                             'Đang trích xuất khung hình từ cảnh trước...',
                             'Hệ thống',
                         );
-                        let cleanUrl = previousVideoUrl.replace('file://', '');
+                        let cleanUrl = String(previousVideoUrl || '');
                         if (
                             typeof cleanUrl !== 'string' &&
                             (cleanUrl as any)
                                 .changingThisBreaksApplicationSecurity
                         ) {
-                            cleanUrl = (
-                                cleanUrl as any
-                            ).changingThisBreaksApplicationSecurity.replace(
-                                'file://',
-                                '',
-                            );
+                            cleanUrl = String((cleanUrl as any).changingThisBreaksApplicationSecurity || '');
                         }
+                        // Loại bỏ các tiền tố protocol web/electron/capacitor
+                        cleanUrl = cleanUrl
+                            .replace(/^unsafe:/i, '')
+                            .replace(/^media:\/{2,3}/i, '/')
+                            .replace(/^mediacors:\/{2,3}/i, '/')
+                            .replace(/^file:\/{2,3}/i, '/');
+                        try {
+                            cleanUrl = decodeURIComponent(cleanUrl.split('?')[0].split('#')[0]);
+                        } catch (e) {
+                            cleanUrl = cleanUrl.split('?')[0].split('#')[0];
+                        }
+                        if (cleanUrl.startsWith('//')) cleanUrl = cleanUrl.replace(/^\/+/, '/');
 
                         const electron = (window as any).electron;
-                        if (!electron || !electron.extractLastFrame) {
-                            this.toastr.error(
-                                'Lỗi cấu hình. Yêu cầu App Desktop (Electron).',
-                            );
-                            videoObj.usePreviousSceneFrame = false;
-                            return;
+                        if (electron && electron.extractLastFrame) {
+                            // @ts-ignore
+                            const extractResult = await electron.extractLastFrame(cleanUrl);
+                            if (extractResult && extractResult.success) {
+                                if (extractResult.base64) {
+                                    finalUrl =
+                                        'data:image/png;base64,' +
+                                        extractResult.base64;
+                                } else if (extractResult.path) {
+                                    let properPath = extractResult.path.replace(
+                                        /\\/g,
+                                        '/',
+                                    );
+                                    if (!properPath.startsWith('/'))
+                                        properPath = '/' + properPath;
+                                    finalUrl = 'file://' + properPath;
+                                }
+                            }
                         }
 
-                        // @ts-ignore
-                        const extractResult =
-                            await electron.extractLastFrame(cleanUrl);
-                        if (extractResult && extractResult.success) {
-                            if (extractResult.base64) {
-                                finalUrl =
-                                    'data:image/png;base64,' +
-                                    extractResult.base64;
-                            } else if (extractResult.path) {
-                                let properPath = extractResult.path.replace(
-                                    /\\/g,
-                                    '/',
-                                );
-                                if (!properPath.startsWith('/'))
-                                    properPath = '/' + properPath;
-                                finalUrl = 'file://' + properPath;
-                            }
-                        } else {
+                        // Nếu trích xuất video thất bại nhưng có sẵn ảnh cảnh trước, tự động fallback
+                        if (!finalUrl && previousImageUrl) {
+                            finalUrl = previousImageUrl;
+                            this.toastr.info(
+                                'Đã kế thừa hình ảnh từ cảnh trước thay cho video.',
+                                'Hệ thống',
+                            );
+                        } else if (!finalUrl) {
                             this.toastr.error(
                                 'Không thể trích xuất khung hình từ video trước.',
                             );
@@ -3761,10 +3774,18 @@ export class NodeEditorComponent
                             return;
                         }
                     } catch (e) {
-                        this.toastr.error('Lỗi khi trích xuất khung hình.');
-                        videoObj.usePreviousSceneFrame = false;
-                        console.error(e);
-                        return;
+                        if (previousImageUrl) {
+                            finalUrl = previousImageUrl;
+                            this.toastr.info(
+                                'Đã kế thừa hình ảnh từ cảnh trước.',
+                                'Hệ thống',
+                            );
+                        } else {
+                            this.toastr.error('Lỗi khi trích xuất khung hình.');
+                            videoObj.usePreviousSceneFrame = false;
+                            console.error(e);
+                            return;
+                        }
                     }
                 } else if (previousImageUrl) {
                     // Fallback to image if video is not available
