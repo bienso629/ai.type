@@ -1,32 +1,34 @@
 <div class="relative flex flex-col sm:flex-row flex-auto w-full h-full bg-white overflow-hidden">
     <div class="flex-1 min-w-0 relative h-full">
         @if (isLoadingSchedule) {
-            <div class="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xs z-50 flex flex-col items-center justify-center gap-3 select-none">
-                <mat-spinner [diameter]="48" color="primary"></mat-spinner>
-                <div class="text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide animate-pulse">
+            <div class="absolute inset-0 bg-white z-50 flex flex-col items-center justify-center gap-3 select-none">
+                <mat-spinner [diameter]="44" color="primary"></mat-spinner>
+                <div class="text-sm font-medium text-gray-500 tracking-wide animate-pulse">
                     Đang nạp dữ liệu lịch làm việc...
                 </div>
             </div>
         }
 
         <!-- Zoom Controls -->
-        <div
-            class="absolute top-2 right-4 z-20 flex gap-2 bg-white rounded-md shadow p-1"
-        >
-            <button mat-icon-button (click)="zoomOut()" matTooltip="Thu nhỏ">
-                <mat-icon [svgIcon]="'heroicons_outline:minus'"></mat-icon>
-            </button>
-            <button
-                mat-icon-button
-                (click)="scrollToToday()"
-                matTooltip="Về hôm nay"
+        @if (!isLoadingSchedule) {
+            <div
+                class="absolute top-2 right-4 z-20 flex gap-2 bg-white rounded-md shadow p-1"
             >
-                <mat-icon [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
-            </button>
-            <button mat-icon-button (click)="zoomIn()" matTooltip="Phóng to">
-                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-            </button>
-        </div>
+                <button mat-icon-button (click)="zoomOut()" matTooltip="Thu nhỏ">
+                    <mat-icon [svgIcon]="'heroicons_outline:minus'"></mat-icon>
+                </button>
+                <button
+                    mat-icon-button
+                    (click)="scrollToToday()"
+                    matTooltip="Về hôm nay"
+                >
+                    <mat-icon [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
+                </button>
+                <button mat-icon-button (click)="zoomIn()" matTooltip="Phóng to">
+                    <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                </button>
+            </div>
+        }
 
         <div class="flex-auto h-full overflow-y-auto" cdkScrollable>
             <div
