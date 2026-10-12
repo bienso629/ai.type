@@ -2933,7 +2933,7 @@ export class NodeEditorComponent
                                                     `file://${thumbRes.path.replace(/\\/g, '/')}`;
                                             } else if (thumbRes.base64) {
                                                 nodesMapping[i].data.imageUrl =
-                                                    `data:image/jpeg;base64,${thumbRes.base64}`;
+                                                    `data:image/png;base64,${thumbRes.base64}`;
                                             }
                                         }
                                     }
