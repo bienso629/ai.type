@@ -158,21 +158,25 @@ eco-fab-speed-dial button[mat-mini-fab][color="accent"] {
 
 /* Left sidebar border-right */
 fuse-vertical-navigation {
-    border-right: none !important;
+    border-right: 1px solid #e2e8f0 !important;
+    background-color: #ffffff !important;
 
     .fuse-vertical-navigation-wrapper {
-        border-right: 1px solid var(--fuse-border, rgba(0, 0, 0, 0.08)) !important;
+        border-right: 1px solid #e2e8f0 !important;
         box-shadow: none !important;
+        background-color: #ffffff !important;
     }
 }
 
 .dark fuse-vertical-navigation,
 body.dark fuse-vertical-navigation {
-    border-right: none !important;
+    border-right: 1px solid #1f2937 !important;
+    background-color: #111827 !important;
 
     .fuse-vertical-navigation-wrapper {
-        border-right: 1px solid var(--fuse-border, rgba(255, 255, 255, 0.08)) !important;
+        border-right: 1px solid #1f2937 !important;
         box-shadow: none !important;
+        background-color: #111827 !important;
     }
 }
 
