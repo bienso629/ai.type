@@ -636,12 +636,11 @@ ${domainRows.join('\n')}
                 (zoom) => (this.currentZoomIndex = zoom.index)
             );
 
-            this.scrollToToday();
-            
-            // Ép timeline tính toán lại toàn bộ vị trí các khối task
-            if (typeof this.timelineComponent['_recalculateItemPositions'] === 'function') {
-                this.timelineComponent['_recalculateItemPositions']();
-                this.cd.detectChanges();
+            if (!this.isLoadingSchedule) {
+                this.scrollToToday();
+                if (typeof this.timelineComponent['_recalculateItemPositions'] === 'function') {
+                    this.timelineComponent['_recalculateItemPositions']();
+                }
             }
         }
 
@@ -1318,10 +1317,12 @@ ${domainRows.join('\n')}
             if (this.timelineComponent && typeof (this.timelineComponent as any)['_recalculateItemPositions'] === 'function') {
                 (this.timelineComponent as any)['_recalculateItemPositions']();
             }
-            this.isLoadingSchedule = false;
-            this.cd.markForCheck();
-            this.cd.detectChanges();
-        }, 150);
+            setTimeout(() => {
+                this.isLoadingSchedule = false;
+                this.cd.markForCheck();
+                this.cd.detectChanges();
+            }, 100);
+        }, 200);
     }
 
     private getNextValidDate(date: Date): Date {

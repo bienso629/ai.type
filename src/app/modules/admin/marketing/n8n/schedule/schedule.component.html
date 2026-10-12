@@ -1,14 +1,21 @@
 <div class="relative flex flex-col sm:flex-row flex-auto w-full h-full bg-white overflow-hidden">
-    <div class="flex-1 min-w-0 relative h-full">
-        @if (isLoadingSchedule) {
-            <div class="absolute inset-0 bg-white z-50 flex flex-col items-center justify-center gap-3 select-none">
-                <mat-spinner [diameter]="44" color="primary"></mat-spinner>
-                <div class="text-sm font-medium text-gray-500 tracking-wide animate-pulse">
+    @if (isLoadingSchedule) {
+        <div class="absolute inset-0 bg-white z-[100] flex flex-col items-center justify-center gap-4 select-none">
+            <div class="relative flex items-center justify-center">
+                <mat-spinner [diameter]="48" color="primary"></mat-spinner>
+            </div>
+            <div class="flex flex-col items-center gap-1.5 text-center">
+                <div class="text-base font-semibold text-gray-800 tracking-wide">
                     Đang nạp dữ liệu lịch làm việc...
                 </div>
+                <div class="text-xs text-gray-400">
+                    Vui lòng chờ trong giây lát để hệ thống đồng bộ kế hoạch
+                </div>
             </div>
-        }
+        </div>
+    }
 
+    <div class="flex-1 min-w-0 relative h-full">
         <!-- Zoom Controls -->
         @if (!isLoadingSchedule) {
             <div
@@ -34,6 +41,7 @@
             <div
                 class="timeline-container fullscreen transition-opacity duration-300"
                 [class.opacity-0]="isLoadingSchedule"
+                [class.invisible]="isLoadingSchedule"
                 [class.opacity-100]="!isLoadingSchedule"
             >
                 <timeline-calendar
