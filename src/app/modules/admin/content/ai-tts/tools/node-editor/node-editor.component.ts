@@ -4205,11 +4205,8 @@ export class NodeEditorComponent
                         const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
                         const pitchStr = pitchNum >= 0 ? `+${pitchNum}Hz` : `${pitchNum}Hz`;
 
-                        let proxyBaseUrl = 'https://apiv1.type.vn/v1';
-                        if (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') {
-                            proxyBaseUrl = 'http://localhost:1122/v1';
-                        }
-                        const proxyUrl = `${proxyBaseUrl}/tts/generate`;
+                        // Luôn trỏ thẳng domain công khai apiv1.type.vn (trên iPad Capacitor hostname là localhost/capacitor://localhost)
+                        const proxyUrl = 'https://apiv1.type.vn/v1/tts/generate';
 
                         const response = await fetch(proxyUrl, {
                             method: 'POST',
