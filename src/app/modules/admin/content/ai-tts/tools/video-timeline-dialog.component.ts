@@ -3705,37 +3705,50 @@ export class VideoTimelineDialogComponent
                         audioUrl: null,
                     },
                 },
+                onGenerate: async (config: any, text: string, updateStatus?: (msg: string) => void) => {
+                    return await this.generateVoiceAndInsertToTimeline(text, config, updateStatus);
+                },
             },
         });
 
         dialogRef.afterClosed().subscribe(async (res) => {
-            if (!res || res.action !== 'start') return;
-            const textToSpeak =
-                dialogRef.componentInstance?.data?.standaloneTTSNode?.data
-                    ?.text;
-            if (!textToSpeak || !textToSpeak.trim()) {
-                this.toastr.warning(
-                    'Vui lòng nhập nội dung văn bản để tạo giọng đọc.',
-                );
-                return;
-            }
+            if (!res) return;
+            // Nếu caller cũ vẫn trả về start
+            if (res.action === 'start') {
+                const textToSpeak =
+                    dialogRef.componentInstance?.data?.standaloneTTSNode?.data
+                        ?.text;
+                if (!textToSpeak || !textToSpeak.trim()) {
+                    this.toastr.warning(
+                        'Vui lòng nhập nội dung văn bản để tạo giọng đọc.',
+                    );
+                    return;
+                }
 
-            await this.generateVoiceAndInsertToTimeline(
-                textToSpeak.trim(),
-                res,
-            );
+                await this.generateVoiceAndInsertToTimeline(
+                    textToSpeak.trim(),
+                    res,
+                );
+            }
         });
     }
 
-    async generateVoiceAndInsertToTimeline(text: string, config: any) {
+    async generateVoiceAndInsertToTimeline(
+        text: string,
+        config: any,
+        updateStatus?: (msg: string) => void,
+    ): Promise<boolean> {
         const electronApi = (window as any).electron;
         if (!electronApi || !electronApi.invoke) {
             this.toastr.error(
                 'Cần chạy trên App Desktop (Electron) để tạo giọng nói.',
             );
-            return;
+            return false;
         }
 
+        if (updateStatus) {
+            updateStatus('Đang gọi AI TTS để tạo file âm thanh...');
+        }
         this.toastr.info('Đang tạo giọng đọc AI TTS...', 'Hệ thống');
 
         const username =
@@ -3950,15 +3963,18 @@ export class VideoTimelineDialogComponent
                 this.toastr.success(
                     'Đã tạo giọng đọc và chèn vào Track Âm thanh thành công!',
                 );
+                return true;
             } else {
                 this.toastr.error(
                     'Lỗi khi tạo giọng nói: ' +
                         (res?.error || 'Không thành công'),
                 );
+                return false;
             }
         } catch (err: any) {
             console.error('Lỗi tạo giọng nói TTS:', err);
             this.toastr.error('Lỗi tạo giọng nói: ' + (err?.message || err));
+            return false;
         }
     }
 

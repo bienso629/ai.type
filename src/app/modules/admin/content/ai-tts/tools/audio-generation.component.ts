@@ -17,6 +17,7 @@ import {
 
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
@@ -34,6 +35,7 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
         MatTooltipModule,
         MatDialogModule,
         MatProgressBarModule,
+        MatProgressSpinnerModule,
         MatIconModule,
         MatButtonModule,
         MatSelectModule,
@@ -236,19 +238,38 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
                             >graphic_eq</mat-icon
                         >
                     </mat-form-field>
+                    @if (isGenerating) {
+                        <div class="mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
+                            <div class="flex items-center gap-2 mb-2 text-indigo-700 text-xs font-semibold">
+                                <mat-spinner diameter="16" strokeWidth="2.5"></mat-spinner>
+                                <span>{{ generatingStatus || 'Đang tạo giọng đọc AI...' }}</span>
+                            </div>
+                            <mat-progress-bar mode="indeterminate" class="rounded-full overflow-hidden"></mat-progress-bar>
+                        </div>
+                    }
                 </div>
             </div>
 
             <div class="flex justify-end gap-2 mt-6">
-                <button mat-flat-button color="accent" (click)="cancel()">
+                <button
+                    mat-flat-button
+                    color="accent"
+                    [disabled]="isGenerating"
+                    (click)="cancel()"
+                >
                     Hủy bỏ
                 </button>
                 <button
                     mat-flat-button
                     color="primary"
+                    [disabled]="isGenerating"
                     (click)="startParallelProcess()"
+                    class="flex items-center gap-2"
                 >
-                    BẮT ĐẦU TẠO AUDIO
+                    @if (isGenerating) {
+                        <mat-spinner diameter="16" strokeWidth="2.5" class="mr-1"></mat-spinner>
+                    }
+                    <span>{{ isGenerating ? 'ĐANG TẠO AUDIO...' : 'BẮT ĐẦU TẠO AUDIO' }}</span>
                 </button>
             </div>
         </div>
@@ -276,6 +297,8 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
 
     isStarted = false;
     isFinished = false;
+    isGenerating = false;
+    generatingStatus = '';
     totalTasks = 0;
     completedTasks = 0;
     progress = 0;
@@ -474,7 +497,52 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
         this.checkColabStatus();
     }
 
-    startParallelProcess(): void {
+    async startParallelProcess(): Promise<void> {
+        if (this.isGenerating) return;
+
+        // Nếu có callback onGenerate được truyền qua data (như VideoTimelineDialog)
+        if (this.data && typeof this.data.onGenerate === 'function') {
+            const textToSpeak = this.data?.standaloneTTSNode?.data?.text;
+            if (!textToSpeak || !textToSpeak.trim()) {
+                this.toastr.warning('Vui lòng nhập nội dung văn bản để tạo giọng đọc.');
+                return;
+            }
+
+            this.isGenerating = true;
+            this.generatingStatus = 'Đang kết nối AI và tạo giọng đọc...';
+            this.cd.detectChanges();
+
+            try {
+                const config = {
+                    action: 'start',
+                    selectedVoice: this.selectedVoice,
+                    selectedRate: this.selectedRate,
+                    selectedPitch: this.selectedPitch,
+                    myvoices: this.myvoices,
+                };
+                const result = await this.data.onGenerate(config, textToSpeak.trim(), (statusMsg: string) => {
+                    this.generatingStatus = statusMsg;
+                    this.cd.detectChanges();
+                });
+
+                if (result !== false) {
+                    this.dialogRef.close({
+                        action: 'completed',
+                        result: result,
+                    });
+                }
+            } catch (err: any) {
+                console.error('Lỗi khi thực thi onGenerate:', err);
+                this.toastr.error('Đã xảy ra lỗi khi tạo giọng đọc: ' + (err?.message || err));
+            } finally {
+                this.isGenerating = false;
+                this.generatingStatus = '';
+                this.cd.detectChanges();
+            }
+            return;
+        }
+
+        // Logic mặc định đóng dialog truyền config cho caller
         this.dialogRef.close({
             action: 'start',
             selectedVoice: this.selectedVoice,
