@@ -15,6 +15,7 @@ import {
     MatDialogModule,
 } from '@angular/material/dialog';
 
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -31,33 +32,64 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
     imports: [
         TranslocoModule,
         MatTooltipModule,
-        TranslocoModule,
         MatDialogModule,
         MatProgressBarModule,
         MatIconModule,
         MatButtonModule,
         MatSelectModule,
         MatInputModule,
+        MatSlideToggleModule,
         FormsModule,
     ],
     providers: [MyKeysService],
     template: `
         <div class="p-0 bg-white">
-            <div class="flex items-start justify-between mb-4">
-                <div class="flex items-center text-primary mt-1">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center text-primary">
                     <mat-icon class="mr-2 icon-size-5 text-primary"
                         >bolt</mat-icon
                     >
                     <span class="text-xl font-semibold tracking-tight"
                         >Tạo giọng đọc</span
                     >
+                    @if (isColabConnected) {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 ml-2">
+                            Colab GPU Online
+                        </span>
+                    }
                 </div>
-                <button
-                    (click)="cancel()"
-                    class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors"
-                >
-                    <mat-icon class="icon-size-5">close</mat-icon>
-                </button>
+                <div class="flex items-center gap-2">
+                    @if (isColabPluginActive) {
+                        <div
+                            class="flex items-center px-2 py-1 bg-gray-50 rounded-lg border border-gray-200"
+                            [matTooltip]="
+                                isColabConnecting
+                                    ? 'Đang xử lý kết nối Colab GPU...'
+                                    : isColabConnected
+                                    ? 'Colab GPU đang BẬT. Nhấp để ngắt kết nối'
+                                    : 'BẬT để kết nối Google Colab GPU'
+                            "
+                        >
+                            <mat-slide-toggle
+                                [checked]="isColabConnected"
+                                [disabled]="isColabConnecting"
+                                (change)="toggleColabGpu($event.checked)"
+                                color="primary"
+                                class="scale-90"
+                            >
+                                <span class="text-xs font-medium text-slate-700 select-none">
+                                    Colab GPU
+                                </span>
+                            </mat-slide-toggle>
+                        </div>
+                    }
+                    <button
+                        (click)="cancel()"
+                        class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors"
+                    >
+                        <mat-icon class="icon-size-5">close</mat-icon>
+                    </button>
+                </div>
             </div>
 
             <div class="overflow-y-auto max-h-[75vh] scrollbar-hide">
@@ -249,6 +281,10 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
     progress = 0;
     currentStatus = 'Đang chờ cấu hình...';
 
+    isColabConnected: boolean = false;
+    isColabPluginActive: boolean = false;
+    isColabConnecting: boolean = false;
+
     myvoices: any = [];
     isCancelled = false;
 
@@ -274,6 +310,7 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
     async checkColabStatus() {
         try {
             let connected = false;
+            let pluginActive = false;
 
             // Kiểm tra cấu hình sst từ cài đặt người dùng
             let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
@@ -284,16 +321,23 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
                 }
             } catch (e) {}
             const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
+            if (settings && settings.colabPluginEnabled) {
+                pluginActive = true;
+            }
 
             if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
                 const res = await (window as any).electronAPI.checkColabGpuStatus();
                 connected = !!(res && res.is_connected);
+                if (res && res.plugin_active !== undefined) {
+                    pluginActive = !!res.plugin_active;
+                }
             } else {
                 try {
                     const resp = await fetch('http://127.0.0.1:7868/status', { signal: AbortSignal.timeout(1500) });
                     if (resp.ok) {
                         const data = await resp.json();
                         connected = !!(data && data.is_connected);
+                        pluginActive = true;
                     }
                 } catch (e) {}
             }
@@ -305,45 +349,125 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
                     if (sstResp.ok) {
                         const sstData = await sstResp.json();
                         connected = !!(sstData && sstData.is_connected);
+                        if (connected) pluginActive = true;
                     }
                 } catch (e) {}
             }
 
-            if (connected) {
-                let omniVoices: any[] = [];
-                if ((window as any).electron && (window as any).electron.invoke) {
-                    try {
-                        const dynamicVoices = await (window as any).electron.invoke('get-colab-voices');
-                        if (Array.isArray(dynamicVoices) && dynamicVoices.length > 0) {
-                            omniVoices = dynamicVoices;
-                        }
-                    } catch (err) {
-                        console.error('Lỗi lấy danh sách OmniVoice:', err);
-                    }
-                }
-                if (omniVoices.length === 0) {
-                    omniVoices = [
-                        { id: 'omnivoice-yenai', name: 'Yenai' },
-                        { id: 'omnivoice-mpsg', name: 'MPSG' }
-                    ];
-                }
+            this.isColabPluginActive = pluginActive;
+            await this.updateColabVoices(connected);
+        } catch (e) {
+            this.isColabPluginActive = false;
+            await this.updateColabVoices(false);
+        }
+    }
 
-                omniVoices.forEach(ov => {
-                    const existing = this.voiceList.find(v => v.id === ov.id);
-                    if (!existing) {
-                        this.voiceList.push(ov);
-                    } else {
-                        existing.name = ov.name;
+    async updateColabVoices(connected: boolean) {
+        this.isColabConnected = connected;
+
+        if (connected) {
+            let omniVoices: any[] = [];
+            if ((window as any).electron && (window as any).electron.invoke) {
+                try {
+                    const dynamicVoices = await (window as any).electron.invoke('get-colab-voices');
+                    if (Array.isArray(dynamicVoices) && dynamicVoices.length > 0) {
+                        omniVoices = dynamicVoices;
                     }
-                });
-            } else {
-                this.voiceList = this.voiceList.filter(v => !v.id.startsWith('omnivoice-'));
-                if (this.selectedVoice.startsWith('omnivoice-')) {
-                    this.selectedVoice = 'vi-VN-HoaiMyNeural';
+                } catch (err) {
+                    console.error('Lỗi lấy danh sách OmniVoice:', err);
                 }
             }
+            if (omniVoices.length === 0) {
+                omniVoices = [
+                    { id: 'omnivoice-yenai', name: 'OmniVoice - Yenai (Colab GPU)' },
+                    { id: 'omnivoice-mpsg', name: 'OmniVoice - MPSG (Colab GPU)' }
+                ];
+            }
+
+            omniVoices.forEach(ov => {
+                const existing = this.voiceList.find(v => v.id === ov.id);
+                const displayName = ov.name.includes('Colab') ? ov.name : `OmniVoice - ${ov.name} (Colab GPU)`;
+                if (!existing) {
+                    this.voiceList.push({ ...ov, name: displayName });
+                } else {
+                    existing.name = displayName;
+                }
+            });
+        } else {
+            this.voiceList = this.voiceList.filter(v => !v.id.startsWith('omnivoice-'));
+            if (this.selectedVoice.startsWith('omnivoice-')) {
+                this.selectedVoice = 'vi-VN-HoaiMyNeural';
+            }
+        }
+        this.cd.detectChanges();
+    }
+
+    async toggleColabGpu(enable: boolean) {
+        if (this.isColabConnecting) return;
+
+        if (enable) {
+            await this.openColabBridge();
+        } else {
+            await this.stopColabBridge();
+        }
+    }
+
+    async stopColabBridge() {
+        if (this.isColabConnecting) return;
+
+        this.isColabConnecting = true;
+        this.cd.detectChanges();
+        this.toastr.info('Đang ngắt kết nối và tắt máy ảo Colab GPU...', 'Colab GPU');
+
+        try {
+            if ((window as any).electronAPI && (window as any).electronAPI.stopColabGpu) {
+                const res = await (window as any).electronAPI.stopColabGpu();
+                if (res && res.success) {
+                    this.toastr.success(res.message || 'Đã tắt máy ảo Colab GPU thành công.', 'Colab GPU');
+                } else {
+                    this.toastr.warning(res?.error || 'Không thể dừng máy ảo Colab GPU.', 'Colab GPU');
+                }
+            } else {
+                await fetch('http://127.0.0.1:7868/stop_gpu', { method: 'POST', signal: AbortSignal.timeout(3000) });
+                this.toastr.success('Đã gửi yêu cầu tắt máy ảo Colab GPU.', 'Colab GPU');
+            }
+        } catch (e: any) {
+            this.toastr.warning('Lỗi khi tắt Colab GPU: ' + (e?.message || e), 'Colab GPU');
+        } finally {
+            await this.updateColabVoices(false);
+            this.isColabConnecting = false;
             this.cd.detectChanges();
-        } catch (e) {}
+        }
+    }
+
+    async openColabBridge() {
+        if (this.isColabConnecting) return;
+
+        if (!(window as any).electronAPI || !(window as any).electronAPI.startColabGpu) {
+            this.toastr.warning('Chỉ hỗ trợ kích hoạt Colab GPU trên ứng dụng Desktop Electron.');
+            return;
+        }
+
+        this.isColabConnecting = true;
+        this.cd.detectChanges();
+        this.toastr.info('Đang kết nối & khởi chạy máy ảo GPU Tesla T4 trên Colab...', 'Colab GPU');
+
+        try {
+            const res = await (window as any).electronAPI.startColabGpu();
+            if (res && res.success) {
+                this.toastr.success(res.message || `Đã kết nối GPU Colab (${res.gpu || 'Tesla T4'}) thành công!`, 'Colab GPU');
+                await this.updateColabVoices(true);
+            } else {
+                this.toastr.error(res?.error || 'Không thể khởi tạo GPU Colab. Vui lòng kiểm tra tab Plugins trong Cài đặt.', 'Colab GPU');
+                await this.updateColabVoices(false);
+            }
+        } catch (e: any) {
+            this.toastr.error('Lỗi kết nối Colab Agent Plugin: ' + (e?.message || e), 'Colab GPU');
+            await this.updateColabVoices(false);
+        } finally {
+            this.isColabConnecting = false;
+            this.cd.detectChanges();
+        }
     }
 
     getMyKeys() {
