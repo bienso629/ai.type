@@ -1471,39 +1471,36 @@
                     </button>
                 </mat-menu>
 
-                <!-- Model Selector & Submit Button Combo -->
+                <!-- Group 1: Tạo Hình Ảnh (Image Model & Send Image Button) -->
                 <div
-                    class="relative flex items-center bg-gray-50 hover:border-teal-300 focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-100 rounded-full h-10 transition-all ml-2 border border-gray-200 w-48 sm:w-64"
+                    class="relative flex items-center bg-gray-50 hover:border-teal-300 focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-100 rounded-full h-10 transition-all ml-2 border border-gray-200"
+                    [ngClass]="globalActiveModality === 'IMAGE' ? 'border-teal-400 ring-1 ring-teal-100' : ''"
                     [ngStyle]="{
-                        'border-color': isGeneratingPrompt ? 'transparent' : '',
+                        'border-color': isGeneratingPrompt && globalActiveModality === 'IMAGE' ? 'transparent' : '',
                     }"
                 >
-                    <!-- Breathing Glow Overlay -->
-                    @if (isGeneratingPrompt) {
+                    @if (isGeneratingPrompt && globalActiveModality === 'IMAGE') {
                         <div class="ai-breathing-overlay"></div>
                     }
 
-                    <!-- Input Area -->
+                    <!-- Input / Display Area for Image -->
                     <div
-                        class="relative flex-1 h-full flex items-center z-10 overflow-hidden cursor-pointer rounded-l-full"
+                        class="relative h-full flex items-center z-10 overflow-hidden cursor-pointer rounded-l-full w-28 sm:w-36"
                     >
-                        @if (!isModelInputFocused) {
-                            <!-- Left half (Image) -->
+                        @if (!isModelInputFocused || globalActiveModality !== 'IMAGE') {
                             <div
                                 (click)="
                                     !isAiAgentEnabled &&
-                                        activateModality('IMAGE', realInput)
+                                        activateModality('IMAGE', realInputImage)
                                 "
                                 (mouseenter)="globalActiveModality = 'IMAGE'"
-                                class="flex-1 h-full flex items-center justify-center px-2 text-xs font-medium transition-colors border-r border-gray-200"
-                                [ngClass]="[
-                                    globalActiveModality === 'IMAGE'
-                                        ? 'text-teal-600'
-                                        : 'text-gray-500',
+                                class="w-full h-full flex items-center justify-center px-2.5 text-xs font-medium transition-colors text-teal-700"
+                                [ngClass]="
                                     isAiAgentEnabled
                                         ? 'cursor-not-allowed opacity-80'
-                                        : 'hover:bg-gray-100',
-                                ]"
+                                        : 'hover:bg-gray-100'
+                                "
+                                [matTooltip]="'Model tạo hình: ' + selectedModel"
                             >
                                 {{
                                     isAiAgentEnabled
@@ -1511,49 +1508,27 @@
                                         : trimModel(selectedModel)
                                 }}
                             </div>
-                            <!-- Right half (Video) -->
-                            <div
-                                (click)="activateModality('VIDEO', realInput)"
-                                (mouseenter)="globalActiveModality = 'VIDEO'"
-                                class="flex-1 h-full flex items-center justify-center px-2 text-xs font-medium transition-colors hover:bg-gray-100"
-                                [ngClass]="
-                                    globalActiveModality === 'VIDEO'
-                                        ? 'text-teal-600'
-                                        : 'text-gray-500'
-                                "
-                            >
-                                {{ trimModel(selectedVideoModel) }}
-                            </div>
                         }
 
-                        <!-- Actual Input for searching (Hidden when not focused) -->
                         <input
                             type="text"
-                            #realInput
-                            class="w-full h-full bg-transparent border-none outline-none pl-4 pr-3 text-sm font-medium text-gray-700 truncate cursor-pointer absolute inset-0"
+                            #realInputImage
+                            class="w-full h-full bg-transparent border-none outline-none pl-3 pr-2 text-xs sm:text-sm font-medium text-gray-700 truncate cursor-pointer absolute inset-0"
                             [ngClass]="{
                                 'opacity-0 pointer-events-none':
-                                    !isModelInputFocused,
+                                    !isModelInputFocused || globalActiveModality !== 'IMAGE',
                             }"
                             [(ngModel)]="modelSearchValue"
-                            [matAutocomplete]="modelAuto"
+                            [matAutocomplete]="modelAutoImage"
                             (blur)="onModelInputBlur()"
                             (input)="filterModels($event.target.value)"
-                            [matTooltip]="
-                                globalActiveModality === 'VIDEO'
-                                    ? 'Chọn mô hình tạo video'
-                                    : 'Chọn mô hình tạo hình ảnh'
-                            "
-                            [placeholder]="
-                                globalActiveModality === 'VIDEO'
-                                    ? 'Tìm kiếm mô hình video...'
-                                    : 'Tìm kiếm mô hình tạo ảnh...'
-                            "
+                            matTooltip="Chọn mô hình tạo hình ảnh"
+                            placeholder="Tìm kiếm model ảnh..."
                         />
                     </div>
 
                     <mat-autocomplete
-                        #modelAuto="matAutocomplete"
+                        #modelAutoImage="matAutocomplete"
                         panelClass="custom-model-panel"
                         panelWidth="450px"
                         (optionSelected)="onModelSelected($event.option.value)"
@@ -1567,24 +1542,90 @@
                                 }
                             </mat-optgroup>
                         }
+                    </mat-autocomplete>
 
-                        @if (!availableModels?.length) {
-                            <mat-option disabled>
-                                <span class="text-sm">{{
-                                    "app.auto_loading" | transloco
-                                }}</span>
-                            </mat-option>
+                    <!-- Send Button for Image -->
+                    <button
+                        class="relative z-10 w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0 shadow-sm"
+                        matTooltip="Tạo hình ảnh (Model: {{ selectedModel }})"
+                        (click)="submitPrompt(false, 'IMAGE')"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-white rotate-90 ml-0.5"
+                            [svgIcon]="'heroicons_solid:paper-airplane'"
+                        ></mat-icon>
+                    </button>
+                </div>
+
+                <!-- Group 2: Tạo Video (Video Model & Send Video Button) -->
+                <div
+                    class="relative flex items-center bg-gray-50 hover:border-emerald-300 focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100 rounded-full h-10 transition-all ml-1.5 border border-gray-200"
+                    [ngClass]="globalActiveModality === 'VIDEO' ? 'border-emerald-400 ring-1 ring-emerald-100' : ''"
+                    [ngStyle]="{
+                        'border-color': isGeneratingPrompt && globalActiveModality === 'VIDEO' ? 'transparent' : '',
+                    }"
+                >
+                    @if (isGeneratingPrompt && globalActiveModality === 'VIDEO') {
+                        <div class="ai-breathing-overlay"></div>
+                    }
+
+                    <!-- Input / Display Area for Video -->
+                    <div
+                        class="relative h-full flex items-center z-10 overflow-hidden cursor-pointer rounded-l-full w-28 sm:w-36"
+                    >
+                        @if (!isModelInputFocused || globalActiveModality !== 'VIDEO') {
+                            <div
+                                (click)="activateModality('VIDEO', realInputVideo)"
+                                (mouseenter)="globalActiveModality = 'VIDEO'"
+                                class="w-full h-full flex items-center justify-center px-2.5 text-xs font-medium transition-colors hover:bg-gray-100 text-emerald-700"
+                                [matTooltip]="'Model tạo video: ' + selectedVideoModel"
+                            >
+                                {{ trimModel(selectedVideoModel) }}
+                            </div>
+                        }
+
+                        <input
+                            type="text"
+                            #realInputVideo
+                            class="w-full h-full bg-transparent border-none outline-none pl-3 pr-2 text-xs sm:text-sm font-medium text-gray-700 truncate cursor-pointer absolute inset-0"
+                            [ngClass]="{
+                                'opacity-0 pointer-events-none':
+                                    !isModelInputFocused || globalActiveModality !== 'VIDEO',
+                            }"
+                            [(ngModel)]="modelSearchValue"
+                            [matAutocomplete]="modelAutoVideo"
+                            (blur)="onModelInputBlur()"
+                            (input)="filterModels($event.target.value)"
+                            matTooltip="Chọn mô hình tạo video"
+                            placeholder="Tìm kiếm model video..."
+                        />
+                    </div>
+
+                    <mat-autocomplete
+                        #modelAutoVideo="matAutocomplete"
+                        panelClass="custom-model-panel"
+                        panelWidth="450px"
+                        (optionSelected)="onModelSelected($event.option.value)"
+                    >
+                        @for (group of filteredModelGroups; track group) {
+                            <mat-optgroup [label]="group.name">
+                                @for (model of group.models; track model) {
+                                    <mat-option [value]="model">
+                                        <span class="text-sm">{{ model }}</span>
+                                    </mat-option>
+                                }
+                            </mat-optgroup>
                         }
                     </mat-autocomplete>
 
-                    <!-- Submit Button -->
+                    <!-- Send Button for Video -->
                     <button
-                        class="relative z-10 w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0"
-                        [matTooltip]="'app.auto_send_request' | transloco"
-                        (click)="submitPrompt(false, globalActiveModality)"
+                        class="relative z-10 w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0 shadow-sm"
+                        matTooltip="Tạo video (Model: {{ selectedVideoModel }})"
+                        (click)="submitPrompt(false, 'VIDEO')"
                     >
                         <mat-icon
-                            class="icon-size-5 text-white rotate-90 ml-0.5"
+                            class="icon-size-4 text-white rotate-90 ml-0.5"
                             [svgIcon]="'heroicons_solid:paper-airplane'"
                         ></mat-icon>
                     </button>

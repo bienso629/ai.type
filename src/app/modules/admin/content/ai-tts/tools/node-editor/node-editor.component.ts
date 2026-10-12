@@ -2330,8 +2330,10 @@ export class NodeEditorComponent
         ) {
             const electron = (window as any).electron;
 
-            let targetModality = forceModality || 'IMAGE';
-            if (!forceModality) {
+            let targetModality: 'IMAGE' | 'VIDEO' | 'AUDIO' = forceModality || this.globalActiveModality || 'IMAGE';
+            if (forceModality) {
+                this.globalActiveModality = forceModality === 'AUDIO' ? 'IMAGE' : forceModality;
+            } else {
                 const lowerModel = (this.selectedModel || '').toLowerCase();
                 if (this.selectedNode?.type === 'tts') {
                     targetModality = 'AUDIO';
