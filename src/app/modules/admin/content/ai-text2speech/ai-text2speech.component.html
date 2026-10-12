@@ -10,6 +10,11 @@
                     class="text-emerald-500 icon-size-6"
                 ></mat-icon>
                 <span>Tạo giọng đọc</span>
+                @if (isColabConnected) {
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 ml-2">
+                        Colab GPU Online
+                    </span>
+                }
             </div>
             <button
                 type="button"
@@ -54,12 +59,11 @@
                             required
                             (selectionChange)="onVoiceChange($event)"
                         >
-                            <mat-option [value]="'vi-VN-NamMinhNeural'"
-                                >Nam Minh (Chuẩn)</mat-option
-                            >
-                            <mat-option [value]="'vi-VN-HoaiMyNeural'"
-                                >Hoài My (Truyền cảm)</mat-option
-                            >
+                            @for (v of voiceList; track v.id) {
+                                <mat-option [value]="v.id">
+                                    {{ v.name }}
+                                </mat-option>
+                            }
                         </mat-select>
                     </mat-form-field>
 
