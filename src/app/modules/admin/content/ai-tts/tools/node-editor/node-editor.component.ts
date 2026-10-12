@@ -1,5 +1,6 @@
 import { TranslocoModule } from '@jsverse/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { Capacitor } from '@capacitor/core';
 import {
     Component,
     OnInit,
@@ -4354,6 +4355,18 @@ export class NodeEditorComponent
 
         let cleanUrl = url.replace(/^unsafe:/, '');
 
+        if (Capacitor.isNativePlatform()) {
+            if (cleanUrl.startsWith('file://')) {
+                cleanUrl = Capacitor.convertFileSrc(cleanUrl);
+            } else if (cleanUrl.startsWith('/')) {
+                cleanUrl = Capacitor.convertFileSrc('file://' + cleanUrl);
+            }
+            if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
+            const safe = this.sanitizer.bypassSecurityTrustResourceUrl(cleanUrl);
+            this.safeUrlCache[cleanUrl] = safe;
+            return safe;
+        }
+
         if (cleanUrl.startsWith('file://')) {
             let originalPath = cleanUrl.replace(/^file:\/\//i, '');
             if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
@@ -4387,6 +4400,27 @@ export class NodeEditorComponent
         }
 
         let cleanUrl = url.replace(/^unsafe:/, '');
+
+        // Trên iOS / iPad Capacitor: dùng Capacitor.convertFileSrc() chuyển sang capacitor://localhost/_capacitor_file_/
+        if (Capacitor.isNativePlatform()) {
+            let capPath = cleanUrl;
+            if (capPath.startsWith('media://')) {
+                capPath = capPath.replace(/^media:\/+/i, '/');
+            } else if (capPath.startsWith('mediacors://')) {
+                capPath = capPath.replace(/^mediacors:\/+/i, '/');
+            }
+            if (capPath.startsWith('file://')) {
+                cleanUrl = Capacitor.convertFileSrc(capPath);
+            } else {
+                if (!capPath.startsWith('/')) capPath = '/' + capPath;
+                cleanUrl = Capacitor.convertFileSrc('file://' + capPath);
+            }
+            if (this.safeVideoUrlCache[cleanUrl]) return this.safeVideoUrlCache[cleanUrl];
+            const safe = this.sanitizer.bypassSecurityTrustResourceUrl(cleanUrl);
+            this.safeVideoUrlCache[cleanUrl] = safe;
+            return safe;
+        }
+
         let targetPath = '';
 
         if (cleanUrl.startsWith('file://')) {
@@ -4505,14 +4539,14 @@ export class NodeEditorComponent
     private dragTrackLeft = 0;
 
     onHandleMouseDown(
-        event: MouseEvent,
+        event: MouseEvent | TouchEvent,
         type: 'start' | 'end',
         node: any,
         trackEl: HTMLElement,
         videoEl: HTMLVideoElement,
     ) {
         event.stopPropagation();
-        event.preventDefault();
+        if (event.cancelable) event.preventDefault();
         this.activeDragNode = node;
         this.activeDragType = type;
         this.activeDragVideoEl = videoEl;
@@ -4525,9 +4559,19 @@ export class NodeEditorComponent
             this.handleTimelineDrag(moveEvent);
         };
 
-        const onMouseUp = () => {
+        const onTouchMove = (moveEvent: TouchEvent) => {
+            if (moveEvent.touches && moveEvent.touches.length > 0) {
+                if (moveEvent.cancelable) moveEvent.preventDefault();
+                this.updateTimelineValue(moveEvent.touches[0].clientX);
+            }
+        };
+
+        const onEnd = () => {
             window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('mouseup', onEnd);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onEnd);
+            window.removeEventListener('touchcancel', onEnd);
             this.activeDragNode = null;
             this.activeDragType = null;
             this.activeDragVideoEl = null;
@@ -4535,20 +4579,27 @@ export class NodeEditorComponent
         };
 
         window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('mouseup', onEnd);
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+        window.addEventListener('touchcancel', onEnd);
     }
 
     onTimelineTrackMouseDown(
-        event: MouseEvent,
+        event: MouseEvent | TouchEvent,
         node: any,
         trackEl: HTMLElement,
         videoEl: HTMLVideoElement,
     ) {
         event.stopPropagation();
-        event.preventDefault();
+        if (event.cancelable) event.preventDefault();
+
+        const clientX = 'touches' in event && event.touches.length > 0
+            ? event.touches[0].clientX
+            : (event as MouseEvent).clientX;
 
         const rect = trackEl.getBoundingClientRect();
-        const clickX = event.clientX - rect.left;
+        const clickX = clientX - rect.left;
         const percentage = clickX / rect.width;
         const totalDur =
             node.data.totalDuration || node.data.sceneData?.forcedDuration || 5;
@@ -4569,15 +4620,25 @@ export class NodeEditorComponent
         this.dragTrackWidth = rect.width;
         this.dragTrackLeft = rect.left;
 
-        this.updateTimelineValue(event.clientX);
+        this.updateTimelineValue(clientX);
 
         const onMouseMove = (moveEvent: MouseEvent) => {
             this.handleTimelineDrag(moveEvent);
         };
 
-        const onMouseUp = () => {
+        const onTouchMove = (moveEvent: TouchEvent) => {
+            if (moveEvent.touches && moveEvent.touches.length > 0) {
+                if (moveEvent.cancelable) moveEvent.preventDefault();
+                this.updateTimelineValue(moveEvent.touches[0].clientX);
+            }
+        };
+
+        const onEnd = () => {
             window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('mouseup', onEnd);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onEnd);
+            window.removeEventListener('touchcancel', onEnd);
             this.activeDragNode = null;
             this.activeDragType = null;
             this.activeDragVideoEl = null;
@@ -4585,7 +4646,10 @@ export class NodeEditorComponent
         };
 
         window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('mouseup', onEnd);
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+        window.addEventListener('touchcancel', onEnd);
     }
 
     private handleTimelineDrag(event: MouseEvent) {
@@ -4959,6 +5023,26 @@ export class NodeEditorComponent
         }
 
         let cleanUrl = url.replace(/^unsafe:/, '');
+
+        if (Capacitor.isNativePlatform()) {
+            let capPath = cleanUrl;
+            if (capPath.startsWith('media://')) {
+                capPath = capPath.replace(/^media:\/+/i, '/');
+            } else if (capPath.startsWith('mediacors://')) {
+                capPath = capPath.replace(/^mediacors:\/+/i, '/');
+            }
+            if (capPath.startsWith('file://')) {
+                cleanUrl = Capacitor.convertFileSrc(capPath);
+            } else {
+                if (!capPath.startsWith('/')) capPath = '/' + capPath;
+                cleanUrl = Capacitor.convertFileSrc('file://' + capPath);
+            }
+            if (this.safeAudioUrlCache[cleanUrl]) return this.safeAudioUrlCache[cleanUrl];
+            const safe = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
+            this.safeAudioUrlCache[cleanUrl] = safe;
+            return safe;
+        }
+
         let targetPath = '';
 
         if (cleanUrl.startsWith('file://')) {
@@ -5044,14 +5128,23 @@ export class NodeEditorComponent
             cleanPath = '/' + cleanPath;
         }
 
+        // Chuẩn hóa source phát tùy theo nền tảng (Capacitor iOS/iPad vs Electron)
+        let resolvedAudioSrc = '';
+        if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) {
+            resolvedAudioSrc = rawUrl;
+        } else if (Capacitor.isNativePlatform()) {
+            resolvedAudioSrc = Capacitor.convertFileSrc('file://' + cleanPath);
+        } else {
+            resolvedAudioSrc = `media:///${cleanPath.replace(/^[\/\\]+/, '')}`;
+        }
+
         // 3. Thử phát qua thẻ DOM audioEl trước
         let playedViaDom = false;
         if (audioEl) {
             try {
                 // Đảm bảo audioEl có source hợp lệ
-                const desiredSrc = `media:///${cleanPath.replace(/^[\/\\]+/, '')}`;
                 if (!audioEl.src || !audioEl.src.includes(encodeURIComponent(cleanPath).slice(0, 20))) {
-                    audioEl.src = desiredSrc;
+                    audioEl.src = resolvedAudioSrc;
                     audioEl.load();
                 }
                 await audioEl.play();
@@ -5068,7 +5161,7 @@ export class NodeEditorComponent
 
         // 4. Fallback: Phát trực tiếp qua đối tượng new Audio() và nạp Base64 nếu môi trường Electron hỗ trợ
         try {
-            let playableSrc = `media:///${cleanPath.replace(/^[\/\\]+/, '')}`;
+            let playableSrc = resolvedAudioSrc;
 
             // Kiểm tra đọc file nhị phân qua Electron IPC nếu có
             const electron = (window as any).electron;
@@ -5080,7 +5173,7 @@ export class NodeEditorComponent
                         playableSrc = URL.createObjectURL(blob);
                     }
                 } catch (e) {
-                    // Nếu không có handler read-file-buffer thì dùng đường dẫn media://
+                    // Nếu không có handler read-file-buffer thì giữ nguyên playableSrc
                 }
             }
 
