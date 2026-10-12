@@ -26,6 +26,7 @@ export class GenaiService {
     private _umodelverseImageModel: string = '';
     public _umodelverseVideoModel: string = '';
     private _enableUmodelverse: boolean = false;
+    private _lastUmodelverseVideoUrl: string = '';
 
     private localAgentAbortController?: AbortController;
 
@@ -1036,7 +1037,8 @@ export class GenaiService {
             
             return {
                 video: {
-                    base64: b64
+                    base64: b64,
+                    url: this._lastUmodelverseVideoUrl || null
                 }
             };
         } else {
@@ -2409,6 +2411,7 @@ export class GenaiService {
                         if (statusVal === 'success' || statusVal === 'succeeded' || statusVal === 'completed' || statusVal === 'done') {
                             const videoUrl = data.video_url || data.url || (data.urls && data.urls[0]) || data.output?.video_url || data.output?.url || data.output?.video || data.data?.url || (data.output?.urls && data.output.urls[0]) || data.data?.video_url;
                             if (videoUrl) {
+                                this._lastUmodelverseVideoUrl = videoUrl;
                                 console.log(`[Poll Success] Video đã tạo xong! Tiến hành download: ${videoUrl}`);
                                 return await this.downloadVideoAsBase64(videoUrl);
                             } else {
@@ -2551,6 +2554,7 @@ export class GenaiService {
                     }
 
                     if (videoUrl) {
+                        this._lastUmodelverseVideoUrl = videoUrl;
                         return await this.downloadVideoAsBase64(videoUrl);
                     }
                     throw new Error("Không nhận được dữ liệu video (base64 hoặc URL) từ proxy.");
