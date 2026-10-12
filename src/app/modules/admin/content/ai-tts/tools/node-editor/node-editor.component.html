@@ -230,6 +230,7 @@
                                         [poster]="getSafeUrl(node.data.imageUrl) || null"
                                         preload="metadata"
                                         playsinline
+                                        webkit-playsinline
                                         class="w-full h-full object-cover cursor-pointer"
                                         (loadedmetadata)="
                                             onVideoLoaded(node, videoEl)
@@ -462,11 +463,19 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <!-- Track Slider Container -->
+                                             <!-- Track Slider Container -->
                                             <div
                                                 class="relative h-2 bg-gray-700/50 hover:bg-gray-700/80 rounded-full flex items-center cursor-pointer select-none transition-colors"
                                                 #trackEl
                                                 (mousedown)="
+                                                    onTimelineTrackMouseDown(
+                                                        $event,
+                                                        node,
+                                                        trackEl,
+                                                        videoEl
+                                                    )
+                                                "
+                                                (touchstart)="
                                                     onTimelineTrackMouseDown(
                                                         $event,
                                                         node,
@@ -546,6 +555,15 @@
                                                             videoEl
                                                         )
                                                     "
+                                                    (touchstart)="
+                                                        onHandleMouseDown(
+                                                            $event,
+                                                            'start',
+                                                            node,
+                                                            trackEl,
+                                                            videoEl
+                                                        )
+                                                    "
                                                 ></div>
                                                 <!-- End Handle (Invisible Drag Zone) -->
                                                 <div
@@ -566,9 +584,18 @@
                                                                     .sceneData
                                                                     ?.forcedDuration ||
                                                                 5)) *
-                                                        100
+                                                            100
                                                     "
                                                     (mousedown)="
+                                                        onHandleMouseDown(
+                                                            $event,
+                                                            'end',
+                                                            node,
+                                                            trackEl,
+                                                            videoEl
+                                                        )
+                                                    "
+                                                    (touchstart)="
                                                         onHandleMouseDown(
                                                             $event,
                                                             'end',
