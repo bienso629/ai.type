@@ -248,6 +248,7 @@ export class NodeEditorComponent
                 }
 
                 this.isAiAgentEnabled = isAiAgentActive;
+                this.loadModels();
                 this.cdr.detectChanges();
             },
         );
@@ -376,12 +377,29 @@ export class NodeEditorComponent
 
     async loadModels() {
         try {
+            const settings = this.multiAccountService.getItem('settings') || {};
             let mitomModels: string[] = [];
             let imageList: string[] = ['Local ComfyUI'];
             let videoList: string[] = [];
 
+            // Ưu tiên endpoint URL mà người dùng cấu hình trong cài đặt Mì Tôm AI
+            let modelsApiUrl = 'https://api-vn-sg.mitom.ai/v1/models';
+            if (settings.umodelverseUrl && typeof settings.umodelverseUrl === 'string') {
+                const trimmedUrl = settings.umodelverseUrl.replace(/\/+$/, '');
+                modelsApiUrl = trimmedUrl.endsWith('/v1')
+                    ? `${trimmedUrl}/models`
+                    : `${trimmedUrl}/v1/models`;
+            }
+
             try {
-                const res = await fetch('https://api-vn-sg.mitom.ai/v1/models');
+                const headers: Record<string, string> = {};
+                if (settings.umodelverseKey) {
+                    headers['Authorization'] = `Bearer ${settings.umodelverseKey}`;
+                }
+                const res = await fetch(modelsApiUrl, {
+                    method: 'GET',
+                    headers: Object.keys(headers).length > 0 ? headers : undefined,
+                });
                 if (res.ok) {
                     const data = await res.json();
                     if (data && Array.isArray(data.data)) {
@@ -414,6 +432,7 @@ export class NodeEditorComponent
                                 lower.includes('vidu') ||
                                 lower.includes('hailuo') ||
                                 lower.includes('happyhorse') ||
+                                lower.includes('seedance') ||
                                 lower.includes('wan2') ||
                                 lower.includes('wan3');
 
@@ -438,7 +457,7 @@ export class NodeEditorComponent
                     }
                 }
             } catch (err) {
-                console.error('Lỗi tải danh sách models từ https://api-vn-sg.mitom.ai/v1/models:', err);
+                console.error(`Lỗi tải danh sách models từ ${modelsApiUrl}:`, err);
             }
 
             // Fallback sang umodelverse nếu mitom không lấy được
@@ -448,68 +467,112 @@ export class NodeEditorComponent
                     mitomModels = fallbackModels;
                     for (const m of fallbackModels) {
                         const lower = m.toLowerCase();
-                        if (lower.includes('video') || lower.includes('kling') || lower.includes('wan') || lower.includes('sora') || lower.includes('pika') || lower.includes('luma')) {
+                        if (
+                            lower.includes('video') ||
+                            lower.includes('kling') ||
+                            lower.includes('wan') ||
+                            lower.includes('sora') ||
+                            lower.includes('pika') ||
+                            lower.includes('seedance') ||
+                            lower.includes('luma')
+                        ) {
                             videoList.push(m);
-                        } else if (lower.includes('image') || lower.includes('flux') || lower.includes('dall-e') || lower.includes('midjourney')) {
+                        } else if (
+                            lower.includes('image') ||
+                            lower.includes('flux') ||
+                            lower.includes('dall-e') ||
+                            lower.includes('midjourney')
+                        ) {
                             imageList.push(m);
                         }
                     }
                 }
             }
 
+            // Đảm bảo các model người dùng đã cấu hình trong Mì Tôm AI luôn có mặt trong danh sách
+            const configImageModel = settings.umodelverseImageModel?.trim();
+            const configVideoModel = settings.umodelverseVideoModel?.trim();
+
+            if (configImageModel && !imageList.includes(configImageModel)) {
+                imageList.unshift(configImageModel);
+            }
+            if (configVideoModel && !videoList.includes(configVideoModel)) {
+                videoList.unshift(configVideoModel);
+            }
+
             this.imageModels = Array.from(new Set(imageList));
             this.videoModels = Array.from(new Set(videoList));
-            this.availableModels = Array.from(new Set(['Local ComfyUI', ...this.imageModels, ...this.videoModels, ...mitomModels]));
+            this.availableModels = Array.from(
+                new Set([
+                    'Local ComfyUI',
+                    ...(configImageModel ? [configImageModel] : []),
+                    ...(configVideoModel ? [configVideoModel] : []),
+                    ...this.imageModels,
+                    ...this.videoModels,
+                    ...mitomModels,
+                ]),
+            );
+
+            // Ưu tiên cao nhất model cấu hình từ Mì Tôm AI (Tầng 1 theo docs/thu_tu_su_dung_ai_agent_2026.md)
+            if (configImageModel) {
+                this.selectedModel = configImageModel;
+            } else {
+                const savedModel =
+                    settings.ai_type_selected_model ||
+                    localStorage.getItem('ai_type_selected_model');
+                if (
+                    savedModel &&
+                    (this.imageModels.includes(savedModel) ||
+                        this.availableModels.includes(savedModel) ||
+                        Object.keys(MODEL_HINTS).some(
+                            (k) => k.toLowerCase() === savedModel.toLowerCase(),
+                        ))
+                ) {
+                    this.selectedModel = savedModel;
+                } else if (this.imageModels.length > 0) {
+                    this.selectedModel =
+                        this.imageModels.find((m) => m !== 'Local ComfyUI') ||
+                        this.imageModels[0];
+                } else {
+                    this.selectedModel =
+                        this.availableModels[0] || 'Local ComfyUI';
+                }
+            }
+
+            if (configVideoModel) {
+                this.selectedVideoModel = configVideoModel;
+            } else {
+                const savedVideoModel =
+                    settings.ai_type_selected_video_model ||
+                    localStorage.getItem('ai_type_selected_video_model');
+                if (
+                    savedVideoModel &&
+                    (this.videoModels.includes(savedVideoModel) ||
+                        this.availableModels.includes(savedVideoModel) ||
+                        Object.keys(MODEL_HINTS).some(
+                            (k) =>
+                                k.toLowerCase() ===
+                                savedVideoModel.toLowerCase(),
+                        ))
+                ) {
+                    this.selectedVideoModel = savedVideoModel;
+                } else if (this.videoModels.length > 0) {
+                    const defaultVideoModel = this.videoModels.find(
+                        (m) =>
+                            m.toLowerCase().includes('wan') ||
+                            m.toLowerCase().includes('kling') ||
+                            m.toLowerCase().includes('seedance') ||
+                            m.toLowerCase().includes('vidu'),
+                    );
+                    this.selectedVideoModel =
+                        defaultVideoModel || this.videoModels[0];
+                } else {
+                    this.selectedVideoModel = this.availableModels[0] || '';
+                }
+            }
 
             // Lọc danh sách theo chế độ đang mở
             this.filterModels(this.modelSearchValue || '');
-
-            const settings = this.multiAccountService.getItem('settings') || {};
-
-            const savedModel =
-                settings.umodelverseImageModel ||
-                settings.ai_type_selected_model ||
-                localStorage.getItem('ai_type_selected_model');
-            if (
-                savedModel &&
-                (this.imageModels.includes(savedModel) ||
-                    this.availableModels.includes(savedModel) ||
-                    Object.keys(MODEL_HINTS).some(
-                        (k) => k.toLowerCase() === savedModel.toLowerCase(),
-                    ))
-            ) {
-                this.selectedModel = savedModel;
-            } else if (this.imageModels.length > 0) {
-                this.selectedModel = this.imageModels.find((m) => m !== 'Local ComfyUI') || this.imageModels[0];
-            } else {
-                this.selectedModel = this.availableModels[0] || 'Local ComfyUI';
-            }
-
-            const savedVideoModel =
-                settings.umodelverseVideoModel ||
-                settings.ai_type_selected_video_model ||
-                localStorage.getItem('ai_type_selected_video_model');
-            if (
-                savedVideoModel &&
-                (this.videoModels.includes(savedVideoModel) ||
-                    this.availableModels.includes(savedVideoModel) ||
-                    Object.keys(MODEL_HINTS).some(
-                        (k) =>
-                            k.toLowerCase() === savedVideoModel.toLowerCase(),
-                    ))
-            ) {
-                this.selectedVideoModel = savedVideoModel;
-            } else if (this.videoModels.length > 0) {
-                const defaultVideoModel = this.videoModels.find(
-                    (m) =>
-                        m.toLowerCase().includes('wan') ||
-                        m.toLowerCase().includes('kling') ||
-                        m.toLowerCase().includes('vidu'),
-                );
-                this.selectedVideoModel = defaultVideoModel || this.videoModels[0];
-            } else {
-                this.selectedVideoModel = this.availableModels[0] || '';
-            }
 
             this.cdr.detectChanges();
         } catch (e) {
