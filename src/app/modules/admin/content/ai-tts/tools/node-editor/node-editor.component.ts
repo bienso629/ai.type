@@ -4164,8 +4164,11 @@ export class NodeEditorComponent
                 resolve();
                 return;
             }
-            if (!(window as any).electron || !(window as any).electron.invoke) {
-                this.toastr.error('Cần chạy trên App Desktop (Electron).');
+            const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+            const isEdgeVoice = edgeVoices.includes(config.selectedVoice);
+
+            if (!isEdgeVoice && (!(window as any).electron || !(window as any).electron.invoke)) {
+                this.toastr.error('Giọng đọc này cần chạy trên App Desktop (Electron).');
                 resolve();
                 return;
             }
@@ -4177,25 +4180,65 @@ export class NodeEditorComponent
                 .padStart(3, '0');
             const slug = this.toSlug(sub.text.substring(0, 50));
 
-            const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
-            const isEdgeVoice = edgeVoices.includes(config.selectedVoice);
-
             let res: any;
             try {
                 if (isEdgeVoice) {
                     const niceFilename = `${prefix}_${slug}`;
-                    const payload = {
-                        text: sub.text,
-                        voice: config.selectedVoice,
-                        rate: config.selectedRate,
-                        pitch: config.selectedPitch,
-                        filename: niceFilename,
-                        username: subPath,
-                    };
-                    res = await (window as any).electron.invoke(
-                        'tts-generate',
-                        payload,
-                    );
+                    if ((window as any).electron && (window as any).electron.invoke) {
+                        const payload = {
+                            text: sub.text,
+                            voice: config.selectedVoice,
+                            rate: config.selectedRate,
+                            pitch: config.selectedPitch,
+                            filename: niceFilename,
+                            username: subPath,
+                        };
+                        res = await (window as any).electron.invoke(
+                            'tts-generate',
+                            payload,
+                        );
+                    } else {
+                        // CHẠY BẰNG BROWSER/CAPACITOR (IPAD/TABLET) THÔNG QUA REST PROXY
+                        const rateNum = config.selectedRate || 1.0;
+                        const pitchNum = config.selectedPitch || 0;
+                        const ratePercent = Math.round((rateNum - 1.0) * 100);
+                        const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
+                        const pitchStr = pitchNum >= 0 ? `+${pitchNum}Hz` : `${pitchNum}Hz`;
+
+                        let proxyBaseUrl = 'https://apiv1.type.vn/v1';
+                        if (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') {
+                            proxyBaseUrl = 'http://localhost:1122/v1';
+                        }
+                        const proxyUrl = `${proxyBaseUrl}/tts/generate`;
+
+                        const response = await fetch(proxyUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                text: sub.text,
+                                voice: config.selectedVoice,
+                                rate: rateStr,
+                                pitch: pitchStr,
+                            }),
+                        });
+
+                        const data = await response.json();
+                        if (!response.ok || !data.success || !data.audioBase64) {
+                            throw new Error(data.message || data.error || 'Lỗi tạo âm thanh qua proxy server.');
+                        }
+
+                        const binaryStr = atob(data.audioBase64);
+                        const len = binaryStr.length;
+                        const bytes = new Uint8Array(len);
+                        for (let i = 0; i < len; i++) {
+                            bytes[i] = binaryStr.charCodeAt(i);
+                        }
+                        const blob = new Blob([bytes.buffer], { type: 'audio/mpeg' });
+                        const fullUrl = URL.createObjectURL(blob);
+                        res = { success: true, url: fullUrl, filePath: niceFilename };
+                    }
                 } else {
                     const isTTSTypeVoice =
                         config.selectedVoice.endsWith('tts.type.vn');
