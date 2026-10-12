@@ -2881,16 +2881,33 @@ export class NodeEditorComponent
 
                                 let finalVideoUrl = null;
                                 if (videoBase64) {
-                                    const saveResult =
-                                        await electron.saveBase64({
-                                            base64: videoBase64,
-                                            fileName: `scene_${nodesMapping[i].id}_${Date.now()}.mp4`,
-                                            folder: 'videos',
-                                            username: username,
-                                            customDir: `tts/${username}/${projectUuid}`,
-                                        });
-                                    if (saveResult && saveResult.success) {
-                                        finalVideoUrl = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                    if (electron && electron.saveBase64) {
+                                        const saveResult =
+                                            await electron.saveBase64({
+                                                base64: videoBase64,
+                                                fileName: `scene_${nodesMapping[i].id}_${Date.now()}.mp4`,
+                                                folder: 'videos',
+                                                username: username,
+                                                customDir: `tts/${username}/${projectUuid}`,
+                                            });
+                                        if (saveResult && saveResult.success) {
+                                            finalVideoUrl = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                        }
+                                    }
+                                    if (!finalVideoUrl && videoUrl) {
+                                        finalVideoUrl = videoUrl;
+                                    }
+                                    if (!finalVideoUrl) {
+                                        try {
+                                            const cdnUrl = await this.genaiService.uploadBase64ToCdn(
+                                                videoBase64,
+                                                `scene_${nodesMapping[i].id}_${Date.now()}.mp4`,
+                                                'videos'
+                                            );
+                                            finalVideoUrl = cdnUrl || `data:video/mp4;base64,${videoBase64}`;
+                                        } catch (e) {
+                                            finalVideoUrl = `data:video/mp4;base64,${videoBase64}`;
+                                        }
                                     }
                                 } else if (videoUrl) {
                                     finalVideoUrl = videoUrl;
@@ -2901,7 +2918,7 @@ export class NodeEditorComponent
                                         finalVideoUrl;
                                     nodesMapping[i].data.isVideo = true;
 
-                                    if (electron.extractLastFrame) {
+                                    if (electron && electron.extractLastFrame) {
                                         const thumbPath = finalVideoUrl.replace(
                                             'file://',
                                             '',
@@ -2952,17 +2969,25 @@ export class NodeEditorComponent
                                     ?.base64;
 
                                 if (audioBase64) {
-                                    const saveResult =
-                                        await electron.saveBase64({
-                                            base64: audioBase64,
-                                            fileName: `scene_${nodesMapping[i].id}_${Date.now()}.mp3`,
-                                            folder: 'audio',
-                                            username: username,
-                                            customDir: `tts/${username}/${projectUuid}`,
-                                        });
-                                    if (saveResult && saveResult.success) {
+                                    let saved = false;
+                                    if (electron && electron.saveBase64) {
+                                        const saveResult =
+                                            await electron.saveBase64({
+                                                base64: audioBase64,
+                                                fileName: `scene_${nodesMapping[i].id}_${Date.now()}.mp3`,
+                                                folder: 'audio',
+                                                username: username,
+                                                customDir: `tts/${username}/${projectUuid}`,
+                                            });
+                                        if (saveResult && saveResult.success) {
+                                            nodesMapping[i].data.audioUrl =
+                                                `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                            saved = true;
+                                        }
+                                    }
+                                    if (!saved) {
                                         nodesMapping[i].data.audioUrl =
-                                            `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                            audioUrl || `data:audio/mp3;base64,${audioBase64}`;
                                     }
                                 } else if (audioUrl) {
                                     nodesMapping[i].data.audioUrl = audioUrl;
