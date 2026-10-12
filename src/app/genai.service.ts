@@ -2294,7 +2294,7 @@ export class GenaiService {
                 const currentBody = candidateTaskRequests[i];
 
 
-                console.error(`[Task Attempt] endpoint: ${endpoint}, payload Option ${i}:`, JSON.stringify(currentBody));
+                console.log(`[Task Attempt] endpoint: ${endpoint}, payload Option ${i}:`, JSON.stringify(currentBody));
                 try {
                     const response = await fetch(endpoint, {
                         method: 'POST',
