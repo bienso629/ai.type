@@ -51,6 +51,8 @@ export interface ImageFileHistoryRecord {
     editedFile: string;
     timestamp: number;
     prompt: string;
+    preview?: string;
+    state?: any;
 }
 
 interface ReferenceFile {
@@ -416,10 +418,44 @@ export class AIImageComponent
         this.selectedHistoryImage = img;
         const cleanName = (img || '').replace(/^file:\/\/\//, '').replace(/^file:\/\//, '').split('/').pop() || '';
         const allHistories = this.getImageFileHistories();
-        // Lấy các bản ghi liên quan đến file này (làm ảnh gốc hoặc ảnh chỉnh sửa)
-        this.currentFileHistories = allHistories
-            .filter((h) => h.originalFile === cleanName || h.editedFile === cleanName)
-            .sort((a, b) => b.timestamp - a.timestamp);
+        // Lấy các bản ghi từ storage chung
+        const fileHistories = allHistories
+            .filter((h) => h.originalFile === cleanName || h.editedFile === cleanName);
+
+        // Lấy thêm các bản ghi từ bộ nhớ nháp AI Editor của riêng ảnh này
+        const editorHistoryKey = 'ai_edit_history_' + cleanName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        let editorEntries: any[] = [];
+        try {
+            const rawEditor = localStorage.getItem(editorHistoryKey);
+            if (rawEditor) {
+                editorEntries = JSON.parse(rawEditor);
+            }
+        } catch (e) {
+            console.warn('Lỗi đọc lịch sử editor:', e);
+        }
+
+        const editorHistories: ImageFileHistoryRecord[] = (editorEntries || []).map((entry, idx) => ({
+            id: entry.id || ('editor_' + entry.timestamp + '_' + idx),
+            originalFile: cleanName,
+            editedFile: entry.preview ? entry.preview : cleanName,
+            timestamp: entry.timestamp || Date.now(),
+            prompt: entry.prompt || 'Chỉnh sửa AI trong trình soạn thảo',
+            preview: entry.preview,
+            state: entry.state,
+        }));
+
+        // Hợp nhất và loại trùng theo ID hoặc theo preview/timestamp
+        const combinedMap = new Map<string, ImageFileHistoryRecord>();
+        fileHistories.forEach((h) => combinedMap.set(h.id, h));
+        editorHistories.forEach((h) => {
+            if (!combinedMap.has(h.id)) {
+                combinedMap.set(h.id, h);
+            }
+        });
+
+        this.currentFileHistories = Array.from(combinedMap.values()).sort(
+            (a, b) => b.timestamp - a.timestamp,
+        );
         this.showFileHistoryDialog = true;
         this.cd.markForCheck();
     }
@@ -433,8 +469,24 @@ export class AIImageComponent
 
     deleteFileHistoryItem(item: ImageFileHistoryRecord, event?: MouseEvent): void {
         if (event) event.stopPropagation();
+        // 1. Xóa khỏi storage chung
         const records = this.getImageFileHistories().filter((h) => h.id !== item.id);
         this.saveImageFileHistories(records);
+
+        // 2. Xóa khỏi storage của Editor nếu là mục của editor
+        if (this.selectedHistoryImage) {
+            const cleanName = this.selectedHistoryImage.replace(/^file:\/\/\//, '').replace(/^file:\/\//, '').split('/').pop() || '';
+            const editorHistoryKey = 'ai_edit_history_' + cleanName.replace(/[^a-zA-Z0-9_-]/g, '_');
+            try {
+                const rawEditor = localStorage.getItem(editorHistoryKey);
+                if (rawEditor) {
+                    const entries = JSON.parse(rawEditor);
+                    const filtered = entries.filter((e: any) => e.id !== item.id && e.timestamp !== item.timestamp);
+                    localStorage.setItem(editorHistoryKey, JSON.stringify(filtered));
+                }
+            } catch (e) {}
+        }
+
         this.currentFileHistories = this.currentFileHistories.filter((h) => h.id !== item.id);
         this.toastr.info('Đã xóa 1 mục lịch sử sửa ảnh.');
         this.cd.markForCheck();
@@ -443,8 +495,16 @@ export class AIImageComponent
     clearFileHistoriesForCurrent(): void {
         if (!this.selectedHistoryImage) return;
         const cleanName = this.selectedHistoryImage.replace(/^file:\/\/\//, '').replace(/^file:\/\//, '').split('/').pop() || '';
+        // 1. Xóa khỏi storage chung
         const records = this.getImageFileHistories().filter((h) => h.originalFile !== cleanName && h.editedFile !== cleanName);
         this.saveImageFileHistories(records);
+
+        // 2. Xóa khỏi storage của Editor
+        const editorHistoryKey = 'ai_edit_history_' + cleanName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        try {
+            localStorage.removeItem(editorHistoryKey);
+        } catch (e) {}
+
         this.currentFileHistories = [];
         this.toastr.warning('Đã xóa toàn bộ lịch sử của file ảnh này.');
         this.cd.markForCheck();

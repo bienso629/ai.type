@@ -301,6 +301,30 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
         };
         this.aiEditHistory.push(entry);
         this.saveAiEditHistory();
+
+        // Đồng bộ thêm vào danh mục lịch sử tệp toàn cục để hiển thị ngay ở menu popup
+        try {
+            const cleanName = (this.originalUrl || this.data?.imageUrl || 'image')
+                .replace(/^file:\/\/\//, '')
+                .replace(/^file:\/\//, '')
+                .split('/')
+                .pop() || 'image';
+            const rawHistories = localStorage.getItem('ai_image_file_history_records');
+            const fileHistories = rawHistories ? JSON.parse(rawHistories) : [];
+            fileHistories.push({
+                id: entry.id,
+                originalFile: cleanName,
+                editedFile: cleanName,
+                timestamp: entry.timestamp,
+                prompt: prompt || 'Chỉnh sửa AI trong trình soạn thảo',
+                preview: entry.preview,
+                state: entry.state,
+            });
+            const trimmed = fileHistories.slice(-200);
+            localStorage.setItem('ai_image_file_history_records', JSON.stringify(trimmed));
+        } catch (e) {
+            console.warn('Lỗi đồng bộ lịch sử vào file history records:', e);
+        }
     }
 
     restoreAiVersion(entry: AIEditHistoryEntry) {
