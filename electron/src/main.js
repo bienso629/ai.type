@@ -1,4 +1,3 @@
-const { autoUpdater } = require("electron-updater");
 const dns = require("dns");
 try {
     dns.setServers(["1.1.1.1", "8.8.8.8", "1.0.0.1", "8.8.4.4"]);
@@ -1852,17 +1851,32 @@ function createMainWindow() {
         }
     });
 
+    mainWindow.once('ready-to-show', () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+            mainWindow.focus();
+        }
+    });
+
     mainWindow.maximize();
 
     if (app.isPackaged) {
-        mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html"))
+        const fallbackFile = path.join(__dirname, "..", "fallback", "index.html");
+        mainWindow.loadFile(fallbackFile)
             .then(() => sendToRenderer("tools-log", `[WebApp] Đã load fallback/index.html thành công`))
-            .catch((err) => sendToRenderer("tools-log", `[WebApp] Lỗi khi load fallback/index.html: ${err.message}`));
+            .catch((err) => {
+                console.error("[WebApp] Lỗi khi load fallback/index.html:", err);
+                sendToRenderer("tools-log", `[WebApp] Lỗi khi load fallback/index.html: ${err.message}`);
+            });
     } else {
         const targetURL = "http://localhost:4200";
         mainWindow.loadURL(targetURL)
             .then(() => sendToRenderer("tools-log", `[WebApp] Đã load ${targetURL} thành công`))
-            .catch((err) => sendToRenderer("tools-log", `[WebApp] Lỗi khi load ${targetURL}: ${err.message}`));
+            .catch((err) => {
+                console.error(`[WebApp] Lỗi khi load ${targetURL}:`, err);
+                // Fallback về file tĩnh nếu localhost:4200 không mở
+                mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html")).catch(() => {});
+            });
     }
 
     mainWindow.on("closed", () => {
