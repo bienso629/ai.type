@@ -1714,7 +1714,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         domain: art.domain || 'local.ai.type',
                         used: 0,
                         is_local: true,
-                        is_encrypted: !!art.is_encrypted,
+                        is_encrypted: this.isRowEncrypted(art),
                         has_script: !!art.has_script,
                         created_at:
                             art.created_at ||
@@ -1803,6 +1803,18 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     isRowEncrypted(row: any): boolean {
+        if (!row || row.isGroupHeader) return false;
+        if (row.is_encrypted || row.encrypted) return true;
+        if (row.cipher) return true;
+        if (row.source) {
+            if (row.source.encrypted || row.source.is_encrypted || row.source.cipher) return true;
+        }
+        const uuid = row.uuid || row._id || row.id;
+        if (uuid) {
+            if (localStorage.getItem('article_encrypted_' + uuid) === 'true') return true;
+            if (sessionStorage.getItem('nav_handshake_pwd_' + uuid)) return true;
+            if (sessionStorage.getItem('unlocked_pwd_' + uuid)) return true;
+        }
         return false;
     }
 
