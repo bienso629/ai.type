@@ -2614,68 +2614,26 @@ export class NodeEditorComponent
                                         prevNode?.data?.imageUrl ||
                                         prevNode?.data?.thumbnailUrl;
 
-                                    // Nếu cảnh trước là video, ưu tiên gọi extractLastFrame
+                                    // Nếu cảnh trước là video, ưu tiên gọi extractLastFrameFromVideoUrl
                                     let previousVideoUrl =
                                         prevNode?.data?.videoUrl ||
                                         prevNode?.data?.sceneData?.videos?.[0]
                                             ?.videoUrl;
                                     if (previousVideoUrl) {
-                                        let cleanUrl = String(previousVideoUrl || '');
-                                        if (
-                                            typeof cleanUrl !== 'string' &&
-                                            (cleanUrl as any)
-                                                .changingThisBreaksApplicationSecurity
-                                        ) {
-                                            cleanUrl = String((cleanUrl as any).changingThisBreaksApplicationSecurity || '');
-                                        }
-                                        cleanUrl = cleanUrl
-                                            .replace(/^unsafe:/i, '')
-                                            .replace(/^media:\/{2,3}/i, '/')
-                                            .replace(/^mediacors:\/{2,3}/i, '/')
-                                            .replace(/^file:\/{2,3}/i, '/');
                                         try {
-                                            cleanUrl = decodeURIComponent(cleanUrl.split('?')[0].split('#')[0]);
-                                        } catch (e) {
-                                            cleanUrl = cleanUrl.split('?')[0].split('#')[0];
-                                        }
-                                        if (cleanUrl.startsWith('//')) cleanUrl = cleanUrl.replace(/^\/+/, '/');
-
-                                        const electron = (window as any)
-                                            .electron;
-                                        if (
-                                            electron &&
-                                            electron.extractLastFrame
-                                        ) {
-                                            // @ts-ignore
-                                            const extractResult =
-                                                await electron.extractLastFrame(
-                                                    cleanUrl,
+                                            const extracted =
+                                                await this.extractLastFrameFromVideoUrl(
+                                                    previousVideoUrl,
+                                                    prevNode?.id,
                                                 );
-                                            if (
-                                                extractResult &&
-                                                extractResult.success
-                                            ) {
-                                                if (extractResult.base64) {
-                                                    previousUrl =
-                                                        'data:image/png;base64,' +
-                                                        extractResult.base64;
-                                                } else if (extractResult.path) {
-                                                    let properPath =
-                                                        extractResult.path.replace(
-                                                            /\\/g,
-                                                            '/',
-                                                        );
-                                                    if (
-                                                        !properPath.startsWith(
-                                                            '/',
-                                                        )
-                                                    )
-                                                        properPath =
-                                                            '/' + properPath;
-                                                    previousUrl =
-                                                        'file://' + properPath;
-                                                }
+                                            if (extracted) {
+                                                previousUrl = extracted;
                                             }
+                                        } catch (extractErr) {
+                                            console.warn(
+                                                '[submitPrompt] Không thể trích xuất last frame từ video trước, dùng fallback ảnh:',
+                                                extractErr,
+                                            );
                                         }
                                     }
 
@@ -3717,46 +3675,10 @@ export class NodeEditorComponent
                             'Đang trích xuất khung hình từ cảnh trước...',
                             'Hệ thống',
                         );
-                        let cleanUrl = String(previousVideoUrl || '');
-                        if (
-                            typeof cleanUrl !== 'string' &&
-                            (cleanUrl as any)
-                                .changingThisBreaksApplicationSecurity
-                        ) {
-                            cleanUrl = String((cleanUrl as any).changingThisBreaksApplicationSecurity || '');
-                        }
-                        // Loại bỏ các tiền tố protocol web/electron/capacitor
-                        cleanUrl = cleanUrl
-                            .replace(/^unsafe:/i, '')
-                            .replace(/^media:\/{2,3}/i, '/')
-                            .replace(/^mediacors:\/{2,3}/i, '/')
-                            .replace(/^file:\/{2,3}/i, '/');
                         try {
-                            cleanUrl = decodeURIComponent(cleanUrl.split('?')[0].split('#')[0]);
-                        } catch (e) {
-                            cleanUrl = cleanUrl.split('?')[0].split('#')[0];
-                        }
-                        if (cleanUrl.startsWith('//')) cleanUrl = cleanUrl.replace(/^\/+/, '/');
-
-                        const electron = (window as any).electron;
-                        if (electron && electron.extractLastFrame) {
-                            // @ts-ignore
-                            const extractResult = await electron.extractLastFrame(cleanUrl);
-                            if (extractResult && extractResult.success) {
-                                if (extractResult.base64) {
-                                    finalUrl =
-                                        'data:image/png;base64,' +
-                                        extractResult.base64;
-                                } else if (extractResult.path) {
-                                    let properPath = extractResult.path.replace(
-                                        /\\/g,
-                                        '/',
-                                    );
-                                    if (!properPath.startsWith('/'))
-                                        properPath = '/' + properPath;
-                                    finalUrl = 'file://' + properPath;
-                                }
-                            }
+                            finalUrl = await this.extractLastFrameFromVideoUrl(previousVideoUrl, prevNode?.id);
+                        } catch (extractErr) {
+                            console.warn('Lỗi trích xuất video frame, thử fallback ảnh:', extractErr);
                         }
 
                         // Nếu trích xuất video thất bại nhưng có sẵn ảnh cảnh trước, tự động fallback
@@ -5858,4 +5780,166 @@ export class NodeEditorComponent
             img.src = finalUrl;
         });
     }
+
+    /**
+     * Trích xuất frame cuối cùng từ video URL qua:
+     * 1. Thẻ DOM <video> đang render trên canvas (nếu có nodeId)
+     * 2. Electron IPC native FFmpeg
+     * 3. HTML5 Video / Canvas offscreen
+     * Hoạt động trơn tru đa nền tảng (Web, iPad/iOS Capacitor, Electron Desktop).
+     */
+    private async extractLastFrameFromVideoUrl(rawVideoUrl: string, prevNodeId?: string): Promise<string> {
+        if (!rawVideoUrl) throw new Error('Empty video URL');
+
+        // B0: Nếu có DOM video element đã nạp sẵn của node trước đó, chụp trực tiếp bằng canvas
+        if (prevNodeId) {
+            try {
+                const domEl = document.getElementById(`video-node-${prevNodeId}`) as HTMLVideoElement;
+                if (domEl && domEl.videoWidth > 0) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = domEl.videoWidth;
+                    canvas.height = domEl.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.drawImage(domEl, 0, 0, canvas.width, canvas.height);
+                        const dataUrl = canvas.toDataURL('image/png');
+                        if (dataUrl && dataUrl.length > 100) {
+                            return dataUrl;
+                        }
+                    }
+                }
+            } catch (domErr) {
+                console.warn('[extractLastFrame] Không thể chụp trực tiếp từ DOM video, chuyển sang luồng trích xuất:', domErr);
+            }
+        }
+
+        // B1: Nếu chạy trong Electron Desktop và video là đường dẫn file cục bộ hoặc có IPC
+        const electron = (window as any).electron;
+        if (electron && electron.extractLastFrame) {
+            let cleanUrl = String(rawVideoUrl || '').trim();
+            if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
+                cleanUrl = String((cleanUrl as any).changingThisBreaksApplicationSecurity || '');
+            }
+            cleanUrl = cleanUrl
+                .replace(/^unsafe:/i, '')
+                .replace(/^media:\/{2,3}/i, '/')
+                .replace(/^mediacors:\/{2,3}/i, '/')
+                .replace(/^file:\/{2,3}/i, '/');
+            try {
+                cleanUrl = decodeURIComponent(cleanUrl.split('?')[0].split('#')[0]);
+            } catch (e) {
+                cleanUrl = cleanUrl.split('?')[0].split('#')[0];
+            }
+            if (cleanUrl.startsWith('//')) cleanUrl = cleanUrl.replace(/^\/+/, '/');
+
+            try {
+                const extractResult = await electron.extractLastFrame(cleanUrl);
+                if (extractResult && extractResult.success) {
+                    if (extractResult.base64) {
+                        return 'data:image/png;base64,' + extractResult.base64;
+                    }
+                    if (extractResult.path) {
+                        let p = extractResult.path.replace(/\\/g, '/');
+                        if (!p.startsWith('/')) p = '/' + p;
+                        return 'file://' + p;
+                    }
+                }
+            } catch (err) {
+                console.warn('[extractLastFrame] Electron native extract failed, fallback to HTML5 canvas:', err);
+            }
+        }
+
+        // B2: Trích xuất qua HTML5 <video> + <canvas> (Universal web/iPad/electron)
+        return new Promise<string>((resolve, reject) => {
+            const video = document.createElement('video');
+            video.crossOrigin = 'anonymous';
+            video.preload = 'auto';
+            video.muted = true;
+            (video as any).playsInline = true;
+
+            let resolved = false;
+            let timeoutId: any = null;
+
+            const cleanup = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+            };
+
+            const captureCanvas = () => {
+                if (resolved) return;
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth || 1280;
+                    canvas.height = video.videoHeight || 720;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        throw new Error('Could not get 2d context');
+                    }
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    resolved = true;
+                    cleanup();
+                    resolve(dataUrl);
+                } catch (e) {
+                    resolved = true;
+                    cleanup();
+                    reject(e);
+                }
+            };
+
+            video.onloadedmetadata = () => {
+                try {
+                    const dur = video.duration;
+                    if (!dur || isNaN(dur) || dur <= 0) {
+                        video.currentTime = 0;
+                    } else {
+                        // Lấy frame sát frame cuối cùng (cách 0.08 giây)
+                        video.currentTime = Math.max(0, dur - 0.08);
+                    }
+                } catch (e) {
+                    captureCanvas();
+                }
+            };
+
+            video.onseeked = () => {
+                captureCanvas();
+            };
+
+            video.onerror = (e) => {
+                if (!resolved) {
+                    resolved = true;
+                    cleanup();
+                    reject(new Error('HTML5 video load error'));
+                }
+            };
+
+            // Timeout an toàn 12s nếu video quá nặng hoặc mạng chậm
+            timeoutId = setTimeout(() => {
+                if (!resolved) {
+                    if (video.videoWidth > 0) {
+                        captureCanvas();
+                    } else {
+                        resolved = true;
+                        cleanup();
+                        reject(new Error('Video frame extract timeout'));
+                    }
+                }
+            }, 12000);
+
+            // Xác định src phát được trên trình duyệt / webview
+            let playSrc = rawVideoUrl;
+            if (playSrc.startsWith('media://') || playSrc.startsWith('mediacors://')) {
+                video.src = playSrc;
+            } else if (playSrc.startsWith('file://') || playSrc.startsWith('/')) {
+                let p = playSrc.replace(/^file:\/\//i, '');
+                if (!p.startsWith('/')) p = '/' + p;
+                video.src = `mediacors://SMART_FIND/?path=${encodeURIComponent(p)}`;
+            } else {
+                video.src = playSrc;
+            }
+        });
+    }
 }
+

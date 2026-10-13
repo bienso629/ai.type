@@ -212,6 +212,8 @@
                                     <!-- Video Element -->
                                     <video
                                         #videoEl
+                                        [id]="'video-node-' + node.id"
+                                        crossorigin="anonymous"
                                         [hidden]="
                                             !node.data.isVideo ||
                                             !(
