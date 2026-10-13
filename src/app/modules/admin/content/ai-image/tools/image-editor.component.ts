@@ -1298,11 +1298,13 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
             else if (currentRatio < 0.8) ratioStr = '3:4';
 
             const userPrompt = this.aiPrompt.trim();
-            const editInstruction = `You are performing an image editing task on the provided input image.
-CRITICAL EDITING RULES:
-1. PRESERVE THE ORIGINAL IMAGE & COMPOSITION: Keep the exact resolution, aspect ratio (${origWidth}x${origHeight}), composition, perspective, camera angle, primary subjects, identity/face, pose, lighting, and background structure of the input image intact.
-2. PRECISE MODIFICATION ONLY: Only modify, add, remove, or replace the specific elements requested by the user below. Everything else must remain identical to the original image.
-3. User instruction for edit: "${userPrompt}"`;
+            const editInstruction = `TASK: IMAGE INPAINTING / DIRECT IMAGE EDITING ON INPUT IMAGE.
+STRICT NEGATIVE CONSTRAINT: DO NOT GENERATE A NEW IMAGE. DO NOT CHANGE THE SCENE, SUBJECT, PERSON, FACE, CLOTHING, BACKGROUND, PERSPECTIVE, OR LIGHTING.
+MANDATORY RULES:
+1. BASE IMAGE PRESERVATION: The input image must serve as the direct base. Keep 100% of the original photo intact, including the exact person, facial features, body pose, background environment (sky, clouds, ground, lighting, colors, camera viewpoint), resolution, and composition.
+2. LOCALIZED MODIFICATION ONLY: Apply ONLY the following localized addition, removal, or modification directly on top of the original image without altering any other part:
+"${userPrompt}"
+3. SEAMLESS BLENDING: The requested change must blend photorealistically into the original existing scene. Everything else in the image must remain pixel-level consistent with the input image.`;
 
             const generateOptions = {
                 model: 'gemini-3.1-flash-image-preview',
