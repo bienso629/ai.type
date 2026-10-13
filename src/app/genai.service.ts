@@ -310,8 +310,8 @@ export class GenaiService {
 
         if (isUModelverse) {
             // Khi Mì Tôm AI được bật trong tài khoản, ưu tiên áp dụng model của Mì Tôm AI
-            if (isImageRequest && this._umodelverseImageModel && !isImageEdit) {
-                // Nếu người dùng đã cài đặt model ảnh riêng trong Mì Tôm AI, ưu tiên dùng model đó (chỉ áp dụng khi tạo mới ảnh, không áp dụng khi sửa ảnh)
+            if ((isImageRequest || isImageEdit) && this._umodelverseImageModel) {
+                // Nếu người dùng đã cài đặt model ảnh riêng trong Mì Tôm AI, ưu tiên dùng model đó cho cả tạo mới ảnh lẫn sửa ảnh
                 params.model = this._umodelverseImageModel;
             } else if (isImageRequest && !isImageEdit && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
                 params.model = this._umodelverseImageModel || 'dall-e-3';
@@ -1290,7 +1290,7 @@ export class GenaiService {
         if (!isImageEdit && (overrideModel === 'gemini-3-pro-image' || overrideModel === 'imagen-3.0-generate-002' || overrideModel === 'agent')) {
             overrideModel = null;
         }
-        let model = overrideModel || this._umodelverseImageModel || 'dall-e-3';
+        let model = this._umodelverseImageModel || overrideModel || 'dall-e-3';
         let referenceBase64: string | null = null;
         if (params.contents && (params.contents as any).length > 0) {
             const firstContent = params.contents[0];
@@ -1529,6 +1529,59 @@ export class GenaiService {
         let data: any = null;
 
         console.log(`[UModelverse Image] Bắt đầu quá trình tạo ảnh với model = ${activeModel}`);
+
+        // --- SỬA ẢNH THEO CHUẨN OPENAI: POST /images/edits (multipart/form-data, ảnh gốc gửi dạng file) ---
+        if (isImageEdit && b64DataUris.length > 0) {
+            try {
+                const firstImg = params.contents![0].parts!.find((p: any) => p.inlineData && p.inlineData.data) as any;
+                const mime = firstImg.inlineData.mimeType || 'image/png';
+                const bin = atob(firstImg.inlineData.data);
+                const bytes = new Uint8Array(bin.length);
+                for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+                const ext = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : (mime.includes('webp') ? 'webp' : 'png');
+
+                const form = new FormData();
+                form.append('model', activeModel);
+                form.append('prompt', promptText);
+                form.append('n', '1');
+                form.append('image', new Blob([bytes], { type: mime }), `image.${ext}`);
+
+                // Không gửi 'Content-Type' để trình duyệt tự đặt boundary cho multipart
+                const editHeaders: any = { 'Authorization': headers['Authorization'] };
+                console.log(`[UModelverse Image] Sửa ảnh qua ${url}/images/edits với model = ${activeModel}`);
+                const editRes = await fetch(`${url}/images/edits`, { method: 'POST', headers: editHeaders, body: form });
+                const editText = await editRes.text();
+                let editData: any = null;
+                try { editData = JSON.parse(editText); } catch { /* ignore */ }
+
+                if (editRes.ok && editData) {
+                    let b64 = editData.data?.[0]?.b64_json;
+                    if (!b64 && editData.data?.[0]?.url) {
+                        const imgRes = await fetch(editData.data[0].url);
+                        if (!imgRes.ok) throw new Error(`Không thể fetch ảnh từ url: ${imgRes.statusText}`);
+                        const blob = await imgRes.blob();
+                        b64 = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+                    if (b64) {
+                        return {
+                            candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: b64 } }], role: 'model' } }]
+                        };
+                    }
+                    lastErrorMsg = 'Không nhận được dữ liệu ảnh từ /images/edits';
+                } else {
+                    lastErrorMsg = editData?.error?.message || editData?.message || `HTTP Error: ${editRes.status} ${editText.substring(0, 100)}`;
+                }
+                console.warn(`[UModelverse Image] /images/edits thất bại:`, lastErrorMsg);
+            } catch (editErr: any) {
+                lastErrorMsg = editErr?.message || String(editErr);
+                console.warn(`[UModelverse Image] /images/edits gặp lỗi ngoại lệ:`, lastErrorMsg);
+            }
+        }
 
         for (let i = 0; i < candidateRequests.length; i++) {
             const body = candidateRequests[i];
