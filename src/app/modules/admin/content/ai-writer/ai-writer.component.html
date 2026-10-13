@@ -7481,6 +7481,17 @@
                                     >
                                         <button
                                             mat-icon-button
+                                            (click)="openEncryptionDialog()"
+                                            [color]="isArticleEncrypted() ? 'warn' : 'accent'"
+                                            [matTooltip]="isArticleEncrypted() ? 'Bài viết đã mã hóa AES-256 (Bấm để hủy khóa)' : 'Mã hóa bảo vệ bài viết (AES-256)'"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-5"
+                                                [svgIcon]="isArticleEncrypted() ? 'feather:lock' : 'feather:unlock'"
+                                            ></mat-icon>
+                                        </button>
+                                        <button
+                                            mat-icon-button
                                             (click)="confirmClear()"
                                             color="warn"
                                             matTooltipPosition="above"
@@ -7626,6 +7637,22 @@
                                                 svgIcon="feather:tag"
                                             ></mat-icon>
                                             <mat-label>Tìm từ khoá</mat-label>
+                                        </button>
+                                        <button
+                                            mat-menu-item
+                                            (click)="openEncryptionDialog()"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [ngClass]="{
+                                                    'text-red-500': isArticleEncrypted(),
+                                                    'text-primary': !isArticleEncrypted()
+                                                }"
+                                                [svgIcon]="isArticleEncrypted() ? 'feather:unlock' : 'feather:lock'"
+                                            ></mat-icon>
+                                            <mat-label [ngClass]="{ 'text-red-500 font-medium': isArticleEncrypted() }">
+                                                {{ isArticleEncrypted() ? 'Hủy mã hóa bài viết' : 'Mã hóa bài viết (AES-256)' }}
+                                            </mat-label>
                                         </button>
                                     </mat-menu>
                                     <mat-menu #forumActions="matMenu">
