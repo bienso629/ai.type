@@ -2959,17 +2959,17 @@ export class NodeEditorComponent
 
                             nodesMapping[i].data.isGenerating = false;
                             this.cdr.detectChanges();
+                            this.toastr.success(
+                                `Đã hoàn thành ${i + 1}/${finalPrompts.length} cảnh!`,
+                            );
                         } catch (e) {
                             nodesMapping[i].data.isGenerating = false;
                             this.cdr.detectChanges();
                             console.error('Lỗi khi vẽ cảnh', i, e);
-                            this.toastr.error(`Lỗi vẽ cảnh ${i + 1}: ${e}`);
+                            this.toastr.error(`Lỗi tạo cảnh ${i + 1}: ${e}`);
                         }
 
                         this.cdr.detectChanges();
-                        this.toastr.success(
-                            `Đã hoàn thành ${i + 1}/${finalPrompts.length} bản vẽ!`,
-                        );
                     }
                     this.saveProject();
                     this.isGeneratingPrompt = false;
