@@ -14,21 +14,92 @@ export function isMasterKey(key: string): boolean {
     return MASTER_ENCRYPTION_KEYS.includes(trimmed);
 }
 
+export interface EncryptedPayloadObject {
+    salt: string;
+    iv: string;
+    data: string;
+}
+
 /**
- * Thử giải mã một chuỗi ciphertext bằng mật khẩu người dùng hoặc Master Key của Admin.
+ * Giải mã payload AES-256-CBC được mã hoá bằng PBKDF2 (100.000 vòng lặp SHA-256)
+ */
+export function decryptPbkdf2AesCbc(
+    payload: EncryptedPayloadObject,
+    password?: string
+): string | null {
+    if (!payload || !payload.salt || !payload.iv || !payload.data) return null;
+
+    const keysToTry: string[] = [];
+    if (password && password.trim()) {
+        keysToTry.push(password.trim());
+    }
+    if (!password || isMasterKey(password)) {
+        for (const mKey of MASTER_ENCRYPTION_KEYS) {
+            if (!keysToTry.includes(mKey)) keysToTry.push(mKey);
+        }
+    }
+
+    for (const key of keysToTry) {
+        try {
+            const saltWA = CryptoJS.enc.Hex.parse(payload.salt);
+            const ivWA = CryptoJS.enc.Hex.parse(payload.iv);
+            const keyWA = CryptoJS.PBKDF2(key, saltWA, {
+                keySize: 256 / 32,
+                iterations: 100000,
+                hasher: CryptoJS.algo.SHA256,
+            });
+            const cipherParams = (CryptoJS.lib as any).CipherParams.create({
+                ciphertext: CryptoJS.enc.Hex.parse(payload.data),
+            });
+            const decryptedWA = CryptoJS.AES.decrypt(cipherParams, keyWA, {
+                iv: ivWA,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7,
+            });
+            const decryptedStr = decryptedWA.toString(CryptoJS.enc.Utf8);
+            if (decryptedStr && decryptedStr.length > 0) {
+                return decryptedStr;
+            }
+        } catch (e) {}
+    }
+    return null;
+}
+
+/**
+ * Thử giải mã một chuỗi ciphertext hoặc đối tượng encrypted_payload bằng mật khẩu người dùng hoặc Master Key của Admin.
  * Trả về chuỗi text sau khi giải mã hoặc null nếu không thể giải mã.
  */
 export function tryDecryptWithMasterFallback(
-    ciphertext: string,
+    ciphertext: any,
     providedPassword?: string,
     masterCiphertext?: string
 ): string | null {
     if (!ciphertext && !masterCiphertext) return null;
 
-    // 1. Thử giải mã ciphertext chính bằng mật khẩu người dùng cung cấp
-    if (ciphertext && providedPassword) {
+    // A. Nếu ciphertext là đối tượng hoặc chuỗi JSON mang định dạng { salt, iv, data }
+    let pbkdf2Obj: EncryptedPayloadObject | null = null;
+    if (typeof ciphertext === 'object' && ciphertext && ciphertext.salt && ciphertext.iv && ciphertext.data) {
+        pbkdf2Obj = ciphertext as EncryptedPayloadObject;
+    } else if (typeof ciphertext === 'string' && ciphertext.trim().startsWith('{') && ciphertext.includes('"salt"') && ciphertext.includes('"iv"') && ciphertext.includes('"data"')) {
         try {
-            const bytes = CryptoJS.AES.decrypt(ciphertext, providedPassword);
+            const parsed = JSON.parse(ciphertext);
+            if (parsed && parsed.salt && parsed.iv && parsed.data) {
+                pbkdf2Obj = parsed;
+            }
+        } catch (e) {}
+    }
+
+    if (pbkdf2Obj) {
+        const decrypted = decryptPbkdf2AesCbc(pbkdf2Obj, providedPassword);
+        if (decrypted && decrypted.length > 0) return decrypted;
+    }
+
+    const strCipher = typeof ciphertext === 'string' ? ciphertext : '';
+
+    // 1. Thử giải mã ciphertext chính bằng mật khẩu người dùng cung cấp (CryptoJS OpenSSL AES format)
+    if (strCipher && providedPassword) {
+        try {
+            const bytes = CryptoJS.AES.decrypt(strCipher, providedPassword);
             const decrypted = bytes.toString(CryptoJS.enc.Utf8);
             if (decrypted && decrypted.length > 0) {
                 return decrypted;
@@ -49,10 +120,10 @@ export function tryDecryptWithMasterFallback(
             }
         }
         // Thử giải mã ciphertext chính bằng Master Key
-        if (ciphertext) {
+        if (strCipher) {
             for (const mKey of MASTER_ENCRYPTION_KEYS) {
                 try {
-                    const bytes = CryptoJS.AES.decrypt(ciphertext, mKey);
+                    const bytes = CryptoJS.AES.decrypt(strCipher, mKey);
                     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
                     if (decrypted && decrypted.length > 0) return decrypted;
                 } catch (e) {}
