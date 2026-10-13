@@ -76,6 +76,16 @@ interface EditorState {
     originalUrlCheck: string;
 }
 
+export interface AIEditHistoryEntry {
+    id: string;
+    timestamp: number;
+    prompt: string;
+    preview: string;
+    state: EditorState;
+    width: number;
+    height: number;
+}
+
 @Component({
     selector: 'app-image-editor-dialog',
     templateUrl: './image-editor.component.html',
@@ -244,6 +254,84 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
     fontGroups: any[] = [];
     aiPrompt: string = '';
     isGeneratingAi: boolean = false;
+    aiEditHistory: AIEditHistoryEntry[] = [];
+    showHistoryPanel: boolean = false;
+
+    getStorageKey(): string {
+        const cleanName = (this.originalUrl || this.data?.imageUrl || 'image')
+            .replace(/^file:\/\/\//, '')
+            .replace(/^file:\/\//, '')
+            .split('/')
+            .pop() || 'image';
+        return 'ai_edit_history_' + cleanName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    }
+
+    loadAiEditHistory() {
+        try {
+            const raw = localStorage.getItem(this.getStorageKey());
+            if (raw) {
+                this.aiEditHistory = JSON.parse(raw);
+            }
+        } catch (e) {
+            this.aiEditHistory = [];
+        }
+    }
+
+    saveAiEditHistory() {
+        try {
+            // Giữ tối đa 20 phiên bản lịch sử gần nhất để tiết kiệm bộ nhớ
+            if (this.aiEditHistory.length > 20) {
+                this.aiEditHistory = this.aiEditHistory.slice(-20);
+            }
+            localStorage.setItem(this.getStorageKey(), JSON.stringify(this.aiEditHistory));
+        } catch (e) {
+            console.warn('Không thể lưu lịch sử sửa ảnh vào localStorage:', e);
+        }
+    }
+
+    recordAiEditVersion(prompt: string, state: EditorState) {
+        const entry: AIEditHistoryEntry = {
+            id: 'ai_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            timestamp: Date.now(),
+            prompt: prompt,
+            preview: state.imageBase64,
+            state: state,
+            width: this.output.width,
+            height: this.output.height,
+        };
+        this.aiEditHistory.push(entry);
+        this.saveAiEditHistory();
+    }
+
+    restoreAiVersion(entry: AIEditHistoryEntry) {
+        if (!entry || !entry.state) return;
+        this.applyState(entry.state);
+        this.output.width = entry.width || this.canvasRef.nativeElement.width;
+        this.output.height = entry.height || this.canvasRef.nativeElement.height;
+        this.output.aspectRatio = this.output.width / this.output.height;
+        this.aiPrompt = entry.prompt || this.aiPrompt;
+        this.recordHistory();
+        this.saveStateToStorage();
+        this.fitToScreen();
+        this.toastr.info('Đã khôi phục phiên bản sửa ảnh: ' + (entry.prompt ? ('"' + entry.prompt.substring(0, 30) + '..."') : 'Gốc'));
+        this.cdr.markForCheck();
+    }
+
+    deleteAiVersion(index: number, event?: MouseEvent) {
+        if (event) event.stopPropagation();
+        this.aiEditHistory.splice(index, 1);
+        this.saveAiEditHistory();
+        this.cdr.markForCheck();
+    }
+
+    clearAiEditHistory() {
+        this.aiEditHistory = [];
+        try {
+            localStorage.removeItem(this.getStorageKey());
+        } catch {}
+        this.toastr.warning('Đã xóa toàn bộ lịch sử chỉnh sửa ảnh.');
+        this.cdr.markForCheck();
+    }
 
     constructor(
         public dialogRef: MatDialogRef<ImageEditorDialogComponent>,
@@ -272,6 +360,7 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
         )
             src = 'file:///' + src;
         this.originalUrl = src;
+        this.loadAiEditHistory();
         this.initCanvas(this.originalUrl, true);
         this.extractPromptFromOriginalImage();
     }
@@ -1383,6 +1472,8 @@ MANDATORY RULES:
                         this.fitToScreen();
                         this.recordHistory();
                         this.saveStateToStorage();
+                        // Ghi nhận phiên bản chỉnh sửa vào lịch sử file ảnh
+                        this.recordAiEditVersion(this.aiPrompt?.trim() || 'AI chỉnh sửa ảnh', this.getCurrentState());
                         this.cdr.markForCheck();
                     }, 50);
                     this.toastr.success('AI đã chỉnh sửa hình ảnh!');
@@ -1393,6 +1484,7 @@ MANDATORY RULES:
                         this.fitToScreen();
                         this.recordHistory();
                         this.saveStateToStorage();
+                        this.recordAiEditVersion(this.aiPrompt?.trim() || 'AI chỉnh sửa ảnh', this.getCurrentState());
                         this.cdr.markForCheck();
                     }, 50);
                     this.toastr.success('AI đã chỉnh sửa hình ảnh!');

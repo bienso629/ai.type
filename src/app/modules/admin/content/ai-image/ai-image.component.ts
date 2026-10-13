@@ -45,6 +45,14 @@ import {
     ImagePromptMetadata,
 } from './tools/image-metadata.helper';
 
+export interface ImageFileHistoryRecord {
+    id: string;
+    originalFile: string;
+    editedFile: string;
+    timestamp: number;
+    prompt: string;
+}
+
 interface ReferenceFile {
     base64Data: string;
     mimeType: string;
@@ -363,6 +371,85 @@ export class AIImageComponent
         this.domain = event.value;
     }
 
+    // --- LỊCH SỬ CHỈNH SỬA FILE ẢNH ---
+    selectedHistoryImage: string | null = null;
+    showFileHistoryDialog: boolean = false;
+    currentFileHistories: ImageFileHistoryRecord[] = [];
+
+    private readonly FILE_HISTORY_STORAGE_KEY = 'ai_image_file_history_records';
+
+    getImageFileHistories(): ImageFileHistoryRecord[] {
+        try {
+            const raw = localStorage.getItem(this.FILE_HISTORY_STORAGE_KEY);
+            return raw ? JSON.parse(raw) : [];
+        } catch {
+            return [];
+        }
+    }
+
+    saveImageFileHistories(records: ImageFileHistoryRecord[]): void {
+        try {
+            // Giới hạn 200 bản ghi lịch sử gần nhất
+            const trimmed = records.slice(-200);
+            localStorage.setItem(this.FILE_HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
+        } catch (e) {
+            console.error('Không thể lưu lịch sử file ảnh:', e);
+        }
+    }
+
+    recordFileHistory(originalFile: string, editedFile: string, prompt: string): void {
+        const records = this.getImageFileHistories();
+        const origBaseName = (originalFile || '').replace(/^file:\/\/\//, '').replace(/^file:\/\//, '').split('/').pop() || '';
+        const editedBaseName = (editedFile || '').replace(/^file:\/\/\//, '').replace(/^file:\/\//, '').split('/').pop() || '';
+        const entry: ImageFileHistoryRecord = {
+            id: 'hist_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            originalFile: origBaseName,
+            editedFile: editedBaseName,
+            timestamp: Date.now(),
+            prompt: prompt || 'AI chỉnh sửa ảnh',
+        };
+        records.push(entry);
+        this.saveImageFileHistories(records);
+    }
+
+    openFileHistory(img: string): void {
+        this.selectedHistoryImage = img;
+        const cleanName = (img || '').replace(/^file:\/\/\//, '').replace(/^file:\/\//, '').split('/').pop() || '';
+        const allHistories = this.getImageFileHistories();
+        // Lấy các bản ghi liên quan đến file này (làm ảnh gốc hoặc ảnh chỉnh sửa)
+        this.currentFileHistories = allHistories
+            .filter((h) => h.originalFile === cleanName || h.editedFile === cleanName)
+            .sort((a, b) => b.timestamp - a.timestamp);
+        this.showFileHistoryDialog = true;
+        this.cd.markForCheck();
+    }
+
+    closeFileHistory(): void {
+        this.showFileHistoryDialog = false;
+        this.selectedHistoryImage = null;
+        this.currentFileHistories = [];
+        this.cd.markForCheck();
+    }
+
+    deleteFileHistoryItem(item: ImageFileHistoryRecord, event?: MouseEvent): void {
+        if (event) event.stopPropagation();
+        const records = this.getImageFileHistories().filter((h) => h.id !== item.id);
+        this.saveImageFileHistories(records);
+        this.currentFileHistories = this.currentFileHistories.filter((h) => h.id !== item.id);
+        this.toastr.info('Đã xóa 1 mục lịch sử sửa ảnh.');
+        this.cd.markForCheck();
+    }
+
+    clearFileHistoriesForCurrent(): void {
+        if (!this.selectedHistoryImage) return;
+        const cleanName = this.selectedHistoryImage.replace(/^file:\/\/\//, '').replace(/^file:\/\//, '').split('/').pop() || '';
+        const records = this.getImageFileHistories().filter((h) => h.originalFile !== cleanName && h.editedFile !== cleanName);
+        this.saveImageFileHistories(records);
+        this.currentFileHistories = [];
+        this.toastr.warning('Đã xóa toàn bộ lịch sử của file ảnh này.');
+        this.cd.markForCheck();
+    }
+
     editImage(url: string) {
         const dialogRef = this._matDialog.open(ImageEditorDialogComponent, {
             panelClass: 'custom-dialog',
@@ -405,6 +492,9 @@ export class AIImageComponent
                 }
 
                 const newFileName = `edited_${new Date().getTime()}.${ext}`;
+
+                // Ghi nhận vào lịch sử sửa file ảnh
+                this.recordFileHistory(url, newFileName, result.prompt || '');
 
                 if ((window as any).electron) {
                     await (window as any).electron.saveBase64({
