@@ -5106,10 +5106,10 @@ ${contentFromDone || '(Chưa có văn bản)'}
             this.name
         ].filter(Boolean);
 
-        const isEncrypted = !!(this.details.is_encrypted || (this.details.source && this.details.source.encrypted) || this.details.cipher || (this.details.source && this.details.source.cipher));
+        const isEncrypted = !!(this.details.is_encrypted || (this.details.source && this.details.source.encrypted) || this.details.cipher || (this.details.source && this.details.source.cipher) || this.details.encrypted_payload);
 
         if (isEncrypted) {
-            const cipherText = this.details.source?.cipher || this.details.cipher;
+            const cipherText = this.details.source?.cipher || this.details.cipher || this.details.encrypted_payload;
             const masterCipher = this.details.master_cipher || this.details.source?.master_cipher;
 
             // Kiểm tra mật khẩu trong cache / handshake
@@ -5138,6 +5138,53 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 }
             }
 
+            const unpackDecrypted = (decryptedText: string, pwd: string) => {
+                this.articlePassword = pwd;
+                let decrypted: any = null;
+                try {
+                    decrypted = JSON.parse(decryptedText);
+                } catch (e) {
+                    decrypted = null;
+                }
+
+                if (decrypted && typeof decrypted === 'object' && (decrypted.source || decrypted.done || decrypted.content || decrypted.title)) {
+                    if (decrypted.source) this.source = decrypted.source;
+                    if (decrypted.done) this.done = decrypted.done;
+                    if (decrypted.trash) this.trash = decrypted.trash;
+                    if (decrypted.seo) this.seo = decrypted.seo;
+                    if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
+
+                    if (decrypted.title) this.details.title = decrypted.title;
+                    if (decrypted.url) this.details.url = decrypted.url;
+                    if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
+                    if (decrypted.description) this.details.description = decrypted.description;
+
+                    this.details.source = this.source;
+                    this.details.done = this.done;
+                    this.details.trash = this.trash;
+                    this.details.seo = this.seo;
+                    this.details.arr_keyword = this.arr_keyword;
+                } else {
+                    // Decrypted content is raw text/html (e.g. SQLite local article content)
+                    this.source = this.source || {};
+                    this.done = [decryptedText];
+                    this.details.done = this.done;
+                    this.details.content = decryptedText;
+                    this.details.source = this.source;
+                }
+
+                this.details.is_encrypted = true;
+                if (cipherText) this.details.cipher = cipherText;
+                if (masterCipher) this.details.master_cipher = masterCipher;
+                if (this.details.source) this.details.source.encrypted = true;
+
+                const targetKey = this.uuid || this.details?.uuid;
+                if (targetKey) {
+                    localStorage.setItem('article_encrypted_' + targetKey, 'true');
+                    sessionStorage.setItem('unlocked_pwd_' + targetKey, this.articlePassword);
+                }
+            };
+
             let autoUnlocked = false;
             if (this.articlePassword && (cipherText || masterCipher)) {
                 try {
@@ -5145,30 +5192,8 @@ ${contentFromDone || '(Chưa có văn bản)'}
                     if (decryptedText === 'VALID') {
                         autoUnlocked = true;
                     } else if (decryptedText && decryptedText.length > 0) {
-                        const decrypted = JSON.parse(decryptedText);
-                        if (decrypted) {
-                            autoUnlocked = true;
-                            if (decrypted.source) this.source = decrypted.source;
-                            if (decrypted.done) this.done = decrypted.done;
-                            if (decrypted.trash) this.trash = decrypted.trash;
-                            if (decrypted.seo) this.seo = decrypted.seo;
-                            if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
-
-                            if (decrypted.title) this.details.title = decrypted.title;
-                            if (decrypted.url) this.details.url = decrypted.url;
-                            if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
-                            if (decrypted.description) this.details.description = decrypted.description;
-
-                            this.details.source = this.source;
-                            this.details.done = this.done;
-                            this.details.trash = this.trash;
-                            this.details.seo = this.seo;
-                            this.details.arr_keyword = this.arr_keyword;
-                            this.details.is_encrypted = true;
-                            if (cipherText) this.details.cipher = cipherText;
-                            if (masterCipher) this.details.master_cipher = masterCipher;
-                            if (this.details.source) this.details.source.encrypted = true;
-                        }
+                        unpackDecrypted(decryptedText, this.articlePassword);
+                        autoUnlocked = true;
                     }
                 } catch (e) {
                     autoUnlocked = false;
@@ -5197,8 +5222,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                     const decryptedText = tryDecryptWithMasterFallback(cipherText, pwd, masterCipher);
                                     if (decryptedText === 'VALID') return true;
                                     if (decryptedText && decryptedText.length > 0) {
-                                        const decrypted = JSON.parse(decryptedText);
-                                        return !!decrypted;
+                                        return true;
                                     }
                                     return false;
                                 } catch (e) {
@@ -5228,42 +5252,12 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                         this.cd.markForCheck();
                                         finishInit();
                                     } else if (decryptedText && decryptedText.length > 0) {
-                                        const decrypted = JSON.parse(decryptedText);
-                                        if (decrypted) {
-                                            isValid = true;
-                                            this.articlePassword = res.password;
-                                            if (decrypted.source) this.source = decrypted.source;
-                                            if (decrypted.done) this.done = decrypted.done;
-                                            if (decrypted.trash) this.trash = decrypted.trash;
-                                            if (decrypted.seo) this.seo = decrypted.seo;
-                                            if (decrypted.arr_keyword) this.arr_keyword = decrypted.arr_keyword;
-
-                                            if (decrypted.title) this.details.title = decrypted.title;
-                                            if (decrypted.url) this.details.url = decrypted.url;
-                                            if (decrypted.thumbnail) this.details.thumbnail = decrypted.thumbnail;
-                                            if (decrypted.description) this.details.description = decrypted.description;
-
-                                            this.details.source = this.source;
-                                            this.details.done = this.done;
-                                            this.details.trash = this.trash;
-                                            this.details.seo = this.seo;
-                                            this.details.arr_keyword = this.arr_keyword;
-                                            this.details.is_encrypted = true;
-                                            if (cipherText) this.details.cipher = cipherText;
-                                            if (masterCipher) this.details.master_cipher = masterCipher;
-                                            if (this.details.source) this.details.source.encrypted = true;
-
-                                            const targetKey = this.uuid || this.details?.uuid;
-                                            if (targetKey) {
-                                                localStorage.setItem('article_encrypted_' + targetKey, 'true');
-                                                sessionStorage.setItem('unlocked_pwd_' + targetKey, this.articlePassword);
-                                            }
-
-                                            this.setdata(this.details);
-                                            this.toastr.success('Giải mã thành công nội dung bài viết!', 'Mật khẩu đúng');
-                                            this.cd.markForCheck();
-                                            finishInit();
-                                        }
+                                        isValid = true;
+                                        unpackDecrypted(decryptedText, res.password);
+                                        this.setdata(this.details);
+                                        this.toastr.success('Giải mã thành công nội dung bài viết!', 'Mật khẩu đúng');
+                                        this.cd.markForCheck();
+                                        finishInit();
                                     }
                                 } catch (e) {
                                     isValid = false;
