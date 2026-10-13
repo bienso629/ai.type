@@ -545,6 +545,23 @@
                                                                     <button
                                                                         mat-menu-item
                                                                         (click)="
+                                                                            openFileHistory(
+                                                                                img
+                                                                            )
+                                                                        "
+                                                                    >
+                                                                        <mat-icon
+                                                                            class="icon-size-4 text-amber-500"
+                                                                            svgIcon="heroicons_outline:clock"
+                                                                        ></mat-icon>
+                                                                        <span
+                                                                            >Lịch sử
+                                                                            sửa ảnh</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        mat-menu-item
+                                                                        (click)="
                                                                             uploadImage(
                                                                                 img
                                                                             )
@@ -662,3 +679,93 @@
         </mat-drawer-container>
     </div>
 </div>
+
+<!-- MODAL LỊCH SỬ SỬA FILE ẢNH -->
+@if (showFileHistoryDialog) {
+    <div class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" (click)="closeFileHistory()">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700" (click)="$event.stopPropagation()">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <mat-icon class="icon-size-4" svgIcon="heroicons_outline:clock"></mat-icon>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100">Lịch sử sửa file ảnh</h3>
+                        <p class="text-xs text-gray-500 truncate max-w-xs">{{ selectedHistoryImage }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1">
+                    @if (currentFileHistories.length > 0) {
+                        <button
+                            mat-button
+                            color="warn"
+                            class="fuse-mat-dense text-xs !min-h-7 !h-7 !px-2"
+                            (click)="clearFileHistoriesForCurrent()"
+                        >
+                            Xóa hết
+                        </button>
+                    }
+                    <button mat-icon-button (click)="closeFileHistory()" class="text-gray-400 hover:text-gray-600">
+                        <mat-icon svgIcon="heroicons_outline:x"></mat-icon>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-4 overflow-y-auto flex-1 divide-y divide-gray-100 dark:divide-gray-700">
+                @if (currentFileHistories.length === 0) {
+                    <div class="py-12 text-center text-gray-500 text-sm flex flex-col items-center justify-center">
+                        <mat-icon class="icon-size-10 text-gray-300 dark:text-gray-600 mb-2" svgIcon="heroicons_outline:clock"></mat-icon>
+                        <span>Chưa có phiên bản chỉnh sửa nào được ghi nhận cho file này.</span>
+                        <span class="text-xs text-gray-400 mt-1">Khi bạn dùng AI sửa và lưu ảnh, lịch sử sẽ xuất hiện tại đây.</span>
+                    </div>
+                } @else {
+                    @for (hist of currentFileHistories; track hist.id) {
+                        <div class="py-3 flex items-start gap-3 hover:bg-gray-50/60 dark:hover:bg-gray-700/40 p-2 rounded-xl transition-colors">
+                            <img [src]="resolveMediaSrc(hist.editedFile)" class="w-14 h-14 rounded-lg object-cover border border-gray-200 dark:border-gray-600 shrink-0 shadow-sm" />
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{{ hist.editedFile }}</span>
+                                    <span class="text-[11px] text-gray-400 whitespace-nowrap">{{ hist.timestamp | date:'HH:mm:ss dd/MM/yyyy' }}</span>
+                                </div>
+                                <div class="text-xs text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
+                                    <span class="font-medium text-amber-600">Prompt:</span> {{ hist.prompt || 'Chỉnh sửa không lời nhắc' }}
+                                </div>
+                                <div class="text-[11px] text-gray-400 mt-1 truncate">
+                                    <span>Gốc: {{ hist.originalFile }}</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-center gap-1 shrink-0">
+                                <button
+                                    mat-icon-button
+                                    class="!w-8 !h-8 text-primary hover:text-primary-dark"
+                                    (click)="closeFileHistory(); editImage(hist.editedFile)"
+                                    matTooltip="Mở ảnh này vào trình sửa"
+                                >
+                                    <mat-icon class="icon-size-4" svgIcon="feather:edit-2"></mat-icon>
+                                </button>
+                                <button
+                                    mat-icon-button
+                                    class="!w-8 !h-8 text-red-500 hover:text-red-700"
+                                    (click)="deleteFileHistoryItem(hist, $event)"
+                                    matTooltip="Xóa bản ghi lịch sử này"
+                                >
+                                    <mat-icon class="icon-size-4" svgIcon="feather:trash-2"></mat-icon>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end bg-gray-50/30 dark:bg-gray-800">
+                <button mat-flat-button color="primary" (click)="closeFileHistory()">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
