@@ -1,6 +1,7 @@
 import { TranslocoModule } from '@jsverse/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import {
     Component,
     OnInit,
@@ -2756,7 +2757,27 @@ export class NodeEditorComponent
                                     let localPath = '';
                                     const fileName = `scene_${nodesMapping[i].id}_${Date.now()}.png`;
 
-                                    if (electron && electron.saveBase64) {
+                                    if (Capacitor.isNativePlatform()) {
+                                        try {
+                                            let pureImgB64 = base64Data;
+                                            if (pureImgB64.startsWith('data:')) {
+                                                pureImgB64 = pureImgB64.split(',')[1] || pureImgB64;
+                                            }
+                                            const writeRes = await Filesystem.writeFile({
+                                                path: fileName,
+                                                data: pureImgB64,
+                                                directory: Directory.Data,
+                                                recursive: true,
+                                            });
+                                            if (writeRes && writeRes.uri) {
+                                                localPath = Capacitor.convertFileSrc(writeRes.uri);
+                                            }
+                                        } catch (capErr) {
+                                            console.warn('[NodeEditor] Lưu ảnh vào Capacitor Filesystem thất bại:', capErr);
+                                        }
+                                    }
+
+                                    if (!localPath && electron && electron.saveBase64) {
                                         const saveResult =
                                             await electron.saveBase64({
                                                 base64: base64Data,
@@ -2769,7 +2790,8 @@ export class NodeEditorComponent
                                         if (saveResult && saveResult.success) {
                                             localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
                                         }
-                                    } else {
+                                    }
+                                    if (!localPath) {
                                         try {
                                             const cdnUrl = await this.genaiService.uploadBase64ToCdn(
                                                 base64Data,
@@ -2808,6 +2830,15 @@ export class NodeEditorComponent
                                             }
                                         }
 
+                                        const sIdx = nodesMapping[i].data?.sceneIndex;
+                                        if (sIdx !== undefined && sIdx !== null && this.projectData?.scenes?.[sIdx]) {
+                                            this.projectData.scenes[sIdx].imageUrl = localPath;
+                                            if (this.projectData.scenes[sIdx].videos && this.projectData.scenes[sIdx].videos.length > 0) {
+                                                this.projectData.scenes[sIdx].videos[0].videoUrl = null;
+                                                this.projectData.scenes[sIdx].videos[0].imageUrl = localPath;
+                                            }
+                                        }
+
                                         if (electron && electron.createThumbnail && localPath.startsWith('file://')) {
                                             try {
                                                 const sourcePath = localPath.replace('file://', '');
@@ -2843,12 +2874,37 @@ export class NodeEditorComponent
                                     ?.base64;
 
                                 let finalVideoUrl = null;
+                                const videoFileName = `scene_${nodesMapping[i].id}_${Date.now()}.mp4`;
+
                                 if (videoBase64) {
-                                    if (electron && electron.saveBase64) {
+                                    let pureBase64 = videoBase64;
+                                    if (pureBase64.startsWith('data:')) {
+                                        pureBase64 = pureBase64.split(',')[1] || pureBase64;
+                                    }
+
+                                    // 1. Nếu đang chạy trong Capacitor (iOS/iPadOS), ghi vào Filesystem bộ nhớ Data
+                                    if (Capacitor.isNativePlatform()) {
+                                        try {
+                                            const writeRes = await Filesystem.writeFile({
+                                                path: videoFileName,
+                                                data: pureBase64,
+                                                directory: Directory.Data,
+                                                recursive: true,
+                                            });
+                                            if (writeRes && writeRes.uri) {
+                                                finalVideoUrl = Capacitor.convertFileSrc(writeRes.uri);
+                                            }
+                                        } catch (capErr) {
+                                            console.warn('[NodeEditor] Lưu video vào Capacitor Filesystem thất bại:', capErr);
+                                        }
+                                    }
+
+                                    // 2. Nếu đang chạy trong Electron Desktop
+                                    if (!finalVideoUrl && electron && electron.saveBase64) {
                                         const saveResult =
                                             await electron.saveBase64({
                                                 base64: videoBase64,
-                                                fileName: `scene_${nodesMapping[i].id}_${Date.now()}.mp4`,
+                                                fileName: videoFileName,
                                                 folder: 'videos',
                                                 username: username,
                                                 customDir: `tts/${username}/${projectUuid}`,
@@ -2857,6 +2913,8 @@ export class NodeEditorComponent
                                             finalVideoUrl = `file://${saveResult.path.replace(/\\/g, '/')}`;
                                         }
                                     }
+
+                                    // 3. Fallback CDN / URL
                                     if (!finalVideoUrl && videoUrl) {
                                         finalVideoUrl = videoUrl;
                                     }
@@ -2864,7 +2922,7 @@ export class NodeEditorComponent
                                         try {
                                             const cdnUrl = await this.genaiService.uploadBase64ToCdn(
                                                 videoBase64,
-                                                `scene_${nodesMapping[i].id}_${Date.now()}.mp4`,
+                                                videoFileName,
                                                 'videos'
                                             );
                                             finalVideoUrl = cdnUrl || `data:video/mp4;base64,${videoBase64}`;
@@ -2873,7 +2931,40 @@ export class NodeEditorComponent
                                         }
                                     }
                                 } else if (videoUrl) {
-                                    finalVideoUrl = videoUrl;
+                                    // Trường hợp AI trả về trực tiếp videoUrl (không có base64) trên iOS/iPad
+                                    if (Capacitor.isNativePlatform()) {
+                                        try {
+                                            const fetchRes = await fetch(videoUrl);
+                                            if (fetchRes.ok) {
+                                                const blob = await fetchRes.blob();
+                                                const reader = new FileReader();
+                                                const b64Data = await new Promise<string>((res, rej) => {
+                                                    reader.onloadend = () => {
+                                                        const resultStr = reader.result as string;
+                                                        res(resultStr.includes(',') ? resultStr.split(',')[1] : resultStr);
+                                                    };
+                                                    reader.onerror = rej;
+                                                    reader.readAsDataURL(blob);
+                                                });
+                                                if (b64Data) {
+                                                    const writeRes = await Filesystem.writeFile({
+                                                        path: videoFileName,
+                                                        data: b64Data,
+                                                        directory: Directory.Data,
+                                                        recursive: true,
+                                                    });
+                                                    if (writeRes && writeRes.uri) {
+                                                        finalVideoUrl = Capacitor.convertFileSrc(writeRes.uri);
+                                                    }
+                                                }
+                                            }
+                                        } catch (dlErr) {
+                                            console.warn('[NodeEditor] Tải và lưu videoUrl vào Filesystem thất bại:', dlErr);
+                                        }
+                                    }
+                                    if (!finalVideoUrl) {
+                                        finalVideoUrl = videoUrl;
+                                    }
                                 }
 
                                 if (finalVideoUrl) {
@@ -2899,19 +2990,28 @@ export class NodeEditorComponent
                                                     `data:image/png;base64,${thumbRes.base64}`;
                                             }
                                         }
+                                    } else {
+                                        // Trên iPad / Web: Trích xuất frame cuối video làm thumbnail
+                                        try {
+                                            const extractedThumb = await this.extractLastFrameFromVideoUrl(finalVideoUrl, nodesMapping[i].id);
+                                            if (extractedThumb) {
+                                                nodesMapping[i].data.imageUrl = extractedThumb;
+                                                nodesMapping[i].data.thumbnailUrl = extractedThumb;
+                                            }
+                                        } catch (thumbErr) {
+                                            console.warn('[NodeEditor] Trích xuất thumbnail video thất bại:', thumbErr);
+                                        }
                                     }
 
+                                    // Cập nhật cả sceneData và projectData.scenes để đồng bộ dữ liệu vĩnh viễn
                                     if (
-                                        nodesMapping[i].data.sceneData &&
-                                        nodesMapping[i].data.sceneData.videos
+                                        nodesMapping[i].data.sceneData
                                     ) {
                                         if (
-                                            nodesMapping[i].data.sceneData
-                                                .videos.length === 0
+                                            !nodesMapping[i].data.sceneData.videos ||
+                                            nodesMapping[i].data.sceneData.videos.length === 0
                                         ) {
-                                            nodesMapping[
-                                                i
-                                            ].data.sceneData.videos.push({});
+                                            nodesMapping[i].data.sceneData.videos = [{}];
                                         }
                                         nodesMapping[
                                             i
@@ -2921,6 +3021,15 @@ export class NodeEditorComponent
                                             i
                                         ].data.sceneData.videos[0].imageUrl =
                                             nodesMapping[i].data.imageUrl;
+                                    }
+
+                                    const sIdx = nodesMapping[i].data?.sceneIndex;
+                                    if (sIdx !== undefined && sIdx !== null && this.projectData?.scenes?.[sIdx]) {
+                                        if (!this.projectData.scenes[sIdx].videos || this.projectData.scenes[sIdx].videos.length === 0) {
+                                            this.projectData.scenes[sIdx].videos = [{}];
+                                        }
+                                        this.projectData.scenes[sIdx].videos[0].videoUrl = finalVideoUrl;
+                                        this.projectData.scenes[sIdx].videos[0].imageUrl = nodesMapping[i].data.imageUrl;
                                     }
                                 }
                             } else if (targetModality === 'AUDIO') {
@@ -2971,7 +3080,8 @@ export class NodeEditorComponent
 
                         this.cdr.detectChanges();
                     }
-                    this.saveProject();
+                    this.saveEditorState();
+                    this.saveProject(true);
                     this.isGeneratingPrompt = false;
                     this.cdr.detectChanges();
                     return;
