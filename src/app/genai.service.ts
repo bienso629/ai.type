@@ -310,8 +310,8 @@ export class GenaiService {
 
         if (isUModelverse) {
             // Khi Mì Tôm AI được bật trong tài khoản, ưu tiên áp dụng model của Mì Tôm AI
-            if (isImageRequest && this._umodelverseImageModel) {
-                // Nếu người dùng đã cài đặt model ảnh riêng trong Mì Tôm AI, ưu tiên dùng model đó
+            if (isImageRequest && this._umodelverseImageModel && !isImageEdit) {
+                // Nếu người dùng đã cài đặt model ảnh riêng trong Mì Tôm AI, ưu tiên dùng model đó (chỉ áp dụng khi tạo mới ảnh, không áp dụng khi sửa ảnh)
                 params.model = this._umodelverseImageModel;
             } else if (isImageRequest && !isImageEdit && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
                 params.model = this._umodelverseImageModel || 'dall-e-3';
@@ -1400,7 +1400,14 @@ export class GenaiService {
                     console.log(`[UModelverse Image] Tạo ảnh thành công bằng Gemini Compatible Interface!`);
                     return geminiData;
                 } else {
-                    console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại (mã ${geminiResponse.status}):`, geminiData?.error?.message || geminiResponseText);
+                    const errMsg = geminiData?.error?.message || geminiResponseText;
+                    console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại (mã ${geminiResponse.status}):`, errMsg);
+                    if (isImageEdit) {
+                        // Với tác vụ chỉnh sửa ảnh trực tiếp, nếu proxy không thực hiện được qua Gemini Compatible Interface thì ném lỗi ngay
+                        // để hệ thống tự động fallback sang Tầng 3 (Gemini Studio API Key trực tiếp của Google) với inlineData gốc,
+                        // TUYỆT ĐỐI KHÔNG fallback sang OpenAI text-to-image /images/generations vì sẽ làm mất ảnh gốc và sinh ra người/nội dung mới hoàn toàn!
+                        throw new Error(`UModelverse Gemini Image Edit thất bại (Mã lỗi ${geminiResponse.status}): ${errMsg}`);
+                    }
                     // Nếu proxy UModelverse không hỗ trợ endpoint Gemini Native /v1beta/models, chuyển activeModel sang model hình ảnh Mì Tôm AI (hoặc dall-e-3) để tiếp tục thử OpenAI format
                     if (this._umodelverseImageModel && this._umodelverseImageModel !== activeModel) {
                         activeModel = this._umodelverseImageModel;
@@ -1410,6 +1417,10 @@ export class GenaiService {
                 }
             } catch (e: any) {
                 console.warn(`[UModelverse Image] Lỗi khi gọi Gemini Interface:`, e.message);
+                if (isImageEdit) {
+                    // Ném lỗi để fallback sang Gemini Studio trực tiếp bảo đảm giữ nguyên ảnh gốc
+                    throw e;
+                }
                 if (this._umodelverseImageModel && this._umodelverseImageModel !== activeModel) {
                     activeModel = this._umodelverseImageModel;
                 } else if (activeModel.includes('gemini')) {
@@ -1610,12 +1621,13 @@ export class GenaiService {
         }
 
         // --- LỚP DỰ PHÒNG CHÓT: QUÉT DANH SÁCH MODEL ĐỂ THAY THẾ (NẾU TẤT CẢ PAYLOAD ĐỀU FAIL CHO MODEL NÀY) ---
-        console.warn(`[UModelverse Image Warning] Không thể tạo ảnh với model ${activeModel}. Đang quét tìm model sinh ảnh thay thế...`);
-        try {
-            const modelsRes = await fetch(`${url}/models`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${headers['Authorization'].split(' ')[1]}` }
-            });
+        if (!isImageEdit) {
+            console.warn(`[UModelverse Image Warning] Không thể tạo ảnh với model ${activeModel}. Đang quét tìm model sinh ảnh thay thế...`);
+            try {
+                const modelsRes = await fetch(`${url}/models`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${headers['Authorization'].split(' ')[1]}` }
+                });
             if (modelsRes.ok) {
                 const modelsText = await modelsRes.text();
                 let modelsData: any = {};
@@ -1674,9 +1686,10 @@ export class GenaiService {
                         }
                     }
                 }
+                }
+            } catch (err) {
+                console.error("[UModelverse Image Dynamic Fallback Exception]", err);
             }
-        } catch (err) {
-            console.error("[UModelverse Image Dynamic Fallback Exception]", err);
         }
 
         throw new Error(lastErrorMsg || `HTTP Error: ${lastResponseStatus}`);
