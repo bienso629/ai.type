@@ -1950,6 +1950,58 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         }
     }
 
+    isSyncingFaiss: boolean = false;
+    syncFaissStatus: string = '';
+
+    /** Đồng bộ toàn bộ tài liệu đã học + FAISS local (Documents/ai.type/data/faiss/{user}) lên server chatbot. */
+    async syncLocalFaissToServer(): Promise<void> {
+        const electron = (window as any).electron;
+        if (!electron || !electron.invoke) {
+            this.toastr.warning('Chức năng Sync chỉ khả dụng trên bản Desktop.');
+            return;
+        }
+        const config = this._chatbotService.getSyncConfig();
+        if (!config) {
+            this.toastr.warning('Chưa đăng nhập, không thể đồng bộ lên server.');
+            return;
+        }
+        if (this.isSyncingFaiss) return;
+
+        this.isSyncingFaiss = true;
+        this.syncFaissStatus = 'Đang chuẩn bị đồng bộ...';
+        this.cd.markForCheck();
+
+        const stopListen = electron.on ? electron.on('faiss-sync-progress', (p: any) => {
+            this.syncFaissStatus = `Đang sync ${p.current}/${p.total}: ${p.filename}`;
+            this.cd.markForCheck();
+        }) : null;
+
+        try {
+            const res = await electron.invoke('sync-local-faiss-to-server', {
+                username: this.user.name,
+                apiUrl: config.apiUrl,
+                apiKey: config.apiKey,
+                docType: 'qa_detailed'
+            });
+            if (res && res.success) {
+                const failedCount = res.failed?.length || 0;
+                const sizeKb = res.server?.faiss_size ? Math.round(res.server.faiss_size / 1024) : 0;
+                const msg = `Đã sync ${res.synced} tài liệu và FAISS (${sizeKb} KB) lên server.`;
+                failedCount ? this.toastr.warning(`${msg} Lỗi ${failedCount} tài liệu.`) : this.toastr.success(msg);
+                this.refreshFiles();
+            } else {
+                this.toastr.error('Sync thất bại: ' + (res?.error || 'Không rõ lỗi'));
+            }
+        } catch (err: any) {
+            this.toastr.error('Sync thất bại: ' + (err?.message || err));
+        } finally {
+            if (stopListen) stopListen();
+            this.isSyncingFaiss = false;
+            this.syncFaissStatus = '';
+            this.cd.markForCheck();
+        }
+    }
+
     getFolderBaseName(folderPath: string): string {
         if (!folderPath) return '';
         const parts = folderPath.split(/[\\/]/).filter(p => p.trim());

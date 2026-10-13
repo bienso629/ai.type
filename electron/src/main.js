@@ -10680,6 +10680,92 @@ ipcMain.handle('get-local-faiss-metadata', async (event, username) => {
     }
 });
 
+// Đồng bộ toàn bộ tài liệu đã bóc tách + FAISS local lên server chatbot
+ipcMain.handle('sync-local-faiss-to-server', async (event, { username, apiUrl, apiKey, docType }) => {
+    const sendProgress = (payload) => {
+        try { event.sender.send('faiss-sync-progress', payload); } catch (e) {}
+    };
+    try {
+        const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const targetDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser);
+        const docsDir = path.join(targetDir, 'docs');
+        const faissPath = path.join(targetDir, 'index.faiss');
+        const pklPath = path.join(targetDir, 'index.pkl');
+
+        if (!fs.existsSync(faissPath) || !fs.existsSync(pklPath)) {
+            return { success: false, error: 'Chưa có index.faiss / index.pkl ở local để đồng bộ.' };
+        }
+
+        const baseUrl = String(apiUrl || '').replace(/\/$/, '');
+        const headers = { 'content-type': 'application/json' };
+        if (apiKey) headers['x-api-key'] = apiKey;
+
+        const postJson = async (url, body) => {
+            const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+            const text = await res.text();
+            if (!res.ok) {
+                // Cloudflare trả trang HTML dài khi 502/504, chỉ giữ mã lỗi cho dễ đọc
+                const detail = /^\s*</.test(text) ? 'Gateway lỗi (Cloudflare)' : text.slice(0, 300);
+                throw new Error(`HTTP ${res.status}: ${detail}`);
+            }
+            try { return JSON.parse(text); } catch (e) { return { raw: text }; }
+        };
+
+        // 0. Kiểm tra server đã deploy endpoint sync chưa (body rỗng: 422 = có, 404 = chưa)
+        const probe = await fetch(`${baseUrl}/sync-local-faiss`, { method: 'POST', headers, body: '{}' }).catch(() => null);
+        if (!probe) {
+            return { success: false, error: `Không kết nối được server ${baseUrl}.` };
+        }
+        if (probe.status === 404) {
+            return { success: false, error: `Server ${baseUrl} chưa có endpoint /sync-local-faiss. Hãy deploy chatbot.py mới và restart service.` };
+        }
+
+        const mdFiles = fs.existsSync(docsDir) ? fs.readdirSync(docsDir).filter(f => f.endsWith('.md')) : [];
+        const total = mdFiles.length + 1;
+        const synced = [];
+        const failed = [];
+
+        // 1. Đẩy từng tài liệu (Markdown + MinerU JSON)
+        for (let i = 0; i < mdFiles.length; i++) {
+            const mdFile = mdFiles[i];
+            const base = mdFile.replace(/\.md$/, '');
+            sendProgress({ current: i + 1, total, filename: base });
+            try {
+                const markdown = fs.readFileSync(path.join(docsDir, mdFile), 'utf-8');
+                const jsonPath = path.join(docsDir, `${base}.mineru.json`);
+                const content_json = fs.existsSync(jsonPath) ? fs.readFileSync(jsonPath, 'utf-8') : null;
+                await postJson(`${baseUrl}/sync-local-doc`, {
+                    username, doc_type: docType, filename: `${base}.pdf`, markdown, content_json
+                });
+                synced.push(`${base}.pdf`);
+            } catch (err) {
+                console.error(`[FAISS Sync] Lỗi đẩy ${base}:`, err.message);
+                failed.push({ filename: base, error: err.message });
+            }
+        }
+
+        if (!synced.length) {
+            return { success: false, error: `Không đẩy được tài liệu nào (${failed[0]?.error || 'không rõ lỗi'}).`, failed };
+        }
+
+        // 2. Đẩy bản FAISS + PKL tổng
+        sendProgress({ current: total, total, filename: 'index.faiss' });
+        const faissRes = await postJson(`${baseUrl}/sync-local-faiss`, {
+            username,
+            doc_type: docType,
+            faiss_base64: fs.readFileSync(faissPath).toString('base64'),
+            pkl_base64: fs.readFileSync(pklPath).toString('base64'),
+            filenames: synced
+        });
+
+        console.log(`[FAISS Sync] Hoàn tất: ${synced.length} tài liệu, lỗi ${failed.length}, server faiss=${faissRes.faiss_size}B`);
+        return { success: true, synced: synced.length, failed, server: faissRes };
+    } catch (err) {
+        console.error('[FAISS Sync] Lỗi:', err);
+        return { success: false, error: err.message };
+    }
+});
+
 ipcMain.handle('save-local-chatbot-history', async (event, { username, threadId, messages, title }) => {
     try {
         const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');

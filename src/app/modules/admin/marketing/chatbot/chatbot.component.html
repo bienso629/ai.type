@@ -119,6 +119,18 @@
                 <div class="flex items-center gap-0 shrink-0">
                     <button
                         mat-icon-button
+                        (click)="syncLocalFaissToServer()"
+                        [disabled]="isSyncingFaiss"
+                        [matTooltip]="isSyncingFaiss ? syncFaissStatus : 'Sync tài liệu local lên server'"
+                    >
+                        <mat-icon
+                            class="icon-size-4 text-primary-600"
+                            [class.animate-spin]="isSyncingFaiss"
+                            svgIcon="feather:refresh-cw"
+                        ></mat-icon>
+                    </button>
+                    <button
+                        mat-icon-button
                         (click)="selectFolder()"
                         [matTooltip]="'Chọn thư mục'"
                     >

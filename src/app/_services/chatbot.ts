@@ -77,6 +77,13 @@ export class ChatbotService {
         return apiUrl;
     }
 
+    /** Thông tin kết nối dùng cho luồng Sync FAISS local lên server (chạy trong Electron main). */
+    public getSyncConfig(): { apiUrl: string; apiKey: string } | null {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) return null;
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return null;
+        return { apiUrl: this.getApiUrl(), apiKey: activeInfo['user']['appToken'] };
+    }
+
     public initDB(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
