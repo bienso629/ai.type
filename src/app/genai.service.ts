@@ -348,7 +348,12 @@ export class GenaiService {
                 try {
                     return await this.generateWithUModelverse(params); // Ưu tiên hàng đầu!
                 } catch (uErr: any) {
-                    console.warn(`[GenaiService] Mì Tôm AI lỗi (${uErr?.message || uErr}). Đang chuyển sang tầng tiếp theo...`);
+                    console.warn(`[GenaiService] Mì Tôm AI lỗi (${uErr?.message || uErr}).`);
+                    // Tuyệt đối không fallback sang model nào khác nếu đang tạo Video bằng Mì Tôm AI!
+                    if (isVideoRequest) {
+                        throw uErr;
+                    }
+                    console.warn(`[GenaiService] Đang chuyển sang tầng tiếp theo...`);
                     lastError = uErr;
                 }
             }
@@ -362,6 +367,11 @@ export class GenaiService {
                     console.warn(`[GenaiService] AI Agent lỗi (${agentErr?.message || agentErr}). Đang chuyển sang tầng tiếp theo...`);
                     lastError = agentErr;
                 }
+            }
+
+            // Nếu là yêu cầu tạo Video nhưng Mì Tôm AI không khả dụng hoặc bị lỗi, dừng lại ngay, không nhảy sang Gemini Studio
+            if (isVideoRequest) {
+                throw lastError || new Error("Không thể tạo video: Mì Tôm AI bị lỗi hoặc chưa được cấu hình. Vui lòng kiểm tra lại cấu hình hoặc model.");
             }
 
             // 3. Tầng Dự Phòng 3: Gemini Studio mặc định của app (Google AI API Key)
