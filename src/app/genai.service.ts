@@ -1468,13 +1468,13 @@ export class GenaiService {
                     prompt: promptText,
                     ref_image: b64DataUris[0]
                 },
-                // 6. Chuẩn OpenAI tiêu chuẩn bỏ image tham chiếu nếu proxy chỉ hỗ trợ text2image
-                {
+                // 6. Chuẩn OpenAI tiêu chuẩn bỏ image tham chiếu nếu proxy chỉ hỗ trợ text2image (chỉ cho phép khi KHÔNG PHẢI tác vụ sửa ảnh isImageEdit)
+                ...(!isImageEdit ? [{
                     model: activeModel,
                     prompt: promptText,
                     n: 1,
                     size: size
-                },
+                }] : []),
                 // 7. Chuẩn kèm aspect_ratio nếu model đặc thù yêu cầu (đặt ở cuối để ưu tiên chuẩn không có aspect_ratio trước)
                 {
                     model: activeModel,
@@ -1505,11 +1505,13 @@ export class GenaiService {
             );
         }
 
-        // Option: Format siêu tối giản (bỏ n, size, image) để bypass các strict validation của model khác
-        candidateRequests.push({
-            model: activeModel,
-            prompt: promptText
-        });
+        // Option: Format siêu tối giản (bỏ n, size, image) để bypass các strict validation của model khác (chỉ khi không phải sửa ảnh)
+        if (!isImageEdit) {
+            candidateRequests.push({
+                model: activeModel,
+                prompt: promptText
+            });
+        }
 
         let lastErrorMsg = '';
         let lastResponseStatus = 200;
