@@ -344,23 +344,23 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                                     ));
                         });
 
-                        // Sắp xếp bài viết theo thứ tự từ cũ đến mới nhất (cũ nhất ở đầu, mới nhất ở cuối)
+                        // Sắp xếp bài viết theo thứ tự từ mới nhất lên trên (mới nhất ở đầu, cũ nhất ở cuối)
                         matchingArticles.sort((a: any, b: any) => {
                             const timeA = new Date(
-                                a.created_at ||
-                                    a.createdAt ||
-                                    a.updated_at ||
+                                a.updated_at ||
                                     a.updatedAt ||
+                                    a.created_at ||
+                                    a.createdAt ||
                                     0,
                             ).getTime();
                             const timeB = new Date(
-                                b.created_at ||
-                                    b.createdAt ||
-                                    b.updated_at ||
+                                b.updated_at ||
                                     b.updatedAt ||
+                                    b.created_at ||
+                                    b.createdAt ||
                                     0,
                             ).getTime();
-                            return timeA - timeB;
+                            return timeB - timeA;
                         });
 
                         this.rows = [...matchingArticles];
@@ -428,23 +428,23 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                             }
                         });
 
-                        // Sắp xếp bài viết từ server theo thứ tự từ cũ đến mới nhất
+                        // Sắp xếp bài viết từ server theo thứ tự từ mới nhất lên trên
                         resData.docs.sort((a: any, b: any) => {
                             const timeA = new Date(
-                                a.created_at ||
-                                    a.createdAt ||
-                                    a.updated_at ||
+                                a.updated_at ||
                                     a.updatedAt ||
+                                    a.created_at ||
+                                    a.createdAt ||
                                     0,
                             ).getTime();
                             const timeB = new Date(
-                                b.created_at ||
-                                    b.createdAt ||
-                                    b.updated_at ||
+                                b.updated_at ||
                                     b.updatedAt ||
+                                    b.created_at ||
+                                    b.createdAt ||
                                     0,
                             ).getTime();
-                            return timeA - timeB;
+                            return timeB - timeA;
                         });
                         if (this.page.pageNumber === 0) {
                             this.rows = [...resData.docs];
