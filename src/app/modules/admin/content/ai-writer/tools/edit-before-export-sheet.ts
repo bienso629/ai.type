@@ -25,7 +25,6 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import Quill from 'quill';
 import { MatDialog } from '@angular/material/dialog';
-import { ArticlePasswordDialog } from './article-password-dialog';
 
 declare var TurndownService: any;
 
@@ -1750,65 +1749,6 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 'Lưu Cục Bộ',
             );
         }
-    }
-
-    saveToLocalDiskWithEncryption(event: MouseEvent): void {
-        event.preventDefault();
-        const dialogRef = this._dialog.open(ArticlePasswordDialog, {
-            data: {
-                mode: 'set',
-                title:
-                    this.editorForm.get('title')?.value ||
-                    this.data.title ||
-                    'Bài viết',
-            },
-            width: '450px',
-        });
-
-        dialogRef.afterClosed().subscribe(async (result) => {
-            if (result && result.password) {
-                const title =
-                    this.editorForm.get('title')?.value ||
-                    this.data.title ||
-                    'Bài viết chưa đặt tên';
-                const content = this.editorForm.get('content')?.value || '';
-                const pureMarkdown = this.htmlToMarkdown(content);
-                const domain =
-                    this.editorForm.get('domain')?.value ||
-                    this.domain?.domain ||
-                    'local.ai.type';
-
-                if (
-                    (window as any).electron &&
-                    (window as any).electron.saveLocalArticle
-                ) {
-                    const res = await (window as any).electron.saveLocalArticle(
-                        {
-                            title,
-                            content,
-                            markdown: pureMarkdown,
-                            domain,
-                            uuid: this.data.uuid || undefined,
-                            password: result.password,
-                        },
-                    );
-                    if (res && res.success) {
-                        this.toastr.success(
-                            `Đã mã hóa AES-256 bài viết và lưu cục bộ thành công!`,
-                            'Mã Hóa Mật Khẩu',
-                        );
-                    } else {
-                        this.toastr.error(
-                            `Lỗi khi lưu bài viết mã hóa: ${res?.error || 'Không rõ lỗi'}`,
-                        );
-                    }
-                } else {
-                    this.toastr.warning(
-                        'Mã hóa ổ đĩa cục bộ yêu cầu ứng dụng Desktop AI.Type',
-                    );
-                }
-            }
-        });
     }
 
     /**
