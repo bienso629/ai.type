@@ -269,6 +269,14 @@
                                     <mat-label>{{
                                         "app.task_name" | transloco
                                     }}</mat-label>
+                                    @if (isArticleEncrypted()) {
+                                        <mat-icon
+                                            matPrefix
+                                            class="icon-size-4 text-amber-500 mr-1.5"
+                                            [svgIcon]="'feather:lock'"
+                                            [matTooltip]="'Nội dung đã được mã hóa AES-256'"
+                                        ></mat-icon>
+                                    }
                                     <input
                                         matInput
                                         [formControlName]="'title'"
