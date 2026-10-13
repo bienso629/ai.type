@@ -7638,22 +7638,6 @@
                                             ></mat-icon>
                                             <mat-label>Tìm từ khoá</mat-label>
                                         </button>
-                                        <button
-                                            mat-menu-item
-                                            (click)="openEncryptionDialog()"
-                                        >
-                                            <mat-icon
-                                                class="icon-size-4"
-                                                [ngClass]="{
-                                                    'text-red-500': isArticleEncrypted(),
-                                                    'text-primary': !isArticleEncrypted()
-                                                }"
-                                                [svgIcon]="isArticleEncrypted() ? 'feather:unlock' : 'feather:lock'"
-                                            ></mat-icon>
-                                            <mat-label [ngClass]="{ 'text-red-500 font-medium': isArticleEncrypted() }">
-                                                {{ isArticleEncrypted() ? 'Hủy mã hóa bài viết' : 'Mã hóa bài viết (AES-256)' }}
-                                            </mat-label>
-                                        </button>
                                     </mat-menu>
                                     <mat-menu #forumActions="matMenu">
                                         <div
