@@ -10712,28 +10712,62 @@ ipcMain.handle('sync-local-faiss-to-server', async (event, { username, apiUrl, a
         };
 
         // 0. Kiểm tra server đã deploy endpoint sync chưa (body rỗng: 422 = có, 404 = chưa)
-        const probe = await fetch(`${baseUrl}/sync-local-faiss`, { method: 'POST', headers, body: '{}' }).catch(() => null);
+        const probe = await fetch(`${baseUrl}/sync-local-manifest`, { method: 'POST', headers, body: '{}' }).catch(() => null);
         if (!probe) {
             return { success: false, error: `Không kết nối được server ${baseUrl}.` };
         }
         if (probe.status === 404) {
-            return { success: false, error: `Server ${baseUrl} chưa có endpoint /sync-local-faiss. Hãy deploy chatbot.py mới và restart service.` };
+            return { success: false, error: `Server ${baseUrl} chưa có endpoint /sync-local-manifest. Hãy deploy chatbot.py mới và restart service.` };
         }
 
+        // Băm sha256 theo stream để không nạp cả file 50MB+ vào RAM chỉ để hash
+        const sha256File = (p) => new Promise((resolve, reject) => {
+            const h = crypto.createHash('sha256');
+            fs.createReadStream(p).on('data', d => h.update(d)).on('end', () => resolve(h.digest('hex'))).on('error', reject);
+        });
+
         const mdFiles = fs.existsSync(docsDir) ? fs.readdirSync(docsDir).filter(f => f.endsWith('.md')) : [];
-        const total = mdFiles.length + 1;
+
+        // 1. Lập manifest local và hỏi server file nào cần đẩy
+        sendProgress({ current: 0, total: mdFiles.length, filename: 'Đang so sánh với server...' });
+        const manifestFiles = [];
+        for (const mdFile of mdFiles) {
+            const base = mdFile.replace(/\.md$/, '');
+            manifestFiles.push({ name: mdFile, sha256: await sha256File(path.join(docsDir, mdFile)) });
+            const jsonName = `${base}.mineru.json`;
+            if (fs.existsSync(path.join(docsDir, jsonName))) {
+                manifestFiles.push({ name: jsonName, sha256: await sha256File(path.join(docsDir, jsonName)) });
+            }
+        }
+        const manifest = await postJson(`${baseUrl}/sync-local-manifest`, {
+            username,
+            doc_type: docType,
+            files: manifestFiles,
+            faiss_sha256: await sha256File(faissPath),
+            pkl_sha256: await sha256File(pklPath)
+        });
+        const needSet = new Set(manifest.need || []);
+
+        // Gom theo tài liệu: chỉ giữ tài liệu có .md hoặc .mineru.json cần đẩy
+        const pending = mdFiles
+            .map(mdFile => {
+                const base = mdFile.replace(/\.md$/, '');
+                return { base, needMd: needSet.has(mdFile), needJson: needSet.has(`${base}.mineru.json`) };
+            })
+            .filter(d => d.needMd || d.needJson);
+
+        const skipped = mdFiles.length - pending.length;
+        const total = pending.length + 1;
         const synced = [];
         const failed = [];
 
-        // 1. Đẩy từng tài liệu (Markdown + MinerU JSON)
-        for (let i = 0; i < mdFiles.length; i++) {
-            const mdFile = mdFiles[i];
-            const base = mdFile.replace(/\.md$/, '');
+        // 2. Chỉ đẩy phần thiếu hoặc đã thay đổi
+        for (let i = 0; i < pending.length; i++) {
+            const { base, needMd, needJson } = pending[i];
             sendProgress({ current: i + 1, total, filename: base });
             try {
-                const markdown = fs.readFileSync(path.join(docsDir, mdFile), 'utf-8');
-                const jsonPath = path.join(docsDir, `${base}.mineru.json`);
-                const content_json = fs.existsSync(jsonPath) ? fs.readFileSync(jsonPath, 'utf-8') : null;
+                const markdown = needMd ? fs.readFileSync(path.join(docsDir, `${base}.md`), 'utf-8') : null;
+                const content_json = needJson ? fs.readFileSync(path.join(docsDir, `${base}.mineru.json`), 'utf-8') : null;
                 await postJson(`${baseUrl}/sync-local-doc`, {
                     username, doc_type: docType, filename: `${base}.pdf`, markdown, content_json
                 });
@@ -10744,22 +10778,25 @@ ipcMain.handle('sync-local-faiss-to-server', async (event, { username, apiUrl, a
             }
         }
 
-        if (!synced.length) {
+        if (pending.length && !synced.length) {
             return { success: false, error: `Không đẩy được tài liệu nào (${failed[0]?.error || 'không rõ lỗi'}).`, failed };
         }
 
-        // 2. Đẩy bản FAISS + PKL tổng
-        sendProgress({ current: total, total, filename: 'index.faiss' });
-        const faissRes = await postJson(`${baseUrl}/sync-local-faiss`, {
-            username,
-            doc_type: docType,
-            faiss_base64: fs.readFileSync(faissPath).toString('base64'),
-            pkl_base64: fs.readFileSync(pklPath).toString('base64'),
-            filenames: synced
-        });
+        // 3. Đẩy FAISS + PKL khi khác server hoặc có tài liệu mới cần đánh dấu đã index
+        let faissRes = { skipped: true };
+        if (manifest.need_faiss || synced.length) {
+            sendProgress({ current: total, total, filename: 'index.faiss' });
+            faissRes = await postJson(`${baseUrl}/sync-local-faiss`, {
+                username,
+                doc_type: docType,
+                faiss_base64: fs.readFileSync(faissPath).toString('base64'),
+                pkl_base64: fs.readFileSync(pklPath).toString('base64'),
+                filenames: synced
+            });
+        }
 
-        console.log(`[FAISS Sync] Hoàn tất: ${synced.length} tài liệu, lỗi ${failed.length}, server faiss=${faissRes.faiss_size}B`);
-        return { success: true, synced: synced.length, failed, server: faissRes };
+        console.log(`[FAISS Sync] Hoàn tất: đẩy ${synced.length}, bỏ qua ${skipped} (đã có trên server), lỗi ${failed.length}, faiss ${faissRes.skipped ? 'không đổi' : faissRes.faiss_size + 'B'}`);
+        return { success: true, synced: synced.length, skipped, failed, server: faissRes };
     } catch (err) {
         console.error('[FAISS Sync] Lỗi:', err);
         return { success: false, error: err.message };

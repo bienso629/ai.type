@@ -207,18 +207,37 @@
     background: transparent !important;
     box-shadow: none !important;
 
-    .datatable-header {
-        background: #f8fafc !important;
-        border-bottom: 1px solid #e2e8f0 !important;
-        box-shadow: none !important;
+    // Header và cell của cột checkbox dùng chung padding để thẳng hàng
+    .datatable-header-cell.chatbot-check-col.chatbot-check-col,
+    .datatable-body-cell.chatbot-check-col.chatbot-check-col {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
 
-        .datatable-header-cell {
-            padding: 0.6rem 0.5rem !important;
+    .datatable-body-cell.chatbot-check-col.chatbot-check-col {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+
+        // styles.scss toàn cục dùng top:50% + translateY(-50%) cho label,
+        // cell đã flex căn giữa nên phải tắt để không bị đẩy xuống đáy
+        .datatable-body-cell-label {
+            top: auto !important;
+            transform: none !important;
         }
+    }
 
-        .datatable-row-left,
-        .datatable-row-right {
-            background-image: none !important;
+    .chatbot-check-col .datatable-checkbox {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        margin: 0 !important;
+        padding: 0 !important;
+
+        input[type='checkbox'] {
+            margin: 0 !important;
         }
     }
 
