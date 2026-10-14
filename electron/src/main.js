@@ -37,6 +37,30 @@ const http = require("http");
 const semver = require("semver");
 const fs = require("fs");
 
+// Bảo vệ process.stdout / process.stderr khỏi lỗi EIO / EPIPE khi chạy detached hoặc đóng terminal
+[process.stdout, process.stderr].forEach((stream) => {
+    if (stream && typeof stream.on === "function") {
+        stream.on("error", (err) => {
+            if (err && (err.code === "EIO" || err.code === "EPIPE" || err.code === "ENXIO")) {
+                return;
+            }
+        });
+    }
+});
+const _origLog = console.log.bind(console);
+const _origErr = console.error.bind(console);
+const _origWarn = console.warn.bind(console);
+console.log = (...args) => { try { _origLog(...args); } catch (e) {} };
+console.error = (...args) => { try { _origErr(...args); } catch (e) {} };
+console.warn = (...args) => { try { _origWarn(...args); } catch (e) {} };
+process.on("uncaughtException", (err) => {
+    if (err && (err.code === "EIO" || err.code === "EPIPE" || err.code === "ENXIO")) {
+        return;
+    }
+    try { _origErr("[UncaughtException]", err); } catch (e) {}
+});
+
+
 // Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ đi?u hành và app khác
 app.on('web-contents-created', (e, webContents) => {
     webContents.on('before-input-event', (event, input) => {
@@ -8057,11 +8081,10 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
     const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username, ref_audio_base64, colab_url, sst_url } = payload;
 
     // Kiểm tra xem có kết nối Colab GPU đang hoạt động hay không
-    let colabBaseUrl = colab_url || sst_url || null;
+    // Ưu tiên URL tunnel đang sống (daemon 7868 / MCP client) thay vì sst_url trong cài đặt,
+    // vì sst_url có thể còn lưu URL tunnel cũ của tài khoản Colab trước => HTTP 404.
+    let colabBaseUrl = colab_url || null;
     try {
-        if (!colabBaseUrl && colabMcpClient && colabMcpClient.isConnected && colabMcpClient.baseUrl) {
-            colabBaseUrl = colabMcpClient.baseUrl;
-        }
         if (!colabBaseUrl) {
             // Thử kiểm tra daemon local cổng 7868
             const localResp = await fetch("http://127.0.0.1:7868/status", { signal: AbortSignal.timeout(1500) });
@@ -8073,6 +8096,12 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
             }
         }
     } catch (e) {}
+    if (!colabBaseUrl && colabMcpClient && colabMcpClient.isConnected && colabMcpClient.baseUrl) {
+        colabBaseUrl = colabMcpClient.baseUrl;
+    }
+    if (!colabBaseUrl && sst_url) {
+        colabBaseUrl = sst_url;
+    }
 
     // Định nghĩa Base URL của API (ưu tiên Colab OmniVoice, fallback sang tts.type.vn)
     const isColab = !!colabBaseUrl;
