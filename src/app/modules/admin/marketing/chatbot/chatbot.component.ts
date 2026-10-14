@@ -1330,6 +1330,9 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const botIndex = this.currentMessages.length + 2;
         const botMessage = [botIndex, this.currentThread, 'bot', 'Đang phân tích...', null, null, timeStr];
 
+        // Lịch sử hội thoại TRƯỚC lượt hiện tại (dùng để AI hiểu "nhân vật này", "ông ấy"... ở câu sau)
+        const historyMessages = [...(this.currentMessages || [])];
+
         this.currentMessages = [...this.currentMessages, userMessage, botMessage];
         this.renderMessages(this.currentMessages);
 
@@ -1355,11 +1358,15 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         let finalMessage = msg;
         let foundContext = '';
 
+        // Câu truy vấn ngữ cảnh = câu hỏi trước của người dùng + câu hiện tại (giải quyết đại từ thay thế)
+        const prevUserQuestion = [...historyMessages].reverse().find(m => m?.[2] === 'user')?.[3] || '';
+        const searchQuery = prevUserQuestion ? `${prevUserQuestion} ${msg}` : msg;
+
         if (electron && electron.invoke) {
             try {
                 const localContext = await electron.invoke('get-local-faiss-context', {
                     username: this.user.name,
-                    query: msg,
+                    query: searchQuery,
                     maxChunks: 4
                 });
                 if (localContext?.success && localContext?.context) {
@@ -1375,7 +1382,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 const serverContextRes: any = await new Promise((resolve) => {
                     this._chatbotService.queryFaissContext({
                         username: this.user.name,
-                        query: msg,
+                        query: searchQuery,
                         doc_types: this.selectedDocType ? [this.selectedDocType] : null,
                         max_chunks: 4
                     }).subscribe({
@@ -1395,7 +1402,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         // Cơ chế dự phòng thông minh cho iPad/Tablet/Web: Quét nội dung tài liệu trực tiếp từ máy chủ bot.type.vn
         if (!foundContext && this.fileRows && this.fileRows.length > 0) {
             try {
-                const queryTerms = (msg || '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
+                const queryTerms = (searchQuery || '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
                 if (queryTerms.length > 0) {
                     // Ưu tiên các file được người dùng chọn (checkbox), tiếp theo là file có tên khớp từ khóa, sau cùng là toàn bộ file
                     let candidateFiles: any[] = [];
@@ -1535,12 +1542,31 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
         try {
             console.log('[Chatbot] Đang gửi câu hỏi lên AI Agent (agent.type.vn) với dữ liệu FAISS cục bộ...');
-            const sysInstruction = `Bạn là Trợ lý AI chuyên nghiệp phân tích và hỏi đáp tài liệu. Hãy trả lời câu hỏi của người dùng một cách mạch lạc, chi tiết, chính xác dựa trên các thông tin tài liệu đã trích xuất bên dưới:`;
+            const sysInstruction = `Bạn là Trợ lý AI chuyên nghiệp phân tích và hỏi đáp tài liệu. Hãy trả lời câu hỏi của người dùng một cách mạch lạc, chi tiết, chính xác dựa trên các thông tin tài liệu đã trích xuất bên dưới. Đây là cuộc hội thoại nhiều lượt: khi người dùng dùng các từ thay thế như "nhân vật này", "người đó", "ông ấy", "cuốn này"... hãy dựa vào các lượt hỏi đáp trước để xác định đối tượng đang được nhắc tới, không hỏi lại nếu lịch sử đã rõ.`;
+
+            // Dựng lịch sử hội thoại (bỏ placeholder, rút gọn bớt câu trả lời dài, gộp lượt trùng vai)
+            const historyContents: { role: string; parts: { text: string }[] }[] = [];
+            for (const m of historyMessages.slice(-12)) {
+                const text = String(m?.[3] || '').trim();
+                if (!text || text === 'Đang phân tích...') continue;
+                const role = m?.[2] === 'user' ? 'user' : 'model';
+                const clipped = text.length > 2000 ? text.slice(0, 2000) + '...' : text;
+                const last = historyContents[historyContents.length - 1];
+                if (last && last.role === role) {
+                    last.parts[0].text += `\n\n${clipped}`;
+                } else {
+                    historyContents.push({ role, parts: [{ text: clipped }] });
+                }
+            }
+            // Gemini yêu cầu lượt đầu là user và lượt cuối trước câu hỏi mới là model
+            while (historyContents.length && historyContents[0].role !== 'user') historyContents.shift();
+            if (historyContents.length && historyContents[historyContents.length - 1].role === 'user') historyContents.pop();
 
             const response = await this._genaiService.generateContent(
                 {
                     model: 'gemini-2.0-flash',
                     contents: [
+                        ...historyContents,
                         {
                             role: 'user',
                             parts: [{ text: finalMessage }]
