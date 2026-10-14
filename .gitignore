@@ -79,3 +79,8 @@ electron/yt-dlp-macos
 electron/ai_agent_linux
 electron/ai_agent_macos
 electron/ai_agent_win.exe
+
+# Uploads & Temp Media
+uploads/
+**/uploads/
+**/temp_uploads/
