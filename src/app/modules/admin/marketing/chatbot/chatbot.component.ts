@@ -1550,7 +1550,9 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 const text = String(m?.[3] || '').trim();
                 if (!text || text === 'Đang phân tích...') continue;
                 const role = m?.[2] === 'user' ? 'user' : 'model';
-                const clipped = text.length > 2000 ? text.slice(0, 2000) + '...' : text;
+                // Câu trả lời cũ chỉ cần phần đầu để AI biết đang bàn về ai/cái gì -> 500 ký tự cho tiết kiệm token
+                const maxLen = role === 'model' ? 500 : 2000;
+                const clipped = text.length > maxLen ? text.slice(0, maxLen) + '...' : text;
                 const last = historyContents[historyContents.length - 1];
                 if (last && last.role === role) {
                     last.parts[0].text += `\n\n${clipped}`;
