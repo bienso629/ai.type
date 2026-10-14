@@ -209,17 +209,20 @@
                     >
                         <!-- Cột 1: Checkbox -->
                         <ngx-datatable-column
-                            [width]="30"
+                            [width]="48"
                             [sortable]="false"
                             [canAutoResize]="false"
                             [draggable]="false"
                             [resizeable]="false"
                             [headerCheckboxable]="true"
                             [checkboxable]="true"
+                            headerClass="chatbot-check-col"
+                            cellClass="chatbot-check-col"
                         ></ngx-datatable-column>
                         <!-- Cột 2: Tên tài liệu -->
                         <ngx-datatable-column
                             name="Tên tài liệu"
+                            headerClass="!text-base"
                             [flexGrow]="1"
                             [sortable]="false"
                             [canAutoResize]="true"

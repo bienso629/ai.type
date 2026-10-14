@@ -1985,8 +1985,10 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             });
             if (res && res.success) {
                 const failedCount = res.failed?.length || 0;
-                const sizeKb = res.server?.faiss_size ? Math.round(res.server.faiss_size / 1024) : 0;
-                const msg = `Đã sync ${res.synced} tài liệu và FAISS (${sizeKb} KB) lên server.`;
+                const faissMsg = res.server?.skipped
+                    ? 'FAISS không đổi'
+                    : `FAISS ${res.server?.faiss_size ? Math.round(res.server.faiss_size / 1024) : 0} KB`;
+                const msg = `Đã sync ${res.synced} tài liệu, bỏ qua ${res.skipped || 0} tài liệu đã có trên server, ${faissMsg}.`;
                 failedCount ? this.toastr.warning(`${msg} Lỗi ${failedCount} tài liệu.`) : this.toastr.success(msg);
                 this.refreshFiles();
             } else {
