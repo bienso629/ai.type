@@ -596,6 +596,18 @@ def generate_audio_async(req: AudioAsyncRequest):
     threading.Thread(target=run_omnivoice_task, args=(task_id, req), daemon=True).start()
     return {"task_id": task_id, "status": "started"}
 
+@app.post("/restart_runtime")
+def restart_runtime():
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            import gc
+            gc.collect()
+            torch.cuda.empty_cache()
+        return {"status": "success", "message": "Runtime restarted (VRAM cache cleared)"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.post("/call_tool")
 def handle_call_tool(req: ToolCallRequest):
     tool, args = req.name, req.arguments

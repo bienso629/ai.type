@@ -119,6 +119,7 @@ contextBridge.exposeInMainWorld('electron', {
     deleteLocalArticle: (payload) => ipcRenderer.invoke('delete-local-article', payload),
     listLocalCollections: (payload) => ipcRenderer.invoke('list-local-collections', payload),
     saveLocalCollection: (payload) => ipcRenderer.invoke('save-local-collection', payload),
+    updateLocalCollection: (payload) => ipcRenderer.invoke('update-local-collection', payload),
     storeLocalCollection: (payload) => ipcRenderer.invoke('store-local-collection', payload),
     removeLocalCollection: (payload) => ipcRenderer.invoke('remove-from-local-collection', payload),
     saveLocalScript: (payload) => ipcRenderer.invoke('save-local-script', payload),

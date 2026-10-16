@@ -884,6 +884,8 @@
     "app.request_not_found": "Your request could not be found at this time.",
     "app.close": "Close",
     "app.close_again": "Close again",
+    "app.delete": "Delete",
+    "app.cancel": "Cancel",
     "app.delete_video_script": "Delete video script",
     "app.are_you_sure_delete_script": "Are you sure you want to delete the script",
     "app.action_cannot_be_undone_delete_all": "This action cannot be undone and will delete all related audio and visual data.",

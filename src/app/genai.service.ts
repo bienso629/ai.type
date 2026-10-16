@@ -555,6 +555,11 @@ export class GenaiService {
                 finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
             }
         }
+        // [PATCH 2026-10-16] SỬA ẢNH qua AI Agent: nhét chỉ thị cứng buộc dựa trên ảnh đính kèm, không vẽ mới
+        const isImageEditAgent = (params.config as any)?.isImageEdit === true;
+        if (isImageEditAgent) {
+            finalPrompt = 'Bắt buộc CHỈNH SỬA dựa trên ảnh người dùng đính kèm trong files (giữ nguyên bố cục, nhân vật, phong cách ảnh gốc; chỉ thay đổi đúng theo yêu cầu). Tuyệt đối không vẽ ảnh mới hoàn toàn. Yêu cầu chỉnh sửa: ' + finalPrompt;
+        }
         
         const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
@@ -1581,6 +1586,14 @@ export class GenaiService {
                 lastErrorMsg = editErr?.message || String(editErr);
                 console.warn(`[UModelverse Image] /images/edits gặp lỗi ngoại lệ:`, lastErrorMsg);
             }
+        }
+
+        // [PATCH 2026-10-16] SỬA ẢNH (isImageEdit): TUYỆT ĐỐI KHÔNG được rơi vào vòng /images/generations.
+        // generations là text-to-image thuần: proxy bỏ qua các trường image/ref_image không chuẩn
+        // và vẽ ảnh MỚI hoàn toàn từ prompt => mất ảnh gốc (triệu chứng: "chỉnh sửa" nhưng ra ảnh chả liên quan).
+        // /images/edits đã thất bại ở trên => ném lỗi để GenaiService chuyển tầng dự phòng (AI Agent / Google trực tiếp) vốn giữ nguyên ảnh gốc.
+        if (isImageEdit) {
+            throw new Error(`Sửa ảnh thất bại trên proxy Mì Tôm AI (/images/edits): ${lastErrorMsg || 'không rõ nguyên nhân'}. Hệ thống sẽ chuyển sang tầng dự phòng giữ nguyên ảnh gốc.`);
         }
 
         for (let i = 0; i < candidateRequests.length; i++) {

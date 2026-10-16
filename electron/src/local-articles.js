@@ -1519,6 +1519,67 @@ function registerLocalArticlesHandlers() {
     });
 
     /**
+     * Cập nhật bộ sưu tập cục bộ (đổi tên tiêu đề, cập nhật danh sách uuid...)
+     */
+    ipcMain.handle('update-local-collection', async (event, payload) => {
+        try {
+            const { _id, id, title, uuid, username = getActiveLocalUsername() } = payload || {};
+            const colId = _id || id;
+            if (!colId) {
+                return { success: false, message: 'Thiếu ID bộ sưu tập cần cập nhật.' };
+            }
+            const db = getArticlesDatabase(username);
+
+            const existing = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM local_collections WHERE id = ?', [colId], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row || null);
+                });
+            });
+
+            if (!existing) {
+                return { success: false, message: 'Không tìm thấy bộ sưu tập cần cập nhật.' };
+            }
+
+            let uuidsList;
+            if (uuid !== undefined) {
+                uuidsList = Array.isArray(uuid) ? uuid : (uuid ? [uuid] : []);
+            } else {
+                try {
+                    uuidsList = existing.uuids_json ? JSON.parse(existing.uuids_json) : [];
+                } catch (e) {
+                    uuidsList = [];
+                }
+            }
+            const now = new Date().toISOString();
+
+            await new Promise((resolve, reject) => {
+                db.run(
+                    `UPDATE local_collections SET
+                        title = ?,
+                        uuids_json = ?,
+                        count = ?,
+                        updated_at = ?
+                    WHERE id = ?`,
+                    [
+                        title !== undefined && title !== null ? title : existing.title,
+                        JSON.stringify(uuidsList),
+                        uuidsList.length,
+                        now,
+                        colId
+                    ],
+                    (err) => (err ? reject(err) : resolve())
+                );
+            });
+
+            return { success: true, id: colId, message: 'Cập nhật bộ sưu tập cục bộ thành công.' };
+        } catch (error) {
+            console.error('[update-local-collection] Lỗi:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
      * Thêm bài viết vào bộ sưu tập cục bộ
      */
     ipcMain.handle('store-local-collection', async (event, payload) => {
