@@ -1555,8 +1555,17 @@ export class CrawlService {
 
     public updateCollection(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        if (isAutoSaveLocal) {
-            return of({ success: true, message: 'Cập nhật bộ sưu tập cục bộ thành công.' });
+        const electron = (window as any).electron;
+        if (isAutoSaveLocal && electron && electron.updateLocalCollection) {
+            return from(electron.updateLocalCollection({
+                _id: dataForm?._id,
+                title: dataForm?.title,
+                uuid: dataForm?.uuid,
+                username: dataForm?.username || this.user?.name || 'admin'
+            })).pipe(
+                map((result: any) => result),
+                catchError(this.handleError('updateCollection', { success: false }))
+            );
         }
 
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}

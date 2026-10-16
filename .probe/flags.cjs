@@ -1,0 +1,11 @@
+const { DatabaseSync } = require('node:sqlite');
+const conn = new DatabaseSync('/home/yenai/Documents/ai.type/data/articles_admin.sqlite');
+const r = conn.prepare("SELECT source_json, encrypted_payload, is_encrypted, updated_at FROM local_articles WHERE uuid='RRfKhBTPpv'").get();
+console.log('is_encrypted:', r.is_encrypted, '| updated_at:', r.updated_at);
+console.log('encrypted_payload:', r.encrypted_payload === null ? 'NULL' : String(r.encrypted_payload).slice(0,120));
+const src = JSON.parse(r.source_json || '{}');
+console.log('source keys:', Object.keys(src));
+console.log('source.encrypted:', src.encrypted);
+console.log('source.cipher?', src.cipher ? 'YES len ' + String(src.cipher).length : 'NO');
+console.log('source.master_cipher?', src.master_cipher ? 'YES len ' + String(src.master_cipher).length : 'NO');
+conn.close();

@@ -36,6 +36,7 @@ import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialo
 import * as CryptoJS from 'crypto-js';
 import {
     tryDecryptWithMasterFallback,
+    decryptPbkdf2AesCbc,
     isMasterKey,
 } from 'app/core/auth/crypto.helper';
 
@@ -1300,7 +1301,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     if (resData && resData.docs && resData.docs.length > 0) {
                         const docsWithGroup = resData.docs.map((doc: any) => ({
                             ...doc,
-                            is_encrypted: this.isRowEncrypted(doc),
+                            // [FIX] Bai luu cuc bo: dung co is_encrypted tu SQLite lam nguon that
+                            is_encrypted: doc.is_local
+                                ? !!doc.is_encrypted
+                                : this.isRowEncrypted(doc),
                             dateGroup: this.getDateGroup(doc),
                         }));
                         if (!this.masterLoadedRows) this.masterLoadedRows = [];
@@ -1714,7 +1718,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         domain: art.domain || 'local.ai.type',
                         used: 0,
                         is_local: true,
-                        is_encrypted: this.isRowEncrypted(art),
+                        // [FIX] Bai luu cuc bo: dung co is_encrypted tu SQLite lam nguon that
+                        is_encrypted: !!art.is_encrypted,
                         has_script: !!art.has_script,
                         created_at:
                             art.created_at ||
@@ -1764,12 +1769,34 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
 
         for (const item of encryptedItems) {
+            // [FIX] Neu bai luu cuc bo da khong con khoa trong SQLite (is_encrypted=0) -> bo qua verify, khong bao sai oan
+            if (item?.is_local && item?.uuid) {
+                try {
+                    const vr: any = await firstValueFrom(
+                        this._crawlService.detail({
+                            uuid: item.uuid,
+                            username: this.getCurrentUsername(),
+                        }),
+                    );
+                    if (vr && vr.success && vr.data && !vr.data.is_encrypted) {
+                        // Bai da duoc go khoa trong SQLite -> xoa co rac va cho qua
+                        localStorage.removeItem('article_encrypted_' + item.uuid);
+                        sessionStorage.removeItem('nav_handshake_pwd_' + item.uuid);
+                        continue;
+                    }
+                } catch (e) {}
+            }
+
             let cipher = item?.cipher || item?.source?.cipher;
             let masterCipher =
                 item?.master_cipher || item?.source?.master_cipher;
 
-            // Nếu cipher chưa có sẵn trên row object trong datatable list, nạp chi tiết bài viết
-            if (!cipher && item && item.uuid) {
+            // [FIX] encrypted_payload chuẩn {salt, iv, data} của bài lưu cục bộ (SQLite)
+            let payload =
+                item?.encrypted_payload || item?.source?.encrypted_payload;
+
+            // Nếu cipher/payload chưa có sẵn trên row object trong datatable list, nạp chi tiết bài viết
+            if (!cipher && !payload && item && item.uuid) {
                 try {
                     const res: any = await firstValueFrom(
                         this._crawlService.detail({
@@ -1778,6 +1805,9 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         }),
                     );
                     if (res && res.success && res.data) {
+                        payload =
+                            res.data.encrypted_payload ||
+                            res.data.source?.encrypted_payload;
                         cipher =
                             res.data.cipher ||
                             res.data.source?.cipher ||
@@ -1790,6 +1820,47 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 } catch (e) {}
             }
 
+            // [FIX] Ưu tiên giải mã encrypted_payload (AES-256-CBC PBKDF2) đúng như phía Electron đã mã hóa
+            if (payload) {
+                let payloadObj: any = payload;
+                if (typeof payloadObj === 'string') {
+                    try {
+                        payloadObj = JSON.parse(payloadObj);
+                    } catch (e) {
+                        payloadObj = null;
+                    }
+                }
+                const payloadText = payloadObj
+                    ? decryptPbkdf2AesCbc(payloadObj, password)
+                    : null;
+                if (payloadText && payloadText.length > 0) {
+                    continue; // Mật khẩu chính xác
+                }
+                if (!cipher && !masterCipher) {
+                    // [FIX] Fallback: nhờ Electron xác thực trực tiếp bài lưu cục bộ
+                    const electron = (window as any).electron;
+                    if (
+                        item.uuid &&
+                        electron &&
+                        electron.readLocalArticle &&
+                        localStorage.getItem('ai_type_auto_save_local') !==
+                            'false'
+                    ) {
+                        try {
+                            const vr = await electron.readLocalArticle({
+                                uuid: item.uuid,
+                                username: this.getCurrentUsername(),
+                                password,
+                            });
+                            if (vr && vr.success) {
+                                continue; // Mật khẩu chính xác
+                            }
+                        } catch (e) {}
+                    }
+                    return false; // Mật khẩu không giải mã được
+                }
+            }
+
             if (cipher || masterCipher) {
                 const decryptedText = tryDecryptWithMasterFallback(
                     cipher,
@@ -1799,8 +1870,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 if (!decryptedText || decryptedText.length === 0) {
                     return false; // Mật khẩu không giải mã được
                 }
-            } else {
-                // Nếu bài viết không có cipher để đối chiếu xác thực, kiểm tra với API detail
+            } else if (!payload) {
+                // Nếu bài viết không có cipher/payload để đối chiếu xác thực
                 return false;
             }
         }
@@ -1825,21 +1896,154 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     verifyLoadedRowsEncryption() {
-        return;
+        if (!this.masterLoadedRows || this.masterLoadedRows.length === 0) return;
+        this.masterLoadedRows.forEach((row: any) => {
+            if (row && row.uuid && !row.isGroupHeader) {
+                if (row.is_local) {
+                    // [FIX] Bai luu cuc bo: SQLite la nguon that -> dong bo co cache theo DB, xoa co "khoa" rac
+                    if (row.is_encrypted || row.encrypted) {
+                        localStorage.setItem('article_encrypted_' + row.uuid, 'true');
+                    } else {
+                        row.is_encrypted = false;
+                        localStorage.removeItem('article_encrypted_' + row.uuid);
+                    }
+                } else if (this.isRowEncrypted(row)) {
+                    row.is_encrypted = true;
+                    localStorage.setItem('article_encrypted_' + row.uuid, 'true');
+                }
+            }
+        });
     }
 
     ensureMultipleUnlocked(
         items: any[],
         callback: (unlocked: boolean, password?: string) => void,
     ) {
-        callback(true);
+        if (!items || items.length === 0) {
+            callback(true);
+            return;
+        }
+
+        const encryptedItems = items.filter((r) => this.isRowEncrypted(r));
+        if (encryptedItems.length === 0) {
+            callback(true);
+            return;
+        }
+
+        // Kiểm tra xem tất cả bài viết mã hóa đã có token giải mã trong sessionStorage hay chưa
+        const unhandledEncrypted = encryptedItems.filter((r) => {
+            const uuid = r.uuid || r._id || r.id;
+            if (!uuid) return false;
+            const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
+            return !token;
+        });
+
+        if (unhandledEncrypted.length === 0) {
+            // Tất cả đã được mở khóa hợp lệ trong phiên làm việc
+            callback(true);
+            return;
+        }
+
+        const targetRow = unhandledEncrypted[0];
+        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'unlock',
+                type: 'article',
+                title:
+                    targetRow.title ||
+                    `Danh sách bài viết đã chọn (${encryptedItems.length} bài mã hóa)`,
+                validator: async (pwd: string) => {
+                    return await this.verifyPasswordForArticles(
+                        encryptedItems,
+                        pwd,
+                    );
+                },
+            },
+            width: '450px',
+            disableClose: true,
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                encryptedItems.forEach((r) => {
+                    const targetUuid = r.uuid || r._id || r.id;
+                    if (targetUuid) {
+                        sessionStorage.setItem(
+                            'nav_handshake_pwd_' + targetUuid,
+                            JSON.stringify({
+                                password: res.password,
+                                ts: Date.now(),
+                            }),
+                        );
+                    }
+                });
+                callback(true, res.password);
+            } else {
+                callback(false);
+            }
+        });
     }
 
     ensureUnlocked(
         row: any,
         callback: (unlocked: boolean, password?: string) => void,
     ) {
-        callback(true);
+        if (!row) {
+            callback(true);
+            return;
+        }
+
+        const isEncrypted = this.isRowEncrypted(row);
+        if (!isEncrypted) {
+            callback(true);
+            return;
+        }
+
+        const targetUuid = row.uuid || row._id || row.id;
+        if (targetUuid) {
+            const token = sessionStorage.getItem(
+                'nav_handshake_pwd_' + targetUuid,
+            );
+            if (token) {
+                try {
+                    const parsed = JSON.parse(token);
+                    if (parsed && parsed.password) {
+                        callback(true, parsed.password);
+                        return;
+                    }
+                } catch (e) {}
+            }
+        }
+
+        const dialogRef = this._matDialog.open(ArticlePasswordDialog, {
+            data: {
+                mode: 'unlock',
+                type: 'article',
+                title: row.title || 'Bài viết',
+                validator: async (pwd: string) => {
+                    return await this.verifyPasswordForArticles([row], pwd);
+                },
+            },
+            width: '450px',
+            disableClose: true,
+        });
+
+        dialogRef.afterClosed().subscribe((res: any) => {
+            if (res && res.password) {
+                if (targetUuid) {
+                    sessionStorage.setItem(
+                        'nav_handshake_pwd_' + targetUuid,
+                        JSON.stringify({
+                            password: res.password,
+                            ts: Date.now(),
+                        }),
+                    );
+                }
+                callback(true, res.password);
+            } else {
+                callback(false);
+            }
+        });
     }
 
     openRowArticle(row: any) {

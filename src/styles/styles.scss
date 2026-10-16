@@ -402,10 +402,9 @@ hr {
             }
         }
 
-        /* Khi icon nằm trong wrapper hoặc có class !m-0 thì không bị margin-right làm lệch */
+        /* Khi icon nằm trong wrapper tròn hoặc có class !m-0 thì không bị margin-right làm lệch */
         .\!m-0,
-        .rounded-full .mat-icon,
-        div:not(.mat-mdc-menu-item-text) > .mat-icon {
+        .rounded-full .mat-icon {
             margin-right: 0 !important;
         }
     }
@@ -593,10 +592,9 @@ hr {
             }
         }
 
-        /* Khi icon nằm trong wrapper hoặc có class !m-0 thì không bị margin-right làm lệch */
+        /* Khi icon nằm trong wrapper tròn hoặc có class !m-0 thì không bị margin-right làm lệch */
         .\!m-0,
-        .rounded-full .mat-icon,
-        div:not(.mat-mdc-menu-item-text) > .mat-icon {
+        .rounded-full .mat-icon {
             margin-right: 0 !important;
         }
     }

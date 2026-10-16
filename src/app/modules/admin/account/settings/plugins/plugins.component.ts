@@ -747,16 +747,63 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
 
     async restartColabRuntime() {
         try {
-            const baseUrl = this.getColabBaseUrl();
-            const resp = await fetch(`${baseUrl}/restart_runtime`, { method: 'POST' });
-            if (resp.ok) {
-                this.toastr.success('Đã gửi yêu cầu khởi động lại Colab Runtime.');
+            // Bước 1: Lấy tunnel URL THẬT của phiên Colab đang chạy từ daemon (cổng 7868) qua Electron IPC.
+            // KHÔNG dùng getColabBaseUrl() vì nó chỉ trả cấu hình sst hoặc fallback (không phải tunnel sống).
+            let baseUrl = '';
+            try {
+                if ((window as any).electronAPI && (window as any).electronAPI.checkColabGpuStatus) {
+                    const gpuStatus = await (window as any).electronAPI.checkColabGpuStatus();
+                    if (gpuStatus && gpuStatus.colab_url) {
+                        baseUrl = String(gpuStatus.colab_url).trim().replace(/\/+$/, '');
+                    }
+                }
+            } catch(gpuErr) {
+                console.warn('[Colab] Không lấy được trạng thái GPU từ daemon:', gpuErr);
+            }
+            // Fallback cho môi trường web/iOS (không có Electron daemon): dùng cấu hình sst
+            if (!baseUrl) {
+                baseUrl = this.getColabBaseUrl();
+            }
+            if (!baseUrl || !baseUrl.trim()) {
+                this.toastr.error('Chưa có phiên Colab nào đang chạy. Hãy bấm "Khởi chạy GPU T4" trước.');
+                return;
+            }
+            let done = false;
+            // Ưu tiên gọi trực tiếp route /restart_runtime
+            try {
+                const resp = await this.fetchWithTimeout(`${baseUrl}/restart_runtime`, { method: 'POST' }, 8000);
+                if (resp.ok) {
+                    done = true;
+                } else {
+                    console.warn('[Colab] /restart_runtime trả về HTTP ' + resp.status + ', thử fallback /call_tool...');
+                }
+            } catch(routeErr) {
+                console.warn('[Colab] Lỗi gọi /restart_runtime, thử fallback /call_tool...', routeErr);
+            }
+            // Fallback: gọi qua /call_tool với tool restart_runtime (dành cho phiên server cũ chưa có route riêng)
+            if (!done) {
+                try {
+                    const resp2 = await this.fetchWithTimeout(`${baseUrl}/call_tool`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: 'restart_runtime', arguments: {} })
+                    }, 8000);
+                    if (resp2.ok) {
+                        const data = await resp2.json().catch(() => null);
+                        done = !(data && data.status === 'error');
+                    }
+                } catch(toolErr) {
+                    console.warn('[Colab] Lỗi fallback /call_tool:', toolErr);
+                }
+            }
+            if (done) {
+                this.toastr.success('Đã khởi động lại Colab Runtime (giải phóng bộ nhớ VRAM).');
                 setTimeout(() => this.checkColabStatus(), 1500);
             } else {
-                this.toastr.error('Không thể khởi động lại Colab Runtime.');
+                this.toastr.error('Không thể khởi động lại Colab Runtime (tunnel có thể đã chết). Hãy bấm "Khởi chạy GPU T4" để tạo phiên mới rồi thử lại.');
             }
         } catch(e) {
-            this.toastr.error('Colab Agent Plugin chưa được khởi chạy.');
+            this.toastr.error('Colab Agent chưa kết nối. Hãy bật Colab GPU hoặc cấu hình URL.');
         }
     }
 

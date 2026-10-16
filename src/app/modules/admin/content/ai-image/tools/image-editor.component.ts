@@ -254,6 +254,8 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
     fontGroups: any[] = [];
     aiPrompt: string = '';
     isGeneratingAi: boolean = false;
+    attachedImage: { name: string; mimeType: string; dataUrl: string; size: number } | null = null;
+    isDragOverAttach: boolean = false;
     aiEditHistory: AIEditHistoryEntry[] = [];
     showHistoryPanel: boolean = false;
 
@@ -1386,6 +1388,79 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
             this.applyState(d);
         } catch {}
     }
+    // ============ Attach files (dua anh vao prompt AI) ============
+    openAttachFileDialog(attachInput: HTMLInputElement) {
+        attachInput.value = '';
+        attachInput.click();
+    }
+
+    onAttachFileSelected(event: any) {
+        const file = event.target.files && event.target.files[0];
+        if (file) {
+            this.handleAttachedFile(file);
+        }
+        event.target.value = '';
+    }
+
+    onAttachDragOver(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.isDragOverAttach = true;
+    }
+
+    onAttachDragLeave(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.isDragOverAttach = false;
+    }
+
+    onAttachDrop(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.isDragOverAttach = false;
+        const files = event.dataTransfer?.files;
+        if (files && files.length > 0) {
+            this.handleAttachedFile(files[0]);
+        }
+    }
+
+    private handleAttachedFile(file: File) {
+        const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            this.toastr.warning('Chi ho tro file anh PNG, JPG, WEBP, GIF.');
+            return;
+        }
+        if (file.size > 15 * 1024 * 1024) {
+            this.toastr.warning('Anh dinh kem qua lon (toi da 15MB).');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev: any) => {
+            this.attachedImage = {
+                name: file.name,
+                mimeType: file.type,
+                dataUrl: ev.target.result,
+                size: file.size,
+            };
+            this.cdr.markForCheck();
+            this.toastr.success('Da dinh kem anh: ' + file.name);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    clearAttachedImage() {
+        this.attachedImage = null;
+        this.cdr.markForCheck();
+    }
+
+    formatAttachSize(bytes: number): string {
+        if (!bytes) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB'];
+        const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+        return (bytes / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1) + ' ' + sizes[i];
+    }
+
     async generateWithAi() {
         if (!this.aiPrompt?.trim() || this.isGeneratingAi) return;
 
@@ -1393,14 +1468,30 @@ export class ImageEditorDialogComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
 
         try {
-            // Lấy canvas hiện tại làm ảnh tham chiếu
-            const currentCanvas = this.canvasRef.nativeElement;
-            const currentDataUrl = currentCanvas.toDataURL('image/png');
+            // Nếu có ảnh đính kèm (Attach files) thì dùng ảnh đính kèm làm ảnh gốc, không thì lấy canvas hiện tại
+            const attached = this.attachedImage;
+            const currentDataUrl = attached
+                ? attached.dataUrl
+                : this.canvasRef.nativeElement.toDataURL('image/png');
             const base64Data = currentDataUrl.split(',')[1];
 
-            // Lưu kích thước gốc của canvas hiện tại
-            const origWidth = currentCanvas.width;
-            const origHeight = currentCanvas.height;
+            // Đọc kích thước thật của ảnh nguồn (đính kèm hoặc canvas)
+            let origWidth = this.canvasRef.nativeElement.width;
+            let origHeight = this.canvasRef.nativeElement.height;
+            if (attached) {
+                const dim = await new Promise<{ w: number; h: number }>((resolve) => {
+                    const probe = new Image();
+                    probe.onload = () =>
+                        resolve({
+                            w: probe.naturalWidth || probe.width,
+                            h: probe.naturalHeight || probe.height,
+                        });
+                    probe.onerror = () => resolve({ w: origWidth, h: origHeight });
+                    probe.src = attached.dataUrl;
+                });
+                origWidth = dim.w || origWidth;
+                origHeight = dim.h || origHeight;
+            }
 
             // Xác định tỷ lệ ảnh gần nhất
             const currentRatio = origWidth / origHeight;
@@ -1428,7 +1519,7 @@ MANDATORY RULES:
                             {
                                 inlineData: {
                                     data: base64Data,
-                                    mimeType: 'image/png',
+                                    mimeType: attached ? attached.mimeType : 'image/png',
                                 },
                             } as any,
                             { text: editInstruction },

@@ -698,6 +698,25 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                 .subscribe((res) => {
                     if (res.success || res.ok) {
                         targetCol.title = newTitle;
+                        if (this.selectedCollection && (this.selectedCollection._id === targetCol._id || this.selectedCollection.id === targetCol.id)) {
+                            this.selectedCollection.title = newTitle;
+                        }
+                        try {
+                            const cacheKey = `dashboard_collections_${this.user?.name || "admin"}`;
+                            const cached = localStorage.getItem(cacheKey);
+                            if (cached) {
+                                const parsed = JSON.parse(cached);
+                                if (Array.isArray(parsed)) {
+                                    const updatedCache = parsed.map((c: any) =>
+                                        (c._id === (targetCol._id || targetCol.id) || c.id === (targetCol._id || targetCol.id))
+                                            ? { ...c, title: newTitle }
+                                            : c
+                                    );
+                                    localStorage.setItem(cacheKey, JSON.stringify(updatedCache));
+                                }
+                            }
+                            (window as any)["dashboard_collections_preloaded"] = false;
+                        } catch (e) {}
                         this.toastr.success('Cập nhật tên tập thành công');
                         this.editingCollectionId = null;
                         this.cd.markForCheck();

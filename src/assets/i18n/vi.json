@@ -884,6 +884,8 @@
     "app.request_not_found": "Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.",
     "app.close": "Đóng",
     "app.close_again": "Đóng lại",
+    "app.delete": "Xóa",
+    "app.cancel": "Hủy",
     "app.delete_video_script": "Xóa kịch bản video",
     "app.are_you_sure_delete_script": "Bạn có chắc chắn muốn xóa kịch bản",
     "app.action_cannot_be_undone_delete_all": "Hành động này không thể hoàn tác và sẽ xóa toàn bộ dữ liệu âm thanh, hình ảnh liên quan.",
