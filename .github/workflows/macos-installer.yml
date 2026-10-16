@@ -1,0 +1,78 @@
+name: Build macOS Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Python (đóng gói edge-tts)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies & Build Angular
+        run: |
+          npm install
+          npm run build:frontend
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Download ffmpeg & yt-dlp for macOS
+        working-directory: electron
+        run: |
+          curl -fsSL -o ffmpeg.zip https://evermeet.cx/ffmpeg/getrelease/zip
+          unzip -q ffmpeg.zip
+          mv ffmpeg ffmpeg-macos
+          chmod +x ffmpeg-macos
+          rm -f ffmpeg.zip
+          curl -fsSL -o yt-dlp-macos https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos
+          chmod +x yt-dlp-macos
+          mkdir -p bin
+          ls -la ffmpeg-macos yt-dlp-macos
+
+      - name: Build edge-tts-macos
+        working-directory: electron
+        run: |
+          python -m pip install --upgrade pip
+          pip install edge-tts pyinstaller
+          printf 'from edge_tts.util import main\nif __name__ == "__main__":\n    main()\n' > edge_tts_entry.py
+          pyinstaller --onefile --name edge-tts-macos edge_tts_entry.py
+          cp dist/edge-tts-macos edge-tts-macos
+          chmod +x edge-tts-macos
+          rm -rf build dist/edge-tts-macos edge_tts_entry.py edge-tts-macos.spec
+
+      - name: Obfuscate Electron source
+        working-directory: electron
+        run: npm run obfuscate
+
+      - name: Build macOS installer (.zip, .dmg)
+        working-directory: electron
+        run: npx electron-builder --mac zip dmg -c.mac.identity=null --publish never
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI.Type-macOS-Installer-${{ github.run_number }}
+          path: |
+            electron/dist/*.zip
+            electron/dist/*.dmg
+            electron/dist/latest-mac.yml
+          if-no-files-found: error
+          retention-days: 14
