@@ -156,6 +156,48 @@ eco-fab-speed-dial button[mat-mini-fab][color="accent"] {
     }
 }
 
+/* Ensure all FAB and Mini-FAB buttons inside eco-fab-speed-dial are always centered */
+eco-fab-speed-dial {
+    .eco-fab-speed-dial-container {
+        eco-fab-speed-dial-actions {
+            .eco-fab-action-item,
+            button[mat-mini-fab],
+            .mat-mdc-mini-fab {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-align: center !important;
+                padding: 0 !important;
+
+                .mat-icon {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    margin: auto !important;
+                }
+            }
+        }
+
+        eco-fab-speed-dial-trigger {
+            button[mat-fab],
+            .mat-mdc-fab {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-align: center !important;
+                padding: 0 !important;
+
+                .mat-icon {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    margin: auto !important;
+                }
+            }
+        }
+    }
+}
+
 /* Left sidebar border-right */
 fuse-vertical-navigation {
     border-right: 1px solid #e2e8f0 !important;
