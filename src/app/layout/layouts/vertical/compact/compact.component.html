@@ -98,7 +98,11 @@
             [matTooltip]="'app.auto_system_recording' | transloco"
             matTooltipPosition="left"
         >
-            <mat-icon [class.animate-pulse]="isRecording" svgIcon="feather:mic"></mat-icon>
+            <mat-icon
+                class="icon-size-4 m-auto"
+                [class.animate-pulse]="isRecording"
+                svgIcon="feather:mic"
+            ></mat-icon>
         </button>
         <button mat-mini-fab class="!inline-flex !items-center !justify-center" [routerLink]="['/ai-writer']">
             <mat-icon>add</mat-icon>
