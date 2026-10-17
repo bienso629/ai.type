@@ -84,7 +84,7 @@
     [animationMode]="animationMode"
 >
     <eco-fab-speed-dial-trigger [spin]="spin">
-        <button mat-fab (click)="doAction('trigger')">
+        <button mat-fab (click)="doAction('trigger')" class="!inline-flex !items-center !justify-center">
             <mat-icon class="spin360">edit</mat-icon>
         </button>
     </eco-fab-speed-dial-trigger>
@@ -93,20 +93,20 @@
         <button
             mat-mini-fab
             [color]="isRecording ? 'warn' : 'primary'"
-            
+            class="!inline-flex !items-center !justify-center"
             (click)="startRecording()"
             [matTooltip]="'app.auto_system_recording' | transloco"
             matTooltipPosition="left"
         >
             <mat-icon [class.animate-pulse]="isRecording" svgIcon="feather:mic"></mat-icon>
         </button>
-        <button mat-mini-fab [routerLink]="['/ai-writer']">
+        <button mat-mini-fab class="!inline-flex !items-center !justify-center" [routerLink]="['/ai-writer']">
             <mat-icon>add</mat-icon>
         </button>
-        <button mat-mini-fab [routerLink]="['/ai-url']">
+        <button mat-mini-fab class="!inline-flex !items-center !justify-center" [routerLink]="['/ai-url']">
             <mat-icon>link</mat-icon>
         </button>
-        <button mat-mini-fab [routerLink]="['/tools']">
+        <button mat-mini-fab class="!inline-flex !items-center !justify-center" [routerLink]="['/tools']">
             <mat-icon>menu</mat-icon>
         </button>
     </eco-fab-speed-dial-actions>

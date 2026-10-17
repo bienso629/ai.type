@@ -30,4 +30,22 @@ eco-fab-speed-dial {
     bottom: 20px;
     right: 20px;
     z-index: 999;
+
+    .eco-fab-action-item,
+    button[mat-mini-fab],
+    button[mat-fab],
+    .mat-mdc-mini-fab,
+    .mat-mdc-fab {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+
+        .mat-icon {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: auto !important;
+        }
+    }
 }
