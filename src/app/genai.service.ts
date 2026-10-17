@@ -310,7 +310,7 @@ export class GenaiService {
 
         if (isUModelverse) {
             // Khi Mì Tôm AI được bật trong tài khoản, ưu tiên áp dụng model của Mì Tôm AI
-            if ((isImageRequest || isImageEdit) && this._umodelverseImageModel) {
+            if ((isImageRequest || isImageEdit) && this._umodelverseImageModel && !bypassModelOverride) {
                 // Nếu người dùng đã cài đặt model ảnh riêng trong Mì Tôm AI, ưu tiên dùng model đó cho cả tạo mới ảnh lẫn sửa ảnh
                 params.model = this._umodelverseImageModel;
             } else if (isImageRequest && !isImageEdit && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
@@ -425,7 +425,17 @@ export class GenaiService {
                             if (params.config.responseMimeType) cleanConfig.responseMimeType = params.config.responseMimeType;
                             if (params.config.responseSchema) cleanConfig.responseSchema = params.config.responseSchema;
                             if (params.config.responseModalities) cleanConfig.responseModalities = params.config.responseModalities;
-                            if ((params.config as any).imageConfig) cleanConfig.imageConfig = (params.config as any).imageConfig;
+                            // [PATCH 2026-10-17] Giữ nguyên imageConfig do editor gửi lên, chuẩn hóa imageSize dạng pixel (1920x1080) sang chuẩn Google (1K/2K/4K) để tránh lỗi HTTP 400
+                            if ((params.config as any).imageConfig) {
+                                const rawCfg = { ...(params.config as any).imageConfig };
+                                const rawSz = String(rawCfg.imageSize || '');
+                                const pxm = rawSz.match(/^(\d+)x(\d+)$/);
+                                if (pxm) {
+                                    const maxPx = Math.max(parseInt(pxm[1], 10), parseInt(pxm[2], 10));
+                                    rawCfg.imageSize = maxPx >= 3500 ? '4K' : (maxPx >= 1900 ? '2K' : '1K');
+                                }
+                                cleanConfig.imageConfig = rawCfg;
+                            }
                         }
 
                         let result;
@@ -940,6 +950,23 @@ export class GenaiService {
                 }
             }
 
+            // [PATCH 2026-10-17] KIỂM CHỨNG SỬA ẢNH qua AI Agent: nếu Agent vẽ ảnh mới bỏ qua file gốc thì NÉM LỖI (generateContent sẽ tự chuyển tầng dự phòng giữ ảnh gốc)
+            if (isImageEditAgent && imageBase64) {
+                let origB64: string | null = null;
+                try {
+                    const contentsArrCk: any[] = Array.isArray(params.contents) ? params.contents : [params.contents];
+                    const lastContentCk = contentsArrCk[contentsArrCk.length - 1];
+                    const imgPartCk = lastContentCk?.parts?.find((pp: any) => pp.inlineData && pp.inlineData.data);
+                    if (imgPartCk) origB64 = imgPartCk.inlineData.data;
+                } catch (e) {}
+                if (origB64) {
+                    const ok = await this.verifyImageEditSimilarity(origB64, imageBase64);
+                    if (!ok) {
+                        console.warn(`[AI Agent] TỪ CHỐI kết quả sửa ảnh: ảnh trả về KHÔNG còn giữ bố cục ảnh gốc. Ném lỗi để generateContent chuyển tầng dự phòng.`);
+                        throw new Error('Sửa ảnh qua AI Agent bị từ chối: kết quả không còn giống ảnh gốc (mất bố cục).');
+                    }
+                }
+            }
             const parts: any[] = [{ text: replyText }];
             if (imageBase64) {
                 parts.push({
@@ -1287,15 +1314,69 @@ export class GenaiService {
         };
     }
 
+    // [PATCH 2026-10-17] BỘ KIỂM CHỨNG SỬA ẢNH: so sánh ảnh gốc và ảnh AI trả về bằng "dấu vân tay" ảnh (downsample 8x8 grayscale + khoảng cách Hamming).
+    // Mục đích: chặn proxy/model trả về HTTP 200 "thành công" nhưng lặng lẽ VẼ ẢNH MỚI hoàn toàn (bỏ qua file ảnh gốc đính kèm).
+    // Trả về true nếu ảnh kết quả vẫn giữ được bố cục/tông màu tổng thể của ảnh gốc (đủ tương đồng) => chấp nhận.
+    private async verifyImageEditSimilarity(originalB64: string, resultB64: string, maxDistance = 26): Promise<boolean> {
+        try {
+            const loadDims = (b64: string): Promise<{ w: number, h: number } | null> => new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height });
+                img.onerror = () => resolve(null);
+                img.src = 'data:image/png;base64,' + b64;
+            });
+            const drawGray = (srcB64: string): Promise<number[]> => new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 8; canvas.height = 8;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) { resolve([]); return; }
+                    ctx.drawImage(img, 0, 0, 8, 8);
+                    const d = ctx.getImageData(0, 0, 8, 8).data;
+                    const gray: number[] = [];
+                    for (let i = 0; i < 64; i++) {
+                        gray.push(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]);
+                    }
+                    resolve(gray);
+                };
+                img.onerror = () => resolve([]);
+                img.src = 'data:image/png;base64,' + srcB64;
+            });
+            const oDims = await loadDims(originalB64);
+            if (!oDims || oDims.w === 0 || oDims.h === 0) return true; // Không đọc được ảnh gốc => không chặn
+            const rDims = await loadDims(resultB64);
+            if (!rDims || rDims.w === 0 || rDims.h === 0) return false;
+            const gA = await drawGray(originalB64);
+            const gB = await drawGray(resultB64);
+            if (gA.length !== 64 || gB.length !== 64) return true; // Không đo được => không chặn
+            const avgA = gA.reduce((a, b) => a + b, 0) / 64;
+            const avgB = gB.reduce((a, b) => a + b, 0) / 64;
+            let dist = 0;
+            for (let i = 0; i < 64; i++) {
+                const bitA = gA[i] >= avgA ? 1 : 0;
+                const bitB = gB[i] >= avgB ? 1 : 0;
+                if (bitA !== bitB) dist++;
+            }
+            console.log(`[ImageEdit Verify] Khoảng cách tương đồng ảnh gốc vs kết quả: ${dist}/64 (ngưỡng chặn ${maxDistance})`);
+            return dist <= maxDistance;
+        } catch (e) {
+            console.warn('[ImageEdit Verify] Lỗi kiểm chứng (không chặn):', e);
+            return true;
+        }
+    }
+
     private async generateImageUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
         let promptText = '';
         
         const isImageEdit = (params.config as any)?.isImageEdit === true;
+        const bypassModelOverride = (params.config as any)?.bypassModelOverride === true || isImageEdit;
         let overrideModel = params.model;
         if (!isImageEdit && (overrideModel === 'gemini-3-pro-image' || overrideModel === 'imagen-3.0-generate-002' || overrideModel === 'agent')) {
             overrideModel = null;
         }
-        let model = this._umodelverseImageModel || overrideModel || 'dall-e-3';
+        // [PATCH 2026-10-17] SỬA ẢNH: tôn trọng model do editor chỉ định (bypassModelOverride) — không đè bằng model text-to-image của proxy
+        let model = (bypassModelOverride && overrideModel) ? overrideModel : (this._umodelverseImageModel || overrideModel || 'dall-e-3');
         let referenceBase64: string | null = null;
         if (params.contents && (params.contents as any).length > 0) {
             const firstContent = params.contents[0];
@@ -1369,9 +1450,21 @@ export class GenaiService {
                 }
 
                 // Cập nhật generationConfig theo tài liệu mới nhất của proxy
+                // [PATCH 2026-10-17] SỬA ẢNH: editor gửi imageSize dạng pixel (VD 1920x1080) => quy đổi sang định mức chuẩn Google (1K/2K/4K)
+                let outImageSize = '1K';
+                try {
+                    const rawSize = ((params.config as any)?.imageConfig?.imageSize || '') as string;
+                    const pxMatch = String(rawSize).match(/^(\d+)x(\d+)$/);
+                    if (pxMatch) {
+                        const maxPx = Math.max(parseInt(pxMatch[1], 10), parseInt(pxMatch[2], 10));
+                        outImageSize = maxPx >= 3500 ? '4K' : (maxPx >= 1900 ? '2K' : '1K');
+                    } else if (['1K', '2K', '4K'].includes(String(rawSize).toUpperCase())) {
+                        outImageSize = String(rawSize).toUpperCase();
+                    }
+                } catch (e) {}
                 geminiBody.generationConfig = {
                     responseModalities: ["TEXT", "IMAGE"],
-                    imageConfig: { imageSize: "1K" }
+                    imageConfig: { imageSize: outImageSize }
                 };
 
                 // Nếu user có setting configRatio
@@ -1403,6 +1496,17 @@ export class GenaiService {
 
                 if (geminiResponse.ok && geminiData.candidates && geminiData.candidates.length > 0) {
                     console.log(`[UModelverse Image] Tạo ảnh thành công bằng Gemini Compatible Interface!`);
+                    // [PATCH 2026-10-17] KIỂM CHỨNG SỬA ẢNH: chặn proxy trả về ảnh vẽ mới hoàn toàn dù HTTP 200
+                    if (isImageEdit && referenceBase64 && geminiData.candidates?.[0]?.content?.parts) {
+                        const rPart = geminiData.candidates[0].content.parts.find((pp: any) => pp.inlineData && pp.inlineData.data);
+                        if (rPart) {
+                            const ok = await this.verifyImageEditSimilarity(referenceBase64, rPart.inlineData.data);
+                            if (!ok) {
+                                console.warn(`[UModelverse Image] TỪ CHỐI kết quả sửa ảnh: ảnh trả về KHÔNG còn giữ bố cục ảnh gốc (proxy đã vẽ ảnh mới). Ném lỗi để generateContent chuyển tầng dự phòng.`);
+                                throw new Error('Sửa ảnh qua Gemini Interface bị từ chối: kết quả không còn giống ảnh gốc (mất bố cục).');
+                            }
+                        }
+                    }
                     return geminiData;
                 } else {
                     const errMsg = geminiData?.error?.message || geminiResponseText;
@@ -1573,6 +1677,12 @@ export class GenaiService {
                         });
                     }
                     if (b64) {
+                        // [PATCH 2026-10-17] KIỂM CHỨNG SỬA ẢNH: chặn proxy trả HTTP 200 nhưng vẽ ảnh mới bỏ qua file gốc
+                        const ok = await this.verifyImageEditSimilarity(firstImg.inlineData.data, b64);
+                        if (!ok) {
+                            console.warn(`[UModelverse Image] TỪ CHỐI kết quả /images/edits: ảnh trả về KHÔNG còn giữ bố cục ảnh gốc. Ném lỗi để generateContent chuyển tầng dự phòng.`);
+                            throw new Error('Sửa ảnh qua /images/edits bị từ chối: kết quả không còn giống ảnh gốc (mất bố cục).');
+                        }
                         return {
                             candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: b64 } }], role: 'model' } }]
                         };
