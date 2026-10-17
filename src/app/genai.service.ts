@@ -221,6 +221,19 @@ export class GenaiService {
         return this._enableUmodelverse && !!this._umodelverseUrl;
     }
 
+    public isAiAgentEnabled(): boolean {
+        const settings = this.getSettingsFromStorage();
+        return settings?.enableAiAgent === true;
+    }
+
+    public isAiAvailable(): boolean {
+        const settings = this.getSettingsFromStorage();
+        const hasUmodelverse = this.isUModelverseEnabled();
+        const hasAiAgent = settings?.enableAiAgent === true;
+        const hasSecretKey = !!(settings?.secretKey && settings.secretKey.trim());
+        return hasUmodelverse || hasAiAgent || hasSecretKey;
+    }
+
     public get umodelverseUrl(): string { return this._umodelverseUrl; }
     public get umodelverseKey(): string { return this._umodelverseKey; }
     public get umodelverseChatModel(): string { return this._umodelverseChatModel; }

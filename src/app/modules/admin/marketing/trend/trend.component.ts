@@ -575,7 +575,8 @@ export class AIFacePostComponent
             return;
         }
 
-        if (this.secretKey && dataToAnalyze.length > 0) {
+        const hasAi = this._genaiService.isAiAvailable() || !!this.secretKey;
+        if (hasAi && dataToAnalyze.length > 0) {
             // 1. Lọc dữ liệu sạch: Bắt buộc có text, loại bỏ header, lấy thêm images nếu có
             const cleanedData = dataToAnalyze
                 .filter(
@@ -647,7 +648,7 @@ export class AIFacePostComponent
             this.isAnalyzing = false; // Tắt loading
             this.cd.markForCheck();
         } else {
-            this.toastr.warning('Xin lỗi! Bạn chưa kết nối với Gemini.');
+            this.toastr.warning('Dịch vụ AI chưa sẵn sàng. Vui lòng bật AI Agent, Mì Tôm AI hoặc cấu hình API Key trong Cài đặt.');
         }
     }
 

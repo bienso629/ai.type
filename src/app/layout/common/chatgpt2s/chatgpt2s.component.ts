@@ -947,7 +947,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 }
                 return;
             }
-            if (this.secretKey) {
+            const hasAi = this._genaiService.isAiAvailable() || !!this.secretKey;
+            if (hasAi) {
                 // Đọc cài đặt
                 const settings = this.multiAccountService.getItem('settings');
                 let isAiAgentEnabled = settings?.enableAiAgent === true;
@@ -1194,8 +1195,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                         this.chatgptStore(finalDisplayText, question, newRow);
                     } else {
-                        this.toastr.warning('Gemini của bạn chưa hoạt động.');
-                        newRow.messages.push({ role: 'model', text: 'Gemini chưa hoạt động.' });
+                        this.toastr.warning('Dịch vụ AI chưa hoạt động hoặc phản hồi rỗng.');
+                        newRow.messages.push({ role: 'model', text: 'Dịch vụ AI chưa hoạt động.' });
                     }
                 } catch (error) {
                     console.error('Lỗi hỏi chatgpt:', error);
@@ -1204,8 +1205,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         this.toastr.warning('Đã dừng phản hồi AI.');
                         newRow.messages.push({ role: 'model', text: 'Yêu cầu đã bị dừng.' });
                     } else {
-                        this.toastr.error('Có lỗi xảy ra khi gọi AI.');
-                        newRow.messages.push({ role: 'model', text: 'Lỗi kết nối AI.' });
+                        this.toastr.error('Có lỗi xảy ra khi gọi AI: ' + (error?.message || error));
+                        newRow.messages.push({ role: 'model', text: 'Lỗi kết nối AI: ' + (error?.message || 'Không thể kết nối') });
                     }
                 } finally {
                     newRow.chatLoading = false;
@@ -1214,7 +1215,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     this.scrollToBottom();
                 }
             } else {
-                this.toastr.warning('Bạn chưa kết nối Gemini.');
+                this.toastr.warning('Dịch vụ AI chưa sẵn sàng. Vui lòng bật AI Agent, Mì Tôm AI hoặc cấu hình API Key trong Cài đặt.');
             }
         } else {
             this.toastr.warning('Xin lỗi! Bạn chưa có prompt.');
