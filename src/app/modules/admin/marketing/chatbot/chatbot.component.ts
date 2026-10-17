@@ -1348,8 +1348,9 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const secretKeys = this.settings.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
         const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
 
-        if (!geminiKey) {
-            this.toastr.warning('Bạn chưa có mã Google Gemini Key');
+        const hasAi = this._genaiService.isAiAvailable() || !!geminiKey;
+        if (!hasAi) {
+            this.toastr.warning('Dịch vụ AI chưa sẵn sàng. Vui lòng bật AI Agent, Mì Tôm AI hoặc cấu hình API Key trong Cài đặt.');
             return;
         }
 
