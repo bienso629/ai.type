@@ -273,29 +273,37 @@ export class ForumService {
     }
 
     public createTopic(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
-        const electron = (window as any).electron;
-        if (isAutoSaveLocal && electron && electron.createLocalForumTopic) {
-            return from(electron.createLocalForumTopic(dataForm)).pipe(
-                map(data => data),
-                catchError(this.handleError('createLocalForumTopic', { success: true }))
-            );
-        }
+        const serverKey = this.user?.server || 'vn.s3';
+        const serverBaseUrl = (this.config?.settings?.api && this.config.settings.api[serverKey]) 
+            ? this.config.settings.api[serverKey] 
+            : (this.config?.settings?.api?.['vn.s3'] || 'https://apiv3.type.vn/v1');
+        const uid = dataForm?._uid || this.user?.id || 1;
+        const genKey = this.config?.settings?.gen || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
 
-        const url = `${this.config.settings.api[this.user.server]}/forum/topic/create/${dataForm._uid}`;
+        const payload = {
+            ...dataForm,
+            _uid: uid
+        };
 
-        let data = {
-            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        const url = `${serverBaseUrl}/forum/topic/create/${uid}`;
+        const data = {
+            params: this._h.encrypt(payload, genKey)
         };
 
         return this.http.post<any>(url, data, options).pipe(
-            map(data => {
-                return data;
+            map(res => {
+                const electron = (window as any).electron;
+                if (electron && electron.createLocalForumTopic) {
+                    try {
+                        electron.createLocalForumTopic({
+                            ...payload,
+                            response: res?.data?.response || res
+                        });
+                    } catch (e) {}
+                }
+                return res;
             }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+            catchError(this.handleError('createTopic', { success: false }))
         );
     }
 
