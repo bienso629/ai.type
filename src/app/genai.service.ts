@@ -655,7 +655,20 @@ export class GenaiService {
                 apiUrl = baseUrlClean + targetEndpoint;
                 secretApiKey = parts[1] || 'type-vn-local-agent-2026';
             } else {
-                apiUrl = `https://agent.type.vn${targetEndpoint}`;
+                // Trong môi trường Desktop, kiểm tra xem local daemon (port 54321) có đang chạy không
+                let isLocalAvailable = false;
+                try {
+                    const localPing = await fetch('http://127.0.0.1:54321/docs', { method: 'HEAD', signal: AbortSignal.timeout(600) });
+                    if (localPing.ok || localPing.status === 200 || localPing.status === 404) {
+                        isLocalAvailable = true;
+                    }
+                } catch(e) {}
+
+                if (isLocalAvailable) {
+                    apiUrl = `http://127.0.0.1:54321${targetEndpoint}`;
+                } else {
+                    apiUrl = `https://agent.type.vn${targetEndpoint}`;
+                }
             }
         } else {
             // Web / Mobile / Another Account fallback logic
@@ -1007,6 +1020,10 @@ export class GenaiService {
                     },
                     audioUrl: 'data:audio/mp3;base64,' + audioBase64
                 });
+            }
+
+            if (!replyText.trim() && !imageBase64 && !videoBase64) {
+                throw new Error("AI Agent phản hồi rỗng hoặc chưa nhận được kết quả.");
             }
 
             return {
