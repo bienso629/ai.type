@@ -179,14 +179,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 this.zaloPluginMode = zalo.mode || 'tool';
             }
             const aiAgent = this.plugins.find(p => p.id === 'ai_agent');
-            if (aiAgent && aiAgent.apiKey) {
-                this.aiAgentApiKey = aiAgent.apiKey;
-            } else {
-                this.aiAgentApiKey = 'type-vn-local-agent-2026';
-            }
-            
             let settings = this.multiAccountService.getItem('settings') || {};
-            
             try {
                 // Luôn ưu tiên đọc từ localStorage vì IndexedDB có thể chưa kịp lưu do debounce 500ms
                 const lsSettings = localStorage.getItem('settings');
@@ -195,6 +188,15 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     settings = { ...settings, ...parsed };
                 }
             } catch(e) {}
+
+            if (settings.aiAgentApiKey) {
+                this.aiAgentApiKey = settings.aiAgentApiKey;
+            } else if (aiAgent && aiAgent.apiKey) {
+                this.aiAgentApiKey = aiAgent.apiKey;
+            } else {
+                this.aiAgentApiKey = 'type-vn-local-agent-2026';
+            }
+
             
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
             this.ttsRate = settings.ttsRate || '+0%';

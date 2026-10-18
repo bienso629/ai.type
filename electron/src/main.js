@@ -4826,7 +4826,10 @@ ipcMain.handle('get-plugins-status', async (event) => {
         
         // AI Agent Plugin
         const userAgentPath = path.join(userPluginsDir, 'ai_agent_linux');
+        const devAgentBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'dist', 'ai_agent_linux');
+        const devAgentScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'ai_agent.py');
         const agentInstalled = fs.existsSync(userAgentPath);
+        const agentCanInstall = fs.existsSync(devAgentBinaryPath) || fs.existsSync(devAgentScriptPath);
         const agentEnabled = isAiAgentEnabled();
         let agentApiKey = 'type-vn-local-agent-2026';
         try {
@@ -4894,7 +4897,7 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 name: 'AI Agent',
                 description: 'Hỗ trợ viết kịch bản phim, sinh nội dung và tự động hóa tác vụ AI.',
                 installed: agentInstalled,
-                canInstall: false, // User installs manually by copying file
+                canInstall: agentCanInstall,
                 enabled: agentEnabled,
                 apiKey: agentApiKey,
                 version: '1.0'
@@ -4944,6 +4947,13 @@ ipcMain.handle('install-plugin', async (event, pluginId) => {
             }
             return { success: false, error: 'Không tìm thấy file nguồn cài đặt plugin.' };
         } else if (pluginId === 'ai_agent') {
+            const devAgentBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'dist', 'ai_agent_linux');
+            const userAgentBinaryPath = path.join(userPluginsDir, 'ai_agent_linux');
+            if (fs.existsSync(devAgentBinaryPath)) {
+                fs.copyFileSync(devAgentBinaryPath, userAgentBinaryPath);
+                try { fs.chmodSync(userAgentBinaryPath, 0o755); } catch(e) {}
+                return { success: true, message: 'Đã cài đặt plugin AI Agent thành công!' };
+            }
             return { success: true, message: 'Plugin AI Agent đã sẵn sàng. Hãy copy file ai_agent_linux vào thư mục plugins.' };
         } else if (pluginId === 'colab_agent') {
             const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
