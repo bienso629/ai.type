@@ -308,7 +308,8 @@ export class GenaiService {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
                 if (aiAgent && aiAgent.enabled !== undefined) {
-                    isAiAgentActive = aiAgent.enabled === true;
+                    // Nếu trong settings đã bật hoặc trên desktop plugin đã bật thì kích hoạt AI Agent
+                    isAiAgentActive = aiAgent.enabled === true || isAiAgentActive;
                 }
             } catch(e) {}
         }
@@ -423,8 +424,7 @@ export class GenaiService {
                             googleModel,
                             'gemini-2.5-flash',
                             'gemini-2.5-pro',
-                            'gemini-1.5-flash',
-                            'gemini-1.5-pro'
+                            'gemini-2.0-flash'
                         ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && v.startsWith('gemini-'));
 
                         // Lọc sạch config chuẩn cho Google GenAI SDK
@@ -641,11 +641,11 @@ export class GenaiService {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
                 if (aiAgent && aiAgent.enabled !== undefined) {
-                    isAiAgentActive = aiAgent.enabled === true;
+                    isAiAgentActive = aiAgent.enabled === true || isAiAgentActive;
                     if (aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
                 }
             } catch(e) {}
-            if (settings.aiAgentApiKey && secretApiKey === 'type-vn-local-agent-2026') {
+            if (settings.aiAgentApiKey && (secretApiKey === 'type-vn-local-agent-2026' || !secretApiKey)) {
                 secretApiKey = settings.aiAgentApiKey;
             }
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
@@ -772,7 +772,22 @@ export class GenaiService {
             });
 
             if (!response.ok) {
-                throw new Error(`AI Agent phản hồi lỗi HTTP ${response.status}`);
+                let errDetail = '';
+                try {
+                    const errJson = await response.json();
+                    if (errJson && (errJson.detail || errJson.message || errJson.error)) {
+                        errDetail = errJson.detail || errJson.message || errJson.error;
+                    }
+                } catch(e) {
+                    try {
+                        errDetail = await response.text();
+                    } catch(e2) {}
+                }
+
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error(`Xác thực AI Agent (${apiUrl}) thất bại (HTTP ${response.status}): ${errDetail || 'Sai hoặc thiếu Secret API Key'}. Vui lòng nhập đúng Secret API Key của máy chủ trong Cài đặt -> Plugins -> AI Agent.`);
+                }
+                throw new Error(`AI Agent (${apiUrl}) phản hồi lỗi HTTP ${response.status}${errDetail ? ': ' + errDetail : ''}`);
             }
 
             let replyText = '';
