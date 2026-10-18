@@ -189,6 +189,14 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 }
             } catch(e) {}
 
+            // Đồng bộ trạng thái từ tài khoản (Settings) sang giao diện nếu máy mới/máy khác chưa có config cục bộ
+            if (aiAgent && settings.enableAiAgent !== undefined) {
+                aiAgent.enabled = !!settings.enableAiAgent;
+            }
+            if (zalo && settings.zaloPluginEnabled !== undefined) {
+                zalo.enabled = !!settings.zaloPluginEnabled;
+            }
+
             if (settings.aiAgentApiKey) {
                 this.aiAgentApiKey = settings.aiAgentApiKey;
             } else if (aiAgent && aiAgent.apiKey) {

@@ -4392,9 +4392,28 @@ function startAiAgent() {
     if (aiAgentProcess) return;
     try {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-        const agentPath = path.join(userPluginsDir, 'ai_agent_linux');
-        if (fs.existsSync(agentPath)) {
-            let args = [];
+        const agentBinaryName = process.platform === 'win32' ? 'ai_agent_win.exe' : (process.platform === 'darwin' ? 'ai_agent_macos' : 'ai_agent_linux');
+        const candidateAgentPaths = [
+            path.join(userPluginsDir, agentBinaryName),
+            path.join(userPluginsDir, 'ai_agent_linux'),
+            path.join(userPluginsDir, 'ai_agent.exe'),
+            path.join(userPluginsDir, 'ai_agent'),
+            path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'dist', 'ai_agent_linux')
+        ];
+        const agentPath = candidateAgentPaths.find(p => fs.existsSync(p));
+        const devAgentScript = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'ai_agent.py');
+
+        let cmd = '';
+        let args = [];
+        if (agentPath) {
+            try { fs.chmodSync(agentPath, 0o755); } catch(e) {}
+            cmd = agentPath;
+        } else if (fs.existsSync(devAgentScript)) {
+            cmd = 'python3';
+            args = [devAgentScript];
+        }
+
+        if (cmd) {
             const agentEnv = { ...process.env };
             try {
                 const data = readAiAgentConfig();
@@ -4409,7 +4428,7 @@ function startAiAgent() {
                 }
             } catch(e) {}
             // Using inherit or pipe to see errors in Electron console
-            aiAgentProcess = spawn(agentPath, args, { stdio: 'pipe', env: agentEnv });
+            aiAgentProcess = spawn(cmd, args, { stdio: 'pipe', env: agentEnv });
             
             aiAgentProcess.stdout.on('data', (data) => console.log(`[AI Agent] ${data}`));
             aiAgentProcess.stderr.on('data', (data) => console.error(`[AI Agent] ${data}`));
@@ -4426,7 +4445,7 @@ function startAiAgent() {
             
             console.log('[AI Agent] Đã khởi chạy tại port 54321');
         } else {
-            console.warn('[AI Agent] Không tìm thấy file thực thi:', agentPath);
+            console.warn('[AI Agent] Không tìm thấy file thực thi:', agentPath || userPluginsDir);
         }
     } catch (e) {
         console.error('[AI Agent] Lỗi start:', e);
@@ -4825,11 +4844,18 @@ ipcMain.handle('get-plugins-status', async (event) => {
         const enabled = isZaloPluginEnabled();
         
         // AI Agent Plugin
-        const userAgentPath = path.join(userPluginsDir, 'ai_agent_linux');
+        const agentBinaryName = process.platform === 'win32' ? 'ai_agent_win.exe' : (process.platform === 'darwin' ? 'ai_agent_macos' : 'ai_agent_linux');
+        const candidateAgentPaths = [
+            path.join(userPluginsDir, agentBinaryName),
+            path.join(userPluginsDir, 'ai_agent_linux'),
+            path.join(userPluginsDir, 'ai_agent.exe'),
+            path.join(userPluginsDir, 'ai_agent')
+        ];
+        const userAgentPath = candidateAgentPaths.find(p => fs.existsSync(p)) || path.join(userPluginsDir, 'ai_agent_linux');
         const devAgentBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'dist', 'ai_agent_linux');
         const devAgentScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'ai_agent.py');
-        const agentInstalled = fs.existsSync(userAgentPath);
-        const agentCanInstall = fs.existsSync(devAgentBinaryPath) || fs.existsSync(devAgentScriptPath);
+        const agentInstalled = fs.existsSync(userAgentPath) || fs.existsSync(devAgentBinaryPath) || fs.existsSync(devAgentScriptPath);
+        const agentCanInstall = true;
         const agentEnabled = isAiAgentEnabled();
         let agentApiKey = 'type-vn-local-agent-2026';
         try {
@@ -4948,13 +4974,18 @@ ipcMain.handle('install-plugin', async (event, pluginId) => {
             return { success: false, error: 'Không tìm thấy file nguồn cài đặt plugin.' };
         } else if (pluginId === 'ai_agent') {
             const devAgentBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'dist', 'ai_agent_linux');
+            const devAgentScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'ai_agent.py');
             const userAgentBinaryPath = path.join(userPluginsDir, 'ai_agent_linux');
             if (fs.existsSync(devAgentBinaryPath)) {
                 fs.copyFileSync(devAgentBinaryPath, userAgentBinaryPath);
                 try { fs.chmodSync(userAgentBinaryPath, 0o755); } catch(e) {}
                 return { success: true, message: 'Đã cài đặt plugin AI Agent thành công!' };
+            } else if (fs.existsSync(devAgentScriptPath)) {
+                const destScriptPath = path.join(userPluginsDir, 'ai_agent.py');
+                fs.copyFileSync(devAgentScriptPath, destScriptPath);
+                return { success: true, message: 'Đã sao chép mã nguồn AI Agent vào thư mục plugins!' };
             }
-            return { success: true, message: 'Plugin AI Agent đã sẵn sàng. Hãy copy file ai_agent_linux vào thư mục plugins.' };
+            return { success: true, message: 'Plugin AI Agent đã sẵn sàng. Hãy copy file ai_agent vào thư mục plugins.' };
         } else if (pluginId === 'colab_agent') {
             const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
             const legacyBinaryName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');

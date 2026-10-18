@@ -394,7 +394,7 @@
                     class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                     [subscriptSizing]="'dynamic'"
                 >
-                    <mat-label>Secret API Key (Mobile App)</mat-label>
+                    <mat-label>Secret API Key (Cloud / Mobile App)</mat-label>
                     <mat-icon
                         class="icon-size-4"
                         [svgIcon]="'heroicons_outline:key'"
@@ -404,7 +404,7 @@
                         [(ngModel)]="aiAgentApiKey"
                         [type]="showAiAgentKey ? 'text' : 'password'"
                         matInput
-                        placeholder="Nhập mã bảo mật"
+                        placeholder="Nhập Secret API Key của máy chủ Agent"
                     />
                     <button
                         mat-icon-button
@@ -418,8 +418,7 @@
                     </button>
                 </mat-form-field>
                 <div class="mt-1 text-sm text-gray-400">
-                    Sử dụng key này trên Mobile App để bảo mật kết nối với AI
-                    Agent.
+                    Mã khóa bí mật dùng để xác thực khi kết nối với máy chủ AI Agent trực tuyến (agent.type.vn) hoặc qua Mobile App.
                 </div>
             </div>
 

@@ -4,6 +4,7 @@ import {
     Inject,
     OnInit,
     ChangeDetectionStrategy,
+    ChangeDetectorRef,
 } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
@@ -70,6 +71,7 @@ export class MagicPromptDialogComponent implements OnInit {
         private toastr: ToastrService,
         private genaiService: GenaiService,
         private sanitizer: DomSanitizer,
+        private cdr: ChangeDetectorRef,
     ) {
         if (data?.currentPrompt) {
             this.currentPrompt = data.currentPrompt;
@@ -93,6 +95,7 @@ export class MagicPromptDialogComponent implements OnInit {
             const reader = new FileReader();
             reader.onload = (e: any) => {
                 this.imageBase64 = e.target.result;
+                this.cdr.detectChanges();
             };
             reader.readAsDataURL(file);
         }
@@ -101,6 +104,7 @@ export class MagicPromptDialogComponent implements OnInit {
     removeImage(): void {
         this.imageFile = null;
         this.imageBase64 = null;
+        this.cdr.detectChanges();
     }
 
     isVideo(): boolean {
@@ -115,38 +119,67 @@ export class MagicPromptDialogComponent implements OnInit {
 
     async generate(): Promise<void> {
         this.isGenerating = true;
+        this.cdr.detectChanges();
         try {
-            let promptText = `Bạn là một chuyên gia viết prompt cho AI tạo ảnh và video. Tôi có một prompt gốc như sau:\n"${this.currentPrompt}"\n\n`;
+            let promptText = `Bạn là một chuyên gia kỹ thuật AI Prompt Engineering xuất sắc nhất thế giới cho các hệ thống tạo ảnh và video (Gemini, Midjourney, Kling, Stable Diffusion, v.v.).\n\n`;
+            promptText += `=== CÂU PROMPT GỐC CẦN CHỈNH SỬA ===\n${this.currentPrompt}\n=== HẾT PROMPT GỐC ===\n\n`;
 
-            if (this.userInstruction) {
-                promptText += `Yêu cầu bổ sung để chỉnh sửa/phát triển prompt này:\n"${this.userInstruction}"\n\n`;
+            if (this.userInstruction && this.userInstruction.trim()) {
+                promptText += `=== YÊU CẦU BỔ SUNG / CHỈNH SỬA MỚI TỪ NGƯỜI DÙNG ===\n${this.userInstruction.trim()}\n=== HẾT YÊU CẦU BỔ SUNG ===\n\n`;
+            }
+
+            if (this.imageBase64) {
+                promptText += `=== HÌNH ẢNH / TỆP THAM CHIẾU ĐÍNH KÈM ===\n`;
+                promptText += `Người dùng đã đính kèm một hình ảnh/tệp tham chiếu. Hãy phân tích kỹ lưỡng hình ảnh này (đặc điểm nhân vật, khuôn mặt, biểu cảm, trang phục, màu sắc, phong cách nghệ thuật, ánh sáng, bối cảnh, tư thế) và tích hợp các đặc trưng then chốt đó vào nội dung prompt được sửa lại theo đúng yêu cầu mới.\n=== HẾT CHỈ DẪN ẢNH THAM CHIẾU ===\n\n`;
             }
 
             if (this.data?.type === 'character') {
-                promptText += `Hãy viết lại và bổ sung thật chi tiết (ngoại hình, quần áo, góc mặt, phong cách...) để dùng tạo nhân vật nhất quán.\n`;
+                promptText += `[QUY TẮC ĐẶC BIỆT CHO NHÂN VẬT]: Đây là prompt tạo nhân vật hoặc bảng thiết kế nhân vật nhất quán. Cần mô tả tỉ mỉ các chi tiết nhận diện (khuôn mặt, kiểu tóc, trang phục đặc trưng, góc nhìn, phong cách mỹ thuật).\n\n`;
             } else {
-                promptText += `Hãy viết lại và bổ sung thật chi tiết (ánh sáng, góc máy, môi trường, hành động...) để dùng tạo video điện ảnh.\n`;
+                promptText += `[QUY TẮC ĐẶC BIỆT CHO PHÂN CẢNH / VIDEO]: Cần mô tả chi tiết góc quay, ánh sáng, chuyển động máy quay, bầu không khí và hành động của nhân vật/khung cảnh.\n\n`;
             }
 
-            promptText += `Trả về CHỈ kết quả prompt đã được viết lại bằng tiếng Anh (hoặc ngôn ngữ gốc nếu là tiếng Việt, nhưng ưu tiên tiếng Anh cho AI tạo ảnh). Không giải thích gì thêm.`;
+            promptText += `=== NGUYÊN TẮC BẮT BUỘC KHI XUẤT KẾT QUẢ ===\n`;
+            promptText += `1. GIỮ NGUYÊN CHUẨN CẤU TRÚC VÀ ĐỊNH DẠNG: Giữ đúng định dạng, cấu trúc trường và phong cách của prompt gốc (ví dụ: nếu prompt gốc có các mục như 'Master Prompt:', 'Characters:', 'Appearance:', 'Personality:', 'Prompt:', v.v., BẮT BUỘC giữ nguyên cấu trúc các mục đó). Sửa đổi hoặc thêm bớt các thông tin bên trong từng mục theo đúng yêu cầu mới của người dùng và hình ảnh tham chiếu.\n`;
+            promptText += `2. ĐỒNG BỘ NGÔN NGỮ: Giữ nguyên ngôn ngữ gốc của prompt cũ (nếu prompt cũ viết bằng tiếng Việt, kết quả phải là tiếng Việt; nếu prompt cũ là tiếng Anh hoặc song ngữ, giữ đúng phong cách đó; tuyệt đối không tự ý dịch toàn bộ sang tiếng Anh nếu prompt cũ đang là tiếng Việt).\n`;
+            promptText += `3. ĐẦU RA SẠCH TUYỆT ĐỐI: CHỈ trả về duy nhất nội dung câu prompt hoàn chỉnh đã được chỉnh sửa. Không bọc câu trả lời trong cặp dấu nháy kép ngoài cùng hay khối markdown code block (không dùng \`\`\` hoặc \`\`\`markdown). Tuyệt đối không thêm lời chào, giải thích, phân tích hay ghi chú ngoài lề.`;
 
-            const contents: any[] = [{ text: promptText }];
+            const parts: any[] = [{ text: promptText }];
             if (this.imageBase64) {
-                const base64Data = this.imageBase64.split(',')[1];
-                contents.push({
+                let base64Data = this.imageBase64;
+                let mimeType = this.imageFile?.type || 'image/jpeg';
+                if (base64Data.startsWith('data:')) {
+                    const match = base64Data.match(/^data:([^;]+);base64,(.*)$/);
+                    if (match) {
+                        mimeType = match[1];
+                        base64Data = match[2];
+                    } else {
+                        base64Data = base64Data.split(',')[1] || '';
+                    }
+                }
+                parts.push({
                     inlineData: {
                         data: base64Data,
-                        mimeType: this.imageFile?.type || 'image/jpeg',
+                        mimeType: mimeType,
                     },
                 });
             }
 
+            const selectedModel = this.data?.selectedModel || 'gemini-2.5-flash';
+            const contents: any[] = [{ role: 'user', parts: parts }];
+
             const res = await this.genaiService.generateText({
-                model: 'gemini-1.5-pro',
+                model: selectedModel,
                 contents: contents,
             } as any);
 
-            this.generatedPrompt = res || '';
+            let cleanRes = (res || '').trim();
+            // Làm sạch code block nếu AI vô tình trả về markdown code fences
+            if (cleanRes.startsWith('```')) {
+                cleanRes = cleanRes.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+            }
+
+            this.generatedPrompt = cleanRes;
 
             if (!this.generatedPrompt) {
                 this.toastr.warning('Không có kết quả trả về từ AI.');
@@ -158,6 +191,7 @@ export class MagicPromptDialogComponent implements OnInit {
             );
         } finally {
             this.isGenerating = false;
+            this.cdr.detectChanges();
         }
     }
 }
