@@ -142,6 +142,22 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         this._unsubscribeAll.complete();
     }
 
+    isRowEncrypted(row: any): boolean {
+        if (!row || row.isGroupHeader) return false;
+        if (row.is_encrypted || row.encrypted) return true;
+        if (row.cipher || row.encrypted_payload) return true;
+        if (row.source) {
+            if (row.source.encrypted || row.source.is_encrypted || row.source.cipher || row.source.encrypted_payload) return true;
+        }
+        const uuid = row.uuid || row._id || row.id;
+        if (uuid) {
+            if (localStorage.getItem('article_encrypted_' + uuid) === 'true') return true;
+            if (sessionStorage.getItem('nav_handshake_pwd_' + uuid)) return true;
+            if (sessionStorage.getItem('unlocked_pwd_' + uuid)) return true;
+        }
+        return false;
+    }
+
     trackByFn(index: number, item: any): any {
         return item.id || index;
     }

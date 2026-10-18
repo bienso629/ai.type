@@ -5647,10 +5647,18 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 .subscribe({
                     next: async (result) => {
                         this.loading = false;
-                        if (result && (result.success || result.topic || result.tid)) {
-                            this.toastr.success('Đã đăng bài lên diễn đàn NodeBB thành công!');
+                        const resData = result?.data?.response || result?.response || result;
+                        const isSuccess = result?.success || result?.status === 200 || !!resData?.tid || !!resData?.slug;
+                        if (isSuccess) {
+                            const topicSlug = resData?.slug || resData?.tid || '';
+                            const topicUrl = topicSlug ? `https://type.vn/topic/${topicSlug}` : 'https://type.vn';
+                            this.toastr.success(`Đã đăng bài lên diễn đàn type.vn thành công! (${topicUrl})`, 'Thành công', {
+                                timeOut: 8000,
+                                closeButton: true
+                            });
                         } else {
-                            this.toastr.error('Đăng bài lên diễn đàn thất bại. Vui lòng kiểm tra lại!');
+                            const errMsg = result?.message || result?.error || 'Đăng bài lên diễn đàn thất bại. Vui lòng kiểm tra lại!';
+                            this.toastr.error(errMsg);
                         }
                         this.cd.markForCheck();
                     },

@@ -157,7 +157,7 @@
                             </div>
                         }
                         @if (row && !row.isGroupHeader && row.uuid) {
-                            <div class="flex items-center justify-self-stretch">
+                            <div class="flex items-center gap-1.5 justify-self-stretch">
                                 <mat-label
                                     matTooltipPosition="above"
                                     [matTooltip]="
@@ -168,6 +168,14 @@
                                 >
                                     {{ row.uuid }}
                                 </mat-label>
+                                @if (isRowEncrypted(row)) {
+                                    <mat-icon
+                                        class="icon-size-4 text-amber-500 shrink-0 cursor-pointer"
+                                        [svgIcon]="'feather:lock'"
+                                        [matTooltip]="'Bài viết đang được khóa bảo vệ mật khẩu (AES-256)'"
+                                        (click)="openRowArticle(row)"
+                                    ></mat-icon>
+                                }
                             </div>
                         }
                     </ng-template>
@@ -203,9 +211,9 @@
                             <div class="flex items-center w-full gap-1.5 min-w-0">
                                 @if (isRowEncrypted(row)) {
                                     <mat-icon
-                                        class="icon-size-3.5 sm:icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto"
+                                        class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto"
                                         [svgIcon]="'feather:lock'"
-                                        [matTooltip]="'Nội dung đã được mã hóa AES-256'"
+                                        [matTooltip]="'Bài viết đang được khóa bảo vệ mật khẩu (AES-256)'"
                                     ></mat-icon>
                                 }
                                 <p
@@ -398,9 +406,10 @@
                                     <button mat-menu-item (click)="openRowArticle(row)">
                                         <mat-icon
                                             class="icon-size-4 text-primary"
-                                            [svgIcon]="'feather:edit-3'"
+                                            [svgIcon]="isRowEncrypted(row) ? 'feather:lock' : 'feather:edit-3'"
+                                            [class.text-amber-500]="isRowEncrypted(row)"
                                         ></mat-icon>
-                                        <span>Mở chỉnh sửa</span>
+                                        <span>{{ isRowEncrypted(row) ? 'Mở bài viết (Đã khóa)' : 'Mở chỉnh sửa' }}</span>
                                     </button>
 
                                     <button mat-menu-item (click)="openRowScript(row)">
@@ -457,6 +466,19 @@
                             <div
                                 class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-0 mr-0"
                             >
+                                @if (isRowEncrypted(row)) {
+                                    <button
+                                        mat-icon-button
+                                        (click)="openRowArticle(row)"
+                                        class="transition-colors"
+                                        [matTooltip]="'Bài viết đang được khóa bảo vệ mật khẩu (AES-256)'"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 text-amber-500"
+                                            [svgIcon]="'feather:lock'"
+                                        ></mat-icon>
+                                    </button>
+                                }
                                 @if (
                                     row.has_script ||
                                     row.hasScript ||

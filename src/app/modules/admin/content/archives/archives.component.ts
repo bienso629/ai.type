@@ -1226,7 +1226,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                             domain: art.domain || 'local.ai.type',
                             used: 0,
                             is_local: true,
-                            is_encrypted: !!art.is_encrypted,
+                            is_encrypted: !!(art.is_encrypted || art.encrypted_payload || art.cipher),
+                            encrypted_payload: art.encrypted_payload,
                             created_at:
                                 art.created_at ||
                                 art.updated_at ||
@@ -1303,7 +1304,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                             ...doc,
                             // [FIX] Bai luu cuc bo: dung co is_encrypted tu SQLite lam nguon that
                             is_encrypted: doc.is_local
-                                ? !!doc.is_encrypted
+                                ? !!(doc.is_encrypted || doc.encrypted_payload || doc.cipher)
                                 : this.isRowEncrypted(doc),
                             dateGroup: this.getDateGroup(doc),
                         }));
@@ -1719,7 +1720,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         used: 0,
                         is_local: true,
                         // [FIX] Bai luu cuc bo: dung co is_encrypted tu SQLite lam nguon that
-                        is_encrypted: !!art.is_encrypted,
+                        is_encrypted: !!(art.is_encrypted || art.encrypted_payload || art.cipher),
+                        encrypted_payload: art.encrypted_payload,
                         has_script: !!art.has_script,
                         created_at:
                             art.created_at ||
@@ -1882,9 +1884,9 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     isRowEncrypted(row: any): boolean {
         if (!row || row.isGroupHeader) return false;
         if (row.is_encrypted || row.encrypted) return true;
-        if (row.cipher) return true;
+        if (row.cipher || row.encrypted_payload) return true;
         if (row.source) {
-            if (row.source.encrypted || row.source.is_encrypted || row.source.cipher) return true;
+            if (row.source.encrypted || row.source.is_encrypted || row.source.cipher || row.source.encrypted_payload) return true;
         }
         const uuid = row.uuid || row._id || row.id;
         if (uuid) {
@@ -1901,7 +1903,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             if (row && row.uuid && !row.isGroupHeader) {
                 if (row.is_local) {
                     // [FIX] Bai luu cuc bo: SQLite la nguon that -> dong bo co cache theo DB, xoa co "khoa" rac
-                    if (row.is_encrypted || row.encrypted) {
+                    if (row.is_encrypted || row.encrypted || row.encrypted_payload || row.cipher) {
+                        row.is_encrypted = true;
                         localStorage.setItem('article_encrypted_' + row.uuid, 'true');
                     } else {
                         row.is_encrypted = false;
