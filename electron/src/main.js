@@ -3460,7 +3460,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             if (audioPadParts.length === 1) {
                 filterParts.push(`${audioPadParts[0]}apad=whole_dur=${maxDur}[outa]`);
             } else {
-                filterParts.push(`${audioPadParts.join('')}amix=inputs=${audioPadParts.length}:duration=longest:dropout_transition=0,apad=whole_dur=${maxDur}[outa]`);
+                filterParts.push(`${audioPadParts.join('')}amix=inputs=${audioPadParts.length}:duration=longest:dropout_transition=0:normalize=0,apad=whole_dur=${maxDur}[outa]`);
             }
             hasAudioOutput = true;
         } else {
@@ -3838,7 +3838,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             if (audioPadParts.length === 1) {
                 filterParts.push(`${audioPadParts[0]}apad=whole_dur=${maxDur}[outa]`);
             } else {
-                filterParts.push(`${audioPadParts.join('')}amix=inputs=${audioPadParts.length}:duration=longest:dropout_transition=0,apad=whole_dur=${maxDur}[outa]`);
+                filterParts.push(`${audioPadParts.join('')}amix=inputs=${audioPadParts.length}:duration=longest:dropout_transition=0:normalize=0,apad=whole_dur=${maxDur}[outa]`);
             }
             hasAudioOutput = true;
         } else {

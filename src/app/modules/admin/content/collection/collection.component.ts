@@ -1448,7 +1448,7 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
                         try {
                             const response =
                                 await this._genaiService.generateContent({
-                                    model: 'gemini-3.6-flash',
+                                    model: 'gemini-3.8-flash',
                                     contents: [
                                         {
                                             role: 'user',

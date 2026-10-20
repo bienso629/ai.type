@@ -268,7 +268,7 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
 
             // Gửi toàn bộ nội dung
             const result = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [
                     {
                         role: 'user',

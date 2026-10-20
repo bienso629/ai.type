@@ -165,7 +165,7 @@ export class MagicPromptDialogComponent implements OnInit {
                 });
             }
 
-            const selectedModel = this.data?.selectedModel || 'gemini-2.5-flash';
+            const selectedModel = this.data?.selectedModel || 'gemini-3.8-flash';
             const contents: any[] = [{ role: 'user', parts: parts }];
 
             const res = await this.genaiService.generateText({

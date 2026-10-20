@@ -7,6 +7,7 @@ import {
 import { MultiAccountService } from './_services/multi-account.service';
 import { getModelverseConfig, getTextModelConfig } from './modelverse.config';
 import { ToastrService } from 'ngx-toastr';
+import { PdfTextService } from './_services/pdf-text.service';
 
 type Scope = string | number;
 
@@ -54,7 +55,8 @@ export class GenaiService {
 
     constructor(
         private multiAccountService: MultiAccountService,
-        private toastr: ToastrService
+        private toastr: ToastrService,
+        private _pdfTextService: PdfTextService
     ) { }
 
     /**
@@ -176,6 +178,17 @@ export class GenaiService {
             this._umodelverseChatModel = settings.umodelverseChatModel?.trim() || '';
             this._umodelverseImageModel = settings.umodelverseImageModel?.trim() || '';
             this._umodelverseVideoModel = settings.umodelverseVideoModel?.trim() || '';
+
+            // [PATCH] Model da bi Google khai tu ma van duoc luu trong cai dat se bi bo qua de he thong dung mac dinh con song
+            const deadGeminiModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.6-flash'];
+            for (const cfgKey of ['Chat', 'Image', 'Video'] as const) {
+                const field = ('_umodelverse' + cfgKey + 'Model') as keyof this;
+                const val = String(this[field] || '').toLowerCase();
+                if (val && deadGeminiModels.includes(val)) {
+                    console.warn(`[GenaiService] Model Mì Tôm AI ${cfgKey.toLowerCase()} cai dat (${val}) da bi khai tu, tu dong bo qua de dung model mac dinh.`);
+                    (this as any)[field] = '';
+                }
+            }
 
             // Nếu umodelverseUrl bị thiếu giao thức, thêm vào (mặc định https)
             if (this._umodelverseUrl && !this._umodelverseUrl.startsWith('http')) {
@@ -299,6 +312,23 @@ export class GenaiService {
     ): Promise<GenerateContentResponse> {
         this.syncConfigFromStorage();
 
+        // [PATCH PDF] Luoi an toan: neu request chua inlineData PDF thi trich xuat van ban
+        // ngay phia client. Cac tang proxy dinh dang OpenAI-style khong ho tro inlineData
+        // PDF (bi bo qua yen lang), khien AI "khong thay" file dinh kem.
+        try {
+            await this._convertPdfAttachmentsToText(params);
+        } catch (e) {
+            console.warn('[GenaiService] Khong the trich xuat van ban tu file PDF dinh kem:', e);
+        }
+
+        // [PATCH] Luoi an toan: cac model Gemini da bi Google khai tu (404 NOT_FOUND) se tu dong nang len model hien hanh
+        const deprecatedGeminiModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.6-flash'];
+        const hasCustomModality = !!params.config?.responseModalities?.length;
+        if (params.model && !hasCustomModality && deprecatedGeminiModels.includes(String(params.model).toLowerCase())) {
+            console.warn(`[GenaiService] Model ${params.model} da ngung hoat dong tren Google, tu dong chuyen sang gemini-3.8-flash.`);
+            params.model = 'gemini-3.8-flash';
+        }
+
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
         const settingsRaw = this.getSettingsFromStorage();
@@ -330,7 +360,7 @@ export class GenaiService {
             } else if (isImageRequest && !isImageEdit && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
                 params.model = this._umodelverseImageModel || 'dall-e-3';
             } else if (!bypassModelOverride && !isImageEdit) {
-                if (params.model?.startsWith('gemini-3.8-flash') || params.model?.startsWith('gemini-3.7-flash') || params.model?.startsWith('gemini-3.6-flash')) {
+                if (params.model?.startsWith('gemini-3.8-flash') || params.model?.startsWith('gemini-3.7-flash') || params.model?.startsWith('gemini-3.8-flash')) {
                     if (this._umodelverseChatModel) {
                         params.model = this._umodelverseChatModel;
                     }
@@ -413,7 +443,7 @@ export class GenaiService {
 
                         let googleModel = params.model;
                         if (!googleModel || googleModel === 'agent') {
-                            googleModel = isImageEdit ? 'gemini-3.1-flash-image-preview' : 'gemini-2.5-flash';
+                            googleModel = isImageEdit ? 'gemini-3.1-flash-image-preview' : 'gemini-3.8-flash';
                         }
                         const candidateGoogleModels = isImageEdit ? [
                             googleModel,
@@ -422,9 +452,8 @@ export class GenaiService {
                             'gemini-3-pro-image-preview'
                         ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && v.startsWith('gemini-')) : [
                             googleModel,
-                            'gemini-2.5-flash',
-                            'gemini-2.5-pro',
-                            'gemini-2.0-flash'
+                            'gemini-3.8-flash',
+                            'gemini-3.7-flash'
                         ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && v.startsWith('gemini-'));
 
                         // Lọc sạch config chuẩn cho Google GenAI SDK
@@ -1151,9 +1180,9 @@ export class GenaiService {
         if (!hasAudio && overrideModel && (overrideModel.includes('gemini') || overrideModel === 'agent')) {
             overrideModel = null;
         }
-        let targetModel = overrideModel || this._umodelverseChatModel || (hasAudio ? 'gemini-2.5-flash' : 'gpt-4o');
+        let targetModel = overrideModel || this._umodelverseChatModel || (hasAudio ? 'gemini-3.8-flash' : 'gpt-4o');
         if (targetModel === 'agent') {
-            targetModel = this._umodelverseChatModel || (hasAudio ? 'gemini-2.5-flash' : 'gpt-4o');
+            targetModel = this._umodelverseChatModel || (hasAudio ? 'gemini-3.8-flash' : 'gpt-4o');
         }
         const config = getTextModelConfig(targetModel);
 
@@ -2866,7 +2895,7 @@ Yêu cầu:
 `.trim();
 
             const res: any = await this.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: promptForAi }] }],
                 config: {
                     systemInstruction: 'Bạn là chuyên gia gợi ý prompt và câu hỏi tiếp theo thông minh. Chỉ trả về định dạng JSON array các chuỗi string.'
@@ -2913,7 +2942,7 @@ Trả về JSON duy nhất (không bọc code block markdown):
 `.trim();
 
             const res: any = await this.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: promptForAi }] }],
                 config: {
                     systemInstruction: 'Bạn là AI phân tích ý định người dùng và điều phối tác vụ. Trả về JSON chính xác.'
@@ -2942,5 +2971,42 @@ Trả về JSON duy nhất (không bọc code block markdown):
         this._umodelverseUrl = '';
         this._umodelverseKey = '';
         this.syncConfigFromStorage();
+    }
+
+    /**
+     * [PATCH PDF] Chuyen doi moi inlineData application/pdf trong contents
+     * thanh phan text da trich xuat bang pdfjs (theo tung trang).
+     * Cac tang proxy dinh dang OpenAI-style khong ho tro inlineData PDF,
+     * neu khong chuyen doi thi AI se khong thay noi dung file dinh kem.
+     */
+    private async _convertPdfAttachmentsToText(params: GenerateContentParameters): Promise<boolean> {
+        if (!params.contents || !Array.isArray(params.contents)) {
+            return false;
+        }
+
+        let changed = false;
+        for (const content of params.contents as any[]) {
+            const parts = content?.parts;
+            if (!Array.isArray(parts)) {
+                continue;
+            }
+            for (let idx = 0; idx < parts.length; idx++) {
+                const inline = parts[idx]?.inlineData;
+                const mime = String(inline?.mimeType || '').toLowerCase();
+                if (mime === 'application/pdf' && inline?.data) {
+                    const pdfText = await this._pdfTextService.extractTextFromBase64(inline.data);
+                    if (pdfText && pdfText.trim().length > 0) {
+                        parts.splice(idx, 1, {
+                            text: `\n--- Nội dung file PDF đính kèm ---\n${pdfText}\n--- Hết file PDF ---`
+                        });
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if (changed) {
+            console.info('[GenaiService] Đã trích xuất văn bản từ file PDF đính kèm trước khi gửi AI.');
+        }
+        return changed;
     }
 }

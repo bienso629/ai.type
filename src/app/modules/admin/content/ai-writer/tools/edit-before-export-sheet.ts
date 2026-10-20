@@ -869,7 +869,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             prompt += `Yêu cầu bắt buộc: Đoạn văn viết lại phải phù hợp và nhất quán với ngữ cảnh của toàn bộ Dàn ý nêu trên (không mâu thuẫn nội dung, không lệch mạch truyện/ý). Chỉ trả về đoạn văn đã được viết lại dưới dạng HTML (dùng thẻ <p>), không thêm giải thích, không thêm markdown, không lặp lại các đoạn khác trong Dàn ý.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: {
                     systemInstruction:

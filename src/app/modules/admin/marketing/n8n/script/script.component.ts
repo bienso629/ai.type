@@ -1077,7 +1077,7 @@ Nhiệm vụ của bạn:
 `.trim();
 
                 const aiRes: any = await this._genaiService.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3.8-flash',
                     contents: [{ role: 'user', parts: [{ text: promptAiSearch }] }],
                     config: {
                         systemInstruction: 'Bạn là Trợ lý AI tìm kiếm và lọc danh sách Livestream thông minh. Phản hồi JSON chính xác.'
@@ -1150,7 +1150,7 @@ Nhiệm vụ của bạn:
 `.trim();
 
             const response: any = await this._genaiService.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: promptForAi }] }],
                 config: {
                     systemInstruction: `Bạn là Trợ lý phân tích chuyên nghiệp hỗ trợ xây dựng kịch bản livestream, phân tích video và tự động hóa tương tác MXH. Phản hồi định dạng JSON sạch sẽ, không ghi chữ AI Agent hay agent.type.vn.`
@@ -1649,7 +1649,7 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
 
         try {
             const response: any = await this._genaiService.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: promptText }] }],
                 config: {
                     systemInstruction: `Bạn là Trợ lý phân tích duy trì phân tích luồng Livestream liên tục. Định dạng HTML thuần cực kỳ gọn gàng, tuyệt đối KHÔNG bao bọc bằng mã markdown (\`\`\`html), không khoảng cách dòng thưa mét, không ghi chữ AI Agent hay agent.type.vn, báo cáo rõ mốc thời gian [${timeNow}].`
@@ -2089,7 +2089,7 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
             this.chatHistory.push({ role: "user", parts: [{ text: messageToSend }] });
 
             const result = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: this.chatHistory
             });
             const jsonMatch = result.text;

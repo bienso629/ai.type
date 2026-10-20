@@ -1882,7 +1882,7 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 
             try {
                 const response = await this._genaiService.generateContent({
-                    model: 'gemini-3.6-flash',
+                    model: 'gemini-3.8-flash',
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     config: { temperature: 0.1 },
                 });
@@ -2052,7 +2052,7 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 
                 try {
                     const response = await this._genaiService.generateContent({
-                        model: 'gemini-3.6-flash',
+                        model: 'gemini-3.8-flash',
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         config: { temperature: 0.1 },
                     });
@@ -2217,7 +2217,7 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 - Bắt đầu kịch bản ngay bằng CẢNH ${startScene} hoặc "FADE IN:". KHÔNG kèm lời dẫn hay giải thích thừa.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: { temperature: 0.1 },
             });
