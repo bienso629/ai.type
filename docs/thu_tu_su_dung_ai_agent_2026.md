@@ -36,7 +36,7 @@ Toàn bộ các tác vụ xử lý thông minh qua AI (sinh văn bản, tạo �
 - **Điều kiện kích hoạt**: Khi cả Mì Tôm AI và AI Agent đều không khả dụng (bị tắt hoặc gặp sự cố kết nối).
 - **Nguyên tắc**:
   - Hỗ trợ danh sách đa key tách biệt bằng dấu chấm phẩy (`;`), tự động xáo trộn ngẫu nhiên (Load Balancing) để tránh chạm trần giới hạn tần suất (HTTP 429 Rate Limit).
-  - Sử dụng các model Gemini mặc định (`gemini-2.5-flash`, `gemini-2.5-pro`, `imagen-3.0-generate-002`,...).
+  - Sử dụng các model Gemini mặc định (`gemini-3.8-flash`, `gemini-3.7-flash`, `imagen-3.0-generate-002`,...).
 
 ---
 

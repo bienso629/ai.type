@@ -93,7 +93,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     mentionIndex: number = 0;
     ignoreNextEnter: boolean = false;
     mentionOptions = [
-        { id: 'Lịch làm việc', icon: 'heroicons_outline:calendar', url: '/amxh', panel: 'schedule' },
+        { id: 'Lịch viết bài', icon: 'heroicons_outline:calendar', url: '/amxh', panel: 'schedule' },
         { id: 'Quản lý bài viết', icon: 'heroicons_outline:document-text', url: '/admin/marketing/clone-product' },
         { id: 'SEO Links', icon: 'heroicons_outline:link', url: '/admin/marketing/seo-links' }
     ];
@@ -1081,7 +1081,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     };
 
                     const result = await this._genaiService.generateContent({
-                        model: 'gemini-3.6-flash',
+                        model: 'gemini-3.8-flash',
                         contents: [{ role: 'user', parts: parts }],
                         config: genConfig
                     }, newRow.conversation_id || newRow._id);
@@ -1641,7 +1641,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
                 try {
                     const promptResponse = await this._genaiService.generateContent({
-                        model: 'gemini-3.6-flash',
+                        model: 'gemini-3.8-flash',
                         contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }],
                         config: { bypassUModelverse: true } as any // Dùng bypass để lấy prompt nhanh bằng API thường
                     });
@@ -1658,7 +1658,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             }
 
             const result = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: contents,
                 config: genConfig
             }, row.conversation_id || row._id);

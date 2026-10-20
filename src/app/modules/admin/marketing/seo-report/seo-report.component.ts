@@ -1029,7 +1029,7 @@ Quy định định dạng:
 
             let currentStreamedText = '';
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: {
                     skipTTS: true,
@@ -1305,7 +1305,7 @@ Với mỗi từ khóa, hãy:
 Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiểu cho marketer.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
@@ -2187,7 +2187,7 @@ Quy định xuất HTML:
 
             let currentStreamedText = '';
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: {
                     skipTTS: true,

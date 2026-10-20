@@ -77,7 +77,7 @@ Thay vì AI Agent dùng Auto-GUI để click vào màn hình (Rất dễ gãy la
     ]
   }
   ```
-- **Quy trình:** Khi AI Agent trả về JSON này, hệ thống UI (như Màn hình Lịch làm việc) sẽ tự động đánh chặn (intercept), bóc tách JSON và lưu thẳng vào kho dữ liệu Dàn ý của màn hình `/ai-writer`. Người dùng sau đó chỉ cần qua màn hình Soạn bài là thấy ngay.
+- **Quy trình:** Khi AI Agent trả về JSON này, hệ thống UI (như Màn hình Lịch viết bài) sẽ tự động đánh chặn (intercept), bóc tách JSON và lưu thẳng vào kho dữ liệu Dàn ý của màn hình `/ai-writer`. Người dùng sau đó chỉ cần qua màn hình Soạn bài là thấy ngay.
 
 ---
 

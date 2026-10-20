@@ -47,6 +47,7 @@ import {
 } from '@angular/cdk/drag-drop';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { GenaiService } from 'app/genai.service';
+import { PdfTextService } from 'app/_services/pdf-text.service';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { SettingsDomainLoginComponent } from 'app/modules/admin/account/settings/domain/login/login.component';
 import { AIText2SpeechComponent } from 'app/modules/admin/content/ai-text2speech/ai-text2speech.component';
@@ -1032,7 +1033,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
@@ -1688,7 +1689,7 @@ Nội dung cần tách:
 ${content}`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: { bypassUModelverse: true, bypassModelOverride: true } as any
             });
@@ -1781,7 +1782,7 @@ ${content}`;
 
                                 // Call AI to generate content
                                 const response = await this._genaiService.generateContent({
-                                    model: 'gemini-3.6-flash',
+                                    model: 'gemini-3.8-flash',
                                     contents: [{ role: 'user', parts: parts }],
                                 });
 
@@ -1883,7 +1884,7 @@ ${content}`;
                     }
                 } else {
                     const response = await this._genaiService.generateContent({
-                        model: 'gemini-3.6-flash',
+                        model: 'gemini-3.8-flash',
                         contents: [{ role: 'user', parts: [{ text: promptText }] }],
                         config: { responseModalities: ['IMAGE'] }
                     } as any);
@@ -2189,6 +2190,18 @@ ${content}`;
                             };
                             reader.onerror = reject;
                             reader.readAsText(file);
+                        } else if (isPdf) {
+                            // Trích xuất văn bản PDF ngay phía client để AI đọc được nội dung đính kèm
+                            // (các tầng proxy OpenAI-style không hỗ trợ inlineData PDF, gửi đi sẽ bị bỏ qua)
+                            this._pdfTextService.extractText(file).then((pdfText) => {
+                                if (pdfText && pdfText.trim().length > 0) {
+                                    resolve({ type: 'text', content: `\n--- Nội dung file PDF ${file.name} ---\n${pdfText}\n--- Hết file PDF ---` });
+                                } else {
+                                    reject(new Error(`File PDF "${file.name}" là bản scan (ảnh) hoặc không có lớp văn bản để trích xuất. Vui lòng dùng bản PDF có văn bản hoặc dán nội dung vào ô prompt.`));
+                                }
+                            }).catch((pdfErr: any) => {
+                                reject(new Error(`Không đọc được file PDF "${file.name}": ${pdfErr?.message || 'lỗi không xác định'}`));
+                            });
                         } else {
                             reader.onload = (e: any) => {
                                 const base64Data = e.target.result.split(',')[1];
@@ -2226,7 +2239,7 @@ ${content}`;
             parts.unshift({ text: promptTextAccumulator });
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: parts }],
             });
 
@@ -2318,7 +2331,7 @@ ${content}`;
   {"title": "Tiêu đề bài viết hấp dẫn chứa từ khóa", "link": "https://${targetDomain}/duong-dan-bai-viet-chuan-seo"}
 ]`;
                         const aiResponse = await this._genaiService.generateContent({
-                            model: 'gemini-2.0-flash',
+                            model: 'gemini-3.8-flash',
                             contents: [{ role: 'user', parts: [{ text: promptText }] }],
                         });
 
@@ -2646,7 +2659,7 @@ ${content}`;
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: parts }]
             });
 
@@ -2764,7 +2777,7 @@ ${content}`;
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
@@ -3559,7 +3572,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
             this.cd.markForCheck();
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: { temperature: 0.1 }
             });
@@ -3652,7 +3665,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
 
             // Gửi trực tiếp tới endpoint /api/image
             const imageResponse = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: partsForImage }],
                 config: { responseModalities: ['IMAGE'] }
             } as any);
@@ -3762,7 +3775,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
 
             // Gửi trực tiếp tới endpoint /api/image
             const imageResponse = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: partsForImage }],
                 config: { responseModalities: ['IMAGE'] }
             } as any);
@@ -4038,7 +4051,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
         try {
             const prompt = `Hãy viết lại nội dung của đoạn HTML sau bằng tiếng Việt một cách tự nhiên để tránh trùng lặp nội dung, nhưng vẫn giữ nguyên ý nghĩa và TẤT CẢ các thẻ HTML (như <a>, <b>, <i>, <span>, <img>). Chỉ trả về mã HTML đã viết lại, không giải thích gì thêm, không dùng markdown:\n${originalHtml}`;
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
@@ -6086,7 +6099,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
             parts.unshift({ text: promptText });
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: parts }],
             });
 
@@ -6340,7 +6353,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
             parts.unshift({ text: prompt });
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: parts }],
             });
 
@@ -7376,6 +7389,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
         private multiAccountService: MultiAccountService,
         private sanitizer: DomSanitizer,
         private _genaiService: GenaiService,
+        private _pdfTextService: PdfTextService,
         public _wordpressService: WordpressService,
         public globalAgentService: GlobalAgentService,
         private _fuseLoadingService: FuseLoadingService

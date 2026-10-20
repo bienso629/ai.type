@@ -2264,7 +2264,7 @@ export class NodeEditorComponent
                 }
 
                 const response = await this.genaiService.generateContent({
-                    model: this.selectedModel || 'gemini-3.6-flash',
+                    model: this.selectedModel || 'gemini-3.8-flash',
                     contents: [
                         { role: 'user', parts: [{ text: finalPrompt }] },
                     ],

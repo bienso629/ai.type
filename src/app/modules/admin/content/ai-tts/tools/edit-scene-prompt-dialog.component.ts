@@ -808,7 +808,7 @@ Instructions:
 
         try {
             let result = await this._genaiService.generateText({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: parts }],
                 config: {
                     temperature: 0.7,
@@ -1009,7 +1009,7 @@ Instructions:
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash', // Thay thế bằng model phù hợp của Gemini
+                model: 'gemini-3.8-flash', // Thay thế bằng model phù hợp của Gemini
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     aspectRatio: this.selectedAspectRatio,

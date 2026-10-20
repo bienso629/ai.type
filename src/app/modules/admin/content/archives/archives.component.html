@@ -168,14 +168,6 @@
                                 >
                                     {{ row.uuid }}
                                 </mat-label>
-                                @if (isRowEncrypted(row)) {
-                                    <mat-icon
-                                        class="icon-size-4 text-amber-500 shrink-0 cursor-pointer"
-                                        [svgIcon]="'feather:lock'"
-                                        [matTooltip]="'Bài viết đang được khóa bảo vệ mật khẩu (AES-256)'"
-                                        (click)="openRowArticle(row)"
-                                    ></mat-icon>
-                                }
                             </div>
                         }
                     </ng-template>
@@ -466,19 +458,6 @@
                             <div
                                 class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-0 mr-0"
                             >
-                                @if (isRowEncrypted(row)) {
-                                    <button
-                                        mat-icon-button
-                                        (click)="openRowArticle(row)"
-                                        class="transition-colors"
-                                        [matTooltip]="'Bài viết đang được khóa bảo vệ mật khẩu (AES-256)'"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-4 text-amber-500"
-                                            [svgIcon]="'feather:lock'"
-                                        ></mat-icon>
-                                    </button>
-                                }
                                 @if (
                                     row.has_script ||
                                     row.hasScript ||

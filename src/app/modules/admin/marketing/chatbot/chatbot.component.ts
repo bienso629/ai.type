@@ -1505,7 +1505,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             ip_address: "192.168.1.1",
             sender_info: "Chrome on Windows",
             google_api_key: geminiKey,
-            llm_model: "gemini-3.6-flash",
+            llm_model: "gemini-3.8-flash",
             simple_chatbot_data_source: this.selectedDataSource || 'documents',
             index_dir: `faiss_pdf_index`
         };
@@ -1567,7 +1567,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
             const response = await this._genaiService.generateContent(
                 {
-                    model: 'gemini-2.0-flash',
+                    model: 'gemini-3.8-flash',
                     contents: [
                         ...historyContents,
                         {
@@ -1751,7 +1751,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             const payload = {
                 username: this.user.name,
                 google_api_key: geminiKey,
-                llm_model: "gemini-3.6-flash",
+                llm_model: "gemini-3.8-flash",
                 index_dir: `faiss_pdf_index`,
                 filename: filename,
                 doc_type: this.currentDocType
@@ -2397,7 +2397,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             index_dir: `faiss_pdf_index`,
             enable_ocr: false,
             google_api_key: geminiKey,
-            llm_model: "gemini-3.6-flash",
+            llm_model: "gemini-3.8-flash",
         };
 
         this.indexingFilename = filename;
@@ -2482,7 +2482,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const payload = {
             username: this.user.name,
             google_api_key: geminiKey,
-            llm_model: "gemini-3.6-flash",
+            llm_model: "gemini-3.8-flash",
             index_dir: `faiss_pdf_index`
         };
 

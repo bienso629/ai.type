@@ -206,7 +206,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     mentionIndex: number = 0;
     ignoreNextEnter: boolean = false;
     mentionOptions = [
-        { id: 'Lịch làm việc', icon: 'heroicons_outline:calendar', url: '/amxh', panel: 'schedule' },
+        { id: 'Lịch viết bài', icon: 'heroicons_outline:calendar', url: '/amxh', panel: 'schedule' },
         { id: 'Quản lý bài viết', icon: 'heroicons_outline:document-text', url: '/admin/marketing/clone-product' },
         { id: 'SEO Links', icon: 'heroicons_outline:link', url: '/admin/marketing/seo-links' }
     ];
@@ -242,7 +242,7 @@ Yêu cầu:${styleInstructions}
 }`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: { ttsVoice: 'none' } as any
             });
@@ -1519,7 +1519,7 @@ Không dùng markdown \`\`\`json.`;
             try {
                 attempts++;
                 response = await this._genaiService.generateContent({
-                    model: 'gemini-3.6-flash',
+                    model: 'gemini-3.8-flash',
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     tools: [],
                     config: { ttsVoice: 'none' } as any
@@ -1718,7 +1718,7 @@ Không dùng markdown \`\`\`json.`;
             this.chatHistory.push({ role: "user", parts: [{ text: messageToSend }] });
 
             const result = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: this.chatHistory,
                 config: { ttsVoice: 'none' } as any
             });
@@ -2316,7 +2316,7 @@ Không dùng markdown \`\`\`json.`;
                 const todayStr = tzOffsetStr(new Date());
 
                 this._globalAgentService.updateContext({
-                    sourcePage: 'Lịch làm việc (Schedule)',
+                    sourcePage: 'Lịch viết bài (Schedule)',
                     action: 'schedule_tasks',
                     data: summaryData,
                     prompt: `BẠN LÀ MỘT HỆ THỐNG XỬ LÝ DỮ LIỆU. BẠN PHẢI TRẢ VỀ MẢNG JSON [ ... ]. BẠN PHẢI BỌC KẾT QUẢ TRONG CẶP MARKDOWN \`\`\`json VÀ \`\`\`.
@@ -3829,7 +3829,7 @@ Yêu cầu:${styleInstructions}
   "image_prompt": "Gợi ý ảnh tiếng Anh cho bài viết"
 }`;
                         const response = await this._genaiService.generateContent({
-                            model: 'gemini-3.6-flash',
+                            model: 'gemini-3.8-flash',
                             contents: [{ role: 'user', parts: [{ text: prompt }] }],
                             config: { ttsVoice: 'none' } as any
                         });
@@ -4513,7 +4513,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     
                     try {
                         const response = await this._genaiService.generateContent({
-                            model: 'gemini-3.6-flash',
+                            model: 'gemini-3.8-flash',
                             contents: dayContents,
                             tools: [], // No tools to make it fast
                             config: {
@@ -4620,7 +4620,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 const streamIndex = this.chatHistory.length - 1;
                 
                 const response = await this._genaiService.generateContent({
-                    model: 'gemini-3.6-flash',
+                    model: 'gemini-3.8-flash',
                     contents: contents,
                     tools: toolsList,
                     config: {
@@ -5251,7 +5251,7 @@ QUY TẮC BẮT BUỘC:
 
         try {
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: contents,
                 tools: [{ googleSearch: {} }],
                 config: { ttsVoice: 'none' }

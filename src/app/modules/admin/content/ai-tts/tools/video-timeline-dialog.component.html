@@ -4774,6 +4774,12 @@
                                                         | number: "1.0-1"
                                                 }}s
                                             </div>
+                                            @if (sub.audioUrl) {
+                                                <div
+                                                    [id]="'waveform-sub-' + sceneIdx + '-' + sIdx"
+                                                    class="absolute inset-0 pointer-events-none opacity-0 overflow-hidden"
+                                                ></div>
+                                            }
                                         </div>
                                         <!-- Left Drag Handle (Kéo chỉnh thời gian đầu) -->
                                         <div
@@ -5073,6 +5079,10 @@
                                                         | number: "1.0-1"
                                                 }}s
                                             </div>
+                                            <div
+                                                [id]="'waveform-' + sceneIdx + '-' + aIdx"
+                                                class="absolute inset-0 pointer-events-none opacity-40 overflow-hidden"
+                                            ></div>
                                         </div>
                                         <!-- Left Drag Handle -->
                                         <div

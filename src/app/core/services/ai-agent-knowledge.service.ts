@@ -137,7 +137,7 @@ ${JSON.stringify(recentAPIs, null, 2)}`;
 
     try {
         const customInstructions = await this.genaiService.generateText({
-            model: 'gemini-3.6-flash',
+            model: 'gemini-3.8-flash',
             contents: [{ role: 'user', parts: [{ text: promptStr }] }]
         });
         

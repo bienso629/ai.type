@@ -558,7 +558,7 @@ Trả về ĐÚNG định dạng JSON mảng các object:
 ]`;
             
             const response: any = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
             

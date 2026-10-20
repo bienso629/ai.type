@@ -273,7 +273,7 @@ export class ControlNetDialogComponent implements OnInit {
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     aspectRatio: this.selectedAspectRatio,

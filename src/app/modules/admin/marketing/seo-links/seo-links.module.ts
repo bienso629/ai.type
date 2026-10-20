@@ -279,7 +279,7 @@ export class DialogContentComponent implements OnInit {
 
             const response = await this.ai.generateContent(
                 {
-                    model: 'gemini-3.6-flash',
+                    model: 'gemini-3.8-flash',
                     contents: contents,
                 },
                 this.data.itemId,

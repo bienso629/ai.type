@@ -122,23 +122,6 @@ export interface ArticlePasswordDialogData {
                         ></mat-icon>
                     </button>
                 </mat-form-field>
-
-                @if (data.mode === 'set') {
-                    <mat-form-field
-                        class="w-full fuse-mat-dense fuse-mat-no-subscript mt-2"
-                        appearance="fill"
-                        subscriptSizing="dynamic"
-                    >
-                        <mat-label>Xác nhận mật khẩu</mat-label>
-                        <input
-                            matInput
-                            [type]="hidePassword ? 'password' : 'text'"
-                            [formControlName]="'confirmPassword'"
-                            placeholder="Nhập lại mật khẩu..."
-                            required
-                        />
-                    </mat-form-field>
-                }
             </form>
         </div>
 
@@ -199,14 +182,7 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
     ngOnInit(): void {
         this.passForm = this._formBuilder.group({
             password: ['', Validators.required],
-            confirmPassword: [''],
         });
-
-        if (this.data.mode === 'set') {
-            this.passForm
-                .get('confirmPassword')
-                ?.setValidators([Validators.required]);
-        }
 
         this.checkLockout();
         this.timerInterval = setInterval(() => {
@@ -275,14 +251,7 @@ export class ArticlePasswordDialog implements OnInit, OnDestroy {
             return;
         }
 
-        if (this.data.mode === 'set') {
-            const confirm = this.passForm.get('confirmPassword')?.value;
-            if (password !== confirm) {
-                this.errorMessage = 'Mật khẩu xác nhận không trùng khớp!';
-                this._cdr.detectChanges();
-                return;
-            }
-        } else if (this.data.mode === 'unlock' && this.data.validator) {
+        if (this.data.mode === 'unlock' && this.data.validator) {
             this.isSubmitting = true;
             this.errorMessage = '';
             this._cdr.detectChanges();

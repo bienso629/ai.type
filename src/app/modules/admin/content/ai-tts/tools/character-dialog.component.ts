@@ -381,7 +381,7 @@ export class CharacterDialogComponent {
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     responseModalities: ['IMAGE'],
@@ -558,7 +558,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash', // Use a model capable of reading images
+                model: 'gemini-3.8-flash', // Use a model capable of reading images
                 contents: [{ role: 'user', parts: requestParts }],
                 config: { temperature: 0.7 },
             });

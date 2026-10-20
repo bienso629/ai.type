@@ -994,7 +994,7 @@ if tunnel_url:
                         });
 
                         const res: any = await this._genaiService.generateContent({
-                            model: 'gemini-2.5-flash',
+                            model: 'gemini-3.8-flash',
                             contents: [
                                 {
                                     role: 'user',

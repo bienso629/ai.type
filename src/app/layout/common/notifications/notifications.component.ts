@@ -545,7 +545,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                 });
 
                 return this._genaiService.generateContent({
-                    model: 'gemini-3.6-flash',
+                    model: 'gemini-3.8-flash',
                     contents: [{ role: 'user', parts: parts }]
                 });
             } catch (error) {
@@ -558,7 +558,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
             } else {
                 try {
                     return this._genaiService.generateContent({
-                        model: 'gemini-3.6-flash',
+                        model: 'gemini-3.8-flash',
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     });
                 } catch (error) {
@@ -570,7 +570,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
     async createImage(prompt: string, index: number) {
         return this._genaiService.generateContent({
-            model: 'gemini-3.6-flash',
+            model: 'gemini-3.8-flash',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
                 responseModalities: ['IMAGE'],

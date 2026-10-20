@@ -1023,8 +1023,9 @@ export class VideoTimelineDialogComponent
         const allSubs: any[] = [];
         const audioClips: any[] = [];
 
-        // Nếu video này có âm thanh gốc và không bị tắt
-        const isMuted = targetVideo.muted;
+        // Nếu video này có âm thanh gốc và không bị tắt (và chưa bị tách thành extractedAudios)
+        const targetScene = this.projectData?.scenes?.find((s: any) => s.videos?.includes(targetVideo));
+        const isMuted = targetVideo.muted || (targetScene && this.hasExtractedAudio(targetScene, targetVideo));
         if (!isMuted) {
             audioClips.push({
                 path: cleanVideoPath,
@@ -4473,7 +4474,7 @@ export class VideoTimelineDialogComponent
                         if (isPlayingNow) {
                             const expectedTime = Math.max(
                                 0,
-                                this.currentTimelineTime - start,
+                                this.currentTimelineTime - start + (Number(audio.trimStart) || 0),
                             );
                             const vol =
                                 audio.volume !== undefined
@@ -6297,7 +6298,7 @@ export class VideoTimelineDialogComponent
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     aspectRatio: this.projectData?.aspectRatio || '16:9',
@@ -8683,7 +8684,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
 
             try {
                 const response: any = await this._genaiService.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3.8-flash',
                     contents: [{ role: 'user', parts: parts }],
                     config: {
                         maxOutputTokens: 8192,
@@ -9041,7 +9042,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                             // Gọi Tầng AI cao nhất đang được cấu hình
                             const response =
                                 await this._genaiService.generateContent({
-                                    model: 'gemini-3.6-flash', // Tự động fallback trong service
+                                    model: 'gemini-3.8-flash', // Tự động fallback trong service
                                     contents: [{ role: 'user', parts: parts }],
                                     config: {
                                         responseModalities: ['IMAGE'],
@@ -9608,7 +9609,7 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
 ]`;
 
                 const response: any = await this._genaiService.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3.8-flash',
                     contents: [
                         {
                             role: 'user',
@@ -12931,7 +12932,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
 
                     const response: any =
                         await this._genaiService.generateContent({
-                            model: 'gemini-2.5-flash',
+                            model: 'gemini-3.8-flash',
                             contents: [
                                 { role: 'user', parts: [{ text: prompt }] },
                             ],
