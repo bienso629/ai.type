@@ -387,17 +387,13 @@ export class NodeEditorComponent
             // Ưu tiên endpoint URL mà người dùng cấu hình trong cài đặt Mì Tôm AI
             let modelsApiUrl = 'https://api-vn-sg.mitom.ai/v1/models';
             if (settings.umodelverseUrl && typeof settings.umodelverseUrl === 'string') {
-                const trimmedUrl = settings.umodelverseUrl.replace(/\/+$/, '');
-                modelsApiUrl = trimmedUrl.endsWith('/v1')
-                    ? `${trimmedUrl}/models`
-                    : `${trimmedUrl}/v1/models`;
+                modelsApiUrl = `${GenaiService.resolveApiBase(settings.umodelverseUrl).versioned}/models`;
             }
 
             try {
-                const headers: Record<string, string> = {};
-                if (settings.umodelverseKey) {
-                    headers['Authorization'] = `Bearer ${settings.umodelverseKey}`;
-                }
+                const headers: Record<string, string> = settings.umodelverseKey
+                    ? GenaiService.buildUModelverseHeaders(settings.umodelverseUrl || modelsApiUrl, settings.umodelverseKey, false)
+                    : {};
                 const res = await fetch(modelsApiUrl, {
                     method: 'GET',
                     headers: Object.keys(headers).length > 0 ? headers : undefined,

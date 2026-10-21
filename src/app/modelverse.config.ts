@@ -182,7 +182,7 @@ export interface TextModelConfig {
     // API chuẩn: openai (mặc định), anthropic (claude), gemini, custom
     apiFormat: 'openai' | 'anthropic' | 'gemini' | 'custom';
     
-    // Tên endpoint thay thế nếu không dùng /chat/completions mặc định
+    // Tên endpoint thay thế nếu không dùng /chat/completions mặc định (tương đối so với gốc đã có phiên bản, VD: '/messages')
     endpointOverride?: string;
     
     // Sử dụng max_completion_tokens thay vì max_tokens (Thường dùng cho model reasoning như o1, o3, deepseek-reasoner)
@@ -195,7 +195,8 @@ export interface TextModelConfig {
 export const TEXT_MODEL_CONFIGS: Record<string, TextModelConfig> = {
     'claude': {
         apiFormat: 'anthropic',
-        endpointOverride: '/v1/messages', // Astraflow requires /v1/messages for Claude
+        // Tương đối so với gốc có phiên bản => .../v1/messages. Proxy không có /messages sẽ tự lùi về /chat/completions
+        endpointOverride: '/messages',
     },
     'gemini': {
         apiFormat: 'openai',

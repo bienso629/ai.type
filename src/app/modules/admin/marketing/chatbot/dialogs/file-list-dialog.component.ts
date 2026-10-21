@@ -243,6 +243,7 @@ export class FileListDialogComponent implements AfterViewInit {
                                         configData = {
                                             url: settings.umodelverseUrl || '',
                                             key: settings.umodelverseKey || '',
+                                            model: settings.umodelverseChatModel || '',
                                         };
                                     }
                                 } catch (e) {
@@ -266,6 +267,7 @@ export class FileListDialogComponent implements AfterViewInit {
                                     configData = {
                                         url: settings.umodelverseUrl || '',
                                         key: settings.umodelverseKey || '',
+                                        model: settings.umodelverseChatModel || '',
                                     };
                                     result = await electron.invoke('run-pdf-analysis-openai', tempPdfPath, configData);
                                 } else {

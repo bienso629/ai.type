@@ -52,7 +52,45 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
     ColumnMode = ColumnMode;
     SelectionType = SelectionType;
 
+    isDownloading: boolean = false;
+    downloadPercent: number = 0;
+    downloadStatus: string = '';
+    downloadProgressMap: {
+        [url: string]: {
+            isDownloading: boolean;
+            percent: number;
+            status: string;
+            done?: boolean;
+            error?: boolean;
+        };
+    } = {};
+
+    getRowUrl(item: any): string {
+        if (!item) return '';
+        switch (item.id?.kind) {
+            case 'youtube#video':
+                return `https://www.youtube.com/watch?v=${item.id.videoId}`;
+            case 'youtube#playlist':
+                return `https://www.youtube.com/playlist?list=${item.id.playlistId}`;
+            case 'tiktoker':
+                return `${item.id.videoId}`;
+            default:
+                if (item.url) {
+                    return item.url;
+                } else if (item.id?.videoId) {
+                    return `https://www.youtube.com/watch?v=${item.id.videoId}`;
+                }
+                return '';
+        }
+    }
+
+    getRowProgress(item: any) {
+        const url = this.getRowUrl(item);
+        return url ? this.downloadProgressMap[url] : null;
+    }
+
     private unsubscribeRes: () => void;
+    private _unsubscribeDownloadProgress: any = null;
 
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
@@ -134,18 +172,6 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
                     complete: () => {},
                 });
         } else if (this.tiktoker) {
-            // this._youtubeService.tiktokCrawler(this.tiktoker)
-            //     .pipe(takeUntil(this._unsubscribeAll))
-            //     .subscribe({
-            //         next: (data) => {
-            //             this.getLinksTiktoker();
-            //         },
-            //         error: (e: any) => {
-            //             this.toastr.warning(`Lỗi quét dữ liệu.`);
-            //         },
-            //         complete: () => { }
-            //     });
-
             // GỌI ELECTRON CRAWL TIKTOK
             this.items = []; // Xóa danh sách cũ trước khi bắt đầu quét mới
             this.toastr.info(
@@ -301,55 +327,112 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
         console.log('item', item);
     }
 
-    singleDownload(item: any) {
-        this.videos = [];
-        switch (item.id.kind) {
-            case 'youtube#video':
-                this.videos.push(
-                    `https://www.youtube.com/watch?v=${item.id.videoId}`,
-                );
-                break;
-            case 'youtube#playlist':
-                this.videos.push(
-                    `https://www.youtube.com/playlist?list=${item.id.playlistId}`,
-                );
-                break;
-            case 'tiktoker':
-                this.videos.push(`${item.id.videoId}`);
-                break;
-            default:
-                break;
+    private _triggerYtDlpDownload(urls: string[]) {
+        if (!urls || urls.length === 0) {
+            this.toastr.warning('Không có đường dẫn video hợp lệ để tải!');
+            return;
         }
 
-        this._youtubeService
-            .download({
-                URLS: this.videos,
-                quality: this.quality,
-                username: this.user.name,
-                subtitle: false,
-                thumbnail: false,
-                mode: this.mode,
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: (results) => {
-                    if (results && results.success) {
-                        this.toastr.success(`Tải video thành công!`);
-                    } else {
-                        this.toastr.warning(`Không tải được video này.`);
-                    }
-                },
-                error: (e: any) => {
-                    this.toastr.warning(`Không tải được video này.`);
-                },
-                complete: () => {},
+        if ((window as any).electron) {
+            const pendingUrls = urls.filter((u) => !this.downloadProgressMap[u]?.isDownloading);
+            if (pendingUrls.length === 0) {
+                this.toastr.info('Video này đang được tải rồi!');
+                return;
+            }
+            urls = pendingUrls;
+            this.isDownloading = true;
+            this.downloadPercent = 0;
+            this.downloadStatus = 'Đang bắt đầu tải...';
+            urls.forEach((u) => {
+                this.downloadProgressMap[u] = {
+                    isDownloading: true,
+                    percent: 0,
+                    status: 'Đang chờ...',
+                    done: false,
+                    error: false,
+                };
             });
+            this.toastr.info('Đang bắt đầu tải video...');
+            this.cd.detectChanges();
+
+            const settingsStr = localStorage.getItem('settings');
+            let customCookies = '';
+            if (settingsStr) {
+                try {
+                    customCookies = JSON.parse(settingsStr).customCookies || '';
+                } catch (e) {}
+            }
+
+            (window as any).electron
+                .invoke('download-video', {
+                    urls: urls,
+                    customCookies: customCookies,
+                    source: 'scan',
+                })
+                .then((result: any) => {
+                    this.isDownloading = false;
+                    if (result && result.success) {
+                        this.downloadPercent = 100;
+                        this.downloadStatus = 'Tải video thành công!';
+                        urls.forEach((u) => {
+                            this.downloadProgressMap[u] = {
+                                isDownloading: false,
+                                percent: 100,
+                                status: 'Đã tải',
+                                done: true,
+                                error: false,
+                            };
+                        });
+                        this.toastr.success('Tải video về thành công!');
+                    } else {
+                        this.downloadStatus = 'Tải thất bại!';
+                        urls.forEach((u) => {
+                            if (this.downloadProgressMap[u] && !this.downloadProgressMap[u].done) {
+                                this.downloadProgressMap[u] = {
+                                    isDownloading: false,
+                                    percent: 0,
+                                    status: 'Lỗi tải',
+                                    done: false,
+                                    error: true,
+                                };
+                            }
+                        });
+                        this.toastr.warning(
+                            'Tải video thất bại: ' +
+                                (result?.error || 'Unknown error'),
+                        );
+                    }
+                    this.cd.detectChanges();
+                })
+                .catch((e: any) => {
+                    this.isDownloading = false;
+                    this.downloadStatus = 'Lỗi tải video!';
+                    urls.forEach((u) => {
+                        if (this.downloadProgressMap[u] && !this.downloadProgressMap[u].done) {
+                            this.downloadProgressMap[u] = {
+                                isDownloading: false,
+                                percent: 0,
+                                status: 'Lỗi tải',
+                                done: false,
+                                error: true,
+                            };
+                        }
+                    });
+                    this.toastr.error('Có lỗi xảy ra: ' + e);
+                    this.cd.detectChanges();
+                });
+        } else {
+            this.toastr.warning('Vui lòng chạy trên app Desktop để tải video!');
+        }
+    }
+
+    singleDownload(item: any) {
+        const url = this.getRowUrl(item);
+        this.videos = url ? [url] : [];
+        this._triggerYtDlpDownload(this.videos);
     }
 
     async createPost(row: any) {
-        // let settings = this.multiAccountService.getItem('settings');
-
-        // const ai = new GoogleGenAI({ apiKey: settings['secretKey'] });
         const response = await this._genaiService.generateContent({
             model: 'gemini-3.8-flash',
             contents: [
@@ -360,52 +443,15 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
 
     download() {
         this.videos = [];
-        Promise.all(
-            this.selected.map((item) => {
-                // let channelTitle = item.snippet.channelTitle;
-                switch (item.id.kind) {
-                    case 'youtube#video':
-                        this.videos.push(
-                            `https://www.youtube.com/watch?v=${item.id.videoId}`,
-                        );
-                        break;
-                    case 'youtube#playlist':
-                        this.videos.push(
-                            `https://www.youtube.com/playlist?list=${item.id.playlistId}`,
-                        );
-                        break;
-                    case 'tiktoker':
-                        this.videos.push(`${item.id.videoId}`);
-                        break;
-                    default:
-                        break;
-                }
-            }),
-        );
+        this.selected.forEach((item) => {
+            const url = this.getRowUrl(item);
+            if (url) {
+                this.videos.push(url);
+            }
+        });
 
         if (this.videos.length > 0) {
-            this._youtubeService
-                .download({
-                    URLS: this.videos,
-                    quality: this.quality,
-                    username: this.user.name,
-                    subtitle: true,
-                    thumbnail: true,
-                })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: (results) => {
-                        if (results && results.success) {
-                            this.toastr.success(`Tải video thành công!`);
-                        } else {
-                            this.toastr.warning(`Không tải được video này.`);
-                        }
-                    },
-                    error: (e: any) => {
-                        this.toastr.warning(`Không tải được video này.`);
-                    },
-                    complete: () => {},
-                });
+            this._triggerYtDlpDownload(this.videos);
         }
     }
 
@@ -442,12 +488,13 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         if ((window as any).electron) {
+            const electronApi = (window as any).electron;
             // Lắng nghe tất cả response từ Electron
-            (window as any).electron.onToolsResponse((data: any) => {
+            electronApi.onToolsResponse((data: any) => {
                 console.log(
                     '--- DEBUG: Dữ liệu từ Electron nhận được: ---',
                     data,
-                ); // THÊM DÒNG NÀY
+                );
 
                 if (data.action === 'tiktok-crawl-stream') {
                     this.updateTable(data.videos);
@@ -458,14 +505,46 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
             });
 
             // Lắng nghe log để xem tiến trình cuộn
-            (window as any).electron.onToolsLog((msg: string) => {
+            electronApi.onToolsLog((msg: string) => {
                 console.log('[Electron Log]:', msg);
             });
+
+            if (electronApi.onDownloadVideoProgress) {
+                this._unsubscribeDownloadProgress =
+                    electronApi.onDownloadVideoProgress((data: any) => {
+                        if (data && data.source === 'scan') {
+                            this.downloadPercent =
+                                data.percent !== undefined
+                                    ? data.percent
+                                    : this.downloadPercent;
+                            this.downloadStatus =
+                                data.status || this.downloadStatus;
+                            if (data.url) {
+                                const isDone = data.percent >= 100 && (data.status || '').startsWith('Tải xong');
+                                this.downloadProgressMap[data.url] = {
+                                    isDownloading: !isDone,
+                                    percent: data.percent || 0,
+                                    status: isDone ? 'Đã tải' : `${data.percent || 0}%`,
+                                    done: isDone,
+                                    error: false,
+                                };
+                            }
+                            if (data.percent < 100) {
+                                this.isDownloading = true;
+                            }
+                            this.cd.detectChanges();
+                        }
+                    });
+            }
         }
     }
 
     ngOnDestroy(): void {
         if (this.unsubscribeRes) this.unsubscribeRes();
+        if (this._unsubscribeDownloadProgress) {
+            this._unsubscribeDownloadProgress();
+            this._unsubscribeDownloadProgress = null;
+        }
 
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);

@@ -5,7 +5,7 @@ import {
     type GenerateContentResponse,
 } from '@google/genai';
 import { MultiAccountService } from './_services/multi-account.service';
-import { getModelverseConfig, getTextModelConfig } from './modelverse.config';
+import { getModelverseConfig, getTextModelConfig, TextModelConfig } from './modelverse.config';
 import { ToastrService } from 'ngx-toastr';
 import { PdfTextService } from './_services/pdf-text.service';
 
@@ -253,20 +253,78 @@ export class GenaiService {
     public get umodelverseImageModel(): string { return this._umodelverseImageModel; }
     public get umodelverseVideoModel(): string { return this._umodelverseVideoModel; }
 
+    /** Base URL đang trỏ thẳng tới API gốc của Anthropic (api.anthropic.com) hay không. */
+    public static isAnthropicDirectUrl(url: string): boolean {
+        try {
+            const raw = (url || '').trim();
+            const host = new URL(raw.startsWith('http') ? raw : `https://${raw}`).hostname.toLowerCase();
+            return host === 'api.anthropic.com';
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Header xác thực cho Mì Tôm AI. API gốc Anthropic dùng x-api-key + anthropic-version
+     * (kèm cờ cho phép gọi thẳng từ renderer để không dính CORS), các proxy khác dùng Bearer.
+     */
+    public static buildUModelverseHeaders(url: string, key: string, withJson = true): Record<string, string> {
+        const headers: Record<string, string> = {};
+        if (withJson) headers['Content-Type'] = 'application/json';
+        if (GenaiService.isAnthropicDirectUrl(url)) {
+            headers['x-api-key'] = key;
+            headers['anthropic-version'] = '2023-06-01';
+            headers['anthropic-dangerous-direct-browser-access'] = 'true';
+        } else {
+            headers['Authorization'] = `Bearer ${key}`;
+        }
+        return headers;
+    }
+
+    /** Các Base URL mà model Claude phải đi theo chuẩn OpenAI (/chat/completions) vì proxy không có /messages. */
+    private static _claudeOpenAiFallbackBases = new Set<string>();
+
+    /**
+     * Chuẩn hoá Base URL cho mọi dịch vụ tương thích OpenAI.
+     * - versioned: gốc đã gồm phiên bản API, dùng để nối /chat/completions, /models, /images/..., /messages.
+     *   Nếu Base URL đã có đoạn phiên bản (/v1, /v3, /v4, /v1beta/openai...) thì giữ nguyên, chưa có thì gắn /v1.
+     * - root: phần đứng trước đoạn phiên bản (dùng cho đường riêng như /v1beta/models/... của Gemini, /v1/{model} của Mì Tôm).
+     */
+    public static resolveApiBase(url: string): { versioned: string; root: string } {
+        let base = (url || '').trim();
+        if (base && !/^https?:\/\//i.test(base)) base = 'https://' + base;
+        base = base.replace(/\/+$/, '')
+            .replace(/\/chat\/completions$/i, '')
+            .replace(/\/messages$/i, '')
+            .replace(/\/models$/i, '')
+            .replace(/\/+$/, '');
+        let origin = base;
+        let segments: string[] = [];
+        try {
+            const parsed = new URL(base);
+            origin = parsed.origin;
+            segments = parsed.pathname.split('/').filter(Boolean);
+        } catch {
+            return { versioned: `${base}/v1`, root: base };
+        }
+        const versionIdx = segments.findIndex(seg => /^v\d+[a-z0-9.]*$/i.test(seg));
+        if (versionIdx < 0) {
+            return { versioned: `${base}/v1`, root: base };
+        }
+        const rootPath = segments.slice(0, versionIdx).join('/');
+        return { versioned: base, root: rootPath ? `${origin}/${rootPath}` : origin };
+    }
+
     public async getUModelverseModels(): Promise<string[]> {
         this.syncConfigFromStorage();
         if (!this.isUModelverseEnabled()) {
             return [];
         }
         try {
-            const modelsEndpoint = this._umodelverseUrl.endsWith('/v1')
-                ? `${this._umodelverseUrl}/models`
-                : `${this._umodelverseUrl}/v1/models`;
+            const modelsEndpoint = `${GenaiService.resolveApiBase(this._umodelverseUrl).versioned}/models`;
             const modelsRes = await fetch(modelsEndpoint, {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${this._umodelverseKey}`
-                }
+                headers: GenaiService.buildUModelverseHeaders(this._umodelverseUrl, this._umodelverseKey, false)
             });
             if (modelsRes.ok) {
                 const modelsData = await modelsRes.json();
@@ -1099,13 +1157,14 @@ export class GenaiService {
             throw new Error("Vui lòng cấu hình Base URL (Mì tôm AI) trong mục Cài đặt trước khi sử dụng.");
         }
         const key = this._umodelverseKey;
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${key}`
-        };
+        const headers = GenaiService.buildUModelverseHeaders(url, key);
 
         const isImageGeneration = params.config?.responseModalities?.includes('IMAGE');
         const isVideoGeneration = params.config?.responseModalities?.includes('VIDEO');
+
+        if (isImageGeneration && GenaiService.isAnthropicDirectUrl(url)) {
+            throw new Error("Anthropic (api.anthropic.com) không cung cấp API tạo/sửa ảnh. Vui lòng dùng proxy khác hoặc nguồn Gemini cho chức năng tạo ảnh.");
+        }
 
         if (isImageGeneration) {
             return await this.generateImageUModelverse(url, headers, params);
@@ -1184,7 +1243,28 @@ export class GenaiService {
         if (targetModel === 'agent') {
             targetModel = this._umodelverseChatModel || (hasAudio ? 'gemini-3.8-flash' : 'gpt-4o');
         }
-        const config = getTextModelConfig(targetModel);
+        const isAnthropicDirect = GenaiService.isAnthropicDirectUrl(url);
+        if (isAnthropicDirect) {
+            if (hasAudio) {
+                throw new Error("Anthropic (api.anthropic.com) không hỗ trợ đầu vào âm thanh. Vui lòng dùng proxy khác hoặc nguồn Gemini cho chức năng này.");
+            }
+            // API gốc Anthropic chỉ phục vụ model Claude: model không phải Claude thì dùng model chat đã cấu hình
+            if (!targetModel.toLowerCase().includes('claude')) {
+                targetModel = this._umodelverseChatModel;
+            }
+            if (!targetModel || !targetModel.toLowerCase().includes('claude')) {
+                throw new Error("Đang dùng Anthropic (api.anthropic.com): vui lòng nhập model Claude hợp lệ vào ô Model chat của Mì Tôm AI trong Cài đặt.");
+            }
+        }
+        const apiBase = GenaiService.resolveApiBase(url);
+        let config: TextModelConfig = isAnthropicDirect
+            ? { ...getTextModelConfig('claude'), apiFormat: 'anthropic', endpointOverride: '/messages' }
+            : getTextModelConfig(targetModel);
+        // Proxy đã xác nhận không có /messages: model Claude đi theo chuẩn OpenAI /chat/completions
+        const canFallbackToOpenAi = !isAnthropicDirect && config.apiFormat === 'anthropic';
+        if (canFallbackToOpenAi && GenaiService._claudeOpenAiFallbackBases.has(apiBase.versioned)) {
+            config = { apiFormat: 'openai' };
+        }
 
         const messages: any[] = [];
 
@@ -1215,6 +1295,18 @@ export class GenaiService {
                                             format: format
                                         }
                                     };
+                                } else if (config.apiFormat === 'anthropic') {
+                                    // Chuẩn Anthropic: PDF dùng block "document", ảnh dùng block "image" (base64)
+                                    if (mimeType === 'application/pdf') {
+                                        return {
+                                            type: 'document',
+                                            source: { type: 'base64', media_type: mimeType, data: p.inlineData.data }
+                                        };
+                                    }
+                                    return {
+                                        type: 'image',
+                                        source: { type: 'base64', media_type: mimeType || 'image/png', data: p.inlineData.data }
+                                    };
                                 } else {
                                     return {
                                         type: 'image_url',
@@ -1231,7 +1323,8 @@ export class GenaiService {
         }
 
 
-        let endpointPath = config.endpointOverride || '/v1/chat/completions';
+        // Endpoint tương đối so với gốc đã có phiên bản (VD: .../v1, .../v4, .../v1beta/openai)
+        let endpointPath = (config.endpointOverride || '/chat/completions').replace(/^\/v1(?=\/)/i, '');
         if (endpointPath.includes('{model}')) {
             endpointPath = endpointPath.replace('{model}', targetModel);
         }
@@ -1280,7 +1373,8 @@ export class GenaiService {
                 messages: messages, // Các message user/assistant đã gom ở trên
                 max_tokens: params.config?.maxOutputTokens || 8192,
                 temperature: params.config?.temperature,
-                top_p: params.config?.topP
+                // Các model Claude mới không cho gửi đồng thời temperature và top_p
+                top_p: params.config?.temperature !== undefined ? undefined : params.config?.topP
             };
             if (sysContent) {
                 body.system = sysContent;
@@ -1324,28 +1418,29 @@ export class GenaiService {
             }
         }
 
-        let finalUrl = (url || '').trim();
-        finalUrl = finalUrl
-            .replace(/\/v1\/chat\/completions\/?$/i, '')
-            .replace(/\/chat\/completions\/?$/i, '')
-            .replace(/\/v1\/?$/i, '')
-            .replace(/\/v1beta\/?$/i, '');
-        if (finalUrl.endsWith('/')) {
-            finalUrl = finalUrl.slice(0, -1);
-        }
-        if (finalUrl.endsWith('/v1') && (endpointPath.startsWith('/v1/') || endpointPath.startsWith('/v1beta/'))) {
-            finalUrl = finalUrl.slice(0, -3);
-        }
-
-        const response = await fetch(`${finalUrl}${endpointPath}`, {
+        const response = await fetch(`${apiBase.versioned}${endpointPath}`, {
             method: 'POST',
             headers,
             body: JSON.stringify(body, null, 2)
         });
 
-        const data = await response.json();
+        // Proxy không có /messages cho Claude => ghi nhớ và gửi lại theo chuẩn OpenAI /chat/completions
+        if (canFallbackToOpenAi && config.apiFormat === 'anthropic' && (response.status === 404 || response.status === 405)) {
+            console.warn(`[UModelverse Chat] ${apiBase.versioned}${endpointPath} trả về ${response.status}, chuyển model ${targetModel} sang chuẩn OpenAI /chat/completions.`);
+            GenaiService._claudeOpenAiFallbackBases.add(apiBase.versioned);
+            return await this.generateChatUModelverse(url, headers, params);
+        }
+
+        const rawText = await response.text();
+        let data: any = {};
+        try {
+            data = rawText ? JSON.parse(rawText) : {};
+        } catch {
+            data = {};
+        }
         if (!response.ok) {
-            throw new Error((data.error && data.error.message) || `HTTP Error: ${response.status}`);
+            const errMsg = (data?.error && (data.error.message || (typeof data.error === 'string' ? data.error : ''))) || data?.message;
+            throw new Error(errMsg || `HTTP Error: ${response.status} (${apiBase.versioned}${endpointPath})`);
         }
 
         let replyText = '';
@@ -1356,7 +1451,9 @@ export class GenaiService {
             replyText = candidate?.content?.parts?.[0]?.text || '';
             finishReason = candidate?.finishReason || '';
         } else if (config.apiFormat === 'anthropic') {
-            replyText = data.content?.[0]?.text || '';
+            replyText = Array.isArray(data.content)
+                ? data.content.filter((c: any) => c?.type === 'text').map((c: any) => c.text || '').join('')
+                : '';
             finishReason = data.stop_reason || '';
         } else {
             // OpenAI format
@@ -1381,9 +1478,11 @@ export class GenaiService {
                 }
             ],
             usageMetadata: {
-                promptTokenCount: data.usage?.prompt_tokens,
-                candidatesTokenCount: data.usage?.completion_tokens,
-                totalTokenCount: data.usage?.total_tokens
+                promptTokenCount: data.usage?.prompt_tokens ?? data.usage?.input_tokens,
+                candidatesTokenCount: data.usage?.completion_tokens ?? data.usage?.output_tokens,
+                totalTokenCount: data.usage?.total_tokens ?? (
+                    data.usage?.input_tokens !== undefined ? (data.usage.input_tokens + (data.usage.output_tokens || 0)) : undefined
+                )
             }
         };
     }
@@ -1502,8 +1601,7 @@ export class GenaiService {
 
             // Proxy UModelverse dùng đường dẫn /v1beta/models/{model}:generateContent
             // Base URL là .../v1 nên cần bỏ /v1 rồi thêm /v1beta/models/...
-            let baseUrl = url.replace(/\/v1\/?$/, '');
-            const geminiUrl = `${baseUrl}/v1beta/models/${activeModel}:generateContent`;
+            const geminiUrl = `${GenaiService.resolveApiBase(url).root}/v1beta/models/${activeModel}:generateContent`;
 
             try {
                 // Keep all original parts (text and any attached images)
@@ -1731,8 +1829,8 @@ export class GenaiService {
 
                 // Không gửi 'Content-Type' để trình duyệt tự đặt boundary cho multipart
                 const editHeaders: any = { 'Authorization': headers['Authorization'] };
-                console.log(`[UModelverse Image] Sửa ảnh qua ${url}/images/edits với model = ${activeModel}`);
-                const editRes = await fetch(`${url}/images/edits`, { method: 'POST', headers: editHeaders, body: form });
+                console.log(`[UModelverse Image] Sửa ảnh qua ${GenaiService.resolveApiBase(url).versioned}/images/edits với model = ${activeModel}`);
+                const editRes = await fetch(`${GenaiService.resolveApiBase(url).versioned}/images/edits`, { method: 'POST', headers: editHeaders, body: form });
                 const editText = await editRes.text();
                 let editData: any = null;
                 try { editData = JSON.parse(editText); } catch { /* ignore */ }
@@ -1785,10 +1883,9 @@ export class GenaiService {
             console.log(`[UModelverse Image] Thử nghiệm cấu hình request ${i}:`, JSON.stringify(body));
 
             try {
-                let targetUrl = `${url}/images/generations`;
+                let targetUrl = `${GenaiService.resolveApiBase(url).versioned}/images/generations`;
                 if (activeModel.includes('flux')) {
-                    let baseUrl = url.replace(/\/v1\/?$/, '');
-                    targetUrl = `${baseUrl}/v1/${activeModel}`;
+                    targetUrl = `${GenaiService.resolveApiBase(url).root}/v1/${activeModel}`;
                 }
 
                 const response = await fetch(targetUrl, {
@@ -1874,9 +1971,9 @@ export class GenaiService {
         if (!isImageEdit) {
             console.warn(`[UModelverse Image Warning] Không thể tạo ảnh với model ${activeModel}. Đang quét tìm model sinh ảnh thay thế...`);
             try {
-                const modelsRes = await fetch(`${url}/models`, {
+                const modelsRes = await fetch(`${GenaiService.resolveApiBase(url).versioned}/models`, {
                     method: 'GET',
-                    headers: { 'Authorization': `Bearer ${headers['Authorization'].split(' ')[1]}` }
+                    headers: { 'Authorization': headers['Authorization'] }
                 });
             if (modelsRes.ok) {
                 const modelsText = await modelsRes.text();
@@ -1903,7 +2000,7 @@ export class GenaiService {
                             size: size
                         };
 
-                        const retryResponse = await fetch(`${url}/images/generations`, {
+                        const retryResponse = await fetch(`${GenaiService.resolveApiBase(url).versioned}/images/generations`, {
                             method: 'POST',
                             headers,
                             body: JSON.stringify(retryBody)
@@ -1985,20 +2082,20 @@ export class GenaiService {
         }
         model = model || this._umodelverseVideoModel || 'cogvideox-5b';
 
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${key}`
-        };
+        if (GenaiService.isAnthropicDirectUrl(url)) {
+            throw new Error("Anthropic (api.anthropic.com) không cung cấp API tạo video. Vui lòng dùng proxy khác cho chức năng tạo video.");
+        }
+
+        const headers = GenaiService.buildUModelverseHeaders(url, key);
+        const videoApiBase = GenaiService.resolveApiBase(url);
 
         // --- KIỂM TRA MODEL CÓ ĐƯỢC HỖ TRỢ TRÊN PROXY KHÔNG ---
         try {
-            const modelsEndpoint = url.endsWith('/v1') ? `${url}/models` : `${url}/v1/models`;
+            const modelsEndpoint = `${videoApiBase.versioned}/models`;
             console.log(`[UModelverse] Đang kiểm tra danh sách model được hỗ trợ từ: ${modelsEndpoint} ...`);
             const modelsRes = await fetch(modelsEndpoint, {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${key}`
-                }
+                headers: GenaiService.buildUModelverseHeaders(url, key, false)
             });
             if (modelsRes.ok) {
                 const modelsData = await modelsRes.json();
@@ -2547,8 +2644,8 @@ export class GenaiService {
         let taskEndpointUsed = '';
         let lastErrorMsg = '';
 
-        const baseNoV1 = url.replace(/\/v1\/?$/i, '');
-        const baseWithV1 = url.endsWith('/v1') ? url : `${url}/v1`;
+        const baseNoV1 = videoApiBase.root;
+        const baseWithV1 = videoApiBase.versioned;
 
         const taskEndpoints = [
             `${url}/tasks/submit`,
@@ -2641,8 +2738,10 @@ export class GenaiService {
             let pollCount = 0;
 
             // Xây dựng các format URL check status
+            // Gốc dùng để hỏi trạng thái = đúng gốc đã gửi task thành công (có thể là url, baseNoV1 hoặc baseWithV1)
+            const taskBase = taskEndpointUsed.replace(/\/tasks(\/submit)?$/i, '').replace(/\/videos\/generations$/i, '') || url;
             let checkUrl = taskEndpointUsed.includes('/tasks/submit') || taskEndpointUsed.includes('/tasks')
-                ? `${url}/tasks/status?task_id=${taskId}`
+                ? `${taskBase}/tasks/status?task_id=${taskId}`
                 : `${taskEndpointUsed}/${taskId}`;
 
             while (pollCount < maxPolls) {
@@ -2653,7 +2752,7 @@ export class GenaiService {
 
                     // Fallback thử cả dạng path param /tasks/:id nếu bị 404
                     if (!response.ok) {
-                        const fallbackUrl = `${url}/tasks/${taskId}`;
+                        const fallbackUrl = `${taskBase}/tasks/${taskId}`;
                         console.log(`[Poll Status Failed] Thử URL fallback: ${fallbackUrl}`);
                         response = await fetch(fallbackUrl, { method: 'GET', headers });
                     }
@@ -2810,7 +2909,7 @@ export class GenaiService {
             console.log(`UModelverse video attempt ${i} (Body structure):`, JSON.stringify(currentBody));
 
             try {
-                const response = await fetch(`${url}/images/generations`, {
+                const response = await fetch(`${videoApiBase.versioned}/images/generations`, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify(currentBody)
