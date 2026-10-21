@@ -37,11 +37,17 @@ jobs:
       - name: Download ffmpeg & yt-dlp for macOS
         working-directory: electron
         run: |
-          curl -fsSL -o ffmpeg.zip https://evermeet.cx/ffmpeg/getrelease/zip
-          unzip -q ffmpeg.zip
-          mv ffmpeg ffmpeg-macos
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "arm64" ]; then
+            FFMPEG_ASSET="ffmpeg-darwin-arm64"
+          else
+            FFMPEG_ASSET="ffmpeg-darwin-x64"
+          fi
+          echo "Runner arch: $ARCH, downloading ffmpeg asset: $FFMPEG_ASSET"
+          # Nguồn evermeet.cx/ffmpeg/getrelease đã bị gỡ (HTTP 410), chuyển sang bản tĩnh từ eugeneware/ffmpeg-static
+          curl -fsSL -o ffmpeg-macos "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/${FFMPEG_ASSET}"
           chmod +x ffmpeg-macos
-          rm -f ffmpeg.zip
+          file ffmpeg-macos
           curl -fsSL -o yt-dlp-macos https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos
           chmod +x yt-dlp-macos
           mkdir -p bin
