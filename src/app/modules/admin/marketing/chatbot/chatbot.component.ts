@@ -2328,7 +2328,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                                 if (currentSettings) {
                                     configData = {
                                         url: currentSettings.umodelverseUrl || '',
-                                        key: currentSettings.umodelverseKey || ''
+                                        key: currentSettings.umodelverseKey || '',
+                                        model: currentSettings.umodelverseChatModel || '',
                                     };
                                 }
                             } catch (e) {}
@@ -2346,7 +2347,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                                 const currentSettings = this.multiAccountService.getItem('settings') || this.settings;
                                 configData = {
                                     url: currentSettings?.umodelverseUrl || '',
-                                    key: currentSettings?.umodelverseKey || ''
+                                    key: currentSettings?.umodelverseKey || '',
+                                    model: currentSettings?.umodelverseChatModel || '',
                                 };
                                 result = await electron.invoke('run-pdf-analysis-openai', tempPdfPath, configData);
                             } else {

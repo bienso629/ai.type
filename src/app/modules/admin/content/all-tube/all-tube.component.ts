@@ -76,6 +76,7 @@ export class AllTubeComponent implements OnInit, OnDestroy {
                 .invoke('download-video', {
                     urls: urls,
                     customCookies: customCookies,
+                    source: 'quick',
                 })
                 .then((result: any) => {
                     this.isDownloading = false;
@@ -156,7 +157,7 @@ export class AllTubeComponent implements OnInit, OnDestroy {
             if (electronApi.onDownloadVideoProgress) {
                 this._unsubscribeDownloadProgress =
                     electronApi.onDownloadVideoProgress((data: any) => {
-                        if (data) {
+                        if (data && data.source === 'quick') {
                             this.downloadPercent =
                                 data.percent !== undefined
                                     ? data.percent

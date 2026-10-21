@@ -252,13 +252,41 @@
                                 <div
                                     class="flex items-center justify-end w-full"
                                 >
-                                    <mat-label
-                                        (click)="singleDownload(row)"
-                                        class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer text-sm font-semibold bg-blue-600 hover:bg-blue-400 text-white"
-                                        >{{
-                                            "app.download_video" | transloco
-                                        }}</mat-label
-                                    >
+                                    @if (getRowProgress(row); as prog) {
+                                        @if (prog.isDownloading) {
+                                            <mat-label
+                                                class="relative overflow-hidden h-7 leading-7 items-center px-3 rounded-full text-xs font-semibold bg-slate-700 text-white min-w-24 text-center select-none"
+                                            >
+                                                <span
+                                                    class="absolute inset-y-0 left-0 bg-blue-600 transition-all duration-200"
+                                                    [style.width.%]="prog.percent"
+                                                ></span>
+                                                <span class="relative z-10">{{
+                                                    prog.status
+                                                }}</span>
+                                            </mat-label>
+                                        } @else if (prog.done) {
+                                            <mat-label
+                                                (click)="singleDownload(row)"
+                                                class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white"
+                                                >{{ prog.status }}</mat-label
+                                            >
+                                        } @else {
+                                            <mat-label
+                                                (click)="singleDownload(row)"
+                                                class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white"
+                                                >{{ prog.status }}</mat-label
+                                            >
+                                        }
+                                    } @else {
+                                        <mat-label
+                                            (click)="singleDownload(row)"
+                                            class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer text-sm font-semibold bg-blue-600 hover:bg-blue-400 text-white"
+                                            >{{
+                                                "app.download_video" | transloco
+                                            }}</mat-label
+                                        >
+                                    }
 
                                     <!-- <mat-label (click)="listing(row)"
                 class="h-7 leading-7 items-center px-3 ml-2 rounded-full cursor-pointer text-sm font-semibold bg-pink-600 hover:bg-pink-400 text-white">Nghe audio</mat-label> -->

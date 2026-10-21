@@ -2650,11 +2650,55 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
             event.sender.send('pdf-analysis-progress', '?ang gửi trực tiếp file PDF lên hệ thống AI...');
         }
 
-        console.log("RECEIVED configData:", configData);
+        console.log("RECEIVED configData:", { url: configData?.url || '', hasKey: !!configData?.key });
 
+        const pdfSystemPrompt = "You are a helpful assistant. Extract and format the content from the provided PDF document into a structured JSON array representing sections or paragraphs. Output ONLY valid JSON array. Do not include markdown tags like ```json";
+        const pdfUserPrompt = "Please analyze this document and return a JSON array of strings containing the text chunks/paragraphs.";
+        const isAnthropicDirect = /^(https?:\/\/)?api\.anthropic\.com(\/|$)/i.test((configData?.url || '').trim());
+
+        let resultText = '';
+        if (isAnthropicDirect) {
+            // API gốc Anthropic: gửi PDF dạng block "document" tới /v1/messages
+            const anthropicModel = (configData?.model && String(configData.model).toLowerCase().includes('claude'))
+                ? configData.model
+                : 'claude-sonnet-4-5';
+            const res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': configData?.key || '',
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    model: anthropicModel,
+                    max_tokens: 16000,
+                    system: pdfSystemPrompt,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+                            { type: 'text', text: pdfUserPrompt }
+                        ]
+                    }]
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error((data && data.error && data.error.message) || `Anthropic HTTP Error: ${res.status}`);
+            }
+            resultText = (Array.isArray(data.content) ? data.content.filter(c => c && c.type === 'text').map(c => c.text || '').join('') : '').trim();
+        } else {
+        // Chuẩn hoá Base URL như renderer (GenaiService.resolveApiBase): đã có đoạn phiên bản (/v1, /v3, /v4, /v1beta/openai...) thì giữ nguyên, chưa có thì gắn /v1
+        let pdfBaseUrl = String(configData?.url || '').trim();
+        if (pdfBaseUrl && !/^https?:\/\//i.test(pdfBaseUrl)) pdfBaseUrl = 'https://' + pdfBaseUrl;
+        pdfBaseUrl = pdfBaseUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '').replace(/\/+$/, '');
+        try {
+            const segs = new URL(pdfBaseUrl).pathname.split('/').filter(Boolean);
+            if (!segs.some(seg => /^v\d+[a-z0-9.]*$/i.test(seg))) pdfBaseUrl = `${pdfBaseUrl}/v1`;
+        } catch (e) { /* để OpenAI SDK tự báo lỗi URL */ }
         const openai = new OpenAI({
             apiKey: configData?.key || '',
-            baseURL: configData?.url || '',
+            baseURL: pdfBaseUrl,
         });
 
         const completion = await openai.chat.completions.create({
@@ -2671,7 +2715,8 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
             ],
         });
 
-        const resultText = completion.choices[0].message.content.trim();
+        resultText = completion.choices[0].message.content.trim();
+        }
 
         if (event.sender) {
             event.sender.send('pdf-analysis-progress', 'Hoàn tất phân tích AI!');
@@ -4422,7 +4467,13 @@ function startAiAgent() {
                 if (data.apiKey) agentEnv.AI_AGENT_API_KEY = data.apiKey;
                 // Umodelverse (Mì Tôm AI) proxy: lấy từ settings tài khoản (API /user/profile),
                 // dùng để `claude` CLI xác thực qua proxy khi model được chọn là Claude.
-                if (data.umodelverseKey) agentEnv.ANTHROPIC_AUTH_TOKEN = data.umodelverseKey;
+                // API gốc Anthropic (api.anthropic.com) xác thực bằng x-api-key => ANTHROPIC_API_KEY,
+                // các proxy khác xác thực Bearer => ANTHROPIC_AUTH_TOKEN.
+                const isAnthropicDirect = /^(https?:\/\/)?api\.anthropic\.com(\/|$)/i.test((data.umodelverseUrl || '').trim());
+                if (data.umodelverseKey) {
+                    if (isAnthropicDirect) agentEnv.ANTHROPIC_API_KEY = data.umodelverseKey;
+                    else agentEnv.ANTHROPIC_AUTH_TOKEN = data.umodelverseKey;
+                }
                 if (data.umodelverseUrl) {
                     agentEnv.ANTHROPIC_BASE_URL = data.umodelverseUrl.replace(/\/v1\/?$/, '');
                 }
@@ -8730,6 +8781,8 @@ ipcMain.handle('download-video', async (event, payload) => {
             sendToRenderer('download-video-progress', {
                 index: i,
                 total: urls.length,
+                url: url,
+                source: payload.source || '',
                 percent: 0,
                 speed: '',
                 eta: '',
@@ -8755,6 +8808,8 @@ ipcMain.handle('download-video', async (event, payload) => {
                                 sendToRenderer('download-video-progress', {
                                     index: i,
                                     total: urls.length,
+                                    url: url,
+                                    source: payload.source || '',
                                     percent,
                                     speed,
                                     eta,
@@ -8775,6 +8830,8 @@ ipcMain.handle('download-video', async (event, payload) => {
                         sendToRenderer('download-video-progress', {
                             index: i,
                             total: urls.length,
+                            url: url,
+                            source: payload.source || '',
                             percent: 100,
                             speed: '',
                             eta: '',
@@ -8791,6 +8848,7 @@ ipcMain.handle('download-video', async (event, payload) => {
         sendToRenderer('download-video-progress', {
             index: urls.length,
             total: urls.length,
+            source: payload.source || '',
             percent: 100,
             speed: '',
             eta: '',
