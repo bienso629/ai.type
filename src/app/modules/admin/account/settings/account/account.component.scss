@@ -44,3 +44,23 @@
     flex: 1;
     text-align: left;
 }
+/* Accordion chọn nhà cung cấp AI (tab AI) */
+.mat-accordion.ai-config-accordion {
+    .mat-expansion-panel {
+        .mat-expansion-panel-body {
+            /* Ghi đè padding 0 4px 4px của styles.scss để nội dung không dính sát viền */
+            padding: 8px 24px 24px !important;
+            /* Ghi đè text-secondary của Fuse để nội dung (đặc biệt là input) không bị xám như bị khóa */
+            color: rgba(var(--fuse-text-default-rgb), 1) !important;
+        }
+
+        .mat-expansion-panel-body .mat-mdc-input-element {
+            color: rgba(var(--fuse-text-default-rgb), 1) !important;
+            pointer-events: auto;
+        }
+
+        .mat-expansion-panel-body .text-hint {
+            color: rgba(var(--fuse-text-hint-rgb), var(--tw-text-opacity, 1)) !important;
+        }
+    }
+}

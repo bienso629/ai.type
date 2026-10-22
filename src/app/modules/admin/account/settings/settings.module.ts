@@ -13,6 +13,7 @@ import { MatGridListModule } from '@angular/material/grid-list';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { TimelineModule } from "angular-calendar-timeline";
@@ -79,6 +80,7 @@ import { TimeagoModule } from 'ngx-timeago';
         MatSelectModule,
         MatSidenavModule,
         MatTabsModule,
+        MatExpansionModule,
         MatSlideToggleModule,
         MatAutocompleteModule,
         MatDialogModule,

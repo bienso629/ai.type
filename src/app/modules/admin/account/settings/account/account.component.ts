@@ -59,6 +59,20 @@ export class SettingsAccountComponent implements OnInit {
     showFigmaMcp: boolean = false;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
+    /**
+     * Chọn nhà cung cấp AI (chỉ được dùng 1 trong 2):
+     * false = Cấu hình của AI (Gemini), true = Cấu hình AI nâng cao (Mì Tôm AI)
+     */
+    selectAiProvider(useMitom: boolean): void {
+        const ctrl = this.accountForm?.get('enableUmodelverse');
+        if (!ctrl || ctrl.value === useMitom) {
+            return;
+        }
+        ctrl.setValue(useMitom);
+        ctrl.markAsDirty();
+        this.cd.markForCheck();
+    }
+
     toggleKeyVisibility(index: number): void {
         this.geminiKeysVisibility[index] = !this.geminiKeysVisibility[index];
     }
@@ -175,6 +189,7 @@ export class SettingsAccountComponent implements OnInit {
                 umodelverseVideoModel: this.accountForm.value['umodelverseVideoModel'],
                 enableUmodelverse: this.accountForm.value['enableUmodelverse'],
                 customCookies: this.accountForm.value['customCookies'],
+                geminiTextModel: this.accountForm.value['geminiTextModel'],
             };
 
             if (statusTypeLite) {
@@ -374,6 +389,7 @@ export class SettingsAccountComponent implements OnInit {
             umodelverseVideoModel: [(settings && settings.umodelverseVideoModel) ? settings.umodelverseVideoModel : ''],
             enableUmodelverse: [(settings && settings.enableUmodelverse !== undefined) ? settings.enableUmodelverse : false],
             customCookies: [(settings && settings.customCookies) ? settings.customCookies : ''],
+            geminiTextModel: [(settings && settings.geminiTextModel) ? settings.geminiTextModel : ''],
         });
 
         const secretKeyValue = this.accountForm.get('secretKey').value;
@@ -472,6 +488,7 @@ export class SettingsAccountComponent implements OnInit {
             umodelverseVideoModel: settings.umodelverseVideoModel || '',
             enableUmodelverse: settings.enableUmodelverse !== undefined ? settings.enableUmodelverse : false,
             customCookies: settings.customCookies || '',
+            geminiTextModel: settings.geminiTextModel || '',
         }, { emitEvent: false });
 
         if (settings.secretKey) {

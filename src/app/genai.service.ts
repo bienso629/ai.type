@@ -11,6 +11,9 @@ import { PdfTextService } from './_services/pdf-text.service';
 
 type Scope = string | number;
 
+// Domain máy chủ AI Agent Plugin
+const AI_AGENT_BASE_URL = 'https://agent.type.vn';
+
 @Injectable({ providedIn: 'root' })
 export class GenaiService {
     // --- State management ---
@@ -26,6 +29,8 @@ export class GenaiService {
     private _umodelverseChatModel: string = '';
     private _umodelverseImageModel: string = '';
     public _umodelverseVideoModel: string = '';
+    // Model van ban nguoi dung cau hinh rieng cho Gemini AI Studio (mien phi)
+    private _geminiTextModel: string = '';
     private _enableUmodelverse: boolean = false;
     private _lastUmodelverseVideoUrl: string = '';
 
@@ -167,6 +172,41 @@ export class GenaiService {
         return {};
     }
 
+    /**
+     * [PATCH 2026-10-22] Trích xuất số giây Google yêu cầu chờ (RetryInfo) từ lỗi 429 Rate Limit.
+     * Hỗ trợ cả message dạng JSON (ApiError của @google/genai) lẫn text thuần ("Please retry in 38s" / "3h35m40s").
+     * Trả về -1 nếu không xác định được.
+     */
+    private extractRetrySeconds(error: any): number {
+        try {
+            const msg = typeof error?.message === 'string' ? error.message : String(error || '');
+            if (!msg) return -1;
+            const jsonStart = msg.indexOf('{');
+            if (jsonStart !== -1) {
+                try {
+                    const parsed = JSON.parse(msg.slice(jsonStart));
+                    const details = parsed?.error?.details || [];
+                    for (const d of details) {
+                        const rd = d?.retryDelay;
+                        if (rd) {
+                            const m = String(rd).trim().match(/^([\d.]+)s$/);
+                            if (m) return Math.ceil(parseFloat(m[1]));
+                        }
+                    }
+                } catch (e) {}
+            }
+            const hm = msg.match(/retry in (\d+)h(\d+)m([\d.]+)s/i);
+            if (hm) return Math.ceil(parseInt(hm[1], 10) * 3600 + parseInt(hm[2], 10) * 60 + parseFloat(hm[3]));
+            const sm = msg.match(/retry in ([\d.]+)s/i);
+            if (sm) return Math.ceil(parseFloat(sm[1]));
+        } catch (e) {}
+        return -1;
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise<void>(resolve => setTimeout(resolve, ms));
+    }
+
     private syncConfigFromStorage() {
         try {
             const settings = this.getSettingsFromStorage();
@@ -178,6 +218,7 @@ export class GenaiService {
             this._umodelverseChatModel = settings.umodelverseChatModel?.trim() || '';
             this._umodelverseImageModel = settings.umodelverseImageModel?.trim() || '';
             this._umodelverseVideoModel = settings.umodelverseVideoModel?.trim() || '';
+            this._geminiTextModel = settings.geminiTextModel?.trim() || '';
 
             // [PATCH] Model da bi Google khai tu ma van duoc luu trong cai dat se bi bo qua de he thong dung mac dinh con song
             const deadGeminiModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.6-flash'];
@@ -226,6 +267,7 @@ export class GenaiService {
             this._umodelverseChatModel = '';
             this._umodelverseImageModel = '';
             this._umodelverseVideoModel = '';
+            this._geminiTextModel = '';
         }
     }
 
@@ -491,6 +533,7 @@ export class GenaiService {
                 shuffledKeys.unshift(this._currentKey);
             }
 
+            const keyRetryCounts: Record<string, number> = {};
             for (let i = 0; i < shuffledKeys.length; i++) {
                 const key = shuffledKeys[i];
                     try {
@@ -501,7 +544,7 @@ export class GenaiService {
 
                         let googleModel = params.model;
                         if (!googleModel || googleModel === 'agent') {
-                            googleModel = isImageEdit ? 'gemini-3.1-flash-image-preview' : 'gemini-3.8-flash';
+                            googleModel = isImageEdit ? 'gemini-3.1-flash-image-preview' : (this._geminiTextModel || 'gemini-3.8-flash');
                         }
                         const candidateGoogleModels = isImageEdit ? [
                             googleModel,
@@ -509,10 +552,11 @@ export class GenaiService {
                             'gemini-2.5-flash-image',
                             'gemini-3-pro-image-preview'
                         ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && v.startsWith('gemini-')) : [
+                            this._geminiTextModel || googleModel,
                             googleModel,
                             'gemini-3.8-flash',
                             'gemini-3.7-flash'
-                        ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && v.startsWith('gemini-'));
+                        ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && (v.startsWith('gemini-') || v.startsWith('tunedModels/')));
 
                         // Lọc sạch config chuẩn cho Google GenAI SDK
                         const cleanConfig: any = {};
@@ -541,17 +585,33 @@ export class GenaiService {
                         let result;
                         let googleErr: any = null;
                         for (const m of candidateGoogleModels) {
-                            try {
-                                result = await aiInstance.models.generateContent({
-                                    ...params,
-                                    model: m,
-                                    config: Object.keys(cleanConfig).length > 0 ? cleanConfig : undefined
-                                });
-                                if (result) break;
-                            } catch (mErr: any) {
-                                googleErr = mErr;
-                                console.warn(`[GenaiService] Model ${m} lỗi trên Google AI:`, mErr?.message || mErr);
+                            let attempt = 0;
+                            while (true) {
+                                try {
+                                    result = await aiInstance.models.generateContent({
+                                        ...params,
+                                        model: m,
+                                        config: Object.keys(cleanConfig).length > 0 ? cleanConfig : undefined
+                                    });
+                                    if (result) break;
+                                } catch (mErr: any) {
+                                    googleErr = mErr;
+                                    const mErrMsg = String(mErr?.message || mErr || '');
+                                    const isM429 = mErrMsg.includes('429') || mErrMsg.includes('RESOURCE_EXHAUSTED');
+                                    const mRetrySec = this.extractRetrySeconds(mErr);
+                                    // [PATCH 2026-10-22] 429 Free Tier: Google trả kèm RetryInfo ngắn (vd 8s/38s).
+                                    // Đợi đúng số giây đó rồi thử lại model, thay vì nhảy model/key ngay.
+                                    if (isM429 && mRetrySec >= 0 && mRetrySec <= 90 && attempt < 2) {
+                                        attempt++;
+                                        console.warn(`[GenaiService] Model ${m} bị 429 Rate Limit trên Google AI, tự động đợi ${mRetrySec}s rồi thử lại (lần ${attempt}/2).`);
+                                        await this.sleep(mRetrySec * 1000 + 500);
+                                        continue;
+                                    }
+                                    console.warn(`[GenaiService] Model ${m} lỗi trên Google AI:`, mErr?.message || mErr);
+                                    break;
+                                }
                             }
+                            if (result) break;
                         }
                         if (!result && googleErr) throw googleErr;
 
@@ -563,11 +623,30 @@ export class GenaiService {
                         }
                         return result;
                     } catch (error: any) {
-                        console.warn(`GenaiService: Lỗi với API Key ${key.substring(0, 8)}... - Thử key tiếp theo nếu có.`, error);
                         lastError = error;
+                        const errMsg = String(error?.message || error || '');
+                        const isErr429 = errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED');
+                        const errRetrySec = this.extractRetrySeconds(error);
+
+                        // [PATCH 2026-10-22] Retry thông minh cho Free Tier: Google trả kèm RetryInfo (vd: "Please retry in 38s").
+                        // Nếu thời gian chờ ngắn (<= 90s), tự động đợi rồi thử lại đúng key đó thay vì bỏ qua ngay.
+                        if (isErr429 && errRetrySec >= 0 && errRetrySec <= 90 && (keyRetryCounts[key] || 0) < 2) {
+                            keyRetryCounts[key] = (keyRetryCounts[key] || 0) + 1;
+                            console.warn(`GenaiService: API Key ${key.substring(0, 8)}... bị 429 Rate Limit, tự động đợi ${errRetrySec}s rồi thử lại (lần ${keyRetryCounts[key]}/2).`);
+                            await this.sleep(errRetrySec * 1000 + 500);
+                            i--; // thử lại cùng key này
+                            continue;
+                        }
+
+                        console.warn(`GenaiService: Lỗi với API Key ${key.substring(0, 8)}... - Thử key tiếp theo nếu có.`, error);
                         // Nếu là lỗi cuối cùng thì ném ra ngoài
                         if (i === shuffledKeys.length - 1) {
                             if (lastError && String(lastError).includes('429')) {
+                                const finalRetrySec = this.extractRetrySeconds(lastError);
+                                if (finalRetrySec > 0 && finalRetrySec <= 3600) {
+                                    const waitLabel = finalRetrySec >= 60 ? `${Math.ceil(finalRetrySec / 60)} phút` : `${finalRetrySec} giây`;
+                                    throw new Error(`Tất cả ${shuffledKeys.length} API Key của bạn đều đã chạm trần hạn mức tạm thời (HTTP 429). Google yêu cầu đợi khoảng ${waitLabel} rồi thử lại. Vui lòng thêm key mới để xoay vòng nếu muốn dùng ngay!`);
+                                }
                                 throw new Error(`Tất cả ${shuffledKeys.length} API Key của bạn đều đã hết hạn mức (Quota Exceeded). Vui lòng thêm key mới hoặc chờ ngày mai!`);
                             }
                             throw lastError;
@@ -717,7 +796,7 @@ export class GenaiService {
         let isAiAgentActive = false;
         let secretApiKey = 'type-vn-local-agent-2026';
         const targetEndpoint = isImageRequest ? '/api/image' : '/api/chat';
-        let apiUrl = `https://agent.type.vn${targetEndpoint}`; // Fallback for Web/Mobile
+        let apiUrl = `${AI_AGENT_BASE_URL}${targetEndpoint}`;
 
         if (settings.enableAiAgent === true) {
             isAiAgentActive = true;
@@ -742,20 +821,8 @@ export class GenaiService {
                 apiUrl = baseUrlClean + targetEndpoint;
                 secretApiKey = parts[1] || 'type-vn-local-agent-2026';
             } else {
-                // Trong môi trường Desktop, kiểm tra xem local daemon (port 54321) có đang chạy không
-                let isLocalAvailable = false;
-                try {
-                    const localPing = await fetch('http://127.0.0.1:54321/docs', { method: 'HEAD', signal: AbortSignal.timeout(600) });
-                    if (localPing.ok || localPing.status === 200 || localPing.status === 404) {
-                        isLocalAvailable = true;
-                    }
-                } catch(e) {}
-
-                if (isLocalAvailable) {
-                    apiUrl = `http://127.0.0.1:54321${targetEndpoint}`;
-                } else {
-                    apiUrl = `https://agent.type.vn${targetEndpoint}`;
-                }
+                // AI Agent chạy hoàn toàn qua domain https://agent.type.vn (không dùng daemon cục bộ nữa)
+                apiUrl = `${AI_AGENT_BASE_URL}${targetEndpoint}`;
             }
         } else {
             // Web / Mobile / Another Account fallback logic
