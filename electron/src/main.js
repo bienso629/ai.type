@@ -4434,73 +4434,9 @@ function isAiAgentEnabled() {
 }
 
 function startAiAgent() {
-    if (aiAgentProcess) return;
-    try {
-        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-        const agentBinaryName = process.platform === 'win32' ? 'ai_agent_win.exe' : (process.platform === 'darwin' ? 'ai_agent_macos' : 'ai_agent_linux');
-        const candidateAgentPaths = [
-            path.join(userPluginsDir, agentBinaryName),
-            path.join(userPluginsDir, 'ai_agent_linux'),
-            path.join(userPluginsDir, 'ai_agent.exe'),
-            path.join(userPluginsDir, 'ai_agent'),
-            path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'dist', 'ai_agent_linux')
-        ];
-        const agentPath = candidateAgentPaths.find(p => fs.existsSync(p));
-        const devAgentScript = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'ai_agent.py');
-
-        let cmd = '';
-        let args = [];
-        if (agentPath) {
-            try { fs.chmodSync(agentPath, 0o755); } catch(e) {}
-            cmd = agentPath;
-        } else if (fs.existsSync(devAgentScript)) {
-            cmd = 'python3';
-            args = [devAgentScript];
-        }
-
-        if (cmd) {
-            const agentEnv = { ...process.env };
-            try {
-                const data = readAiAgentConfig();
-                // Truyền secret qua biến môi trường của subprocess, KHÔNG qua argv, để tránh
-                // hiện trong `ps`/`/proc/<pid>/cmdline` (ai đọc được cmdline trên máy là lấy được token).
-                if (data.apiKey) agentEnv.AI_AGENT_API_KEY = data.apiKey;
-                // Umodelverse (Mì Tôm AI) proxy: lấy từ settings tài khoản (API /user/profile),
-                // dùng để `claude` CLI xác thực qua proxy khi model được chọn là Claude.
-                // API gốc Anthropic (api.anthropic.com) xác thực bằng x-api-key => ANTHROPIC_API_KEY,
-                // các proxy khác xác thực Bearer => ANTHROPIC_AUTH_TOKEN.
-                const isAnthropicDirect = /^(https?:\/\/)?api\.anthropic\.com(\/|$)/i.test((data.umodelverseUrl || '').trim());
-                if (data.umodelverseKey) {
-                    if (isAnthropicDirect) agentEnv.ANTHROPIC_API_KEY = data.umodelverseKey;
-                    else agentEnv.ANTHROPIC_AUTH_TOKEN = data.umodelverseKey;
-                }
-                if (data.umodelverseUrl) {
-                    agentEnv.ANTHROPIC_BASE_URL = data.umodelverseUrl.replace(/\/v1\/?$/, '');
-                }
-            } catch(e) {}
-            // Using inherit or pipe to see errors in Electron console
-            aiAgentProcess = spawn(cmd, args, { stdio: 'pipe', env: agentEnv });
-            
-            aiAgentProcess.stdout.on('data', (data) => console.log(`[AI Agent] ${data}`));
-            aiAgentProcess.stderr.on('data', (data) => console.error(`[AI Agent] ${data}`));
-            
-            aiAgentProcess.on('error', (err) => {
-                console.error('[AI Agent] Lỗi khởi chạy:', err);
-                aiAgentProcess = null;
-            });
-            
-            aiAgentProcess.on('exit', (code) => {
-                console.log(`[AI Agent] Đã thoát với mã ${code}`);
-                aiAgentProcess = null;
-            });
-            
-            console.log('[AI Agent] Đã khởi chạy tại port 54321');
-        } else {
-            console.warn('[AI Agent] Không tìm thấy file thực thi:', agentPath || userPluginsDir);
-        }
-    } catch (e) {
-        console.error('[AI Agent] Lỗi start:', e);
-    }
+    // AI Agent chạy hoàn toàn trên máy chủ https://sontinh.type.vn,
+    // không còn dò/khởi chạy file binary trong Documents/ai.type/plugins nữa.
+    console.log('[AI Agent] Sử dụng máy chủ từ xa https://sontinh.type.vn (không khởi chạy tiến trình cục bộ).');
 }
 
 function stopAiAgent() {
@@ -4566,16 +4502,15 @@ ipcMain.handle('toggle-ai-agent', (event, enable, apiKey, extra) => {
 
 ipcMain.handle('is-ai-agent-active', async () => {
     try {
-        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-        const agentPath = path.join(userPluginsDir, 'ai_agent_linux');
-        const exists = fs.existsSync(agentPath);
+        // AI Agent dùng domain https://sontinh.type.vn, không phụ thuộc file binary cục bộ
+        const exists = true;
         const enabled = isAiAgentEnabled();
         let apiKey = 'type-vn-local-agent-2026';
         try {
             const data = readAiAgentConfig();
             if (data.apiKey) apiKey = data.apiKey;
         } catch(e) {}
-        return { exists, enabled, active: exists && enabled, apiKey };
+        return { exists, enabled, active: enabled, apiKey };
     } catch (e) {
         return { exists: false, enabled: false, active: false };
     }
@@ -4894,18 +4829,8 @@ ipcMain.handle('get-plugins-status', async (event) => {
         const canInstall = fs.existsSync(devBinaryPath) || fs.existsSync(devScriptPath);
         const enabled = isZaloPluginEnabled();
         
-        // AI Agent Plugin
-        const agentBinaryName = process.platform === 'win32' ? 'ai_agent_win.exe' : (process.platform === 'darwin' ? 'ai_agent_macos' : 'ai_agent_linux');
-        const candidateAgentPaths = [
-            path.join(userPluginsDir, agentBinaryName),
-            path.join(userPluginsDir, 'ai_agent_linux'),
-            path.join(userPluginsDir, 'ai_agent.exe'),
-            path.join(userPluginsDir, 'ai_agent')
-        ];
-        const userAgentPath = candidateAgentPaths.find(p => fs.existsSync(p)) || path.join(userPluginsDir, 'ai_agent_linux');
-        const devAgentBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'dist', 'ai_agent_linux');
-        const devAgentScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'ai_agent.py');
-        const agentInstalled = fs.existsSync(userAgentPath) || fs.existsSync(devAgentBinaryPath) || fs.existsSync(devAgentScriptPath);
+        // AI Agent Plugin: chạy hoàn toàn qua domain https://sontinh.type.vn, không kiểm tra file binary
+        const agentInstalled = true;
         const agentCanInstall = true;
         const agentEnabled = isAiAgentEnabled();
         let agentApiKey = 'type-vn-local-agent-2026';
@@ -5024,19 +4949,8 @@ ipcMain.handle('install-plugin', async (event, pluginId) => {
             }
             return { success: false, error: 'Không tìm thấy file nguồn cài đặt plugin.' };
         } else if (pluginId === 'ai_agent') {
-            const devAgentBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'dist', 'ai_agent_linux');
-            const devAgentScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'sontinh', 'ai_agent.py');
-            const userAgentBinaryPath = path.join(userPluginsDir, 'ai_agent_linux');
-            if (fs.existsSync(devAgentBinaryPath)) {
-                fs.copyFileSync(devAgentBinaryPath, userAgentBinaryPath);
-                try { fs.chmodSync(userAgentBinaryPath, 0o755); } catch(e) {}
-                return { success: true, message: 'Đã cài đặt plugin AI Agent thành công!' };
-            } else if (fs.existsSync(devAgentScriptPath)) {
-                const destScriptPath = path.join(userPluginsDir, 'ai_agent.py');
-                fs.copyFileSync(devAgentScriptPath, destScriptPath);
-                return { success: true, message: 'Đã sao chép mã nguồn AI Agent vào thư mục plugins!' };
-            }
-            return { success: true, message: 'Plugin AI Agent đã sẵn sàng. Hãy copy file ai_agent vào thư mục plugins.' };
+            // Không cần cài file binary: AI Agent dùng máy chủ https://sontinh.type.vn
+            return { success: true, message: 'Plugin AI Agent đã sẵn sàng (kết nối qua sontinh.type.vn).' };
         } else if (pluginId === 'colab_agent') {
             const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
             const legacyBinaryName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
@@ -5146,11 +5060,7 @@ ipcMain.handle('uninstall-plugin', async (event, pluginId) => {
             fs.writeFileSync(zaloPluginConfigPath, JSON.stringify({ enable: false, mode: 'tool' }), 'utf8');
             return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
         } else if (pluginId === 'ai_agent') {
-            const userAgentPath = path.join(userPluginsDir, 'ai_agent_linux');
             stopAiAgent();
-            if (fs.existsSync(userAgentPath)) {
-                fs.unlinkSync(userAgentPath);
-            }
             writeAiAgentConfig({ enable: false });
             return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
         } else if (pluginId === 'colab_agent') {

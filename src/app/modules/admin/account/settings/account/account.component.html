@@ -520,17 +520,24 @@
             </mat-tab>
 
             <mat-tab label="{{ 'account.tabs.ai' | transloco }}">
-                <!-- Divider -->
-                <!-- <div class="mt-2 mb-2 border-t"></div> -->
-                <div class="w-full">
-                    <!-- Divider -->
-                    <div class="text-secondary">
-                        {{ "account.ai.title" | transloco }}
-                    </div>
-                    <div class="mt-2 mb-2 border-t"></div>
-                </div>
+                <mat-accordion class="ai-config-accordion" [multi]="false">
+                    <!-- Panel 1: Cấu hình của AI (Gemini) -->
+                    <mat-expansion-panel
+                        [expanded]="!accountForm.get('enableUmodelverse').value"
+                        (opened)="selectAiProvider(false)"
+                    >
+                        <mat-expansion-panel-header>
+                            <mat-panel-title class="flex items-center gap-2">
+                                {{ "account.ai.title" | transloco }}
+                                @if (!accountForm.get("enableUmodelverse").value) {
+                                    <span
+                                        class="px-2 py-0.5 rounded-full text-xs font-medium bg-primary text-on-primary"
+                                        >{{ "account.ai.in_use" | transloco }}</span
+                                    >
+                                }
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
 
-                <div class="w-full mt-4">
                     <div
                         class="mt-2 text-md text-hint"
                         [innerHTML]="
@@ -612,41 +619,54 @@
                         </div>
                     }
 
-                    <div class="w-full mt-10">
-                        <div class="text-secondary">
-                            {{ "account.ai.advanced_title" | transloco }}
+                    <div class="w-full md:w-1/2 mt-8">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>{{
+                                "account.ai.gemini_text_model" | transloco
+                            }}</mat-label>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'feather:cpu'"
+                                matPrefix
+                            ></mat-icon>
+                            <input
+                                [formControlName]="'geminiTextModel'"
+                                type="text"
+                                matInput
+                                [placeholder]="'gemini-3.8-flash'"
+                            />
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">
+                            {{
+                                "account.ai.gemini_text_model_hint"
+                                    | transloco
+                            }}
                         </div>
-                        <div class="mt-2 mb-2 border-t"></div>
                     </div>
 
-                    <div class="w-full mt-4">
-                        <div class="full-width-toggle mb-4">
-                            <mat-slide-toggle
-                                [formControlName]="'enableUmodelverse'"
-                                [labelPosition]="'before'"
-                                class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
-                                [color]="'primary'"
-                            >
-                                <mat-label class="toggle-label text-md">
-                                    {{ "account.ai.toggle_mitom" | transloco }}
-                                    <span class="text-gray-400">{{
-                                        "account.ai.toggle_mitom_hint"
-                                            | transloco
-                                    }}</span>
-                                </mat-label>
-                            </mat-slide-toggle>
-                        </div>
-                    </div>
+                    </mat-expansion-panel>
 
-                    <div
-                        class="w-full transition-opacity duration-300"
-                        [class.opacity-50]="
-                            !accountForm.get('enableUmodelverse').value
-                        "
-                        [class.pointer-events-none]="
-                            !accountForm.get('enableUmodelverse').value
-                        "
+                    <!-- Panel 2: Cấu hình AI nâng cao (Mì Tôm AI) -->
+                    <mat-expansion-panel
+                        [expanded]="accountForm.get('enableUmodelverse').value"
+                        (opened)="selectAiProvider(true)"
                     >
+                        <mat-expansion-panel-header>
+                            <mat-panel-title class="flex items-center gap-2">
+                                {{ "account.ai.advanced_title" | transloco }}
+                                @if (accountForm.get("enableUmodelverse").value) {
+                                    <span
+                                        class="px-2 py-0.5 rounded-full text-xs font-medium bg-primary text-on-primary"
+                                        >{{ "account.ai.in_use" | transloco }}</span
+                                    >
+                                }
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
+
+                    <div class="w-full">
                         <div class="w-full mt-4">
                             <mat-form-field
                                 class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
@@ -709,15 +729,7 @@
                         </div>
                     </div>
 
-                    <div
-                        class="w-full transition-opacity duration-300"
-                        [class.opacity-50]="
-                            !accountForm.get('enableUmodelverse').value
-                        "
-                        [class.pointer-events-none]="
-                            !accountForm.get('enableUmodelverse').value
-                        "
-                    >
+                    <div class="w-full">
                         <div class="w-full mt-2">
                             <mat-form-field
                                 class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
@@ -826,7 +838,8 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                    </mat-expansion-panel>
+                </mat-accordion>
             </mat-tab>
 
             <!-- Tab Backup -->
