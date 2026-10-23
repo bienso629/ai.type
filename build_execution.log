@@ -1,0 +1,228 @@
+
+[1m[36m════════════════════════════════════════════════════════════════════[0m
+[1m[36m  🚀 AI.Type Build System - Version 1.2.3[0m
+[1m[36m════════════════════════════════════════════════════════════════════[0m
+
+[1mMục tiêu build:[0m Windows (.exe), Ubuntu/Linux (.deb, .AppImage)
+[1mĐường dẫn thư mục gốc:[0m /home/yenai/Documents/Projects/Typing/ai.type
+[1mĐường dẫn electron:[0m /home/yenai/Documents/Projects/Typing/ai.type/electron
+
+
+[1m[35m[1/3] ⏳ Biên dịch Angular Frontend (Production Mode)...[0m
+
+[33m> npx ng build --configuration=production[0m
+
+The "@angular-devkit/build-angular:browser" builder is deprecated as part of Angular's Webpack support deprecation. Use "@angular/build:application" instead. For more information, see https://angular.dev/tools/cli/build-system-migration.
+- Generating browser application bundles (phase: setup)...
+✔ Browser application bundle generation complete.
+✔ Browser application bundle generation complete.
+- Copying assets...
+✔ Copying assets complete.
+- Generating index html...
+✔ Index html generation complete.
+
+Initial chunk files           | Names                                                                |  Raw size | Estimated transfer size
+main.0c846c0e8b2b53c2.js      | main                                                                 |   5.63 MB |               966.15 kB
+styles.297cc1d404907191.css   | styles                                                               |   1.03 MB |                62.28 kB
+scripts.bb017ac8060e4617.js   | scripts                                                              | 199.60 kB |                57.72 kB
+polyfills.d2b6cbb18bbc3f9d.js | polyfills                                                            |  34.84 kB |                11.30 kB
+runtime.0d25f55627dbb563.js   | runtime                                                              |   5.48 kB |                 2.56 kB
+
+                              | Initial total                                                        |   6.90 MB |                 1.10 MB
+
+Lazy chunk files              | Names                                                                |  Raw size | Estimated transfer size
+5090.95b33543c662b9df.js      | app-modules-admin-account-profile-profile-module                     |   2.27 MB |               441.26 kB
+3171.6e8c799a6ace4f0d.js      | pdfjs-dist-build-pdf-worker-mjs                                      |   1.32 MB |               328.98 kB
+2643.47b78439f91d6025.js      | pdfmake-build-pdfmake                                                |   1.01 MB |               300.61 kB
+1566.baa3e9579b96e24f.js      | app-modules-admin-marketing-n8n-n8n-module                           | 960.25 kB |               214.68 kB
+7235.d4e2e9da0fe97f67.js      | pdfmake-build-vfs_fonts                                              | 854.64 kB |               310.62 kB
+6608.05662743522e33c2.js      | app-modules-admin-content-ai-writer-ai-writer-module                 | 663.94 kB |               114.86 kB
+7523.996854aa622e3029.js      | app-modules-admin-account-dashboard-dashboard-module                 | 502.93 kB |               108.56 kB
+2623.f7b0a1daa1a7a109.js      | app-modules-admin-content-ai-writer-ai-writer-module                 | 487.47 kB |                80.89 kB
+3112.ad0a4aca930e47a6.js      | app-modules-admin-account-settings-settings-module                   | 471.22 kB |                93.95 kB
+4605.d74905663905562f.js      | pdfjs-dist                                                           | 332.84 kB |                82.68 kB
+6596.de1d38438942fc7e.js      | app-modules-admin-content-ai-tts-ai-tts-module                       | 278.49 kB |                59.66 kB
+358.5b9c1a19e5ac24f5.js       | app-modules-admin-content-ai-writer-ai-writer-module                 | 186.14 kB |                48.00 kB
+1762.918354b62cd530bc.js      | app-modules-admin-content-archives-wp2md-wp2md-module                | 170.14 kB |                39.23 kB
+3235.aca98e692b832cef.js      | app-modules-admin-content-ai-image-ai-image-module                   | 137.77 kB |                30.45 kB
+4066.4bbe064de8168cdf.js      | app-modules-admin-marketing-chatbot-chatbot-module                   | 131.17 kB |                28.03 kB
+6964.108c06d816ae461a.js      | app-modules-microsites-json-json-module                              | 105.87 kB |                15.97 kB
+3579.71077d1ade6912e1.js      | app-modules-admin-marketing-seo-report-seo-report-module             | 102.78 kB |                24.41 kB
+3902.f1781ea0ee1cb43f.js      | app-modules-microsites-json-json-module                              |  87.06 kB |                 9.35 kB
+4059.1bdac52f433572af.js      | app-modules-admin-content-archives-archives-module                   |  81.63 kB |                18.67 kB
+7994.0e92244e32b5beb9.js      | app-modules-admin-account-settings-settings-module                   |  78.49 kB |                18.52 kB
+7376.c279ff67c9b7a8dc.js      | app-modules-microsites-archive-archive-module                        |  71.17 kB |                23.01 kB
+4299.5042d5e80e7da9f3.js      | app-modules-microsites-json-json-module                              |  65.51 kB |                 4.18 kB
+8708.f884b7c5888e1cbc.js      | app-modules-admin-content-ai-writer-ai-writer-module                 |  63.55 kB |                14.62 kB
+7591.62d8304f29d792a4.js      | app-modules-admin-content-collection-collection-module               |  57.39 kB |                13.84 kB
+5485.2c164850ea13c1e0.js      | app-modules-admin-account-dashboard-dashboard-module                 |  46.18 kB |                11.25 kB
+6850.96382111d772082c.js      | app-modules-microsites-json-json-module                              |  45.78 kB |                 9.54 kB
+9960.25df17acc1fd51be.js      | app-modules-admin-marketing-trend-trend-module                       |  42.92 kB |                11.74 kB
+7788.a1a22209c2dc673a.js      | app-modules-admin-marketing-gologin-gologin-module                   |  42.70 kB |                 9.68 kB
+2668.3f2ca6eff058c407.js      | app-modules-microsites-home-home-module                              |  42.23 kB |                11.31 kB
+3881.d65f73d47756dabb.js      | app-modules-admin-content-ai-text2speech-ai-text2speech-module       |  38.04 kB |                 7.80 kB
+6233.d8b7e6166676e948.js      | app-modules-microsites-json-json-module                              |  37.63 kB |                 8.15 kB
+5679.0fb9a7b5475e67c5.js      | app-modules-admin-marketing-bigdata-bigdata-module                   |  33.57 kB |                 8.47 kB
+3406.487ad53dc9d421c4.js      | app-modules-admin-content-ai-crawl-ai-crawl-module                   |  33.08 kB |                 9.54 kB
+2036.85dca4debb03c6c9.js      | app-modules-microsites-archive-archive-module                        |  33.08 kB |                11.02 kB
+7813.4927e83a6bea7050.js      | app-modules-microsites-home-home-module                              |  32.69 kB |                 9.08 kB
+2290.ee9fc2c613098316.js      | app-modules-admin-content-sitemap-sitemap-module                     |  31.64 kB |                 8.09 kB
+2714.43069c1bee8b179a.js      | app-modules-admin-content-all-tube-all-tube-module                   |  31.05 kB |                 7.80 kB
+common.c7b35004bc4f398e.js    | common                                                               |  30.16 kB |                 8.15 kB
+2765.930b06ee16408e42.js      | app-modules-microsites-json-json-module                              |  29.68 kB |                 4.83 kB
+115.a1f91fa387336157.js       | app-modules-admin-marketing-seo-links-seo-links-module               |  29.37 kB |                 8.51 kB
+8604.df98d846f939e7d9.js      | app-modules-microsites-archive-archive-module                        |  27.09 kB |                 6.04 kB
+1288.046e2e63610b2ba7.js      | app-modules-admin-marketing-x-cms-x-cms-module                       |  26.17 kB |                 6.49 kB
+7181.9298b1249fcb05a5.js      | app-modules-auth-sign-in-sign-in-module                              |  25.76 kB |                 7.50 kB
+5571.1f11ce8d7abced7e.js      | app-modules-admin-content-ai-nodes-ai-nodes-module                   |  23.81 kB |                 4.76 kB
+9034.58d0119377a3eb5b.js      | app-modules-microsites-home-home-module                              |  23.41 kB |                 7.25 kB
+5951.bcb120f6d22d3a12.js      | app-modules-microsites-json-json-module                              |  23.19 kB |                 4.30 kB
+3263.ea21ed28c7e84fef.js      | app-modules-microsites-livestream-livestream-module                  |  22.54 kB |                 5.86 kB
+7006.2e613baf55b199bb.js      | app-modules-admin-content-archives-wp2md-wp2md-module                |  21.55 kB |                 6.41 kB
+882.982a6b5cfcda9fe8.js       | app-modules-microsites-json-json-module                              |  20.80 kB |                 5.04 kB
+3287.69f39639f5b452fe.js      | app-modules-admin-account-tools-tools-module                         |  19.27 kB |                 4.15 kB
+2982.df10ee3f8a2196eb.js      | app-modules-admin-content-ai-nodes-ai-nodes-module                   |  18.79 kB |                 5.41 kB
+5680.ee6e5b9d8a6bae72.js      | html-to-pdfmake                                                      |  16.89 kB |                 5.48 kB
+5094.7e15aff0ee2c200a.js      | app-modules-auth-sign-up-sign-up-module                              |  15.70 kB |                 4.66 kB
+8772.64d5607c998ee96b.js      | app-modules-microsites-policy-terms-policy-terms-policy-module       |  14.88 kB |                 4.16 kB
+1746.d650d3db27f52802.js      | app-modules-microsites-policy-policy-module                          |  12.73 kB |                 3.51 kB
+9777.9c2632bc69359f3e.js      | app-modules-microsites-json-json-module                              |  12.13 kB |                 2.68 kB
+8818.776690252d386650.js      | app-modules-admin-marketing-clone-product-export-module              |  11.84 kB |                 4.10 kB
+3768.310972f9b497bbe4.js      | app-modules-auth-reset-password-reset-password-module                |  11.77 kB |                 3.55 kB
+6015.a57ca4433822047d.js      | app-modules-microsites-read-read-module                              |  11.65 kB |                 3.62 kB
+6685.2baa74a245ea513f.js      | app-modules-admin-content-synonym-synonym-module                     |  11.62 kB |                 3.82 kB
+2418.8f77b9ca25b62373.js      | app-modules-microsites-archive-archive-module                        |  11.34 kB |                 3.15 kB
+70.1cd1548745ea3824.js        | app-modules-auth-unlock-session-unlock-session-module                |  11.32 kB |                 3.62 kB
+5914.e687a20120fa5bb1.js      | app-modules-auth-forgot-password-forgot-password-module              |  10.53 kB |                 3.24 kB
+1166.4e376ca968b4048d.js      | app-modules-admin-marketing-zalo-zalo-module                         |   9.76 kB |                 2.95 kB
+2737.bb352fcb2eae8347.js      | app-modules-microsites-policy-delivery-policy-delivery-policy-module |   9.62 kB |                 2.94 kB
+2937.1bd491689deba164.js      | web                                                                  |   9.38 kB |                 2.77 kB
+1970.cdd6f93bf4a4d095.js      | app-modules-microsites-policy-payment-policy-payment-policy-module   |   9.13 kB |                 2.75 kB
+9365.9764a93793062453.js      | app-modules-microsites-policy-warranty-policy-warranty-policy-module |   9.02 kB |                 2.78 kB
+2388.44d6cda4362d8d59.js      | app-modules-admin-account-dollar-dollar-module                       |   7.24 kB |                 2.77 kB
+5605.970261fa195e41cb.js      | app-modules-auth-confirmation-required-confirmation-required-module  |   7.19 kB |                 2.20 kB
+9306.58484ae6c04b0805.js      | app-modules-auth-sign-out-sign-out-module                            |   6.90 kB |                 2.27 kB
+766.02551ec9c3f2dac1.js       | app-modules-microsites-json-json-module                              |   5.18 kB |                 1.72 kB
+5022.604efe1d5c281915.js      | web                                                                  | 803 bytes |               241 bytes
+5202.e468e23fec5f51c2.js      | app-modules-admin-account-dollar-dollar-module                       | 761 bytes |               330 bytes
+1005.05c13232663f9ad3.js      | app-modules-admin-content-ai-text2speech-ai-text2speech-module       | 675 bytes |               441 bytes
+1750.1ad010f14c5f7372.js      | app-modules-microsites-payment-payment-module                        | 527 bytes |               343 bytes
+4786.466eb39f3b54906a.js      | web                                                                  | 503 bytes |               281 bytes
+
+Build at: 2026-10-22T03:22:03.993Z - Hash: 6b91c5a0c6b3c413 - Time: 35296ms
+
+Warning: /home/yenai/Documents/Projects/Typing/ai.type/src/app/core/auth/auth.module.ts depends on 'app/core/auth/auth.service'. CommonJS or AMD dependencies can cause optimization bailouts.
+For more info see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+[1m[32m✔ Angular build hoàn tất (38.9s)[0m
+
+[1m[35m[2/3] ⏳ Bảo vệ và làm rối mã nguồn Backend Electron (Obfuscate)...[0m
+
+[33m> npm run obfuscate[0m
+
+
+> typing@1.2.3 obfuscate
+> javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json && javascript-obfuscator src/mcp-client.js --output dist/mcp-client.js --config .obfuscatorrc.json && javascript-obfuscator src/export-import-project.js --output dist/export-import-project.js --config .obfuscatorrc.json && javascript-obfuscator src/local-articles.js --output dist/local-articles.js --config .obfuscatorrc.json && javascript-obfuscator src/local-profiles.js --output dist/local-profiles.js --config .obfuscatorrc.json && javascript-obfuscator src/fonts.js --output dist/fonts.js --config .obfuscatorrc.json && javascript-obfuscator src/database.js --output dist/database.js --config .obfuscatorrc.json && javascript-obfuscator src/opera-codec.js --output dist/opera-codec.js --config .obfuscatorrc.json && javascript-obfuscator src/extract_frame.js --output dist/extract_frame.js --config .obfuscatorrc.json && mkdir -p dist/type-lite && javascript-obfuscator src/type-lite --output dist/type-lite --config .obfuscatorrc.json && cp -r src/type-lite/views dist/type-lite/
+
+
+[javascript-obfuscator-cli] Obfuscating file: src/main.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/mcp-client.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/export-import-project.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/local-articles.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/local-profiles.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/fonts.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/database.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/opera-codec.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/extract_frame.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/bootstrap.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/crypto.utils.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/lib.typing.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/route.cdn.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/route.company.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/route.core.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/route.wordpress.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/type-lite.js... 
+
+[javascript-obfuscator-cli] Obfuscating file: src/type-lite/views/script.js... 
+[1m[32m✔ Obfuscate hoàn tất (9.1s)[0m
+
+[1m[35m[3/3] ⏳ Đóng gói ứng dụng Electron (Windows (.exe), Ubuntu/Linux (.deb, .AppImage))...[0m
+
+[33m> npx electron-builder --win --linux --publish never[0m
+
+  • electron-builder  version=26.15.3 os=7.0.0-38-generic
+  • loaded configuration  file=package.json ("build" field)
+  • @electron/rebuild already used by electron-builder, please consider to remove excess dependency from devDependencies
+
+To ensure your native dependencies are always matched electron version, simply add script `"postinstall": "electron-builder install-app-deps" to your `package.json`
+  • executing @electron/rebuild  electronVersion=35.7.5 arch=x64 buildFromSource=false workspaceRoot=/home/yenai/Documents/Projects/Typing/ai.type/electron projectDir=./ appDir=./
+  • installing native dependencies  arch=x64
+  • preparing       moduleName=sqlite3 arch=x64
+  • finished        moduleName=sqlite3 arch=x64
+  • completed installing native dependencies
+  • packaging       platform=linux arch=x64 electron=35.7.5 appOutDir=dist/linux-unpacked
+  • downloaded      label=electron progress=100%
+  • downloaded electron zip extracted successfully  output=/home/yenai/Documents/Projects/Typing/ai.type/electron/dist/linux-unpacked
+  • searching for node modules  pm=npm searchDir=/home/yenai/Documents/Projects/Typing/ai.type/electron
+  • duplicate dependency references  dependencies=["@babel/parser@7.29.7","@babel/types@7.29.7","@jridgewell/trace-mapping@0.3.31","browserslist@4.28.2","@babel/core@7.29.7","@babel/traverse@7.29.7","@babel/types@7.29.7","@babel/traverse@7.29.7","@babel/template@7.29.7","@babel/types@7.29.7","@babel/types@7.29.7","@babel/code-frame@7.29.7","@babel/parser@7.29.7","@babel/types@7.29.7","@babel/code-frame@7.29.7","@babel/generator@7.29.7","@babel/parser@7.29.7","@babel/template@7.29.7","@babel/types@7.29.7","debug@4.4.3","@jridgewell/gen-mapping@0.3.13","@jridgewell/trace-mapping@0.3.31","debug@4.4.3","@babel/core@7.29.7","make-dir@2.1.0","find-up@3.0.0","call-bind@1.0.9","call-bound@1.0.4","define-properties@1.2.1","es-abstract@1.24.2","es-object-atoms@1.1.2","call-bound@1.0.4","has-tostringtag@1.0.2","call-bind@1.0.9","call-bound@1.0.4","is-array-buffer@3.0.5","array-buffer-byte-length@1.0.2","call-bind@1.0.9","define-properties@1.2.1","es-abstract@1.24.2","get-intrinsic@1.3.0","is-array-buffer@3.0.5","available-typed-arrays@1.0.7","call-bind@1.0.9","call-bound@1.0.4","call-bound@1.0.4","is-data-view@1.0.2","call-bound@1.0.4","is-data-view@1.0.2","call-bound@1.0.4","is-data-view@1.0.2","es-object-atoms@1.1.2","es-set-tostringtag@2.1.0","es-object-atoms@1.1.2","call-bound@1.0.4","has-tostringtag@1.0.2","call-bound@1.0.4","safe-regex-test@1.1.0","call-bind@1.0.9","call-bound@1.0.4","has-property-descriptors@1.0.2","hasown@2.0.4","call-bound@1.0.4","get-intrinsic@1.3.0","get-proto@1.0.1","call-bound@1.0.4","get-intrinsic@1.3.0","define-properties@1.2.1","has-property-descriptors@1.0.2","dunder-proto@1.0.1","hasown@2.0.4","hasown@2.0.4","side-channel@1.1.1","call-bind@1.0.9","call-bound@1.0.4","get-intrinsic@1.3.0","call-bound@1.0.4","get-intrinsic@1.3.0","is-typed-array@1.1.15","is-regex@1.2.1","call-bound@1.0.4","is-string@1.1.1","is-typed-array@1.1.15","call-bound@1.0.4","call-bind@1.0.9","call-bound@1.0.4","define-properties@1.2.1","es-object-atoms@1.1.2","get-intrinsic@1.3.0","safe-push-apply@1.0.0","call-bind@1.0.9","define-properties@1.2.1","get-proto@1.0.1","define-data-property@1.1.4","has-property-descriptors@1.0.2","safe-array-concat@1.1.4","safe-regex-test@1.1.0","dunder-proto@1.0.1","es-object-atoms@1.1.2","internal-slot@1.1.0","call-bind@1.0.9","call-bound@1.0.4","define-data-property@1.1.4","define-properties@1.2.1","es-abstract@1.24.2","es-object-atoms@1.1.2","has-property-descriptors@1.0.2","safe-regex-test@1.1.0","call-bind@1.0.9","call-bound@1.0.4","define-properties@1.2.1","es-object-atoms@1.1.2","call-bind@1.0.9","define-properties@1.2.1","es-object-atoms@1.1.2","call-bound@1.0.4","is-typed-array@1.1.15","call-bind@1.0.9","for-each@0.3.5","has-proto@1.2.0","is-typed-array@1.1.15","available-typed-arrays@1.0.7","call-bind@1.0.9","for-each@0.3.5","has-proto@1.2.0","is-typed-array@1.1.15","call-bind@1.0.9","define-properties@1.2.1","es-abstract@1.24.2","es-object-atoms@1.1.2","get-intrinsic@1.3.0","get-proto@1.0.1","call-bound@1.0.4","function.prototype.name@1.2.0","has-tostringtag@1.0.2","call-bound@1.0.4","get-proto@1.0.1","has-tostringtag@1.0.2","safe-regex-test@1.1.0","is-date-object@1.1.0","call-bound@1.0.4","is-generator-function@1.1.2","is-regex@1.2.1","is-weakref@1.1.1","which-boxed-primitive@1.1.1","call-bound@1.0.4","get-intrinsic@1.3.0","which-typed-array@1.1.22","call-bind@1.0.9","for-each@0.3.5","is-typed-array@1.1.15","reflect.getprototypeof@1.0.10","call-bound@1.0.4","call-bound@1.0.4","has-tostringtag@1.0.2","call-bound@1.0.4","has-tostringtag@1.0.2","is-string@1.1.1","is-symbol@1.1.1","which-typed-array@1.1.22","call-bind@1.0.9","call-bound@1.0.4","get-intrinsic@1.3.0","@types/node@22.20.0","debug@4.4.3","pump@3.0.4","yauzl@2.10.0","debug@4.4.3","debug@4.4.3","debug@4.4.3","debug@4.4.3","debug@4.4.3","http-proxy-agent@7.0.2","debug@4.4.3","socks-proxy-agent@8.0.5","socks-proxy-agent@8.0.5","end-of-stream@1.4.5","once@1.4.0","bare-fs@4.7.2","string-width@4.2.3","string-width@4.2.3","strip-ansi@6.0.1","strip-ansi@6.0.1","combined-stream@1.0.8","call-bind-apply-helpers@1.0.2","es-object-atoms@1.1.2","get-proto@1.0.1","hasown@2.0.4","has-tostringtag@1.0.2","hasown@2.0.4","debug@4.4.3","debug@4.4.3","babel-runtime@6.26.0","babel-runtime@6.26.0","call-bound@1.0.4","get-intrinsic@1.3.0","call-bound@1.0.4","get-intrinsic@1.3.0","side-channel-map@1.0.1","http-errors@2.0.1","iconv-lite@0.4.24","domhandler@5.0.3","domutils@3.2.2","domhandler@5.0.3","domutils@3.2.2","domhandler@5.0.3","dom-serializer@2.0.0","domhandler@5.0.3","domhandler@5.0.3","domutils@3.2.2","domhandler@5.0.3","parse5@7.3.0","parse5@7.3.0","ajv@8.20.0","debug@4.4.3","jsonfile@6.2.1","body-parser@1.20.5","on-finished@2.4.1","http-errors@2.0.1","on-finished@2.4.1","qs@6.15.2","http-errors@2.0.1","on-finished@2.4.1","send@0.19.2","type-is@1.6.18","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@types/node@22.20.0","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@types/node@22.20.0","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/sql-common@0.40.1","@types/pg@8.6.1","@types/node@22.20.0","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@types/node@22.20.0","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","import-in-the-middle@1.15.0","debug@4.4.3","hasown@2.0.4","@opentelemetry/core@1.30.1","@opentelemetry/core@1.30.1","@opentelemetry/resources@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/resources@1.30.1","@opentelemetry/sdk-trace-base@1.30.1","@sentry/opentelemetry@9.47.1","import-in-the-middle@1.15.0","@opentelemetry/core@1.30.1","@opentelemetry/sdk-trace-base@1.30.1","glob@7.2.3","once@1.4.0","readable-stream@3.6.2","once@1.4.0","readable-stream@3.6.2","archiver-utils@2.1.0","readable-stream@3.6.2","readable-stream@3.6.2","readable-stream@2.3.8","end-of-stream@1.4.5","typed-array-buffer@1.0.3","decompress-tar@4.1.1","unbzip2-stream@1.4.3","decompress-tar@4.1.1","decompress-unzip@4.0.1","combined-stream@1.0.8","es-set-tostringtag@2.1.0","hasown@2.0.4","debug@4.4.3","concat-stream@1.6.2","yauzl@2.10.0","debug@4.4.3","glob@7.2.3","request@2.88.2","request@2.88.2","glob@7.2.3","debug@4.4.3","glob@7.2.3","rimraf@3.0.2","fs-minipass@2.1.0","glob@7.2.3","lru-cache@6.0.0","minipass-collect@1.0.2","minipass-flush@1.0.7","minipass-pipeline@1.2.4","minipass@3.3.6","rimraf@3.0.2","ssri@8.0.1","tar@6.2.1","debug@4.4.3","debug@4.4.3","https-proxy-agent@5.0.1","minipass@3.3.6","encoding@0.1.13","minipass@3.3.6","minipass@3.3.6","minizlib@2.1.2","minipass@3.3.6","minipass@3.3.6","agent-base@6.0.2","debug@4.4.3","socks@2.8.9","minipass@3.3.6","readable-stream@3.6.2","string-width@4.2.3","strip-ansi@6.0.1","string-width@4.2.3","rimraf@3.0.2","tar@6.2.1","which@2.0.2","pump@3.0.4","once@1.4.0","pump@3.0.4","tar-stream@2.2.0","tunnel-agent@0.6.0","minipass@3.3.6","minipass@3.3.6","debug@4.4.3","fetch-blob@3.2.0","gaxios@7.1.5","ecdsa-sig-formatter@1.0.11","google-auth-library@10.7.0","debug@4.4.3","fetch-blob@3.2.0","formdata-polyfill@4.0.10","cross-spawn@7.0.6","strip-ansi@6.0.1","strip-ansi@7.2.0","ansi-styles@4.3.0","string-width@4.2.3","strip-ansi@6.0.1","string-width@5.1.2","strip-ansi@7.2.0","ecdsa-sig-formatter@1.0.11","gaxios@7.1.3","gcp-metadata@8.1.2","gaxios@7.1.5","jws@4.0.1","jws@4.0.1","qs@6.15.2","axios@1.18.0","readable-stream@3.6.2","@napi-rs/canvas@0.1.80","debug@4.4.3","puppeteer@22.15.0","debug@4.4.3","is-plain-object@2.0.4","kind-of@3.2.2","@types/debug@4.1.13","debug@4.4.3","merge-deep@3.0.3","puppeteer-extra@3.3.6","puppeteer-extra@3.3.6","debug@4.4.3","debug@4.4.3","puppeteer-extra-plugin-user-data-dir@2.4.1","puppeteer-extra-plugin@3.2.3","puppeteer-extra@3.3.6","puppeteer-extra-plugin@3.2.3","puppeteer-extra@3.3.6","debug@4.4.3","fs-extra@10.1.0","puppeteer-extra-plugin@3.2.3","puppeteer-extra@3.3.6","rimraf@3.0.2","debug@4.4.3","puppeteer-core@2.1.1","puppeteer@22.15.0","debug@4.4.3","extract-zip@2.0.1","debug@4.4.3","http-proxy-agent@7.0.2","debug@4.4.3","pac-proxy-agent@7.2.0","socks-proxy-agent@8.0.5","bare-path@3.0.1","streamx@2.28.0","streamx@2.28.0","bare-path@3.0.1","pump@3.0.4","bare-fs@4.7.2","streamx@2.28.0","unbzip2-stream@1.4.3","cliui@8.0.1","string-width@4.2.3","js-yaml@4.2.0","@babel/code-frame@7.29.7","@puppeteer/browsers@2.3.0","debug@4.4.3","which@2.0.2","combined-stream@1.0.8","mime-types@2.1.35","@types/node@22.20.0","combined-stream@1.0.8","es-set-tostringtag@2.1.0","hasown@2.0.4","concat-stream@1.6.2","http-response-object@3.0.2","http-response-object@3.0.2","qs@6.15.2","qs@6.15.2","get-intrinsic@1.3.0","call-bound@1.0.4","call-bind-apply-helpers@1.0.2","es-object-atoms@1.1.2","has-tostringtag@1.0.2","call-bound@1.0.4","call-bound@1.0.4","has-tostringtag@1.0.2","hasown@2.0.4","which-typed-array@1.1.22","call-bind-apply-helpers@1.0.2","get-intrinsic@1.3.0","define-data-property@1.1.4","get-intrinsic@1.3.0","has-property-descriptors@1.0.2","call-bound@1.0.4","get-proto@1.0.1","has-tostringtag@1.0.2"]
+  • building        target=AppImage arch=x64 file=dist/AI.Type-1.2.3.AppImage
+  • electron uses desktopName as app_id / WM_CLASS for window association. Without it desktop environments may not link running windows to this .desktop entry. Set desktopName in package.json and linux.syncDesktopName: true to fix.  reason=desktopName is not set in package.json docs=https://www.electron.build/linux#window-association-desktopname--syncdesktopname
+  • executing @electron/rebuild  electronVersion=35.7.5 arch=x64 buildFromSource=false workspaceRoot=/home/yenai/Documents/Projects/Typing/ai.type/electron projectDir=./ appDir=./
+  • installing native dependencies  arch=x64
+  • preparing       moduleName=sqlite3 arch=x64
+  • finished        moduleName=sqlite3 arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=35.7.5 appOutDir=dist/win-unpacked
+  • downloaded      label=electron progress=100%
+  • downloaded electron zip extracted successfully  output=/home/yenai/Documents/Projects/Typing/ai.type/electron/dist/win-unpacked
+  • searching for node modules  pm=npm searchDir=/home/yenai/Documents/Projects/Typing/ai.type/electron
+  • duplicate dependency references  dependencies=["@babel/parser@7.29.7","@babel/types@7.29.7","@jridgewell/trace-mapping@0.3.31","browserslist@4.28.2","@babel/core@7.29.7","@babel/traverse@7.29.7","@babel/types@7.29.7","@babel/traverse@7.29.7","@babel/template@7.29.7","@babel/types@7.29.7","@babel/types@7.29.7","@babel/code-frame@7.29.7","@babel/parser@7.29.7","@babel/types@7.29.7","@babel/code-frame@7.29.7","@babel/generator@7.29.7","@babel/parser@7.29.7","@babel/template@7.29.7","@babel/types@7.29.7","debug@4.4.3","@jridgewell/gen-mapping@0.3.13","@jridgewell/trace-mapping@0.3.31","debug@4.4.3","@babel/core@7.29.7","make-dir@2.1.0","find-up@3.0.0","call-bind@1.0.9","call-bound@1.0.4","define-properties@1.2.1","es-abstract@1.24.2","es-object-atoms@1.1.2","call-bound@1.0.4","has-tostringtag@1.0.2","call-bind@1.0.9","call-bound@1.0.4","is-array-buffer@3.0.5","array-buffer-byte-length@1.0.2","call-bind@1.0.9","define-properties@1.2.1","es-abstract@1.24.2","get-intrinsic@1.3.0","is-array-buffer@3.0.5","available-typed-arrays@1.0.7","call-bind@1.0.9","call-bound@1.0.4","call-bound@1.0.4","is-data-view@1.0.2","call-bound@1.0.4","is-data-view@1.0.2","call-bound@1.0.4","is-data-view@1.0.2","es-object-atoms@1.1.2","es-set-tostringtag@2.1.0","es-object-atoms@1.1.2","call-bound@1.0.4","has-tostringtag@1.0.2","call-bound@1.0.4","safe-regex-test@1.1.0","call-bind@1.0.9","call-bound@1.0.4","has-property-descriptors@1.0.2","hasown@2.0.4","call-bound@1.0.4","get-intrinsic@1.3.0","get-proto@1.0.1","call-bound@1.0.4","get-intrinsic@1.3.0","define-properties@1.2.1","has-property-descriptors@1.0.2","dunder-proto@1.0.1","hasown@2.0.4","hasown@2.0.4","side-channel@1.1.1","call-bind@1.0.9","call-bound@1.0.4","get-intrinsic@1.3.0","call-bound@1.0.4","get-intrinsic@1.3.0","is-typed-array@1.1.15","is-regex@1.2.1","call-bound@1.0.4","is-string@1.1.1","is-typed-array@1.1.15","call-bound@1.0.4","call-bind@1.0.9","call-bound@1.0.4","define-properties@1.2.1","es-object-atoms@1.1.2","get-intrinsic@1.3.0","safe-push-apply@1.0.0","call-bind@1.0.9","define-properties@1.2.1","get-proto@1.0.1","define-data-property@1.1.4","has-property-descriptors@1.0.2","safe-array-concat@1.1.4","safe-regex-test@1.1.0","dunder-proto@1.0.1","es-object-atoms@1.1.2","internal-slot@1.1.0","call-bind@1.0.9","call-bound@1.0.4","define-data-property@1.1.4","define-properties@1.2.1","es-abstract@1.24.2","es-object-atoms@1.1.2","has-property-descriptors@1.0.2","safe-regex-test@1.1.0","call-bind@1.0.9","call-bound@1.0.4","define-properties@1.2.1","es-object-atoms@1.1.2","call-bind@1.0.9","define-properties@1.2.1","es-object-atoms@1.1.2","call-bound@1.0.4","is-typed-array@1.1.15","call-bind@1.0.9","for-each@0.3.5","has-proto@1.2.0","is-typed-array@1.1.15","available-typed-arrays@1.0.7","call-bind@1.0.9","for-each@0.3.5","has-proto@1.2.0","is-typed-array@1.1.15","call-bind@1.0.9","define-properties@1.2.1","es-abstract@1.24.2","es-object-atoms@1.1.2","get-intrinsic@1.3.0","get-proto@1.0.1","call-bound@1.0.4","function.prototype.name@1.2.0","has-tostringtag@1.0.2","call-bound@1.0.4","get-proto@1.0.1","has-tostringtag@1.0.2","safe-regex-test@1.1.0","is-date-object@1.1.0","call-bound@1.0.4","is-generator-function@1.1.2","is-regex@1.2.1","is-weakref@1.1.1","which-boxed-primitive@1.1.1","call-bound@1.0.4","get-intrinsic@1.3.0","which-typed-array@1.1.22","call-bind@1.0.9","for-each@0.3.5","is-typed-array@1.1.15","reflect.getprototypeof@1.0.10","call-bound@1.0.4","call-bound@1.0.4","has-tostringtag@1.0.2","call-bound@1.0.4","has-tostringtag@1.0.2","is-string@1.1.1","is-symbol@1.1.1","which-typed-array@1.1.22","call-bind@1.0.9","call-bound@1.0.4","get-intrinsic@1.3.0","@types/node@22.20.0","debug@4.4.3","pump@3.0.4","yauzl@2.10.0","debug@4.4.3","debug@4.4.3","debug@4.4.3","debug@4.4.3","debug@4.4.3","http-proxy-agent@7.0.2","debug@4.4.3","socks-proxy-agent@8.0.5","socks-proxy-agent@8.0.5","end-of-stream@1.4.5","once@1.4.0","bare-fs@4.7.2","string-width@4.2.3","string-width@4.2.3","strip-ansi@6.0.1","strip-ansi@6.0.1","combined-stream@1.0.8","call-bind-apply-helpers@1.0.2","es-object-atoms@1.1.2","get-proto@1.0.1","hasown@2.0.4","has-tostringtag@1.0.2","hasown@2.0.4","debug@4.4.3","debug@4.4.3","babel-runtime@6.26.0","babel-runtime@6.26.0","call-bound@1.0.4","get-intrinsic@1.3.0","call-bound@1.0.4","get-intrinsic@1.3.0","side-channel-map@1.0.1","http-errors@2.0.1","iconv-lite@0.4.24","domhandler@5.0.3","domutils@3.2.2","domhandler@5.0.3","domutils@3.2.2","domhandler@5.0.3","dom-serializer@2.0.0","domhandler@5.0.3","domhandler@5.0.3","domutils@3.2.2","domhandler@5.0.3","parse5@7.3.0","parse5@7.3.0","ajv@8.20.0","debug@4.4.3","jsonfile@6.2.1","body-parser@1.20.5","on-finished@2.4.1","http-errors@2.0.1","on-finished@2.4.1","qs@6.15.2","http-errors@2.0.1","on-finished@2.4.1","send@0.19.2","type-is@1.6.18","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@types/node@22.20.0","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@types/node@22.20.0","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/sql-common@0.40.1","@types/pg@8.6.1","@types/node@22.20.0","@opentelemetry/instrumentation@0.57.2","@opentelemetry/instrumentation@0.57.2","@types/node@22.20.0","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","import-in-the-middle@1.15.0","debug@4.4.3","hasown@2.0.4","@opentelemetry/core@1.30.1","@opentelemetry/core@1.30.1","@opentelemetry/resources@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/core@1.30.1","@opentelemetry/instrumentation@0.57.2","@opentelemetry/resources@1.30.1","@opentelemetry/sdk-trace-base@1.30.1","@sentry/opentelemetry@9.47.1","import-in-the-middle@1.15.0","@opentelemetry/core@1.30.1","@opentelemetry/sdk-trace-base@1.30.1","glob@7.2.3","once@1.4.0","readable-stream@3.6.2","once@1.4.0","readable-stream@3.6.2","archiver-utils@2.1.0","readable-stream@3.6.2","readable-stream@3.6.2","readable-stream@2.3.8","end-of-stream@1.4.5","typed-array-buffer@1.0.3","decompress-tar@4.1.1","unbzip2-stream@1.4.3","decompress-tar@4.1.1","decompress-unzip@4.0.1","combined-stream@1.0.8","es-set-tostringtag@2.1.0","hasown@2.0.4","debug@4.4.3","concat-stream@1.6.2","yauzl@2.10.0","debug@4.4.3","glob@7.2.3","request@2.88.2","request@2.88.2","glob@7.2.3","debug@4.4.3","glob@7.2.3","rimraf@3.0.2","fs-minipass@2.1.0","glob@7.2.3","lru-cache@6.0.0","minipass-collect@1.0.2","minipass-flush@1.0.7","minipass-pipeline@1.2.4","minipass@3.3.6","rimraf@3.0.2","ssri@8.0.1","tar@6.2.1","debug@4.4.3","debug@4.4.3","https-proxy-agent@5.0.1","minipass@3.3.6","encoding@0.1.13","minipass@3.3.6","minipass@3.3.6","minizlib@2.1.2","minipass@3.3.6","minipass@3.3.6","agent-base@6.0.2","debug@4.4.3","socks@2.8.9","minipass@3.3.6","readable-stream@3.6.2","string-width@4.2.3","strip-ansi@6.0.1","string-width@4.2.3","rimraf@3.0.2","tar@6.2.1","which@2.0.2","pump@3.0.4","once@1.4.0","pump@3.0.4","tar-stream@2.2.0","tunnel-agent@0.6.0","minipass@3.3.6","minipass@3.3.6","debug@4.4.3","fetch-blob@3.2.0","gaxios@7.1.5","ecdsa-sig-formatter@1.0.11","google-auth-library@10.7.0","debug@4.4.3","fetch-blob@3.2.0","formdata-polyfill@4.0.10","cross-spawn@7.0.6","strip-ansi@6.0.1","strip-ansi@7.2.0","ansi-styles@4.3.0","string-width@4.2.3","strip-ansi@6.0.1","string-width@5.1.2","strip-ansi@7.2.0","ecdsa-sig-formatter@1.0.11","gaxios@7.1.3","gcp-metadata@8.1.2","gaxios@7.1.5","jws@4.0.1","jws@4.0.1","qs@6.15.2","axios@1.18.0","readable-stream@3.6.2","@napi-rs/canvas@0.1.80","debug@4.4.3","puppeteer@22.15.0","debug@4.4.3","is-plain-object@2.0.4","kind-of@3.2.2","@types/debug@4.1.13","debug@4.4.3","merge-deep@3.0.3","puppeteer-extra@3.3.6","puppeteer-extra@3.3.6","debug@4.4.3","debug@4.4.3","puppeteer-extra-plugin-user-data-dir@2.4.1","puppeteer-extra-plugin@3.2.3","puppeteer-extra@3.3.6","puppeteer-extra-plugin@3.2.3","puppeteer-extra@3.3.6","debug@4.4.3","fs-extra@10.1.0","puppeteer-extra-plugin@3.2.3","puppeteer-extra@3.3.6","rimraf@3.0.2","debug@4.4.3","puppeteer-core@2.1.1","puppeteer@22.15.0","debug@4.4.3","extract-zip@2.0.1","debug@4.4.3","http-proxy-agent@7.0.2","debug@4.4.3","pac-proxy-agent@7.2.0","socks-proxy-agent@8.0.5","bare-path@3.0.1","streamx@2.28.0","streamx@2.28.0","bare-path@3.0.1","pump@3.0.4","bare-fs@4.7.2","streamx@2.28.0","unbzip2-stream@1.4.3","cliui@8.0.1","string-width@4.2.3","js-yaml@4.2.0","@babel/code-frame@7.29.7","@puppeteer/browsers@2.3.0","debug@4.4.3","which@2.0.2","combined-stream@1.0.8","mime-types@2.1.35","@types/node@22.20.0","combined-stream@1.0.8","es-set-tostringtag@2.1.0","hasown@2.0.4","concat-stream@1.6.2","http-response-object@3.0.2","http-response-object@3.0.2","qs@6.15.2","qs@6.15.2","get-intrinsic@1.3.0","call-bound@1.0.4","call-bind-apply-helpers@1.0.2","es-object-atoms@1.1.2","has-tostringtag@1.0.2","call-bound@1.0.4","call-bound@1.0.4","has-tostringtag@1.0.2","hasown@2.0.4","which-typed-array@1.1.22","call-bind-apply-helpers@1.0.2","get-intrinsic@1.3.0","define-data-property@1.1.4","get-intrinsic@1.3.0","has-property-descriptors@1.0.2","call-bound@1.0.4","get-proto@1.0.1","has-tostringtag@1.0.2"]
+  • building embedded block map  file=dist/AI.Type-1.2.3.AppImage
+  • building        target=deb arch=x64 file=dist/typing_1.2.3_amd64.deb
+  • adding autoupdate files for: deb  resourceDir=dist/linux-unpacked/resources
+  • electron uses desktopName as app_id / WM_CLASS for window association. Without it desktop environments may not link running windows to this .desktop entry. Set desktopName in package.json and linux.syncDesktopName: true to fix.  reason=desktopName is not set in package.json docs=https://www.electron.build/linux#window-association-desktopname--syncdesktopname
+  • updating asar integrity executable resource  executablePath=dist/win-unpacked/AI.Type.exe
+  • signing with signtool.exe  path=dist/win-unpacked/resources/edge-tts-win.exe
+  • signing with signtool.exe  path=dist/win-unpacked/resources/ffmpeg-win.exe
+  • signing with signtool.exe  path=dist/win-unpacked/resources/yt-dlp-win.exe
+  • signing with signtool.exe  path=dist/win-unpacked/AI.Type.exe
+  • signing with signtool.exe  path=dist/win-unpacked/resources/app.asar.unpacked/node_modules/rcedit/bin/rcedit-x64.exe
+  • signing with signtool.exe  path=dist/win-unpacked/resources/app.asar.unpacked/node_modules/rcedit/bin/rcedit.exe
+  • building        target=nsis file=dist/AI.Type Setup 1.2.3.exe archs=x64 oneClick=false perMachine=false
+  • signing with signtool.exe  path=dist/win-unpacked/resources/elevate.exe
+  • signing with signtool.exe  path=dist/AI.Type Setup 1.2.3.__uninstaller.exe
+  • signing with signtool.exe  path=dist/AI.Type Setup 1.2.3.exe
+  • building block map  blockMapFile=dist/AI.Type Setup 1.2.3.exe.blockmap
+[1m[32m✔ Đóng gói Electron hoàn tất (2m 42s)[0m
+
+[1m[36m════════════════════════════════════════════════════════════════════[0m
+[1m[36m  🎉 BUILD THÀNH CÔNG TẤT CẢ NỀN TẢNG (3m 30s)[0m
+[1m[36m════════════════════════════════════════════════════════════════════[0m
+
+[1m[32mDanh sách bản cài đặt đã tạo trong electron/dist/:[0m
+───────────────────────────────────────────────────────────────────
+ 📦 [1mAI.Type Setup 1.2.3.exe            [0m | [33m 593.84 MB[0m
+ 📦 [1mAI.Type-1.2.3-mac.zip              [0m | [33m 871.62 MB[0m
+ 📦 [1mAI.Type-1.2.3.AppImage             [0m | [33m 688.46 MB[0m
+ 📦 [1mtyping_1.2.3_amd64.deb             [0m | [33m 612.47 MB[0m
+───────────────────────────────────────────────────────────────────
+
+📂 Thư mục chứa file build: [36m/home/yenai/Documents/Projects/Typing/ai.type/electron/dist[0m
+

@@ -1368,6 +1368,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 const localContext = await electron.invoke('get-local-faiss-context', {
                     username: this.user.name,
                     query: searchQuery,
+                    currentQuery: msg,
+                    selectedFiles: (this.selected || []).map((f: any) => f?.filename).filter(Boolean),
                     maxChunks: 4
                 });
                 if (localContext?.success && localContext?.context) {
@@ -2013,15 +2015,14 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 docType: 'qa_detailed'
             });
             if (res && res.success) {
-                const failedCount = res.failed?.length || 0;
-                const faissMsg = res.server?.skipped
-                    ? 'FAISS không đổi'
-                    : `FAISS ${res.server?.faiss_size ? Math.round(res.server.faiss_size / 1024) : 0} KB`;
-                const msg = `Đã sync ${res.synced} tài liệu, bỏ qua ${res.skipped || 0} tài liệu đã có trên server, ${faissMsg}.`;
-                failedCount ? this.toastr.warning(`${msg} Lỗi ${failedCount} tài liệu.`) : this.toastr.success(msg);
+                this.toastr.success(
+                    `Đồng bộ đầy đủ: server đã học ${res.indexedDocs}/${res.totalDocs} tài liệu (${res.chunks} đoạn). ` +
+                    `Đẩy mới ${res.synced}, ${res.skipped || 0} tài liệu đã có sẵn.`
+                );
                 this.refreshFiles();
             } else {
-                this.toastr.error('Sync thất bại: ' + (res?.error || 'Không rõ lỗi'));
+                this.toastr.error('Sync chưa đầy đủ: ' + (res?.error || 'Không rõ lỗi'), '', { timeOut: 15000 });
+                this.refreshFiles();
             }
         } catch (err: any) {
             this.toastr.error('Sync thất bại: ' + (err?.message || err));
@@ -2173,6 +2174,47 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const dType = doc_type === 'None' ? 'default' : doc_type;
         const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
 
+        // 0b. Học lại tại máy: nếu đã có bản bóc tách .md ở máy thì chỉ tạo vector embedding ngay trong app,
+        //     không gửi PDF đi bóc tách lại. Kết quả lưu tại Documents/ai.type/data/faiss/{username}/vectors
+        if (electron?.invoke) {
+            this.isIndexing = true;
+            this.indexingFilename = filename;
+            this.progressPercent = 10;
+            this.progressStatus = 'Đang học lại tại máy...';
+            this.cd.markForCheck();
+            const cleanupLocal = electron.onPdfProgress ? electron.onPdfProgress((data: string) => {
+                this.progressStatus = data;
+                const m = /\((\d+)%\)/.exec(data || '');
+                if (m) this.progressPercent = Math.max(10, Math.min(99, Number(m[1])));
+                this.cd.markForCheck();
+            }) : () => {};
+            try {
+                const vecRes = await electron.invoke('build-local-vector-index', {
+                    username: this.user?.name || 'admin',
+                    filename
+                });
+                if (vecRes?.success) {
+                    if (targetRow) {
+                        targetRow.is_indexed = true;
+                        this.applyFileFilter();
+                    }
+                    this.toastr.success(`Đã học lại ${filename} tại máy (${vecRes.chunks} đoạn, ${vecRes.seconds}s).`);
+                    return;
+                }
+                if (!vecRes?.notFound) {
+                    this.toastr.error(`Học lại ${filename} thất bại: ${vecRes?.error || 'không rõ lỗi'}`);
+                    throw new Error(vecRes?.error || 'Học lại tại máy thất bại');
+                }
+                // Chưa có file .md ở máy: đi tiếp luồng bóc tách PDF bên dưới
+            } finally {
+                cleanupLocal();
+                this.isIndexing = false;
+                this.indexingFilename = '';
+                this.progressPercent = 0;
+                this.cd.markForCheck();
+            }
+        }
+
         // 1. ƯU TIÊN HÀNG ĐẦU: Chạy trực tiếp trên Google Colab MCP GPU Server & Lưu FAISS Local (dành riêng cho PDF)
         let colabSuccess = false;
         if (filename.toLowerCase().endsWith('.pdf') && (isColabMcpEnabled || colabMcpUrl) && electron) {
@@ -2231,6 +2273,12 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 });
 
                 if (saveRes && saveRes.success) {
+                    this.progressStatus = 'Đang tạo vector embedding tại máy...';
+                    this.cd.markForCheck();
+                    const vecAfter = await electron.invoke('build-local-vector-index', { username: this.user.name, filename });
+                    if (!vecAfter?.success) {
+                        this.toastr.warning(`Đã bóc tách ${filename} nhưng chưa tạo được vector: ${vecAfter?.error || 'không rõ lỗi'}`);
+                    }
                     if (targetRow) {
                         targetRow.is_indexed = true;
                         this.applyFileFilter();

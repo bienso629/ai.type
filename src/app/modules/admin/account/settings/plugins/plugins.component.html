@@ -608,7 +608,7 @@
                     Phiên bản Plugin: v{{ getPlugin("ai_agent")?.version }}
                 </div>
                 <div class="flex items-center gap-3">
-                    @if (getPlugin("ai_agent")?.installed) {
+                    @if (getPlugin("ai_agent")?.hasBinary) {
                         <div>
                             <button
                                 mat-icon-button
@@ -646,10 +646,10 @@
                 <div class="full-width-toggle mb-4">
                     <mat-slide-toggle
                         [checked]="
-                            $safeNavigationMigration(
-                                getPlugin('zalo_reply')?.enabled
-                            )
+                            !!getPlugin('zalo_reply')?.installed &&
+                            !!getPlugin('zalo_reply')?.enabled
                         "
+                        [disabled]="!getPlugin('zalo_reply')?.installed"
                         [labelPosition]="'before'"
                         (change)="togglePlugin(getPlugin('zalo_reply'), $event)"
                         class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
@@ -663,6 +663,12 @@
                                 Tự động đọc và phản hồi thông minh tin nhắn của
                                 khách hàng trên Zalo
                             </div>
+                            @if (!getPlugin("zalo_reply")?.installed) {
+                                <div class="text-sm text-amber-600 font-normal mt-1">
+                                    Chưa tìm thấy file plugin trong thư mục
+                                    Documents/ai.type/plugins nên chưa thể kích hoạt.
+                                </div>
+                            }
                         </mat-label>
                     </mat-slide-toggle>
                 </div>
@@ -702,10 +708,10 @@
                 <div class="full-width-toggle mb-4">
                     <mat-slide-toggle
                         [checked]="
-                            $safeNavigationMigration(
-                                getPlugin('tiktok_100')?.enabled
-                            )
+                            !!getPlugin('tiktok_100')?.installed &&
+                            !!getPlugin('tiktok_100')?.enabled
                         "
+                        [disabled]="!getPlugin('tiktok_100')?.installed"
                         [labelPosition]="'before'"
                         (change)="togglePlugin(getPlugin('tiktok_100'), $event)"
                         class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
@@ -719,6 +725,12 @@
                                 Tự động khởi chạy plugin 100tiktok-linux trong
                                 thư mục Documents/ai.type/plugins
                             </div>
+                            @if (!getPlugin("tiktok_100")?.installed) {
+                                <div class="text-sm text-amber-600 font-normal mt-1">
+                                    Chưa tìm thấy file plugin trong thư mục
+                                    Documents/ai.type/plugins nên chưa thể kích hoạt.
+                                </div>
+                            }
                         </mat-label>
                     </mat-slide-toggle>
                 </div>

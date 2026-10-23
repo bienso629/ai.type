@@ -4715,6 +4715,12 @@ function stopZaloPlugin() {
 ipcMain.handle('toggle-zalo-plugin', (event, enable, mode) => {
     try {
         const targetMode = mode || 'tool';
+        if (enable) {
+            const zaloBinaryPath = path.join(os.homedir(), "Documents", "ai.type", "plugins", 'zalo_auto_reply_linux');
+            if (!fs.existsSync(zaloBinaryPath)) {
+                return { success: false, error: 'Chưa tìm thấy file plugin Quản lý Zalo trong thư mục Documents/ai.type/plugins nên không thể kích hoạt.' };
+            }
+        }
         fs.writeFileSync(zaloPluginConfigPath, JSON.stringify({ enable, mode: targetMode }), 'utf8');
         if (enable) {
             startZaloPlugin();
@@ -4805,6 +4811,20 @@ function stopTiktokPlugin() {
 
 ipcMain.handle('toggle-tiktok-plugin', (event, enable) => {
     try {
+        if (enable) {
+            const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+            const tiktokBinaryName = process.platform === 'win32' ? '100tiktok-win.exe' : (process.platform === 'darwin' ? '100tiktok-mac' : '100tiktok-linux');
+            const tiktokFound = [
+                path.join(userPluginsDir, tiktokBinaryName),
+                path.join(userPluginsDir, '100tiktok-linux'),
+                path.join(userPluginsDir, '100tiktok_linux'),
+                path.join(userPluginsDir, '100tiktok.exe'),
+                path.join(userPluginsDir, '100tiktok')
+            ].some(p => fs.existsSync(p));
+            if (!tiktokFound) {
+                return { success: false, error: 'Chưa tìm thấy file plugin 100 TikTokers trong thư mục Documents/ai.type/plugins nên không thể kích hoạt.' };
+            }
+        }
         fs.writeFileSync(tiktokPluginConfigPath, JSON.stringify({ enable }), 'utf8');
         if (enable) {
             startTiktokPlugin();
@@ -4831,6 +4851,14 @@ ipcMain.handle('get-plugins-status', async (event) => {
         
         // AI Agent Plugin: chạy hoàn toàn qua domain https://sontinh.type.vn, không kiểm tra file binary
         const agentInstalled = true;
+        // Chỉ hiện nút Gỡ cài đặt khi có file binary trong Documents/ai.type/plugins
+        const agentBinaryName = process.platform === 'win32' ? 'ai_agent_win.exe' : (process.platform === 'darwin' ? 'ai_agent_macos' : 'ai_agent_linux');
+        const agentHasBinary = [
+            path.join(userPluginsDir, agentBinaryName),
+            path.join(userPluginsDir, 'ai_agent_linux'),
+            path.join(userPluginsDir, 'ai_agent.exe'),
+            path.join(userPluginsDir, 'ai_agent')
+        ].some(p => fs.existsSync(p));
         const agentCanInstall = true;
         const agentEnabled = isAiAgentEnabled();
         let agentApiKey = 'type-vn-local-agent-2026';
@@ -4899,6 +4927,7 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 name: 'AI Agent',
                 description: 'Hỗ trợ viết kịch bản phim, sinh nội dung và tự động hóa tác vụ AI.',
                 installed: agentInstalled,
+                hasBinary: agentHasBinary,
                 canInstall: agentCanInstall,
                 enabled: agentEnabled,
                 apiKey: agentApiKey,
@@ -10643,7 +10672,150 @@ ipcMain.handle('save-local-faiss-data', async (event, { username, filename, doc_
     }
 });
 
-ipcMain.handle('get-local-faiss-context', async (event, { username, query, maxChunks = 5 }) => {
+// ==============================================================================
+// LOCAL VECTOR INDEX: tạo embedding ngay trong Electron, mỗi cuốn một file vector
+// Documents/ai.type/data/faiss/{username}/vectors/{sha1}.json + .bin
+// ==============================================================================
+const LOCAL_EMBED_MODEL = 'Xenova/multilingual-e5-small';
+let _localEmbedderPromise = null;
+const _localVecCache = new Map();
+
+function getLocalEmbedder(onProgress) {
+    if (!_localEmbedderPromise) {
+        _localEmbedderPromise = (async () => {
+            const { pipeline, env } = await import('@xenova/transformers');
+            env.cacheDir = path.join(app.getPath('userData'), 'models');
+            env.allowLocalModels = false;
+            return pipeline('feature-extraction', LOCAL_EMBED_MODEL, {
+                quantized: true,
+                progress_callback: (p) => {
+                    if (onProgress && p && p.status === 'progress') {
+                        onProgress(`Đang tải model embedding lần đầu (${Math.round(p.progress || 0)}%)...`);
+                    }
+                }
+            });
+        })().catch((e) => { _localEmbedderPromise = null; throw e; });
+    }
+    return _localEmbedderPromise;
+}
+
+function localFaissUserDir(username) {
+    const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
+    return path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser);
+}
+
+function localVectorPaths(username, base) {
+    const dir = path.join(localFaissUserDir(username), 'vectors');
+    const key = crypto.createHash('sha1').update(String(base)).digest('hex');
+    return { dir, json: path.join(dir, `${key}.json`), bin: path.join(dir, `${key}.bin`) };
+}
+
+function chunkMarkdownForEmbedding(content, target = 900, hard = 1400) {
+    const paras = String(content || '').split(/\n\s*\n+/).map(p => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const chunks = [];
+    let buf = '';
+    const push = () => { const t = buf.trim(); if (t.length >= 40) chunks.push(t); buf = ''; };
+    for (const p of paras) {
+        if (p.length > hard) {
+            push();
+            let rest = p;
+            while (rest.length > hard) {
+                let cutAt = rest.lastIndexOf(' ', target);
+                if (cutAt < target / 2) cutAt = target;
+                buf = rest.slice(0, cutAt);
+                push();
+                rest = rest.slice(cutAt).trim();
+            }
+            buf = rest;
+            continue;
+        }
+        if (buf && buf.length + p.length + 1 > target) push();
+        buf = buf ? `${buf}\n${p}` : p;
+    }
+    push();
+    return chunks;
+}
+
+function loadLocalBookVectors(username, base) {
+    const p = localVectorPaths(username, base);
+    if (!fs.existsSync(p.json) || !fs.existsSync(p.bin)) return null;
+    const mtime = fs.statSync(p.bin).mtimeMs;
+    const cached = _localVecCache.get(p.bin);
+    if (cached && cached.mtime === mtime) return cached.data;
+    try {
+        const meta = JSON.parse(fs.readFileSync(p.json, 'utf-8'));
+        const buf = fs.readFileSync(p.bin);
+        const vectors = new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
+        if (meta.model !== LOCAL_EMBED_MODEL || !meta.dim || vectors.length !== meta.chunks.length * meta.dim) {
+            console.warn(`[Vector Local] Bỏ qua file vector không hợp lệ của ${base}`);
+            return null;
+        }
+        const data = { meta, vectors };
+        _localVecCache.set(p.bin, { mtime, data });
+        return data;
+    } catch (e) {
+        console.warn(`[Vector Local] Lỗi đọc vector của ${base}:`, e.message);
+        return null;
+    }
+}
+
+ipcMain.handle('build-local-vector-index', async (event, { username, filename }) => {
+    const sender = event.sender;
+    const report = (text) => { try { if (sender && !sender.isDestroyed()) sender.send('pdf-analysis-progress', text); } catch (e) {} };
+    try {
+        const base = path.parse(String(filename || '')).name.replace(/\.mineru$/i, '');
+        const mdPath = path.join(localFaissUserDir(username), 'docs', `${base}.md`);
+        if (!base || !fs.existsSync(mdPath)) {
+            return { success: false, notFound: true, error: `Không có file ${base}.md ở máy` };
+        }
+        const content = fs.readFileSync(mdPath, 'utf-8');
+        const chunks = chunkMarkdownForEmbedding(content);
+        if (!chunks.length) return { success: false, error: `File ${base}.md không có nội dung để học` };
+
+        report('Đang nạp model embedding...');
+        const embedder = await getLocalEmbedder(report);
+
+        const BATCH = 16;
+        let dim = 0;
+        let vectors = null;
+        const started = Date.now();
+        for (let i = 0; i < chunks.length; i += BATCH) {
+            const batch = chunks.slice(i, i + BATCH).map(c => `passage: [${base}] ${c}`);
+            const out = await embedder(batch, { pooling: 'mean', normalize: true });
+            if (!vectors) { dim = out.dims[1]; vectors = new Float32Array(chunks.length * dim); }
+            vectors.set(out.data, i * dim);
+            const done = Math.min(i + BATCH, chunks.length);
+            report(`Đang tạo vector: ${done}/${chunks.length} đoạn (${Math.round((done / chunks.length) * 100)}%)`);
+            await new Promise(r => setImmediate(r));
+        }
+
+        const p = localVectorPaths(username, base);
+        fs.mkdirSync(p.dir, { recursive: true });
+        const meta = {
+            version: 1,
+            model: LOCAL_EMBED_MODEL,
+            dim,
+            source: `${base}.md`,
+            md_size: fs.statSync(mdPath).size,
+            built_at: new Date().toISOString(),
+            chunks
+        };
+        fs.writeFileSync(`${p.bin}.tmp`, Buffer.from(vectors.buffer));
+        fs.writeFileSync(`${p.json}.tmp`, JSON.stringify(meta), 'utf-8');
+        fs.renameSync(`${p.bin}.tmp`, p.bin);
+        fs.renameSync(`${p.json}.tmp`, p.json);
+        _localVecCache.delete(p.bin);
+
+        const seconds = Math.round((Date.now() - started) / 1000);
+        console.log(`[Vector Local] Đã học ${base}: ${chunks.length} đoạn, ${dim} chiều, ${seconds}s`);
+        return { success: true, chunks: chunks.length, dim, seconds };
+    } catch (err) {
+        console.error('[Vector Local] Lỗi tạo vector:', err);
+        return { success: false, error: err.message || String(err) };
+    }
+});
+
+ipcMain.handle('get-local-faiss-context', async (event, { username, query, currentQuery, selectedFiles, maxChunks = 5 }) => {
     try {
         const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
         const targetDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser);
@@ -10653,32 +10825,196 @@ ipcMain.handle('get-local-faiss-context', async (event, { username, query, maxCh
             return { success: false, context: '' };
         }
 
-        const files = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
+        let files = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
         if (!files.length) return { success: false, context: '' };
 
-        const queryTerms = (query || '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
-        let scoredChunks = [];
+        // Bỏ dấu tiếng Việt để câu hỏi có dấu khớp được tên file không dấu
+        const norm = (s) => String(s || '')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+            .toLowerCase();
+        const tokenize = (s) => norm(s).split(/[^a-z0-9]+/).filter(Boolean);
+        const STOP = new Set(('la gi cua cho minh toi tao ban cuon sach quyen noi dung tom tat ve nay do co khong va cac '
+            + 'nhung mot the nao duoc trong voi hay oi a nhe giup ke bao nhieu roi index tai lieu truyen tac pham '
+            + 'giai thich hoi xin vui long cai con dang di nhu thi ma o tu den da se lai ra vao len khi ai sao '
+            + 'tren duoi day kia ay nhe nha ha vay').split(' '));
+        const baseOf = (f) => String(f || '').replace(/\.(md|pdf|docx?|txt|epub|mineru\.json)$/i, '');
 
-        for (const file of files) {
-            const content = fs.readFileSync(path.join(docsDir, file), 'utf-8');
-            const paragraphs = content.split(/\n\n+/).filter(p => p.trim().length > 30);
-            for (const p of paragraphs) {
-                const lowerP = p.toLowerCase();
-                let score = 0;
-                for (const term of queryTerms) {
-                    if (lowerP.includes(term)) score += 1;
+        // Chỉ tìm trong các tài liệu người dùng đang tick (nếu có)
+        if (Array.isArray(selectedFiles) && selectedFiles.length) {
+            const wanted = new Set(selectedFiles.map(f => norm(baseOf(f))));
+            const filtered = files.filter(f => wanted.has(norm(baseOf(f))));
+            if (filtered.length) files = filtered;
+        }
+
+        // 1. Nhận ra tên sách được nhắc tới trong câu hỏi
+        const longestRun = (qTokens, tTokens) => {
+            let best = 0, bestHasContent = false;
+            for (let i = 0; i < qTokens.length; i++) {
+                for (let j = 0; j < tTokens.length; j++) {
+                    let k = 0, hasContent = false;
+                    while (i + k < qTokens.length && j + k < tTokens.length && qTokens[i + k] === tTokens[j + k]) {
+                        if (!STOP.has(qTokens[i + k])) hasContent = true;
+                        k++;
+                    }
+                    if (k > best || (k === best && hasContent && !bestHasContent)) { best = k; bestHasContent = hasContent; }
                 }
-                if (score > 0) {
-                    scoredChunks.push({ score, text: p.trim(), file });
+            }
+            return bestHasContent ? best : 0;
+        };
+        const detectBooks = (q) => {
+            const qTokens = tokenize(q);
+            if (!qTokens.length) return [];
+            const scored = files.map(f => {
+                const title = baseOf(f).split(' - ')[0];
+                const tTokens = tokenize(title);
+                const run = longestRun(qTokens, tTokens);
+                const ratio = tTokens.length ? run / tTokens.length : 0;
+                return { f, run, ratio };
+            }).filter(x => x.run >= 3 || (x.run >= 2 && x.ratio >= 0.6));
+            if (!scored.length) return [];
+            const maxRun = Math.max(...scored.map(x => x.run));
+            return scored.filter(x => x.run === maxRun)
+                .sort((a, b) => b.ratio - a.ratio)
+                .slice(0, 2).map(x => x.f);
+        };
+        let matchedBooks = detectBooks(currentQuery || query);
+        if (!matchedBooks.length && currentQuery) matchedBooks = detectBooks(query);
+
+        const searchFiles = matchedBooks.length ? matchedBooks : files;
+        const titleTokens = new Set(matchedBooks.flatMap(f => tokenize(baseOf(f).split(' - ')[0])));
+        const queryTerms = [...new Set(tokenize(query))].filter(t => t.length > 1 && !STOP.has(t) && !titleTokens.has(t));
+
+        // 2a. TÌM THEO VECTOR (RAG): dùng vector đã tạo lúc học lại, cùng model embedding
+        const vecBooks = searchFiles
+            .map(f => ({ file: f, data: loadLocalBookVectors(username, baseOf(f)) }))
+            .filter(b => b.data);
+        const missingVectors = searchFiles.filter(f => !vecBooks.some(b => b.file === f));
+        let vectorPieces = [];
+        if (vecBooks.length) {
+            const embedder = await getLocalEmbedder();
+            const qOut = await embedder([`query: ${query}`], { pooling: 'mean', normalize: true });
+            const q = qOut.data;
+            const dim = q.length;
+            const topK = Math.max(maxChunks, 8);
+            const hits = [];
+            for (const b of vecBooks) {
+                const v = b.data.vectors;
+                if (b.data.meta.dim !== dim) continue;
+                const n = b.data.meta.chunks.length;
+                for (let i = 0; i < n; i++) {
+                    let s = 0;
+                    const off = i * dim;
+                    for (let k = 0; k < dim; k++) s += q[k] * v[off + k];
+                    if (hits.length < topK) {
+                        hits.push({ s, b, i });
+                        if (hits.length === topK) hits.sort((x, y) => y.s - x.s);
+                    } else if (s > hits[topK - 1].s) {
+                        hits[topK - 1] = { s, b, i };
+                        hits.sort((x, y) => y.s - x.s);
+                    }
                 }
+            }
+            hits.sort((x, y) => y.s - x.s);
+
+            const vPieces = [];
+            const usedIdx = new Set();
+            if (matchedBooks.length) {
+                // Câu hỏi nhắc tên sách: thêm phần mở đầu và đoạn rải đều cả cuốn để tóm tắt được mạch truyện
+                const perBook = Math.max(1, Math.floor(12 / vecBooks.length));
+                for (const b of vecBooks) {
+                    const ch = b.data.meta.chunks;
+                    vPieces.push({ file: b.file, label: 'Phần mở đầu', text: ch.slice(0, 4).join('\n') });
+                    for (let s = 1; s <= Math.min(perBook, ch.length); s++) {
+                        const idx = Math.min(ch.length - 1, Math.floor((s * ch.length) / (perBook + 1)));
+                        const key = `${b.file}#${idx}`;
+                        if (idx < 4 || usedIdx.has(key)) continue;
+                        usedIdx.add(key);
+                        vPieces.push({ file: b.file, label: `Trích đoạn ${Math.round((idx / ch.length) * 100)}% cuốn sách`, text: ch[idx] });
+                    }
+                }
+            }
+            for (const h of hits) {
+                const key = `${h.b.file}#${h.i}`;
+                if (usedIdx.has(key)) continue;
+                usedIdx.add(key);
+                vPieces.push({ file: h.b.file, label: `Đoạn liên quan (độ tương đồng ${h.s.toFixed(2)})`, text: h.b.data.meta.chunks[h.i] });
+            }
+
+            vectorPieces = vPieces;
+            // Tất cả cuốn cần tìm đều đã có vector: trả kết quả vector luôn
+            if (vPieces.length && !missingVectors.length) {
+                const contextText = vPieces
+                    .map(c => `[Tài liệu: ${c.file}${c.label ? ' | ' + c.label : ''}]\n${c.text}`)
+                    .join('\n\n---\n\n');
+                return { success: true, mode: 'vector', context: contextText, chunksCount: vPieces.length, matchedBooks, missingVectors };
             }
         }
 
-        scoredChunks.sort((a, b) => b.score - a.score);
-        const topChunks = scoredChunks.slice(0, maxChunks);
-        const contextText = topChunks.map(c => `[Tài liệu: ${c.file}]\n${c.text}`).join('\n\n---\n\n');
+        // 2b. DỰ PHÒNG: các cuốn chưa học lại (chưa có vector) thì tìm theo từ khóa như cũ
+        // 2. Đọc và chia đoạn
+        const keywordFiles = vecBooks.length ? missingVectors : searchFiles;
+        const docs = keywordFiles.map(file => {
+            const content = fs.readFileSync(path.join(docsDir, file), 'utf-8');
+            const paragraphs = content.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 30);
+            return { file, content, paragraphs, normParas: paragraphs.map(norm) };
+        });
 
-        return { success: true, context: contextText, chunksCount: topChunks.length };
+        // Chữ hiếm có trọng số cao hơn chữ phổ biến (IDF)
+        const totalParas = docs.reduce((s, d) => s + d.paragraphs.length, 0) || 1;
+        const idf = {};
+        for (const t of queryTerms) {
+            let df = 0;
+            for (const d of docs) for (const np of d.normParas) if (np.includes(t)) df++;
+            idf[t] = df ? Math.log(1 + totalParas / df) : 0;
+        }
+
+        const pieces = [];
+        const CHUNK_LIMIT = 1800;
+        const cut = (s, n) => (s.length > n ? s.slice(0, n) + '...' : s);
+
+        if (matchedBooks.length) {
+            // Cuốn được nhắc tới: phần mở đầu + các đoạn rải đều cả cuốn + đoạn khớp từ khóa
+            const perBook = Math.max(1, Math.floor(16 / matchedBooks.length));
+            for (const d of docs) {
+                pieces.push({ file: d.file, label: 'Phần mở đầu', text: cut(d.content.trim(), 5000) });
+                const n = d.paragraphs.length;
+                const used = new Set();
+                const samples = Math.min(perBook, n);
+                for (let s = 1; s <= samples; s++) {
+                    const idx = Math.min(n - 1, Math.floor((s * n) / (samples + 1)));
+                    if (used.has(idx)) continue;
+                    used.add(idx);
+                    pieces.push({ file: d.file, label: `Trích đoạn ${Math.round((idx / n) * 100)}% cuốn sách`, text: cut(d.paragraphs[idx], CHUNK_LIMIT) });
+                }
+                if (queryTerms.length) {
+                    const hits = d.normParas.map((np, i) => ({ i, score: queryTerms.reduce((s, t) => s + (np.includes(t) ? idf[t] : 0), 0) }))
+                        .filter(h => h.score > 0 && !used.has(h.i))
+                        .sort((a, b) => b.score - a.score).slice(0, maxChunks);
+                    for (const h of hits) pieces.push({ file: d.file, label: 'Đoạn liên quan', text: cut(d.paragraphs[h.i], CHUNK_LIMIT) });
+                }
+            }
+        } else if (queryTerms.length) {
+            const scored = [];
+            for (const d of docs) {
+                d.normParas.forEach((np, i) => {
+                    const score = queryTerms.reduce((s, t) => s + (np.includes(t) ? idf[t] : 0), 0);
+                    if (score > 0) scored.push({ score, file: d.file, text: d.paragraphs[i] });
+                });
+            }
+            scored.sort((a, b) => b.score - a.score);
+            for (const c of scored.slice(0, maxChunks)) pieces.push({ file: c.file, label: '', text: cut(c.text, CHUNK_LIMIT) });
+        }
+
+        // Ghép kết quả vector (cuốn đã học lại) với kết quả từ khóa (cuốn chưa học lại)
+        if (vectorPieces.length) pieces.unshift(...vectorPieces);
+        if (!pieces.length) return { success: false, context: '', chunksCount: 0 };
+
+        const contextText = pieces
+            .map(c => `[Tài liệu: ${c.file}${c.label ? ' | ' + c.label : ''}]\n${c.text}`)
+            .join('\n\n---\n\n');
+
+        return { success: true, mode: vectorPieces.length ? 'mixed' : 'keyword', context: contextText, chunksCount: pieces.length, matchedBooks, missingVectors };
     } catch (e) {
         return { success: false, error: e.message, context: '' };
     }
@@ -10727,11 +11063,8 @@ ipcMain.handle('sync-local-faiss-to-server', async (event, { username, apiUrl, a
         const safeUser = (username || 'default_user').replace(/[^a-zA-Z0-9_-]/g, '_');
         const targetDir = path.join(os.homedir(), 'Documents', 'ai.type', 'data', 'faiss', safeUser);
         const docsDir = path.join(targetDir, 'docs');
-        const faissPath = path.join(targetDir, 'index.faiss');
-        const pklPath = path.join(targetDir, 'index.pkl');
-
-        if (!fs.existsSync(faissPath) || !fs.existsSync(pklPath)) {
-            return { success: false, error: 'Chưa có index.faiss / index.pkl ở local để đồng bộ.' };
+        if (!fs.existsSync(docsDir) || !fs.readdirSync(docsDir).some(f => f.endsWith('.md'))) {
+            return { success: false, error: 'Chưa có tài liệu đã học nào ở local để đồng bộ.' };
         }
 
         const baseUrl = String(apiUrl || '').replace(/\/$/, '');
@@ -10780,9 +11113,7 @@ ipcMain.handle('sync-local-faiss-to-server', async (event, { username, apiUrl, a
         const manifest = await postJson(`${baseUrl}/sync-local-manifest`, {
             username,
             doc_type: docType,
-            files: manifestFiles,
-            faiss_sha256: await sha256File(faissPath),
-            pkl_sha256: await sha256File(pklPath)
+            files: manifestFiles
         });
         const needSet = new Set(manifest.need || []);
 
@@ -10795,7 +11126,7 @@ ipcMain.handle('sync-local-faiss-to-server', async (event, { username, apiUrl, a
             .filter(d => d.needMd || d.needJson);
 
         const skipped = mdFiles.length - pending.length;
-        const total = pending.length + 1;
+        const total = pending.length;
         const synced = [];
         const failed = [];
 
@@ -10816,25 +11147,60 @@ ipcMain.handle('sync-local-faiss-to-server', async (event, { username, apiUrl, a
             }
         }
 
-        if (pending.length && !synced.length) {
-            return { success: false, error: `Không đẩy được tài liệu nào (${failed[0]?.error || 'không rõ lỗi'}).`, failed };
+        // 3. Kiểm tra lại: hỏi manifest lần nữa, server phải có đủ toàn bộ file
+        sendProgress({ current: total, total, filename: 'Đang kiểm tra lại dữ liệu trên server...' });
+        const recheck = await postJson(`${baseUrl}/sync-local-manifest`, { username, doc_type: docType, files: manifestFiles });
+        const stillMissing = recheck.need || [];
+        if (stillMissing.length) {
+            return {
+                success: false,
+                error: `Server vẫn thiếu hoặc lệch ${stillMissing.length} file: ${stillMissing.slice(0, 5).join(', ')}${stillMissing.length > 5 ? '...' : ''}`,
+                failed, missing: stillMissing
+            };
         }
 
-        // 3. Đẩy FAISS + PKL khi khác server hoặc có tài liệu mới cần đánh dấu đã index
-        let faissRes = { skipped: true };
-        if (manifest.need_faiss || synced.length) {
-            sendProgress({ current: total, total, filename: 'index.faiss' });
-            faissRes = await postJson(`${baseUrl}/sync-local-faiss`, {
-                username,
-                doc_type: docType,
-                faiss_base64: fs.readFileSync(faissPath).toString('base64'),
-                pkl_base64: fs.readFileSync(pklPath).toString('base64'),
-                filenames: synced
+        // 4. Server tự học (build FAISS) từ tài liệu đã sync, chờ đến khi đủ hết
+        let status = await postJson(`${baseUrl}/sync-local-index`, { username, doc_type: docType });
+        if (status && status.valid === undefined) {
+            return { success: false, error: `Server ${baseUrl} chưa có endpoint /sync-local-index. Hãy deploy chatbot.py mới và restart service.` };
+        }
+        const startedAt = Date.now();
+        const MAX_WAIT_MS = 2 * 60 * 60 * 1000;
+        while (status.is_indexing || (!status.valid && status.total_docs > 0)) {
+            if (Date.now() - startedAt > MAX_WAIT_MS) {
+                return { success: false, error: 'Server học tài liệu quá 2 giờ chưa xong. Bấm Sync lại sau để kiểm tra tiếp.', failed };
+            }
+            const done = (status.indexed_docs || []).length;
+            const prog = status.progress;
+            sendProgress({
+                current: done,
+                total: status.total_docs || 0,
+                filename: prog?.status ? `Server đang học: ${String(prog.status).replace(/^Đang xử lý:\s*/, '')}` : 'Server đang học tài liệu...'
             });
+            await new Promise(r => setTimeout(r, 5000));
+            status = await postJson(`${baseUrl}/sync-local-status`, { username, doc_type: docType });
+            if (!status.is_indexing && !status.valid) {
+                return { success: false, error: `Server học tài liệu thất bại: ${status.error || 'không rõ lỗi'}`, failed };
+            }
         }
 
-        console.log(`[FAISS Sync] Hoàn tất: đẩy ${synced.length}, bỏ qua ${skipped} (đã có trên server), lỗi ${failed.length}, faiss ${faissRes.skipped ? 'không đổi' : faissRes.faiss_size + 'B'}`);
-        return { success: true, synced: synced.length, skipped, failed, server: faissRes };
+        const indexedCount = (status.indexed_docs || []).length;
+        const missingDocs = status.missing_docs || [];
+        const complete = failed.length === 0 && missingDocs.length === 0 && status.valid;
+        console.log(`[FAISS Sync] Đẩy ${synced.length}, bỏ qua ${skipped}, lỗi ${failed.length}; server đã học ${indexedCount}/${status.total_docs} tài liệu, ${status.chunks} đoạn.`);
+        return {
+            success: complete,
+            error: complete ? undefined : (missingDocs.length
+                ? `Server chưa học được ${missingDocs.length} tài liệu: ${missingDocs.slice(0, 5).join(', ')}${missingDocs.length > 5 ? '...' : ''}`
+                : `Lỗi đẩy ${failed.length} tài liệu: ${failed.map(f => f.filename).slice(0, 5).join(', ')}`),
+            synced: synced.length,
+            skipped,
+            failed,
+            missingDocs,
+            indexedDocs: indexedCount,
+            totalDocs: status.total_docs,
+            chunks: status.chunks
+        };
     } catch (err) {
         console.error('[FAISS Sync] Lỗi:', err);
         return { success: false, error: err.message };

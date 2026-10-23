@@ -409,14 +409,14 @@
                                             class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:feather'"
                                         ></mat-icon>
-                                        <span>Xem kịch bản</span>
+                                        <span>{{ (row.has_script || row.hasScript || hasScriptProject(row)) ? "Xem kịch bản" : "Tạo kịch bản" }}</span>
                                     </button>
                                     <button mat-menu-item (click)="openRowVideo(row)">
                                         <mat-icon
                                             class="icon-size-4 text-blue-500"
                                             [svgIcon]="'heroicons_outline:film'"
                                         ></mat-icon>
-                                        <span>Kịch bản video</span>
+                                        <span>Dựng video</span>
                                     </button>
                                     <button
                                         mat-menu-item
@@ -458,40 +458,28 @@
                             <div
                                 class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-0 mr-0"
                             >
-                                @if (
-                                    row.has_script ||
-                                    row.hasScript ||
-                                    hasScriptProject(row)
-                                ) {
-                                    <button
-                                        mat-icon-button
-                                        (click)="openRowScript(row)"
-                                        class="transition-colors"
-                                        [matTooltip]="'Xem kịch bản'"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-4 text-red-500"
-                                            [svgIcon]="'feather:feather'"
-                                        ></mat-icon>
-                                    </button>
-                                }
-                                @if (
-                                    row.has_video ||
-                                    row.hasVideo ||
-                                    hasVideoProject(row)
-                                ) {
-                                    <button
-                                        mat-icon-button
-                                        (click)="openRowVideo(row)"
-                                        class="transition-colors"
-                                        [matTooltip]="'Kịch bản video'"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-4 text-blue-500"
-                                            [svgIcon]="'heroicons_outline:film'"
-                                        ></mat-icon>
-                                    </button>
-                                }
+                                <button
+                                    mat-icon-button
+                                    (click)="openRowScript(row)"
+                                    class="transition-colors"
+                                    [matTooltip]="(row.has_script || row.hasScript || hasScriptProject(row)) ? 'Xem kịch bản' : 'Tạo kịch bản'"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-red-500"
+                                        [svgIcon]="'feather:feather'"
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    mat-icon-button
+                                    (click)="openRowVideo(row)"
+                                    class="transition-colors"
+                                    [matTooltip]="'Dựng video'"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-500"
+                                        [svgIcon]="'heroicons_outline:film'"
+                                    ></mat-icon>
+                                </button>
                                 <button
                                     mat-icon-button
                                     [routerLink]="['/amxh']"

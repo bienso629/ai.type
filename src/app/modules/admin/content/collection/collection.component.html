@@ -536,14 +536,14 @@
                                                         class="icon-size-4 text-red-500"
                                                         [svgIcon]="'feather:feather'"
                                                     ></mat-icon>
-                                                    <span>Xem kịch bản</span>
+                                                    <span>{{ (row.has_script || row.hasScript || hasScriptProject(row)) ? 'Xem kịch bản' : 'Tạo kịch bản' }}</span>
                                                 </button>
                                                 <button mat-menu-item (click)="openRowVideo(row)">
                                                     <mat-icon
                                                         class="icon-size-4 text-blue-500"
                                                         [svgIcon]="'heroicons_outline:film'"
                                                     ></mat-icon>
-                                                    <span>Kịch bản video</span>
+                                                    <span>Dựng video</span>
                                                 </button>
                                                 @if (permissionScriptCommentLike) {
                                                     <button
@@ -579,44 +579,30 @@
                                         <div
                                             class="flex items-center justify-end gap-1 w-full ml-auto text-right pr-4"
                                         >
-                                            @if (
-                                                row.has_script ||
-                                                row.hasScript ||
-                                                hasScriptProject(row)
-                                            ) {
-                                                <button
-                                                    mat-icon-button
-                                                    matTooltipPosition="above"
-                                                    matTooltip="Xem kịch bản"
-                                                    (click)="openRowScript(row)"
-                                                    class="transition-colors"
-                                                >
-                                                    <mat-icon
-                                                        class="icon-size-4 text-red-500"
-                                                        [svgIcon]="'feather:feather'"
-                                                    ></mat-icon>
-                                                </button>
-                                            }
-                                            @if (
-                                                row.has_video ||
-                                                row.hasVideo ||
-                                                hasVideoProject(row)
-                                            ) {
-                                                <button
-                                                    mat-icon-button
-                                                    matTooltipPosition="above"
-                                                    matTooltip="Xem kịch bản video cho bài '{{
-                                                        row.title
-                                                    }}'"
-                                                    (click)="openRowVideo(row)"
-                                                    class="transition-colors"
-                                                >
-                                                    <mat-icon
-                                                        class="icon-size-4 text-blue-500"
-                                                        [svgIcon]="'feather:film'"
-                                                    ></mat-icon>
-                                                </button>
-                                            }
+                                            <button
+                                                mat-icon-button
+                                                matTooltipPosition="above"
+                                                [matTooltip]="(row.has_script || row.hasScript || hasScriptProject(row)) ? 'Xem kịch bản' : 'Tạo kịch bản'"
+                                                (click)="openRowScript(row)"
+                                                class="transition-colors"
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-4 text-red-500"
+                                                    [svgIcon]="'feather:feather'"
+                                                ></mat-icon>
+                                            </button>
+                                            <button
+                                                mat-icon-button
+                                                matTooltipPosition="above"
+                                                matTooltip="Dựng video"
+                                                (click)="openRowVideo(row)"
+                                                class="transition-colors"
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-4 text-blue-500"
+                                                    [svgIcon]="'feather:film'"
+                                                ></mat-icon>
+                                            </button>
                                             @if (permissionScriptCommentLike) {
                                                 <button
                                                     mat-icon-button
