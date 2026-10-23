@@ -172,6 +172,20 @@ export class GenaiService {
         return {};
     }
 
+    /** Tóm tắt ngắn gọn lỗi của một API Key để hiển thị trong thông báo tổng hợp */
+    private summarizeKeyError(err: any): string {
+        const msg = String(err?.message || err || '');
+        if (msg.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED') || msg.includes('API key not valid') || msg.includes('UNAUTHENTICATED') || msg.includes('401')) {
+            return 'bị Google từ chối, HTTP 401';
+        }
+        if (msg.includes('PERMISSION_DENIED') || msg.includes('403')) {
+            return 'không có quyền, HTTP 403';
+        }
+        const codeMatch = msg.match(/"code"\s*:\s*(\d{3})/);
+        if (codeMatch) return `HTTP ${codeMatch[1]}`;
+        return msg.length > 80 ? msg.substring(0, 80) + '...' : (msg || 'không rõ lỗi');
+    }
+
     /**
      * [PATCH 2026-10-22] Trích xuất số giây Google yêu cầu chờ (RetryInfo) từ lỗi 429 Rate Limit.
      * Hỗ trợ cả message dạng JSON (ApiError của @google/genai) lẫn text thuần ("Please retry in 38s" / "3h35m40s").
@@ -534,6 +548,8 @@ export class GenaiService {
             }
 
             const keyRetryCounts: Record<string, number> = {};
+            // Ghi lại lỗi của từng key để báo tổng hợp khi tất cả đều thất bại
+            const keyFailures: { key: string; error: any }[] = [];
             for (let i = 0; i < shuffledKeys.length; i++) {
                 const key = shuffledKeys[i];
                     try {
@@ -639,15 +655,40 @@ export class GenaiService {
                         }
 
                         console.warn(`GenaiService: Lỗi với API Key ${key.substring(0, 8)}... - Thử key tiếp theo nếu có.`, error);
-                        // Nếu là lỗi cuối cùng thì ném ra ngoài
+                        keyFailures.push({ key, error });
+                        // Nếu là lỗi cuối cùng thì tổng hợp lỗi của tất cả các key rồi ném ra ngoài
                         if (i === shuffledKeys.length - 1) {
-                            if (lastError && String(lastError).includes('429')) {
-                                const finalRetrySec = this.extractRetrySeconds(lastError);
+                            const isQuotaErr = (e: any) => {
+                                const m = String(e?.message || e || '');
+                                return m.includes('429') || m.includes('RESOURCE_EXHAUSTED');
+                            };
+                            const quotaFailures = keyFailures.filter(f => isQuotaErr(f.error));
+                            const otherFailures = keyFailures.filter(f => !isQuotaErr(f.error));
+
+                            // Có key hết hạn mức và có key lỗi khác: báo đủ cả hai nhóm
+                            if (quotaFailures.length > 0 && otherFailures.length > 0) {
+                                const otherDetail = otherFailures
+                                    .map(f => `${f.key.substring(0, 8)}... (${this.summarizeKeyError(f.error)})`)
+                                    .join('; ');
+                                throw new Error(`Không còn API Key nào dùng được: ${quotaFailures.length}/${shuffledKeys.length} key đã hết hạn mức (HTTP 429), ${otherFailures.length} key lỗi khác: ${otherDetail}. Vui lòng chờ hạn mức được khôi phục hoặc thay các key bị lỗi.`);
+                            }
+
+                            // Tất cả đều hết hạn mức: giữ nguyên thông báo cũ
+                            if (quotaFailures.length > 0) {
+                                const finalRetrySec = this.extractRetrySeconds(quotaFailures[quotaFailures.length - 1].error);
                                 if (finalRetrySec > 0 && finalRetrySec <= 3600) {
                                     const waitLabel = finalRetrySec >= 60 ? `${Math.ceil(finalRetrySec / 60)} phút` : `${finalRetrySec} giây`;
                                     throw new Error(`Tất cả ${shuffledKeys.length} API Key của bạn đều đã chạm trần hạn mức tạm thời (HTTP 429). Google yêu cầu đợi khoảng ${waitLabel} rồi thử lại. Vui lòng thêm key mới để xoay vòng nếu muốn dùng ngay!`);
                                 }
                                 throw new Error(`Tất cả ${shuffledKeys.length} API Key của bạn đều đã hết hạn mức (Quota Exceeded). Vui lòng thêm key mới hoặc chờ ngày mai!`);
+                            }
+
+                            // Không key nào hết hạn mức mà tất cả đều lỗi khác
+                            if (keyFailures.length > 1) {
+                                const detail = keyFailures
+                                    .map(f => `${f.key.substring(0, 8)}... (${this.summarizeKeyError(f.error)})`)
+                                    .join('; ');
+                                throw new Error(`Tất cả ${keyFailures.length} API Key đều lỗi: ${detail}`);
                             }
                             throw lastError;
                         }

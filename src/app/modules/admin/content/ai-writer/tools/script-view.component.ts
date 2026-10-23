@@ -181,8 +181,19 @@ interface ScreenplayLine {
                             ) {
                                 <div
                                     (click)="scrollToChapter(cIdx)"
-                                    class="group flex flex-col p-4 border-t border-gray-100 hover:bg-gray-50/80 transition-colors cursor-pointer relative bg-white"
+                                    [id]="'script-chapter-card-' + cIdx"
+                                    class="group flex flex-col p-4 border-t border-gray-100 transition-colors cursor-pointer relative"
+                                    [ngClass]="
+                                        isActiveChapter(chapter, cIdx)
+                                            ? 'bg-primary-50'
+                                            : 'bg-white hover:bg-gray-50/80'
+                                    "
                                 >
+                                    @if (isActiveChapter(chapter, cIdx)) {
+                                        <div
+                                            class="absolute left-0 top-0 bottom-0 w-1 bg-primary"
+                                        ></div>
+                                    }
                                     <!-- Top Row: Title & Status Badges -->
                                     <div
                                         class="flex items-center justify-between gap-2"
@@ -196,7 +207,9 @@ interface ScreenplayLine {
                                                 Chương {{ cIdx + 1 }}
                                             </span>
                                             <span
-                                                class="font-bold text-base text-gray-900 truncate group-hover:text-primary-600 transition-colors"
+                                                class="font-bold text-base truncate group-hover:text-primary-600 transition-colors"
+                                                [class.text-gray-900]="!isActiveChapter(chapter, cIdx)"
+                                                [class.text-primary-700]="isActiveChapter(chapter, cIdx)"
                                                 [title]="chapter.title"
                                             >
                                                 {{ chapter.title }}
@@ -309,6 +322,7 @@ interface ScreenplayLine {
                 <!-- Main Content Scroll Area -->
                 <div
                     class="flex-auto pt-4 sm:pt-6 pb-6 px-6 sm:pb-10 sm:px-10 bg-[#f0f2f5] overflow-auto flex flex-col gap-8 screenplay-container-scroll"
+                    (scroll)="onScriptScroll($event)"
                 >
                     <!-- Loading State -->
                     @if (isLoading) {
@@ -346,18 +360,6 @@ interface ScreenplayLine {
                                         phim.
                                     </p>
                                 </div>
-                                <button
-                                    mat-flat-button
-                                    color="primary"
-                                    class="flex items-center gap-2"
-                                    (click)="loadScriptList()"
-                                >
-                                    <mat-icon
-                                        class="icon-size-4"
-                                        svgIcon="heroicons_outline:refresh"
-                                    ></mat-icon>
-                                    <span>Làm mới danh sách</span>
-                                </button>
                             </div>
                             <!-- Loading Script List -->
                             @if (isLoadingScriptList) {
@@ -493,9 +495,10 @@ interface ScreenplayLine {
                                         mat-flat-button
                                         color="primary"
                                         class="mt-6"
-                                        (click)="goBack()"
+                                        (click)="regenerateScript()"
+                                        [disabled]="isRegenerating"
                                     >
-                                        Quay lại
+                                        Tạo kịch bản
                                     </button>
                                 </div>
                             }
@@ -1041,6 +1044,12 @@ export class AIScriptComponent implements OnInit, OnDestroy {
     scriptList: any[] = [];
     isLoadingScriptList: boolean = false;
 
+    /** Chương đang đọc, xác định theo vị trí cuộn (null = chưa xác định được). */
+    activeChapterIdx: number | null = null;
+    private _chapterMarkers: { el: HTMLElement; idx: number }[] = [];
+    private _chapterMarkersPages: ScreenplayLine[][] | null = null;
+    private _scrollRaf: number | null = null;
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
@@ -1062,6 +1071,9 @@ export class AIScriptComponent implements OnInit, OnDestroy {
             .subscribe((params: Params) => {
                 this.uuid = params['uuid'];
                 this.name = params['name'];
+                this.activeChapterIdx = null;
+                this._chapterMarkers = [];
+                this._chapterMarkersPages = null;
                 if (this.uuid) {
                     this.loadScript();
                 } else {
@@ -2380,6 +2392,8 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
         );
 
         if (targetEl) {
+            this.activeChapterIdx = index;
+            this.cd.markForCheck();
             targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
             this.toastr.info(`Đã cuộn đến ${chapterTitle}`, 'Di chuyển');
         } else {
@@ -2527,7 +2541,76 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
         this.router.navigate([`/voice2video/${scriptNameSlug}/${this.uuid}`]);
     }
 
+    /** Thẻ chương ở sidebar có đang được đọc không. */
+    isActiveChapter(chapter: any, index: number): boolean {
+        if (this.activeChapterIdx !== null) {
+            return this.activeChapterIdx === index;
+        }
+        // Kịch bản không có mốc chương: sáng thẻ của bài đang mở
+        return !!chapter?.uuid && chapter.uuid === this.uuid;
+    }
+
+    onScriptScroll(event: Event): void {
+        const container = event.target as HTMLElement;
+        if (!container || this._scrollRaf !== null) return;
+        this._scrollRaf = requestAnimationFrame(() => {
+            this._scrollRaf = null;
+            this.updateActiveChapter(container);
+        });
+    }
+
+    /** Tìm các dòng mốc "[PHẦN KỊCH BẢN CHƯƠNG N: ...]" đang có trên trang. */
+    private collectChapterMarkers(container: HTMLElement): void {
+        this._chapterMarkersPages = this.pages;
+        this._chapterMarkers = [];
+        const pattern = /PHẦN\s+KỊCH\s+BẢN\s+CHƯƠNG\s+(\d+)/i;
+        const nodes = container.querySelectorAll<HTMLElement>(
+            '.screenplay-content > *',
+        );
+        nodes.forEach((el) => {
+            const m = pattern.exec(el.textContent || '');
+            if (m) {
+                this._chapterMarkers.push({ el, idx: Number(m[1]) - 1 });
+            }
+        });
+    }
+
+    private updateActiveChapter(container: HTMLElement): void {
+        if (
+            this._chapterMarkersPages !== this.pages ||
+            this._chapterMarkers.some((m) => !m.el.isConnected)
+        ) {
+            this.collectChapterMarkers(container);
+        }
+        if (this._chapterMarkers.length === 0) return;
+
+        // Mốc chương cuối cùng đã cuộn qua khỏi 1/3 trên của khung đọc
+        const threshold =
+            container.getBoundingClientRect().top + container.clientHeight / 3;
+        let next: number | null = null;
+        for (const marker of this._chapterMarkers) {
+            if (marker.el.getBoundingClientRect().top <= threshold) {
+                next = marker.idx;
+            } else {
+                break;
+            }
+        }
+
+        if (next !== this.activeChapterIdx) {
+            this.activeChapterIdx = next;
+            this.cd.markForCheck();
+            if (next !== null) {
+                document
+                    .getElementById('script-chapter-card-' + next)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }
+
     ngOnDestroy(): void {
+        if (this._scrollRaf !== null) {
+            cancelAnimationFrame(this._scrollRaf);
+        }
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
