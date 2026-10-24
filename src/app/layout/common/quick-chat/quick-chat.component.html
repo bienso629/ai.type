@@ -99,7 +99,7 @@
                     </div>
 
                     <!-- Tool Management List -->
-                    <div class="bg-card rounded-2xl border overflow-hidden">
+                    <div class="bg-card rounded-2xl border overflow-hidden shrink-0">
                         <div
                             class="flex items-center px-4 py-3 bg-gray-50 border-b"
                         >
@@ -127,6 +127,7 @@
                             @for (tool of tools; track tool) {
                                 <div
                                     cdkDrag
+                                    [cdkDragStartDelay]="{ touch: 300, mouse: 0 }"
                                     class="flex items-center px-4 py-3 border-b last:border-none hover:bg-gray-50 cursor-move bg-white dark:bg-transparent"
                                 >
                                     <div
