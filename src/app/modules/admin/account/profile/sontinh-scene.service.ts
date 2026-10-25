@@ -47,9 +47,31 @@ export class SontinhSceneService implements OnDestroy {
     }
   }
 
+    private _setCharacterTransformFn: ((options: { position?: { x: number; y: number; z: number }; facingAngle?: number; scale?: number }) => void) | null = null;
+  private _setCharacterVisibilityFn: ((visible: boolean) => void) | null = null;
+  private _setEnvironmentColorsFn: ((options: { bg?: string; table?: string; cloth?: string }) => void) | null = null;
+
+  setCharacterTransform(options: { position?: { x: number; y: number; z: number }; facingAngle?: number; scale?: number }): void {
+    if (this._setCharacterTransformFn) {
+      this._setCharacterTransformFn(options);
+    }
+  }
+
+  setCharacterVisibility(visible: boolean): void {
+    if (this._setCharacterVisibilityFn) {
+      this._setCharacterVisibilityFn(visible);
+    }
+  }
+
+  setEnvironmentColors(options: { bg?: string; table?: string; cloth?: string }): void {
+    if (this._setEnvironmentColorsFn) {
+      this._setEnvironmentColorsFn(options);
+    }
+  }
+
   private _disabledTriggers: Set<string> = new Set();
   private _applyCameraPreset: ((preset: string) => void) | null = null;
-  private _applyProps: ((props: any[]) => void) | null = null;
+  private _applyProps: ((props: any[], fullSync?: boolean) => void) | null = null;
   private _toggleWindowTvIframe: ((show?: boolean, url?: string) => void) | null = null;
 
   private _showDateTimeOnMonitorFn: ((targetSide?: 'left' | 'right' | 'both', options?: { textColor?: string; bgColor?: string; screenText?: string; imageUrl?: string }) => void) | null = null;
@@ -81,7 +103,7 @@ export class SontinhSceneService implements OnDestroy {
 
   syncProps(props: any[]): void {
     if (this._applyProps && Array.isArray(props)) {
-      this._applyProps(props);
+      this._applyProps(props, true);
     }
   }
 
@@ -195,7 +217,7 @@ export class SontinhSceneService implements OnDestroy {
 
       // 4. Room Props from ~/Documents/ai.type/data/profiles/{username}/props.json
       if (Array.isArray((profile as any).props) && this._applyProps) {
-        this._applyProps((profile as any).props);
+        this._applyProps((profile as any).props, true);
       }
 
       // Animation state (chỉ khi đã có character loaded)
@@ -254,6 +276,54 @@ export class SontinhSceneService implements OnDestroy {
   ): void {
     if (this._destroyed) return;
     const self = this;
+    const propAnimMap = new Map<string, { type: string; speed: number; basePos: pc.Vec3; baseScale: pc.Vec3 }>();
+
+    this._setCharacterTransformFn = (opts) => {
+      const pivot = app.root.findByName("Char_Yen_Root") || app.root.findByName("Char_BodyRoot");
+      if (pivot) {
+        if (opts.position) {
+          pivot.setPosition(opts.position.x, opts.position.y, opts.position.z);
+          charCurrentPos.x = opts.position.x;
+          charCurrentPos.z = opts.position.z;
+        }
+        if (typeof opts.facingAngle === "number") {
+          charCurrentYaw = opts.facingAngle;
+          pivot.setEulerAngles(0, opts.facingAngle, 0);
+        }
+      }
+      const body = self._charBodyRoot || app.root.findByName("Char_BodyRoot");
+      if (body && typeof opts.scale === "number") {
+        body.setLocalScale(opts.scale, opts.scale, opts.scale);
+      }
+    };
+
+    this._setCharacterVisibilityFn = (visible: boolean) => {
+      const pivot = app.root.findByName("Char_Yen_Root") || app.root.findByName("Char_BodyRoot");
+      if (pivot) (pivot as any).enabled = visible;
+    };
+
+    this._setEnvironmentColorsFn = (opts) => {
+      if (opts.bg && camera.camera) {
+        camera.camera.clearColor = new pc.Color().fromString(opts.bg);
+      }
+      if (opts.table) {
+        const table = app.root.findByName("Showroom_TableTop");
+        if (table && (table as any).render?.material) {
+          (table as any).render.material.diffuse = new pc.Color().fromString(opts.table);
+          (table as any).render.material.update();
+        }
+      }
+      if (opts.cloth) {
+        const cloth = app.root.findByName("Showroom_Cloth");
+        if (cloth && (cloth as any).render?.meshInstances?.[0]?.material) {
+          (cloth as any).render.meshInstances[0].material.diffuse = new pc.Color().fromString(opts.cloth);
+          (cloth as any).render.meshInstances[0].material.update();
+        }
+      }
+    };
+    // Scene mặc định trống: ẩn toàn bộ tòa nhà / phòng / phố dựng sẵn,
+    // người dùng tự thêm đồ vật vào scene PlayCanvas của họ.
+    const EMPTY_SCENE = true;
     const app = new pc.Application(canvas, {
       mouse: new pc.Mouse(canvas),
       touch: new pc.TouchDevice(canvas),
@@ -471,7 +541,8 @@ export class SontinhSceneService implements OnDestroy {
     let lastTouchY = 0;
 
     self._applyCameraPreset = (presetName: string) => {
-      const p = (presetName || '').toLowerCase();
+      let p = (presetName || '').toLowerCase();
+      if (EMPTY_SCENE && !p.startsWith('prop_') && p !== 'custom') p = 'default'; // studio trống: luôn nhìn chính diện bàn
       isWindowViewActive = false;
       isPictureViewActive = false;
       isAquariumViewActive = false;
@@ -674,8 +745,14 @@ export class SontinhSceneService implements OnDestroy {
         default:
           if (p !== 'custom') {
             isPropCameraActive = false;
-            targetPivot.set(0, 10, 0);
-            targetYaw = 20; targetPitch = 30; targetDistance = 65;
+            if (EMPTY_SCENE) {
+              // Góc nhìn bục trưng bày: chính diện, hơi cao
+              targetPivot.set(0, 7, 0);
+              targetYaw = 0; targetPitch = 10; targetDistance = 38;
+            } else {
+              targetPivot.set(0, 10, 0);
+              targetYaw = 20; targetPitch = 30; targetDistance = 65;
+            }
           }
           break;
       }
@@ -1743,6 +1820,7 @@ export class SontinhSceneService implements OnDestroy {
     function toggleDoor() { isDoorOpen = !isDoorOpen; }
     
     function tryClickDoor(screenX: number, screenY: number) {
+      if (EMPTY_SCENE) return false;
       if (!camera.camera) return false;
       const rayFrom = new pc.Vec3();
       const rayTo = new pc.Vec3();
@@ -1805,6 +1883,7 @@ export class SontinhSceneService implements OnDestroy {
     let isHighWallLedOn = true;
     
     function toggleRoomLights(explicitState?: boolean) {
+      if (EMPTY_SCENE) return; // bục trưng bày tự quản lý ánh sáng
       if (typeof explicitState === 'boolean') {
         isHighWallLedOn = explicitState;
       } else {
@@ -1909,12 +1988,14 @@ export class SontinhSceneService implements OnDestroy {
       'prop_street_traffic_lanes': { primary: 'RoadAsphalt', targets: ['RoadAsphalt'] }
     };
 
-    this._applyProps = (props: any[]) => {
+    this._applyProps = (props: any[], fullSync = false) => {
       if (!this.app || !props || !Array.isArray(props)) return;
+      const matUserPropDefault = createMat(new pc.Color(0.02, 0.71, 0.83));
 
       for (const prop of props) {
         if (!prop || !prop.id) continue;
         const propId = prop.id;
+        if (EMPTY_SCENE && PROP_ENTITY_CONFIG[propId]) continue; // bỏ qua đồ dựng sẵn
         const isVisible = prop.visible !== false;
 
         const updateMaterialProps = (ent: any) => {
@@ -2063,6 +2144,35 @@ export class SontinhSceneService implements OnDestroy {
           if (!entity && prop.name) {
             entity = this.app.root.findByName(prop.name);
           }
+          // Đồ vật do người dùng thêm: tạo khối hộp hiển thị trong scene
+          if (!entity) {
+            const userEnt = new pc.Entity(propId);
+            userEnt.addComponent('render', { type: 'box', material: matUserPropDefault });
+            userEnt.tags.add('user_prop');
+            const pos = prop.position && typeof prop.position.x === 'number' ? prop.position : { x: 0, y: 1.2, z: 0 };
+            const scl = prop.scale && typeof prop.scale.x === 'number' ? prop.scale : { x: 0.4, y: 0.4, z: 0.4 };
+            userEnt.setPosition(pos.x, pos.y, pos.z);
+            userEnt.setLocalScale(scl.x, scl.y, scl.z);
+            if (prop.rotation && typeof prop.rotation.x === 'number') {
+              userEnt.setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
+            }
+            if (prop.color && typeof prop.color === 'string') {
+              const m = createMat(new pc.Color().fromString(prop.color));
+              if (userEnt.render) userEnt.render.material = m;
+            }
+            app.root.addChild(userEnt);
+            entity = userEnt;
+          } else if ((entity as any).tags?.has('user_prop') && prop.color && typeof prop.color === 'string') {
+            const r = (entity as any).render;
+            if (r && r.material) {
+              const m = r.material as pc.StandardMaterial;
+              m.diffuse = new pc.Color().fromString(prop.color);
+              m.update();
+            }
+          }
+          if (entity && (entity as any).tags?.has('builtin_scene')) {
+            entity = null; // không bật lại vật thể dựng sẵn đã ẩn
+          }
           if (entity) {
             (entity as any).enabled = isVisible;
             updateMaterialProps(entity);
@@ -2172,6 +2282,16 @@ export class SontinhSceneService implements OnDestroy {
         }
       }
 
+      // Đồng bộ đầy đủ: xoá các khối đồ vật người dùng không còn trong danh sách
+      if (fullSync) {
+        const keepIds = new Set(props.filter(p => p && p.id).map(p => p.id));
+        for (const ent of app.root.findByTag('user_prop') as pc.Entity[]) {
+          if (!keepIds.has(ent.name)) {
+            try { ent.destroy(); } catch (_) {}
+          }
+        }
+      }
+
       // Realtime Cleanup: Disable & Destroy sub-button entities that are inactive
       const existingSubBtns = app.root.findByTag('sub_device_button') as pc.Entity[];
       for (const btnEnt of existingSubBtns) {
@@ -2262,6 +2382,7 @@ export class SontinhSceneService implements OnDestroy {
     }
     
     function tryClickLightSwitch(screenX: number, screenY: number) {
+      if (EMPTY_SCENE) return false;
       if (!camera.camera) return false;
       const rayFrom = new pc.Vec3();
       const rayTo = new pc.Vec3();
@@ -2572,6 +2693,7 @@ export class SontinhSceneService implements OnDestroy {
     }
     
     function tryClickWindow(screenX: number, screenY: number) {
+      if (EMPTY_SCENE) return false;
       if (!camera.camera) return false;
       const rayFrom = new pc.Vec3();
       const rayTo = new pc.Vec3();
@@ -3526,6 +3648,7 @@ export class SontinhSceneService implements OnDestroy {
     
     // 🗄️ Raycast Click Detection for Desk Cabinet Drawers (STRICT SINGLE-DRAWER OPEN LOCK)
     function tryClickDrawer(screenX: number, screenY: number): boolean {
+      if (EMPTY_SCENE) return false;
       if (!camera.camera) return false;
       const rayFrom = new pc.Vec3();
       const rayTo = new pc.Vec3();
@@ -3673,6 +3796,7 @@ export class SontinhSceneService implements OnDestroy {
     
     // 🐠 Raycast Click Detection for Desktop Aquarium Fish Tank
     function tryClickAquarium(screenX: number, screenY: number): boolean {
+      if (EMPTY_SCENE) return false;
       if (!camera.camera) return false;
       const rayFrom = new pc.Vec3();
       const rayTo = new pc.Vec3();
@@ -4051,6 +4175,187 @@ export class SontinhSceneService implements OnDestroy {
     familyFrameBacklight.setPosition(ROOM_WIDTH_X / 2 - 1.2, 16.0, 28.5);
     app.root.addChild(familyFrameBacklight);
     
+    // -------------------------------------------------------------
+    // 🧹 EMPTY SCENE: tắt mọi entity dựng sẵn (giữ camera + đèn mặt trời)
+    // -------------------------------------------------------------
+    if (EMPTY_SCENE) {
+      const keepNames = new Set(['CameraParent', 'SunLight']);
+      for (const child of [...app.root.children] as pc.Entity[]) {
+        if (keepNames.has(child.name)) continue;
+        child.tags.add('builtin_scene');
+        child.enabled = false;
+      }
+      sunLight.enabled = false; // mặt trời tự đổi theo giờ thực, không hợp với studio
+      buildShowroomPodium();
+    }
+
+    // -------------------------------------------------------------
+    // STUDIO TRẮNG + BÀN TRÒN PHỦ VẢI (mặc định khi scene trống)
+    // Tường/sàn trắng ngà, mặt bàn gỗ sồi, váy vải trắng xếp nếp loe ra sàn,
+    // bóng lá in lên tường bằng cookie texture của đèn spot.
+    // -------------------------------------------------------------
+    function buildShowroomPodium() {
+      const TABLE_R = 9;        // bán kính mặt bàn
+      const TOP_H = 0.9;        // độ dày mặt bàn
+      const SKIRT_H = 3.2;      // chiều cao phần váy vải (từ sàn tới đáy mặt bàn)
+      const WALL_Z = -16;
+
+      const root = new pc.Entity('Showroom');
+      app.root.addChild(root);
+
+      app.scene.ambientLight = new pc.Color(0.82, 0.82, 0.82);
+      camera.camera!.clearColor = new pc.Color(1, 1, 1);
+
+      const mkMat = (diffuse: pc.Color, gloss: number, spec = 0.06) => {
+        const m = new pc.StandardMaterial();
+        m.diffuse = diffuse;
+        m.specular = new pc.Color(spec, spec, spec);
+        m.gloss = gloss;
+        m.update();
+        return m;
+      };
+      const addEntity = (name: string, render: any, pos: number[], scale: number[]) => {
+        const e = new pc.Entity(name);
+        e.addComponent('render', { receiveShadows: true, castShadows: true, ...render });
+        e.setLocalPosition(pos[0], pos[1], pos[2]);
+        e.setLocalScale(scale[0], scale[1], scale[2]);
+        root.addChild(e);
+        return e;
+      };
+      const canvasTex = (cv: HTMLCanvasElement) => {
+        const t = new pc.Texture(app.graphicsDevice, { width: cv.width, height: cv.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: true });
+        t.setSource(cv);
+        return t;
+      };
+
+      // Không dựng tường và sàn: bàn đứng giữa nền trắng trơn (clearColor của camera)
+
+      // --- Mặt bàn gỗ sồi: vân gỗ vẽ bằng canvas ---
+      const woodCv = document.createElement('canvas');
+      woodCv.width = woodCv.height = 512;
+      const wctx = woodCv.getContext('2d')!;
+      wctx.fillStyle = '#c9a77c';
+      wctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 140; i++) {
+        const y = Math.random() * 512;
+        const dark = Math.random() < 0.5;
+        wctx.strokeStyle = dark ? `rgba(120,85,50,${0.05 + Math.random() * 0.12})` : `rgba(235,210,170,${0.05 + Math.random() * 0.12})`;
+        wctx.lineWidth = 0.5 + Math.random() * 2.5;
+        wctx.beginPath();
+        wctx.moveTo(0, y);
+        for (let x = 0; x <= 512; x += 32) wctx.lineTo(x, y + Math.sin(x * 0.012 + i) * 4);
+        wctx.stroke();
+      }
+      const woodMat = new pc.StandardMaterial();
+      woodMat.diffuseMap = canvasTex(woodCv);
+      woodMat.specular = new pc.Color(0.12, 0.11, 0.1);
+      woodMat.gloss = 0.45;
+      woodMat.update();
+      addEntity('Showroom_TableTop', { type: 'cylinder', material: woodMat },
+        [0, SKIRT_H + TOP_H / 2, 0], [TABLE_R * 2, TOP_H, TABLE_R * 2]);
+
+      // --- Váy vải trắng: lưới tự dựng, nếp xếp dọc + vạt loe ra sàn ---
+      const SEG = 192, RINGS = 40, FOLDS = 30;
+      const DROP = 0.82;         // tỉ lệ phần rủ thẳng xuống, phần còn lại trải ra sàn
+      const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+      for (let j = 0; j <= RINGS; j++) {
+        const t = j / RINGS;
+        for (let i = 0; i <= SEG; i++) {
+          const th = (i / SEG) * Math.PI * 2;
+          const hem = 1 + 0.22 * Math.sin(th * 3 + 1.3) + 0.12 * Math.sin(th * 7 + 0.4);
+          const fold = Math.sin(th * FOLDS + 0.6 * Math.sin(th * 4)) * (0.12 + 0.55 * t);
+          let r: number, y: number;
+          if (t <= DROP) {
+            const k = t / DROP;
+            r = TABLE_R - 0.35 + 0.9 * k * k;
+            y = SKIRT_H * (1 - k);
+          } else {
+            const k = (t - DROP) / (1 - DROP);
+            r = TABLE_R + 0.55 + 4.2 * k * hem;
+            y = 0.04 + 0.18 * (1 - k) * Math.max(0, Math.sin(th * FOLDS));
+          }
+          r += fold;
+          positions.push(Math.cos(th) * r, y, Math.sin(th) * r);
+          uvs.push(i / SEG, t);
+        }
+      }
+      const row = SEG + 1;
+      for (let j = 0; j < RINGS; j++) {
+        for (let i = 0; i < SEG; i++) {
+          const a = j * row + i, b = a + 1, c = a + row, d = c + 1;
+          indices.push(a, c, b, b, c, d);
+        }
+      }
+      const skirtMesh = new pc.Mesh(app.graphicsDevice);
+      skirtMesh.setPositions(positions);
+      skirtMesh.setNormals(pc.calculateNormals(positions, indices));
+      skirtMesh.setUvs(0, uvs);
+      skirtMesh.setIndices(indices);
+      skirtMesh.update();
+      const clothMat = mkMat(new pc.Color(0.96, 0.95, 0.93), 0.25, 0.04);
+      clothMat.cull = pc.CULLFACE_NONE;
+      clothMat.update();
+      const skirt = new pc.Entity('Showroom_Cloth');
+      skirt.addComponent('render', {
+        meshInstances: [new pc.MeshInstance(skirtMesh, clothMat)],
+        castShadows: true, receiveShadows: true
+      });
+      root.addChild(skirt);
+
+      // --- Bóng lá in lên tường: cookie texture cho đèn spot ---
+      const leafCv = document.createElement('canvas');
+      leafCv.width = leafCv.height = 512;
+      const lctx = leafCv.getContext('2d')!;
+      lctx.fillStyle = '#fff';
+      lctx.fillRect(0, 0, 512, 512);
+      lctx.filter = 'blur(7px)';
+      lctx.fillStyle = 'rgba(70,70,70,0.75)';
+      const branch = (x0: number, y0: number, ang: number, len: number) => {
+        for (let s = 0; s < len; s += 22) {
+          const x = x0 + Math.cos(ang) * s, y = y0 + Math.sin(ang) * s;
+          for (const side of [-1, 1]) {
+            lctx.save();
+            lctx.translate(x, y);
+            lctx.rotate(ang + side * (0.7 + Math.random() * 0.4));
+            lctx.beginPath();
+            lctx.ellipse(18, 0, 18 + Math.random() * 8, 7, 0, 0, Math.PI * 2);
+            lctx.fill();
+            lctx.restore();
+          }
+        }
+      };
+      branch(-20, 40, 0.55, 300);
+      branch(60, -20, 0.95, 280);
+      branch(330, -10, 1.9, 260);
+      branch(520, 160, 2.6, 240);
+      const leafTex = canvasTex(leafCv);
+      leafTex.addressU = pc.ADDRESS_CLAMP_TO_EDGE;
+      leafTex.addressV = pc.ADDRESS_CLAMP_TO_EDGE;
+
+      // Đèn nắng chính: chiếu chéo từ trên-trái-trước, có bóng lá + đổ bóng bàn
+      const sun = new pc.Entity('Showroom_SunSpot');
+      sun.addComponent('light', {
+        type: 'spot', color: new pc.Color(1.0, 0.96, 0.9), intensity: 1.6, range: 140,
+        innerConeAngle: 30, outerConeAngle: 48,
+        castShadows: true, shadowResolution: 2048, shadowBias: 0.05, normalOffsetBias: 0.05,
+        cookie: leafTex, cookieIntensity: 0.85
+      });
+      sun.setLocalPosition(-30, 50, 40);
+      root.addChild(sun);
+      sun.lookAt(4, 10, WALL_Z);
+      sun.rotateLocal(90, 0, 0); // spot chiếu theo trục -Y, lookAt hướng trục -Z
+
+      // Đèn phụ mềm phía trước để vải không bị tối
+      const fill = new pc.Entity('Showroom_Fill');
+      fill.addComponent('light', { type: 'omni', color: new pc.Color(1.0, 0.98, 0.95), intensity: 0.45, range: 70, castShadows: false });
+      fill.setLocalPosition(8, 14, 28);
+      root.addChild(fill);
+
+      self._applyCameraPreset?.('default');
+      currentPivot.copy(targetPivot);
+      orbitYaw = targetYaw; orbitPitch = targetPitch; orbitDistance = targetDistance;
+    }
+
     // -------------------------------------------------------------
     // 👤 3D HUMAN CHARACTER (YÊN) — REBUILT WITH CORRECT PROPORTIONS
     // Tỉ lệ theo ảnh: đầu to, vai rộng, chân dài — CS=4.0 → ~14 units cao
@@ -4752,6 +5057,7 @@ export class SontinhSceneService implements OnDestroy {
     // 🖱️ Raycast Click Detection for 3D Picture Frame
     const _svc = this;
     function tryClickPicture(screenX: number, screenY: number) {
+      if (EMPTY_SCENE) return false;
       if (!camera.camera) return false;
       const rayFrom = new pc.Vec3();
       const rayTo = new pc.Vec3();
@@ -4963,6 +5269,25 @@ export class SontinhSceneService implements OnDestroy {
     
     app.on('update', (dt: number) => {
       timer += dt;
+
+      // 🌀 PROPS ANIMATION TICKER (spin, bounce, float, pulse)
+      propAnimMap.forEach((cfg, entName) => {
+        const e = app.root.findByName(entName);
+        if (e && (e as any).enabled) {
+          if (cfg.type === "spin") {
+            e.rotateLocal(0, dt * cfg.speed, 0);
+          } else if (cfg.type === "bounce") {
+            const dy = Math.abs(Math.sin(timer * cfg.speed)) * 0.6;
+            e.setPosition(cfg.basePos.x, cfg.basePos.y + dy, cfg.basePos.z);
+          } else if (cfg.type === "float") {
+            const dy = Math.sin(timer * cfg.speed) * 0.3;
+            e.setPosition(cfg.basePos.x, cfg.basePos.y + dy, cfg.basePos.z);
+          } else if (cfg.type === "pulse") {
+            const f = 1.0 + Math.sin(timer * cfg.speed) * 0.2;
+            e.setLocalScale(cfg.baseScale.x * f, cfg.baseScale.y * f, cfg.baseScale.z * f);
+          }
+        }
+      });
     
       // ⏰ REAL-TIME CLOCK & ATMOSPHERE UPDATE
       updateRealTimeClockUI();
@@ -5127,7 +5452,7 @@ export class SontinhSceneService implements OnDestroy {
     // We grab it by name after the scene is set up
     setTimeout(() => {
       if (app && !this._destroyed) {
-        const found = app.root.findByName('CharBodyRoot');
+        const found = app.root.findByName('Char_BodyRoot') || app.root.findByName('CharBodyRoot') || app.root.findByName('Char_Yen_Root');
         if (found) this._charBodyRoot = found as pc.Entity;
       }
     }, 500);
