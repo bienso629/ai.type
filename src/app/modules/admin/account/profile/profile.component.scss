@@ -30,25 +30,19 @@
   width: 280px;
   min-width: 280px;
   max-width: 280px;
-  margin: 24px 0 24px 24px;
-  border-radius: 4px;
   background: var(--fuse-bg-card, #ffffff);
-  border: 1px solid var(--fuse-border, #e2e8f0);
   box-shadow: none;
   overflow: hidden;
   flex-shrink: 0;
   transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
               min-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
               max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-              margin 0.28s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.2s ease-in-out;
 
   &.is-collapsed {
     width: 0 !important;
     min-width: 0 !important;
     max-width: 0 !important;
-    margin: 0 !important;
-    border: none !important;
     opacity: 0;
     pointer-events: none;
   }
@@ -100,8 +94,21 @@
   position: relative;
   display: flex;
   align-items: stretch;
-  background: #ffffff;
+  background: #f7fefc;
   padding: 6px 8px;
+  transition: background 0.15s;
+
+  &:focus-within {
+    background: #effdf9;
+  }
+}
+
+:host-context(.dark) .sidebar-prompt-bar {
+  background: rgba(20, 184, 166, 0.05);
+
+  &:focus-within {
+    background: rgba(20, 184, 166, 0.1);
+  }
 }
 
 .sidebar-prompt-input {
@@ -592,7 +599,6 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 24px;
   background: var(--fuse-bg-default, #f1f5f9);
 }
 
@@ -604,7 +610,6 @@
   background: #090d16;
   min-width: 0;
   min-height: 0;
-  border-radius: 4px;
   box-shadow: none;
 }
 
