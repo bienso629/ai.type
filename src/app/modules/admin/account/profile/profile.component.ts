@@ -20,55 +20,8 @@ import { GenaiService } from 'app/genai.service';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 
-const DEFAULT_PROPS = [
-  // 🏢 KIẾN TRÚC TÒA NHÀ & CĂN PHÒNG 306
-  { id: 'prop_building_5story_main', name: 'Tòa nhà chính 5 tầng (Sơn Tinh Tower)', category: 'architecture', visible: true },
-  { id: 'prop_room_306_floor', name: 'Tầng 3 - Căn phòng 306 Studio', category: 'architecture', visible: true },
-  { id: 'prop_building_floor1', name: 'Tầng 1 - Sảnh chính & Cửa kính lớn', category: 'architecture', visible: true },
-  { id: 'prop_building_floor2', name: 'Tầng 2 - Ban công & Khung kính lớn', category: 'architecture', visible: true },
-  { id: 'prop_building_floor4', name: 'Tầng 4 - Khối văn phòng sáng đèn', category: 'architecture', visible: true },
-  { id: 'prop_building_floor5', name: 'Tầng 5 - Áp mái & Tầng thượng Penthouse', category: 'architecture', visible: true },
-  { id: 'prop_room_marble_floor', name: 'Sàn đá Cẩm thạch Marble cao cấp', category: 'architecture', visible: true },
-  { id: 'prop_room_walls', name: 'Tường sơn phẳng liền mạch bao quanh', category: 'architecture', visible: true },
-  { id: 'prop_room_ceiling', name: 'Trần nhà sơn đồng bộ 306', category: 'architecture', visible: true },
-  { id: 'prop_main_door', name: 'Cửa chính ra vào căn phòng', category: 'architecture', visible: true },
-  { id: 'prop_window_21_9', name: 'Cửa sổ nhôm kính Minimalist 21:9', category: 'architecture', visible: true },
-
-  // 🪑 NỘI THẤT BÀN GHẾ & TỦ
-  { id: 'prop_main_desk', name: 'Bàn làm việc đôi Haigo BHS230-2', category: 'furniture', visible: true },
-  { id: 'prop_chair_left', name: 'Ghế xoay ergonomic trái', category: 'furniture', visible: true },
-  { id: 'prop_chair_right', name: 'Ghế xoay ergonomic phải', category: 'furniture', visible: true },
-  { id: 'prop_pegboard', name: 'Tủ Pegboard treo tường', category: 'furniture', visible: true },
-  { id: 'prop_clothing_drawer', name: 'Tủ đồ quần áo gỗ', category: 'furniture', visible: true },
-  { id: 'prop_desk_mat_left', name: 'Thảm lót bàn làm việc trái', category: 'furniture', visible: true },
-  { id: 'prop_desk_mat_right', name: 'Thảm lót bàn làm việc phải', category: 'furniture', visible: true },
-
-  // 🖥️ THIẾT BỊ ĐIỆN TỬ & CÔNG NGHỆ
-  { id: 'prop_monitor_left', name: 'Màn hình cong ultrawide trái', category: 'electronics', visible: true },
-  { id: 'prop_monitor_right', name: 'Màn hình cong ultrawide phải', category: 'electronics', visible: true },
-  { id: 'prop_mechanical_keyboard_left', name: 'Bàn phím cơ custom trái', category: 'electronics', visible: true },
-  { id: 'prop_mechanical_keyboard_right', name: 'Bàn phím cơ custom phải', category: 'electronics', visible: true },
-  { id: 'prop_mouse_left', name: 'Chuột không dây Logitech M185 trái', category: 'electronics', visible: true },
-  { id: 'prop_mouse_right', name: 'Chuột không dây Logitech M185 phải', category: 'electronics', visible: true },
-  { id: 'prop_ps5_pro', name: 'Máy chơi game PS5 Pro', category: 'electronics', visible: true },
-
-  // 💡 ĐÈN & TRANG TRÍ
-  { id: 'prop_aquarium', name: 'Bể cá thủy sinh bàn làm việc', category: 'decoration', visible: true },
-  { id: 'prop_picture_frame', name: 'Khung ảnh gia đình treo tường', category: 'decoration', visible: true },
-  { id: 'prop_wall_clock', name: 'Đồng hồ treo tường Gỗ Óc chó', category: 'decoration', visible: true },
-  { id: 'prop_tech_led_bar', name: 'Đèn LED Bar màn hình', category: 'lighting', visible: true },
-  { id: 'prop_wall_switch', name: 'Công tắc đèn tường dạ quang', category: 'lighting', visible: true },
-  { id: 'prop_ceiling_downlight_front', name: 'Đèn âm trần LED trước', category: 'lighting', visible: true },
-  { id: 'prop_ceiling_downlight_back', name: 'Đèn âm trần LED sau', category: 'lighting', visible: true },
-  { id: 'prop_ceiling_downlight_left', name: 'Đèn âm trần LED trái', category: 'lighting', visible: true },
-  { id: 'prop_ceiling_downlight_right', name: 'Đèn âm trần LED phải', category: 'lighting', visible: true },
-
-  // 🚗 CẢNH QUAN & NGOẠI THẤT
-  { id: 'prop_street_cars', name: 'Các xe ô tô di chuyển đường phố', category: 'environment', visible: true },
-  { id: 'prop_street_trees', name: 'Hàng cây xanh cảnh quan đường phố', category: 'environment', visible: true },
-  { id: 'prop_street_shophouses', name: 'Dãy nhà phố thương mại ngoài sổ', category: 'environment', visible: true },
-  { id: 'prop_street_traffic_lanes', name: 'Làn xe giao thông đường phố', category: 'environment', visible: true }
-];
+// Scene PlayCanvas mặc định trống: người dùng tự thêm đồ vật của họ.
+const DEFAULT_PROPS: any[] = [];
 
 @Component({
     selector: 'profile',
@@ -1609,76 +1562,104 @@ Người dùng đang ĐÍNH KÈM / @MENTION ĐỒ VẬT CHỈ ĐỊNH: [${names}
 - TUYỆT ĐỐI KHÔNG thay đổi nhân vật (animationName, scale nhân vật, position nhân vật) hay hệ thống đèn (lightsOn) khi người dùng đang chỉ định đồ vật!`;
         }
 
-        const domainSystemPrompt = `Bạn là **Sơn Tinh AI 3D Scene Director**, Chuyên gia AI Agent am hiểu toàn bộ LOGIC NGHIỆP VỤ & CÁCH ĐIỀU CHỈNH 3D CĂN PHÒNG / NHÂN VẬT.
+        const domainSystemPrompt = `Bạn là **PlayCanvas 3D Master & Director**, Chuyên gia AI có toàn quyền điều khiển toàn bộ tính năng và thuộc tính trong thế giới 3D PlayCanvas.
 
-### 📁 DỮ LIỆU PROFILE
-- Thư mục: Documents/ai.type/data/profiles/${this.username}/
+### KHÔNG GIAN SHOWROOM STUDIO HIỆN TẠI
+- Không gian là Studio 3D trưng bày sản phẩm tối giản, trung tâm là chiếc BÀN TRÒN PHỦ VẢI TRẮNG.
+- Tọa độ mặt bàn: Tâm bàn tại (X: 0, Z: 0), chiều cao mặt bàn tại Y ≈ 4.1, bán kính mặt bàn R = 9.0.
+- Các vật thể trưng bày đặt trên mặt bàn nên có Y trong khoảng từ 4.2 đến 5.5.
+- Sàn xung quanh tại Y = 0.
+- Bạn có thể thay đổi màu sắc Studio: màu nền Background, màu mặt bàn Table, màu khăn vải phủ Cloth.
 
-### 🏠 KIẾN THỨC NGHIỆP VỤ 306
-1. **HỆ THỐNG ĐÈN**: lightsOn = true/false (Bật/tắt đèn phòng).
-2. **ĐIỀU KHIỂN NHÂN VẬT**: position, facingAngle, scale (0.4 - 2.5), animationName. Động tác khả dụng: [${animListStr}].
-3. **CAMERA**: "default", "desk", "character", "overhead".
-4. **ĐỒ VẬT TƯƠNG TÁC**: Bàn, Ghế, Bàn phím, Bể cá, Tủ, Khung ảnh, Cửa.
-5. **THAY ĐỔI / CẬP NHẬT THUỘC TÍNH ĐỒ VẬT VIA AI ('modifyProp')**:
-   - Bạn xem toàn bộ các key hiện có của đồ vật trong DỮ LIỆU PROFILE (như \`activeScreenState\`, \`screenOptions\` bao gồm \`screenOptions.bgColor\`, \`screenOptions.textColor\`, \`screenOptions.screenText\`, \`color\`, \`position\`, \`rotation\`, \`scale\`, \`visible\`, v.v.).
-   - Trả về object \`modifyProp\` chứa \`targetPropId\` (hoặc \`targetPropName\`) và \`patch\` chứa ĐÚNG CÁC KEY & GIÁ TRỊ CẦN SỬA (ví dụ khi người dùng yêu cầu đổi màu nền màn hình, hãy sửa \`activeScreenState: "clock"\` và \`screenOptions: { "bgColor": "#HexColor" }\`).
+### DANH MỤC TÍNH NĂNG PLAYCANVAS BẠN CÓ THỂ ĐIỀU KHIỂN
+1. THÊM ĐỒ VẬT TÙY Ý ('newProp'):
+   - name: Tên đồ vật (VD: Quả cầu năng lượng, Hộp quà Noel, Bình hoa, Khối trụ pha lê)
+   - shape: 'box' | 'sphere' | 'cylinder' | 'cone' | 'capsule' | 'plane'
+   - color: Mã màu Hex (VD: '#06b6d4', '#ef4444', '#fbbf24', '#a855f7', '#ffffff')
+   - position: { x, y, z } (tâm bàn: { x: 0, y: 4.5, z: 0 })
+   - scale: { x, y, z } (kích thước theo 3 trục, VD: { x: 1, y: 1, z: 1 })
+   - rotation: { x, y, z } (góc xoay theo độ)
+   - animation: 'spin' (tự xoay tròn liên tục) | 'bounce' (nhún nhảy nhịp nhàng) | 'float' (lơ lửng bay bổng) | 'pulse' (phập phồng to nhỏ) | 'none'
+   - animSpeed: Tốc độ hiệu ứng (spin mặc định 45-90, float/bounce mặc định 2.5)
+
+2. CHỈNH SỬA MỌI THUỘC TÍNH ĐỒ VẬT HIỆN CÓ ('modifyProp'):
+   - Sửa bất kỳ món nào theo targetPropId hoặc targetPropName.
+   - patch có thể chứa: color, position, scale, rotation, shape, animation, animSpeed, visible.
 ${targetPropInstruction}
 
-6. **TẠO / THÊM ĐỒ VẬT MỚI & ĐỒ VẬT CON VIA AI**:
-   - Thêm đồ vật chính mới ('newProp'): { "name": string, "category": string, "color": string, "position": {x,y,z} }
-   - Gắn thêm đồ vật con / nút bấm lên đồ vật hiện có ('attachSubDeviceToProp'):
-     { "targetPropName": string, "subDevice": { "name": string, "type": "button" | "light" | "curtain" | "sensor" | "tv" | "custom", "customScript"?: string } }
+3. XOÁ ĐỒ VẬT ('removePropName'): Tên đồ vật người dùng yêu cầu bỏ.
 
-7. **XOÁ / BỚT ĐỒ VẬT & ĐỒ VẬT CON VIA AI**:
-   - Xoá đồ vật chính ('removePropName'): Tên đồ vật cần xoá.
-   - Xoá đồ vật con / nút bấm ('removeSubDeviceName'): Tên đồ vật con cần xoá.
+4. ĐIỀU KHIỂN HÀNH ĐỘNG & TOÀN BỘ NHÂN VẬT 3D ('characterAction'):
+   - animationName: Chọn hành động từ danh sách: [${animListStr}] (hoặc 'Idle' khi muốn đứng yên / dừng lại).
+   - position: Đưa nhân vật tới vị trí { x, y, z } (VD trên bàn { x: 0, y: 4.1, z: 0 } hoặc dưới sàn).
+   - facingAngle: Xoay hướng mặt nhân vật (0 đến 360 độ).
+   - scale: Thu nhỏ / phóng to nhân vật (VD: 0.5 đến 2.0).
+   - visible: Ẩn/hiện nhân vật (true / false).
+
+5. ĐỔI MÀU MÔI TRƯỜNG SHOWROOM STUDIO ('environment'):
+   - background: Đổi màu nền Studio (Hex).
+   - table: Đổi màu mặt bàn gỗ (Hex).
+   - cloth: Đổi màu khăn vải trải bàn (Hex).
+
+6. ĐIỀU KHIỂN CAMERA ('cameraPreset' / 'focusPropName'):
+   - cameraPreset: 'default' | 'desk' | 'character' | 'overhead'
+   - focusPropName: Tập trung góc nhìn vào một món đồ.
 
 ---
-### 📊 TRẠNG THÁI CĂN PHÒNG & NHÂN VẬT (FULL PROPS SCHEMA & LIVE STATE):
+### TRẠNG THÁI HIỆN TẠI:
 ${JSON.stringify({
   username: this.username,
   character: currentProfile.character,
-  scene: currentProfile.scene,
   props: this.roomProps.map(p => ({
     id: p.id,
     name: p.name,
-    category: p.category,
-    visible: p.visible,
-    activeScreenState: p.activeScreenState,
-    screenOptions: p.screenOptions,
+    shape: p.shape || 'box',
     color: p.color,
     position: p.position,
     rotation: p.rotation,
     scale: p.scale,
-    subDevices: p.subDevices || []
+    animation: p.animation || 'none',
+    visible: p.visible
   }))
 }, null, 2)}
 
 ---
-### 💬 LỆNH NGƯỜI DÙNG: "${text}"
+### LỆNH NGƯỜI DÙNG: "${text}"
 
 ---
-### 📤 YÊU CẦU ĐẦU RA (JSON ONLY):
+### YÊU CẦU ĐẦU RA (JSON THUẦN TÚY):
 {
-  "lightsOn": boolean | null,
-  "animationName": string | null,
-  "scale": number | null,
-  "facingAngle": number | null,
-  "position": { "x": number, "y": number, "z": number } | null,
-  "cameraPreset": "default" | "desk" | "character" | "overhead" | null,
-  "disableTrigger": string | null,
-  "enableTrigger": string | null,
+  "newProp": {
+    "name": "string",
+    "shape": "box",
+    "color": "#hex",
+    "position": { "x": 0, "y": 4.5, "z": 0 },
+    "scale": { "x": 1, "y": 1, "z": 1 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "animation": "spin",
+    "animSpeed": 45
+  },
   "modifyProp": {
-    "targetPropId": string,
-    "patch": object
-  } | null,
-  "newProp": { "name": string, "category": string, "color": string, "position": { "x": number, "y": number, "z": number }, "subDevices": Array<{ name: string, type: string, enabled: boolean, color?: string }> } | null,
-  "attachSubDeviceToProp": { "targetPropName": string, "subDevice": { "name": string, "type": string, "customScript"?: string } } | null,
-  "removePropName": string | null,
-  "removeSubDeviceName": string | null,
-  "explanation": string
+    "targetPropId": "string",
+    "patch": {}
+  },
+  "removePropName": null,
+  "characterAction": {
+    "animationName": "Walk",
+    "position": { "x": 0, "y": 4.1, "z": 0 },
+    "facingAngle": 0,
+    "scale": 1.0,
+    "visible": true
+  },
+  "environment": {
+    "background": null,
+    "table": null,
+    "cloth": null
+  },
+  "cameraPreset": null,
+  "focusPropName": null,
+  "explanation": "Câu mô tả ngắn gọn vui vẻ về những gì bạn vừa tạo/thay đổi trên PlayCanvas"
 }`;
-
         const parts: any[] = [{ text: domainSystemPrompt }];
         if (images && images.length > 0) {
           for (const img of images) {
@@ -1704,6 +1685,55 @@ ${JSON.stringify({
           const hasTargetProps = targetProps && targetProps.length > 0;
           const parsed = JSON.parse(cleanJson);
           if (parsed) {
+            // 🎨 ĐIỀU KHIỂN MÀU MÔI TRƯỜNG SHOWROOM (background, table, cloth)
+            if (parsed.environment) {
+              this.sceneService.setEnvironmentColors(parsed.environment);
+              (currentProfile as any).environment = { ...((currentProfile as any).environment || {}), ...parsed.environment };
+              updated = true;
+            }
+
+            // 🕺 ĐIỀU KHIỂN HÀNH ĐỘNG & THUỘC TÍNH TOÀN BỘ NHÂN VẬT 3D
+            const charAct = parsed.characterAction || {};
+            const animName = charAct.animationName || parsed.animationName;
+            if (animName) {
+              const lowerAnim = animName.toLowerCase();
+              const anim = this.userAnimations.find(a => a.name.toLowerCase() === lowerAnim) ||
+                           this.userAnimations.find(a => lowerAnim.includes(a.name.toLowerCase()));
+              if (anim) {
+                this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
+                currentProfile.character.animationState = anim.name;
+                updated = true;
+              } else if (lowerAnim.includes('idle') || lowerAnim.includes('đứng') || lowerAnim.includes('dừng')) {
+                const idleAnim = this.userAnimations.find(a => a.name.toLowerCase().includes('idle')) || this.userAnimations[0];
+                if (idleAnim) {
+                  this.setAnimation(idleAnim.name, idleAnim.glbPath, false, 0);
+                  currentProfile.character.animationState = idleAnim.name;
+                  updated = true;
+                }
+              }
+            }
+            const charPos = charAct.position || parsed.position;
+            if (charPos) {
+              currentProfile.character.position = charPos;
+              this.sceneService.setCharacterTransform({ position: charPos });
+              updated = true;
+            }
+            const charAngle = typeof charAct.facingAngle === 'number' ? charAct.facingAngle : parsed.facingAngle;
+            if (typeof charAngle === 'number') {
+              currentProfile.character.facingAngle = charAngle;
+              this.sceneService.setCharacterTransform({ facingAngle: charAngle });
+              updated = true;
+            }
+            const charScale = typeof charAct.scale === 'number' ? charAct.scale : parsed.scale;
+            if (typeof charScale === 'number') {
+              currentProfile.character.scale = charScale;
+              this.sceneService.setCharacterTransform({ scale: charScale });
+              updated = true;
+            }
+            if (typeof charAct.visible === 'boolean') {
+              this.sceneService.setCharacterVisibility(charAct.visible);
+              updated = true;
+            }
             // ONLY update global scene / character IF NO target prop was mentioned (@mention)
             if (!hasTargetProps) {
               if (parsed.lightsOn !== null && parsed.lightsOn !== undefined) {
@@ -1800,8 +1830,15 @@ ${JSON.stringify({
                 }
 
                 if (patch.color) liveProp._customColorSet = true;
+                if (patch.position) liveProp._customPositionSet = true;
+                if (patch.scale) liveProp._customScaleSet = true;
+                if (patch.rotation) liveProp._customRotationSet = true;
+                if (patch.shape) liveProp.shape = patch.shape;
+                if (patch.animation) liveProp.animation = patch.animation;
+                if (typeof patch.animSpeed === 'number') liveProp.animSpeed = patch.animSpeed;
 
                 this.syncPropTo3DScene(liveProp);
+                this.sceneService.syncProps(this.roomProps);
 
                 this.profileDataService.saveProps(this.roomProps).subscribe();
                 this.cdr.markForCheck();
@@ -1815,11 +1852,18 @@ ${JSON.stringify({
               const newProp = {
                 id: 'prop_' + Date.now(),
                 name: propObj.name || 'Đồ vật mới AI',
-                category: propObj.category || 'button',
+                category: propObj.category || 'custom',
+                shape: propObj.shape || 'box',
                 color: propObj.color || '#06b6d4',
-                position: propObj.position || { x: 0, y: 1.2, z: 0 },
-                rotation: { x: 0, y: 0, z: 0 },
-                scale: { x: 0.4, y: 0.4, z: 0.4 },
+                position: propObj.position || { x: 0, y: 4.3, z: 0 },
+                rotation: propObj.rotation || { x: 0, y: 0, z: 0 },
+                scale: propObj.scale || { x: 0.8, y: 0.8, z: 0.8 },
+                animation: propObj.animation || 'none',
+                animSpeed: typeof propObj.animSpeed === 'number' ? propObj.animSpeed : (propObj.animation === 'spin' ? 45 : 2.5),
+                _customPositionSet: true,
+                _customScaleSet: true,
+                _customRotationSet: true,
+                _customColorSet: true,
                 visible: true,
                 events: Array.isArray(propObj.events) && propObj.events.length > 0
                   ? propObj.events
