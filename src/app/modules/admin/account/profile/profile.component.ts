@@ -21,7 +21,23 @@ import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 // Scene PlayCanvas mặc định trống: người dùng tự thêm đồ vật của họ.
-const DEFAULT_PROPS: any[] = [];
+const DEFAULT_PROPS: any[] = [
+  {
+    id: 'prop_display_table',
+    name: 'Bàn trưng bày',
+    type: 'furniture',
+    category: 'furniture',
+    position: { x: 0, y: 3.65, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: { x: 1, y: 1, z: 1 },
+    color: null,
+    visible: true,
+    interactive: true,
+    clickAction: 'focus',
+    description: 'Bàn trưng bày gỗ sồi với váy vải trắng — món đồ mặc định của cảnh phòng 306.',
+    addedAt: 'builtin'
+  }
+];
 
 @Component({
     selector: 'profile',
@@ -42,6 +58,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('actionFileInput') actionFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('audioFileInput') audioFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('textFileInput') textFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('propGlbFileInput') propGlbFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('promptFileInput') promptFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('promptInputArea') promptInputArea?: ElementRef<HTMLTextAreaElement>;
 
@@ -188,6 +205,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       const profile = await this.profileDataService.loadProfile(this.username).toPromise();
       this.profile = profile ?? null;
 
+      // 2b. Nạp danh sách đồ vật đã lưu NGAY LẬP TỨC (trước khi init scene)
+      //     để loadSavedPropGlbs() ở bước 4c có dữ liệu duyệt
+      this.roomProps = this.mergeProps((profile as any)?.props || []);
+      (this.profile as any).props = this.roomProps;
+
       // 3. Nếu profile đã có glbPath → đọc file thành Blob URL để PlayCanvas load
       //    glbPath là đường dẫn đĩa, KHÔNG dùng làm URL trực tiếp
       let charGlbObjectUrl: string | null = null;
@@ -247,6 +269,19 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         this.photoFileInput?.nativeElement?.click();
       };
 
+      // 4b2. Wire callback: kéo thả đồ vật trên canvas 3D — lưu vị trí mới vào props
+      this.sceneService.onPropDragged = (propId: string, pos: { x: number; y: number; z: number }) => {
+        const prop = this.roomProps.find(p => p && p.id === propId);
+        if (!prop) return;
+        prop.position = pos;
+        (prop as any)._customPositionSet = true;
+        this.profileDataService.saveProps(this.roomProps).subscribe();
+        this.cdr.markForCheck();
+      };
+
+      // 4c. Nạp lại các đồ vật GLB đã upload trước đó (dựa vào glbPath lưu trong props)
+      this.loadSavedPropGlbs();
+
       // 5. Subscribe profile changes
       this.profileDataService.profile$.pipe(takeUntil(this._destroy$)).subscribe(p => {
         if (p) {
@@ -298,8 +333,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
 
     let missingAdded = false;
+    const tombstones: string[] = (this.profile as any)?.deletedDefaultProps || [];
     for (const defProp of DEFAULT_PROPS) {
-      if (!seenIds.has(defProp.id)) {
+      if (!seenIds.has(defProp.id) && !tombstones.includes(defProp.id)) {
         resultProps.push(JSON.parse(JSON.stringify(defProp)));
         missingAdded = true;
       }
@@ -379,6 +415,13 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     dialogRef.afterClosed().subscribe(async (result) => {
       if (result === 'confirmed') {
         this.roomProps = this.roomProps.filter(p => p.id !== propId);
+        // Món đồ mặc định (bàn trưng bày...): ghi tombstone để mergeProps không hồi sinh sau F5
+        if (propId === 'prop_display_table') {
+          const tomb = ((this.profile as any).deletedDefaultProps || []).slice();
+          if (!tomb.includes(propId)) tomb.push(propId);
+          (this.profile as any).deletedDefaultProps = tomb;
+          this.profileDataService.saveProfile({ deletedDefaultProps: tomb } as any).subscribe();
+        }
         (this.profile as any).props = this.roomProps;
 
         try {
@@ -1187,6 +1230,86 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     } catch (err: any) {
       console.error('[Profile] Text file read error:', err);
       this.toastr.error('Không thể đọc file văn bản.', 'Lỗi Text');
+    }
+  }
+
+  /** Nạp lại toàn bộ đồ vật GLB đã lưu khi khởi động scene */
+  private async loadSavedPropGlbs(): Promise<void> {
+    const glbProps = this.roomProps.filter(p => p?.glbPath && p.visible !== false);
+    if (glbProps.length === 0) return;
+    console.log('[Profile] Nạp lại', glbProps.length, 'đồ vật GLB đã lưu...');
+    for (const prop of glbProps) {
+      try {
+        const blobUrl = await this.profileDataService.readGlbAsObjectUrl(prop.glbPath).toPromise();
+        if (blobUrl) {
+          this.sceneService.loadPropGlb(prop.id, blobUrl, prop);
+        } else {
+          console.warn('[Profile] Blob URL rỗng cho đồ vật:', prop?.name);
+        }
+      } catch (e) {
+        console.warn('[Profile] Không nạp được GLB của đồ vật:', prop?.name, prop?.glbPath, e);
+      }
+    }
+  }
+
+  /** Mở hộp thoại chọn file GLB cho đồ vật */
+  triggerAddPropGlb(): void {
+    this.propGlbFileInput?.nativeElement?.click();
+  }
+
+  /** Xử lý khi user chọn file GLB để thêm đồ vật mới vào scene */
+  async onPropGlbSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    input.value = '';
+    if (!file.name.toLowerCase().endsWith('.glb')) {
+      this.toastr.error('Chỉ chấp nhận file .glb', 'Upload GLB');
+      return;
+    }
+
+    const buffer = await file.arrayBuffer();
+    const baseName = file.name.replace(/\.glb$/i, '') || 'Mo_hinh';
+    const uploadName = `${baseName}_${Date.now()}`;
+
+    try {
+      // 1. Lưu file qua Electron IPC vào assets/props/ + tự push vào props.json
+      const res: any = await (window as any).electron.uploadProp(
+        this.username, uploadName, { x: 0, y: 4.6, z: 0 }, 1.0, buffer
+      );
+      if (!res?.success || !res.data?.glbPath) throw new Error(res?.error || 'Không lưu được GLB');
+      const saved = res.data;
+
+      // 2. Tạo prop entry hiển thị ở sidebar + scene
+      const newProp: any = {
+        id: saved.id,
+        name: baseName,
+        type: 'model',
+        glbPath: saved.glbPath,
+        position: { x: 0, y: 4.6, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        scale: { x: 1, y: 1, z: 1 },
+        color: null,
+        visible: true,
+        shape: 'model',
+        addedAt: saved.addedAt
+      };
+      this.roomProps.push(newProp);
+      (this.profile as any).props = this.roomProps;
+      this.profileDataService.saveProps(this.roomProps).subscribe();
+
+      // 3. Đọc file thành blob URL và nạp vào scene PlayCanvas ngay
+      const blobUrl = await this.profileDataService.readGlbAsObjectUrl(saved.glbPath).toPromise();
+      if (blobUrl) {
+        this.sceneService.loadPropGlb(newProp.id, blobUrl, newProp);
+      }
+
+      this.onSearchChange();
+      this.toastr.success(`Đã thêm đồ vật "${baseName}" vào scene!`, 'Upload GLB');
+      this.cdr.markForCheck();
+    } catch (err: any) {
+      console.error('[Profile] Upload prop GLB error:', err);
+      this.toastr.error('Upload GLB thất bại: ' + (err?.message ?? 'Lỗi không xác định'), 'Upload GLB');
     }
   }
 

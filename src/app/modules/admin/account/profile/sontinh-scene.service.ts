@@ -29,6 +29,11 @@ export class SontinhSceneService implements OnDestroy {
   /** Gọi khi user click vào khung ảnh mà chưa có ảnh — component override để mở file picker */
   onPictureFrameClick: (() => void) | null = null;
 
+  /** Gọi khi user kéo thả xong một đồ vật — component override để lưu vị trí mới */
+  onPropDragged: ((propId: string, pos: { x: number; y: number; z: number }) => void) | null = null;
+  /** Gọi khi user click chọn một đồ vật trong canvas 3D */
+  onPropClicked: ((propId: string) => void) | null = null;
+
   playAnimation(key: string, glbPath?: string, isMovement?: boolean, speed?: number): void {
     if (this._loadAndPlayAnim) {
       this._loadAndPlayAnim(key, glbPath, isMovement, speed);
@@ -264,6 +269,51 @@ export class SontinhSceneService implements OnDestroy {
     this._loadCustomCharacterGlb(blobUrl, this._profile?.character?.animationState ?? 'Walk');
   }
 
+  /**
+   * Load GLB đồ vật do người dùng upload vào scene (blob URL).
+   * Wrapper đặt tên PropGLB_<id> để _applyProps tìm và cập nhật transform sau này.
+   */
+  loadPropGlb(propId: string, blobUrl: string, prop?: any): void {
+    if (!this.app || this._destroyed || !propId) return;
+    this.app.assets.loadFromUrl(blobUrl, 'container', (err: any, asset?: pc.Asset) => {
+      if (err || !asset?.resource) {
+        console.warn('[SontinhSceneService] Prop GLB load failed:', propId, err);
+        return;
+      }
+      if (this._destroyed || !this.app) return;
+      const container = asset.resource as any;
+      const glbEntity = (container.instantiateRenderEntity?.() ?? container.instantiateModelEntity?.()) as pc.Entity;
+      if (!glbEntity) return;
+
+      // Gỡ bản cũ nếu đồ vật được nạp lại
+      const old = this.app.root.findByName(`PropGLB_${propId}`);
+      if (old) old.destroy();
+
+      // Gỡ khối hộp dự phòng đã tạo nhầm khi GLB chưa nạp xong (race condition)
+      const legacyBox = this.app.root.findByName(propId);
+      if (legacyBox && (legacyBox as any).tags?.has('user_prop')) {
+        try { legacyBox.destroy(); } catch (_) {}
+      }
+
+      const wrapper = new pc.Entity(`PropGLB_${propId}`);
+      wrapper.tags.add('user_prop');
+      wrapper.tags.add('prop_glb');
+
+      const p = prop?.position && typeof prop.position.x === 'number' ? prop.position : { x: 0, y: 4.6, z: 0 };
+      wrapper.setPosition(p.x, p.y, p.z);
+      const s = prop?.scale && typeof prop.scale.x === 'number' ? prop.scale : { x: 1, y: 1, z: 1 };
+      wrapper.setLocalScale(s.x, s.y, s.z);
+      if (prop?.rotation && typeof prop.rotation.x === 'number') {
+        wrapper.setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
+      }
+
+      wrapper.addChild(glbEntity);
+      glbEntity.setLocalPosition(0, 0, 0);
+      this.app.root.addChild(wrapper);
+      console.log('[SontinhSceneService] Prop GLB loaded:', propId);
+    });
+  }
+
   private _initPlayCanvasScene(
     canvas: HTMLCanvasElement,
     username: string,
@@ -277,6 +327,231 @@ export class SontinhSceneService implements OnDestroy {
     if (this._destroyed) return;
     const self = this;
     const propAnimMap = new Map<string, { type: string; speed: number; basePos: pc.Vec3; baseScale: pc.Vec3 }>();
+
+    // -------------------------------------------------------------
+    // DRAG & DROP DO VAT (select bang click, keo tha di chuyen)
+    // -------------------------------------------------------------
+    let propDragCandidate: { ent: pc.Entity; propId: string } | null = null;
+    let propDragActive = false;
+    let dragPlaneY = 0;
+    let dragStartPos = new pc.Vec3();
+    let dragOffset = new pc.Vec3();
+    let dragAccY = 0;
+    let lastDragY: number | null = null;
+    let prevShift = false;
+    let selRing: pc.Entity | null = null;
+    let ringOffsetY = 0;
+    // Kéo nhóm bàn trưng bày: di chuyển cả mặt bàn lẫn váy vải cùng lúc
+    let propDragExtras: pc.Entity[] = [];
+    let propExtrasBase: pc.Vec3[] = [];
+    let propMainBase = new pc.Vec3();
+
+    function collectAabb(ent: pc.Entity): pc.BoundingBox | null {
+      const renders = ent.findComponents('render') as any[];
+      let bb: pc.BoundingBox | null = null;
+      for (const r of renders) {
+        const mis = r.meshInstances || [];
+        for (const mi of mis) {
+          const a = mi.aabb;
+          if (!a) continue;
+          if (!bb) bb = a.clone();
+          else bb.add(a);
+        }
+      }
+      return bb;
+    }
+
+    function ensureSelRing() {
+      if (selRing) return;
+      selRing = new pc.Entity('PropSelRing');
+      const m = new pc.StandardMaterial();
+      m.diffuse = new pc.Color(0, 0, 0);
+      m.emissive = new pc.Color(0.02, 0.85, 0.75);
+      m.emissiveIntensity = 1.2;
+      m.cull = pc.CULLFACE_NONE;
+      m.update();
+      const ringMesh = pc.Mesh.fromGeometry(
+        app.graphicsDevice,
+        new pc.TorusGeometry({
+          ringRadius: 0.485,
+          tubeRadius: 0.015,
+          segments: 64,
+          sides: 16
+        })
+      );
+      const mi = new pc.MeshInstance(ringMesh, m);
+      mi.castShadow = false;
+      selRing.addComponent('render', { meshInstances: [mi] });
+      (selRing.render as any).castShadows = false;
+      selRing.tags.add('sel_ring');
+      app.root.addChild(selRing);
+      selRing.enabled = false;
+    }
+
+    function hideSelRing() {
+      if (selRing) selRing.enabled = false;
+    }
+
+    function showSelRing(ent: pc.Entity) {
+      ensureSelRing();
+      if (!selRing) return;
+      let bb = collectAabb(ent);
+      if (ent.name === 'Showroom_TableTop' || ent.name === 'Showroom_Cloth') {
+        const other = app.root.findByName(ent.name === 'Showroom_TableTop' ? 'Showroom_Cloth' : 'Showroom_TableTop') as pc.Entity | null;
+        if (other) {
+          const bb2 = collectAabb(other);
+          if (bb && bb2) bb.add(bb2); else if (!bb && bb2) bb = bb2;
+        }
+      }
+      const p = ent.getPosition();
+      if (bb) {
+        const r = Math.max(bb.halfExtents.x, bb.halfExtents.z) + 0.25;
+        const d = Math.max(0.6, r * 2);
+        selRing.setLocalScale(d, 0.25, d);
+        ringOffsetY = p.y - (bb.center.y - bb.halfExtents.y);
+        selRing.setPosition(p.x, p.y - ringOffsetY + 0.04, p.z);
+      } else {
+        selRing.setLocalScale(1.6, 0.25, 1.6);
+        selRing.setPosition(p.x, p.y - 0.4, p.z);
+      }
+      selRing.enabled = true;
+    }
+
+    function moveSelRing(ent: pc.Entity) {
+      if (!selRing || !selRing.enabled) return;
+      const p = ent.getPosition();
+      selRing.setPosition(p.x, p.y - ringOffsetY + 0.04, p.z);
+    }
+
+    function rayPlaneHit(sx: number, sy: number, planeY: number): pc.Vec3 | null {
+      if (!camera || !camera.camera) return null;
+      const rayFrom = new pc.Vec3();
+      const rayTo = new pc.Vec3();
+      camera.camera.screenToWorld(sx, sy, camera.camera.nearClip, rayFrom);
+      camera.camera.screenToWorld(sx, sy, camera.camera.farClip, rayTo);
+      const dir = rayTo.clone().sub(rayFrom).normalize();
+      if (Math.abs(dir.y) < 1e-5) return null;
+      const t = (planeY - rayFrom.y) / dir.y;
+      if (t <= 0) return null;
+      return rayFrom.add(dir.scale(t));
+    }
+
+    function pickUserPropAt(sx: number, sy: number): { ent: pc.Entity; propId: string } | null {
+      if (!camera || !camera.camera) return null;
+      const rayFrom = new pc.Vec3();
+      const rayTo = new pc.Vec3();
+      camera.camera.screenToWorld(sx, sy, camera.camera.nearClip, rayFrom);
+      camera.camera.screenToWorld(sx, sy, camera.camera.farClip, rayTo);
+      const dir = rayTo.clone().sub(rayFrom).normalize();
+      const ray = new pc.Ray(rayFrom, dir);
+      let best: { ent: pc.Entity; propId: string } | null = null;
+      let bestT = Infinity;
+      for (const ent of app.root.findByTag('user_prop') as pc.Entity[]) {
+        if (!ent.enabled) continue;
+        const bb = collectAabb(ent);
+        if (!bb) continue;
+        const hit = new pc.Vec3();
+        if (bb.intersectsRay(ray, hit)) {
+          const t = hit.clone().sub(rayFrom).length();
+          if (t < bestT) {
+            bestT = t;
+            const en0 = ent.name;
+            const pid0 = (en0 === 'Showroom_TableTop' || en0 === 'Showroom_Cloth')
+              ? 'prop_display_table'
+              : (en0.startsWith('PropGLB_') ? en0.slice(8) : en0);
+            best = { ent, propId: pid0 };
+          }
+        }
+      }
+      return best;
+    }
+
+    function beginPropDrag(hit: { ent: pc.Entity; propId: string }) {
+      propDragCandidate = hit;
+      propDragActive = false;
+      propDragExtras = [];
+      propExtrasBase = [];
+      const bn = hit.ent.name;
+      if (bn === 'Showroom_TableTop' || bn === 'Showroom_Cloth') {
+        for (const nm of ['Showroom_TableTop', 'Showroom_Cloth']) {
+          if (nm === bn) continue;
+          const te = app.root.findByName(nm) as pc.Entity | null;
+          if (te) { propDragExtras.push(te); propExtrasBase.push(te.getPosition().clone()); }
+        }
+      }
+      propMainBase.copy(hit.ent.getPosition());
+    }
+
+    function handlePropDragMove(sx: number, sy: number) {
+      if (!propDragCandidate) return;
+      if (!propDragActive) {
+        if (Math.hypot(sx - mouseDownPos.x, sy - mouseDownPos.y) < 3) return;
+        propDragActive = true;
+        const p = propDragCandidate.ent.getPosition();
+        dragStartPos.copy(p);
+        dragPlaneY = p.y;
+        const hit = rayPlaneHit(mouseDownPos.x, mouseDownPos.y, dragPlaneY);
+        dragOffset = hit ? hit.clone().sub(p) : new pc.Vec3();
+        dragAccY = 0;
+        lastDragY = sy;
+        prevShift = false;
+        showSelRing(propDragCandidate.ent);
+      }
+      const ent = propDragCandidate.ent;
+      const shift = !!(wasdKeys['ShiftLeft'] || wasdKeys['ShiftRight']);
+      if (shift) {
+        const k = Math.max(0.02, orbitDistance * 0.0022);
+        dragAccY += ((lastDragY ?? sy) - sy) * k;
+        lastDragY = sy;
+        const ny = Math.max(0.2, Math.min(30, dragStartPos.y + dragAccY));
+        ent.setPosition(dragStartPos.x, ny, dragStartPos.z);
+        dragPlaneY = ny;
+      } else {
+        if (prevShift) dragStartPos.copy(ent.getPosition());
+        const hit = rayPlaneHit(sx, sy, dragPlaneY);
+        if (hit) {
+          const np = hit.clone().add(dragOffset);
+          ent.setPosition(np.x, dragPlaneY, np.z);
+        }
+      }
+      prevShift = shift;
+      if (propDragExtras.length) {
+        const cpn = ent.getPosition();
+        const ddx = cpn.x - propMainBase.x, ddy = cpn.y - propMainBase.y, ddz = cpn.z - propMainBase.z;
+        for (let i = 0; i < propDragExtras.length; i++) {
+          const b = propExtrasBase[i];
+          propDragExtras[i].setPosition(b.x + ddx, b.y + ddy, b.z + ddz);
+        }
+      }
+      moveSelRing(ent);
+    }
+
+    function handlePropMouseUp(_sx: number, _sy: number, dist: number) {
+      isDragging = false;
+      propDragExtras = [];
+      propExtrasBase = [];
+      const cand = propDragCandidate;
+      propDragCandidate = null;
+      if (!cand) { propDragActive = false; return; }
+      const ent = cand.ent;
+      if (propDragActive && dist >= 3) {
+        propDragActive = false;
+        let p = ent.getPosition();
+        if (ent.name === 'Showroom_TableTop' || ent.name === 'Showroom_Cloth') {
+          const ttPos = app.root.findByName('Showroom_TableTop');
+          if (ttPos) p = ttPos.getPosition();
+        }
+        const animCfg = propAnimMap.get(ent.name) || propAnimMap.get(cand.propId);
+        if (animCfg) animCfg.basePos.set(p.x, p.y, p.z);
+        showSelRing(ent);
+        const pos = { x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, z: Math.round(p.z * 100) / 100 };
+        if (_svc.onPropDragged) _svc.ngZone.run(() => _svc.onPropDragged!(cand.propId, pos));
+      } else {
+        propDragActive = false;
+        showSelRing(ent);
+        if (_svc.onPropClicked) _svc.ngZone.run(() => _svc.onPropClicked!(cand.propId));
+      }
+    }
 
     this._setCharacterTransformFn = (opts) => {
       const pivot = app.root.findByName("Char_Yen_Root") || app.root.findByName("Char_BodyRoot");
@@ -725,6 +1000,12 @@ export class SontinhSceneService implements OnDestroy {
           targetYaw = -90; targetPitch = 35; targetDistance = 55;
           break;
 
+        case 'prop_display_table':
+        case 'display_table':
+          targetPivot.set(0, 3.4, 0);
+          targetYaw = 0; targetPitch = 14; targetDistance = 26;
+          break;
+
         case 'character':
         case 'character_view':
           isPropCameraActive = false;
@@ -815,14 +1096,22 @@ export class SontinhSceneService implements OnDestroy {
         if (e.button === pc.MOUSEBUTTON_LEFT) {
           mouseDownPos.x = e.x;
           mouseDownPos.y = e.y;
-          isDragging = true;
           lastMouseX = e.x;
           lastMouseY = e.y;
+          const hit = pickUserPropAt(e.x, e.y);
+          if (hit) {
+            beginPropDrag(hit);
+            isDragging = false;
+          } else {
+            isDragging = true;
+          }
         }
       });
     
       app.mouse.on(pc.EVENT_MOUSEUP, (e: pc.MouseEvent) => {
         const distMoved = Math.hypot(e.x - mouseDownPos.x, e.y - mouseDownPos.y);
+        if (propDragCandidate || propDragActive) { handlePropMouseUp(e.x, e.y, distMoved); return; }
+        if (distMoved < 5) hideSelRing();
         if (distMoved < 5) {
           if (!tryClickDrawer(e.x, e.y)) {
             if (!tryClickAquarium(e.x, e.y)) {
@@ -843,6 +1132,7 @@ export class SontinhSceneService implements OnDestroy {
       });
     
       app.mouse.on(pc.EVENT_MOUSEMOVE, (e: pc.MouseEvent) => {
+        if (propDragCandidate || propDragActive) { handlePropDragMove(e.x, e.y); return; }
         if (!isDragging) return;
         const dx = e.x - lastMouseX;
         const dy = e.y - lastMouseY;
@@ -861,7 +1151,11 @@ export class SontinhSceneService implements OnDestroy {
       });
     }
     
-    window.addEventListener('mouseup', () => { isDragging = false; });
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      if (propDragActive || propDragCandidate) handlePropMouseUp(lastMouseX, lastMouseY, 99);
+      propDragCandidate = null;
+    });
     
     // ── WASD / Arrow key state ───────────────────────────────────────────────────
     const wasdKeys: Record<string, boolean> = {};
@@ -896,6 +1190,9 @@ export class SontinhSceneService implements OnDestroy {
         lastTouchY = e.touches[0].y;
         mouseDownPos.x = e.touches[0].x;
         mouseDownPos.y = e.touches[0].y;
+        const hit = pickUserPropAt(e.touches[0].x, e.touches[0].y);
+        if (hit) { beginPropDrag(hit); isDragging = false; }
+        else { propDragCandidate = null; }
       } else if (e.touches.length === 2) {
         lastPinchDist = Math.hypot(
           e.touches[0].x - e.touches[1].x,
@@ -908,6 +1205,8 @@ export class SontinhSceneService implements OnDestroy {
       if (e.changedTouches.length === 1) {
         const touch = e.changedTouches[0];
         const distMoved = Math.hypot(touch.x - mouseDownPos.x, touch.y - mouseDownPos.y);
+        if (propDragCandidate || propDragActive) { handlePropMouseUp(touch.x, touch.y, distMoved); isDragging = false; return; }
+        if (distMoved < 5) hideSelRing();
         if (distMoved < 5) {
           if (!tryClickDrawer(touch.x, touch.y)) {
             if (!tryClickAquarium(touch.x, touch.y)) {
@@ -931,6 +1230,7 @@ export class SontinhSceneService implements OnDestroy {
     
     app.touch?.on(pc.EVENT_TOUCHMOVE, (e: pc.TouchEvent) => {
       if (e.touches.length === 1) {
+        if (propDragCandidate || propDragActive) { handlePropDragMove(e.touches[0].x, e.touches[0].y); lastTouchX = e.touches[0].x; lastTouchY = e.touches[0].y; return; }
         const dx = e.touches[0].x - lastTouchX;
         const dy = e.touches[0].y - lastTouchY;
         lastTouchX = e.touches[0].x;
@@ -2083,6 +2383,61 @@ export class SontinhSceneService implements OnDestroy {
           applyToMesh(ent);
         };
 
+        // ── Bàn trưng bày (món đồ mặc định): Showroom_TableTop + Showroom_Cloth ──
+        if (propId === 'prop_display_table') {
+          const applyTableMat = (ent: any) => {
+            if (!ent) return;
+            const walkMat = (node: any) => {
+              if (node.render && node.render.material) {
+                let mat = node.render.material as pc.StandardMaterial;
+                let changed = false;
+                if (prop._customColorSet && prop.color && typeof prop.color === 'string' && prop.color.toLowerCase() !== '#ffffff') {
+                  if (!(mat as any)._isClonedInstance) { mat = mat.clone() as pc.StandardMaterial; (mat as any)._isClonedInstance = true; node.render.material = mat; }
+                  mat.diffuse = new pc.Color().fromString(prop.color);
+                  changed = true;
+                }
+                if (prop._customOpacitySet && typeof prop.opacity === 'number' && prop.opacity < 1.0) {
+                  if (!(mat as any)._isClonedInstance) { mat = mat.clone() as pc.StandardMaterial; (mat as any)._isClonedInstance = true; node.render.material = mat; }
+                  mat.opacity = prop.opacity;
+                  mat.blendType = pc.BLEND_NORMAL;
+                  changed = true;
+                }
+                if (prop._customEmissiveSet && prop.emissiveColor && prop.emissiveIntensity && prop.emissiveIntensity > 0) {
+                  if (!(mat as any)._isClonedInstance) { mat = mat.clone() as pc.StandardMaterial; (mat as any)._isClonedInstance = true; node.render.material = mat; }
+                  const ce = new pc.Color().fromString(prop.emissiveColor);
+                  const it = prop.emissiveIntensity || 0;
+                  mat.emissive = new pc.Color(ce.r * it, ce.g * it, ce.b * it);
+                  changed = true;
+                }
+                if (changed) mat.update();
+              }
+              for (const ch of (node.children || [])) walkMat(ch);
+            };
+            walkMat(ent);
+          };
+          const TABLE_TOP_BASE_Y = 3.65;
+          const tblTop = this.app.root.findByName('Showroom_TableTop');
+          const tblCloth = this.app.root.findByName('Showroom_Cloth');
+          const tblS = prop.scale && typeof prop.scale.x === 'number' ? prop.scale : { x: 1, y: 1, z: 1 };
+          const parts: Array<[string, any]> = [['Showroom_TableTop', tblTop], ['Showroom_Cloth', tblCloth]];
+          for (const [nm, te] of parts) {
+            if (!te) continue;
+            te.tags?.add('user_prop');
+            te.enabled = isVisible;
+            applyTableMat(te);
+            if (prop._customPositionSet && prop.position && typeof prop.position.x === 'number') {
+              const cy = nm === 'Showroom_TableTop' ? prop.position.y : prop.position.y - TABLE_TOP_BASE_Y;
+              te.setPosition(prop.position.x, cy, prop.position.z);
+            }
+            if (prop._customRotationSet && prop.rotation && typeof prop.rotation.x === 'number') {
+              te.setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
+            }
+            if (prop._customScaleSet && typeof tblS.x === 'number') {
+              te.setLocalScale(tblS.x, tblS.y, tblS.z);
+            }
+          }
+          continue;
+        }
         const cfg = PROP_ENTITY_CONFIG[propId];
         if (cfg) {
           if (propId.includes('monitor') || propId.includes('window') || propId.includes('door') || propId.includes('building') || propId.includes('room')) {
@@ -2144,8 +2499,26 @@ export class SontinhSceneService implements OnDestroy {
           if (!entity && prop.name) {
             entity = this.app.root.findByName(prop.name);
           }
-          // Đồ vật do người dùng thêm: tạo khối hộp hiển thị trong scene
-          if (!entity) {
+          // GLB prop: chỉ dùng wrapper đã nạp, không bao giờ tạo khối hộp dự phòng
+          const isModelProp = prop.shape === 'model' || !!prop.glbPath;
+          if (isModelProp) {
+            const wrapper = this.app.root.findByName(`PropGLB_${propId}`);
+            if (wrapper) {
+              entity = wrapper;
+              const legacyBox = this.app.root.findByName(propId);
+              if (legacyBox && legacyBox !== wrapper && (legacyBox as any).tags?.has('user_prop')) {
+                try { legacyBox.destroy(); } catch (_) {}
+              }
+            } else {
+              // GLB chưa nạp xong (bất đồng bộ): dọn khối hộp dự phòng cũ nếu có rồi chờ wrapper
+              if (entity && (entity as any).tags?.has('user_prop')) {
+                try { entity.destroy(); } catch (_) {}
+              }
+              entity = null;
+            }
+          }
+          // Đồ vật thường (không phải GLB): tạo khối hộp hiển thị trong scene
+          if (!entity && !isModelProp) {
             const userEnt = new pc.Entity(propId);
             userEnt.addComponent('render', { type: 'box', material: matUserPropDefault });
             userEnt.tags.add('user_prop');
@@ -2162,7 +2535,7 @@ export class SontinhSceneService implements OnDestroy {
             }
             app.root.addChild(userEnt);
             entity = userEnt;
-          } else if ((entity as any).tags?.has('user_prop') && prop.color && typeof prop.color === 'string') {
+          } else if (entity && (entity as any).tags?.has('user_prop') && prop.color && typeof prop.color === 'string') {
             const r = (entity as any).render;
             if (r && r.material) {
               const m = r.material as pc.StandardMaterial;
@@ -2282,11 +2655,27 @@ export class SontinhSceneService implements OnDestroy {
         }
       }
 
+      // Bàn trưng bày: nếu người dùng đã xóa món đồ mặc định này (tombstone) thì dọn hẳn
+      {
+        const hasTblProp = props.some(p => p && p.id === 'prop_display_table');
+        const tblDeleted = !!(this._profile as any)?.deletedDefaultProps?.includes('prop_display_table');
+        if (!hasTblProp && tblDeleted) {
+          for (const nm of ['Showroom_TableTop', 'Showroom_Cloth']) {
+            const te = this.app.root.findByName(nm);
+            if (te) { try { te.destroy(); } catch (_) {} }
+          }
+        }
+      }
+
       // Đồng bộ đầy đủ: xoá các khối đồ vật người dùng không còn trong danh sách
       if (fullSync) {
         const keepIds = new Set(props.filter(p => p && p.id).map(p => p.id));
         for (const ent of app.root.findByTag('user_prop') as pc.Entity[]) {
-          if (!keepIds.has(ent.name)) {
+          const nmFs = ent.name;
+          const rawId = (nmFs === 'Showroom_TableTop' || nmFs === 'Showroom_Cloth')
+            ? 'prop_display_table'
+            : (nmFs.startsWith('PropGLB_') ? nmFs.slice(8) : nmFs);
+          if (!keepIds.has(rawId)) {
             try { ent.destroy(); } catch (_) {}
           }
         }
@@ -4251,8 +4640,9 @@ export class SontinhSceneService implements OnDestroy {
       woodMat.specular = new pc.Color(0.12, 0.11, 0.1);
       woodMat.gloss = 0.45;
       woodMat.update();
-      addEntity('Showroom_TableTop', { type: 'cylinder', material: woodMat },
+      const tableTopEnt = addEntity('Showroom_TableTop', { type: 'cylinder', material: woodMat },
         [0, SKIRT_H + TOP_H / 2, 0], [TABLE_R * 2, TOP_H, TABLE_R * 2]);
+      tableTopEnt.tags.add('user_prop');
 
       // --- Váy vải trắng: lưới tự dựng, nếp xếp dọc + vạt loe ra sàn ---
       const SEG = 192, RINGS = 40, FOLDS = 30;
@@ -4300,6 +4690,7 @@ export class SontinhSceneService implements OnDestroy {
         meshInstances: [new pc.MeshInstance(skirtMesh, clothMat)],
         castShadows: true, receiveShadows: true
       });
+      skirt.tags.add('user_prop');
       root.addChild(skirt);
 
       // --- Bóng lá in lên tường: cookie texture cho đèn spot ---
