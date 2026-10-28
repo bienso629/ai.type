@@ -2970,6 +2970,7 @@ ipcMain.handle("read-file-base64", async (event, args) => {
             const candidate2 = path.join(process.cwd(), filePath);
             if (fs.existsSync(candidate1)) targetPath = candidate1;
             else if (fs.existsSync(candidate2)) targetPath = candidate2;
+            else targetPath = resolveVideoAssetPath(filePath);
         }
 
         if (!fs.existsSync(targetPath)) {
@@ -3001,6 +3002,126 @@ ipcMain.handle("read-text-file", async (event, args) => {
         return { success: true, content: content };
     } catch (e) {
         console.error(e);
+        return { success: false, error: e.message };
+    }
+});
+
+// ==================== CUSTOM VIDEO FRAMES (SVG Upload) ====================
+const CUSTOM_FRAMES_DIR = path.join(app.getPath("userData"), "custom_frames");
+if (!fs.existsSync(CUSTOM_FRAMES_DIR)) fs.mkdirSync(CUSTOM_FRAMES_DIR, { recursive: true });
+
+function sanitizeCustomFrameId(raw) {
+    return String(raw || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, "_")
+        .replace(/_+/g, "_")
+        .slice(0, 60) || "frame";
+}
+
+ipcMain.handle("save-custom-frame", async (event, payload) => {
+    try {
+        const { name, quad, canvasWidth, canvasHeight, aspectRatio, bgJpegBase64, maskPngBase64, thumbJpegBase64 } = payload || {};
+        if (!name || !quad || !canvasWidth || !canvasHeight) {
+            return { success: false, error: "Thiếu metadata khung (name/quad/canvas)" };
+        }
+        if (!bgJpegBase64 || !maskPngBase64) {
+            return { success: false, error: "Thiếu dữ liệu ảnh bg/mask" };
+        }
+        const baseId = "custom_" + sanitizeCustomFrameId(name);
+        let frameId = baseId;
+        let counter = 1;
+        while (fs.existsSync(path.join(CUSTOM_FRAMES_DIR, frameId + "_bg.jpg"))) {
+            counter += 1;
+            frameId = baseId + "_" + counter;
+        }
+
+        const writeB64 = (fileName, b64) => fs.writeFileSync(path.join(CUSTOM_FRAMES_DIR, fileName), Buffer.from(b64, "base64"));
+        writeB64(frameId + "_bg.jpg", bgJpegBase64);
+        writeB64(frameId + "_mask.png", maskPngBase64);
+        if (thumbJpegBase64) writeB64(frameId + "_thumb.jpg", thumbJpegBase64);
+
+        const manifest = {
+            id: frameId,
+            name: String(name).slice(0, 120),
+            aspectRatio: aspectRatio === "16:9" ? "16:9" : "9:16",
+            bgPath: path.join(CUSTOM_FRAMES_DIR, frameId + "_bg.jpg"),
+            maskPath: path.join(CUSTOM_FRAMES_DIR, frameId + "_mask.png"),
+            thumbPath: thumbJpegBase64 ? path.join(CUSTOM_FRAMES_DIR, frameId + "_thumb.jpg") : path.join(CUSTOM_FRAMES_DIR, frameId + "_bg.jpg"),
+            quad: quad,
+            canvasWidth: Math.round(canvasWidth),
+            canvasHeight: Math.round(canvasHeight),
+            createdAt: new Date().toISOString(),
+        };
+        fs.writeFileSync(path.join(CUSTOM_FRAMES_DIR, frameId + "_meta.json"), JSON.stringify(manifest, null, 2), "utf-8");
+        return { success: true, frame: manifest };
+    } catch (e) {
+        console.error("[save-custom-frame] Lỗi:", e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle("update-custom-frame-quad", async (event, payload) => {
+    try {
+        const { frameId, quad, maskPngBase64 } = payload || {};
+        if (!frameId || !String(frameId).startsWith("custom_")) {
+            return { success: false, error: "ID khung không hợp lệ" };
+        }
+        const safeId = sanitizeCustomFrameId(frameId);
+        const metaPath = path.join(CUSTOM_FRAMES_DIR, safeId + "_meta.json");
+        if (!fs.existsSync(metaPath)) {
+            return { success: false, error: "Không tìm thấy khung: " + frameId };
+        }
+        const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+        if (!quad || !quad.topLeft || !quad.topRight || !quad.bottomRight || !quad.bottomLeft) {
+            return { success: false, error: "Thiếu tọa độ 4 góc màn hình" };
+        }
+        meta.quad = quad;
+        meta.updatedAt = new Date().toISOString();
+        if (maskPngBase64) {
+            const maskPath = path.join(CUSTOM_FRAMES_DIR, safeId + "_mask.png");
+            fs.writeFileSync(maskPath, Buffer.from(maskPngBase64, "base64"));
+        }
+        fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+        return { success: true, frame: meta };
+    } catch (e) {
+        console.error("[update-custom-frame-quad] Lỗi:", e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle("list-custom-frames", async () => {
+    try {
+        if (!fs.existsSync(CUSTOM_FRAMES_DIR)) return { success: true, frames: [] };
+        const frames = [];
+        for (const f of fs.readdirSync(CUSTOM_FRAMES_DIR)) {
+            if (!f.endsWith("_meta.json")) continue;
+            try {
+                const meta = JSON.parse(fs.readFileSync(path.join(CUSTOM_FRAMES_DIR, f), "utf-8"));
+                if (meta && meta.id && meta.bgPath && fs.existsSync(meta.bgPath)) frames.push(meta);
+            } catch (e) { /* bo qua manifest loi */ }
+        }
+        frames.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+        return { success: true, frames: frames };
+    } catch (e) {
+        console.error("[list-custom-frames] Lỗi:", e);
+        return { success: false, error: e.message, frames: [] };
+    }
+});
+
+ipcMain.handle("delete-custom-frame", async (event, payload) => {
+    try {
+        const { frameId } = payload || {};
+        if (!frameId || !String(frameId).startsWith("custom_")) {
+            return { success: false, error: "ID khung không hợp lệ" };
+        }
+        const safeId = sanitizeCustomFrameId(frameId);
+        for (const suffix of ["_bg.jpg", "_mask.png", "_thumb.jpg", "_meta.json"]) {
+            const p = path.join(CUSTOM_FRAMES_DIR, safeId + suffix);
+            if (fs.existsSync(p)) fs.unlinkSync(p);
+        }
+        return { success: true };
+    } catch (e) {
+        console.error("[delete-custom-frame] Lỗi:", e);
         return { success: false, error: e.message };
     }
 });

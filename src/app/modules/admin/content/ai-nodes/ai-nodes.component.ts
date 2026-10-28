@@ -340,7 +340,8 @@ export class AINodesComponent implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success && result.data) {
                         const dialogRef = this.dialog.open(NodeDetailsDialog, {
-                            width: 'calc(100vw - 40px)',
+                            width: '600px',
+                            panelClass: 'dlg-primary',
                             data: result.data,
                         });
 
@@ -574,28 +575,53 @@ export class AINodesComponent implements OnInit, OnDestroy {
 
 @Component({
     selector: 'node-details-dialog',
-    template: `<div
-            class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch"
-        >
-            <mat-icon
-                class="self-center mr-2 icon-size-4"
-                [svgIcon]="'feather:info'"
-            ></mat-icon>
-            <mat-label class="self-center">Chi tiết Node</mat-label>
+    template: `<div class="flex flex-col max-h-[calc(90vh-48px)] overflow-hidden">
+        <!-- Header -->
+        <div class="shrink-0 pb-2">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100">
+                    <mat-icon
+                        [svgIcon]="'feather:info'"
+                        class="text-indigo-500 icon-size-6"
+                    ></mat-icon>
+                    <span>Chi tiết Node</span>
+                </div>
+                <button
+                    type="button"
+                    mat-icon-button
+                    [mat-dialog-close]
+                    class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:x'"
+                    ></mat-icon>
+                </button>
+            </div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
+                Thông tin chi tiết cấu hình và dữ liệu phản hồi của Node.
+            </p>
         </div>
 
-        <div mat-dialog-content class="mt-4 p-0">
-            <pre
-                class="text-sm overflow-y-auto overflow-x-auto h-full w-full"
-                >{{ data | json }}</pre
+        <!-- Content -->
+        <div class="flex-auto overflow-y-auto min-h-0">
+            <div class="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-4 shadow-inner">
+                <pre class="font-mono text-sm text-slate-700 dark:text-slate-300 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed select-all" style="max-height: 45vh;">{{ data | json }}</pre>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="shrink-0 flex items-center justify-end gap-3 mt-6">
+            <button
+                mat-flat-button
+                [color]="'primary'"
+                [mat-dialog-close]
+                class="px-6"
             >
-        </div>
-
-        <div mat-dialog-actions class="p-0 mt-4">
-            <button mat-button class="float-right" [mat-dialog-close]>
                 Đóng cửa sổ
             </button>
-        </div>`,
+        </div>
+    </div>`,
     changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false,
 })

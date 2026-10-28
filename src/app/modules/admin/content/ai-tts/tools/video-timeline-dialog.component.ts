@@ -75,6 +75,7 @@ export interface VideoFrameTemplate {
     thumbDataUrl?: string;
     bgVideoUrl?: string;
     description?: string;
+    _thumbBroken?: boolean;
     quad: {
         topLeft: { x: number; y: number };
         topRight: { x: number; y: number };
@@ -409,6 +410,932 @@ export class VideoTimelineDialogComponent
         this.showGrid = !this.showGrid;
     }
 
+    // ==================== CUSTOM VIDEO FRAMES (SVG Upload) ====================
+    isUploadingFrame: boolean = false;
+    pendingFrameEdit: any = null;
+    // Trạng thái chỉnh sửa 4 góc của khung tùy chỉnh có sẵn
+    editingFrame: any = null;
+    editingFrameOriginalQuad: any = null;
+    editingFrameBgDataUrl: string | null = null;
+    draggingEditQuadCorner: string | null = null;
+    draggingQuadCorner: string | null = null;
+    quadCorners: string[] = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'];
+
+    startSvgFrameUpload() {
+        this.customSvgInput?.nativeElement.click();
+    }
+
+    cancelPendingFrame() {
+        this.pendingFrameEdit = null;
+        this.draggingQuadCorner = null;
+        this.cd.detectChanges();
+    }
+
+    async onCustomSvgSelected(event: Event) {
+        const input = event.target as HTMLInputElement;
+        const file = input?.files?.[0];
+        input.value = '';
+        if (!file) return;
+        if (!/\.svg$/i.test(file.name)) {
+            this.toastr.error('Vui lòng chọn tệp có đuôi .svg');
+            return;
+        }
+        if (file.size > 15 * 1024 * 1024) {
+            this.toastr.error('Tệp SVG quá lớn (tối đa 15MB)');
+            return;
+        }
+        this.isUploadingFrame = true;
+        this.cd.detectChanges();
+        try {
+            const svgText = await file.text();
+            const parsed = this.parseSvgFrameTemplate(svgText);
+            if (!parsed) throw new Error('Không đọc được kích thước nội tại của SVG');
+            const bgDataUrl = await this.rasterizeSvgToJpeg(parsed.svgText, parsed.width, parsed.height);
+            if (!bgDataUrl) throw new Error('Không vẽ được nền từ SVG (ảnh trong SVG cần nhúng dạng data URI)');
+            // Uu tien quet chroma green-screen tren anh da render, sau do moi toi polygon trang trong SVG
+            const chroma = await this.detectGreenScreenQuad(bgDataUrl, parsed.width, parsed.height);
+            let finalQuad = parsed.quad;
+            let detectionMethod: 'chroma' | 'polygon' | 'manual' = 'manual';
+            if (chroma) {
+                finalQuad = chroma.quad;
+                detectionMethod = 'chroma';
+            } else if (parsed.autoDetected) {
+                detectionMethod = 'polygon';
+            }
+            this.pendingFrameEdit = {
+                name: file.name.replace(/\.svg$/i, '').slice(0, 120),
+                aspectRatio: parsed.width >= parsed.height ? '16:9' : '9:16',
+                canvasWidth: parsed.width,
+                canvasHeight: parsed.height,
+                bgDataUrl: bgDataUrl,
+                quad: finalQuad,
+                autoDetected: detectionMethod !== 'manual',
+                detectionMethod: detectionMethod,
+            };
+            this.isUploadingFrame = false;
+            this.cd.detectChanges();
+        } catch (err: any) {
+            console.error('[onCustomSvgSelected] Lỗi:', err);
+            this.toastr.error(`Lỗi đọc SVG: ${err?.message || err}`);
+            this.isUploadingFrame = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    private parseSvgFrameTemplate(svgText: string) {
+        const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+        const svgEl = doc.querySelector('svg');
+        if (!svgEl) return null;
+        let width = parseFloat(svgEl.getAttribute('width') || '');
+        let height = parseFloat(svgEl.getAttribute('height') || '');
+        if (!width || !height) {
+            const vb = (svgEl.getAttribute('viewBox') || '')
+                .split(/[\s,]+/)
+                .map(Number)
+                .filter((n) => !isNaN(n));
+            if (vb.length === 4 && vb[2] > 0 && vb[3] > 0) {
+                width = vb[2];
+                height = vb[3];
+            }
+        }
+        if (!width || !height) return null;
+        const MAX_DIM = 4096;
+        const MAX_AREA = 16000000;
+        let scale = 1;
+        if (width > MAX_DIM || height > MAX_DIM) {
+            scale = Math.min(MAX_DIM / width, MAX_DIM / height);
+        }
+        if (width * height * scale * scale > MAX_AREA) {
+            scale = Math.min(scale, Math.sqrt(MAX_AREA / (width * height)));
+        }
+        width = Math.max(64, Math.round(width * scale));
+        height = Math.max(64, Math.round(height * scale));
+        const detected = this.extractQuadFromSvgDoc(doc);
+        return {
+            svgText: svgText,
+            width: width,
+            height: height,
+            quad: detected || this.getDefaultQuad(width, height),
+            autoDetected: !!detected,
+        };
+    }
+
+    private getDefaultQuad(width: number, height: number) {
+        return {
+            topLeft: { x: Math.round(width * 0.2), y: Math.round(height * 0.2) },
+            topRight: { x: Math.round(width * 0.8), y: Math.round(height * 0.2) },
+            bottomRight: { x: Math.round(width * 0.8), y: Math.round(height * 0.8) },
+            bottomLeft: { x: Math.round(width * 0.2), y: Math.round(height * 0.8) },
+        };
+    }
+
+    private extractQuadFromSvgDoc(doc: Document) {
+        let best: { pts: { x: number; y: number }[]; area: number } | null = null;
+        for (const p of Array.from(doc.querySelectorAll('polygon'))) {
+            if (!this.isWhiteFill(this.getElementFill(p))) continue;
+            const pts = this.parseSvgPoints(p.getAttribute('points'));
+            if (pts.length < 3) continue;
+            const area = this.polygonArea(pts);
+            if (!best || area > best.area) best = { pts: pts, area: area };
+        }
+        for (const r of Array.from(doc.querySelectorAll('rect'))) {
+            if (!this.isWhiteFill(this.getElementFill(r))) continue;
+            const x = parseFloat(r.getAttribute('x') || '0') || 0;
+            const y = parseFloat(r.getAttribute('y') || '0') || 0;
+            const w = parseFloat(r.getAttribute('width') || '0') || 0;
+            const h = parseFloat(r.getAttribute('height') || '0') || 0;
+            if (w <= 0 || h <= 0) continue;
+            const area = w * h;
+            const pts = [
+                { x: x, y: y },
+                { x: x + w, y: y },
+                { x: x + w, y: y + h },
+                { x: x, y: y + h },
+            ];
+            if (!best || area > best.area) best = { pts: pts, area: area };
+        }
+        if (!best) return null;
+        return this.normalizeQuad(this.quadFromPoints(best.pts));
+    }
+
+    private getElementFill(el: Element): string | null {
+        const attr = el.getAttribute('fill');
+        if (attr) return attr;
+        const style = el.getAttribute('style') || '';
+        const m = style.match(/fill\s*:\s*([^;]+)/i);
+        return m ? m[1].trim() : null;
+    }
+
+    private isWhiteFill(fill: string | null): boolean {
+        if (!fill) return false;
+        const f = fill.trim().toLowerCase().replace(/\s+/g, '');
+        return (
+            f === 'white' ||
+            f === '#fff' ||
+            f === '#ffffff' ||
+            f === 'rgb(255,255,255)'
+        );
+    }
+
+    private parseSvgPoints(pointsAttr: string | null): { x: number; y: number }[] {
+        if (!pointsAttr) return [];
+        const nums = pointsAttr
+            .trim()
+            .split(/[\s,]+/)
+            .map(Number)
+            .filter((n) => !isNaN(n));
+        const pts: { x: number; y: number }[] = [];
+        for (let i = 0; i + 1 < nums.length; i += 2) {
+            pts.push({ x: nums[i], y: nums[i + 1] });
+        }
+        return pts;
+    }
+
+    private polygonArea(pts: { x: number; y: number }[]): number {
+        let area = 0;
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i];
+            const b = pts[(i + 1) % pts.length];
+            area += a.x * b.y - b.x * a.y;
+        }
+        return Math.abs(area) / 2;
+    }
+
+    private quadFromPoints(pts: { x: number; y: number }[]) {
+        if (pts.length === 4) {
+            return {
+                topLeft: pts[0],
+                topRight: pts[1],
+                bottomRight: pts[2],
+                bottomLeft: pts[3],
+            };
+        }
+        const xs = pts.map((p) => p.x);
+        const ys = pts.map((p) => p.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        return {
+            topLeft: { x: minX, y: minY },
+            topRight: { x: maxX, y: minY },
+            bottomRight: { x: maxX, y: maxY },
+            bottomLeft: { x: minX, y: maxY },
+        };
+    }
+
+    private normalizeQuad(quad: {
+        topLeft: { x: number; y: number };
+        topRight: { x: number; y: number };
+        bottomRight: { x: number; y: number };
+        bottomLeft: { x: number; y: number };
+    }) {
+        const pts = [quad.topLeft, quad.topRight, quad.bottomRight, quad.bottomLeft];
+        const sorted = [...pts].sort((a, b) => a.y - b.y);
+        const top = [sorted[0], sorted[1]].sort((a, b) => a.x - b.x);
+        const bottom = [sorted[2], sorted[3]].sort((a, b) => a.x - b.x);
+        return {
+            topLeft: top[0],
+            topRight: top[1],
+            bottomRight: bottom[1],
+            bottomLeft: bottom[0],
+        };
+    }
+
+    /**
+     * Quet chroma key: tim vung man hinh xanh (green screen) lien thong lon nhat
+     * tren anh da rasterize, sau do suy ra 4 goc perspective:
+     * - Gan nhan lien thong (connected component) de bo qua cac chi tiet xanh nho
+     * - Noi suy duong bien trai/phai bang least-squares de dinh vi 4 goc chinh xac
+     * Tra ve null neu khong tim thay vung xanh dang tin cay.
+     */
+    private detectGreenScreenQuad(
+        dataUrl: string,
+        canvasW: number,
+        canvasH: number
+    ): Promise<{ quad: any; coverage: number } | null> {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    // Quet o do phan giai giam (canh dai nhat 512px) de nhanh va giam soi phan giai
+                    const scale = Math.min(1, 512 / Math.max(1, Math.max(canvasW, canvasH)));
+                    const w = Math.max(8, Math.round(canvasW * scale));
+                    const h = Math.max(8, Math.round(canvasH * scale));
+                    const c = document.createElement('canvas');
+                    c.width = w;
+                    c.height = h;
+                    const ctx = c.getContext('2d', { willReadFrequently: true });
+                    if (!ctx) {
+                        resolve(null);
+                        return;
+                    }
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const data = ctx.getImageData(0, 0, w, h).data;
+                    // Danh dau pixel xanh chroma: G cao, R/B thap ro lech, chiu dai sang toi
+                    const mask = new Uint8Array(w * h);
+                    let greenTotal = 0;
+                    for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
+                        const r = data[p];
+                        const g = data[p + 1];
+                        const b = data[p + 2];
+                        const a = data[p + 3];
+                        if (a >= 40 && g >= 80 && g - Math.max(r, b) >= 60 && g / (Math.max(r, b) + 1) >= 1.8) {
+                            mask[i] = 1;
+                            greenTotal++;
+                        }
+                    }
+                    if (greenTotal < w * h * 0.01) {
+                        resolve(null);
+                        return;
+                    }
+                    // Connected component (BFS 4 huong) tim mam xanh lon nhat
+                    const labels = new Int32Array(w * h);
+                    let bestId = 0;
+                    let bestSize = 0;
+                    let labelId = 0;
+                    const stack = new Int32Array(w * h);
+                    for (let i = 0; i < mask.length; i++) {
+                        if (!mask[i] || labels[i]) continue;
+                        labelId++;
+                        let size = 0;
+                        let sp = 0;
+                        stack[sp++] = i;
+                        labels[i] = labelId;
+                        while (sp > 0) {
+                            const cur = stack[--sp];
+                            size++;
+                            const cx = cur % w;
+                            const cy = (cur - cx) / w;
+                            if (cx > 0 && mask[cur - 1] && !labels[cur - 1]) {
+                                labels[cur - 1] = labelId;
+                                stack[sp++] = cur - 1;
+                            }
+                            if (cx < w - 1 && mask[cur + 1] && !labels[cur + 1]) {
+                                labels[cur + 1] = labelId;
+                                stack[sp++] = cur + 1;
+                            }
+                            if (cy > 0 && mask[cur - w] && !labels[cur - w]) {
+                                labels[cur - w] = labelId;
+                                stack[sp++] = cur - w;
+                            }
+                            if (cy < h - 1 && mask[cur + w] && !labels[cur + w]) {
+                                labels[cur + w] = labelId;
+                                stack[sp++] = cur + w;
+                            }
+                        }
+                        if (size > bestSize) {
+                            bestSize = size;
+                            bestId = labelId;
+                        }
+                    }
+                    if (bestSize < w * h * 0.015) {
+                        resolve(null);
+                        return;
+                    }
+                    const coverage = bestSize / (w * h);
+                    if (coverage > 0.92) {
+                        resolve(null);
+                        return;
+                    }
+                    // Thong ke bien theo hang (trai/phai) va theo cot (tren/duoi)
+                    const rowLeft = new Int32Array(h).fill(-1);
+                    const rowRight = new Int32Array(h).fill(-1);
+                    const colTop = new Int32Array(w).fill(-1);
+                    const colBottom = new Int32Array(w).fill(-1);
+                    let top = -1;
+                    let bottom = -1;
+                    let left = -1;
+                    let right = -1;
+                    for (let y = 0; y < h; y++) {
+                        const base = y * w;
+                        for (let x = 0; x < w; x++) {
+                            if (labels[base + x] !== bestId) continue;
+                            if (rowLeft[y] === -1) rowLeft[y] = x;
+                            rowRight[y] = x;
+                            if (colTop[x] === -1) colTop[x] = y;
+                            colBottom[x] = y;
+                        }
+                        if (rowLeft[y] !== -1) {
+                            if (top === -1) top = y;
+                            bottom = y;
+                        }
+                    }
+                    for (let x = 0; x < w; x++) {
+                        if (colTop[x] !== -1) {
+                            if (left === -1) left = x;
+                            right = x;
+                        }
+                    }
+                    if (top < 0 || bottom <= top || left < 0 || right <= left) {
+                        resolve(null);
+                        return;
+                    }
+                    // Hop quy duong bien bang least-squares + loai diem ngoai lai (toi da 3 vong)
+                    const fitLine = (
+                        idxFrom: number,
+                        idxTo: number,
+                        getVal: (i: number) => number,
+                        isMissing: (i: number) => boolean
+                    ) => {
+                        let active: number[] = [];
+                        for (let i = idxFrom; i <= idxTo; i++) {
+                            if (!isMissing(i)) active.push(i);
+                        }
+                        let fit: { a: number; b: number } | null = null;
+                        for (let round = 0; round < 3; round++) {
+                            const n = active.length;
+                            if (n < 4) return null;
+                            let si = 0;
+                            let sv = 0;
+                            let sii = 0;
+                            let siv = 0;
+                            for (const i of active) {
+                                const v = getVal(i);
+                                si += i;
+                                sv += v;
+                                sii += i * i;
+                                siv += i * v;
+                            }
+                            const denom = n * sii - si * si;
+                            if (denom === 0) {
+                                fit = { a: 0, b: sv / n };
+                            } else {
+                                const a = (n * siv - si * sv) / denom;
+                                fit = { a: a, b: (sv - a * si) / n };
+                            }
+                            const kept: number[] = [];
+                            for (const i of active) {
+                                if (Math.abs(getVal(i) - (fit.a * i + fit.b)) <= 3) kept.push(i);
+                            }
+                            if (kept.length === active.length) break;
+                            active = kept;
+                        }
+                        return fit;
+                    };
+                    // Cat bo 10% moi dau tran de loai vung cong cua goc (bien chuyen tiep giua 2 canh ke)
+                    const trimH = Math.max(2, Math.round((bottom - top) * 0.1));
+                    const trimW = Math.max(2, Math.round((right - left) * 0.1));
+                    const edgeLeft = fitLine(
+                        top + trimH,
+                        bottom - trimH,
+                        (y) => rowLeft[y],
+                        (y) => rowLeft[y] === -1
+                    );
+                    const edgeRight = fitLine(
+                        top + trimH,
+                        bottom - trimH,
+                        (y) => rowRight[y],
+                        (y) => rowRight[y] === -1
+                    );
+                    const edgeTop = fitLine(
+                        left + trimW,
+                        right - trimW,
+                        (x) => colTop[x],
+                        (x) => colTop[x] === -1
+                    );
+                    const edgeBottom = fitLine(
+                        left + trimW,
+                        right - trimW,
+                        (x) => colBottom[x],
+                        (x) => colBottom[x] === -1
+                    );
+                    if (!edgeLeft || !edgeRight || !edgeTop || !edgeBottom) {
+                        resolve(null);
+                        return;
+                    }
+                    // Giao duong thang: canh dung x = aV*y + bV va canh nam y = aH*x + bH
+                    const intersect = (
+                        v: { a: number; b: number },
+                        hLine: { a: number; b: number }
+                    ) => {
+                        const denom = 1 - v.a * hLine.a;
+                        if (Math.abs(denom) < 1e-6) return null;
+                        const x = (v.a * hLine.b + v.b) / denom;
+                        const y = (hLine.a * v.b + hLine.b) / denom;
+                        return { x: x, y: y };
+                    };
+                    const cTL = intersect(edgeLeft, edgeTop);
+                    const cTR = intersect(edgeRight, edgeTop);
+                    const cBR = intersect(edgeRight, edgeBottom);
+                    const cBL = intersect(edgeLeft, edgeBottom);
+                    if (!cTL || !cTR || !cBR || !cBL) {
+                        resolve(null);
+                        return;
+                    }
+                    const clampPt = (pt: { x: number; y: number }) => ({
+                        x: Math.min(canvasW, Math.max(0, Math.round(pt.x / scale))),
+                        y: Math.min(canvasH, Math.max(0, Math.round(pt.y / scale))),
+                    });
+                    const quad = this.normalizeQuad({
+                        topLeft: clampPt(cTL),
+                        topRight: clampPt(cTR),
+                        bottomRight: clampPt(cBR),
+                        bottomLeft: clampPt(cBL),
+                    });
+                    resolve({ quad: quad, coverage: coverage });
+                } catch (e) {
+                    console.warn('[detectGreenScreenQuad] Loi:', e);
+                    resolve(null);
+                }
+            };
+            img.onerror = () => resolve(null);
+            img.src = dataUrl;
+        });
+    }
+
+    private rasterizeSvgToJpeg(svgText: string, w: number, h: number): Promise<string | null> {
+        return new Promise((resolve) => {
+            let url = '';
+            try {
+                const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+                url = URL.createObjectURL(svgBlob);
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            URL.revokeObjectURL(url);
+                            resolve(null);
+                            return;
+                        }
+                        ctx.fillStyle = '#000000';
+                        ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        URL.revokeObjectURL(url);
+                        resolve(canvas.toDataURL('image/jpeg', 0.92));
+                    } catch (e) {
+                        console.error('[rasterizeSvgToJpeg] Lỗi vẽ canvas:', e);
+                        URL.revokeObjectURL(url);
+                        resolve(null);
+                    }
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(null);
+                };
+                img.src = url;
+            } catch (e) {
+                if (url) URL.revokeObjectURL(url);
+                resolve(null);
+            }
+        });
+    }
+
+    private makeThumbFromDataUrl(dataUrl: string, srcW: number, srcH: number): Promise<string | null> {
+        return new Promise((resolve) => {
+            try {
+                const scale = Math.min(1, 480 / Math.max(1, srcW));
+                const tw = Math.max(1, Math.round(srcW * scale));
+                const th = Math.max(1, Math.round(srcH * scale));
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const c = document.createElement('canvas');
+                        c.width = tw;
+                        c.height = th;
+                        const ctx = c.getContext('2d');
+                        if (!ctx) {
+                            resolve(null);
+                            return;
+                        }
+                        ctx.drawImage(img, 0, 0, tw, th);
+                        resolve(c.toDataURL('image/jpeg', 0.82));
+                    } catch (e) {
+                        resolve(null);
+                    }
+                };
+                img.onerror = () => resolve(null);
+                img.src = dataUrl;
+            } catch (e) {
+                resolve(null);
+            }
+        });
+    }
+
+    buildQuadMaskPng(
+        quad: {
+            topLeft: { x: number; y: number };
+            topRight: { x: number; y: number };
+            bottomRight: { x: number; y: number };
+            bottomLeft: { x: number; y: number };
+        },
+        w: number,
+        h: number,
+    ): string {
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(quad.topLeft.x, quad.topLeft.y);
+        ctx.lineTo(quad.topRight.x, quad.topRight.y);
+        ctx.lineTo(quad.bottomRight.x, quad.bottomRight.y);
+        ctx.lineTo(quad.bottomLeft.x, quad.bottomLeft.y);
+        ctx.closePath();
+        ctx.fill();
+        return canvas.toDataURL('image/png');
+    }
+
+    private mapCustomFrame(meta: any): VideoFrameTemplate {
+        return {
+            id: String(meta.id),
+            name: String(meta.name || 'Khung tùy chỉnh'),
+            aspectRatio: meta.aspectRatio === '16:9' ? '16:9' : '9:16',
+            icon: 'add_photo_alternate',
+            bgPath: String(meta.bgPath || ''),
+            maskPath: String(meta.maskPath || ''),
+            thumbPath: String(meta.thumbPath || meta.bgPath || ''),
+            description: `Khung tùy chỉnh từ SVG (${meta.canvasWidth}x${meta.canvasHeight})`,
+            quad: meta.quad,
+            canvasWidth: Number(meta.canvasWidth) || 2286,
+            canvasHeight: Number(meta.canvasHeight) || 4096,
+        };
+    }
+
+    async loadCustomFrames() {
+        const electron = (window as any).electron;
+        if (!electron?.invoke) return;
+        try {
+            const res = await electron.invoke('list-custom-frames');
+            if (res?.success && Array.isArray(res.frames)) {
+                this.AVAILABLE_FRAMES = this.AVAILABLE_FRAMES.filter(
+                    (f) => !f.id.startsWith('custom_'),
+                );
+                for (const meta of res.frames) {
+                    this.AVAILABLE_FRAMES.push(this.mapCustomFrame(meta));
+                }
+            }
+        } catch (e) {
+            console.warn('[loadCustomFrames] Lỗi:', e);
+        }
+    }
+
+    async savePendingCustomFrame() {
+        const p = this.pendingFrameEdit;
+        if (!p) return;
+        const electron = (window as any).electron;
+        if (!electron?.invoke) {
+            this.toastr.error('Tính năng này chỉ khả dụng trên ứng dụng Desktop');
+            return;
+        }
+        this.isUploadingFrame = true;
+        this.cd.detectChanges();
+        try {
+            const maskPng = this.buildQuadMaskPng(p.quad, p.canvasWidth, p.canvasHeight);
+            if (!maskPng) throw new Error('Không tạo được ảnh mask từ vùng màn hình');
+            const thumb = await this.makeThumbFromDataUrl(p.bgDataUrl, p.canvasWidth, p.canvasHeight);
+            const res = await electron.invoke('save-custom-frame', {
+                name: p.name || 'Khung tùy chỉnh',
+                quad: p.quad,
+                canvasWidth: p.canvasWidth,
+                canvasHeight: p.canvasHeight,
+                aspectRatio: p.aspectRatio,
+                bgJpegBase64: String(p.bgDataUrl).split(',')[1] || '',
+                maskPngBase64: maskPng.split(',')[1] || '',
+                thumbJpegBase64: thumb ? thumb.split(',')[1] : null,
+            });
+            if (res?.success && res.frame) {
+                const newFrame = this.mapCustomFrame(res.frame);
+                this.AVAILABLE_FRAMES.push(newFrame);
+                this.pendingFrameEdit = null;
+                this.toastr.success(`Đã thêm khung tùy chỉnh: ${newFrame.name}`);
+            } else {
+                throw new Error(res?.error || 'Lưu khung thất bại');
+            }
+        } catch (err: any) {
+            console.error('[savePendingCustomFrame] Lỗi:', err);
+            this.toastr.error(`Lỗi lưu khung: ${err?.message || err}`);
+        } finally {
+            this.isUploadingFrame = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    async deleteCustomFrame(event: Event, frame: VideoFrameTemplate) {
+        event.stopPropagation();
+        if (!frame.id.startsWith('custom_')) return;
+        const electron = (window as any).electron;
+        if (!electron?.invoke) return;
+        const res = await electron.invoke('delete-custom-frame', { frameId: frame.id });
+        if (res?.success) {
+            this.AVAILABLE_FRAMES = this.AVAILABLE_FRAMES.filter((f) => f.id !== frame.id);
+            const cur = this.currentSelectedVideo;
+            if (cur && cur.frame?.id === frame.id) {
+                cur.frame = null;
+                this.selectedFrame = null;
+                this.mockupVideoStyle = {};
+            }
+            if (this.selectedFrame?.id === frame.id) this.selectedFrame = null;
+            this.toastr.info(`Đã xóa khung tùy chỉnh: ${frame.name}`);
+            this.cd.detectChanges();
+        } else {
+            this.toastr.error(res?.error || 'Xóa khung thất bại');
+        }
+    }
+
+    getQuadEditHeight(): number {
+        const p = this.pendingFrameEdit;
+        if (!p || !p.canvasWidth) return 320;
+        return Math.round((320 * p.canvasHeight) / p.canvasWidth);
+    }
+
+    getQuadPolygonPoints(): string {
+        const q = this.pendingFrameEdit?.quad;
+        if (!q) return '';
+        return [
+            `${q.topLeft?.x ?? 0},${q.topLeft?.y ?? 0}`,
+            `${q.topRight?.x ?? 0},${q.topRight?.y ?? 0}`,
+            `${q.bottomRight?.x ?? 0},${q.bottomRight?.y ?? 0}`,
+            `${q.bottomLeft?.x ?? 0},${q.bottomLeft?.y ?? 0}`,
+        ].join(' ');
+    }
+
+    getQuadCornerLeft(corner: string): number {
+        const p = this.pendingFrameEdit;
+        const x = p?.quad?.[corner]?.x || 0;
+        const w = p?.canvasWidth || 1;
+        return (x / w) * 100;
+    }
+
+    getQuadCornerTop(corner: string): number {
+        const p = this.pendingFrameEdit;
+        const y = p?.quad?.[corner]?.y || 0;
+        const h = p?.canvasHeight || 1;
+        return (y / h) * 100;
+    }
+
+    onQuadHandleDown(event: MouseEvent, corner: string) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.draggingQuadCorner = corner;
+    }
+
+    onQuadEditMouseMove(event: MouseEvent) {
+        if (!this.draggingQuadCorner || !this.pendingFrameEdit) return;
+        const container = this.quadEditContainer?.nativeElement;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const rx = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        const ry = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+        this.pendingFrameEdit.quad[this.draggingQuadCorner] = {
+            x: Math.round(rx * this.pendingFrameEdit.canvasWidth),
+            y: Math.round(ry * this.pendingFrameEdit.canvasHeight),
+        };
+    }
+
+    onQuadEditMouseUp() {
+        this.draggingQuadCorner = null;
+    }
+
+    resetPendingQuad() {
+        const p = this.pendingFrameEdit;
+        if (!p) return;
+        p.quad = this.getDefaultQuad(p.canvasWidth, p.canvasHeight);
+        this.cd.detectChanges();
+    }
+
+    // ==================== CHỈNH SỬA 4 GÓC KHUNG CÓ SẴN ====================
+    async editCustomFrameQuad(event: Event, frame: VideoFrameTemplate) {
+        event.stopPropagation();
+        if (!frame || !frame.id.startsWith('custom_')) return;
+        const electron = (window as any).electron;
+        if (!electron?.invoke) {
+            this.toastr.error(
+                'Tính năng này chỉ khả dụng trên ứng dụng Desktop',
+            );
+            return;
+        }
+        this.editingFrame = frame;
+        this.editingFrameOriginalQuad = JSON.parse(
+            JSON.stringify(frame.quad),
+        );
+        this.editingFrameBgDataUrl = null;
+        this.cd.detectChanges();
+        try {
+            const res = await electron.invoke('read-file-base64', {
+                filePath: frame.bgPath,
+            });
+            if (res?.success && res.dataUrl) {
+                this.editingFrameBgDataUrl = res.dataUrl;
+            }
+        } catch (e) {
+            console.warn('[editCustomFrameQuad] Không nạp được ảnh nền:', e);
+        }
+        this.cd.detectChanges();
+    }
+
+    cancelEditQuad() {
+        this.editingFrame = null;
+        this.editingFrameOriginalQuad = null;
+        this.editingFrameBgDataUrl = null;
+        this.draggingEditQuadCorner = null;
+        this.cd.detectChanges();
+    }
+
+    resetEditQuad() {
+        if (!this.editingFrame || !this.editingFrameOriginalQuad) return;
+        this.editingFrame.quad = JSON.parse(
+            JSON.stringify(this.editingFrameOriginalQuad),
+        );
+        this.cd.detectChanges();
+    }
+
+    async saveEditedQuad() {
+        const frame = this.editingFrame;
+        if (!frame) return;
+        const electron = (window as any).electron;
+        if (!electron?.invoke) {
+            this.toastr.error(
+                'Tính năng này chỉ khả dụng trên ứng dụng Desktop',
+            );
+            return;
+        }
+        this.isUploadingFrame = true;
+        this.cd.detectChanges();
+        try {
+            const maskPng = this.buildQuadMaskPng(
+                frame.quad,
+                frame.canvasWidth,
+                frame.canvasHeight,
+            );
+            if (!maskPng)
+                throw new Error('Không tạo được mask từ vùng màn hình mới');
+            const res = await electron.invoke('update-custom-frame-quad', {
+                frameId: frame.id,
+                quad: frame.quad,
+                maskPngBase64: maskPng.split(',')[1] || '',
+            });
+            if (!res?.success)
+                throw new Error(res?.error || 'Cập nhật khung thất bại');
+            // Đồng bộ quad mới cho mọi video đang dùng khung này
+            if (this.projectData?.scenes) {
+                for (const sc of this.projectData.scenes) {
+                    for (const v of sc.videos || []) {
+                        if (v.frame && v.frame.id === frame.id) {
+                            v.frame.quad = JSON.parse(
+                                JSON.stringify(frame.quad),
+                            );
+                        }
+                    }
+                }
+            }
+            if (this.selectedFrame?.id === frame.id) {
+                this.updateMockupVideoStyle();
+            }
+            this.editingFrame = null;
+            this.editingFrameOriginalQuad = null;
+            this.editingFrameBgDataUrl = null;
+            this.toastr.success(
+                `Đã cập nhật vị trí màn hình của khung: ${frame.name}`,
+            );
+        } catch (err: any) {
+            console.error('[saveEditedQuad] Lỗi:', err);
+            this.toastr.error(`Lỗi cập nhật khung: ${err?.message || err}`);
+        } finally {
+            this.isUploadingFrame = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    getEditQuadHeight(): number {
+        const f = this.editingFrame;
+        if (!f || !f.canvasWidth) return 320;
+        return Math.round((320 * f.canvasHeight) / f.canvasWidth);
+    }
+
+    getEditQuadPolygonPoints(): string {
+        const q = this.editingFrame?.quad;
+        if (!q) return '';
+        return [
+            `${q.topLeft?.x ?? 0},${q.topLeft?.y ?? 0}`,
+            `${q.topRight?.x ?? 0},${q.topRight?.y ?? 0}`,
+            `${q.bottomRight?.x ?? 0},${q.bottomRight?.y ?? 0}`,
+            `${q.bottomLeft?.x ?? 0},${q.bottomLeft?.y ?? 0}`,
+        ].join(' ');
+    }
+
+    getEditQuadCornerLeft(corner: string): number {
+        const f = this.editingFrame;
+        const x = f?.quad?.[corner]?.x || 0;
+        return (x / (f?.canvasWidth || 1)) * 100;
+    }
+
+    getEditQuadCornerTop(corner: string): number {
+        const f = this.editingFrame;
+        const y = f?.quad?.[corner]?.y || 0;
+        return (y / (f?.canvasHeight || 1)) * 100;
+    }
+
+    onEditQuadHandleDown(event: MouseEvent, corner: string) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.draggingEditQuadCorner = corner;
+    }
+
+    onEditQuadMouseMove(event: MouseEvent) {
+        if (!this.draggingEditQuadCorner || !this.editingFrame) return;
+        const container = this.editQuadContainer?.nativeElement;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const rx = Math.min(
+            1,
+            Math.max(0, (event.clientX - rect.left) / rect.width),
+        );
+        const ry = Math.min(
+            1,
+            Math.max(0, (event.clientY - rect.top) / rect.height),
+        );
+        this.editingFrame.quad[this.draggingEditQuadCorner] = {
+            x: Math.round(rx * this.editingFrame.canvasWidth),
+            y: Math.round(ry * this.editingFrame.canvasHeight),
+        };
+    }
+
+    onEditQuadMouseUp() {
+        this.draggingEditQuadCorner = null;
+    }
+
+    async redetectPendingQuad() {
+        const p = this.pendingFrameEdit;
+        if (!p || !p.bgDataUrl) return;
+        this.isUploadingFrame = true;
+        this.cd.detectChanges();
+        try {
+            const chroma = await this.detectGreenScreenQuad(
+                p.bgDataUrl,
+                p.canvasWidth,
+                p.canvasHeight
+            );
+            if (chroma) {
+                p.quad = chroma.quad;
+                p.autoDetected = true;
+                p.detectionMethod = 'chroma';
+                this.toastr.success(
+                    `Đã nhận diện màn hình xanh (độ phủ ${(chroma.coverage * 100).toFixed(1)}%)`
+                );
+            } else {
+                p.autoDetected = false;
+                p.detectionMethod = 'manual';
+                this.toastr.warning(
+                    'Không tìm thấy vùng xanh rõ ràng — hãy kéo 4 điểm thủ công'
+                );
+            }
+        } finally {
+            this.isUploadingFrame = false;
+            this.cd.detectChanges();
+        }
+    }
+
     async loadFrameAssets() {
         const electron = (window as any).electron;
         for (const frame of this.AVAILABLE_FRAMES) {
@@ -419,8 +1346,10 @@ export class VideoTimelineDialogComponent
                         const thumbRes = await electron.readFileBase64(
                             frame.thumbPath,
                         );
-                        if (thumbRes && thumbRes.dataUrl)
+                        if (thumbRes && thumbRes.dataUrl) {
                             frame.thumbDataUrl = thumbRes.dataUrl;
+                            frame._thumbBroken = false;
+                        }
                     }
                     if (frame.bgPath && !frame.bgDataUrl) {
                         const bgRes = await electron.readFileBase64(
@@ -441,9 +1370,16 @@ export class VideoTimelineDialogComponent
         this.cd.detectChanges();
     }
 
+    onFrameThumbError(frame: VideoFrameTemplate) {
+        if (!frame) return;
+        frame._thumbBroken = true;
+        this.cd.detectChanges();
+    }
+
     openFrameModal() {
         this.isFrameModalOpen = true;
         this.loadFrameAssets();
+        this.loadCustomFrames();
         this.cd.detectChanges();
     }
 
@@ -1840,6 +2776,14 @@ export class VideoTimelineDialogComponent
     activeImage: any = null;
     activeOverlayVideo: any = null;
     activeAudio: any = null;
+
+    // ViewChild cho tính năng upload khung SVG tùy chỉnh
+    @ViewChild('customSvgInput')
+    customSvgInput?: ElementRef<HTMLInputElement>;
+    @ViewChild('quadEditContainer')
+    quadEditContainer?: ElementRef<HTMLDivElement>;
+    @ViewChild('editQuadContainer')
+    editQuadContainer?: ElementRef<HTMLDivElement>;
 
     // Khai báo ViewChild để truy cập video tag trong template
     @ViewChild('mockupFrameContainer')
@@ -7525,6 +8469,156 @@ export class VideoTimelineDialogComponent
                 );
                 this.toastr.error(
                     'Không thể thay video nền khung: ' + (err as any)?.message,
+                );
+            }
+        };
+        input.click();
+    }
+
+    async addOverlayMediaFromContextMenu(
+        scene: any,
+        video: any,
+        sceneIdx: number,
+        vIdx: number = -1,
+    ): Promise<void> {
+        const electronApi = (window as any).electron;
+        if (!electronApi || !electronApi.getPathForFile) {
+            this.toastr.error(
+                'Lỗi cấu hình. Tính năng này chỉ dùng trên App Desktop.',
+            );
+            return;
+        }
+        if (!scene) {
+            this.toastr.warning('Không tìm thấy Scene chứa video này!');
+            return;
+        }
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept =
+            'image/*,video/mp4,video/webm,video/quicktime,video/*';
+        input.onchange = async (e: any) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            try {
+                const isImage = file.type && file.type.startsWith('image/');
+                const isVideo = file.type && file.type.startsWith('video/');
+                if (!isImage && !isVideo) {
+                    this.toastr.error('Chỉ hỗ trợ file ảnh hoặc video!');
+                    return;
+                }
+
+                this.toastr.info('Đang nạp lớp chồng mới...', 'Hệ thống');
+
+                let originalPath = '';
+                if (electronApi.getPathForFile) {
+                    try {
+                        originalPath = electronApi.getPathForFile(file) || '';
+                    } catch (err) {}
+                }
+                if (!originalPath && (file as any).path) {
+                    originalPath = (file as any).path;
+                }
+
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                let finalPath = '';
+                if (originalPath && electronApi.selectLocalFile) {
+                    const localFilePath = await electronApi.selectLocalFile(
+                        originalPath,
+                        customDir,
+                    );
+                    finalPath = localFilePath.startsWith('file://')
+                        ? localFilePath
+                        : `file://${localFilePath.replace(/\\/g, '/')}`;
+                } else if (originalPath) {
+                    finalPath = `file://${originalPath.replace(/\\/g, '/')}`;
+                } else {
+                    finalPath = URL.createObjectURL(file);
+                }
+                this.unmarkDeletedKey(finalPath);
+                if (originalPath) this.unmarkDeletedKey(originalPath);
+
+                // Lớp chồng bắt đầu tại thời điểm video đang thao tác
+                const baseStart = Number(video?.startTime) || 0;
+                const baseDuration = Number(video?.duration) || 5;
+
+                if (isImage) {
+                    // Ảnh -> Track Images (lớp đè lên trên cùng, pipeline có sẵn)
+                    if (!scene.images) scene.images = [];
+                    const newImage: any = {
+                        id: `img_${Date.now()}`,
+                        imageUrl: finalPath,
+                        title:
+                            file.name ||
+                            'Lớp chồng ' + (scene.images.length + 1),
+                        startTime: baseStart,
+                        duration: baseDuration,
+                        type: 'image',
+                    };
+                    scene.images.push(newImage);
+                    this.setActiveItem(newImage);
+                } else {
+                    // Video -> Track 2+ (overlay video trong suốt, pipeline có sẵn)
+                    if (!scene.videos) scene.videos = [];
+                    let realDur = baseDuration;
+                    if (electronApi.getMediaDuration) {
+                        try {
+                            const durRes =
+                                await electronApi.getMediaDuration(finalPath);
+                            if (
+                                durRes &&
+                                durRes.success &&
+                                durRes.duration > 0
+                            ) {
+                                realDur =
+                                    Math.round(durRes.duration * 10) / 10;
+                            }
+                        } catch (durErr) {}
+                    }
+                    const newVideo: any = {
+                        id: `video_${Date.now()}`,
+                        prompt: '',
+                        startTime: baseStart,
+                        duration: realDur,
+                        maxDuration: realDur,
+                        videoUrl: finalPath,
+                        trackIndex: 1,
+                        isCompleted: true,
+                        title: file.name || 'Lớp chồng video',
+                    };
+                    scene.videos.push(newVideo);
+                    this.setActiveItem(newVideo);
+                    // Tự mở rộng Track 2 trên timeline nếu đang thu gọn
+                    if (this.trackCount < 2) {
+                        this.setTrackCount(2);
+                    }
+                }
+
+                this.normalizeData();
+                this.updateTimelineTotalWidth();
+                this.updateRulerTicks();
+                this.updateFilteredMediaItems();
+                this.saveData(true);
+                this.cd.detectChanges();
+                setTimeout(() => {
+                    this.autoScanAndLoadCompanionAssets();
+                    this.updateLines();
+                }, 100);
+                this.toastr.success(
+                    isImage
+                        ? 'Đã thêm lớp ảnh chồng lên video!'
+                        : 'Đã thêm lớp video chồng lên track overlay!',
+                    'Thành công',
+                );
+            } catch (err: any) {
+                console.error(
+                    '[addOverlayMediaFromContextMenu] Lỗi nạp lớp chồng:',
+                    err,
+                );
+                this.toastr.error(
+                    'Không thể thêm lớp chồng: ' + (err?.message || err),
                 );
             }
         };
@@ -14857,6 +15951,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         }
 
         this.loadFrameAssets();
+        this.loadCustomFrames();
         this.loadSystemFonts();
         this.isSvgReady = false;
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
