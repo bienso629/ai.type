@@ -338,7 +338,7 @@ export class ThinLayoutComponent
      */
     help() {
         this.dialog.open(HelpComponent, {
-            width: '1000px',
+            width: '600px',
             maxWidth: '95vw',
             height: '90vh',
         });

@@ -5284,6 +5284,26 @@
         }
 
         @if (
+            selectedContextData?.video &&
+            selectedContextData?.type === "video"
+        ) {
+            <button
+                mat-menu-item
+                (click)="
+                    addOverlayMediaFromContextMenu(
+                        $safeNavigationMigration(selectedContextData?.scene),
+                        $safeNavigationMigration(selectedContextData?.video),
+                        $safeNavigationMigration(selectedContextData?.sceneIdx),
+                        $safeNavigationMigration(selectedContextData?.vIdx)
+                    )
+                "
+            >
+                <mat-icon class="text-emerald-400">layers</mat-icon>
+                <span>Thêm lớp chồng (Ảnh / Video)...</span>
+            </button>
+        }
+
+        @if (
             selectedContextData?.item && selectedContextData?.type === "image"
         ) {
             <button
@@ -5339,6 +5359,23 @@
             <mat-icon class="text-indigo-400">add</mat-icon>
             <span>Thêm Track (Scene)</span>
         </button>
+
+        @if (selectedContextData?.video) {
+            <button
+                mat-menu-item
+                (click)="
+                    addOverlayMediaFromContextMenu(
+                        $safeNavigationMigration(selectedContextData?.scene),
+                        $safeNavigationMigration(selectedContextData?.video),
+                        $safeNavigationMigration(selectedContextData?.sceneIdx),
+                        $safeNavigationMigration(selectedContextData?.vIdx)
+                    )
+                "
+            >
+                <mat-icon class="text-emerald-400">layers</mat-icon>
+                <span>Thêm lớp chồng (Ảnh / Video)...</span>
+            </button>
+        }
 
         <button
             mat-menu-item
@@ -6029,6 +6066,19 @@
                                 </option>
                             </select>
                         </div>
+                        <label
+                            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-indigo-500/50 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 cursor-pointer transition-colors"
+                        >
+                            <mat-icon class="icon-size-4">upload</mat-icon>
+                            Tải khung SVG
+                            <input
+                                #customSvgInput
+                                type="file"
+                                accept=".svg,image/svg+xml"
+                                class="hidden"
+                                (change)="onCustomSvgSelected($event)"
+                            />
+                        </label>
                         <button
                             mat-icon-button
                             class="text-neutral-400 hover:text-white"
@@ -6042,6 +6092,21 @@
                 <div
                     class="flex-1 overflow-y-auto p-5 space-y-4 scene-scroll-area"
                 >
+                    @if (
+                        AVAILABLE_FRAMES.some((f) => f.id.startsWith("custom_"))
+                    ) {
+                        <div
+                            class="flex items-center gap-2 text-xs text-neutral-400 pt-1"
+                        >
+                            <mat-icon class="icon-size-4 text-indigo-400"
+                                >add_photo_alternate</mat-icon
+                            >
+                            <span class="font-medium"
+                                >Khung tùy chỉnh của bạn</span
+                            >
+                            <span class="h-px flex-1 bg-neutral-800"></span>
+                        </div>
+                    }
                     <div
                         class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
                     >
@@ -6106,10 +6171,11 @@
                                     class="w-full h-36 bg-black/60 rounded-lg border border-neutral-800/80 flex items-center justify-center overflow-hidden relative"
                                 >
                                     @if (
-                                        frame.thumbDataUrl ||
-                                        frame.bgDataUrl ||
-                                        frame.thumbPath ||
-                                        frame.bgPath
+                                        (frame.thumbDataUrl ||
+                                            frame.bgDataUrl ||
+                                            frame.thumbPath ||
+                                            frame.bgPath) &&
+                                        !frame._thumbBroken
                                     ) {
                                         <img
                                             [src]="
@@ -6118,14 +6184,18 @@
                                                 getSafeUrl(frame.thumbPath) ||
                                                 getSafeUrl(frame.bgPath)
                                             "
+                                            (error)="
+                                                onFrameThumbError(frame)
+                                            "
                                             class="w-full h-full object-cover pointer-events-none"
                                         />
                                     }
                                     @if (
-                                        !frame.thumbDataUrl &&
-                                        !frame.bgDataUrl &&
-                                        !frame.thumbPath &&
-                                        !frame.bgPath
+                                        frame._thumbBroken ||
+                                        (!frame.thumbDataUrl &&
+                                            !frame.bgDataUrl &&
+                                            !frame.thumbPath &&
+                                            !frame.bgPath)
                                     ) {
                                         <div
                                             class="flex flex-col items-center justify-center text-neutral-500 gap-1"
@@ -6153,10 +6223,307 @@
                                         >
                                     </div>
                                 }
+                                <!-- Chinh sua 4 goc man hinh -->
+                                @if (frame.id.startsWith("custom_")) {
+                                    <button
+                                        mat-icon-button
+                                        class="!absolute bottom-2 left-2 z-10 !text-neutral-400 hover:!text-indigo-400"
+                                        matTooltip="Chỉnh sửa vị trí 4 góc màn hình"
+                                        (click)="editCustomFrameQuad($event, frame)"
+                                    >
+                                        <mat-icon class="icon-size-4"
+                                            >edit</mat-icon
+                                        >
+                                    </button>
+                                }
+                                <!-- Xoa khung tuy chinh -->
+                                @if (frame.id.startsWith("custom_")) {
+                                    <button
+                                        mat-icon-button
+                                        class="!absolute bottom-2 right-2 z-10 !text-neutral-400 hover:!text-red-400"
+                                        matTooltip="Xóa khung tùy chỉnh"
+                                        (click)="deleteCustomFrame($event, frame)"
+                                    >
+                                        <mat-icon class="icon-size-4"
+                                            >delete</mat-icon
+                                        >
+                                    </button>
+                                }
                             </div>
                         }
                     </div>
                 </div>
+                    <!-- Panel chỉnh sửa khung SVG vừa tải lên -->
+                    @if (pendingFrameEdit) {
+                        <div
+                            class="bg-[#0f1015] border border-indigo-500/40 rounded-xl p-4 space-y-3"
+                        >
+                            <div
+                                class="flex items-center justify-between gap-3 flex-wrap"
+                            >
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <mat-icon
+                                        class="icon-size-5 text-indigo-400"
+                                        >tune</mat-icon
+                                    >
+                                    <span
+                                        class="text-xs font-semibold text-white truncate"
+                                    >
+                                        Đang thêm:
+                                        {{ pendingFrameEdit.name }}
+                                        ({{ pendingFrameEdit.canvasWidth }}x{{
+                                            pendingFrameEdit.canvasHeight
+                                        }})
+                                    </span>
+                                    @if (pendingFrameEdit.detectionMethod === 'chroma') {
+                                        <span
+                                            class="px-2 py-0.5 text-[10px] rounded bg-emerald-950 text-emerald-300 border border-emerald-800/50"
+                                            >Tự nhận diện màn hình qua màu
+                                            xanh</span
+                                        >
+                                    } @else if (pendingFrameEdit.detectionMethod === 'polygon') {
+                                        <span
+                                            class="px-2 py-0.5 text-[10px] rounded bg-emerald-950 text-emerald-300 border border-emerald-800/50"
+                                            >Đã tự nhận diện vùng màn
+                                            hình</span
+                                        >
+                                    } @else {
+                                        <span
+                                            class="px-2 py-0.5 text-[10px] rounded bg-amber-950 text-amber-300 border border-amber-800/50"
+                                            >Hãy kéo 4 điểm tới góc màn
+                                            hình</span
+                                        >
+                                    }
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        mat-flat-button
+                                        color="accent"
+                                        (click)="redetectPendingQuad()"
+                                    >
+                                        <mat-icon class="icon-size-4"
+                                            >auto_fix_high</mat-icon
+                                        >
+                                        <span class="ml-2">Quét lại màn hình</span>
+                                    </button>
+                                    <button
+                                        mat-flat-button
+                                        color="accent"
+                                        (click)="resetPendingQuad()"
+                                    >
+                                        <mat-icon class="icon-size-4"
+                                            >restart_alt</mat-icon
+                                        >
+                                        <span class="ml-2">Vùng mặc định</span>
+                                    </button>
+                                    <button
+                                        mat-flat-button
+                                        color="warn"
+                                        (click)="cancelPendingFrame()"
+                                    >
+                                        <mat-icon class="icon-size-4"
+                                            >close</mat-icon
+                                        >
+                                        <span class="ml-2">Hủy</span>
+                                    </button>
+                                    <button
+                                        mat-flat-button
+                                        color="primary"
+                                        [disabled]="isUploadingFrame"
+                                        (click)="savePendingCustomFrame()"
+                                    >
+                                        <mat-icon class="icon-size-4"
+                                            >save</mat-icon
+                                        >
+                                        <span class="ml-2">Lưu khung</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div
+                                #quadEditContainer
+                                class="relative mx-auto rounded-lg overflow-hidden border border-neutral-800 bg-black cursor-crosshair select-none"
+                                [style.width.px]="320"
+                                [style.height.px]="getQuadEditHeight()"
+                                (mousemove)="onQuadEditMouseMove($event)"
+                                (mouseup)="onQuadEditMouseUp()"
+                                (mouseleave)="onQuadEditMouseUp()"
+                            >
+                                <img
+                                    [src]="pendingFrameEdit.bgDataUrl"
+                                    class="absolute inset-0 w-full h-full pointer-events-none"
+                                    draggable="false"
+                                />
+                                <svg
+                                    [attr.viewBox]="
+                                        '0 0 ' +
+                                        pendingFrameEdit.canvasWidth +
+                                        ' ' +
+                                        pendingFrameEdit.canvasHeight
+                                    "
+                                    preserveAspectRatio="none"
+                                    class="absolute inset-0 w-full h-full pointer-events-none"
+                                >
+                                    <polygon
+                                        [attr.points]="getQuadPolygonPoints()"
+                                        fill="rgba(99,102,241,0.25)"
+                                        stroke="#6366f1"
+                                        [attr.stroke-width]="
+                                            (pendingFrameEdit.canvasWidth /
+                                                320) *
+                                            2
+                                        "
+                                    />
+                                </svg>
+                                @for (
+                                    corner of quadCorners; track corner
+                                ) {
+                                    <div
+                                        class="absolute w-3.5 h-3.5 rounded-full bg-indigo-500 border-2 border-white shadow cursor-grab active:cursor-grabbing z-10 -translate-x-1/2 -translate-y-1/2"
+                                        [style.left.%]="
+                                            getQuadCornerLeft(corner)
+                                        "
+                                        [style.top.%]="getQuadCornerTop(corner)"
+                                        (mousedown)="onQuadHandleDown($event, corner)"
+                                    ></div>
+                                }
+                            </div>
+                            <p
+                                class="text-[11px] text-neutral-500 text-center"
+                            >
+                                Kéo 4 điểm xanh tới đúng 4 góc màn hình trong
+                                khung. Đây chính là vùng video sẽ được lồng vào.
+                            </p>
+                        </div>
+                    }
+                    <!-- Panel chỉnh sửa 4 góc màn hình của khung tùy chỉnh -->
+                    @if (editingFrame) {
+                        <div
+                            class="bg-[#0f1015] border border-indigo-500/40 rounded-xl p-4 space-y-3"
+                        >
+                            <div
+                                class="flex items-center justify-between gap-3 flex-wrap"
+                            >
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <mat-icon
+                                        class="icon-size-5 text-indigo-400"
+                                        >edit</mat-icon
+                                    >
+                                    <span
+                                        class="text-xs font-semibold text-white truncate"
+                                    >
+                                        Chỉnh sửa:
+                                        {{ editingFrame.name }}
+                                        ({{ editingFrame.canvasWidth }}x{{
+                                            editingFrame.canvasHeight
+                                        }})
+                                    </span>
+                                    <span
+                                        class="px-2 py-0.5 text-[10px] rounded bg-indigo-950 text-indigo-300 border border-indigo-800/50"
+                                        >Kéo 4 điểm tới góc màn hình</span
+                                    >
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        mat-flat-button
+                                        color="accent"
+                                        (click)="resetEditQuad()"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 mr-2"
+                                            >restart_alt</mat-icon
+                                        >
+                                        <span class="ml-2">Hoàn tác</span>
+                                    </button>
+                                    <button
+                                        mat-flat-button
+                                        color="warn"
+                                        (click)="cancelEditQuad()"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 mr-2"
+                                            >close</mat-icon
+                                        >
+                                        <span class="ml-2">Hủy</span>
+                                    </button>
+                                    <button
+                                        mat-flat-button
+                                        color="primary"
+                                        [disabled]="isUploadingFrame"
+                                        (click)="saveEditedQuad()"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4 mr-2"
+                                            >save</mat-icon
+                                        >
+                                        <span class="ml-2">Cập nhật</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div
+                                #editQuadContainer
+                                class="relative mx-auto rounded-lg overflow-hidden border border-neutral-800 bg-black cursor-crosshair select-none"
+                                [style.width.px]="320"
+                                [style.height.px]="getEditQuadHeight()"
+                                (mousemove)="onEditQuadMouseMove($event)"
+                                (mouseup)="onEditQuadMouseUp()"
+                                (mouseleave)="onEditQuadMouseUp()"
+                            >
+                                @if (editingFrameBgDataUrl) {
+                                    <img
+                                        [src]="editingFrameBgDataUrl"
+                                        class="absolute inset-0 w-full h-full pointer-events-none"
+                                        draggable="false"
+                                    />
+                                } @else {
+                                    <div
+                                        class="absolute inset-0 flex items-center justify-center text-neutral-500 text-xs"
+                                    >
+                                        Đang tải ảnh nền...
+                                    </div>
+                                }
+                                <svg
+                                    [attr.viewBox]="
+                                        '0 0 ' +
+                                        editingFrame.canvasWidth +
+                                        ' ' +
+                                        editingFrame.canvasHeight
+                                    "
+                                    preserveAspectRatio="none"
+                                    class="absolute inset-0 w-full h-full pointer-events-none"
+                                >
+                                    <polygon
+                                        [attr.points]="getEditQuadPolygonPoints()"
+                                        fill="rgba(99,102,241,0.25)"
+                                        stroke="#6366f1"
+                                        [attr.stroke-width]="
+                                            (editingFrame.canvasWidth /
+                                                320) *
+                                            2
+                                        "
+                                    />
+                                </svg>
+                                @for (
+                                    corner of quadCorners; track corner
+                                ) {
+                                    <div
+                                        class="absolute w-3.5 h-3.5 rounded-full bg-indigo-500 border-2 border-white shadow cursor-grab active:cursor-grabbing z-10 -translate-x-1/2 -translate-y-1/2"
+                                        [style.left.%]="
+                                            getEditQuadCornerLeft(corner)
+                                        "
+                                        [style.top.%]="getEditQuadCornerTop(corner)"
+                                        (mousedown)="onEditQuadHandleDown($event, corner)"
+                                    ></div>
+                                }
+                            </div>
+                            <p
+                                class="text-[11px] text-neutral-500 text-center"
+                            >
+                                Kéo 4 điểm xanh tới đúng 4 góc màn hình rồi
+                                bấm Cập nhật. Video đang dùng khung này sẽ tự
+                                áp dụng vị trí mới.
+                            </p>
+                        </div>
+                    }
                 <!-- Footer Modal -->
                 <div
                     class="px-5 py-3.5 bg-[#181a24] border-t border-neutral-800 flex items-center justify-between"
