@@ -27,6 +27,7 @@ const { registerExportImportHandlers } = require("./export-import-project");
 const { registerLocalArticlesHandlers } = require("./local-articles");
 const { registerProfileHandlers } = require("./local-profiles");
 const { registerFontsHandlers } = require("./fonts");
+const { generateEdgeAudio } = require("./edge-tts-v2");
 const { registerOperaCodecHandlers } = require("./opera-codec");
 const { initDatabase } = require("./database");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -2237,7 +2238,22 @@ const chunkTextForTTS = (text, maxLength = 60) => {
     return chunks;
 };
 
+// Chuc nang tao audio: uu tien thu vien DRM v2 (token "2-") vi binary
+// Edge TTS Core cu dang bi Microsoft chan 403 (token "1-" da het hieu luc).
+// Neu thu vien moi loi thi chuyen sang binary du phong nhu co che phong ho.
 async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pitch) {
+    try {
+        return await generateEdgeAudio(
+            text, voice, outputPath, subPath, rate, pitch,
+            (msg) => sendToRenderer('tools-log', msg),
+        );
+    } catch (v2Error) {
+        sendToRenderer('tools-log', `[TTS-v2] Lo tong hop moi that bai: ${v2Error.message}. Chuyen sang Edge TTS Core du phong...`);
+        return await generateEdgeAudioByExeLegacy(text, voice, outputPath, subPath, rate, pitch);
+    }
+}
+
+async function generateEdgeAudioByExeLegacy(text, voice, outputPath, subPath, rate, pitch) {
     const exePath = binaries.edgeTts;
     if (!exePath) throw new Error('Không tìm thấy file Edge TTS Core!');
     
