@@ -132,9 +132,44 @@ export class ProfileDataService {
         });
     }
 
-    /** Lưu danh sách đồ vật 3D trực tiếp xuống file props.json */
+    /** Lưu danh sách đồ vật 3D trực tiếp xuống file props.json (loại bỏ cờ runtime tạm trước khi lưu) */
     saveProps(props: any[]): Observable<UserProfile> {
         if (!this._username) this._username = 'admin';
+        const cleanProps = Array.isArray(props)
+            ? props.map(p => {
+                if (!p || typeof p !== 'object') return p;
+                const copy = { ...p };
+                delete (copy as any)._inserting;
+                delete (copy as any)._glbLoaded;
+                return copy;
+            })
+            : props;
+        if (window.electron?.saveProps) {
+            window.electron.saveProps(this._username, cleanProps).catch(e => console.warn('[ProfileDataService] Error saving props.json via IPC:', e));
+        }
+        return this.saveProfile({ props: cleanProps } as any);
+    }
+
+    /**
+     * Thêm 1 entry đồ vật GLB vào props.json (không kèm transform).
+     * Dùng cho chế độ "chỉ nằm trong danh sách" — chưa insert vào scene canvas.
+     * Đồng thời phát _profile$ để component nhận entry mới qua stream.
+     */
+    addPropEntry(entry: { id: string; name: string; glbPath: string; addedAt: string }): Observable<UserProfile> {
+        if (!this._username) this._username = 'admin';
+
+        const current = this._profile$.value as any;
+        const props = Array.isArray(current?.props) ? [...current.props] : [];
+
+        // Tránh trùng lặp nếu trùng glbPath
+        if (props.some((p: any) => p?.glbPath === entry.glbPath)) {
+            this._profile$.next(current);
+            return of(current);
+        }
+        props.push({ ...entry, visible: false });
+        current.props = props;
+        this._profile$.next(current);
+
         if (window.electron?.saveProps) {
             window.electron.saveProps(this._username, props).catch(e => console.warn('[ProfileDataService] Error saving props.json via IPC:', e));
         }
