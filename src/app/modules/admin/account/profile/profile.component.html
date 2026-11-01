@@ -39,11 +39,12 @@
         style="display: none"
         (change)="onTextFileSelected($event)"
     />
-    <!-- Hidden prop GLB file input -->
+    <!-- Hidden prop GLB file input (nhiều file cùng lúc) -->
     <input
         #propGlbFileInput
         type="file"
         accept=".glb"
+        multiple
         style="display: none"
         (change)="onPropGlbSelected($event)"
     />
@@ -180,6 +181,15 @@
                         <span class="sidebar-panel-label"
                             >ĐỒ VẬT ({{ roomProps.length }})</span
                         >
+                        <button
+                            type="button"
+                            class="props-reset-btn"
+                            matTooltip="Xóa hết đồ vật đã thêm, trả về mặc định"
+                            (click)="resetPropsToDefault($event)"
+                        >
+                            <mat-icon>restart_alt</mat-icon>
+                            <span>Reset</span>
+                        </button>
                         <mat-icon class="sidebar-panel-arrow"
                             >expand_more</mat-icon
                         >
@@ -235,36 +245,40 @@
                         @for (prop of filteredRoomProps; track prop) {
                             <!-- LEVEL 1: ĐỒ VẬT MẸ (STANDARD ITEM) -->
                             <div
-                                class="sidebar-sub-item hover:bg-gray-50 flex items-center justify-between group cursor-pointer"
-                                [class.opacity-60]="prop.visible === false"
+                                class="sidebar-sub-item prop-card group cursor-pointer"
+                                [class.prop-card--unused]="prop.visible === false"
+                                [class.prop-card--used]="prop.visible !== false"
                                 (click)="onPropClick(prop)"
                             >
-                                <span
-                                    class="text-left truncate text-base font-medium flex-1 min-w-0 pr-2"
-                                    [ngClass]="
-                                        prop.visible === false
-                                            ? 'text-slate-400 dark:text-slate-500'
-                                            : 'text-slate-700 dark:text-slate-200'
-                                    "
-                                >
-                                    {{ prop.name }}
-                                </span>
-                                <div
-                                    class="flex items-center space-x-1 shrink-0 ml-auto"
-                                    (click)="$event.stopPropagation()"
-                                >
-                                    <!-- Nút Thuộc tính & Phương thức hành động -->
-                                    <button
-                                        mat-icon-button
-                                        (click)="openPropInspector(prop)"
-                                        title="Thuộc tính & Phương thức hành động"
-                                        class="opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-4 text-slate-400 hover:text-teal-600"
-                                            >tune</mat-icon
+                                <!-- Thumbnail preview lớn (GLB đã render offscreen) -->
+                                @if (prop.thumbnail) {
+                                    <img
+                                        [src]="prop.thumbnail"
+                                        [alt]="prop.name"
+                                        class="prop-thumb"
+                                        draggable="false"
+                                    />
+                                } @else if (prop.glbPath) {
+                                    <div class="prop-thumb prop-thumb--empty">
+                                        <mat-icon class="icon-size-6">view_in_ar</mat-icon>
+                                    </div>
+                                }
+                                <div class="prop-card__info">
+                                    <div class="prop-card__name-row">
+                                        <span class="prop-card__name">{{ prop.name }}</span>
+                                        <!-- Nút Thuộc tính & Phương thức hành động -->
+                                        <button
+                                            mat-icon-button
+                                            class="prop-card__tune"
+                                            (click)="$event.stopPropagation(); openPropInspector(prop)"
+                                            title="Thuộc tính & Phương thức hành động"
                                         >
-                                    </button>
+                                            <mat-icon
+                                                class="icon-size-4 text-slate-400 hover:text-teal-600"
+                                                >tune</mat-icon
+                                            >
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <!-- LEVEL 2: THÀNH PHẦN CON (STANDARD ITEM INDENTED) -->
@@ -274,7 +288,7 @@
                                 @for (sub of prop.subDevices; track sub) {
                                     @if (isSubDeviceMatchingSearch(prop, sub)) {
                                         <div
-                                            class="sidebar-sub-item !pl-8 hover:bg-gray-50 flex items-center justify-between group cursor-pointer"
+                                            class="sidebar-sub-item prop-sub-row !pl-8 hover:bg-gray-50 flex items-center justify-between group cursor-pointer"
                                             [class.opacity-60]="
                                                 sub.enabled === false ||
                                                 prop.visible === false
@@ -331,7 +345,7 @@
 
                         @if (filteredRoomProps.length === 0) {
                             <div
-                                class="p-3 text-xs text-gray-400 italic text-center"
+                                class="prop-empty-row p-3 text-xs text-gray-400 italic text-center"
                             >
                                 Không tìm thấy đồ vật nào
                             </div>
@@ -542,7 +556,7 @@
         <input
             #promptFileInput
             type="file"
-            accept="image/*"
+            accept="image/*,.js,text/javascript,application/javascript"
             multiple
             class="hidden"
             (change)="onPromptFileSelected($event)"
@@ -568,6 +582,27 @@
                             <button
                                 (click)="removeAttachedProp(i)"
                                 class="text-teal-500 hover:text-teal-700 ml-1 focus:outline-none"
+                            >
+                                <mat-icon class="icon-size-3">close</mat-icon>
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Attached Script Chips Bar (JS hieu ung PlayCanvas) -->
+            @if (attachedScripts.length > 0) {
+                <div class="flex flex-wrap gap-2 p-3 pt-0">
+                    @for (sc of attachedScripts; track sc.name; let i = $index) {
+                        <div
+                            class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 text-xs font-semibold"
+                        >
+                            <mat-icon class="icon-size-3.5 text-violet-500">code</mat-icon>
+                            <span class="truncate max-w-[160px]">{{ sc.name }}</span>
+                            <span class="text-violet-400 font-normal">{{ sc.size < 1024 ? sc.size + ' B' : (sc.size / 1024).toFixed(1) + ' KB' }}</span>
+                            <button
+                                (click)="removeAttachedScript(i)"
+                                class="text-violet-400 hover:text-violet-700 ml-1 focus:outline-none"
                             >
                                 <mat-icon class="icon-size-3">close</mat-icon>
                             </button>
@@ -666,7 +701,7 @@
                     <button
                         mat-icon-button
                         class="sidebar-prompt-attach"
-                        title="Đính kèm hoặc dán ảnh (Ctrl+V)"
+                        title="Đính kèm ảnh hoặc tệp JS hiệu ứng (Ctrl+V dán ảnh)"
                         (click)="triggerPromptFileUpload()"
                         [disabled]="isProcessingPrompt"
                     >
@@ -685,7 +720,7 @@
                         class="sidebar-prompt-send"
                         title="Gửi yêu cầu (Enter)"
                         (click)="sendPrompt()"
-                        [disabled]="isProcessingPrompt || (!promptText?.trim() && attachedImages.length === 0 && attachedProps.length === 0)"
+                        [disabled]="isProcessingPrompt || (!promptText?.trim() && !hasAnyAttachment())"
                     >
                         <mat-icon class="icon-size-4">arrow_upward</mat-icon>
                     </button>
@@ -783,6 +818,163 @@
                 id="application-canvas"
                 class="sontinh-canvas"
             ></canvas>
+
+            <!-- Nút Delete/Duplicate nổi cạnh đồ vật đang chọn (bám ring qua callback anchor) -->
+            @if (propActionAnchor.visible && propActionAnchor.propId) {
+                <div
+                    class="sontinh-prop-actions"
+                    [style.left.px]="propActionAnchor.x"
+                    [style.top.px]="propActionAnchor.y"
+                >
+                    <button
+                        type="button"
+                        class="sontinh-prop-actions__btn sontinh-prop-actions__btn--dup"
+                        title="Nhân bản đồ vật này (bản sao đặt cạnh)"
+                        (pointerdown)="onCanvasDuplicateProp($event)"
+                    >
+                        <mat-icon>content_copy</mat-icon>
+                    </button>
+                    <button
+                        type="button"
+                        class="sontinh-prop-actions__btn sontinh-prop-actions__btn--del"
+                        title="Gỡ đồ vật này khỏi canvas (giữ trong menu ĐỒ VẬT)"
+                        (pointerdown)="onCanvasDeleteProp($event)"
+                    >
+                        <mat-icon>delete</mat-icon>
+                    </button>
+                </div>
+            }
+
+            <!-- Selection XYZ overlay: trục + tọa độ đồ vật đang chọn -->
+            @if (selectedPropId && selectedPropPos) {
+                <div class="sontinh-axes-info">
+                    <div class="sontinh-axes-info__name">{{ selectedPropName }}</div>
+                    <div class="sontinh-axes-info__sec">Vị trí</div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--x">X</span>
+                        <span class="sontinh-axes-info__val">{{ selectedPropPos.x.toFixed(2) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--y">Y</span>
+                        <span class="sontinh-axes-info__val">{{ selectedPropPos.y.toFixed(2) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--z">Z</span>
+                        <span class="sontinh-axes-info__val">{{ selectedPropPos.z.toFixed(2) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__scrub">
+                        <button
+                            type="button"
+                            class="sontinh-axes-scrub sontinh-axes-scrub--x"
+                            title="Kéo ngang để chỉnh trục X"
+                            (pointerdown)="onTransformScrubStart('pos', 0, $event)"
+                        >
+                            <span class="sontinh-axes-scrub__label">X</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            class="sontinh-axes-scrub sontinh-axes-scrub--y"
+                            title="Kéo dọc để chỉnh trục Y"
+                            (pointerdown)="onTransformScrubStart('pos', 1, $event)"
+                        >
+                            <span class="sontinh-axes-scrub__label">Y</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            class="sontinh-axes-scrub sontinh-axes-scrub--z"
+                            title="Kéo ngang để chỉnh trục Z"
+                            (pointerdown)="onTransformScrubStart('pos', 2, $event)"
+                        >
+                            <span class="sontinh-axes-scrub__label">Z</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="sontinh-axes-info__sec">Góc xoay (&deg;)</div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--x">X</span>
+                        <span class="sontinh-axes-info__val">{{ (selectedPropRot?.x ?? 0).toFixed(1) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--y">Y</span>
+                        <span class="sontinh-axes-info__val">{{ (selectedPropRot?.y ?? 0).toFixed(1) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--z">Z</span>
+                        <span class="sontinh-axes-info__val">{{ (selectedPropRot?.z ?? 0).toFixed(1) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__scrub">
+                        <button type="button" class="sontinh-axes-scrub sontinh-axes-scrub--x" title="Kéo ngang để xoay quanh trục X" (pointerdown)="onTransformScrubStart('rot', 0, $event)">
+                            <span class="sontinh-axes-scrub__label">X</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                        <button type="button" class="sontinh-axes-scrub sontinh-axes-scrub--y sontinh-axes-scrub--h" title="Kéo ngang để xoay quanh trục Y" (pointerdown)="onTransformScrubStart('rot', 1, $event)">
+                            <span class="sontinh-axes-scrub__label">Y</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                        <button type="button" class="sontinh-axes-scrub sontinh-axes-scrub--z" title="Kéo ngang để xoay quanh trục Z" (pointerdown)="onTransformScrubStart('rot', 2, $event)">
+                            <span class="sontinh-axes-scrub__label">Z</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="sontinh-axes-info__sec">Scale</div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--x">X</span>
+                        <span class="sontinh-axes-info__val">{{ (selectedPropScl?.x ?? 1).toFixed(2) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--y">Y</span>
+                        <span class="sontinh-axes-info__val">{{ (selectedPropScl?.y ?? 1).toFixed(2) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__row">
+                        <span class="sontinh-axes-info__axis sontinh-axes-info__axis--z">Z</span>
+                        <span class="sontinh-axes-info__val">{{ (selectedPropScl?.z ?? 1).toFixed(2) }}</span>
+                    </div>
+                    <div class="sontinh-axes-info__scrub">
+                        <button type="button" class="sontinh-axes-scrub sontinh-axes-scrub--x" title="Kéo ngang để scale trục X" (pointerdown)="onTransformScrubStart('scl', 0, $event)">
+                            <span class="sontinh-axes-scrub__label">X</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                        <button type="button" class="sontinh-axes-scrub sontinh-axes-scrub--y sontinh-axes-scrub--h" title="Kéo ngang để scale trục Y" (pointerdown)="onTransformScrubStart('scl', 1, $event)">
+                            <span class="sontinh-axes-scrub__label">Y</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                        <button type="button" class="sontinh-axes-scrub sontinh-axes-scrub--z" title="Kéo ngang để scale trục Z" (pointerdown)="onTransformScrubStart('scl', 2, $event)">
+                            <span class="sontinh-axes-scrub__label">Z</span>
+                            <span class="sontinh-axes-scrub__arrows">
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--l"></i>
+                                <i class="sontinh-axes-scrub__tip sontinh-axes-scrub__tip--r"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="sontinh-axes-info__hint">Kéo nút mũi tên để chỉnh &middot; thả ra để lưu</div>
+                </div>
+            }
         </div>
     </div>
 </div>

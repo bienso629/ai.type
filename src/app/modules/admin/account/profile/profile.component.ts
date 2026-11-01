@@ -20,24 +20,8 @@ import { GenaiService } from 'app/genai.service';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 
-// Scene PlayCanvas mặc định trống: người dùng tự thêm đồ vật của họ.
-const DEFAULT_PROPS: any[] = [
-  {
-    id: 'prop_display_table',
-    name: 'Bàn trưng bày',
-    type: 'furniture',
-    category: 'furniture',
-    position: { x: 0, y: 3.65, z: 0 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: { x: 1, y: 1, z: 1 },
-    color: null,
-    visible: true,
-    interactive: true,
-    clickAction: 'focus',
-    description: 'Bàn trưng bày gỗ sồi với váy vải trắng — món đồ mặc định của cảnh phòng 306.',
-    addedAt: 'builtin'
-  }
-];
+// Scene PlayCanvas mặc định trống: không có món đồ mặc định nào (bàn trưng bày built-in đã bị gỡ bỏ), người dùng tự thêm đồ vật.
+const DEFAULT_PROPS: any[] = [];
 
 @Component({
     selector: 'profile',
@@ -71,6 +55,49 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   uploadError: string | null = null;
   profile: UserProfile | null = null;
   roomProps: any[] = DEFAULT_PROPS;
+
+  // Đồ vật đang được select trên scene 3D (hiển thị trục XYZ + tọa độ)
+  selectedPropId: string | null = null;
+  selectedPropPos: { x: number; y: number; z: number } | null = null;
+  selectedPropRot: { x: number; y: number; z: number } | null = null;
+  selectedPropScl: { x: number; y: number; z: number } | null = null;
+  /** Vị trí pixel + trạng thái của cặp nút Delete/Duplicate nổi trên canvas */
+  propActionAnchor = { visible: false, x: 0, y: 0, propId: null as string | null };
+  private _lastSelectedPropId: string | null = null;
+  /** Set lưu runtime propId đang insert GLB — tuyệt đối không ghi cờ tạm lên prop object để tránh serialize xuống props.json */
+  private _insertingPropIds = new Set<string>();
+
+  get selectedPropName(): string {
+    const found = this.roomProps?.find(pr => pr && pr.id === this.selectedPropId);
+    return found?.name || this.selectedPropId || '';
+  }
+
+  /** Kéo nút mũi tên pos/rot/scl dưới box tọa độ: chỉnh theo đúng 1 trục, thả ra để lưu */
+  onTransformScrubStart(kind: 'pos' | 'rot' | 'scl', axis: number, event: PointerEvent): void {
+    const propId = this.selectedPropId;
+    if (!propId) return;
+    event.preventDefault();
+    let lastX = event.clientX;
+    let lastY = event.clientY;
+    const onMove = (ev: PointerEvent): void => {
+      const dx = ev.clientX - lastX;
+      const dy = ev.clientY - lastY;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      // Vị trí: trục Y kéo dọc (kéo lên là tăng); xoay & scale: mọi trục kéo ngang
+      const deltaPx = kind === 'pos' && axis === 1 ? -dy : dx;
+      this.sceneService.scrubTransform(propId, kind, axis, deltaPx, false);
+    };
+    const onUp = (): void => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      this.sceneService.scrubTransform(propId, kind, axis, 0, true);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }
   propSearchQuery = '';
 
   toggleSidebar(): void {
@@ -90,12 +117,13 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
 
     if (!queryStr || !queryStr.trim()) {
-      return this.roomProps || [];
+      // Ẩn các bản sao duplicate từ canvas (hiddenFromList) khỏi menu ĐỒ VẬT
+      return (this.roomProps || []).filter(p => p && !p.hiddenFromList);
     }
     const q = queryStr.toLowerCase().trim();
 
     return (this.roomProps || []).filter(p => {
-      if (!p) return false;
+      if (!p || p.hiddenFromList) return false;
       const matchParent = (p.name && p.name.toLowerCase().includes(q)) || (p.id && p.id.toLowerCase().includes(q));
       if (matchParent) return true;
 
@@ -161,6 +189,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   charThumbnail: string | null = null;
   userAnimations: Array<{ id: string; name: string; glbPath: string; isMovement?: boolean; speed?: number; uploadedAt?: string }> = [];
   attachedImages: Array<{ dataUrl: string; base64: string; mimeType: string }> = [];
+  attachedScripts: Array<{ name: string; code: string; size: number }> = [];
 
   private _destroy$    = new Subject<void>();
   private _charBlobUrl: string | null = null;
@@ -279,6 +308,102 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         this.cdr.markForCheck();
       };
 
+      // 4b3. Wire callback: hiển thị trục XYZ và tọa độ khi select đồ vật (cập nhật realtime khi kéo)
+      this.sceneService.onPropSelected = (propId: string | null, pos: { x: number; y: number; z: number } | null) => {
+        this.selectedPropId = propId;
+        this.selectedPropPos = pos ? { ...pos } : null;
+        // Đổi đồ vật chọn: nạp góc xoay/scale hiện có của prop lên overlay
+        if (propId && propId !== this._lastSelectedPropId) {
+          const prop = this.roomProps?.find(pr => pr && pr.id === propId);
+          const rot = prop?.rotation;
+          const scl = prop?.scale;
+          this.selectedPropRot = rot && typeof rot.x === 'number' ? { ...rot } : { x: 0, y: 0, z: 0 };
+          this.selectedPropScl = scl && typeof scl.x === 'number' ? { ...scl } : { x: 1, y: 1, z: 1 };
+        }
+        if (!propId) {
+          this.selectedPropRot = null;
+          this.selectedPropScl = null;
+        }
+        this._lastSelectedPropId = propId;
+        this.cdr.markForCheck();
+      };
+
+      // 4b3b. Wire callback: sau khi service reset đồ vật, nạp lại panel ĐỒ VẬT
+      this.sceneService.onPropsReset = () => {
+        this.roomProps = DEFAULT_PROPS.map(p => JSON.parse(JSON.stringify(p)));
+        (this.profile as any).props = this.roomProps;
+        this.onSearchChange();
+        this.cdr.markForCheck();
+      };
+
+      // 4b3c. Wire callback: vị trí cặp nút Delete/Duplicate nổi trên canvas (realtime theo ring)
+      this.sceneService.onPropActionAnchor = (visible, x, y, pid) => {
+        this.propActionAnchor = { visible, x, y, propId: pid };
+        this.cdr.markForCheck();
+      };
+
+      // 4b3d. Wire callback: sau khi xóa/nhân bản trên canvas, đồng bộ roomProps + lưu đĩa
+      this.sceneService.onPropActionChange = (action, pid, newId) => {
+        if (action === 'delete') {
+          const prop = this.roomProps.find(p => p && p.id === pid);
+          if (prop) prop.visible = false; // gỡ khỏi canvas, giữ item trong menu
+          if (this.selectedPropId === pid) {
+            this.selectedPropId = null;
+            this.selectedPropPos = null;
+            this.selectedPropRot = null;
+            this.selectedPropScl = null;
+          }
+          this.toastr.info('Đã gỡ khỏi canvas (vẫn còn trong menu ĐỒ VẬT)', 'Xóa đồ vật');
+        } else if (action === 'duplicate' && newId) {
+          // Idempotent: service đã push newProp (đúng vị trí cạnh bản gốc) vào profile.props.
+          // Bản sao mang cờ hiddenFromList: chỉ hiện trên canvas, không thêm mục trong menu ĐỒ VẬT.
+          if (!this.roomProps.find(p => p && p.id === newId)) {
+            const svcProp = ((this.profile as any).props || []).find((q: any) => q && q.id === newId);
+            if (svcProp) {
+              this.roomProps.push(JSON.parse(JSON.stringify(svcProp)));
+            } else {
+              const srcProp = this.roomProps.find(p => p && p.id === pid);
+              if (srcProp) {
+                const cloneProp = JSON.parse(JSON.stringify(srcProp));
+                cloneProp.id = newId;
+                cloneProp.visible = true;
+                this.roomProps.push(cloneProp);
+              }
+            }
+          }
+        }
+        (this.profile as any).props = this.roomProps;
+        this.profileDataService.saveProps(this.roomProps).subscribe();
+        this.onSearchChange();
+        this.cdr.markForCheck();
+      };
+
+      // 4b4. Wire callback: realtime khi kéo nút chỉnh xoay/scale trên overlay
+      this.sceneService.onPropTransformChanged = (propId, kind, values) => {
+        if (propId !== this.selectedPropId) return;
+        if (kind === 'pos') this.selectedPropPos = { ...values };
+        else if (kind === 'rot') this.selectedPropRot = { ...values };
+        else this.selectedPropScl = { ...values };
+        this.cdr.markForCheck();
+      };
+
+      // 4b5. Wire callback: thả nút chỉnh xoay/scale — lưu vào props (vị trí đã có onPropDragged lo)
+      this.sceneService.onPropTransformCommit = (propId, kind, values) => {
+        const prop = this.roomProps.find(p => p && p.id === propId);
+        if (!prop) return;
+        if (kind === 'rot') {
+          prop.rotation = { ...values };
+          (prop as any)._customRotationSet = true;
+        } else if (kind === 'scl') {
+          prop.scale = { ...values };
+          (prop as any)._customScaleSet = true;
+        } else {
+          return;
+        }
+        this.profileDataService.saveProps(this.roomProps).subscribe();
+        this.cdr.markForCheck();
+      };
+
       // 4c. Nạp lại các đồ vật GLB đã upload trước đó (dựa vào glbPath lưu trong props)
       this.loadSavedPropGlbs();
 
@@ -289,6 +414,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           this.roomProps = this.mergeProps((p as any).props);
           (p as any).props = this.roomProps;
           this.sceneService.applyProfile(p);
+          // FIX: mergeProps thay roomProps bằng mảng object MỚI — phải dựng lại danh sách
+          // sidebar ngay để không còn bấm vào object mồ côi (nguyên nhân kẹt insert lại)
+          this.onSearchChange();
           this.cdr.markForCheck();
         }
       });
@@ -327,6 +455,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
         const def = defaultMap.get(saved.id) || {};
         const mergedProp = { ...def, ...saved };
+        delete (mergedProp as any)._inserting;
+        delete (mergedProp as any)._glbLoaded;
         resultProps.push(mergedProp);
         seenIds.add(saved.id);
       }
@@ -376,7 +506,27 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   onPropClick(prop: any): void {
     if (!prop) return;
     const propId = prop.id || '';
+
+    // Đồ vật GLB chưa insert vào canvas (visible=false) HOẶC entity đã mất trên canvas
+    // (kẹt trạng thái visible=true sau khi xóa / load lỗi): bấm = insert + tự chữa
+    if (prop.glbPath && (prop.visible === false || !this.sceneService.hasPropEntity(propId))) {
+      this.insertPropToScene(prop);
+      return;
+    }
+
+    // FIX: đồ vật KHÔNG có GLB mà entity không còn/không có trên canvas -> bấm đang chết im, báo lỗi rõ ràng thay vì im lặng
+    // (bàn trưng bày mặc định prop_display_table đã bị gỡ khỏi scene nên mọi món thiếu GLB đều báo như nhau)
+    if (propId && !prop.glbPath && !this.sceneService.hasPropEntity(propId)) {
+      this.toastr.warning(
+        `"${prop.name}" không có dữ liệu 3D (GLB) nên không thể hiển thị trên canvas. Bạn có thể xóa món này khỏi danh sách.`,
+        'Đồ vật thiếu mô hình'
+      );
+      return;
+    }
+
     if (propId) {
+      // Chọn đồ vật từ menu: highlight ring + bảng tọa độ như click trực tiếp trên canvas
+      this.sceneService.selectPropById(propId);
       this.setCameraPreset(propId);
     } else if (prop.position) {
       (this.sceneService as any).setCameraPreset?.('custom', prop.position);
@@ -415,13 +565,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     dialogRef.afterClosed().subscribe(async (result) => {
       if (result === 'confirmed') {
         this.roomProps = this.roomProps.filter(p => p.id !== propId);
-        // Món đồ mặc định (bàn trưng bày...): ghi tombstone để mergeProps không hồi sinh sau F5
-        if (propId === 'prop_display_table') {
-          const tomb = ((this.profile as any).deletedDefaultProps || []).slice();
-          if (!tomb.includes(propId)) tomb.push(propId);
-          (this.profile as any).deletedDefaultProps = tomb;
-          this.profileDataService.saveProfile({ deletedDefaultProps: tomb } as any).subscribe();
-        }
         (this.profile as any).props = this.roomProps;
 
         try {
@@ -435,6 +578,62 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           console.error('[Profile] Delete prop error:', err);
           this.toastr.error('Không thể xóa đồ vật.', 'Lỗi');
         }
+      }
+    });
+  }
+
+  /** Reset toàn bộ đồ vật về mặc định: xóa đồ đã thêm, chỉ giữ đồ mặc định của app */
+  resetPropsToDefault(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (!this.profile) return;
+
+    const userCount = this.roomProps.length;
+    const dialogRef = this._fuseConfirmationService.open({
+      title: 'Reset đồ vật về mặc định',
+      message: `Xóa toàn bộ <span class="font-semibold text-red-600">${userCount}</span> đồ vật đã thêm và trả Căn phòng 306 về trạng thái mặc định?<br>Chỉ giữ lại đồ vật mặc định của app. Hành động này không thể hoàn tác!`,
+      icon: {
+        show: true,
+        name: 'feather:alert-triangle',
+        color: 'warn'
+      },
+      actions: {
+        confirm: {
+          show: true,
+          label: 'Reset ngay',
+          color: 'warn'
+        },
+        cancel: {
+          show: true,
+          label: 'Hủy bỏ'
+        }
+      },
+      dismissible: true
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result !== 'confirmed') return;
+      try {
+        // 1. Danh sách props về mặc định (danh sách trống - không còn món mặc định nào)
+        this.roomProps = DEFAULT_PROPS.map(p => JSON.parse(JSON.stringify(p)));
+        (this.profile as any).props = this.roomProps;
+
+        // 2. Lưu đĩa: props + profile
+        await this.profileDataService.saveProps(this.roomProps).toPromise();
+        this.profileDataService.saveProfile({ props: this.roomProps } as any).subscribe();
+
+        // 3. Cập nhật scene: xóa toàn bộ entity đồ vật trên canvas
+        this.sceneService.applyProfile(this.profile);
+        this.sceneService.resetPropsToDefault();
+        this.sceneService.syncProps(this.roomProps);
+
+        // 4. Nạp lại panel ĐỒ VẬT + thông báo
+        this.onSearchChange();
+        this.toastr.success('Đã reset về đồ vật mặc định!', 'Reset Căn phòng 306');
+        this.cdr.markForCheck();
+      } catch (err) {
+        console.error('[Profile] Reset props error:', err);
+        this.toastr.error('Không thể reset đồ vật.', 'Lỗi');
       }
     });
   }
@@ -1235,20 +1434,42 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   /** Nạp lại toàn bộ đồ vật GLB đã lưu khi khởi động scene */
   private async loadSavedPropGlbs(): Promise<void> {
-    const glbProps = this.roomProps.filter(p => p?.glbPath && p.visible !== false);
+    const glbProps = this.roomProps.filter(p => p?.glbPath && p.visible === true);
     if (glbProps.length === 0) return;
     console.log('[Profile] Nạp lại', glbProps.length, 'đồ vật GLB đã lưu...');
+    let anyFailed = false;
     for (const prop of glbProps) {
       try {
         const blobUrl = await this.profileDataService.readGlbAsObjectUrl(prop.glbPath).toPromise();
         if (blobUrl) {
-          this.sceneService.loadPropGlb(prop.id, blobUrl, prop);
+          const ok = await new Promise<boolean>((resolve) => {
+            this.sceneService.loadPropGlb(prop.id, blobUrl, prop, (loaded: boolean) => resolve(loaded));
+          });
+          URL.revokeObjectURL(blobUrl);
+          if (ok) {
+            (prop as any)._glbLoaded = true;
+          } else {
+            // FIX: nạp thất bại khi khởi động -> hoàn visible=false để món quay về trạng thái
+            // xám "chưa dùng", bấm vào sẽ insert lại thay vì kẹt sáng màu mà canvas trống
+            prop.visible = false;
+            anyFailed = true;
+            console.warn('[Profile] Nạp GLB thất bại khi khởi động, hoàn về chưa dùng:', prop?.name);
+          }
         } else {
+          prop.visible = false;
+          anyFailed = true;
           console.warn('[Profile] Blob URL rỗng cho đồ vật:', prop?.name);
         }
       } catch (e) {
+        prop.visible = false;
+        anyFailed = true;
         console.warn('[Profile] Không nạp được GLB của đồ vật:', prop?.name, prop?.glbPath, e);
       }
+    }
+    if (anyFailed) {
+      this.profileDataService.saveProps(this.roomProps).subscribe();
+      this.onSearchChange();
+      this.cdr.markForCheck();
     }
   }
 
@@ -1257,60 +1478,166 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.propGlbFileInput?.nativeElement?.click();
   }
 
-  /** Xử lý khi user chọn file GLB để thêm đồ vật mới vào scene */
+  /** Xử lý khi user chọn file GLB: thêm NHIỀU file, chỉ vào DANH SÁCH ĐỒ VẬT (chưa insert scene) */
   async onPropGlbSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+    const files = Array.from(input.files || []);
     input.value = '';
-    if (!file.name.toLowerCase().endsWith('.glb')) {
+    if (files.length === 0) return;
+
+    const glbFiles = files.filter(f => f.name.toLowerCase().endsWith('.glb'));
+    if (glbFiles.length === 0) {
       this.toastr.error('Chỉ chấp nhận file .glb', 'Upload GLB');
       return;
     }
 
-    const buffer = await file.arrayBuffer();
-    const baseName = file.name.replace(/\.glb$/i, '') || 'Mo_hinh';
-    const uploadName = `${baseName}_${Date.now()}`;
+    let okCount = 0;
+    let failCount = 0;
+    for (const file of glbFiles) {
+      try {
+        const baseName = file.name.replace(/\.glb$/i, '') || 'Mo_hinh';
+        const buffer = await file.arrayBuffer();
+        const uploadName = `${baseName}_${Date.now()}`;
+
+        // 1. Lưu file qua Electron IPC vào assets/props/ (NHANH — không chèn scene)
+        const res: any = await (window as any).electron.uploadProp(
+          this.username, uploadName, { x: 0, y: 0, z: 0 }, 1.0, buffer
+        );
+        if (!res?.success || !res.data?.glbPath) throw new Error(res?.error || 'Không lưu được GLB');
+        const saved = res.data;
+
+        // 2. Prop entry: visible=false (chỉ trong danh sách, chưa vào canvas), không transform
+        const newProp: any = {
+          id: saved.id,
+          name: baseName,
+          type: 'model',
+          glbPath: saved.glbPath,
+          visible: false,
+          shape: 'model',
+          addedAt: saved.addedAt
+        };
+        this.roomProps.push(newProp);
+        (this.profile as any).props = this.roomProps;
+
+        // 3. Thumbnail offscreen: render GLB trong renderer ẩn, KHÔNG đụng scene chính
+        const blobUrl = await this.profileDataService.readGlbAsObjectUrl(saved.glbPath).toPromise();
+        if (blobUrl) {
+          const dataUrl = await this.sceneService.generateGlbThumbnail(blobUrl);
+          if (dataUrl) {
+            newProp.thumbnail = dataUrl;
+          }
+          URL.revokeObjectURL(blobUrl);
+        }
+
+        this.profileDataService.saveProps(this.roomProps).subscribe();
+        okCount++;
+      } catch (err: any) {
+        console.error('[Profile] Upload prop GLB error:', file.name, err);
+        failCount++;
+      }
+    }
+
+    this.onSearchChange();
+    if (okCount > 0 && failCount === 0) {
+      this.toastr.success(`Đã thêm ${okCount} đồ vật vào danh sách (chưa hiện trên canvas)`, 'Upload GLB');
+    } else if (okCount > 0 && failCount > 0) {
+      this.toastr.warning(`Thêm ${okCount} thành công, ${failCount} thất bại`, 'Upload GLB');
+    } else {
+      this.toastr.error('Upload GLB thất bại', 'Upload GLB');
+    }
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Insert đồ vật từ danh sách vào scene canvas: visible=true + load GLB thật.
+   * Sau khi insert thành công: prop hiển thị trên canvas như đồ vật thường.
+   */
+  async insertPropToScene(inputProp: any): Promise<void> {
+    if (!inputProp || !inputProp.glbPath || !this.profile) return;
+    // FIX race profile$: sidebar có thể giữ object MỒ CÔI (roomProps đã bị mergeProps
+    // thay bằng mảng object mới sau mỗi lần save). Sửa visible trên object mồ côi
+    // không bao giờ được lưu đĩa -> applyProfile sẽ tắt entity vừa tạo (enabled=false).
+    // Luôn thao tác trên object "sống" hiện tại trong roomProps.
+    const propId = inputProp.id;
+    const live = this.roomProps.find(p => p && p.id === propId) || inputProp;
+    const prop = live;
+    delete (prop as any)._inserting; // dọn tàn dư nếu prop cũ từng bị lưu dính _inserting
+    if (this._insertingPropIds.has(propId)) return;
+    // Chặn insert kép CHỈ khi entity còn sống trên canvas; nếu visible=true nhưng
+    // entity đã mất (kẹt sau khi xóa) -> cho insert lại (self-heal)
+    if (prop.visible === true && this.sceneService.hasPropEntity(propId)) return;
+    this._insertingPropIds.add(propId);
 
     try {
-      // 1. Lưu file qua Electron IPC vào assets/props/ + tự push vào props.json
-      const res: any = await (window as any).electron.uploadProp(
-        this.username, uploadName, { x: 0, y: 4.6, z: 0 }, 1.0, buffer
-      );
-      if (!res?.success || !res.data?.glbPath) throw new Error(res?.error || 'Không lưu được GLB');
-      const saved = res.data;
+      // 1. Bật visible + tạo transform mặc định
+      prop.visible = true;
+      if (!prop.position) prop.position = { x: 0, y: 0, z: 0 };
+      if (!prop.rotation) prop.rotation = { x: 0, y: 0, z: 0 };
+      if (!prop.scale) prop.scale = { x: 1, y: 1, z: 1 };
 
-      // 2. Tạo prop entry hiển thị ở sidebar + scene
-      const newProp: any = {
-        id: saved.id,
-        name: baseName,
-        type: 'model',
-        glbPath: saved.glbPath,
-        position: { x: 0, y: 4.6, z: 0 },
-        rotation: { x: 0, y: 0, z: 0 },
-        scale: { x: 1, y: 1, z: 1 },
-        color: null,
-        visible: true,
-        shape: 'model',
-        addedAt: saved.addedAt
-      };
-      this.roomProps.push(newProp);
-      (this.profile as any).props = this.roomProps;
-      this.profileDataService.saveProps(this.roomProps).subscribe();
-
-      // 3. Đọc file thành blob URL và nạp vào scene PlayCanvas ngay
-      const blobUrl = await this.profileDataService.readGlbAsObjectUrl(saved.glbPath).toPromise();
+      // 2. Đọc GLB thành blob URL và nạp vào scene PlayCanvas
+      const blobUrl = await this.profileDataService.readGlbAsObjectUrl(prop.glbPath).toPromise();
       if (blobUrl) {
-        this.sceneService.loadPropGlb(newProp.id, blobUrl, newProp);
+        await new Promise<void>((resolve) => {
+          let settled = false;
+          const done = () => { if (!settled) { settled = true; resolve(); } };
+          // Guard 30s: callback loadPropGlb không fire (file cực lớn / hang) thì thoát,
+          // tránh kẹt cờ _inserting = true vĩnh viễn khiến bấm lại im lặng
+          const guard = setTimeout(done, 30000);
+          this.sceneService.loadPropGlb(prop.id, blobUrl, prop, (ok: boolean) => {
+            clearTimeout(guard);
+            if (!ok) {
+              // FIX: GLB nạp thất bại (file hỏng / parse lỗi) -> hoàn tra visible=false
+              // để món đồ KHÔNG kẹt ở trạng thái "đã dùng" mà canvas trắng
+              prop.visible = false;
+              this.toastr.warning(`"${prop.name}" không nạp được vào canvas (file GLB lỗi?), thử upload lại.`, 'Nạp đồ vật');
+            }
+            done();
+          });
+        });
+        URL.revokeObjectURL(blobUrl);
       }
 
+      // 3. Đồng bộ lại trên object sống mới nhất trong roomProps rồi lưu đĩa
+      const latest = this.roomProps.find(p => p && p.id === propId);
+      if (latest && latest !== prop) {
+        latest.visible = prop.visible;
+        latest.position = prop.position;
+        latest.rotation = prop.rotation;
+        latest.scale = prop.scale;
+      }
+      this.profileDataService.saveProps(this.roomProps).subscribe();
       this.onSearchChange();
-      this.toastr.success(`Đã thêm đồ vật "${baseName}" vào scene!`, 'Upload GLB');
+      if (prop.visible !== false) {
+        this.toastr.success(`Đã insert "${prop.name}" vào scene!`, 'Thêm đồ vật');
+      }
       this.cdr.markForCheck();
     } catch (err: any) {
-      console.error('[Profile] Upload prop GLB error:', err);
-      this.toastr.error('Upload GLB thất bại: ' + (err?.message ?? 'Lỗi không xác định'), 'Upload GLB');
+      console.error('[Profile] Insert prop error:', err);
+      this.toastr.error('Insert đồ vật thất bại: ' + (err?.message ?? 'Lỗi không xác định'), 'Lỗi');
+      prop.visible = false;
+    } finally {
+      this._insertingPropIds.delete(propId);
+      delete (prop as any)._inserting;
     }
+  }
+
+  /** Nút Delete nổi trên canvas: gỡ món đang chọn khỏi scene (giữ item trong menu) */
+  onCanvasDeleteProp(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    const pid = this.propActionAnchor.propId;
+    if (!pid) return;
+    this.sceneService.deletePropById(pid);
+  }
+
+  /** Nút Duplicate nổi trên canvas: nhân bản món đang chọn, bản sao đặt cạnh */
+  onCanvasDuplicateProp(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    const pid = this.propActionAnchor.propId;
+    if (!pid) return;
+    this.sceneService.duplicatePropById(pid);
   }
 
   /** Trigger thêm đồ vật mới */
@@ -1361,6 +1688,19 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           this.cdr.markForCheck();
         };
         reader.readAsDataURL(file);
+      } else if (file.type === 'text/javascript' || file.type === 'application/javascript' || /\.js$/i.test(file.name)) {
+        // Tệp JS hiệu ứng PlayCanvas: đọc nội dung văn bản để nhúng vào prompt
+        if (file.size > 512 * 1024) {
+          this.toastr.warning(`Tệp "${file.name}" quá lớn (tối đa 512KB).`, 'Đính kèm script');
+          continue;
+        }
+        const reader = new FileReader();
+        reader.onload = (e: any) => {
+          this.attachedScripts.push({ name: file.name, code: String(e.target.result || ''), size: file.size });
+          this.toastr.info(`Đã đính kèm script hiệu ứng "${file.name}"!`, 'Đính kèm script');
+          this.cdr.markForCheck();
+        };
+        reader.readAsText(file);
       }
     }
     input.value = '';
@@ -1398,6 +1738,19 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.attachedImages.splice(index, 1);
       this.cdr.markForCheck();
     }
+  }
+
+  /** Xóa tệp script đính kèm */
+  removeAttachedScript(index: number): void {
+    if (index >= 0 && index < this.attachedScripts.length) {
+      this.attachedScripts.splice(index, 1);
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Có dữ liệu đính kèm nào để gửi không (dùng cho nút Send) */
+  hasAnyAttachment(): boolean {
+    return this.attachedImages.length > 0 || this.attachedScripts.length > 0 || this.attachedProps.length > 0;
   }
 
   attachedProps: any[] = [];
@@ -1541,13 +1894,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   /** Gửi prompt AI để chỉnh sửa chương trình 3D & update realtime lên canvas */
   async sendPrompt(): Promise<void> {
     const text = this.promptText?.trim() || '';
-    if (!text && this.attachedImages.length === 0 && this.attachedProps.length === 0) return;
+    if (!text && this.attachedImages.length === 0 && this.attachedProps.length === 0 && this.attachedScripts.length === 0) return;
 
     const imagesToProcess = [...this.attachedImages];
     const propsToProcess = [...this.attachedProps];
+    const scriptsToProcess = [...this.attachedScripts];
     this.promptText = '';
     this.attachedImages = [];
     this.attachedProps = [];
+    this.attachedScripts = [];
     this.cdr.markForCheck();
 
     let fullPromptText = text;
@@ -1555,8 +1910,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       const propDetails = propsToProcess.map(p => `[Item: "${p.name}", ID: "${p.id}"]`).join(', ');
       fullPromptText = `${text} (Đồ vật chỉ định: ${propDetails})`;
     }
+    // Nhúng mã JS hiệu ứng đính kèm vào prompt để AI đọc và áp dụng lên scene
+    if (scriptsToProcess.length > 0) {
+      const scriptBlocks = scriptsToProcess.map(s =>
+        `--- TỆP SCRIPT ĐÍNH KÈM: ${s.name} (${s.size} bytes) ---\n${s.code}\n--- HẾT TỆP SCRIPT ${s.name} ---`
+      ).join('\n\n');
+      fullPromptText = `${fullPromptText}\n\n=== TỆP SCRIPT HIỆU ỨNG ĐÍNH KÈM TỪ NGƯỜI DÙNG ===\n${scriptBlocks}\nNgười dùng đã đính kèm các tệp JS PlayCanvas ở trên: hãy phân tích, sau đó trả về lệnh 'applyEffect' (tên hiệu ứng, đích áp dụng, tham số tùy chỉnh theo script) để chạy hiệu ứng này trong scene 3D.`;
+    }
 
-    await this.processAiPrompt(fullPromptText, imagesToProcess, propsToProcess);
+    await this.processAiPrompt(fullPromptText, imagesToProcess, propsToProcess, scriptsToProcess);
   }
 
   private extractColorAndBgFromText(text: string): { color: string | null; bgColor: string | null; colorName: string | null } {
@@ -1639,9 +2001,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   /** Xử lý câu lệnh AI prompt và cập nhật tức thì (realtime) lên Canvas 3D */
-  async processAiPrompt(prompt: string, images: Array<{ dataUrl: string; base64: string; mimeType: string }> = [], targetProps: any[] = []): Promise<void> {
+  async processAiPrompt(prompt: string, images: Array<{ dataUrl: string; base64: string; mimeType: string }> = [], targetProps: any[] = [], scripts: Array<{ name: string; code: string; size: number }> = []): Promise<void> {
     const text = prompt.trim();
-    if (!text && images.length === 0) return;
+    if (!text && images.length === 0 && scripts.length === 0) return;
 
     this.isProcessingPrompt = true;
     this.cdr.markForCheck();
@@ -1699,7 +2061,7 @@ Người dùng đang ĐÍNH KÈM / @MENTION ĐỒ VẬT CHỈ ĐỊNH: [${names}
    - name: Tên đồ vật (VD: Quả cầu năng lượng, Hộp quà Noel, Bình hoa, Khối trụ pha lê)
    - shape: 'box' | 'sphere' | 'cylinder' | 'cone' | 'capsule' | 'plane'
    - color: Mã màu Hex (VD: '#06b6d4', '#ef4444', '#fbbf24', '#a855f7', '#ffffff')
-   - position: { x, y, z } (tâm bàn: { x: 0, y: 4.5, z: 0 })
+   - position: { x, y, z } (mặt sàn: { x: 0, y: 0, z: 0 })
    - scale: { x, y, z } (kích thước theo 3 trục, VD: { x: 1, y: 1, z: 1 })
    - rotation: { x, y, z } (góc xoay theo độ)
    - animation: 'spin' (tự xoay tròn liên tục) | 'bounce' (nhún nhảy nhịp nhàng) | 'float' (lơ lửng bay bổng) | 'pulse' (phập phồng to nhỏ) | 'none'
@@ -1714,7 +2076,7 @@ ${targetPropInstruction}
 
 4. ĐIỀU KHIỂN HÀNH ĐỘNG & TOÀN BỘ NHÂN VẬT 3D ('characterAction'):
    - animationName: Chọn hành động từ danh sách: [${animListStr}] (hoặc 'Idle' khi muốn đứng yên / dừng lại).
-   - position: Đưa nhân vật tới vị trí { x, y, z } (VD trên bàn { x: 0, y: 4.1, z: 0 } hoặc dưới sàn).
+   - position: Đưa nhân vật tới vị trí { x, y, z } (VD dưới sàn { x: 0, y: 0, z: 0 }).
    - facingAngle: Xoay hướng mặt nhân vật (0 đến 360 độ).
    - scale: Thu nhỏ / phóng to nhân vật (VD: 0.5 đến 2.0).
    - visible: Ẩn/hiện nhân vật (true / false).
@@ -1727,6 +2089,21 @@ ${targetPropInstruction}
 6. ĐIỀU KHIỂN CAMERA ('cameraPreset' / 'focusPropName'):
    - cameraPreset: 'default' | 'desk' | 'character' | 'overhead'
    - focusPropName: Tập trung góc nhìn vào một món đồ.
+
+7. KÍCH HOẠT HIỆU ỨNG SCRIPT PLAYCANVAS ('applyEffect'):
+   - Khi người dùng yêu cầu hiệu ứng (tuyết rơi, mưa, lá rơi, đom đóm, tim bay, khói...), trả về lệnh:
+     {"applyEffect": {"name": "snow", "targetPropName": null, "params": {"count": 500, "speed": 2.5}, "script": "function effect(fx) { ... }"}}
+   - name: tên ngắn không dấu (snow, rain, leaves, fireflies...). targetPropName: tên món đồ để hiệu ứng bám quanh (null = phủ toàn scene).
+   - QUAN TRỌNG về script (CODE JAVASCRIPT PLAYCANVAS chạy thật trong scene 3D):
+     * Nếu người dùng đính kèm tệp .js (phần "TỆP SCRIPT HIỆU ỨNG ĐÍNH KÈM"), hãy COPY NGUYÊN VĂN code đó vào trường script (chỉ điều chỉnh tham số theo yêu cầu của người dùng).
+     * Nếu không có tệp đính kèm, TỰ VIẾT script theo API chuẩn sau:
+       - fx.params: object tham số từ lệnh applyEffect (count, speed, size, color...).
+       - fx.spawnParticles({ count, size, color: '#hex', opacity }): tạo hạt cầu, trả về mảng hạt { node, x, y, z, vy, ph }.
+       - fx.onTick((dt) => { ... }): đăng ký hàm chạy MỖI KHUNG HÌNH — cập nhật vị trí hạt bằng h.node.setPosition(h.x, h.y, h.z).
+       - fx.root: pc.Entity gốc của hiệu ứng; biến pc (PlayCanvas engine) có sẵn trong script; fx.log(msg) để debug console.
+       - Quy ước: Y=0 là mặt sàn; hiệu ứng rơi = y giảm dần theo dt, khi y < 0 thì đưa về đỉnh (y = topY).
+     * Script viết dạng "function effect(fx) { ... }", KHÔNG dùng fetch/XHR/DOM/setInterval, chỉ dùng API trên + Math + pc.
+     * Script kiểu PlayCanvas Editor (pc.createScript + prototype.initialize/update, có attributes.add) cũng được CHẤP NHẬN: runtime tự chuyển đổi sang effect(fx) và attributes thành fx.params. Nếu file đính kèm có lỗi cú pháp (vd "default:," thiếu giá trị), vẫn copy nguyên văn — runtime tự sửa.
 
 ---
 ### TRẠNG THÁI HIỆN TẠI:
@@ -1781,6 +2158,7 @@ ${JSON.stringify({
   },
   "cameraPreset": null,
   "focusPropName": null,
+  "applyEffect": null,
   "explanation": "Câu mô tả ngắn gọn vui vẻ về những gì bạn vừa tạo/thay đổi trên PlayCanvas"
 }`;
         const parts: any[] = [{ text: domainSystemPrompt }];
@@ -1978,7 +2356,7 @@ ${JSON.stringify({
                 category: propObj.category || 'custom',
                 shape: propObj.shape || 'box',
                 color: propObj.color || '#06b6d4',
-                position: propObj.position || { x: 0, y: 4.3, z: 0 },
+                position: propObj.position || { x: 0, y: 0, z: 0 },
                 rotation: propObj.rotation || { x: 0, y: 0, z: 0 },
                 scale: propObj.scale || { x: 0.8, y: 0.8, z: 0.8 },
                 animation: propObj.animation || 'none',
@@ -2044,6 +2422,27 @@ ${JSON.stringify({
                     break;
                   }
                 }
+              }
+            }
+            // 🌟 HIỆU ỨNG SCRIPT PLAYCANVAS (tuyết rơi, lá rơi, đom đóm...) — thực thi code JS thật
+            if (parsed.applyEffect) {
+              const fxCmds = Array.isArray(parsed.applyEffect) ? parsed.applyEffect : [parsed.applyEffect];
+              const fxSpecs: any[] = [];
+              for (const f of fxCmds) {
+                if (!f || !f.script) continue;
+                const ok = this.sceneService.runEffect({
+                  name: f.name || 'custom',
+                  targetPropId: f.targetPropId || null,
+                  targetPropName: f.targetPropName || null,
+                  params: f.params || {},
+                  script: f.script
+                });
+                if (ok) fxSpecs.push(f);
+              }
+              if (fxSpecs.length > 0) {
+                (currentProfile as any).activeEffects = fxSpecs;
+                updated = true;
+                message = '✨ AI đã kích hoạt hiệu ứng "' + (fxSpecs[0].name || 'custom') + '" trong scene 3D PlayCanvas!';
               }
             }
             if (parsed.explanation) {
@@ -2252,6 +2651,7 @@ ${JSON.stringify({
       }
     }
 
+
     // Gắn thông báo nếu chưa có hành động cụ thể nào khớp
     if (!updated) {
       message = `✨ AI đã xử lý xong yêu cầu "${text}" và cập nhật lại 3D Canvas!`;
@@ -2422,6 +2822,10 @@ ${JSON.stringify({
         try {
           this.sceneService.destroyScene();
         } catch (_) {}
+        this.selectedPropId = null;
+        this.selectedPropPos = null;
+        this.selectedPropRot = null;
+        this.selectedPropScl = null;
 
         await new Promise(r => setTimeout(r, 200));
 
