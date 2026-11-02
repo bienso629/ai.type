@@ -397,6 +397,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         } else if (kind === 'scl') {
           prop.scale = { ...values };
           (prop as any)._customScaleSet = true;
+          // Đồng bộ scale mốc re-ground để F5 không re-ground sai với nhà đang bay
+          (prop as any)._groundedAtScale = { ...values };
         } else {
           return;
         }
@@ -2440,7 +2442,8 @@ ${JSON.stringify({
                 if (ok) fxSpecs.push(f);
               }
               if (fxSpecs.length > 0) {
-                (currentProfile as any).activeEffects = fxSpecs;
+                // Hieu ung chi choi trong phien hien tai: KHONG ghi vao profile
+                // de tranh tu dong chay lai moi lan mo app / F5
                 updated = true;
                 message = '✨ AI đã kích hoạt hiệu ứng "' + (fxSpecs[0].name || 'custom') + '" trong scene 3D PlayCanvas!';
               }
