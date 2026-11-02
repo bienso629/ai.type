@@ -233,16 +233,6 @@ export class SontinhSceneService implements OnDestroy {
     if (Array.isArray((profile as any).disabledEvents)) {
       this.setDisabledTriggers((profile as any).disabledEvents);
     }
-    // 🌟 Khoi phuc hieu ung da luu (tuyet roi...) sau khi reload (F5)
-    const savedFx = (profile as any).activeEffects;
-    if (Array.isArray(savedFx) && savedFx.length > 0) {
-      setTimeout(() => {
-        if (this._destroyed || !this._runPropEffect) return;
-        for (const fx of savedFx) {
-          try { this._runPropEffect(fx); } catch (e) { console.warn('[SontinhScene] Restore effect failed:', e); }
-        }
-      }, 2000);
-    }
     this.ngZone.runOutsideAngular(() => {
       // 1. Dynamic Camera Preset from ~/Documents/ai.type/data/profiles/{username}/
       if (profile.scene?.cameraPreset) {
@@ -398,6 +388,9 @@ export class SontinhSceneService implements OnDestroy {
         bottomWorldY = Math.min.apply(null, ys);
       }
 
+      // Ghi đáy AABB local của GLB lên wrapper để mọi đường đổi scale
+      // (scrub / AI / panel) tính nâng Y giữ đáy cố định so với sàn
+      (wrapper as any)._bottomLocalY = bMin ? bMin.y : null;
       wrapper.addChild(glbEntity);
       glbEntity.setLocalPosition(0, 0, 0);
       this.app.root.addChild(wrapper);
@@ -408,13 +401,20 @@ export class SontinhSceneService implements OnDestroy {
       // giữ nguyên vị trí người dùng đã lưu.
       const isCustom = !!(prop as any)?._customPositionSet;
       const isLegacyDefaultY = Math.abs(p.y - 4.6) < 0.005;
+      // Scale da doi so voi lan cham san truoc? (_groundedAtScale luu scale ap
+      // dung cho wrapper lan nap/dong bo truoc, persist theo prop) Neu doi thi
+      // Y cu khong con phu hop voi geometry scale moi -> re-ground de khong lun.
+      const grounded = (prop as any)?._groundedAtScale;
+      const scaleChanged = !!grounded && typeof grounded.x === 'number' &&
+        (Math.abs(grounded.x - s.x) > 1e-3 || Math.abs(grounded.y - s.y) > 1e-3 || Math.abs(grounded.z - s.z) > 1e-3);
       let finalY = p.y;
-      if (!isCustom || isLegacyDefaultY) {
+      if (!isCustom || isLegacyDefaultY || scaleChanged) {
         finalY = bottomWorldY !== null ? -bottomWorldY : 0;
         if (prop) {
           prop.position = { x: p.x, y: Math.round(finalY * 100) / 100, z: p.z };
         }
       }
+      if (prop) (prop as any)._groundedAtScale = { x: s.x, y: s.y, z: s.z };
       wrapper.setPosition(p.x, finalY, p.z);
       console.log('[SontinhSceneService] Prop GLB loaded:', propId, 'bottomWorldY=', bottomWorldY, 'finalY=', finalY);
       onLoaded?.(true);
@@ -748,6 +748,18 @@ export class SontinhSceneService implements OnDestroy {
         const cl = (v: number) => Math.max(0.05, Math.min(50, v * f));
         const nx = cl(tScrubStartScale.x), ny = cl(tScrubStartScale.y), nz = cl(tScrubStartScale.z);
         ent.setLocalScale(nx, ny, nz);
+        // GLB: nâng Y theo tỷ lệ scale Y (Y mới = Y gốc * ratio) để đáy món đồ
+        // tiếp tục chạm sàn, không lún xuống Floor khi phóng to / thu nhỏ
+        if (ent.tags.has('prop_glb') && tScrubStartScale.y > 1e-4) {
+          // Giữ đáy món đồ cố định so với sàn: dùng đáy AABB local của GLB
+          // (_bottomLocalY do loadPropGlb ghi trên wrapper) nếu có, ngược lại
+          // fallback Y mới = Y cũ * ratio (đúng khi món đồ đang chạm sàn)
+          const blG = (ent as any)._bottomLocalY;
+          const nyPos = (typeof blG === 'number')
+            ? tScrubStartPos.y + blG * (tScrubStartScale.y - ny)
+            : tScrubStartPos.y * (ny / tScrubStartScale.y);
+          ent.setPosition(tScrubStartPos.x, nyPos, tScrubStartPos.z);
+        }
         // Scale đồng bộ các entity phụ của đồ vật (nếu có)
         for (let i = 0; i < propDragExtras.length; i++) propDragExtras[i].setLocalScale(nx, ny, nz);
         // Prop pulse lấy gốc scale mới để không giật lại giá trị cũ
@@ -809,6 +821,8 @@ export class SontinhSceneService implements OnDestroy {
         if (animCfg) animCfg.baseScale.set(vals.x, vals.y, vals.z);
         if (_svc.onPropTransformCommit) _svc.ngZone.run(() => _svc.onPropTransformCommit!(propId, 'scl', vals));
         if (_svc.onPropSelected) _svc.ngZone.run(() => _svc.onPropSelected!(propId, tpR));
+        // GLB: persist luon Y da nang theo ty le scale (day khong lun) vao prop
+        if (ent.tags.has('prop_glb') && _svc.onPropDragged) _svc.ngZone.run(() => _svc.onPropDragged!(propId, tpR));
       }
     }
 
@@ -3058,7 +3072,27 @@ export class SontinhSceneService implements OnDestroy {
             if (prop._customRotationSet && prop.rotation && typeof prop.rotation.x === 'number') {
               (entity as any).setEulerAngles(prop.rotation.x, prop.rotation.y, prop.rotation.z);
             }
-            if (prop._customScaleSet && prop.scale && typeof prop.scale.x === 'number') {
+            const entGlb: any = entity;
+            if (entGlb.tags?.has('prop_glb') && prop.scale && typeof prop.scale.x === 'number') {
+              // GLB (AI prompt / panel Inspector): khi scale doi so voi scale dang
+              // hien thi cua entity, nang Y theo cong thuc giu day AABB co dinh:
+              // Y_new = Y_cur + bottomLocal * (s_cur - s_new) — chinh xac ca truong
+              // hop mon do dang chạm sàn lẫn đang được nâng cao tay.
+              const curS = entGlb.getLocalScale();
+              const curP = entGlb.getPosition();
+              const scaleDiff = Math.abs(curS.x - prop.scale.x) > 1e-3 ||
+                Math.abs(curS.y - prop.scale.y) > 1e-3 || Math.abs(curS.z - prop.scale.z) > 1e-3;
+              if (scaleDiff) {
+                entGlb.setLocalScale(prop.scale.x, prop.scale.y, prop.scale.z);
+                const bl = entGlb._bottomLocalY;
+                const nyPos = (typeof bl === 'number')
+                  ? curP.y + bl * (curS.y - prop.scale.y)
+                  : curP.y * (prop.scale.y / Math.max(1e-4, curS.y));
+                entGlb.setPosition(curP.x, nyPos, curP.z);
+                prop.position = { x: curP.x, y: Math.round(nyPos * 100) / 100, z: curP.z };
+              }
+              (prop as any)._groundedAtScale = { x: prop.scale.x, y: prop.scale.y, z: prop.scale.z };
+            } else if (prop._customScaleSet && prop.scale && typeof prop.scale.x === 'number') {
               (entity as any).setLocalScale(prop.scale.x, prop.scale.y, prop.scale.z);
             }
           }

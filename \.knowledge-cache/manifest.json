@@ -2490,9 +2490,9 @@
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/profile/profile.component.ts": {
-    "mtime": 1793545717.7615895,
-    "seen": 1793545775.505737,
-    "ast_hash": "a23f429a552acb6bb06ca94e3605db2a",
+    "mtime": 1793578907.0752926,
+    "seen": 1793578958.252035,
+    "ast_hash": "c81b156db368a329e670fffc629ece00",
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/profile/profile.module.ts": {
@@ -2502,9 +2502,9 @@
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/profile/sontinh-scene.service.ts": {
-    "mtime": 1793545843.9086213,
-    "seen": 1793546055.3707743,
-    "ast_hash": "0f5a6bbf8c34e350b86e867c717eea36",
+    "mtime": 1793613012.7869554,
+    "seen": 1793613090.9762235,
+    "ast_hash": "98c4582ddf6504632dffa2e7cf28dd2d",
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/settings/account/account.component.ts": {
@@ -6765,6 +6765,24 @@
     "mtime": 1791454295.5967004,
     "seen": 1793443703.701102,
     "ast_hash": "fd2ab9e2945e7656d13c05901eb11395",
+    "semantic_hash": ""
+  },
+  ".agent_temp/_normalizeFxScript.extracted.js": {
+    "mtime": 1793603387.9492648,
+    "seen": 1793603488.6087186,
+    "ast_hash": "a2f7091054c925d1e94777deae9a9261",
+    "semantic_hash": ""
+  },
+  ".agent_temp/test_fx_snow.js": {
+    "mtime": 1793603400.8613024,
+    "seen": 1793603488.6087773,
+    "ast_hash": "92c323114a6daf0d4e05575c7a0dc581",
+    "semantic_hash": ""
+  },
+  ".agent_temp/test_fx_snow2.js": {
+    "mtime": 1793603425.549032,
+    "seen": 1793603488.608779,
+    "ast_hash": "72b6fdd2fb050f55d82be96e7d338581",
     "semantic_hash": ""
   },
   "electron/package-lock.json": {
