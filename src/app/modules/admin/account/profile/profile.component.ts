@@ -146,6 +146,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     return (this.roomProps || []).filter(p => p && (p.hiddenFromList || p.visible !== false));
   }
 
+  /** Danh sách hiệu ứng JS đã import (lấy từ scene service) — dùng cho auto-expand panel CANVAS */
+  get fxEffects(): any[] {
+    return this.sceneService?.fxEffects || [];
+  }
+
   isSubDeviceMatchingSearch(prop: any, sub: any): boolean {
     if (!this.propSearchQuery || (typeof this.propSearchQuery === 'string' && !this.propSearchQuery.trim())) return true;
     let q = '';
@@ -274,6 +279,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
       // 4. Khởi động 3D scene
       await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, charGlbObjectUrl);
+      this.sceneService.rerunAllFxEffects();
 
       // 4a. Phát ngay hành động mặc định nếu đã chọn
       const defaultAnimState = profile?.character?.animationState;
@@ -421,7 +427,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           this.profile = p;
           this.roomProps = this.mergeProps((p as any).props);
           (p as any).props = this.roomProps;
-          this.sceneService.applyProfile(p);
+          this.sceneService.applyProfile(p, { skipCamera: true });
           // FIX: mergeProps thay roomProps bằng mảng object MỚI — phải dựng lại danh sách
           // sidebar ngay để không còn bấm vào object mồ côi (nguyên nhân kẹt insert lại)
           this.onSearchChange();
@@ -530,9 +536,14 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     const reader = new FileReader();
     reader.onload = () => {
       const code = String(reader.result ?? '');
+      this.sceneService.fileNameHint = file.name;
       const result = this.sceneService.runCanvasScript(code);
       if (result.ok) {
         this.toastr.success(`Đã thực thi "${file.name}" trên canvas.`, 'Canvas Script');
+        // Mo dialog cau hinh thuoc tinh dong cho effect vua import
+        const reg = this.sceneService.fxEffects;
+        const last = reg.length > 0 ? reg[reg.length - 1] : null;
+        if (last) this.openFxEffectInspector(last.id);
       } else {
         this.toastr.error(result.error || 'Lỗi thực thi script.', 'Canvas Script');
       }
@@ -612,7 +623,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
         try {
           await this.profileDataService.saveProps(this.roomProps).toPromise();
-          this.sceneService.applyProfile(this.profile);
+          this.sceneService.applyProfile(this.profile, { skipCamera: true });
           this.sceneService.syncProps(this.roomProps);
           this.onSearchChange();
           this.toastr.success(`Đã xóa đồ vật "${propName}" thành công!`, 'Xóa đồ vật 3D');
@@ -666,7 +677,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         this.profileDataService.saveProfile({ props: this.roomProps } as any).subscribe();
 
         // 3. Cập nhật scene: xóa toàn bộ entity đồ vật trên canvas
-        this.sceneService.applyProfile(this.profile);
+        this.sceneService.applyProfile(this.profile, { skipCamera: true });
         this.sceneService.resetPropsToDefault();
         this.sceneService.syncProps(this.roomProps);
 
@@ -721,6 +732,80 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
 
     this.inspectingProp = cloned;
+    this.cdr.markForCheck();
+  }
+
+  // ==========================================
+  // CANVAS FX EFFECT INSPECTOR (dialog cau hinh dong theo script JS)
+  // ==========================================
+  fxInspectingId: string | null = null;
+  fxInspecting: { id: string; name: string; fileName: string; script: string; params: Record<string, any>; paramsMeta: Array<{ name: string; type: string; value: any; title: string; min?: number; max?: number; step?: number }> } | null = null;
+  /** gia tri rgba dang xau '#rrggbb' cho input color; luon giu dong bo voi fxInspecting.params */
+  fxColorDrafts: Record<string, string> = {};
+
+  /** Mo dialog cau hinh cho effect trong danh sách Canvas */
+  openFxEffectInspector(fxId: string): void {
+    const fx = this.sceneService.fxEffects.find((f) => f.id === fxId);
+    if (!fx) return;
+    this.fxInspectingId = fxId;
+    // Ban sao de nguoi dung sua thoai mai; Luu moi ghi vao registry
+    this.fxInspecting = JSON.parse(JSON.stringify(fx));
+    this.fxColorDrafts = {};
+    for (const p of this.fxInspecting.paramsMeta) {
+      const v = this.fxInspecting.params[p.name];
+      if ((p.type === 'rgb' || p.type === 'rgba') && v && typeof v === 'object') {
+        const to2 = (n: number) => Math.max(0, Math.min(255, Math.round((Number(n) || 0) * 255))).toString(16).padStart(2, '0');
+        this.fxColorDrafts[p.name] = '#' + to2(v.r) + to2(v.g) + to2(v.b);
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  closeFxEffectInspector(): void {
+    this.fxInspecting = null;
+    this.fxInspectingId = null;
+    this.fxColorDrafts = {};
+    this.cdr.markForCheck();
+  }
+
+  /** input type=color chi co rgb — alpha giu nguyen gia tri cu */
+  onFxColorChange(name: string, hex: string): void {
+    if (!this.fxInspecting) return;
+    const p = this.fxInspecting.paramsMeta.find((x) => x.name === name);
+    if (!p) return;
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return;
+    const n = parseInt(m[1], 16);
+    const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    if (p.type === 'rgb') {
+      this.fxInspecting.params[name] = { r, g, b };
+    } else {
+      const old = this.fxInspecting.params[name] || {};
+      this.fxInspecting.params[name] = { r, g, b, a: (typeof old.a === 'number') ? old.a : 1 };
+    }
+  }
+
+  removeFxFromList(id: string, event?: Event): void {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+    const fx = this.sceneService.fxEffects.find((f) => f.id === id);
+    if (!fx) return;
+    const confirmed = window.confirm(`Gỡ hiệu ứng "${fx.name}" khỏi danh sách và dừng nó trên canvas?`);
+    if (!confirmed) return;
+    this.sceneService.removeFxEffect(id);
+    if (this.fxInspectingId === id) this.closeFxEffectInspector();
+    this.cdr.markForCheck();
+  }
+
+  /** Luu dialog: update params dong — effect restart voi gia tri moi ngay lap tuc */
+  saveFxEffectConfig(): void {
+    if (!this.fxInspecting) return;
+    const ok = this.sceneService.updateFxEffectParams(this.fxInspecting.id, this.fxInspecting.params);
+    if (ok) {
+      this.toastr.success(`Đã áp dụng cấu hình cho "${this.fxInspecting.name}".`, 'Hiệu ứng canvas');
+      this.closeFxEffectInspector();
+    } else {
+      this.toastr.error('Không áp dụng được cấu hình. Canvas có thể chưa sẵn sàng.', 'Hiệu ứng canvas');
+    }
     this.cdr.markForCheck();
   }
 
@@ -1189,7 +1274,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
     try {
       await this.profileDataService.saveProps(this.roomProps).toPromise();
-      this.sceneService.applyProfile(this.profile);
+      this.sceneService.applyProfile(this.profile, { skipCamera: true });
 
       if (isMonitor) {
         let side: 'left' | 'right' | 'both' = 'both';
@@ -2704,7 +2789,7 @@ ${JSON.stringify({
     // 🚀 1. CẬP NHẬT TỨC THÌ (REALTIME) LÊN CANVAS 3D PLAYCANVAS
     (currentProfile as any).props = this.roomProps;
     this.profile = currentProfile;
-    this.sceneService.applyProfile(currentProfile);
+    this.sceneService.applyProfile(currentProfile, { skipCamera: true });
     this.sceneService.syncProps(this.roomProps);
 
     // 💾 2. TỰ ĐỘNG LƯU TRỰC TIẾP VÀO THƯ MỤC Documents/ai.type/data/profiles/{username}/ (props.json, character.json, room.json, profile.json)
@@ -2878,6 +2963,7 @@ ${JSON.stringify({
           charGlbObjectUrl = await this.profileDataService.readGlbAsObjectUrl(this.profile.character.glbPath).toPromise() ?? null;
         }
         await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, charGlbObjectUrl);
+      this.sceneService.rerunAllFxEffects();
         const defaultAnimState = this.profile?.character?.animationState;
         if (defaultAnimState) {
           const found = this.userAnimations.find(a => a.name === defaultAnimState);

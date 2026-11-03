@@ -362,7 +362,7 @@
                 </details>
 
                 <!-- TRÊN CANVAS: mọi item đang hiển thị trên canvas kết quả (đồ thường đã insert + bản sao nhân bản) -->
-                <details class="sidebar-panel" [attr.open]="null">
+                <details class="sidebar-panel" [open]="canvasProps.length > 0 || fxEffects.length > 0">
                     <summary class="sidebar-panel-header">
                         <span class="sidebar-panel-label"
                             >CANVAS ({{ canvasProps.length }})</span
@@ -431,6 +431,54 @@
                                 chọn một món rồi bấm nhân bản (Duplicate).
                             </div>
                         }
+
+                        <!-- CANVAS FX EFFECTS: rieng mot hang grid, ngan cach khoang cach voi danh sach do vat -->
+                        <div class="fx-list-block">
+                        @if (sceneService.fxEffects.length > 0) {
+                            <div class="fx-list-sep"></div>
+                            <div class="fx-list-title">Hiệu ứng script ({{ sceneService.fxEffects.length }})</div>
+                        }
+                        @for (fx of sceneService.fxEffects; track fx.id) {
+                            <div
+                                class="sidebar-sub-item prop-card group cursor-pointer"
+                                [class.prop-card--selected]="fx.id === fxInspectingId"
+                                (click)="openFxEffectInspector(fx.id)"
+                                [title]="'Cấu hình hiệu ứng: ' + fx.name"
+                            >
+                                <div class="prop-thumb fx-thumb">
+                                    <mat-icon class="icon-size-5">auto_awesome</mat-icon>
+                                </div>
+                                <div class="prop-card__info">
+                                    <div class="prop-card__name-row">
+                                        <span class="prop-card__name" [title]="fx.name">{{ fx.name }}</span>
+                                        <button
+                                            mat-icon-button
+                                            class="prop-card__tune"
+                                            (click)="$event.stopPropagation(); openFxEffectInspector(fx.id)"
+                                            title="Cấu hình thuộc tính hiệu ứng"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4 text-slate-400 hover:text-teal-600"
+                                                >tune</mat-icon
+                                            >
+                                        </button>
+                                        <button
+                                            mat-icon-button
+                                            class="prop-card__tune"
+                                            (click)="removeFxFromList(fx.id, $event)"
+                                            title="Gỡ khỏi danh sách & dừng hiệu ứng"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4 text-slate-400 hover:text-red-600"
+                                                >delete</mat-icon
+                                            >
+                                        </button>
+                                    </div>
+                                    <div class="fx-file-name">{{ fx.fileName }}</div>
+                                </div>
+                            </div>
+                        }
+                        </div>
                     </div>
                 </details>
 
@@ -1185,6 +1233,209 @@
 }
 
 <!-- MODAL CẤU HÌNH THUỘC TÍNH & PHƯƠNG THỨC HÀNH ĐỘNG ĐỒ VẬT 3D -->
+@if (fxInspecting) {
+    <div
+        class="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+    >
+        <div
+            class="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg max-h-[calc(90vh-48px)] flex flex-col overflow-hidden text-base shadow-2xl"
+        >
+            <!-- Header: icon + title (style giong dialog Chinh sua ten mien) -->
+            <div class="shrink-0 px-6 pt-6 pb-2">
+                <div class="flex items-center justify-between mb-3">
+                    <div
+                        class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100"
+                    >
+                        <mat-icon
+                            class="text-emerald-500 icon-size-6"
+                            [svgIcon]="'heroicons_outline:sparkles'"
+                        ></mat-icon>
+                        <span>{{ fxInspecting.name }}</span>
+                    </div>
+                    <button
+                        type="button"
+                        mat-icon-button
+                        (click)="closeFxEffectInspector()"
+                        class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400"
+                        title="Đóng"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:x'"
+                        ></mat-icon>
+                    </button>
+                </div>
+
+                <p
+                    class="text-base text-gray-600 dark:text-gray-400 mb-2 leading-relaxed"
+                >
+                    {{ fxInspecting.fileName }}
+                </p>
+            </div>
+
+            <!-- Body (Scrollable): control sinh DONG theo type tung thuoc tinh script -->
+            <div
+                class="flex-1 overflow-y-auto pr-1 px-6 pb-2 flex flex-col gap-5 custom-scrollbar"
+            >
+                @if (fxInspecting.paramsMeta.length === 0) {
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        Script này không khai báo thuộc tính cấu hình nào (attributes.add). Không có gì để tùy chỉnh.
+                    </div>
+                }
+                @for (p of fxInspecting.paramsMeta; track p.name) {
+                    <div class="fx-param-row">
+                        <label class="fx-param-label" [title]="p.name">
+                            <span class="fx-param-title">{{ p.title || p.name }}</span>
+                            <span class="fx-param-name">{{ p.name }} · {{ p.type }}</span>
+                        </label>
+
+                        @switch (p.type) {
+                            @case ('boolean') {
+                                <mat-checkbox
+                                    [checked]="!!fxInspecting.params[p.name]"
+                                    (change)="fxInspecting.params[p.name] = $event.checked"
+                                >Bật</mat-checkbox>
+                            }
+                            @case ('rgb') {
+                                <div class="fx-param-inline">
+                                    <input
+                                        type="color"
+                                        class="fx-color-input"
+                                        [value]="fxColorDrafts[p.name] || '#ffffff'"
+                                        (input)="onFxColorChange(p.name, $any($event.target).value)"
+                                    />
+                                    <span class="fx-color-hex">{{ fxColorDrafts[p.name] }}</span>
+                                </div>
+                            }
+                            @case ('rgba') {
+                                <div class="fx-param-inline">
+                                    <input
+                                        type="color"
+                                        class="fx-color-input"
+                                        [value]="fxColorDrafts[p.name] || '#ffffff'"
+                                        (input)="onFxColorChange(p.name, $any($event.target).value)"
+                                    />
+                                    <span class="fx-color-hex">{{ fxColorDrafts[p.name] }}</span>
+                                </div>
+                                <div class="fx-param-inline fx-param-slider">
+                                    <span class="fx-param-slider-label">Độ mờ</span>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                        [value]="fxInspecting.params[p.name]?.a ?? 1"
+                                        (input)="fxInspecting.params[p.name].a = $any($event.target).valueAsNumber"
+                                    />
+                                    <span class="fx-slider-val">{{ (fxInspecting.params[p.name]?.a ?? 1) | number: '1.2-2' }}</span>
+                                </div>
+                            }
+                            @case ('vec3') {
+                                <div class="fx-vec-grid">
+                                    @for (ax of ['X', 'Y', 'Z']; track ax) {
+                                        <mat-form-field class="fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+                                            <mat-label>{{ ax }}</mat-label>
+                                            <input
+                                                matInput
+                                                type="number"
+                                                [value]="fxInspecting.params[p.name]?.data?.[$index] ?? 0"
+                                                (input)="fxInspecting.params[p.name].data[$index] = $any($event.target).valueAsNumber || 0"
+                                            />
+                                        </mat-form-field>
+                                    }
+                                </div>
+                            }
+                            @case ('vec2') {
+                                <div class="fx-vec-grid fx-vec-grid--2">
+                                    @for (ax of ['X', 'Y']; track ax) {
+                                        <mat-form-field class="fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+                                            <mat-label>{{ ax }}</mat-label>
+                                            <input
+                                                matInput
+                                                type="number"
+                                                [value]="fxInspecting.params[p.name]?.data?.[$index] ?? 0"
+                                                (input)="fxInspecting.params[p.name].data[$index] = $any($event.target).valueAsNumber || 0"
+                                            />
+                                        </mat-form-field>
+                                    }
+                                </div>
+                            }
+                            @case ('vec4') {
+                                <div class="fx-vec-grid fx-vec-grid--4">
+                                    @for (ax of ['X', 'Y', 'Z', 'W']; track ax) {
+                                        <mat-form-field class="fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+                                            <mat-label>{{ ax }}</mat-label>
+                                            <input
+                                                matInput
+                                                type="number"
+                                                [value]="fxInspecting.params[p.name]?.data?.[$index] ?? 0"
+                                                (input)="fxInspecting.params[p.name].data[$index] = $any($event.target).valueAsNumber || 0"
+                                            />
+                                        </mat-form-field>
+                                    }
+                                </div>
+                            }
+                            @case ('string') {
+                                <mat-form-field class="fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+                                    <input
+                                        matInput
+                                        type="text"
+                                        [value]="fxInspecting.params[p.name] || ''"
+                                        (input)="fxInspecting.params[p.name] = $any($event.target).value"
+                                    />
+                                </mat-form-field>
+                            }
+                            @default {
+                                <div class="fx-param-inline fx-param-slider">
+                                    <input
+                                        type="range"
+                                        [min]="p.min ?? 0"
+                                        [max]="p.max ?? 10"
+                                        [step]="p.step ?? 0.05"
+                                        [value]="fxInspecting.params[p.name] ?? 0"
+                                        (input)="fxInspecting.params[p.name] = $any($event.target).valueAsNumber"
+                                    />
+                                    <input
+                                        class="fx-num-input"
+                                        type="number"
+                                        [min]="p.min ?? null"
+                                        [max]="p.max ?? null"
+                                        [step]="p.step ?? 0.05"
+                                        [value]="fxInspecting.params[p.name] ?? 0"
+                                        (input)="fxInspecting.params[p.name] = $any($event.target).valueAsNumber || 0"
+                                    />
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Footer: Huy + nut teal co icon (style giong dialog ten mien) -->
+            <div class="shrink-0 flex items-center justify-end gap-3 px-6 py-4 mt-2">
+                <button
+                    mat-button
+                    (click)="closeFxEffectInspector()"
+                    class="text-gray-600 dark:text-gray-300 font-medium"
+                >
+                    Hủy
+                </button>
+                <button
+                    mat-flat-button
+                    [color]="'primary'"
+                    (click)="saveFxEffectConfig()"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:refresh'"
+                    ></mat-icon>
+                    <mat-label class="ml-2">Áp dụng &amp; chạy lại</mat-label>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @if (inspectingProp) {
     <div
         class="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
