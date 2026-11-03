@@ -544,6 +544,12 @@ export class SontinhSceneService implements OnDestroy {
     this._selectPropById?.(propId);
   }
 
+  /** Đếm số entity bản sao nhân bản (PropGLB_*) đang tồn tại trên canvas 3D */
+  get canvasPropCount(): number {
+    if (!this.app || !this.app.root) return 0;
+    return this.app.root.findByTag('prop_glb').length;
+  }
+
   /** Kiểm tra entity của đồ vật có đang tồn tại trên canvas không (tra theo id trong danh sách) */
   hasPropEntity(propId: string): boolean {
     if (!propId || !this.app || !this.app.root) return false;
@@ -551,6 +557,68 @@ export class SontinhSceneService implements OnDestroy {
   }
 
   /** Reset toàn bộ đồ vật về mặc định: xóa đồ thêm vào, giữ đồ mặc định của app */
+  /**
+   * Thực thi mã JavaScript do người dùng cung cấp ngay trên ứng dụng PlayCanvas.
+   * Mã chạy bên trong hàm với tham số sẵn có:
+   *   app   — pc.Application của scene
+   *   root  — app.root (thực thể gốc)
+   *   pc    — namespace PlayCanvas engine
+   *   service — SontinhSceneService (truy cập syncProps, hasPropEntity...)
+   * Trả về { ok: true } hoặc { ok: false, error: thông điệp }
+   */
+  runCanvasScript(code: string): { ok: boolean; error?: string } {
+    if (!this.app) {
+      return { ok: false, error: 'Canvas chưa sẵn sàng. Hãy mở phòng 3D trước.' };
+    }
+    if (!code || !code.trim()) {
+      return { ok: false, error: 'File script rỗng.' };
+    }
+    const app = this.app;
+    const root = app.root;
+    const service = this;
+    // (1) Tu chua loi cu phap "default:," (thieu gia tri) pho bien khi copy
+    // script tu PlayCanvas Editor / web — lam new Function compile fail.
+    let safe = code;
+    try {
+      safe = code.replace(/(default\s*:)\s*,/g, '$1 undefined,');
+    } catch (e) { /* giu nguyen neu xu ly chuỗi gặp vấn đề */ }
+    // (2) Neu la script kieu PlayCanvas Editor (pc.createScript + prototype.initialize/update):
+    // chuyen sang pipeline effect da co san (normalizeFxScript + runPropEffect)
+    // de script duoc gan vao Floor/san va nhan update tu engine.
+    if (/pc\.createScript\s*\(/.test(safe) || /\.prototype\.(initialize|update)\s*=\s*function/.test(safe)) {
+      try {
+        // Thu hoi effect cung ten (neu co) de chay lai sach se
+        const matched = /['"]([A-Za-z0-9_-]+)['"]\s*\)/.exec(safe);
+        const effName = matched ? matched[1] : 'editor_' + Date.now();
+        const okFx = this._runPropEffect?.({
+          name: effName,
+          script: safe,
+          // Script Editor thuong thao tac tren material cua entity chua no
+          // (vd script phu tuyet len san) — mac dinh gan vao Floor.
+          targetPropName: 'Floor'
+        });
+        if (okFx) return { ok: true };
+        // runPropEffect khong kha dung (scene chua init effect runtime) — fail qua nhanh
+        if (okFx === false && this._runPropEffect) {
+          return { ok: false, error: 'Script Editor bị lỗi khi chạy qua effect runtime. Xem console để biết chi tiết.' };
+        }
+      } catch (fxErr: any) {
+        console.warn('[SontinhSceneService] Editor-script effect pipeline failed, fallback raw:', fxErr);
+      }
+      // fallback: chay raw nhu cu (truong hop script engine-thuan khong phai Editor)
+    }
+    try {
+      // eslint-disable-next-line no-new-func
+      const fn = new Function('app', 'root', 'pc', 'service', '"use strict";\n' + safe);
+      fn(app, root, pc, service);
+      return { ok: true };
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      console.error('[SontinhSceneService] Canvas script error:', err);
+      return { ok: false, error: msg };
+    }
+  }
+
   resetPropsToDefault(): void {
     this._resetPropsToDefault?.();
   }
@@ -919,6 +987,8 @@ export class SontinhSceneService implements OnDestroy {
           id: newId,
           name: cnt > 0 ? `${name0} ${cnt + 1}` : name0,
           type: srcProp?.type || 'model',
+          // Giữ shape của món gốc (model/primitive) để syncProps không sinh khối hộp ma cho bản sao
+          shape: srcProp?.shape || 'model',
           glbPath: srcProp?.glbPath || '',
           thumbnail: srcProp?.thumbnail || null,
           position: { x: Math.round(np.x * 100) / 100, y: Math.round(np.y * 100) / 100, z: Math.round(np.z * 100) / 100 },
@@ -6394,6 +6464,9 @@ export class SontinhSceneService implements OnDestroy {
       let s = String(raw || '');
       // 1) Sua "default:," -> "default: undefined," de tranh SyntaxError
       s = s.replace(/default:\s*,/g, 'default: undefined,');
+      // 1b) Sua token shader khong ton tai trong engine: engine 2.x dung
+      // uniform 'material_diffuse' cho mau diffuse cua material trong chunk diffusePS.
+      s = s.replace(/dDiffuseTexControls/g, 'material_diffuse');
       if (!/pc\.createScript\s*\(/.test(s)) return s;
       // 2) Thu thap attributes.add thanh bo tham so mac dinh cho fx.params (co fallback theo type)
       const attrs = {};
@@ -6425,6 +6498,36 @@ export class SontinhSceneService implements OnDestroy {
       // 4) Doi prototype.initialize/update thanh ham thuan
       s = s.replace(/\w+\.prototype\.initialize\s*=\s*function\s*\(/, 'function __fxInit(');
       s = s.replace(/\w+\.prototype\.update\s*=\s*function\s*\(/, 'function __fxUpdate(');
+      // 4b) Chuan hoa custom chunk diffusePS: nhieu script copy tu web
+      // dung texture_diffuseMap (chi ton tai khi material co diffuseMap)
+      // va quen khai bao uniform material_diffuse (engine chi khai bao
+      // no ben trong chunk mac dinh). Chen preamble dieu kien de shader
+      // luon compile du khi material khong co texture.
+      if (/void\s+getAlbedo\s*\(\)/.test(s) && /texture_diffuseMap/.test(s) && !/uniform\s+vec3\s+material_diffuse/.test(s)) {
+        // Goi-site texture2D(texture_diffuseMap, X) -> fxAlbedoSample():
+        // chunk custom duoc thay the hoan toan nen sampler/varying do engine
+        // khai bao cho chunk mac dinh mat theo. Wrapper 0-arg giup shader
+        // compile du tren MOI material: co diffuseMap (nhanh #ifdef dung
+        // sampler + vUv0 that cua engine) hay khong (nhanh #else tra mau
+        // trang, khong cham vao sampler/varying nao de tranh undeclared).
+        s = s.replace(/texture2D\s*\(\s*texture_diffuseMap\s*,\s*[^)]*\)/g, 'fxAlbedoSample()');
+        // KHONG dung vUv0/texture_diffuseMap trong wrapper: material co
+        // diffuseMapTiling (vd san marble tiling 35x20) thi engine sinh
+        // varying vUV0_<transform> chu KHONG phai vUv0 -> hardcode vUv0 lam
+        // shader fail compile. Wrapper tra trang * material_diffuse (uniform
+        // engine luon upload cho material lit) = giu dung mau goc material,
+        // compile du tren 100% material lit (co hay khong texture).
+        const shaderPreamble =
+          'uniform vec3 material_diffuse;\\n' +
+          'vec3 fxAlbedoSample() { return vec3(1.0); }\\n';
+        // Preamble phai duoc JS-escape khi chen vao source: ban thay the
+        // truoc day chen GLSL co newline THAT vao string literal
+        // ('void getAlbedo() {') -> string gay hai dong -> SyntaxError
+        // Invalid or unexpected token -> TOAN BO script fail compile ->
+        // khong co tuyet, khong co hat, khong co gi ca. Day chinh la ly
+        // do "chua thay tuyet roi" o cac lan thu truoc.
+        s = s.replace(/(void\s+getAlbedo\s*\(\))/, shaderPreamble + '$1');
+      }
       // 5) Dong goi thanh effect(fx): initialize chay ngay 1 lan, update nap vao fx.onTick
       s = 'function effect(fx) {\n' + s +
         '\n;(function(){ const self = { entity: fx.entity || fx.root, app: fx.app };' +
@@ -6447,12 +6550,25 @@ export class SontinhSceneService implements OnDestroy {
 
       // Dinh vi dich: bam theo mon do neu co targetPropName/Id
       if (cmd.targetPropId || cmd.targetPropName) {
-        const host = findPropEntityById(String(cmd.targetPropId || '')) || app.root.findByName(String(cmd.targetPropName || ''));
+        const wantName = String(cmd.targetPropName || '');
+        const host = findPropEntityById(String(cmd.targetPropId || '')) || app.root.findByName(wantName);
         if (host) {
           hostEntity = host as pc.Entity;
+          // KHONG tu dong bat lai host bi an (vd san marble cua showroom bi
+          // EMPTY_SCENE studio tat) — tao/bat san thay nguoi dung la hanh vi
+          // sai (phan hoi: "sao phai tao them san ben duoi"). Effect van gan
+          // vao host: phan phu san ton tai an tren material (neu sau nay san
+          // duoc bat lai thi tuyet hien), phan hat roi van chay binh thuong
+          // vi snowRoot duoc them vao app.root (khong ke thua trang thai an).
+          if (!hostEntity.enabled) {
+            console.log('[SontinhScene] Host "' + wantName + '" dang an (studio trong) — chi chay hat roi, khong phu san.');
+          }
           const p = host.getPosition();
           fxRoot.setPosition(p.x, p.y, p.z);
         }
+        // Khong tim thay host -> KHONG tu tao san moi. hostEntity = null,
+        // api.entity = fxRoot trong suot; script tu degrade (chi chay phan
+        // khong can material — hat roi).
       }
 
       const worldLayer = fxWorldLayer();

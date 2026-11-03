@@ -42,6 +42,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('actionFileInput') actionFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('audioFileInput') audioFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('textFileInput') textFileInput!: ElementRef<HTMLInputElement>;
+  /** Input ẩn nhận file .js chứa mã lệnh PlayCanvas chạy trực tiếp trên canvas */
+  @ViewChild('scriptFileInput') scriptFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('propGlbFileInput') propGlbFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('promptFileInput') promptFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('promptInputArea') promptInputArea?: ElementRef<HTMLTextAreaElement>;
@@ -137,6 +139,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       }
       return false;
     });
+  }
+
+  /** Danh sách item đang hiển thị trên canvas kết quả: đồ thường đã insert (visible=true) + bản sao nhân bản (hiddenFromList). Đồ còn nằm chờ trong menu (visible=false) không được liệt kê. */
+  get canvasProps(): any[] {
+    return (this.roomProps || []).filter(p => p && (p.hiddenFromList || p.visible !== false));
   }
 
   isSubDeviceMatchingSearch(prop: any, sub: any): boolean {
@@ -346,31 +353,30 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.sceneService.onPropActionChange = (action, pid, newId) => {
         if (action === 'delete') {
           const prop = this.roomProps.find(p => p && p.id === pid);
-          if (prop) prop.visible = false; // gỡ khỏi canvas, giữ item trong menu
+          if (prop && (prop as any).hiddenFromList) {
+            // Bản sao duplicate chỉ tồn tại trên canvas: xóa hẳn record (không còn ý
+            // nghĩa "vẫn còn trong menu" như đồ thường). Tạo mảng mới + gán lại
+            // profile.props ngay để giữ chuỗi tham chiếu roomProps === profile.props
+            // (điều kiện sống còn cho push bản sao clone trong service).
+            this.roomProps = this.roomProps.filter(p => p && p.id !== pid);
+            (this.profile as any).props = this.roomProps;
+          } else if (prop) {
+            prop.visible = false; // gỡ khỏi canvas, giữ item trong menu
+          }
           if (this.selectedPropId === pid) {
             this.selectedPropId = null;
             this.selectedPropPos = null;
             this.selectedPropRot = null;
             this.selectedPropScl = null;
           }
-          this.toastr.info('Đã gỡ khỏi canvas (vẫn còn trong menu ĐỒ VẬT)', 'Xóa đồ vật');
+          const delMsg = (prop as any)?.hiddenFromList
+            ? 'Đã xóa bản sao khỏi canvas'
+            : 'Đã gỡ khỏi canvas (vẫn còn trong menu ĐỒ VẬT)';
+          this.toastr.info(delMsg, 'Xóa đồ vật');
         } else if (action === 'duplicate' && newId) {
-          // Idempotent: service đã push newProp (đúng vị trí cạnh bản gốc) vào profile.props.
-          // Bản sao mang cờ hiddenFromList: chỉ hiện trên canvas, không thêm mục trong menu ĐỒ VẬT.
-          if (!this.roomProps.find(p => p && p.id === newId)) {
-            const svcProp = ((this.profile as any).props || []).find((q: any) => q && q.id === newId);
-            if (svcProp) {
-              this.roomProps.push(JSON.parse(JSON.stringify(svcProp)));
-            } else {
-              const srcProp = this.roomProps.find(p => p && p.id === pid);
-              if (srcProp) {
-                const cloneProp = JSON.parse(JSON.stringify(srcProp));
-                cloneProp.id = newId;
-                cloneProp.visible = true;
-                this.roomProps.push(cloneProp);
-              }
-            }
-          }
+          // Idempotent: service đã push newProp (đúng vị trí cạnh bản gốc, mang cờ
+          // hiddenFromList) vào profile.props. KHÔNG push vào roomProps để không thêm
+          // mục trong menu ĐỒ VẬT — bản sao liệt kê riêng ở panel TRÊN CANVAS.
         }
         (this.profile as any).props = this.roomProps;
         this.profileDataService.saveProps(this.roomProps).subscribe();
@@ -505,12 +511,47 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.setCameraPreset('CHARACTER');
   }
 
+  /** Bấm nút Plus trên panel CANVAS: mở hộp thoại chọn file .js */
+  onPickScriptFile(): void {
+    this.scriptFileInput?.nativeElement.click();
+  }
+
+  /** Đọc file .js do người dùng chọn rồi gửi xuống scene service thực thi trên canvas PlayCanvas */
+  onScriptFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    // Cho phép chọn lại đúng file vừa chạy (reset value để change trigger lần sau)
+    input.value = '';
+    if (!file) return;
+    if (!/\.js$/i.test(file.name)) {
+      this.toastr.error('Chỉ nhận file JavaScript (.js).', 'Canvas Script');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const code = String(reader.result ?? '');
+      const result = this.sceneService.runCanvasScript(code);
+      if (result.ok) {
+        this.toastr.success(`Đã thực thi "${file.name}" trên canvas.`, 'Canvas Script');
+      } else {
+        this.toastr.error(result.error || 'Lỗi thực thi script.', 'Canvas Script');
+      }
+      this.cdr.markForCheck();
+    };
+    reader.onerror = () => {
+      this.toastr.error('Không đọc được file script.', 'Canvas Script');
+    };
+    reader.readAsText(file);
+  }
+
   onPropClick(prop: any): void {
     if (!prop) return;
     const propId = prop.id || '';
 
     // Đồ vật GLB chưa insert vào canvas (visible=false) HOẶC entity đã mất trên canvas
     // (kẹt trạng thái visible=true sau khi xóa / load lỗi): bấm = insert + tự chữa
+    // Lưu ý: bản sao duplicate (hiddenFromList) không có GLB riêng — đã tồn tại trên
+    // canvas ngay khi nhân bản, chỉ bấm để chọn nên không được tái insert.
     if (prop.glbPath && (prop.visible === false || !this.sceneService.hasPropEntity(propId))) {
       this.insertPropToScene(prop);
       return;
