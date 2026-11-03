@@ -2,6 +2,9 @@ import { Injectable, NgZone, OnDestroy } from '@angular/core';
 import * as pc from 'playcanvas';
 import { UserProfile } from './profile-data.service';
 
+/** Meta mot thuoc tinh dong cua effect script (parse tu attributes.add hoac fx.params) */
+export interface FxParamMeta { name: string; type: string; value: any; title: string; min?: number; max?: number; step?: number; }
+
 // JSON config imports — loaded as assets via HTTP in service method
 // (These are fetched from Angular assets at runtime)
 
@@ -173,7 +176,9 @@ export class SontinhSceneService implements OnDestroy {
     return true;
   }
 
-  constructor(private ngZone: NgZone) {}
+  constructor(private ngZone: NgZone) {
+    this._loadFxRegistry();
+  }
 
   /**
    * Initialize the full 3D scene on the given canvas element.
@@ -228,14 +233,211 @@ export class SontinhSceneService implements OnDestroy {
     if (this._stopPropEffect) this._stopPropEffect(name);
   }
 
-  applyProfile(profile: UserProfile): void {
+  // ================= FX SCRIPT REGISTRY (Canvas Effects) =================
+  // Danh sach cac file .js da import vao canvas qua nut Plus cua panel CANVAS.
+  // Moi entry giu nguyen van script + bo thuoc tinh dong parse tu script
+  // (attributes.add cua dang PlayCanvas Editor) de dialog cau hinh render
+  // control theo dung type cua tung thuoc tinh.
+  fxEffects: Array<{ id: string; name: string; fileName: string; script: string; params: Record<string, any>; paramsMeta: FxParamMeta[]; createdAt: string }> = [];
+
+  /**
+   * Parse dong bo thuoc tinh tu script: ho tro ca dang PlayCanvas Editor
+   * (Snow.attributes.add('name', { type, default, title, min, max, step }))
+   * va dang data-API thuan (fx.params = { ... } hoac FX_PARAMS = {...}).
+   * Brace-balanced de khong gay vo regex don gian khi object long nhau.
+   */
+  parseFxScriptParams(script: string): FxParamMeta[] {
+    const out: FxParamMeta[] = [];
+    if (!script) return out;
+    const typeFallbacks: Record<string, any> = {
+      vec3: { data: [0, 1, 0] }, vec2: { data: [0, 0] }, vec4: { data: [0, 0, 0, 1] },
+      rgb: { r: 1, g: 1, b: 1 }, rgba: { r: 1, g: 1, b: 1, a: 1 },
+      number: 0, string: '', boolean: false, entity: null, asset: null
+    };
+    // Trich title tu body attribute (ho tro tieng Viet co dau)
+    const titleOf = (body: string): string => {
+      const tm = /(?:title|label|desc|description)\s*:\s*(['"])([\s\S]*?)\1/.exec(body);
+      return tm ? tm[2] : '';
+    };
+    // --- Dang 1: attributes.add('ten', { ... }) — brace-balanced ---
+    const re = /\.attributes\.add\(\s*['"]([A-Za-z_$][\w$]*)['"]\s*,\s*\{/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(script)) !== null) {
+      const start = m.index + m[0].length - 1; // vi tri '{'
+      let depth = 0, end = -1, i = start;
+      for (; i < script.length; i++) {
+        const ch = script[i];
+        if (ch === '{') depth++;
+        else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
+      }
+      if (end < 0) continue;
+      const body = script.slice(start + 1, end);
+      const typeM = /(?:^|,)\s*type\s*:\s*['"]([a-zA-Z0-9_]+)['"]/.exec(body);
+      const type = typeM ? typeM[1] : 'number';
+      let value: any;
+      const dm = /(?:^|,)\s*default\s*:/.exec(body);
+      if (dm) {
+        const dvStart = dm.index + dm[0].length;
+        // Lay gia tri den dau phan tu ke tiep (toan tu dau }, hoac , o depth 0)
+        let d = 0, valEnd = body.length;
+        for (let j = dvStart; j < body.length; j++) {
+          const ch = body[j];
+          if (ch === '{' || ch === '[') d++;
+          else if (ch === '}' || ch === ']') { if (d === 0) { valEnd = j; break; } d--; }
+          else if (ch === ',' && d === 0) { valEnd = j; break; }
+        }
+        const rawVal = body.slice(dvStart, valEnd).trim();
+        if (rawVal && rawVal !== 'undefined') {
+          try { value = (new Function('return (' + rawVal + ')'))(); } catch (e) { value = undefined; }
+        }
+      }
+      if (value === undefined) value = (type in typeFallbacks) ? typeFallbacks[type] : null;
+      // Chuan hoa gia tri cho control dialog: array -> object theo type
+      // (default trong script viet dang array [1,1,1,1] nhung sandbox va
+      // dialog dung object {r,g,b,a} / {data:[...]})
+      if (Array.isArray(value)) {
+        if (type === 'rgb') {
+          value = { r: value[0] ?? 1, g: value[1] ?? 1, b: value[2] ?? 1 };
+        } else if (type === 'rgba') {
+          value = { r: value[0] ?? 1, g: value[1] ?? 1, b: value[2] ?? 1, a: value[3] ?? 1 };
+        } else if (type === 'vec2' || type === 'vec3' || type === 'vec4') {
+          value = { data: value };
+        }
+      } else if (type === 'rgb' && value && typeof value === 'object' && !value.data) {
+        value = { r: value.r ?? 1, g: value.g ?? 1, b: value.b ?? 1 };
+      } else if (type === 'rgba' && value && typeof value === 'object' && !value.data) {
+        value = { r: value.r ?? 1, g: value.g ?? 1, b: value.b ?? 1, a: value.a ?? 1 };
+      }
+      const numAttr = (key: string): number | undefined => {
+        const nm = new RegExp('(?:^|,\\s*)' + key + '\\s*:\\s*(-?[0-9.]+)').exec(body);
+        return nm ? parseFloat(nm[1]) : undefined;
+      };
+      out.push({ name: m[1], type, value, title: titleOf(body), min: numAttr('min'), max: numAttr('max'), step: numAttr('step') });
+    }
+    // --- Dang 2: fx.params = {...} hoac FX_PARAMS = {...} (script engine-thuan) ---
+    if (out.length === 0) {
+      const p2 = /(?:fx\.params|FX_PARAMS)\s*=\s*\{/;
+      const pm = p2.exec(script);
+      if (pm) {
+        const start = pm.index + pm[0].length - 1;
+        let depth = 0, end = -1;
+        for (let i = start; i < script.length; i++) {
+          const ch = script[i];
+          if (ch === '{') depth++;
+          else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
+        }
+        if (end > 0) {
+          const raw = script.slice(start, end + 1);
+          try {
+            const obj = (new Function('return (' + raw + ')'))();
+            if (obj && typeof obj === 'object') {
+              for (const k of Object.keys(obj)) {
+                const v = obj[k];
+                let type = 'number';
+                if (typeof v === 'boolean') type = 'boolean';
+                else if (typeof v === 'string') type = 'string';
+                else if (v && typeof v === 'object' && v.r !== undefined) type = (v.a !== undefined) ? 'rgba' : 'rgb';
+                else if (Array.isArray(v) && v.length >= 3) type = 'vec3';
+                out.push({ name: k, type, value: v, title: '' });
+              }
+            }
+          } catch (e) { /* bo qua object khong parse duoc */ }
+        }
+      }
+    }
+    return out;
+  }
+
+  /** Dang ky effect moi vao danh sach Canvas (goi sau khi runCanvasScript thanh cong) */
+  registerFxEffect(name: string, fileName: string, script: string, params?: Record<string, any>): void {
+    this._saveFxRegistry();
+    const existing = this.fxEffects.findIndex((f) => f.name === name);
+    if (existing >= 0) this.fxEffects.splice(existing, 1);
+    const paramsMeta = this.parseFxScriptParams(script);
+    // Ghe params nguoi dung luu trong registry (neu co) de dialog hien gia tri moi
+    const merged: Record<string, any> = {};
+    for (const p of paramsMeta) merged[p.name] = (params && params[p.name] !== undefined) ? params[p.name] : p.value;
+    this.fxEffects.push({
+      id: 'fx_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e6).toString(36),
+      name, fileName, script,
+      params: merged,
+      paramsMeta,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  /** Xoa effect khoi danh sach Canvas + dung no tren scene */
+  removeFxEffect(id: string): void {
+    const idx = this.fxEffects.findIndex((f) => f.id === id);
+    if (idx < 0) return;
+    const fx = this.fxEffects[idx];
+    if (this._stopPropEffect) this._stopPropEffect(fx.name);
+    this.fxEffects.splice(idx, 1);
+    this._saveFxRegistry();
+  }
+
+  /** Luu registry vao localStorage de giu danh sach + cau hinh qua F5 */
+  private _saveFxRegistry(): void {
+    try {
+      localStorage.setItem('sontinh_fx_registry', JSON.stringify(this.fxEffects));
+    } catch (e) { /* day dai hoac tab che do rieng tu */ }
+  }
+
+  private _loadFxRegistry(): void {
+    try {
+      const raw = localStorage.getItem('sontinh_fx_registry');
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length > 0 && this.fxEffects.length === 0) {
+        this.fxEffects = arr.filter((f) => f && f.name && f.script);
+      }
+    } catch (e) { /* registry hong — bo qua */ }
+  }
+
+
+
+  /**
+   * Cap nhat tham so dong cho effect: restart voi params moi.
+   * Params duoc truyen vao sandbox qua wrapper (userParams) nen script
+   * nhan gia tri moi ngay tu initialize ma khong can sua script.
+   */
+  updateFxEffectParams(id: string, params: Record<string, any>): boolean {
+    const fx = this.fxEffects.find((f) => f.id === id);
+    if (!fx) return false;
+    fx.params = Object.assign({}, fx.params, params || {});
+    const ok = this._runPropEffect?.({ name: fx.name, script: fx.script, params: fx.params, targetPropName: 'Floor' }) ?? false;
+    return ok;
+  }
+
+  /** Chay lai effect voi gia tri tham so hien tai trong registry */
+  rerunFxEffect(id: string): boolean {
+    const fx = this.fxEffects.find((f) => f.id === id);
+    if (!fx) return false;
+    return this._runPropEffect?.({ name: fx.name, script: fx.script, params: fx.params, targetPropName: 'Floor' }) ?? false;
+  }
+
+  /** Chay lai toan bo effect trong registry (goi sau initScene de phuc hoi hieu ung sau F5) */
+  rerunAllFxEffects(): void {
+    if (this.fxEffects.length === 0 || !this._runPropEffect) return;
+    let n = 0;
+    for (const fx of this.fxEffects) {
+      try {
+        if (this._runPropEffect({ name: fx.name, script: fx.script, params: fx.params, targetPropName: 'Floor' })) n++;
+      } catch (e) { /* bo qua effect loi, chay tiep con lai */ }
+    }
+    if (n > 0) console.log('[SontinhScene] Restored ' + n + '/' + this.fxEffects.length + ' canvas effect(s) after scene init.');
+  }
+
+  applyProfile(profile: UserProfile, opts?: { skipCamera?: boolean }): void {
     this._profile = profile;
     if (Array.isArray((profile as any).disabledEvents)) {
       this.setDisabledTriggers((profile as any).disabledEvents);
     }
     this.ngZone.runOutsideAngular(() => {
       // 1. Dynamic Camera Preset from ~/Documents/ai.type/data/profiles/{username}/
-      if (profile.scene?.cameraPreset) {
+      // FIX(khong reset goc nhin khi keo do vat): bo qua camera cho cac luong
+      // chi-luu-props (drag/xoa/them/AI) — chi init scene va preset cu the moi ap camera.
+      if (profile.scene?.cameraPreset && !opts?.skipCamera) {
         this.setCameraPreset(profile.scene.cameraPreset);
       }
 
@@ -566,6 +768,9 @@ export class SontinhSceneService implements OnDestroy {
    *   service — SontinhSceneService (truy cập syncProps, hasPropEntity...)
    * Trả về { ok: true } hoặc { ok: false, error: thông điệp }
    */
+  /** Ten file .js dang duoc import (component gan truoc khi goi runCanvasScript de registry hien ten that) */
+  fileNameHint: string | null = null;
+
   runCanvasScript(code: string): { ok: boolean; error?: string } {
     if (!this.app) {
       return { ok: false, error: 'Canvas chưa sẵn sàng. Hãy mở phòng 3D trước.' };
@@ -597,7 +802,13 @@ export class SontinhSceneService implements OnDestroy {
           // (vd script phu tuyet len san) — mac dinh gan vao Floor.
           targetPropName: 'Floor'
         });
-        if (okFx) return { ok: true };
+        if (okFx) {
+          // Dang ky vao danh sach Canvas Effects de dialog cau hinh dong
+          // (chi voi script dang Editor co thuat toan ghe vao scene)
+          if (this.fileNameHint) this.registerFxEffect(effName, this.fileNameHint, safe, {});
+          else this.registerFxEffect(effName, 'script.js', safe, {});
+          return { ok: true };
+        }
         // runPropEffect khong kha dung (scene chua init effect runtime) — fail qua nhanh
         if (okFx === false && this._runPropEffect) {
           return { ok: false, error: 'Script Editor bị lỗi khi chạy qua effect runtime. Xem console để biết chi tiết.' };

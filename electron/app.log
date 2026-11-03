@@ -12592,3 +12592,76 @@ asyncio.exceptions.CancelledError
 2026-11-03 12:40:29,826 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
 2026-11-03 12:40:29,827 INFO uvicorn.error: Application startup complete.
 2026-11-03 12:40:29,827 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
+2026-11-03 16:08:55,193 INFO uvicorn.error: Shutting down
+2026-11-03 16:08:55,397 INFO uvicorn.error: Finished server process [181715]
+2026-11-03 16:08:55,485 ERROR uvicorn.error: Traceback (most recent call last):
+  File "asyncio/runners.py", line 204, in run
+  File "asyncio/runners.py", line 127, in run
+  File "asyncio/base_events.py", line 706, in run_until_complete
+  File "asyncio/base_events.py", line 677, in run_forever
+  File "asyncio/base_events.py", line 2057, in _run_once
+  File "asyncio/events.py", line 94, in _run
+  File "uvicorn/server.py", line 77, in serve
+    with self.capture_signals():
+         ~~~~~~~~~~~~~~~~~~~~^^
+  File "contextlib.py", line 148, in __exit__
+  File "uvicorn/server.py", line 337, in capture_signals
+    signal.raise_signal(captured_signal)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "asyncio/runners.py", line 166, in _on_sigint
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "starlette/routing.py", line 645, in lifespan
+    await receive()
+  File "uvicorn/lifespan/on.py", line 137, in receive
+    return await self.receive_queue.get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncio/queues.py", line 186, in get
+asyncio.exceptions.CancelledError
+
+2026-11-03 17:05:59,832 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-11-03 17:05:59,932 INFO unified_app: [router] Included profiles_router
+2026-11-03 17:05:59,948 INFO unified_app: [router] Included accounts_router
+2026-11-03 17:05:59,959 INFO unified_app: [router] Included optional search_click_router
+2026-11-03 17:05:59,961 INFO unified_app: [router] Included optional like_click_router
+2026-11-03 17:05:59,963 INFO unified_app: [router] Included optional captcha_auto_router
+2026-11-03 17:05:59,965 INFO unified_app: [router] Included optional comment_click_router
+2026-11-03 17:05:59,968 INFO unified_app: [router] Included optional opera_ai_router
+2026-11-03 17:06:00,033 INFO uvicorn.error: Started server process [337615]
+2026-11-03 17:06:00,033 INFO uvicorn.error: Waiting for application startup.
+2026-11-03 17:06:00,034 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-11-03 17:06:00,034 INFO uvicorn.error: Application startup complete.
+2026-11-03 17:06:00,034 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
+2026-11-03 20:48:04,506 INFO uvicorn.error: Shutting down
+2026-11-03 20:48:04,608 INFO uvicorn.error: Finished server process [337615]
+2026-11-03 20:48:04,610 ERROR uvicorn.error: Traceback (most recent call last):
+  File "asyncio/runners.py", line 204, in run
+  File "asyncio/runners.py", line 127, in run
+  File "asyncio/base_events.py", line 706, in run_until_complete
+  File "asyncio/base_events.py", line 677, in run_forever
+  File "asyncio/base_events.py", line 2057, in _run_once
+  File "asyncio/events.py", line 94, in _run
+  File "uvicorn/server.py", line 77, in serve
+    with self.capture_signals():
+         ~~~~~~~~~~~~~~~~~~~~^^
+  File "contextlib.py", line 148, in __exit__
+  File "uvicorn/server.py", line 337, in capture_signals
+    signal.raise_signal(captured_signal)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "asyncio/runners.py", line 166, in _on_sigint
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "starlette/routing.py", line 645, in lifespan
+    await receive()
+  File "uvicorn/lifespan/on.py", line 137, in receive
+    return await self.receive_queue.get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncio/queues.py", line 186, in get
+asyncio.exceptions.CancelledError
+
