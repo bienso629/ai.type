@@ -23,6 +23,14 @@
         style="display: none"
         (change)="onActionFileSelected($event)"
     />
+    <!-- Hidden PlayCanvas script file input -->
+    <input
+        #scriptFileInput
+        type="file"
+        accept=".js,text/javascript"
+        style="display: none"
+        (change)="onScriptFileSelected($event)"
+    />
     <!-- Hidden audio file input -->
     <input
         #audioFileInput
@@ -345,9 +353,82 @@
 
                         @if (filteredRoomProps.length === 0) {
                             <div
-                                class="prop-empty-row p-3 text-xs text-gray-400 italic text-center"
+                                class="prop-empty-row p-3 text-xs text-gray-500 leading-relaxed"
                             >
                                 Không tìm thấy đồ vật nào
+                            </div>
+                        }
+                    </div>
+                </details>
+
+                <!-- TRÊN CANVAS: mọi item đang hiển thị trên canvas kết quả (đồ thường đã insert + bản sao nhân bản) -->
+                <details class="sidebar-panel" [attr.open]="null">
+                    <summary class="sidebar-panel-header">
+                        <span class="sidebar-panel-label"
+                            >CANVAS ({{ canvasProps.length }})</span
+                        >
+                        <button
+                            type="button"
+                            class="canvas-script-add-btn"
+                            matTooltip="Chạy script JavaScript trên canvas"
+                            aria-label="Chạy script JavaScript trên canvas"
+                            (click)="onPickScriptFile(); $event.preventDefault(); $event.stopPropagation()"
+                        >
+                            <mat-icon class="canvas-script-add-icon">add</mat-icon>
+                        </button>
+                        <mat-icon class="sidebar-panel-arrow"
+                            >expand_more</mat-icon
+                        >
+                    </summary>
+
+                    <div class="sidebar-sub-items">
+                        @for (prop of canvasProps; track prop) {
+                            <div
+                                class="sidebar-sub-item prop-card group cursor-pointer"
+                                [class.prop-card--used]="prop.visible !== false"
+                                [class.prop-card--selected]="prop.id === selectedPropId"
+                                (click)="onPropClick(prop)"
+                            >
+                                @if (prop.thumbnail) {
+                                    <img
+                                        [src]="prop.thumbnail"
+                                        [alt]="prop.name"
+                                        class="prop-thumb"
+                                        draggable="false"
+                                    />
+                                } @else if (prop.glbPath) {
+                                    <div class="prop-thumb prop-thumb--empty">
+                                        <mat-icon class="icon-size-6">view_in_ar</mat-icon>
+                                    </div>
+                                }
+                                <div class="prop-card__info">
+                                    <div class="prop-card__name-row">
+                                        <span class="prop-card__name" [title]="prop.name">{{
+                                            prop.name
+                                        }}</span>
+                                        <!-- Nút Thuộc tính & Phương thức hành động -->
+                                        <button
+                                            mat-icon-button
+                                            class="prop-card__tune"
+                                            (click)="$event.stopPropagation(); openPropInspector(prop)"
+                                            title="Thuộc tính & Phương thức hành động"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4 text-slate-400 hover:text-teal-600"
+                                                >tune</mat-icon
+                                            >
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (canvasProps.length === 0) {
+                            <div
+                                class="prop-empty-row p-3 text-xs text-gray-500 leading-relaxed"
+                            >
+                                Canvas chưa có đồ vật nào. Thêm từ menu ĐỒ VẬT, hoặc
+                                chọn một món rồi bấm nhân bản (Duplicate).
                             </div>
                         }
                     </div>

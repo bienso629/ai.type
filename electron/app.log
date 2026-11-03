@@ -12407,3 +12407,188 @@ asyncio.exceptions.CancelledError
 2026-11-02 14:32:17,857 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
 2026-11-02 14:32:17,858 INFO uvicorn.error: Application startup complete.
 2026-11-02 14:32:17,858 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
+2026-11-02 17:15:32,141 INFO uvicorn.error: Shutting down
+2026-11-02 17:15:32,242 INFO uvicorn.error: Finished server process [52395]
+2026-11-02 17:15:32,244 ERROR uvicorn.error: Traceback (most recent call last):
+  File "asyncio/runners.py", line 204, in run
+  File "asyncio/runners.py", line 127, in run
+  File "asyncio/base_events.py", line 706, in run_until_complete
+  File "asyncio/base_events.py", line 677, in run_forever
+  File "asyncio/base_events.py", line 2057, in _run_once
+  File "asyncio/events.py", line 94, in _run
+  File "uvicorn/server.py", line 77, in serve
+    with self.capture_signals():
+         ~~~~~~~~~~~~~~~~~~~~^^
+  File "contextlib.py", line 148, in __exit__
+  File "uvicorn/server.py", line 337, in capture_signals
+    signal.raise_signal(captured_signal)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "asyncio/runners.py", line 166, in _on_sigint
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "starlette/routing.py", line 645, in lifespan
+    await receive()
+  File "uvicorn/lifespan/on.py", line 137, in receive
+    return await self.receive_queue.get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncio/queues.py", line 186, in get
+asyncio.exceptions.CancelledError
+
+2026-11-02 17:53:18,654 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-11-02 17:53:18,745 INFO unified_app: [router] Included profiles_router
+2026-11-02 17:53:18,761 INFO unified_app: [router] Included accounts_router
+2026-11-02 17:53:18,770 INFO unified_app: [router] Included optional search_click_router
+2026-11-02 17:53:18,772 INFO unified_app: [router] Included optional like_click_router
+2026-11-02 17:53:18,774 INFO unified_app: [router] Included optional captcha_auto_router
+2026-11-02 17:53:18,776 INFO unified_app: [router] Included optional comment_click_router
+2026-11-02 17:53:18,779 INFO unified_app: [router] Included optional opera_ai_router
+2026-11-02 17:53:18,840 INFO uvicorn.error: Started server process [134430]
+2026-11-02 17:53:18,841 INFO uvicorn.error: Waiting for application startup.
+2026-11-02 17:53:18,841 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-11-02 17:53:18,841 INFO uvicorn.error: Application startup complete.
+2026-11-02 17:53:18,841 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
+2026-11-02 18:30:44,479 INFO uvicorn.error: Shutting down
+2026-11-02 18:30:44,580 INFO uvicorn.error: Finished server process [134430]
+2026-11-02 18:30:44,582 ERROR uvicorn.error: Traceback (most recent call last):
+  File "asyncio/runners.py", line 204, in run
+  File "asyncio/runners.py", line 127, in run
+  File "asyncio/base_events.py", line 706, in run_until_complete
+  File "asyncio/base_events.py", line 677, in run_forever
+  File "asyncio/base_events.py", line 2057, in _run_once
+  File "asyncio/events.py", line 94, in _run
+  File "uvicorn/server.py", line 77, in serve
+    with self.capture_signals():
+         ~~~~~~~~~~~~~~~~~~~~^^
+  File "contextlib.py", line 148, in __exit__
+  File "uvicorn/server.py", line 337, in capture_signals
+    signal.raise_signal(captured_signal)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "asyncio/runners.py", line 166, in _on_sigint
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "starlette/routing.py", line 645, in lifespan
+    await receive()
+  File "uvicorn/lifespan/on.py", line 137, in receive
+    return await self.receive_queue.get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncio/queues.py", line 186, in get
+asyncio.exceptions.CancelledError
+
+2026-11-02 18:42:54,101 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-11-02 18:42:54,192 INFO unified_app: [router] Included profiles_router
+2026-11-02 18:42:54,207 INFO unified_app: [router] Included accounts_router
+2026-11-02 18:42:54,218 INFO unified_app: [router] Included optional search_click_router
+2026-11-02 18:42:54,219 INFO unified_app: [router] Included optional like_click_router
+2026-11-02 18:42:54,222 INFO unified_app: [router] Included optional captcha_auto_router
+2026-11-02 18:42:54,224 INFO unified_app: [router] Included optional comment_click_router
+2026-11-02 18:42:54,227 INFO unified_app: [router] Included optional opera_ai_router
+2026-11-02 18:42:54,289 INFO uvicorn.error: Started server process [157520]
+2026-11-02 18:42:54,289 INFO uvicorn.error: Waiting for application startup.
+2026-11-02 18:42:54,289 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-11-02 18:42:54,290 INFO uvicorn.error: Application startup complete.
+2026-11-02 18:42:54,290 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
+2026-11-02 21:36:28,158 INFO uvicorn.error: Shutting down
+2026-11-02 21:36:28,259 INFO uvicorn.error: Finished server process [157520]
+2026-11-02 21:36:28,261 ERROR uvicorn.error: Traceback (most recent call last):
+  File "asyncio/runners.py", line 204, in run
+  File "asyncio/runners.py", line 127, in run
+  File "asyncio/base_events.py", line 706, in run_until_complete
+  File "asyncio/base_events.py", line 677, in run_forever
+  File "asyncio/base_events.py", line 2057, in _run_once
+  File "asyncio/events.py", line 94, in _run
+  File "uvicorn/server.py", line 77, in serve
+    with self.capture_signals():
+         ~~~~~~~~~~~~~~~~~~~~^^
+  File "contextlib.py", line 148, in __exit__
+  File "uvicorn/server.py", line 337, in capture_signals
+    signal.raise_signal(captured_signal)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "asyncio/runners.py", line 166, in _on_sigint
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "starlette/routing.py", line 645, in lifespan
+    await receive()
+  File "uvicorn/lifespan/on.py", line 137, in receive
+    return await self.receive_queue.get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncio/queues.py", line 186, in get
+asyncio.exceptions.CancelledError
+
+2026-11-03 07:28:45,754 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-11-03 07:28:45,842 INFO unified_app: [router] Included profiles_router
+2026-11-03 07:28:45,858 INFO unified_app: [router] Included accounts_router
+2026-11-03 07:28:45,867 INFO unified_app: [router] Included optional search_click_router
+2026-11-03 07:28:45,868 INFO unified_app: [router] Included optional like_click_router
+2026-11-03 07:28:45,871 INFO unified_app: [router] Included optional captcha_auto_router
+2026-11-03 07:28:45,873 INFO unified_app: [router] Included optional comment_click_router
+2026-11-03 07:28:45,876 INFO unified_app: [router] Included optional opera_ai_router
+2026-11-03 07:28:45,936 INFO uvicorn.error: Started server process [19348]
+2026-11-03 07:28:45,936 INFO uvicorn.error: Waiting for application startup.
+2026-11-03 07:28:45,936 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-11-03 07:28:45,936 INFO uvicorn.error: Application startup complete.
+2026-11-03 07:28:45,936 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
+2026-11-03 08:43:21,711 INFO uvicorn.error: Shutting down
+2026-11-03 08:43:21,812 INFO uvicorn.error: Finished server process [19348]
+2026-11-03 08:43:21,813 ERROR uvicorn.error: Traceback (most recent call last):
+  File "asyncio/runners.py", line 204, in run
+  File "asyncio/runners.py", line 127, in run
+  File "asyncio/base_events.py", line 706, in run_until_complete
+  File "asyncio/base_events.py", line 677, in run_forever
+  File "asyncio/base_events.py", line 2057, in _run_once
+  File "asyncio/events.py", line 94, in _run
+  File "uvicorn/server.py", line 77, in serve
+    with self.capture_signals():
+         ~~~~~~~~~~~~~~~~~~~~^^
+  File "contextlib.py", line 148, in __exit__
+  File "uvicorn/server.py", line 337, in capture_signals
+    signal.raise_signal(captured_signal)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "asyncio/runners.py", line 166, in _on_sigint
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "starlette/routing.py", line 645, in lifespan
+    await receive()
+  File "uvicorn/lifespan/on.py", line 137, in receive
+    return await self.receive_queue.get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncio/queues.py", line 186, in get
+asyncio.exceptions.CancelledError
+
+2026-11-03 10:43:15,406 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-11-03 10:43:15,502 INFO unified_app: [router] Included profiles_router
+2026-11-03 10:43:15,518 INFO unified_app: [router] Included accounts_router
+2026-11-03 10:43:15,534 INFO unified_app: [router] Included optional search_click_router
+2026-11-03 10:43:15,536 INFO unified_app: [router] Included optional like_click_router
+2026-11-03 10:43:15,538 INFO unified_app: [router] Included optional captcha_auto_router
+2026-11-03 10:43:15,540 INFO unified_app: [router] Included optional comment_click_router
+2026-11-03 10:43:15,543 INFO unified_app: [router] Included optional opera_ai_router
+2026-11-03 10:43:15,602 INFO uvicorn.error: Started server process [105396]
+2026-11-03 10:43:15,602 INFO uvicorn.error: Waiting for application startup.
+2026-11-03 10:43:15,602 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-11-03 10:43:15,602 INFO uvicorn.error: Application startup complete.
+2026-11-03 10:43:15,602 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
+2026-11-03 12:40:29,593 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/electron/app.log
+2026-11-03 12:40:29,714 INFO unified_app: [router] Included profiles_router
+2026-11-03 12:40:29,729 INFO unified_app: [router] Included accounts_router
+2026-11-03 12:40:29,745 INFO unified_app: [router] Included optional search_click_router
+2026-11-03 12:40:29,747 INFO unified_app: [router] Included optional like_click_router
+2026-11-03 12:40:29,751 INFO unified_app: [router] Included optional captcha_auto_router
+2026-11-03 12:40:29,753 INFO unified_app: [router] Included optional comment_click_router
+2026-11-03 12:40:29,756 INFO unified_app: [router] Included optional opera_ai_router
+2026-11-03 12:40:29,826 INFO uvicorn.error: Started server process [181715]
+2026-11-03 12:40:29,826 INFO uvicorn.error: Waiting for application startup.
+2026-11-03 12:40:29,826 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
+2026-11-03 12:40:29,827 INFO uvicorn.error: Application startup complete.
+2026-11-03 12:40:29,827 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
