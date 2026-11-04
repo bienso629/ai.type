@@ -511,6 +511,15 @@
     }
 }
 
+.prop-card__lock {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  color: #f59e0b; /* amber - dong bo voi nut khoa tren canvas */
+  margin-left: auto;
+}
+
 .prop-card__tune {
   flex-shrink: 0;
   width: 28px;
