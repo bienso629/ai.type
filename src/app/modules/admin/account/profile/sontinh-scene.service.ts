@@ -1101,25 +1101,17 @@ export class SontinhSceneService implements OnDestroy {
         // Xoay đồng bộ các entity phụ của đồ vật (nếu có)
         for (let i = 0; i < propDragExtras.length; i++) propDragExtras[i].setEulerAngles(nx, ny, nz);
       } else {
-        // 1% / pixel, giới hạn 0.05x - 50x
+        // 1% / pixel — scale ĐỒNG ĐỀU cả 3 trục X, Y, Z (giữ nguyên tỷ lệ hình dạng)
         tScrubAccum += deltaPx * 0.01;
         const f = 1 + tScrubAccum;
         const cl = (v: number) => Math.max(0.05, Math.min(50, v * f));
-        const nx = cl(tScrubStartScale.x), ny = cl(tScrubStartScale.y), nz = cl(tScrubStartScale.z);
+        const nx = cl(tScrubStartScale.x);
+        const ny = cl(tScrubStartScale.y);
+        const nz = cl(tScrubStartScale.z);
         ent.setLocalScale(nx, ny, nz);
-        // GLB: nâng Y theo tỷ lệ scale Y (Y mới = Y gốc * ratio) để đáy món đồ
-        // tiếp tục chạm sàn, không lún xuống Floor khi phóng to / thu nhỏ
-        if (ent.tags.has('prop_glb') && tScrubStartScale.y > 1e-4) {
-          // Giữ đáy món đồ cố định so với sàn: dùng đáy AABB local của GLB
-          // (_bottomLocalY do loadPropGlb ghi trên wrapper) nếu có, ngược lại
-          // fallback Y mới = Y cũ * ratio (đúng khi món đồ đang chạm sàn)
-          const blG = (ent as any)._bottomLocalY;
-          const nyPos = (typeof blG === 'number')
-            ? tScrubStartPos.y + blG * (tScrubStartScale.y - ny)
-            : tScrubStartPos.y * (ny / tScrubStartScale.y);
-          ent.setPosition(tScrubStartPos.x, nyPos, tScrubStartPos.z);
-        }
-        // Scale đồng bộ các entity phụ của đồ vật (nếu có)
+        // Scale thuần túy: KHÔNG đụng vào vị trí — tọa độ giữ nguyên tuyệt đối.
+        // (đã bỏ cơ chế tự nâng/hạ Y khi scale GLB: nó khiến kéo scale nhìn như
+        // đang kéo vị trí Y, gây hiểu lầm panel tọa độ nhảy theo)
         for (let i = 0; i < propDragExtras.length; i++) propDragExtras[i].setLocalScale(nx, ny, nz);
         // Prop pulse lấy gốc scale mới để không giật lại giá trị cũ
         const animCfgS = propAnimMap.get(ent.name) || propAnimMap.get(tScrubPropId);
@@ -2076,8 +2068,12 @@ export class SontinhSceneService implements OnDestroy {
       app.mouse.on(pc.EVENT_MOUSEWHEEL, (e: pc.MouseEvent) => {
         let delta = e.wheelDelta || 0;
         if (Math.abs(delta) > 10) delta = Math.sign(delta) * 2;
-        // Smooth proportional zoom
-        targetDistance = Math.max(3.5, Math.min(110.0, targetDistance - delta * 0.8));
+        // Zoom theo tỷ lệ khoảng cách hiện tại: camera càng xa cuộn càng nhanh, càng gần càng tinh
+        const zoomDir = Math.sign(delta);
+        if (zoomDir !== 0) {
+          const zoomSpeed = 0.16; // 16% mỗi notch chuột giữa
+          targetDistance = Math.max(3.5, Math.min(110.0, targetDistance * (1 - zoomDir * zoomSpeed)));
+        }
       });
     }
     
