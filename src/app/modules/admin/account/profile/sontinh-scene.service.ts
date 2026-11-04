@@ -4,6 +4,42 @@ import { UserProfile } from './profile-data.service';
 
 /** Meta mot thuoc tinh dong cua effect script (parse tu attributes.add hoac fx.params) */
 export interface FxParamMeta { name: string; type: string; value: any; title: string; min?: number; max?: number; step?: number; }
+export interface RoomProp {
+  id: string;
+  name: string;
+  type: string;
+  shape?: 'model' | 'box' | 'sphere' | 'capsule' | 'cone' | 'cylinder';
+  glbPath?: string;
+  thumbnail?: string | null;
+  position?: { x: number; y: number; z: number };
+  rotation?: { x: number; y: number; z: number };
+  scale?: { x: number; y: number; z: number };
+  color?: string | null;
+  visible?: boolean;
+  interactive?: boolean;
+  clickAction?: string;
+  hiddenFromList?: boolean;
+  locked?: boolean; // New property for lock/unlock feature
+  subDevices?: any[];
+  castShadow?: boolean;
+  opacity?: number;
+  emissiveColor?: string;
+  emissiveIntensity?: number;
+  metalness?: number;
+  roughness?: number;
+  activeScreenState?: string;
+  screenOptions?: any;
+  _customPositionSet?: boolean;
+  _customRotationSet?: boolean;
+  _customScaleSet?: boolean;
+  _customColorSet?: boolean;
+  _customOpacitySet?: boolean;
+  _customEmissiveSet?: boolean;
+  _customMetalnessSet?: boolean;
+  _customRoughnessSet?: boolean;
+  _groundedAtScale?: { x: number; y: number; z: number };
+}
+
 
 // JSON config imports — loaded as assets via HTTP in service method
 // (These are fetched from Angular assets at runtime)
@@ -60,6 +96,8 @@ export class SontinhSceneService implements OnDestroy {
   private _selectPropById: ((propId: string) => void) | null = null;
   private _resetPropsToDefault: (() => void) | null = null;
   private _deletePropById: ((propId: string) => boolean) | null = null;
+  /** Callback phat khi trang thai khoa cua prop doi (UI cap nhat nut khoa) */
+  onPropLockChanged: ((propId: string, locked: boolean) => void) | null = null;
   private _duplicatePropById: ((propId: string) => string | null) | null = null;
   // 🌟 Custom effect runtime (tuyet roi, la roi...): closure gan khi scene init
   private _runPropEffect: ((cmd: any) => boolean) | null = null;
@@ -238,7 +276,7 @@ export class SontinhSceneService implements OnDestroy {
   // Moi entry giu nguyen van script + bo thuoc tinh dong parse tu script
   // (attributes.add cua dang PlayCanvas Editor) de dialog cau hinh render
   // control theo dung type cua tung thuoc tinh.
-  fxEffects: Array<{ id: string; name: string; fileName: string; script: string; params: Record<string, any>; paramsMeta: FxParamMeta[]; createdAt: string }> = [];
+  fxEffects: Array<{ id: string; name: string; fileName: string; script: string; params: Record<string, any>; paramsMeta: FxParamMeta[]; createdAt: string; enabled?: boolean }> = [];
 
   /**
    * Parse dong bo thuoc tinh tu script: ho tro ca dang PlayCanvas Editor
@@ -350,7 +388,6 @@ export class SontinhSceneService implements OnDestroy {
 
   /** Dang ky effect moi vao danh sach Canvas (goi sau khi runCanvasScript thanh cong) */
   registerFxEffect(name: string, fileName: string, script: string, params?: Record<string, any>): void {
-    this._saveFxRegistry();
     const existing = this.fxEffects.findIndex((f) => f.name === name);
     if (existing >= 0) this.fxEffects.splice(existing, 1);
     const paramsMeta = this.parseFxScriptParams(script);
@@ -362,8 +399,31 @@ export class SontinhSceneService implements OnDestroy {
       name, fileName, script,
       params: merged,
       paramsMeta,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      enabled: true
     });
+    this._saveFxRegistry();
+  }
+
+  /** Bat/tat effect: tat = dung effect tren scene (giu cau hinh), bat = chay lai voi cau hinh da luu */
+  setFxEffectEnabled(id: string, enabled: boolean): boolean {
+    const fx = this.fxEffects.find((f) => f.id === id);
+    if (!fx) return false;
+    fx.enabled = !!enabled;
+    this._saveFxRegistry();
+    if (fx.enabled) {
+      return this._runPropEffect?.({ name: fx.name, script: fx.script, params: fx.params, targetPropName: 'Floor' }) ?? false;
+    }
+    // Quan trong: truyen ten goc — ham stop tu chuon hoa de khop key da luu
+    // (runPropEffect luu key "Tuy_t r_i" -> "Tuy_t_r_i").
+    if (this._stopPropEffect) this._stopPropEffect(fx.name);
+    return true;
+  }
+
+  /** Effect hien dang bat hay tat (mac dinh bat voi du lieu cu chua co cot enabled) */
+  isFxEffectEnabled(id: string): boolean {
+    const fx = this.fxEffects.find((f) => f.id === id);
+    return !fx ? false : fx.enabled !== false;
   }
 
   /** Xoa effect khoi danh sach Canvas + dung no tren scene */
@@ -371,6 +431,7 @@ export class SontinhSceneService implements OnDestroy {
     const idx = this.fxEffects.findIndex((f) => f.id === id);
     if (idx < 0) return;
     const fx = this.fxEffects[idx];
+    // Ten goc — stopPropEffect tu chuan hoa de khop key "Tuy_t_r_i" trong map
     if (this._stopPropEffect) this._stopPropEffect(fx.name);
     this.fxEffects.splice(idx, 1);
     this._saveFxRegistry();
@@ -389,7 +450,7 @@ export class SontinhSceneService implements OnDestroy {
       if (!raw) return;
       const arr = JSON.parse(raw);
       if (Array.isArray(arr) && arr.length > 0 && this.fxEffects.length === 0) {
-        this.fxEffects = arr.filter((f) => f && f.name && f.script);
+        this.fxEffects = arr.filter((f) => f && f.name && f.script).map((f: any) => ({ ...f, enabled: f.enabled !== false }));
       }
     } catch (e) { /* registry hong — bo qua */ }
   }
@@ -405,6 +466,9 @@ export class SontinhSceneService implements OnDestroy {
     const fx = this.fxEffects.find((f) => f.id === id);
     if (!fx) return false;
     fx.params = Object.assign({}, fx.params, params || {});
+    this._saveFxRegistry();
+    // Effect dang TAT: chi luu cau hinh moi, khong tu dong bat effect
+    if (fx.enabled === false) return true;
     const ok = this._runPropEffect?.({ name: fx.name, script: fx.script, params: fx.params, targetPropName: 'Floor' }) ?? false;
     return ok;
   }
@@ -421,6 +485,7 @@ export class SontinhSceneService implements OnDestroy {
     if (this.fxEffects.length === 0 || !this._runPropEffect) return;
     let n = 0;
     for (const fx of this.fxEffects) {
+      if (fx.enabled === false) continue; // effect nguoi dung tat: khong khoi phuc
       try {
         if (this._runPropEffect({ name: fx.name, script: fx.script, params: fx.params, targetPropName: 'Floor' })) n++;
       } catch (e) { /* bo qua effect loi, chay tiep con lai */ }
@@ -850,6 +915,20 @@ export class SontinhSceneService implements OnDestroy {
     return newId;
   }
 
+  /** Bat/tat khoa cho do vat: khoa = khong keo duoc (Shift+keo), khong scrub vi tri/xoay/scale duoc */
+  togglePropLock(propId: string, locked: boolean): void {
+    const p = (this._profile as any)?.props?.find((pr: any) => pr?.id === propId);
+    if (p) p.locked = !!locked;
+    if (this.onPropLockChanged) this.ngZone.run(() => this.onPropLockChanged!(propId, !!locked));
+  }
+
+  /** Do vat dang bi khoa? */
+  isPropLocked(propId: string): boolean {
+    if (!propId) return false;
+    const p = (this._profile as any)?.props?.find((pr: any) => pr?.id === propId);
+    return !!p?.locked;
+  }
+
   private _initPlayCanvasScene(
     canvas: HTMLCanvasElement,
     username: string,
@@ -970,6 +1049,7 @@ export class SontinhSceneService implements OnDestroy {
     function beginTransformScrub(propId: string, kind: TransformKind, axis: number): boolean {
       const ent = findPropEntityById(propId);
       if (!ent) return false;
+      if (self.isPropLocked(propId)) return false; // do vat khoa: khong scrub
       tScrubEnt = ent;
       tScrubPropId = propId;
       tScrubKind = kind;
@@ -1000,7 +1080,7 @@ export class SontinhSceneService implements OnDestroy {
         const k = Math.max(0.008, orbitDistance * 0.0011);
         tScrubAccum += deltaPx * k;
         const nx = tScrubStartPos.x + (tScrubAxis === 0 ? tScrubAccum : 0);
-        const ny = tScrubAxis === 1 ? Math.max(0.2, Math.min(30, tScrubStartPos.y + tScrubAccum)) : tScrubStartPos.y;
+        const ny = tScrubAxis === 1 ? tScrubStartPos.y + tScrubAccum : tScrubStartPos.y; // Y tu do, khong gioi han
         const nz = tScrubStartPos.z + (tScrubAxis === 2 ? tScrubAccum : 0);
         ent.setPosition(nx, ny, nz);
         if (propDragExtras.length) {
@@ -1209,6 +1289,7 @@ export class SontinhSceneService implements OnDestroy {
           visible: true,
           interactive: srcProp?.interactive ?? true,
           clickAction: srcProp?.clickAction || 'focus',
+          locked: !!srcProp?.locked,
           // Bản sao chỉ tồn tại trên canvas 3D: không thêm mục mới trong menu ĐỒ VẬT
           hiddenFromList: true
         };
@@ -1321,6 +1402,7 @@ export class SontinhSceneService implements OnDestroy {
 
     function handlePropDragMove(sx: number, sy: number) {
       if (!propDragCandidate) return;
+      if (self.isPropLocked(propDragCandidate.propId)) return; // do vat khoa: khong keo (click van chon duoc qua mouseup)
       if (!propDragActive) {
         if (Math.hypot(sx - mouseDownPos.x, sy - mouseDownPos.y) < 3) return;
         propDragActive = true;
@@ -1340,7 +1422,7 @@ export class SontinhSceneService implements OnDestroy {
         const k = Math.max(0.02, orbitDistance * 0.0022);
         dragAccY += ((lastDragY ?? sy) - sy) * k;
         lastDragY = sy;
-        const ny = Math.max(0.2, Math.min(30, dragStartPos.y + dragAccY));
+        const ny = dragStartPos.y + dragAccY; // Y tu do, khong gioi han
         ent.setPosition(dragStartPos.x, ny, dragStartPos.z);
         dragPlaneY = ny;
       } else {
@@ -6653,9 +6735,21 @@ export class SontinhSceneService implements OnDestroy {
     const activeEffects = new Map<string, { root: pc.Entity; tickFns: Array<(dt: number) => void>; mis: pc.MeshInstance[] }>();
     const fxWorldLayer = () => app.scene.layers.getLayerByName('World') || app.scene.layers.getLayerByName('Skybox') || null;
 
+    // Chuon hoa ten giong hec runPropEffect luu key: "Tuy_t r_i" -> "Tuy_t_r_i".
+    // BUG da sua: switch tat truyen ten GOC ("Tuy_t r_i") nhung key trong map la
+    // ten DA chuan hoa ("Tuy_t_r_i") -> get tra undefined -> ham thoat som ->
+    // khong don hat, tuyet van roi du switch dang o trang thai tat.
     function stopPropEffect(name: string): void {
-      const fx = activeEffects.get(name);
-      if (!fx) return;
+      const normFxName = (s: string) => String(s || '').replace(/[^a-zA-Z0-9_-]/g, '_') || 'custom';
+      const wanted = normFxName(name);
+      let key: string | null = activeEffects.has(wanted) ? wanted : null;
+      if (!key) {
+        for (const k of Array.from(activeEffects.keys())) {
+          if (normFxName(k) === wanted) { key = k; break; }
+        }
+      }
+      if (!key) return;
+      const fx = activeEffects.get(key)!;
       const wl = fxWorldLayer();
       for (const mi of fx.mis) {
         try { if (wl) wl.removeMeshInstances([mi]); } catch (e) { /* ignore */ }
@@ -6664,8 +6758,8 @@ export class SontinhSceneService implements OnDestroy {
         fx.root.getChildren().slice().forEach((c) => { (c as pc.Entity).destroy(); });
         fx.root.destroy();
       } catch (e) { /* ignore */ }
-      activeEffects.delete(name);
-      console.log('[SontinhScene] Effect stopped:', name);
+      activeEffects.delete(key);
+      console.log('[SontinhScene] Effect stopped:', key);
     }
 
     // Bien hoa script kieu PlayCanvas Editor (pc.createScript + prototype.initialize/update)
@@ -6758,6 +6852,10 @@ export class SontinhSceneService implements OnDestroy {
       const fxRoot = new pc.Entity('FX_' + fxName);
       app.root.addChild(fxRoot);
       let hostEntity: pc.Entity | null = null;
+      // Registry Canvas rerun effect với targetPropName 'Floor' — được hiểu là
+      // "phủ toàn scene" (không rải hạt quanh tâm sàn). Floor chỉ làm host cho
+      // phần material (phủ trắng), không làm tâm vùng rơi hạt.
+      const hostIsFloor = String(cmd.targetPropName || '').trim().toLowerCase() === 'floor';
 
       // Dinh vi dich: bam theo mon do neu co targetPropName/Id
       if (cmd.targetPropId || cmd.targetPropName) {
@@ -6774,8 +6872,11 @@ export class SontinhSceneService implements OnDestroy {
           if (!hostEntity.enabled) {
             console.log('[SontinhScene] Host "' + wantName + '" dang an (studio trong) — chi chay hat roi, khong phu san.');
           }
-          const p = host.getPosition();
-          fxRoot.setPosition(p.x, p.y, p.z);
+          // FIX "đống tuyết lơ lửng": KHÔNG dời fxRoot tới vị trí món đồ nữa.
+          // fxRoot giữ ở gốc (0,0,0) để mọi h.node.setPosition(h.x, h.y, h.z)
+          // trong script hiệu ứng chính là tọa độ THẾ GIỚI. Hạt muốn bám quanh
+          // món đồ do spawnParticles tự rải quanh tâm món (center) thay vì
+          // dồn hết về một điểm duy nhất tại gốc hiệu ứng.
         }
         // Khong tim thay host -> KHONG tu tao san moi. hostEntity = null,
         // api.entity = fxRoot trong suot; script tu degrade (chi chay phan
@@ -6809,6 +6910,88 @@ export class SontinhSceneService implements OnDestroy {
           mat.depthWrite = opacity >= 0.99;
           mat.update();
           const mesh = pc.createSphere(app.graphicsDevice, { radius: size / 2, latitudeBands: 6, longitudeBands: 6 });
+
+          // ===== FIX "đống bông tuyết đứng lơ lửng giữa không trung" =====
+          // Trước đây: MỌI hạt sinh chồng nhau tại đúng một điểm (0,0,0) quanh
+          // gốc hiệu ứng (nếu có targetPropName thì gốc còn bị dời vào tâm món
+          // đồ) và hạt đứng im trừ khi script tự viết gravity. Giờ:
+          //  1) Hạt được RẢI ĐỀU trong đĩa bán kính radius quanh center (mặc định:
+          //     quanh món đồ nếu có target, ngược lại phủ toàn scene).
+          //  2) Hạt TỰ RƠI theo physics mặc định (fallSpeed + gió + bồng bềnh sin)
+          //     và TỰ ĐỤNG LẠI khi chạm mặt sàn (y=0) hoặc NÓC đồ vật/nhân vật
+          //     (restY tính sẵn từ AABB các mesh đang hiện trên canvas).
+          //  3) Script hiệu ứng không cần viết gravity — kể cả script chỉ gọi
+          //     spawnParticles rồi bỏ đó, tuyết vẫn rơi đúng và đọng xuống bề mặt.
+          const hasHost = !!(hostEntity && !hostIsFloor);
+          const center: pc.Vec3 = (o.center && typeof o.center === 'object')
+            ? new pc.Vec3(Number(o.center.x) || 0, Number(o.center.y) || 0, Number(o.center.z) || 0)
+            : (hasHost ? (hostEntity as pc.Entity).getPosition().clone() : new pc.Vec3(0, 0, 0));
+          const radius = Math.max(Number(o.radius) || (hasHost ? 4.5 : 15), 0.5);
+          const topY = Number(o.topY) || (hasHost ? Math.max(center.y, 0) + 7 : 16);
+          // Tran cua tang roi: moi gia tri "be mat" cao hon nay la RAT LE (tran
+          // nha, AABB loi, den treo...) — se bi coi nhu san (y=0) o moi noi dung.
+          const hardCapY = topY - 0.5;
+          const fsBase = Number(o.fallSpeed) > 0 ? Number(o.fallSpeed) : 1.5;
+          const windX = (o.wind && Number(o.wind.x)) || 0;
+          const windZ = (o.wind && Number(o.wind.z)) || 0;
+          const settle = o.settle !== false; // true: đọng lại trên bề mặt; false: chạm rồi nhảy về đỉnh (mưa/lá)
+          const autoFall = o.autoFall !== false; // false: script tự điều khiển hoàn toàn vị trí hạt
+
+          // Độ cao đọng (restY) cho mỗi cột (x,z): quét AABB mọi mesh ĐANG HIỆN trên
+          // canvas (sàn, đồ vật, nhân vật) trong vùng hiệu ứng. Đồ vật đang ẨN
+          // (enabled=false) bị bỏ qua — hạt không đọng trên nóc đồ vô hình.
+          const colliders: Array<{ minX: number; maxX: number; minZ: number; maxZ: number; topY: number }> = [];
+          try {
+            const seen = new Set<any>();
+            const addTree = (e: any) => {
+              if (!e || seen.has(e)) return;
+              seen.add(e);
+              if (e.enabled === false) return; // nhánh bị ẩn: bỏ cả subtree
+              const nm = String(e.name || '');
+              if (nm.startsWith('FX_') || nm.startsWith('FXP_') || nm.startsWith('PropSelRing')) return;
+              const r = e.render;
+              if (r && Array.isArray(r.meshInstances)) {
+                for (const mi of r.meshInstances) {
+                  const a = mi && mi.aabb;
+                  if (!a) continue;
+                  const aMin = a.getMin(), aMax = a.getMax();
+                  if (aMax.x < center.x - radius || aMin.x > center.x + radius) continue;
+                  if (aMax.z < center.z - radius || aMin.z > center.z + radius) continue;
+                  // FIX "đống tuyết đứng im giữa không trung": lọc collider SAI
+                  // — mặt trần/nóc phòng, đèn treo trần, tường, nhân vật skinned
+                  // (AABB bindpose khổng lồ), AABB dàn trải bất thường. Tuyết rơi
+                  // trúng cột (x,z) của các mesh đó sẽ "đọng" lên nóc ở giữa trời
+                  // (32m với phòng này) rồi nằm im tới khi tan.
+                  // Nguyên tắc: bề mặt ĐỌNG tuyết phải là mặt ĐỨNG nằm dưới tầng
+                  // rơi và có diện tích hiện hữu (không phải dải mỏng dọc).
+                  const colH = aMax.y - aMin.y;                       // chiều cao collider
+                  const colFoot = (aMax.x - aMin.x) * (aMax.z - aMin.z); // diện tích chân
+                  if (aMax.y > topY + 1.5) continue;                  // đỉnh cao hơn tầng rơi: TRẦN/đèn trần — bỏ
+                  if (colH > 2.2 * Math.max(0.05, topY - aMax.y)) continue; // cột quá cao so với khoảng trống phía trên: TƯỜNG — bỏ
+                  if (colH < 0.02 && colFoot > 4 * radius * radius) continue; // dải mỏng dàn trải: sàn phóng AABB — bỏ
+                  if (colFoot > 400) continue;                        // chân quá rộng: mesh khổng lồ (nhân vật/đất lớn) — bỏ
+                  colliders.push({ minX: aMin.x, maxX: aMax.x, minZ: aMin.z, maxZ: aMax.z, topY: aMax.y });
+                }
+              }
+              const ch = e.children;
+              if (Array.isArray(ch)) for (const c of ch) addTree(c);
+            };
+            addTree(app.root);
+          } catch (e) { /* không quét được: hạt đọng tại y = 0 (mặt sàn) */ }
+          const restYAt = (x: number, z: number): number => {
+            let rest = 0; // mặt sàn Y = 0
+            for (const c of colliders) {
+              if (x >= c.minX && x <= c.maxX && z >= c.minZ && z <= c.maxZ && c.topY > rest) rest = c.topY;
+            }
+            return rest;
+          };
+          // restY AN TOÀN: chốt trên bởi hardCapY — mọi nơi dùng (spawn, physics,
+          // phân loại đồ) đều không thể nhận giá trị "bề mặt giữa trời" nữa.
+          const restYAnToan = (x: number, z: number): number => {
+            const r = restYAt(x, z);
+            return r > hardCapY ? 0 : r;
+          };
+
           const arr: any[] = [];
           for (let i = 0; i < count; i++) {
             const ent = new pc.Entity('FXP_' + fxName + '_' + i);
@@ -6818,7 +7001,132 @@ export class SontinhSceneService implements OnDestroy {
             mi.pick = false;
             if (worldLayer) worldLayer.addMeshInstances([mi]);
             mis.push(mi);
-            arr.push({ node: ent, x: 0, y: 0, z: 0, vy: 0, ph: 0 });
+            const ang = Math.random() * Math.PI * 2;
+            const r = Math.sqrt(Math.random()) * radius; // rải đều theo diện tích đĩa
+            const p: any = {
+              node: ent,
+              x: center.x + Math.cos(ang) * r,
+              y: hasHost ? (center.y + 1.5 + Math.random() * 5.5) : (topY * (0.35 + 0.65 * Math.random())),
+              z: center.z + Math.sin(ang) * r,
+              vx: windX + (Math.random() - 0.5) * 0.4,
+              vy: -(fsBase * (0.75 + Math.random() * 0.5)),
+              vz: windZ + (Math.random() - 0.5) * 0.4,
+              ph: Math.random() * Math.PI * 2,
+              settled: false,
+              restY: 0,
+              // Vong doi hat tuyet: Roi -> Dong -> Nam random -> Tan chy -> Tai sinh
+              snowAge: 0,
+              meltDelay: 0,
+              melting: false,
+              meltT: 0,
+              gone: false,
+              onProp: false,
+              footR2: Math.pow(size * (0.55 + Math.random() * 0.25), 2),
+              sphereR: size / 2 // nắp cầu: lớp tuyết sau đọng lên đây
+            };
+            p.restY = restYAnToan(p.x, p.z);
+            if (p.y <= p.restY) p.y = p.restY + 0.01; // sinh dưới nóc đồ: nhấc lên trên nóc
+            arr.push(p);
+            ent.setPosition(p.x, p.y, p.z);
+          }
+          api.__lastSpawned = arr; // danh dau effect nay co he thong hat that
+
+          if (autoFall) {
+            // Physics mặc định chạy mỗi khung hình. Đầy đủ vòng đời hạt:
+            //   RÔI (gió + bồng bềnh) -> CHẠM BỀ MẶT (restY ĐỘNG: hạt bám theo nóc
+            //   đồ vật ngay cả khi hạt trôi ngang vào, và ĐỌNG CHỒNG LỚP lên hạt
+            //   tuyết đã nằm dưới) -> NẰM MỘT THỜI GIAN RANDOM -> TAN CHẢY (co
+            //   nhỏ dần rồi biến mất) -> TÁI SINH ở đỉnh -> rơi tiếp. Kết quả:
+            //   tuyết RƠI LIÊN TỤC, phủ dần và tích tụ trên đồ vật.
+            const meltMin = Math.max(Number(o.meltMin) || 4, 0.5);   // giây nằm tối thiểu
+            const meltMax = Math.max(Number(o.meltMax) || 12, meltMin + 0.5); // giây nằm tối đa
+            const meltScale = Math.max(Number(o.meltScale) || 0.25, 0.01); // tốc độ co hạt khi tan
+            const respawnJitter = Math.max(Number(o.respawnJitter) || 0.6, 0); // độ trễ tái sinh
+            const recycle = !settle; // mưa/lá: chạm bề mặt là quay về đỉnh ngay
+
+            // restY ĐỘNG: tính lại độ cao bề mặt ngay dưới hạt MỖI KHUNG HÌNH từ
+            // AABB mesh (đồ vật có thể bị kéo đi) + CHỒNG LỚP trên hạt đã đọng.
+            const dynamicRestY = (x: number, z: number, self: any): number => {
+              let rest = restYAnToan(x, z);
+              for (const q of arr) {
+                if (q === self || !q.settled || q.melting) continue;
+                const dx = x - q.x, dz = z - q.z;
+                if (dx * dx + dz * dz <= q.footR2) {
+                  const surfQ = q.y + q.sphereR; // đọng chồng lên NẮP CẦU của hạt dưới (hạt sát sàn y=0 vẫn tính)
+                  if (surfQ > rest) rest = surfQ;
+                }
+              }
+              return rest;
+            };
+
+            tickFns.push((dt: number) => {
+              for (const p of arr) {
+                if (p.gone) continue;
+
+                if (p.settled && !p.melting) {
+                  // đang nằm trên bề mặt: đếm thời gian random rồi bắt đầu TAN
+                  p.snowAge += dt;
+                  // bám theo bề mặt động: nếu nóc đồ dưới chân thay đổi (kéo đồ),
+                  // hạt trượt theo — không rơi xuyên hay lơ lửng.
+                  const surf = dynamicRestY(p.x, p.z, p);
+                  if (surf > p.y + 0.02) { p.y = surf; } // nền dâng lên: nâng hạt theo
+                  else if (surf < p.y - 0.02) { p.y = Math.max(surf, p.y - dt * 2.5); } // nền hạ/thay đổi: hạt sà theo bề mặt
+                  if (p.snowAge >= p.meltDelay) { p.melting = true; }
+                  try { p.node.setPosition(p.x, p.y, p.z); } catch (e2) { p.gone = true; }
+                  continue;
+                }
+
+                if (p.melting) {
+                  // TAN CHẢY: co dần kích thước rồi biến mất + tái sinh ở đỉnh.
+                  p.meltT += dt;
+                  const s = Math.max(0.02, 1 - p.meltT * meltScale);
+                  try { p.node.setLocalScale(s, s, s); } catch (e2) { p.gone = true; }
+                  if (s <= 0.021 || p.meltT > 4.5) {
+                    // TÁI SINH: hạt quay lại đỉnh vùng rơi với kích thước gốc.
+                    const ang2 = Math.random() * Math.PI * 2;
+                    const r2 = Math.sqrt(Math.random()) * radius;
+                    p.x = center.x + Math.cos(ang2) * r2;
+                    p.z = center.z + Math.sin(ang2) * r2;
+                    p.y = hasHost ? Math.max(center.y, restYAt(p.x, p.z)) + 6 + Math.random() * 3
+                                  : topY * (0.85 + 0.15 * Math.random());
+                    p.vx = windX + (Math.random() - 0.5) * 0.4;
+                    p.vz = windZ + (Math.random() - 0.5) * 0.4;
+                    p.ph = Math.random() * Math.PI * 2;
+                    p.settled = false;
+                    p.melting = false;
+                    p.meltT = 0;
+                    p.snowAge = 0;
+                    p.meltDelay = meltMin + Math.random() * (meltMax - meltMin);
+                    p.onProp = false;
+                    try { p.node.setLocalScale(1, 1, 1); } catch (e3) { p.gone = true; }
+                  }
+                  try { p.node.setPosition(p.x, p.y, p.z); } catch (e2) { p.gone = true; }
+                  continue;
+                }
+
+                // ---- đang RƠI ----
+                p.x += (p.vx || 0) * dt + Math.sin(p.ph) * 0.12 * dt;
+                p.z += (p.vz || 0) * dt + Math.cos(p.ph * 0.8) * 0.12 * dt;
+                p.y += (p.vy || -1.5) * dt;
+                p.ph += dt * 2.2;
+                const restD = dynamicRestY(p.x, p.z, p);
+                if (p.y <= restD) {
+                  p.y = restD;
+                  p.restY = restD;
+                  if (recycle) {
+                    // mưa/lá: chạm là quay về đỉnh, không nằm
+                    p.y = topY * (0.9 + 0.1 * Math.random());
+                  } else {
+                    // TUYẾT: ĐỌNG LẠI, bắt đầu đếm thời gian tan ngẫu nhiên
+                    p.settled = true;
+                    p.snowAge = 0;
+                    p.meltDelay = meltMin + Math.random() * (meltMax - meltMin);
+                    p.onProp = restYAnToan(p.x, p.z) > 0.05; // nóc đồ theo HÌNH HỌC (lớp tuyết chồng trên sàn không tính là đồ)
+                  }
+                }
+                try { p.node.setPosition(p.x, p.y, p.z); } catch (e2) { p.gone = true; }
+              }
+            });
           }
           return arr;
         }
@@ -6832,6 +7140,47 @@ export class SontinhSceneService implements OnDestroy {
         console.warn('[SontinhScene] Effect script error:', e);
         try { fxRoot.destroy(); } catch (e2) { /* ignore */ }
         return false;
+      }
+
+      // ===== FIX "import script tuyet ma khong co hat nao roi" =====
+      // Nhung script copy tu PlayCanvas Editor/web dat ten "tuyet roi" nhung
+      // thuc chat chi PHU TRANG material (vd SnowAccumulation: doi mau san
+      // dan dan theo thoi gian) — khong spawn hat nao ca. Nguoi dung thay
+      // gi do tuyet roi la khong co. Runtime nhan dien y dinh tu ten effect
+      // + noi dung script: neu co tin hieu TUYET ma trong effect khong co
+      // he thong hat nao (khong spawnParticles, khong tick di chuyen) thi
+      // tu them mot lop hat tuyet roi chuan (roi tu tren cao, dung lai khi
+      // cham san/do vat) de dam bao ket qua nhin thay duoc.
+      try {
+        const lowName = fxName.toLowerCase();
+        const lowScript = String(cmd.script || '').toLowerCase();
+        const snowSignal = /snow|tuyet|tuy\u1ebft|tuy\u00ea/.test(lowName) ||
+          /snow|snowfall|snowflake/.test(lowScript) || /tuyet|tuy\u1ebft/.test(lowScript);
+        const hasParticleSystem = Array.isArray(api.__lastSpawned) && api.__lastSpawned.length > 0;
+        // Chu y: khong xet tickFns.length — script chi phu material van co
+        // update() (tang snowAmount) nen tickFns > 0 la BINH THUONG. Chi can
+        // script chua spawn hat nao thi them lop hat roi song song voi viec
+        // phu trang material (roi tuyet + san trang dan = dung y tuyet roi).
+        if (snowSignal && !hasParticleSystem) {
+          console.log('[SontinhScene] Script chi phu material (khong co hat) — tu them lop hat tuyet roi chuan.');
+          const hostTargeted = !!(hostEntity && !hostIsFloor);
+          api.spawnParticles({
+            count: 600,
+            size: 0.14,
+            color: '#ffffff',
+            opacity: 0.92,
+            radius: hostTargeted ? 4.5 : 15,
+            fallSpeed: 1.6,
+            settle: true,
+            // Vong doi day du: dong lai -> nam 4-12 giay random -> tan chay
+            // -> tai sinh o dinh -> roi tiep. Tuyet ROI LIEN TUC chu khong cau.
+            meltMin: 4,
+            meltMax: 12,
+            meltScale: 0.25
+          });
+        }
+      } catch (e) {
+        console.warn('[SontinhScene] Snow auto-layer fallback loi (bo qua):', e);
       }
 
       activeEffects.set(fxName, { root: fxRoot, tickFns, mis });

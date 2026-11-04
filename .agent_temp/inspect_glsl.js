@@ -1,0 +1,13 @@
+const fs = require('fs');
+const src = fs.readFileSync('src/app/modules/admin/account/profile/sontinh-scene.service.ts', 'utf8');
+const start = src.indexOf('function normalizeFxScript(raw)');
+const end = src.indexOf('function runPropEffect(');
+const normalizeFxScript = new Function('return ' + src.slice(start, end))();
+const userScript = fs.readFileSync('uploads/PlayCanvas_-_Hi_u__ng_tuy_t_r_i.js', 'utf8');
+const n = normalizeFxScript(userScript);
+const m = /snowDiffuseChunk = `([\s\S]*?)`;/.exec(n);
+const glsl = new Function('return `' + m[1] + '`')();
+const lines = glsl.split('\n');
+const ga = lines.findIndex(l => l.includes('void getAlbedo'));
+console.log('Cac dong truoc getAlbedo:');
+lines.slice(0, ga + 1).forEach((l, i) => console.log(i, JSON.stringify(l)));

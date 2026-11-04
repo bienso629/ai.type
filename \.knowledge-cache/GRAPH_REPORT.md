@@ -1,31 +1,31 @@
-# Graph Report - ai.type  (2026-11-03)
+# Graph Report - ai.type  (2026-11-04)
 
 ## Corpus Check
-- 669 files · ~1,721,035 words
+- 685 files · ~1,737,012 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 394 file(s) not represented in the graph (top: .scss 76, .ttf 71, .jmod 70)
+- Unclassified: 402 file(s) not represented in the graph (top: .scss 76, .ttf 71, .jmod 70)
 
 ## Summary
-- 8621 nodes · 21077 edges · 439 communities (188 shown, 251 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 1690 edges (avg confidence: 0.85)
+- 8735 nodes · 21210 edges · 439 communities (193 shown, 246 thin omitted)
+- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 1698 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `57b589de`
+- Built from commit: `33dc7892`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 
 
 ## Community Hubs (Navigation)
 - @angular/core
 - User
-- app.pipe.ts
+- .getItem
 - ._getActiveInfo
 - .agent_backup_baseurl/main.js
 - electron/package.json
 - src/main.js
 - VideoTimelineDialogComponent
 - ChatBotComponent
-- ai-tts.component.ts
+- AMXHComponent
 - AuthService
 - dependencies
 - AIWriterComponent
@@ -38,12 +38,12 @@
 - animations/public-api.ts
 - AMXHScheduleComponent
 - ._initPlayCanvasScene
-- @angular/forms
+- SettingsDomainComponent
 - 52623
-- SettingsComponent
+- QuickChatComponent
 - ProfileComponent
 - ImageEditorDialogComponent
-- @angular/core
+- app.resolvers.ts
 - _jclass
 - AIImageComponent
 - AIArchiveComponent
@@ -57,20 +57,20 @@
 - type-lite.js
 - jni.h
 - FuseMockApiService
-- SettingsDomainComponent
+- EditAccountDialog
 - jvmti.h
 - LinksComponent
 - NodeEditorComponent
 - ArchiveComponent
 - edge-tts-v2.js
 - jvmtiError
-- .generateContent
+- GenaiService
 - FuseNavigationService
-- AMXHProfileAppComponent
-- BlogService
+- MXHAutoService
+- KeywordGoogleDataDialog
 - AIFacePostComponent
 - FuseScrollbarDirective
-- .setItem
+- SettingsAdminComponent
 - CropVideoDialogComponent
 - CollectionComponent
 - FuseVerticalNavigationComponent
@@ -79,7 +79,7 @@
 - AppDelegate
 - export-import-project.js
 - jmethodID
-- MXHAutoService
+- .setItem
 - NotificationsComponent
 - SettingsFontComponent
 - JAWT_X11DrawingSurfaceInfo
@@ -88,28 +88,27 @@
 - jvmtiHeapReferenceInfo
 - AIScriptComponent
 - _jobject
-- SettingsAdminComponent
+- test_snowfile_pipeline.mjs
 - EditScenePromptDialogComponent
 - ProfilesComponent
 - build
-- MagicPromptDialogComponent
+- app.module.ts
+- CompactLayoutComponent
 - .open
 - LandingAppComponent
-- route.cdn.js
 - ShortcutsComponent
 - BroadcastPreviewDialogComponent
-- .setItem
 - SitemapComponent
 - local-articles.js
 - with
 - jint
 - MessagesComponent
 - TaskProgressService
-- image-editor.component.ts
+- ChatbotService
+- .getComponent
 - local-profiles.js
 - SettingsPluginsComponent
 - WordpressService
-- FuseUtilsService
 - pdf.py
 - jvmtiHeapCallbacks
 - DashboardComponent
@@ -121,7 +120,7 @@
 - jdwpTransport.h
 - jsize
 - jvmtiExtensionFunctionInfo
-- @angular/platform-browser-dynamic
+- angular-tag-cloud-module
 - SontinhSceneService
 - ScanVideoLinkFormComponent
 - ThinLayoutComponent
@@ -130,7 +129,7 @@
 - AMXHTypeComponent
 - 📱 ĐẶC TẢ KỸ THUẬT LOGIC AI AGENT SCHEDULE (DÀNH CHO FLUTTER MOBILE & WEB)
 - lodash-es
-- AiAgentKnowledgeService
+- route.cdn.js
 - FPTAIService
 - AIText2SpeechComponent
 - build-all.js
@@ -141,33 +140,36 @@
 - mcp-client.js
 - jlong
 - Cẩm nang Hướng dẫn Sử dụng Ứng dụng AI.TYPE
-- SettingsCreateLicenseKeyComponent
-- AppComponent
+- LogService
 - mock-api.service.ts
 - MinerUClient
-- Image
+- ref_path
 - _jfieldID
 - jfloat
 - _
+- SettingsLicenseKeysComponent
+- AppComponent
 - PermissionGuard
 - steps
 - SearchComponent
 - AIWordComponent
-- SettingsComponent
+- LicenseKeyService
 - jshort
 - jobject
 - jvmtiThreadInfo
 - Tài liệu Hướng Dẫn Sử Dụng Hệ Thống
 - DialogContentComponent
 - AINodesComponent
+- layout.component.ts
 - ur
 - MainActivity.java
 - options
 - schematics
 - jdouble
 - scripts
-- SettingsLicenseKeysComponent
-- ChatbotService
+- loadAndPlayAnim
+- FuseMasonryComponent
+- showSelRing
 - MediaDataDialog
 - FuseFullscreenComponent
 - step
@@ -175,26 +177,26 @@
 - SpeechError
 - DraggableDirective
 - ProfileDataService
-- YoutubeService
+- AllTubeComponent
 - FuseVerticalNavigationCollapsableItemComponent
 - AI.Type - Electron App Context for AI Agent
 - serve
 - AI.Type - Electron App Context for AI Agent
 - luxon
 - AudioGenerationComponent
-- TasksService
-- VideoProjectConfigDialogComponent
+- LinkFormComponent
+- AiAgentKnowledgeService
 - BigDataLogsDialog
-- LayoutComponent
+- CustomerService
 - AddAccountDialog
 - ExampleInstrumentedTest.java
 - Hướng dẫn sử dụng phần mềm AI.Type (Toàn tập chi tiết)
 - jlong
 - chat/api.ts
 - AuthSignUpComponent
-- GoLoginService
+- GeminiMatrixDialog
 - ReportDialog
-- AMXHComponent
+- FuseSplashScreenService
 - AuthSignInComponent
 - er
 - ro
@@ -206,9 +208,10 @@
 - ChatGPTQuestionSheet
 - SynonymFormComponent
 - FuseNavigationItem
-- FuseValidators
+- CopyPasteDialog
+- ArchiveOrgDialogComponent
 - ZaloComponent
-- FuseScrollResetDirective
+- scroll-reset.directive.ts
 - os
 - Module: CONTENT
 - academy/api.ts
@@ -216,11 +219,11 @@
 - scrumboard/api.ts
 - QuickChatService
 - UserComponent
-- .getComponent
+- MagicPromptDialogComponent
 - ReadComponent
 - profile-data.service.ts
-- PromptInputDialogComponent
-- N8nService
+- SettingsComponent
+- inspect_glsl.js
 - FuseVerticalNavigationAsideItemComponent
 - find-by-key.module.ts
 - ar
@@ -229,23 +232,25 @@
 - fuse
 - Quy Tắc Sử Dụng Thứ Tự AI Trong Dự Án (AI Service Hierarchy & Fallback Rules)
 - DirectorModeComponent
+- VideoProjectConfigDialogComponent
 - jvmtiInterface_1_
 - inventory/api.ts
 - icons/api.ts
 - auto-layout-dialog.service.ts
 - AppTitleService
-- CommentDialog
+- HelpComponent
 - MomoQrDialog
-- CopyPasteDialog
+- LanguagesComponent
 - IndexDomainsDialogComponent
-- EditAccountDialog
-- ScriptDialog
+- confirmation.service.ts
+- chatbot.component.ts
 - PaymentComponent
 - test_fx_snow.js
-- _
-- OperaAiDialog
+- DollarComponent
 - LocalDbService
+- StopPropagationDirective
 - FuseCardComponent
+- SettingsCreateLicenseKeyComponent
 - build
 - get-ads-refresh-token.js
 - .eslintrc.json
@@ -259,11 +264,11 @@
 - activities/api.ts
 - CustomRouteReuseStrategy
 - style-manager.ts
-- ref_path
-- SettingChatbotDialogComponent
-- LogService
+- CommentDialog
+- FuseLoadingBarComponent
+- FuseValidators
 - SettingsDomainLoginComponent
-- HelpComponent
+- JsonComponent
 - WordDataDialog
 - VideoEditorSettingsDialogComponent
 - MarkdownHtmlParserService
@@ -273,31 +278,32 @@
 - Module: SETTINGS
 - file-manager/api.ts
 - AuthGuard
-- loadAndPlayAnim
+- test_spawner_semantics.js
 - AddToolDialog
-- AllTubeComponent
-- showSelRing
+- sys
+- TranslocoHttpLoader
 - MagicKlingPromptDialogComponent
-- VideoProjectsComponent
-- ws
-- DocTypeDialogComponent
-- NodeDetailsDialog
-- WoocommerceExportComponent
-- FuseMasonryComponent
-- SettingsTeamComponent
+- SettingChatbotDialogComponent
+- EditDialog
+- image-editor.component.ts
+- PromptInputDialogComponent
+- test_frozen_snow_fix.js
+- EditDialog
+- test_snow_v3.js
 - fuse-version.ts
 - vl_utils_source.py
 - Module: MARKETING
-- PolicyLayoutComponent
-- angular-draggable-droppable@^9.0.1
+- runPropEffect
 - DatatableScrollLockDirective
-- LanguagesComponent
-- angular-tag-cloud-module
-- EditDialog
-- FuseSplashScreenService
-- DollarComponent
-- SettingsSecurityComponent
+- FuseHorizontalNavigationBranchItemComponent
+- DocTypeDialogComponent
+- ai-writer.component.ts
+- WoocommerceExportComponent
+- LayoutComponent
 - updateCharacterWalkingAI
+- SettingsSecurityComponent
+- SMSDialog
+- FuseVerticalNavigationGroupItemComponent
 - UserService
 - 7. Báo cáo SEO (GSC Report)
 - script.js
@@ -306,12 +312,11 @@
 - IterateOverReachableObjects
 - Module: CHATBOT
 - edge-tts-universal
-- apexcharts
-- SMSDialog
+- CenteredLayoutComponent
+- SettingsTeamComponent
 - SettingsMoneyComponent
 - AIToolsComponent
-- JsonComponent
-- beginTransformScrub
+- FuturisticLayoutComponent
 - en
 - NoAuthGuard
 - @capacitor/cli
@@ -343,53 +348,46 @@
 - NavigationMockApi
 - SearchMockApi
 - Action
-- TranslocoHttpLoader
+- PolicyLayoutComponent
 - SettingsNotificationsComponent
 - .renderComment
-- FuseLoadingBarComponent
-- StopPropagationDirective
+- PdfTextService
 - t.js
 - 21. Khai phá Dữ liệu Lớn (Big Data / Data Crawler)
 - 24. Quản lý Node Internet (Internet Nodes)
 - Module: N8N
-- DenseLayoutComponent
+- FuseUtilsService
 - languages.ts
-- ArchiveOrgDialogComponent
 - 46421
 - do_push.sh
 - build_mac.sh
 - Package.swift
 - CapApp-SPM/README.md
-- leader-line@^1.0.7
-- pdfjs-dist
-- @jsverse/transloco-messageformat
-- ngx-cookieconsent@^6.0.0
-- ngx-moment@^6.0.2
-- CenteredLayoutComponent
-- MaterialLayoutComponent
-- ModernLayoutComponent
-- ClassicLayoutComponent
-- @types/jasminewd2@^2.0.13
-- ClassyLayoutComponent
-- gemini-image-dialog.ts
-- FuseVerticalNavigationSpacerItemComponent
-- DeliveryPolicyComponent
-- theme.ts
-- getRealTimeHour
-- FuseMediaWatcherModule
 - @angular/compiler@^22.1.6
-- date-fns@^4.1.0
-- @jsverse/transloco-locale
-- @modelcontextprotocol/sdk@^1.12.3
-- playcanvas
-- serpapi@^1.1.1
+- angular-draggable-droppable@^9.0.1
+- EmptyLayoutComponent
+- ws
+- @angular/forms
+- ngx-datatable@^1.0.3
+- DeliveryPolicyComponent
+- masonry.module.ts
+- angular-resizable-element@^8.0.0
+- ngx-cookieconsent@^6.0.0
+- apexcharts
+- @capacitor/android@^8.5.2
+- theme.ts
+- @capacitor-community/media
+- @capacitor/ios@^8.5.2
+- test_snow_v4.js
+- crypto-ts
+- getRealTimeHour
 - toggleWindowTvIframe
-- account/settings/settings.module.ts
-- timers@^0.1.1
-- ts-node@^10.9.2
-- @types/dom-speech-recognition@^0.0.7
-- @xenova/transformers@^2.17.2
-- AppDB
+- flv.js@1.6.2
+- @modelcontextprotocol/sdk@^1.12.3
+- perfect-scrollbar
+- plain-draggable@^2.5.14
+- playcanvas
+- quill
 
 ## God Nodes (most connected - your core abstractions)
 1. `@angular/core` - 357 edges
@@ -418,23 +416,23 @@
 ## Import Cycles
 - None detected.
 
-## Communities (439 total, 251 thin omitted)
+## Communities (439 total, 246 thin omitted)
 
 ### Community 0 - "@angular/core"
 Cohesion: 0.02
-Nodes (116): @angular/cdk, @angular/material, @angular/router, @ecodev/fab-speed-dial, @jsverse/transloco, ng-apexcharts, @ng-select/ng-select, ngx-currency (+108 more)
+Nodes (124): angular-calendar-timeline, @angular/cdk, @angular/core, @angular/material, @angular/router, angularx-qrcode, @ecodev/fab-speed-dial, @jsverse/transloco (+116 more)
 
 ### Community 1 - "User"
 Cohesion: 0.05
-Nodes (61): @angular/common, @angular/platform-browser, device-uuid, dompurify, file-saver, hls.js, jquery, marked (+53 more)
+Nodes (58): @angular/common, device-uuid, file-saver, hls.js, moment, rxjs, @swimlane/ngx-datatable, uuid (+50 more)
 
-### Community 2 - "app.pipe.ts"
-Cohesion: 0.08
-Nodes (16): CheckExpirationDate, HackHTMLPipe, HTML2Paragraph, isFirefoxPipe, IsIframe, IsMp3, IsObjectPipe, RemoveHTMLPipe (+8 more)
+### Community 3 - "._getActiveInfo"
+Cohesion: 0.05
+Nodes (5): initializeApp(), ChatGPTService, CrawlService, GoLoginService, WordpressService
 
 ### Community 4 - ".agent_backup_baseurl/main.js"
 Cohesion: 0.02
-Nodes (94): activeTtsTasks, aiAgentConfigPath, {
+Nodes (93): activeTtsTasks, aiAgentConfigPath, {
     app,
     protocol,
     BrowserWindow,
@@ -449,11 +447,11 @@ Nodes (94): activeTtsTasks, aiAgentConfigPath, {
     net,
     safeStorage,
     shell
-}, APP_RELATED_PORTS, axios, binaries, captureOnlyTargetWindow(), checkAudioStream() (+86 more)
+}, APP_RELATED_PORTS, axios, binaries, captureOnlyTargetWindow(), checkAudioStream() (+85 more)
 
 ### Community 5 - "electron/package.json"
 Cohesion: 0.02
-Nodes (124): author, email, name, dependencies, adm-zip@^0.5.17, @babel/node@^7.23.9, babel-plugin-transform-runtime@^6.23.0, babel-polyfill@^6.26.0 (+116 more)
+Nodes (123): author, email, name, dependencies, @babel/node@^7.23.9, babel-plugin-transform-runtime@^6.23.0, babel-polyfill@^6.26.0, @babel/runtime@^7.24.5 (+115 more)
 
 ### Community 6 - "src/main.js"
 Cohesion: 0.02
@@ -474,21 +472,17 @@ Nodes (100): activeTtsTasks, aiAgentConfigPath, {
     shell
 }, APP_RELATED_PORTS, axios, binaries, captureOnlyTargetWindow(), checkAudioStream() (+92 more)
 
-### Community 9 - "ai-tts.component.ts"
-Cohesion: 0.16
-Nodes (11): wavesurfer.js, decryptPbkdf2AesCbc(), EncryptedPayloadObject, isMasterKey(), MASTER_ENCRYPTION_KEYS, PRIMARY_MASTER_KEY, tryDecryptWithMasterFallback(), AudioClip (+3 more)
-
 ### Community 10 - "AuthService"
-Cohesion: 0.03
-Nodes (18): InitialDataResolver, AuthInterceptor, AuthService, AuthConfirmationRequiredComponent, authConfirmationRequiredRoutes, AuthForgotPasswordComponent, authForgotPasswordRoutes, AuthResetPasswordComponent (+10 more)
+Cohesion: 0.04
+Nodes (18): AuthInterceptor, AuthService, AuthConfirmationRequiredComponent, authConfirmationRequiredRoutes, AuthForgotPasswordComponent, authForgotPasswordRoutes, AuthResetPasswordComponent, authResetPasswordRoutes (+10 more)
 
 ### Community 11 - "dependencies"
 Cohesion: 0.02
-Nodes (93): dependencies, angular-calendar-timeline@^0.8.0, @angular/cdk@^22.1.6, angular-cli-ghpages@^2.0.3, @angular/common@^22.1.6, @angular/core@^22.1.6, @angular/forms@^22.1.6, @angular/material@^22.1.6 (+85 more)
+Nodes (97): dependencies, angular-calendar-timeline@^0.8.0, @angular/cdk@^22.1.6, angular-cli-ghpages@^2.0.3, @angular/common@^22.1.6, @angular/core@^22.1.6, @angular/forms@^22.1.6, @angular/material@^22.1.6 (+89 more)
 
 ### Community 14 - "ref_fs"
 Cohesion: 0.02
-Nodes (55): fs, hasV2, Module, seen, fs, tsContent, fs, tsContent (+47 more)
+Nodes (62): api, end, fn, fs, lowScript, normalized, normalizeFxScript, src (+54 more)
 
 ### Community 15 - "5. Chi tiết các Màn hình, Popup và Trường dữ liệu Toàn diện"
 Cohesion: 0.03
@@ -510,21 +504,13 @@ Nodes (30): @angular/animations@^22.1.6, @angular/animations, FuseAnimationCurve
 Cohesion: 0.07
 Nodes (12): createSmoothGoldfish(), getRand3DAquaTargetEdge(), toggleAquariumView(), toggleDoor(), togglePictureView(), toggleRoomLights(), toggleWindowStreetView(), tryClickAquarium() (+4 more)
 
-### Community 22 - "@angular/forms"
-Cohesion: 0.06
-Nodes (23): NodeConnection, NodeItem, @angular/forms, @capacitor/core, @capacitor/filesystem, @google/genai, swiper, Scope (+15 more)
-
 ### Community 24 - "52623"
 Cohesion: 0.07
 Nodes (57): 52623(), ai(), an(), Be(), bi(), bo(), ci(), cn() (+49 more)
 
-### Community 25 - "SettingsComponent"
-Cohesion: 0.19
-Nodes (5): Scheme, Theme, Themes, SettingsComponent, Layout
-
-### Community 28 - "@angular/core"
-Cohesion: 0.02
-Nodes (46): @angular/core, AppModule, routerConfig, appRoutes, AuthModule, CoreModule, IconsModule, routeTitleMapEn (+38 more)
+### Community 28 - "app.resolvers.ts"
+Cohesion: 0.07
+Nodes (8): sendNotification(), sendNotification(), InitialDataResolver, NotificationsService, Notification, ShortcutsService, Shortcut, AuthSignOutComponent
 
 ### Community 29 - "_jclass"
 Cohesion: 0.07
@@ -538,17 +524,13 @@ Nodes (8): GenaiService, Scope, getModelverseConfig(), getTextModelConfig(), MOD
 Cohesion: 0.06
 Nodes (44): ForceEarlyReturnDouble(), ForceEarlyReturnFloat(), ForceEarlyReturnInt(), ForceEarlyReturnVoid(), GetAllStackTraces(), GetAllThreads(), GetAvailableProcessors(), GetCurrentThread() (+36 more)
 
-### Community 36 - "XCmsComponent"
-Cohesion: 0.08
-Nodes (3): EditDialog, XCmsComponent, CustomerService
-
 ### Community 37 - "child_process"
-Cohesion: 0.10
-Nodes (23): downloadAndExtractZip(), getFlatFontsDir(), scanAndCopy(), getResolvedFontName(), checkAngularReady(), http, ngProcess, path (+15 more)
+Cohesion: 0.09
+Nodes (25): downloadAndExtractZip(), getFlatFontsDir(), scanAndCopy(), getResolvedFontName(), stopAiAgent(), checkAngularReady(), http, ngProcess (+17 more)
 
 ### Community 39 - "type-lite.js"
-Cohesion: 0.07
-Nodes (28): express@^4.19.2, crypto, decrypt(), encrypt(), SECRET_KEY, createCrawlRouter(), randomUseragent, Router (+20 more)
+Cohesion: 0.06
+Nodes (31): express@^4.19.2, crypto, decrypt(), encrypt(), SECRET_KEY, _, cheerio, util (+23 more)
 
 ### Community 40 - "jni.h"
 Cohesion: 0.09
@@ -574,13 +556,17 @@ Nodes (38): adjustClockSkewFromResponse(), adjustForXmlEntity(), composeSrt(), c
 Cohesion: 0.09
 Nodes (37): AddModuleProvides(), AddModuleUses(), AddToBootstrapClassLoaderSearch(), AddToSystemClassLoaderSearch(), ClearFieldAccessWatch(), ClearFieldModificationWatch(), Deallocate(), DisposeEnvironment() (+29 more)
 
-### Community 49 - ".generateContent"
-Cohesion: 0.16
+### Community 49 - "GenaiService"
+Cohesion: 0.08
 Nodes (6): getModelverseConfig(), getTextModelConfig(), MODELVERSE_CONFIGS, TEXT_MODEL_CONFIGS, TextModelConfig, VideoModelConfig
 
 ### Community 50 - "FuseNavigationService"
-Cohesion: 0.19
-Nodes (4): NavigationService, Navigation, FuseNavigationService, FuseMediaWatcherService
+Cohesion: 0.13
+Nodes (5): NavigationService, Navigation, ClassyLayoutComponent, FuseNavigationService, FuseMediaWatcherService
+
+### Community 51 - "MXHAutoService"
+Cohesion: 0.06
+Nodes (3): OperaAiDialog, AMXHProfileAppComponent, MXHAutoService
 
 ### Community 54 - "FuseScrollbarDirective"
 Cohesion: 0.08
@@ -606,13 +592,13 @@ Nodes (22): crypto@^1.0.1, crypto, { DatabaseSync }, crypto, { DatabaseSync }, c
 Cohesion: 0.07
 Nodes (34): ClearBreakpoint(), GetArgumentsSize(), GetBytecodes(), GetClassMethods(), GetFrameLocation(), GetLineNumberTable(), GetLocalVariableTable(), GetMaxLocals() (+26 more)
 
-### Community 65 - "NotificationsComponent"
-Cohesion: 0.06
-Nodes (6): sendNotification(), sendNotification(), NotificationsComponent, NotificationsService, Notification, GeminiMatrixDialog
+### Community 64 - ".setItem"
+Cohesion: 0.05
+Nodes (3): SettingsAccountComponent, AddStyleDialog, SettingsStyleComponent
 
 ### Community 66 - "SettingsFontComponent"
-Cohesion: 0.13
-Nodes (3): SettingsFontComponent, ActiveAppFontGroup, FontService
+Cohesion: 0.11
+Nodes (6): AppFontGroup, AppFontItem, SettingsFontComponent, ActiveAppFontGroup, ActiveFontVariant, FontService
 
 ### Community 67 - "JAWT_X11DrawingSurfaceInfo"
 Cohesion: 0.07
@@ -630,17 +616,17 @@ Nodes (32): jvmtiHeapReferenceInfo, array, constant_pool, field, jni_local, othe
 Cohesion: 0.11
 Nodes (30): CallBooleanMethod(), CallBooleanMethodV(), CallByteMethod(), CallByteMethodV(), CallIntMethod(), CallIntMethodV(), CallNonvirtualByteMethod(), CallNonvirtualByteMethodV() (+22 more)
 
+### Community 76 - "test_snowfile_pipeline.mjs"
+Cohesion: 0.06
+Nodes (22): appMock, created, disabled, engineLogs, ents, FakeEntity, FakeMeshInstance, fn (+14 more)
+
 ### Community 79 - "build"
 Cohesion: 0.07
 Nodes (30): build, appId, asar, dmg, extraResources, files, linux, mac (+22 more)
 
-### Community 84 - "route.cdn.js"
+### Community 80 - "app.module.ts"
 Cohesion: 0.07
-Nodes (28): cleanFilePath(), { app, globalShortcut, BrowserWindow, ipcMain, Menu }, path, url, windows, axios@^1.18.0, url@^0.11.4, cleanFilePath() (+20 more)
-
-### Community 85 - "ShortcutsComponent"
-Cohesion: 0.12
-Nodes (3): ShortcutsComponent, ShortcutsService, Shortcut
+Nodes (14): AppModule, routerConfig, appRoutes, AuthModule, CoreModule, IconsModule, routeTitleMapEn, routeTitleMapVi (+6 more)
 
 ### Community 89 - "local-articles.js"
 Cohesion: 0.14
@@ -658,24 +644,24 @@ Nodes (26): AttachCurrentThread(), AttachCurrentThreadAsDaemon(), CallNonvirtual
 Cohesion: 0.13
 Nodes (3): MessagesComponent, MessagesService, Message
 
-### Community 94 - "image-editor.component.ts"
-Cohesion: 0.17
-Nodes (18): AIEditHistoryEntry, EditorState, LayerBase, LogoObject, TextObject, base64ToUint8Array(), calculateCRC32(), crcTable (+10 more)
+### Community 93 - "TaskProgressService"
+Cohesion: 0.18
+Nodes (3): TaskProgressComponent, TaskProgressService, TaskProgressState
+
+### Community 95 - ".getComponent"
+Cohesion: 0.04
+Nodes (7): EnterpriseLayoutComponent, MaterialLayoutComponent, ModernLayoutComponent, ClassicLayoutComponent, DenseLayoutComponent, FuseVerticalNavigationDividerItemComponent, FuseVerticalNavigationSpacerItemComponent
 
 ### Community 96 - "local-profiles.js"
-Cohesion: 0.10
-Nodes (20): { contextBridge, ipcRenderer, webUtils }, AdmZip, crypto, fs, { ipcMain, dialog, app }, path, registerExportImportHandlers(), DEFAULT_CHARACTER (+12 more)
+Cohesion: 0.09
+Nodes (22): adm-zip@^0.5.17, { contextBridge, ipcRenderer, webUtils }, AdmZip, crypto, fs, { ipcMain, dialog, app }, path, registerExportImportHandlers() (+14 more)
 
 ### Community 97 - "SettingsPluginsComponent"
-Cohesion: 0.18
+Cohesion: 0.16
 Nodes (3): browser, stream, SettingsPluginsComponent
 
-### Community 99 - "FuseUtilsService"
-Cohesion: 0.08
-Nodes (4): FuseHorizontalNavigationBasicItemComponent, FuseVerticalNavigationBasicItemComponent, FuseUtilsModule, FuseUtilsService
-
 ### Community 100 - "pdf.py"
-Cohesion: 0.09
+Cohesion: 0.10
 Nodes (5): analyze_pdf(), AnalyzeRequest, cancel_analysis(), load_model(), test()
 
 ### Community 101 - "jvmtiHeapCallbacks"
@@ -706,12 +692,12 @@ Nodes (24): GetArrayLength(), GetByteArrayElements(), GetByteArrayRegion(), GetI
 Cohesion: 0.08
 Nodes (23): GetExtensionEvents(), GetExtensionFunctions(), jvmtiExtensionEventInfo, extension_event_index, id, param_count, params, short_description (+15 more)
 
-### Community 113 - "@angular/platform-browser-dynamic"
+### Community 113 - "angular-tag-cloud-module"
 Cohesion: 0.04
-Nodes (24): @angular/platform-browser-dynamic@^22.1.6, angular-resizable-element@^8.0.0, @capacitor-community/media@^9.1.0, crypto-ts@^1.0.2, dexie@^4.3.0, glob@^13.0.6, @jsverse/transloco-preload-langs@^8.4.0, licensekey@^2.3.4 (+16 more)
+Nodes (24): angular-tag-cloud-module@^16.0.0, @capacitor/browser@^8.0.4, codelyzer@^6.0.2, glob@^13.0.6, highlight.js@11.6.0, html2canvas@^1.4.1, jsdom@^29.0.0, json-to-csv-export@^2.1.1 (+16 more)
 
 ### Community 118 - "ThinLayoutComponent"
-Cohesion: 0.09
+Cohesion: 0.10
 Nodes (3): BugReportDialogComponent, PopupComponent, ThinLayoutComponent
 
 ### Community 123 - "📱 ĐẶC TẢ KỸ THUẬT LOGIC AI AGENT SCHEDULE (DÀNH CHO FLUTTER MOBILE & WEB)"
@@ -721,6 +707,10 @@ Nodes (20): bn(), fn(), vn(), 1. TỔNG QUAN LUỒNG HOẠT ĐỘNG (SYSTEM ARCH
 ### Community 124 - "lodash-es"
 Cohesion: 0.18
 Nodes (12): lodash-es, contacts, countries, tags, members, tags, tasks, compactNavigation (+4 more)
+
+### Community 125 - "route.cdn.js"
+Cohesion: 0.07
+Nodes (28): cleanFilePath(), { app, globalShortcut, BrowserWindow, ipcMain, Menu }, path, url, windows, axios@^1.18.0, url@^0.11.4, cleanFilePath() (+20 more)
 
 ### Community 130 - "build-all.js"
 Cohesion: 0.14
@@ -749,6 +739,10 @@ Nodes (18): 1. Màn hình "AI Writer" (Công cụ tạo content), 2. Màn hình 
 ### Community 140 - "mock-api.service.ts"
 Cohesion: 0.16
 Nodes (5): FUSE_MOCK_API_DEFAULT_DELAY, FuseMockApiInterceptor, FuseMockApiModule, FuseMockApiMethods, FuseMockApiReplyCallback
+
+### Community 142 - "ref_path"
+Cohesion: 0.10
+Nodes (20): os@^0.1.2, fs, os, path, { spawn }, fs, getFontsDir(), { ipcMain, app, shell } (+12 more)
 
 ### Community 143 - "_jfieldID"
 Cohesion: 0.13
@@ -790,6 +784,10 @@ Nodes (15): Module: ADMIN, Module: AI-IMAGE, Module: ALL-TUBE, Module: ARCHIVES,
 Cohesion: 0.18
 Nodes (5): html-to-pdfmake@^2.5.33, pdfmake@^0.3.7, html-to-pdfmake, pdfmake, DialogContentComponent
 
+### Community 163 - "layout.component.ts"
+Cohesion: 0.10
+Nodes (7): Scheme, Theme, Themes, SettingsComponent, SettingsModule, Layout, FuseDrawerModule
+
 ### Community 164 - "ur"
 Cohesion: 0.21
 Nodes (15): br(), cr(), dr(), fr(), hr(), ir(), lr(), mr() (+7 more)
@@ -810,13 +808,13 @@ Nodes (15): CallDoubleMethod(), CallDoubleMethodV(), CallNonvirtualDoubleMethod(
 Cohesion: 0.13
 Nodes (15): scripts, build, build:all, build:frontend, build:linux, build:mac, build:win, cap:open:android (+7 more)
 
-### Community 170 - "SettingsLicenseKeysComponent"
-Cohesion: 0.07
-Nodes (3): SettingsActiveComponent, SettingsLicenseKeysComponent, LicenseKeyService
+### Community 170 - "loadAndPlayAnim"
+Cohesion: 0.33
+Nodes (9): buildAnimBoard3D(), buildAnimOverlay(), drawAnimStatusBoard(), ensureAnimComponent(), loadAndPlayAnim(), playAnim(), playAnimTrack(), toggleAnimOverlay() (+1 more)
 
-### Community 171 - "ChatbotService"
-Cohesion: 0.12
-Nodes (3): initializeApp(), FileListDialogComponent, ChatbotService
+### Community 172 - "showSelRing"
+Cohesion: 0.25
+Nodes (9): collectAabb(), ensureSelRing(), handlePropDragMove(), handlePropMouseUp(), moveSelRing(), moveTransformScrub(), pickUserPropAt(), rayPlaneHit() (+1 more)
 
 ### Community 174 - "FuseFullscreenComponent"
 Cohesion: 0.21
@@ -887,8 +885,8 @@ Cohesion: 0.17
 Nodes (10): api, fakeEntity, fakeMaterial, fs, logs, normalized, pcShim, snowScript (+2 more)
 
 ### Community 216 - "FuseNavigationItem"
-Cohesion: 0.12
-Nodes (7): FuseHorizontalNavigationDividerItemComponent, FuseHorizontalNavigationSpacerItemComponent, FuseHorizontalNavigationComponent, FuseNavigationItem, FuseVerticalNavigationAppearance, FuseVerticalNavigationMode, FuseVerticalNavigationPosition
+Cohesion: 0.10
+Nodes (8): FuseHorizontalNavigationBasicItemComponent, FuseHorizontalNavigationDividerItemComponent, FuseHorizontalNavigationSpacerItemComponent, FuseHorizontalNavigationComponent, FuseNavigationItem, FuseVerticalNavigationAppearance, FuseVerticalNavigationMode, FuseVerticalNavigationPosition
 
 ### Community 222 - "Module: CONTENT"
 Cohesion: 0.20
@@ -907,16 +905,16 @@ Cohesion: 0.31
 Nodes (7): ScrumboardMockApi, boards, cards, labels, lists, members, now
 
 ### Community 226 - "QuickChatService"
-Cohesion: 0.25
+Cohesion: 0.24
 Nodes (3): QuickChatService, Chat, Contact
 
-### Community 228 - ".getComponent"
-Cohesion: 0.04
-Nodes (6): EnterpriseLayoutComponent, CompactLayoutComponent, FuturisticLayoutComponent, FuseHorizontalNavigationBranchItemComponent, FuseVerticalNavigationDividerItemComponent, FuseVerticalNavigationGroupItemComponent
-
 ### Community 231 - "profile-data.service.ts"
-Cohesion: 0.14
-Nodes (4): CharacterProfile, ProfileAsset, SceneProfile, UserProfile
+Cohesion: 0.22
+Nodes (6): CharacterProfile, ProfileAsset, SceneProfile, UserProfile, FxParamMeta, RoomProp
+
+### Community 234 - "inspect_glsl.js"
+Cohesion: 0.17
+Nodes (11): end, fs, ga, glsl, lines, m, n, normalizeFxScript (+3 more)
 
 ### Community 237 - "ar"
 Cohesion: 0.31
@@ -954,13 +952,13 @@ Nodes (4): IconsMockApi, feather, heroicons, material
 Cohesion: 0.31
 Nodes (5): AutoLayoutDialogConfig, AutoLayoutDialogService, clamp(), mergeClass(), Meta
 
+### Community 254 - "chatbot.component.ts"
+Cohesion: 0.24
+Nodes (3): dompurify, ChatBotModule, Routes
+
 ### Community 257 - "test_fx_snow.js"
 Cohesion: 0.22
 Nodes (7): attrs, fakeEntity, fakeMaterial, logs, pcShim, snowScript, tickFns
-
-### Community 258 - "_"
-Cohesion: 0.22
-Nodes (5): util@^0.12.5, _, cheerio, util, util
 
 ### Community 260 - "LocalDbService"
 Cohesion: 0.22
@@ -1014,10 +1012,6 @@ Nodes (3): ActivitiesMockApi, activities, now
 Cohesion: 0.46
 Nodes (5): createLinkElementWithKey(), getClassNameForKey(), getExistingLinkElementByKey(), getLinkElementForKey(), StyleManager
 
-### Community 277 - "ref_path"
-Cohesion: 0.10
-Nodes (20): os@^0.1.2, fs, os, path, { spawn }, fs, getFontsDir(), { ipcMain, app, shell } (+12 more)
-
 ### Community 285 - "ao"
 Cohesion: 0.29
 Nodes (7): ao(), eo(), ho(), mo(), so(), wo(), xo()
@@ -1034,29 +1028,41 @@ Nodes (7): Module: AI-TTS, Màn hình: character-dialog.component.html, Màn hì
 Cohesion: 0.29
 Nodes (7): Module: SETTINGS, Màn hình: account.component.html, Màn hình: active.component.html, Màn hình: admin.component.html, Màn hình: notifications.component.html, Màn hình: security.component.html, Màn hình: team.component.html
 
-### Community 291 - "loadAndPlayAnim"
+### Community 291 - "test_spawner_semantics.js"
 Cohesion: 0.33
-Nodes (9): buildAnimBoard3D(), buildAnimOverlay(), drawAnimStatusBoard(), ensureAnimComponent(), loadAndPlayAnim(), playAnim(), playAnimTrack(), toggleAnimOverlay() (+1 more)
+Nodes (4): minR, s1, s2, s3
 
-### Community 294 - "showSelRing"
-Cohesion: 0.25
-Nodes (9): collectAabb(), ensureSelRing(), handlePropDragMove(), handlePropMouseUp(), moveSelRing(), moveTransformScrub(), pickUserPropAt(), rayPlaneHit() (+1 more)
+### Community 300 - "image-editor.component.ts"
+Cohesion: 0.17
+Nodes (18): AIEditHistoryEntry, EditorState, LayerBase, LogoObject, TextObject, base64ToUint8Array(), calculateCRC32(), crcTable (+10 more)
 
-### Community 300 - "ws"
-Cohesion: 0.50
-Nodes (4): ws@^8.18.3, ws, generateRawEdgeTTS(), WebSocket
+### Community 303 - "test_frozen_snow_fix.js"
+Cohesion: 0.29
+Nodes (7): center, colliders, dynamicRestY(), frozen, parts, rawColliders, restYAt()
+
+### Community 305 - "test_snow_v3.js"
+Cohesion: 0.29
+Nodes (5): t1, t2, t3, t5, table
 
 ### Community 309 - "Module: MARKETING"
 Cohesion: 0.33
 Nodes (6): Module: MARKETING, Màn hình: chatbot.component.html, Màn hình: gologin.component.html, Màn hình: seo-links.component.html, Màn hình: seo-report.component.html, Màn hình: x-cms.component.html
 
-### Community 322 - "updateCharacterWalkingAI"
+### Community 310 - "runPropEffect"
+Cohesion: 0.29
+Nodes (7): beginPropDrag(), beginTransformScrub(), findPropEntityById(), normalizeFxScript(), preparePropExtras(), runPropEffect(), stopPropEffect()
+
+### Community 315 - "ai-writer.component.ts"
+Cohesion: 0.04
+Nodes (37): jquery, marked, CheckExpirationDate, HackHTMLPipe, HTML2Paragraph, isFirefoxPipe, IsIframe, IsMp3 (+29 more)
+
+### Community 319 - "updateCharacterWalkingAI"
 Cohesion: 0.50
 Nodes (5): getEffectiveWalkSpeed(), spawnStepGlowRipple(), switchCharAnim(), updateCharacterWalkingAI(), updateWASDMovement()
 
 ### Community 323 - "UserService"
 Cohesion: 0.03
-Nodes (15): UserService, GenaiService, HelperService, DEFAULT_PROPS, DomainService, ForumService, GlobalAgentService, MultiAccountService (+7 more)
+Nodes (12): UserService, GenaiService, HelperService, DomainService, ForumService, MultiAccountService, MyKeysService, N8nService (+4 more)
 
 ### Community 324 - "7. Báo cáo SEO (GSC Report)"
 Cohesion: 0.40
@@ -1081,10 +1087,6 @@ Nodes (5): Module: CHATBOT, Màn hình: doc-type-dialog.component.html, Màn hì
 ### Community 330 - "edge-tts-universal"
 Cohesion: 0.40
 Nodes (4): edge-tts-universal@^1.4.0, edge-tts-universal, tts, { UniversalEdgeTTS }
-
-### Community 337 - "beginTransformScrub"
-Cohesion: 0.29
-Nodes (7): beginPropDrag(), beginTransformScrub(), findPropEntityById(), normalizeFxScript(), preparePropExtras(), runPropEffect(), stopPropEffect()
 
 ### Community 338 - "en"
 Cohesion: 0.50
@@ -1194,33 +1196,49 @@ Nodes (4): Module: TOOLS, Màn hình: magic-prompt-dialog.component.html, Màn h
 Cohesion: 0.50
 Nodes (3): Action, CHANGE_THEME, TRANSCRIPT
 
+### Community 372 - "PolicyLayoutComponent"
+Cohesion: 0.06
+Nodes (10): PaymentPolicyComponent, PaymentPolicyModule, routes, PolicyLayoutComponent, TermsPolicyComponent, routes, TermsPolicyModule, WarrantyPolicyComponent (+2 more)
+
+### Community 378 - "PdfTextService"
+Cohesion: 0.31
+Nodes (3): pdfjs-dist@^4.10.38, pdfjs-dist, PdfTextService
+
 ### Community 382 - "Module: N8N"
 Cohesion: 0.67
 Nodes (3): Module: N8N, Màn hình: script.component.html, Màn hình: share.component.html
 
-### Community 433 - "account/settings/settings.module.ts"
-Cohesion: 0.10
-Nodes (8): angular-calendar-timeline, EmailDialogComponent, AppFontGroup, AppFontItem, SettingsModule, settingsRoutes, AddStyleDialog, ActiveFontVariant
+### Community 383 - "FuseUtilsService"
+Cohesion: 0.05
+Nodes (9): FuseVerticalNavigationBasicItemComponent, FuseModule, FuseConfirmationModule, FuseLoadingModule, FuseMediaWatcherModule, FusePlatformModule, FusePlatformService, FuseUtilsModule (+1 more)
+
+### Community 398 - "ws"
+Cohesion: 0.50
+Nodes (4): ws@^8.18.3, ws, generateRawEdgeTTS(), WebSocket
+
+### Community 399 - "@angular/forms"
+Cohesion: 0.06
+Nodes (27): NodeConnection, NodeItem, @angular/forms, @angular/platform-browser, @capacitor/core, @google/genai, ngx-toastr, swiper (+19 more)
 
 ## Knowledge Gaps
 - **174 isolated node(s):** `x`, `y`, `width`, `height`, `platformInfo` (+169 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3085 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **251 thin communities (<3 nodes) omitted from report** — run truy van do thi to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3162 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **246 thin communities (<3 nodes) omitted from report** — run truy van do thi to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `@angular/core` connect `@angular/core` to `@angular/core`, `User`, `app.pipe.ts`, `LocalDbService`, `FuseHighlightComponent`, `ai-tts.component.ts`, `AuthService`, `dependencies`, `mock-api.service.ts`, `analytics/api.ts`, `crypto/api.ts`, `finance/api.ts`, `package.json`, `project/api.ts`, `activities/api.ts`, `gemini-image-dialog.ts`, `animations/public-api.ts`, `@angular/forms`, `LogService`, `SettingsComponent`, `HelpComponent`, `GenaiService`, `file-manager/api.ts`, `FuseFullscreenComponent`, `FuseMasonryComponent`, `account/settings/settings.module.ts`, `FuseNavigationService`, `DraggableDirective`, `FuseScrollbarDirective`, `DatatableScrollLockDirective`, `luxon`, `UserService`, `api/index.ts`, `chat/api.ts`, `help-center/api.ts`, `FuseNavigationItem`, `image-editor.component.ts`, `academy/api.ts`, `mailbox/api.ts`, `scrumboard/api.ts`, `QuickChatService`, `FuseUtilsService`, `profile-data.service.ts`, `find-by-key.module.ts`, `inventory/api.ts`, `icons/api.ts`, `auto-layout-dialog.service.ts`, `lodash-es`?**
-  _High betweenness centrality (0.160) - this node is a cross-community bridge._
+- **Why does `@angular/core` connect `@angular/core` to `User`, `LocalDbService`, `FuseHighlightComponent`, `AuthService`, `dependencies`, `mock-api.service.ts`, `loading.interceptor.ts`, `analytics/api.ts`, `@angular/forms`, `crypto/api.ts`, `package.json`, `finance/api.ts`, `project/api.ts`, `activities/api.ts`, `animations/public-api.ts`, `masonry.module.ts`, `app.resolvers.ts`, `GenaiService`, `file-manager/api.ts`, `layout.component.ts`, `image-editor.component.ts`, `FuseFullscreenComponent`, `FuseNavigationService`, `FuseScrollbarDirective`, `luxon`, `ai-writer.component.ts`, `SettingsFontComponent`, `UserService`, `api/index.ts`, `chat/api.ts`, `FuseSplashScreenService`, `app.module.ts`, `help-center/api.ts`, `FuseNavigationItem`, `scroll-reset.directive.ts`, `TaskProgressService`, `academy/api.ts`, `mailbox/api.ts`, `scrumboard/api.ts`, `profile-data.service.ts`, `find-by-key.module.ts`, `PolicyLayoutComponent`, `inventory/api.ts`, `icons/api.ts`, `auto-layout-dialog.service.ts`, `HelpComponent`, `lodash-es`, `confirmation.service.ts`, `chatbot.component.ts`, `FuseUtilsService`?**
+  _High betweenness centrality (0.146) - this node is a cross-community bridge._
 - **What connects `x`, `y`, `width` to the rest of the system?**
   _174 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `@angular/core` be split into smaller, more focused modules?**
-  _Cohesion score 0.024642652944539736 - nodes in this community are weakly interconnected._
-- **Why does `VideoTimelineDialogComponent` connect `VideoTimelineDialogComponent` to `.updateFilteredMediaItems`, `.getRawMediaUrl`, `User`, `UserService`, `.collectTimelineExportData`, `.updateTimelineSync`, `MagicKlingPromptDialogComponent`, `ai-tts.component.ts`, `.normalizeData`, `.markDirty`, `HostListener`, `.autoGenerateVideo`, `@angular/forms`, `.saveData`, `.setItem`?**
+  _Cohesion score 0.022461754005378167 - nodes in this community are weakly interconnected._
+- **Why does `User` connect `User` to `PaymentComponent`, `DollarComponent`, `.getItem`, `DialogLinksProfile`, `._getActiveInfo`, `SettingsCreateLicenseKeyComponent`, `ChatBotComponent`, `AMXHComponent`, `AuthService`, `LogService`, `AIWriterComponent`, `AMXHScriptAppComponent`, `@angular/forms`, `SettingsLicenseKeysComponent`, `AppComponent`, `Voice2videoComponent`, `AMXHScheduleComponent`, `SettingsDomainComponent`, `AIWordComponent`, `LicenseKeyService`, `app.resolvers.ts`, `AIImageComponent`, `AIArchiveComponent`, `ChatGPTLayoutComponent`, `AINodesComponent`, `GSCReportComponent`, `XCmsComponent`, `LinksComponent`, `MediaDataDialog`, `ArchiveComponent`, `EditDialog`, `FuseNavigationService`, `MXHAutoService`, `KeywordGoogleDataDialog`, `AllTubeComponent`, `AIFacePostComponent`, `SettingsAdminComponent`, `CollectionComponent`, `ai-writer.component.ts`, `WoocommerceExportComponent`, `AiAgentKnowledgeService`, `BigDataLogsDialog`, `LinkFormComponent`, `.setItem`, `NotificationsComponent`, `CustomerService`, `UserService`, `BigDataComponent`, `AuthSignUpComponent`, `GeminiMatrixDialog`, `ReportDialog`, `AuthSignInComponent`, `ProfilesComponent`, `AIToolsComponent`, `FuturisticLayoutComponent`, `.open`, `ShortcutsComponent`, `ChatGPTQuestionSheet`, `SynonymFormComponent`, `SitemapComponent`, `ChatbotService`, `SettingsPluginsComponent`, `UserComponent`, `FPTAIService`, `ReadComponent`, `DashboardComponent`, `SettingsComponent`, `ScanVideoLinkFormComponent`, `ThinLayoutComponent`, `WP2MDComponent`, `MomoQrDialog`, `chatbot.component.ts`, `AIText2SpeechComponent`?**
   _High betweenness centrality (0.077) - this node is a cross-community bridge._
 - **Should `User` be split into smaller, more focused modules?**
-  _Cohesion score 0.054271356783919596 - nodes in this community are weakly interconnected._
-- **Why does `User` connect `User` to `PaymentComponent`, `._getActiveInfo`, `DialogLinksProfile`, `ChatBotComponent`, `ai-tts.component.ts`, `SettingsCreateLicenseKeyComponent`, `AppComponent`, `AIWriterComponent`, `AMXHScriptAppComponent`, `AuthService`, `ClassyLayoutComponent`, `Voice2videoComponent`, `AMXHScheduleComponent`, `LogService`, `AIWordComponent`, `SettingsComponent`, `AIImageComponent`, `AIArchiveComponent`, `ChatGPTLayoutComponent`, `AINodesComponent`, `GSCReportComponent`, `XCmsComponent`, `AllTubeComponent`, `VideoProjectsComponent`, `SettingsLicenseKeysComponent`, `SettingsDomainComponent`, `MediaDataDialog`, `ChatbotService`, `WoocommerceExportComponent`, `LinksComponent`, `account/settings/settings.module.ts`, `FuseNavigationService`, `AMXHProfileAppComponent`, `BlogService`, `AIFacePostComponent`, `ArchiveComponent`, `YoutubeService`, `CollectionComponent`, `TasksService`, `BigDataLogsDialog`, `DollarComponent`, `MXHAutoService`, `NotificationsComponent`, `UserService`, `BigDataComponent`, `AuthSignUpComponent`, `GoLoginService`, `ReportDialog`, `AMXHComponent`, `SettingsAdminComponent`, `AuthSignInComponent`, `ProfilesComponent`, `AIToolsComponent`, `.open`, `LandingAppComponent`, `ShortcutsComponent`, `ChatGPTQuestionSheet`, `.setItem`, `SitemapComponent`, `SynonymFormComponent`, `SettingsPluginsComponent`, `WordpressService`, `UserComponent`, `.getComponent`, `ReadComponent`, `DashboardComponent`, `ScanVideoLinkFormComponent`, `ThinLayoutComponent`, `WP2MDComponent`, `MomoQrDialog`, `AiAgentKnowledgeService`, `FPTAIService`, `AIText2SpeechComponent`?**
-  _High betweenness centrality (0.071) - this node is a cross-community bridge._
-- **Should `app.pipe.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.07936507936507936 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.053041102399619865 - nodes in this community are weakly interconnected._
+- **Why does `VideoTimelineDialogComponent` connect `VideoTimelineDialogComponent` to `.updateFilteredMediaItems`, `.getRawMediaUrl`, `.setItem`, `.autoGenerateVideo`, `.normalizeData`, `UserService`, `.updateTimelineSync`, `MagicKlingPromptDialogComponent`, `.markDirty`, `HostListener`, `@angular/forms`, `.saveData`, `.collectTimelineExportData`, `ai-writer.component.ts`?**
+  _High betweenness centrality (0.075) - this node is a cross-community bridge._
+- **Should `.getItem` be split into smaller, more focused modules?**
+  _Cohesion score 0.06938775510204082 - nodes in this community are weakly interconnected._

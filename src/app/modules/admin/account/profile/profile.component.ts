@@ -65,6 +65,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   selectedPropScl: { x: number; y: number; z: number } | null = null;
   /** Vị trí pixel + trạng thái của cặp nút Delete/Duplicate nổi trên canvas */
   propActionAnchor = { visible: false, x: 0, y: 0, propId: null as string | null };
+  /** Do vat dang chon co bi khoa khong (nut khoa tren canvas + chan scrub) */
+  get selectedPropLocked(): boolean {
+    const p = this.roomProps?.find(pr => pr && pr.id === this.selectedPropId);
+    return !!p?.locked;
+  }
   private _lastSelectedPropId: string | null = null;
   /** Set lưu runtime propId đang insert GLB — tuyệt đối không ghi cờ tạm lên prop object để tránh serialize xuống props.json */
   private _insertingPropIds = new Set<string>();
@@ -322,6 +327,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       };
 
       // 4b3. Wire callback: hiển thị trục XYZ và tọa độ khi select đồ vật (cập nhật realtime khi kéo)
+      this.sceneService.onPropLockChanged = (propId: string, locked: boolean) => {
+        this.cdr.markForCheck();
+      };
       this.sceneService.onPropSelected = (propId: string | null, pos: { x: number; y: number; z: number } | null) => {
         this.selectedPropId = propId;
         this.selectedPropPos = pos ? { ...pos } : null;
@@ -782,6 +790,22 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     } else {
       const old = this.fxInspecting.params[name] || {};
       this.fxInspecting.params[name] = { r, g, b, a: (typeof old.a === 'number') ? old.a : 1 };
+    }
+  }
+
+  /** Bat/tat hieu ung tu switch tren the (khong mat cau hinh da chinh) */
+  toggleFxEffect(fx: any, event: Event): void {
+    event.stopPropagation();
+    const checked = (event.target as HTMLInputElement).checked;
+    const ok = this.sceneService.setFxEffectEnabled(fx.id, checked);
+    if (ok) {
+      this.toastr.success(
+        checked ? `Đã bật hiệu ứng "${fx.name}".` : `Đã tắt hiệu ứng "${fx.name}" (giữ nguyên cấu hình).`,
+        'Hiệu ứng canvas'
+      );
+    } else {
+      this.toastr.error(`Không bật/tắt được hiệu ứng "${fx.name}".`, 'Hiệu ứng canvas');
+      (event.target as HTMLInputElement).checked = !checked;
     }
   }
 
@@ -1768,6 +1792,20 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.sceneService.duplicatePropById(pid);
   }
 
+  /** Nut Khóa/Mở khóa nổi trên canvas: chặn kéo + scrub + scale cho tới khi mở khóa */
+  onCanvasToggleLock(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    const pid = this.propActionAnchor.propId;
+    if (!pid) return;
+    const next = !this.sceneService.isPropLocked(pid);
+    this.sceneService.togglePropLock(pid, next);
+    const live = this.roomProps?.find(p => p?.id === pid);
+    if (live) live.locked = next;
+    this.profileDataService.saveProps(this.roomProps).subscribe();
+    this.cdr.markForCheck();
+  }
+
   /** Trigger thêm đồ vật mới */
   triggerAddProp(): void {
     const newProp = {
@@ -2226,10 +2264,10 @@ ${targetPropInstruction}
      * Nếu người dùng đính kèm tệp .js (phần "TỆP SCRIPT HIỆU ỨNG ĐÍNH KÈM"), hãy COPY NGUYÊN VĂN code đó vào trường script (chỉ điều chỉnh tham số theo yêu cầu của người dùng).
      * Nếu không có tệp đính kèm, TỰ VIẾT script theo API chuẩn sau:
        - fx.params: object tham số từ lệnh applyEffect (count, speed, size, color...).
-       - fx.spawnParticles({ count, size, color: '#hex', opacity }): tạo hạt cầu, trả về mảng hạt { node, x, y, z, vy, ph }.
-       - fx.onTick((dt) => { ... }): đăng ký hàm chạy MỖI KHUNG HÌNH — cập nhật vị trí hạt bằng h.node.setPosition(h.x, h.y, h.z).
-       - fx.root: pc.Entity gốc của hiệu ứng; biến pc (PlayCanvas engine) có sẵn trong script; fx.log(msg) để debug console.
-       - Quy ước: Y=0 là mặt sàn; hiệu ứng rơi = y giảm dần theo dt, khi y < 0 thì đưa về đỉnh (y = topY).
+       - fx.spawnParticles({ count, size, color: '#hex', opacity, fallSpeed, radius, topY, center, wind, settle, autoFall, meltMin, meltMax }): tạo hạt cầu RẢI ĐỀU khắp vùng hiệu ứng (mặc định phủ toàn scene; truyền center {x,y,z} + radius để gom hạt quanh một món đồ). VÒNG ĐỜI HẠT TỰ ĐỘNG ĐẦY ĐỦ, script KHÔNG cần viết code rơi: hạt TỰ RƠI (fallSpeed + gió + bồng bềnh) -> TỰ ĐỌNG khi chạm mặt sàn hoặc NÓC đồ vật/nhân vật (restY ĐỘNG: hạt bám theo bề mặt kể cả khi đồ vật bị kéo đi, và ĐỌNG CHỒNG LỚP lên hạt đã nằm dưới → tuyết TÍCH TỤ dần) -> NẰM một thời gian RANDOM (meltMin..meltMax giây, mặc định 4..12) -> TAN CHẢY co nhỏ dần -> TÁI SINH ở đỉnh vùng rơi -> rơi tiếp → tuyết luôn RƠI LIÊN TỤC. Truyền settle: false để hạt chạm bề mặt là quay về đỉnh ngay (mưa/lá, không nằm). Trả về mảng hạt { node, x, y, z, vx, vy, vz, ph, restY, settled, melting, snowAge }.
+       - fx.onTick((dt) => { ... }): đăng ký hàm chạy MỖI KHUNG HÌNH — chỉ dành cho hiệu ứng phụ (đổi màu, đếm, nhấp nháy...). TUYỆT ĐỐI KHÔNG giữ hạt đứng lơ lửng giữa không trung: hạt luôn phải rơi và đọng xuống bề mặt. Mặc định tuyết dùng settle: true (đọng + tích tụ + tan chảy rồi tái sinh). Chỉ đặt autoFall: false khi bạn TỰ cập nhật hoàn toàn vị trí hạt mỗi khung hình (y giảm dần theo dt; khi y <= restY thì đặt y = restY — hạt đọng lại, KHÔNG xuyên xuống, KHÔNG lơ lửng).
+       - fx.root: pc.Entity gốc của hiệu ứng, luôn nằm ở tọa độ (0,0,0) — vì vậy h.node.setPosition(h.x, h.y, h.z) chính là tọa độ thế giới; biến pc (PlayCanvas engine) có sẵn trong script; fx.log(msg) để debug console.
+       - Quy ước: Y=0 là mặt sàn; mỗi hạt có sẵn restY = độ cao bề mặt (sàn/nóc đồ vật) ngay dưới nó; hiệu ứng rơi = y giảm dần theo dt, khi y <= restY thì đặt y = restY (đọng lại trên bề mặt); dùng settle: false nếu muốn hạt rơi liên tục (chạm restY thì nhảy về đỉnh topY — dùng cho mưa/lá).
      * Script viết dạng "function effect(fx) { ... }", KHÔNG dùng fetch/XHR/DOM/setInterval, chỉ dùng API trên + Math + pc.
      * Script kiểu PlayCanvas Editor (pc.createScript + prototype.initialize/update, có attributes.add) cũng được CHẤP NHẬN: runtime tự chuyển đổi sang effect(fx) và attributes thành fx.params. Nếu file đính kèm có lỗi cú pháp (vd "default:," thiếu giá trị), vẫn copy nguyên văn — runtime tự sửa.
 

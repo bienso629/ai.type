@@ -502,6 +502,15 @@
   color: var(--fuse-text-default, #1e293b);
 }
 
+.fx-card__toggle {
+    margin-left: auto;
+    flex: 0 0 auto;
+
+    .mdc-switch__track {
+        opacity: 0.85;
+    }
+}
+
 .prop-card__tune {
   flex-shrink: 0;
   width: 28px;
@@ -1087,6 +1096,18 @@
     color: #f87171;
     background: rgba(248, 113, 113, 0.15);
   }
+  &--lock:hover {
+    border-color: #fbbf24;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.15);
+  }
+
+  &--locked {
+    border-color: #fbbf24;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.18);
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
+  }
 
   &:active {
     transform: translateY(0);
@@ -1453,4 +1474,15 @@
     &--4 {
         grid-template-columns: repeat(4, 1fr);
     }
+}
+
+/* Switch bat/tat hieu ung script tren the */
+/* Switch bat/tat hieu ung script tren the */
+.fx-enable-toggle {
+    margin-right: 0.25rem;
+    flex-shrink: 0;
+}
+.prop-card__name--disabled {
+    opacity: 0.45;
+    text-decoration: line-through;
 }
