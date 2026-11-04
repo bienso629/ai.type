@@ -406,6 +406,13 @@
                                         <span class="prop-card__name" [title]="prop.name">{{
                                             prop.name
                                         }}</span>
+                                        @if (prop.locked) {
+                                            <mat-icon
+                                                class="prop-card__lock"
+                                                [title]="prop.name + ' đang khóa — không di chuyển/xoay/scale được'"
+                                                >lock</mat-icon
+                                            >
+                                        }
                                         <!-- Nút Thuộc tính & Phương thức hành động -->
                                         <button
                                             mat-icon-button

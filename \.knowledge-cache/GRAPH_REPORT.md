@@ -1,9 +1,9 @@
 # Graph Report - ai.type  (2026-11-04)
 
 ## Corpus Check
-- 685 files · ~1,736,981 words
+- 685 files · ~1,736,999 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 402 file(s) not represented in the graph (top: .scss 76, .ttf 71, .jmod 70)
+- Unclassified: 403 file(s) not represented in the graph (top: .scss 76, .ttf 71, .jmod 70)
 
 ## Summary
 - 8735 nodes · 21210 edges · 439 communities (193 shown, 246 thin omitted)
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e8a0afa6`
+- Built from commit: `36490fbe`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 
 
