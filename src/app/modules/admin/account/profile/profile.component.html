@@ -462,6 +462,13 @@
                                                 >tune</mat-icon
                                             >
                                         </button>
+                                        <mat-slide-toggle
+                                            class="fx-card__toggle"
+                                            [checked]="sceneService.isFxEffectEnabled(fx.id)"
+                                            (change)="toggleFxEffect(fx, $event)"
+                                            (click)="$event.stopPropagation()"
+                                            title="Bật/tắt hiệu ứng (giữ nguyên cấu hình)"
+                                        ></mat-slide-toggle>
                                         <button
                                             mat-icon-button
                                             class="prop-card__tune"
@@ -955,6 +962,15 @@
                     [style.left.px]="propActionAnchor.x"
                     [style.top.px]="propActionAnchor.y"
                 >
+                    <button
+                        type="button"
+                        class="sontinh-prop-actions__btn sontinh-prop-actions__btn--lock"
+                        [class.sontinh-prop-actions__btn--locked]="selectedPropLocked"
+                        [title]="selectedPropLocked ? 'Mở khóa: cho phép kéo và thay đổi kích thước' : 'Khóa: không thể kéo hoặc thay đổi kích thước'"
+                        (pointerdown)="onCanvasToggleLock($event)"
+                    >
+                        <mat-icon>{{ selectedPropLocked ? 'lock' : 'lock_open' }}</mat-icon>
+                    </button>
                     <button
                         type="button"
                         class="sontinh-prop-actions__btn sontinh-prop-actions__btn--dup"
