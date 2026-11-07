@@ -1000,6 +1000,56 @@ ${domainRows.join('\n')}
         this.cd.markForCheck();
     }
 
+    toggleTaskSticky(task: any, event?: Event) {
+        if (event) event.stopPropagation();
+        if (!task) return;
+        const target = task.originalTask || task;
+        target.sticky = !target.sticky;
+        task.sticky = target.sticky;
+        if (this._tasksService) {
+            this._tasksService.edit({ username: this.user?.name, task: target }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+        }
+        this.resortSelectedGroupTasks();
+        this.cd.markForCheck();
+    }
+
+    markSelectedTasksSticky(sticky: boolean) {
+        const selectedTasks = this.getSelectedGroupTasks();
+        if (selectedTasks.length === 0) {
+            this.toastr.warning('Vui lòng chọn ít nhất 1 công việc để ghim.');
+            return;
+        }
+
+        selectedTasks.forEach(task => {
+            const target = task.originalTask || task;
+            target.sticky = sticky;
+            task.sticky = sticky;
+            if (this._tasksService) {
+                this._tasksService.edit({ username: this.user?.name, task: target }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+            }
+        });
+
+        this.toastr.success(sticky ? `Đã ghim ${selectedTasks.length} công việc quan trọng lên đầu danh sách.` : `Đã bỏ ghim ${selectedTasks.length} công việc.`);
+        this.selectedGroupTaskIds.clear();
+        this.resortSelectedGroupTasks();
+        this.cd.markForCheck();
+    }
+
+    isTaskSticky(task: any): boolean {
+        return !!(task?.sticky || task?.originalTask?.sticky);
+    }
+
+    resortSelectedGroupTasks() {
+        const tasks = this.selectedGroupItem?.tasks;
+        if (!tasks || tasks.length === 0) return;
+        const stickyTasks = tasks.filter((t: any) => this.isTaskSticky(t));
+        const normalTasks = tasks.filter((t: any) => !this.isTaskSticky(t));
+        const stickyTime = (t: any) => { const d = this.safeDate(t.startDate); return d && !isNaN(d.getTime()) ? d.getTime() : 0; };
+        stickyTasks.sort((a: any, b: any) => stickyTime(a) - stickyTime(b));
+        normalTasks.sort((a: any, b: any) => stickyTime(a) - stickyTime(b));
+        this.selectedGroupItem.tasks = [...stickyTasks, ...normalTasks];
+    }
+
     toggleTaskDone(task: any, event?: Event) {
         if (event) event.stopPropagation();
         task.done = !task.done;
@@ -1088,6 +1138,7 @@ ${domainRows.join('\n')}
                 this.selectedGroupItem.tasks.forEach((t: any) => {
                     t._expanded = false;
                 });
+                this.resortSelectedGroupTasks();
             }
             if (this.groupTasksDialog) {
                 this._matDialog.open(this.groupTasksDialog, {
@@ -3060,6 +3111,15 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
         Object.keys(dayGroups).forEach(dayKey => {
             const dayTasks = dayGroups[dayKey];
+            // Uu tien task ghim (sticky) len dau ngay
+            dayTasks.sort((a, b) => {
+                const sa = a?.sticky || a?.originalTask?.sticky ? 1 : 0;
+                const sb = b?.sticky || b?.originalTask?.sticky ? 1 : 0;
+                if (sa !== sb) return sb - sa;
+                const ta = this.safeDate(a.startDate)?.getTime() || 0;
+                const tb = this.safeDate(b.startDate)?.getTime() || 0;
+                return ta - tb;
+            });
             const count = dayTasks.length;
             
             const baseDate = this.safeDate(dayTasks[0].startDate);

@@ -1436,6 +1436,8 @@
                     class="flex flex-col shrink-0 rounded border border-gray-200 bg-white overflow-hidden transition-all duration-150"
                     [class.border-primary]="isTaskSelected(task)"
                     [class.bg-blue-50]="isTaskSelected(task)"
+                    [class.border-purple-400]="!isTaskSelected(task) && isTaskSticky(task)"
+                    [class.bg-purple-50/40]="!isTaskSelected(task) && isTaskSticky(task)"
                 >
                     <!-- Accordion Header -->
                     <div
@@ -1492,6 +1494,17 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2.5 shrink-0">
+                            @if (isTaskSticky(task)) {
+                                <span
+                                    class="px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-700 flex items-center gap-1"
+                                >
+                                    <mat-icon
+                                        class="icon-size-3"
+                                        [svgIcon]="'feather:bookmark'"
+                                    ></mat-icon>
+                                    Sticky
+                                </span>
+                            }
                             <span
                                 class="px-2 py-0.5 rounded text-xs font-semibold"
                                 [ngClass]="
@@ -1601,6 +1614,29 @@
                                         </button>
                                         <button
                                             mat-icon-button
+                                            [matTooltip]="
+                                                isTaskSticky(task)
+                                                    ? 'Bỏ ghim'
+                                                    : 'Ghim công việc quan trọng lên đầu'
+                                            "
+                                            (click)="toggleTaskSticky(task, $event)"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [ngClass]="
+                                                    isTaskSticky(task)
+                                                        ? 'text-purple-600'
+                                                        : 'text-gray-400'
+                                                "
+                                                [svgIcon]="
+                                                    isTaskSticky(task)
+                                                        ? 'feather:bookmark'
+                                                        : 'feather:bookmark'
+                                                "
+                                            ></mat-icon>
+                                        </button>
+                                        <button
+                                            mat-icon-button
                                             color="primary"
                                             [matTooltip]="'Chỉnh sửa / AI Edit'"
                                             (click)="openSingleTaskDetail(task)"
@@ -1623,6 +1659,29 @@
         <div
             class="flex items-center justify-end gap-2 p-4 bg-gray-50 border-t border-gray-200 shrink-0"
         >
+            <button
+                mat-flat-button
+                class="!bg-purple-600 hover:!bg-purple-700 !text-white"
+                (click)="markSelectedTasksSticky(true)"
+                [matTooltip]="'Ghim các công việc quan trọng đã chọn lên đầu danh sách'"
+            >
+                <mat-icon
+                    class="icon-size-4 text-white"
+                    [svgIcon]="'feather:bookmark'"
+                ></mat-icon>
+                <span class="ml-2">Sticky</span>
+            </button>
+            <button
+                mat-icon-button
+                class="text-purple-600 hover:text-purple-800"
+                [matTooltip]="'Bỏ ghim các mục đã chọn'"
+                (click)="markSelectedTasksSticky(false)"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'feather:bookmark'"
+                ></mat-icon>
+            </button>
             <button
                 mat-flat-button
                 class="!bg-amber-500 hover:!bg-amber-600 !text-white"

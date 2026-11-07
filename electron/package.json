@@ -1,187 +1,187 @@
 {
-    "name": "typing",
-    "version": "1.2.3",
-    "description": "ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
-    "main": "dist/main.js",
-    "scripts": {
-        "dev": "nodemon --watch src --exec electron --no-sandbox src/main.js",
-        "obfuscate": "javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json && javascript-obfuscator src/mcp-client.js --output dist/mcp-client.js --config .obfuscatorrc.json && javascript-obfuscator src/export-import-project.js --output dist/export-import-project.js --config .obfuscatorrc.json && javascript-obfuscator src/local-articles.js --output dist/local-articles.js --config .obfuscatorrc.json && javascript-obfuscator src/local-profiles.js --output dist/local-profiles.js --config .obfuscatorrc.json && javascript-obfuscator src/fonts.js --output dist/fonts.js --config .obfuscatorrc.json && javascript-obfuscator src/database.js --output dist/database.js --config .obfuscatorrc.json && javascript-obfuscator src/opera-codec.js --output dist/opera-codec.js --config .obfuscatorrc.json && javascript-obfuscator src/edge-tts-v2.js --output dist/edge-tts-v2.js --config .obfuscatorrc.json && javascript-obfuscator src/extract_frame.js --output dist/extract_frame.js --config .obfuscatorrc.json && mkdir -p dist/type-lite && javascript-obfuscator src/type-lite --output dist/type-lite --config .obfuscatorrc.json && cp -r src/type-lite/views dist/type-lite/",
-        "build:win": "npm run obfuscate && electron-builder --win -p always",
-        "build:mac": "npm run obfuscate && electron-builder --mac",
-        "build:linux": "npm run obfuscate && electron-builder --linux",
-        "build:all": "npm run obfuscate && electron-builder --win --mac --linux",
-        "start": "npm run obfuscate && electron --no-sandbox .",
-        "build:win:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --win -c build-lite.json",
-        "build:mac:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --mac -c build-lite.json",
-        "build:linux:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --linux -c build-lite.json"
+  "name": "typing",
+  "version": "1.2.9",
+  "description": "ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "nodemon --watch src --exec electron --no-sandbox src/main.js",
+    "obfuscate": "javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json && javascript-obfuscator src/mcp-client.js --output dist/mcp-client.js --config .obfuscatorrc.json && javascript-obfuscator src/export-import-project.js --output dist/export-import-project.js --config .obfuscatorrc.json && javascript-obfuscator src/local-articles.js --output dist/local-articles.js --config .obfuscatorrc.json && javascript-obfuscator src/local-profiles.js --output dist/local-profiles.js --config .obfuscatorrc.json && javascript-obfuscator src/fonts.js --output dist/fonts.js --config .obfuscatorrc.json && javascript-obfuscator src/database.js --output dist/database.js --config .obfuscatorrc.json && javascript-obfuscator src/opera-codec.js --output dist/opera-codec.js --config .obfuscatorrc.json && javascript-obfuscator src/edge-tts-v2.js --output dist/edge-tts-v2.js --config .obfuscatorrc.json && javascript-obfuscator src/extract_frame.js --output dist/extract_frame.js --config .obfuscatorrc.json && mkdir -p dist/type-lite && javascript-obfuscator src/type-lite --output dist/type-lite --config .obfuscatorrc.json && cp -r src/type-lite/views dist/type-lite/",
+    "build:win": "npm run obfuscate && electron-builder --win -p always",
+    "build:mac": "npm run obfuscate && electron-builder --mac",
+    "build:linux": "npm run obfuscate && electron-builder --linux",
+    "build:all": "npm run obfuscate && electron-builder --win --mac --linux",
+    "start": "npm run obfuscate && electron --no-sandbox .",
+    "build:win:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --win -c build-lite.json",
+    "build:mac:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --mac -c build-lite.json",
+    "build:linux:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --linux -c build-lite.json"
+  },
+  "build": {
+    "productName": "AI.Type",
+    "appId": "ai.type.vn",
+    "asar": true,
+    "files": [
+      "dist/main.js",
+      "dist/mcp-client.js",
+      "dist/export-import-project.js",
+      "dist/local-articles.js",
+      "dist/local-profiles.js",
+      "dist/fonts.js",
+      "dist/database.js",
+      "dist/opera-codec.js",
+      "dist/edge-tts-v2.js",
+      "dist/extract_frame.js",
+      "dist/type-lite/**/*",
+      "preload.js",
+      "fallback/**/*",
+      "icons/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      "ffmpeg-*",
+      "yt-dlp-*",
+      "edge-tts-*",
+      "100tiktok-*",
+      "colab-agent-*",
+      "colab_agent_*",
+      "crm/**/*",
+      {
+        "from": "fallback/assets/video_frames",
+        "to": "assets/video_frames"
+      },
+      {
+        "from": "bin",
+        "to": "bin"
+      },
+      {
+        "from": "scripts",
+        "to": "scripts",
+        "filter": [
+          "**/*",
+          "!build",
+          "!dist",
+          "!__pycache__",
+          "!*.spec"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "icons/icon.ico",
+      "target": "nsis"
     },
-    "build": {
-        "productName": "AI.Type",
-        "appId": "ai.type.vn",
-        "asar": true,
-        "files": [
-            "dist/main.js",
-            "dist/mcp-client.js",
-            "dist/export-import-project.js",
-            "dist/local-articles.js",
-            "dist/local-profiles.js",
-            "dist/fonts.js",
-            "dist/database.js",
-            "dist/opera-codec.js",
-            "dist/edge-tts-v2.js",
-            "dist/extract_frame.js",
-            "dist/type-lite/**/*",
-            "preload.js",
-            "fallback/**/*",
-            "icons/**/*",
-            "node_modules/**/*",
-            "package.json"
-        ],
-        "extraResources": [
-            "ffmpeg-*",
-            "yt-dlp-*",
-            "edge-tts-*",
-            "100tiktok-*",
-            "colab-agent-*",
-            "colab_agent_*",
-            "crm/**/*",
-            {
-                "from": "fallback/assets/video_frames",
-                "to": "assets/video_frames"
-            },
-            {
-                "from": "bin",
-                "to": "bin"
-            },
-            {
-                "from": "scripts",
-                "to": "scripts",
-                "filter": [
-                    "**/*",
-                    "!build",
-                    "!dist",
-                    "!__pycache__",
-                    "!*.spec"
-                ]
-            }
-        ],
-        "win": {
-            "icon": "icons/icon.ico",
-            "target": "nsis"
-        },
-        "nsis": {
-            "oneClick": false,
-            "perMachine": false,
-            "allowToChangeInstallationDirectory": true
-        },
-        "mac": {
-            "icon": "icons/icon.icns",
-            "hardenedRuntime": true,
-            "gatekeeperAssess": false,
-            "entitlements": "build/entitlements.mac.plist",
-            "entitlementsInherit": "build/entitlements.mac.plist",
-            "target": [
-                "zip"
-            ],
-            "identity": "7Q9KE7THG2",
-            "extendInfo": {
-                "NSAppleEventsUsageDescription": "Cho phép ứng dụng điều khiển trình duyệt."
-            }
-        },
-        "dmg": {
-            "sign": false
-        },
-        "publish": [
-            {
-                "provider": "generic",
-                "url": "https://ai.type.vn/phan-mem/"
-            }
-        ],
-        "linux": {
-            "target": [
-                "deb",
-                "AppImage"
-            ],
-            "executableArgs": [
-                "--no-sandbox"
-            ],
-            "category": "Office"
-        }
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
     },
-    "author": {
-        "name": "Yên AI",
-        "email": "contact@ai.type.vn"
+    "mac": {
+      "icon": "icons/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        "zip"
+      ],
+      "identity": "7Q9KE7THG2",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Cho phép ứng dụng điều khiển trình duyệt."
+      }
     },
-    "homepage": "https://ai.type.vn",
-    "license": "license.txt",
-    "dependencies": {
-        "@babel/node": "^7.23.9",
-        "@babel/runtime": "^7.24.5",
-        "@cloudflare/puppeteer": "^0.0.14",
-        "@google/generative-ai": "^0.24.1",
-        "@xenova/transformers": "^2.17.2",
-        "adm-zip": "^0.5.17",
-        "axios": "^1.18.0",
-        "babel-plugin-transform-runtime": "^6.23.0",
-        "babel-polyfill": "^6.26.0",
-        "babel-runtime": "^6.26.0",
-        "body-parser": "^1.20.2",
-        "cheerio": "^1.1.0",
-        "child_process": "^1.0.2",
-        "cors": "^2.8.5",
-        "crypto": "^1.0.1",
-        "crypto-js": "^4.2.0",
-        "ejs": "^3.1.10",
-        "electron-log": "^5.4.3",
-        "electron-notarize": "^1.2.2",
-        "electron-store": "^8.2.0",
-        "electron-updater": "^6.6.2",
-        "express": "^4.19.2",
-        "gologin": "^2.2.7",
-        "google-auth-library": "^10.5.0",
-        "googleapis": "^167.0.0",
-        "https": "^1.0.0",
-        "jszip": "^3.10.1",
-        "kill-port": "^2.0.1",
-        "lodash": "^4.17.23",
-        "mime-types": "^3.0.2",
-        "minimist": "^1.2.8",
-        "msedge-tts": "^2.0.3",
-        "node-cache": "^5.1.2",
-        "nodemailer": "^9.0.1",
-        "openai": "^6.37.0",
-        "os": "^0.1.2",
-        "pdf-parse": "^2.2.2",
-        "puppeteer": "^22.15.0",
-        "puppeteer-autoscroll-down": "^2.0.1",
-        "puppeteer-cluster": "^0.24.0",
-        "puppeteer-extra": "^3.3.6",
-        "puppeteer-extra-plugin-recaptcha": "^3.6.8",
-        "puppeteer-extra-plugin-stealth": "^2.11.2",
-        "puppeteer-extra-plugin-user-data-dir": "^2.4.1",
-        "random-useragent": "^0.5.0",
-        "rcedit": "^4.0.1",
-        "request": "^2.88.2",
-        "stream": "^0.0.3",
-        "sync-request": "^6.1.0",
-        "url": "^0.11.4",
-        "util": "^0.12.5",
-        "ws": "^8.18.3",
-        "xml2js": "^0.6.2"
+    "dmg": {
+      "sign": false
     },
-    "devDependencies": {
-        "@babel/cli": "^7.24.5",
-        "@babel/core": "^7.24.5",
-        "@babel/preset-env": "^7.24.5",
-        "@babel/register": "^7.23.7",
-        "@electron/rebuild": "^3.7.2",
-        "babel-cli": "^6.26.0",
-        "cross-env": "^7.0.3",
-        "electron": "^35.6.0",
-        "electron-builder": "^26.0.12",
-        "electron-installer-dmg": "^5.0.1",
-        "electron-packager": "^17.1.2",
-        "javascript-obfuscator": "^4.1.1",
-        "nodemon": "^3.1.14"
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://ai.type.vn/phan-mem/"
+      }
+    ],
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "executableArgs": [
+        "--no-sandbox"
+      ],
+      "category": "Office"
     }
+  },
+  "author": {
+    "name": "Yên AI",
+    "email": "contact@ai.type.vn"
+  },
+  "homepage": "https://ai.type.vn",
+  "license": "license.txt",
+  "dependencies": {
+    "@babel/node": "^7.23.9",
+    "@babel/runtime": "^7.24.5",
+    "@cloudflare/puppeteer": "^0.0.14",
+    "@google/generative-ai": "^0.24.1",
+    "@xenova/transformers": "^2.17.2",
+    "adm-zip": "^0.5.17",
+    "axios": "^1.18.0",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-polyfill": "^6.26.0",
+    "babel-runtime": "^6.26.0",
+    "body-parser": "^1.20.2",
+    "cheerio": "^1.1.0",
+    "child_process": "^1.0.2",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "crypto-js": "^4.2.0",
+    "ejs": "^3.1.10",
+    "electron-log": "^5.4.3",
+    "electron-notarize": "^1.2.2",
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.6.2",
+    "express": "^4.19.2",
+    "gologin": "^2.2.7",
+    "google-auth-library": "^10.5.0",
+    "googleapis": "^167.0.0",
+    "https": "^1.0.0",
+    "jszip": "^3.10.1",
+    "kill-port": "^2.0.1",
+    "lodash": "^4.17.23",
+    "mime-types": "^3.0.2",
+    "minimist": "^1.2.8",
+    "msedge-tts": "^2.0.3",
+    "node-cache": "^5.1.2",
+    "nodemailer": "^9.0.1",
+    "openai": "^6.37.0",
+    "os": "^0.1.2",
+    "pdf-parse": "^2.2.2",
+    "puppeteer": "^22.15.0",
+    "puppeteer-autoscroll-down": "^2.0.1",
+    "puppeteer-cluster": "^0.24.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-recaptcha": "^3.6.8",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer-extra-plugin-user-data-dir": "^2.4.1",
+    "random-useragent": "^0.5.0",
+    "rcedit": "^4.0.1",
+    "request": "^2.88.2",
+    "stream": "^0.0.3",
+    "sync-request": "^6.1.0",
+    "url": "^0.11.4",
+    "util": "^0.12.5",
+    "ws": "^8.18.3",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.24.5",
+    "@babel/core": "^7.24.5",
+    "@babel/preset-env": "^7.24.5",
+    "@babel/register": "^7.23.7",
+    "@electron/rebuild": "^3.7.2",
+    "babel-cli": "^6.26.0",
+    "cross-env": "^7.0.3",
+    "electron": "^35.6.0",
+    "electron-builder": "^26.0.12",
+    "electron-installer-dmg": "^5.0.1",
+    "electron-packager": "^17.1.2",
+    "javascript-obfuscator": "^4.1.1",
+    "nodemon": "^3.1.14"
+  }
 }

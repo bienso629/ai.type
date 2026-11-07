@@ -206,3 +206,55 @@ ng-select {
         }
     }
 }
+/* ================================================================== */
+/* Sticky: ghim bài viết quan trọng lên đầu danh sách                  */
+/* ================================================================== */
+.archives-sticky-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px;
+    height: 18px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: #7c3aed;
+    background-color: rgba(124, 58, 237, 0.12);
+    border: 1px solid rgba(124, 58, 237, 0.35);
+    white-space: nowrap;
+}
+
+.datatable-body-row.row-sticky-active {
+    background-color: rgba(124, 58, 237, 0.06) !important;
+
+    &:hover {
+        background-color: rgba(124, 58, 237, 0.1) !important;
+    }
+}
+
+.sticky-pin-btn {
+    color: #9ca3af;
+
+    &.sticky-pinned {
+        color: #7c3aed;
+    }
+}
+
+.btn-sticky-bulk {
+    background-color: #7c3aed !important;
+    color: #ffffff !important;
+
+    &:hover:not([disabled]) {
+        background-color: #6d28d9 !important;
+    }
+}
+
+.btn-unsticky-bulk {
+    background-color: #64748b !important;
+    color: #ffffff !important;
+
+    &:hover:not([disabled]) {
+        background-color: #475569 !important;
+    }
+}

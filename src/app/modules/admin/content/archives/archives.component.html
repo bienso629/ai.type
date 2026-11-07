@@ -147,12 +147,20 @@
                     <ng-template let-row="row" ngx-datatable-cell-template>
                         @if (row && row.isGroupHeader) {
                             <div
-                                class="flex items-center font-bold text-sm text-blue-600 dark:text-blue-400 gap-2 whitespace-nowrap"
+                                class="flex items-center font-bold text-sm gap-2 whitespace-nowrap"
+                                [class]="row.groupTitle === 'Đã ghim' ? 'text-purple-600 dark:text-purple-400' : 'text-blue-600 dark:text-blue-400'"
                             >
-                                <mat-icon
-                                    class="icon-size-4 text-blue-500 shrink-0"
-                                    svgIcon="heroicons_solid:clock"
-                                ></mat-icon>
+                                @if (row.groupTitle === 'Đã ghim') {
+                                    <mat-icon
+                                        class="icon-size-4 text-purple-500 shrink-0"
+                                        svgIcon="heroicons_solid:bookmark"
+                                    ></mat-icon>
+                                } @else {
+                                    <mat-icon
+                                        class="icon-size-4 text-blue-500 shrink-0"
+                                        svgIcon="heroicons_solid:clock"
+                                    ></mat-icon>
+                                }
                                 <span>{{ row.groupTitle }} ({{ row.count }})</span>
                             </div>
                         }
@@ -186,12 +194,20 @@
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     @if (row && row.isGroupHeader) {
                         <div
-                            class="flex items-center font-bold text-xs sm:text-sm text-blue-600 dark:text-blue-400 gap-1.5 whitespace-nowrap"
+                            class="flex items-center font-bold text-xs sm:text-sm gap-1.5 whitespace-nowrap"
+                            [class]="row.groupTitle === 'Đã ghim' ? 'text-purple-600 dark:text-purple-400' : 'text-blue-600 dark:text-blue-400'"
                         >
-                            <mat-icon
-                                class="icon-size-3.5 sm:icon-size-4 text-blue-500 shrink-0"
-                                svgIcon="heroicons_solid:clock"
-                            ></mat-icon>
+                            @if (row.groupTitle === 'Đã ghim') {
+                                <mat-icon
+                                    class="icon-size-3.5 sm:icon-size-4 text-purple-500 shrink-0"
+                                    svgIcon="heroicons_solid:bookmark"
+                                ></mat-icon>
+                            } @else {
+                                <mat-icon
+                                    class="icon-size-3.5 sm:icon-size-4 text-blue-500 shrink-0"
+                                    svgIcon="heroicons_solid:clock"
+                                ></mat-icon>
+                            }
                             <span>{{ row.groupTitle }} ({{ row.count }})</span>
                         </div>
                     }
@@ -201,6 +217,45 @@
                             (click)="openRowArticle(row)"
                         >
                             <div class="flex items-center w-full gap-1.5 min-w-0">
+                                @if (isTaskSticky(row)) {
+                                    <span
+                                        class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300"
+                                        matTooltipPosition="above"
+                                        [matTooltip]="'Bài đã ghim - nằm trong nhóm Đã ghim trên cùng'"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-3 mr-0.5"
+                                            [svgIcon]="'feather:bookmark'"
+                                        ></mat-icon>
+                                        Sticky
+                                    </span>
+                                    <button
+                                        type="button"
+                                        class="shrink-0 w-6 h-6 inline-flex items-center justify-center rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 dark:text-red-400/90 dark:hover:text-red-300 dark:hover:bg-red-500/10 transition-colors"
+                                        matTooltipPosition="above"
+                                        [matTooltip]="'Bỏ ghim bài này'"
+                                        (click)="$event.stopPropagation(); toggleRowSticky(row)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="'feather:bookmark'"
+                                        ></mat-icon>
+                                    </button>
+                                }
+                                @else {
+                                    <button
+                                        type="button"
+                                        class="shrink-0 w-6 h-6 inline-flex items-center justify-center rounded-full text-gray-300 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+                                        matTooltipPosition="above"
+                                        [matTooltip]="'Ghim bài này lên đầu danh sách'"
+                                        (click)="$event.stopPropagation(); toggleRowSticky(row)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="'feather:bookmark'"
+                                        ></mat-icon>
+                                    </button>
+                                }
                                 @if (isRowEncrypted(row)) {
                                     <mat-icon
                                         class="icon-size-4 text-amber-500 shrink-0 self-center inline-flex items-center justify-center my-auto"
@@ -539,6 +594,38 @@
                                             "app.delete_selected" | transloco
                                         }}
                                         ({{ selected.length }})</mat-label
+                                    >
+                                </button>
+                            }
+                            @if (selected && selected.length > 0) {
+                                <button
+                                    mat-flat-button
+                                    class="bg-purple-500 text-white px-2 sm:px-4 min-w-0"
+                                    (click)="markSelectedSticky(true)"
+                                    [matTooltip]="'Ghim các bài đã chọn lên đầu danh sách'"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 sm:icon-size-5"
+                                        [svgIcon]="'feather:bookmark'"
+                                    ></mat-icon>
+                                    <mat-label class="ml-1 sm:ml-2 text-xs sm:text-sm"
+                                        >Sticky ({{ selected.length }})</mat-label
+                                    >
+                                </button>
+                            }
+                            @if (selected && selected.length > 0 && getSelectedStickyCount() > 0) {
+                                <button
+                                    mat-flat-button
+                                    class="bg-gray-400 text-white px-2 sm:px-4 min-w-0"
+                                    (click)="markSelectedSticky(false)"
+                                    [matTooltip]="'Bỏ ghim các bài đang chọn'"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 sm:icon-size-5"
+                                        [svgIcon]="'feather:bookmark'"
+                                    ></mat-icon>
+                                    <mat-label class="ml-1 sm:ml-2 text-xs sm:text-sm"
+                                        >Bỏ ghim ({{ selected.length }})</mat-label
                                     >
                                 </button>
                             }

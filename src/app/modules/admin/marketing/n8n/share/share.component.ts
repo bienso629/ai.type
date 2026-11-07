@@ -316,6 +316,8 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     isMemoryFileMissing(fileStr: string): boolean {
         if (!fileStr) return false;
         if (fileStr.startsWith('memory-video:')) {
+            // Media đang được nạp nền sau khi mở app: chưa kết luận là thiếu
+            if (!this.multiAccountService.mediaPreloadComplete) return false;
             const fileName = fileStr.substring('memory-video:'.length);
             return !this.multiAccountService.memoryVideoFiles[fileName];
         }

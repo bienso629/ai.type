@@ -3839,42 +3839,42 @@
         >
             <!-- 1. CỘT CỐ ĐỊNH BÊN TRÁI (TRACK HEADERS & ZOOM - KHÔNG BAO GIỜ CUỘN, LUÔN NẰM TRÊN CÙNG) -->
             <div
-                class="w-32 flex-shrink-0 z-[150] bg-[#18181b] border-r border-neutral-800 flex flex-col shadow-[4px_0_15px_rgba(0,0,0,0.6)] select-none"
+                class="w-40 flex-shrink-0 z-[150] bg-[#18181b] border-r border-neutral-800 flex flex-col shadow-[4px_0_15px_rgba(0,0,0,0.6)] select-none"
             >
-                <!-- Zoom Controls (h-7) -->
+                <!-- Zoom Controls (h-12) - phóng to để dễ nhìn từ xa -->
                 <div
-                    class="h-7 w-full border-b border-neutral-800 flex items-center justify-between px-3 bg-[#18181b]"
+                    class="h-12 w-full border-b border-neutral-800 flex items-center justify-between px-2 bg-[#18181b]"
                 >
                     <button
                         type="button"
-                        class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded-sm transition-colors disabled:opacity-30 disabled:pointer-events-none p-0"
+                        class="w-9 h-9 flex items-center justify-center text-neutral-100 border border-neutral-600/70 bg-neutral-700/40 hover:text-white hover:bg-neutral-600/80 active:bg-neutral-500/80 rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none p-0"
                         (click)="zoomOutTimeline($event)"
-                        [disabled]="pixelsPerSecond <= 5"
-                        title="Thu nhỏ timeline (-)"
+                        [disabled]="pixelsPerSecond <= 1"
+                        title="Thu nhỏ timeline (Ctrl + Lăn chuột lên/-)"
                     >
                         <mat-icon
-                            class="icon-size-3.5 !w-3.5 !h-3.5 !text-[14px]"
+                            class="!w-6 !h-6 !text-[24px] !font-bold"
                             >remove</mat-icon
                         >
                     </button>
 
                     <span
-                        class="text-[10px] text-neutral-300 font-mono font-medium select-none cursor-pointer hover:text-indigo-300 transition-colors"
+                        class="text-base text-white font-mono font-bold select-none cursor-pointer hover:text-indigo-300 transition-colors px-1 tabular-nums"
                         (click)="resetZoom($event)"
                         title="Click để đặt lại 100%"
                     >
-                        {{ (pixelsPerSecond / 20) * 100 | number: "1.0-0" }}%
+                        {{ (pixelsPerSecond / 25) * 100 | number: "1.0-0" }}%
                     </span>
 
                     <button
                         type="button"
-                        class="w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/60 rounded-sm transition-colors disabled:opacity-30 disabled:pointer-events-none p-0"
+                        class="w-9 h-9 flex items-center justify-center text-neutral-100 border border-neutral-600/70 bg-neutral-700/40 hover:text-white hover:bg-neutral-600/80 active:bg-neutral-500/80 rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none p-0"
                         (click)="zoomInTimeline($event)"
-                        [disabled]="pixelsPerSecond >= 100"
-                        title="Phóng to timeline (+)"
+                        [disabled]="pixelsPerSecond >= 200"
+                        title="Phóng to timeline (Ctrl + Lăn chuột xuống/+)"
                     >
                         <mat-icon
-                            class="icon-size-3.5 !w-3.5 !h-3.5 !text-[14px]"
+                            class="!w-6 !h-6 !text-[24px] !font-bold"
                             >add</mat-icon
                         >
                     </button>

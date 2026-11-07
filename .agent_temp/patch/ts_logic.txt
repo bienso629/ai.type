@@ -1,0 +1,18 @@
+    /**
+     * Thuộc tính text của item phu de la "trường hiển thị" theo ngôn ngữ đang chọn
+     * (currentSubtitleLang). Hàm này giúp đồng bộ ngược về slot lưu trữ gốc
+     * (originalText / vietnameseText / translations) đúng theo ngôn ngữ.
+     */
+    syncSubtitleTextFromDisplaySlot(sub: any): void {
+        if (!sub) return;
+        const text = sub.text || '';
+        if (this.currentSubtitleLang === 'vi') {
+            sub.vietnameseText = text;
+            if (!sub.translations) sub.translations = {};
+            sub.translations['vi'] = text;
+        } else {
+            sub.originalText = text;
+            if (!sub.translations) sub.translations = {};
+            sub.twoWaySyncEnabled = sub.twoWaySyncEnabled !== false;
+        }
+    }

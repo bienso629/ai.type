@@ -128,6 +128,140 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     bulkEditStatusText: string = '';
 
     permissionText2Voice: boolean = false;
+
+    /* Sticky: tập hợp uuid các bài viết được ghim (lưu bền theo username) */
+    stickyUuids: Set<string> = new Set<string>();
+
+    private stickyStorageKey(): string {
+        return 'archives_sticky_' + this.getCurrentUsername();
+    }
+
+    loadStickyState(): void {
+        try {
+            const raw = localStorage.getItem(this.stickyStorageKey());
+            const arr = raw ? JSON.parse(raw) : [];
+            this.stickyUuids = new Set<string>(
+                Array.isArray(arr) ? arr.filter((u: any) => typeof u === 'string') : [],
+            );
+        } catch (e) {
+            this.stickyUuids = new Set<string>();
+        }
+    }
+
+    persistStickyState(): void {
+        try {
+            localStorage.setItem(
+                this.stickyStorageKey(),
+                JSON.stringify(Array.from(this.stickyUuids)),
+            );
+        } catch (e) {
+            /* ignore quota errors */
+        }
+    }
+
+    isTaskSticky(row: any): boolean {
+        return !!(row && row.uuid && this.stickyUuids.has(row.uuid));
+    }
+
+    getStickyCount(): number {
+        return this.stickyUuids.size;
+    }
+
+    /** Số bài TRONG SỐ ĐANG CHỌN thực sự đang được ghim (dùng cho nút Bỏ ghim) */
+    getSelectedStickyCount(): number {
+        if (!this.selected || this.selected.length === 0) return 0;
+        return this.selected.filter(
+            (r: any) => r && r.uuid && this.stickyUuids.has(r.uuid),
+        ).length;
+    }
+
+    toggleRowSticky(row: any, event?: Event): void {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        if (!row || !row.uuid) return;
+        if (this.stickyUuids.has(row.uuid)) {
+            this.stickyUuids.delete(row.uuid);
+            this.toastr.success(`Đã bỏ ghim bài viết ${row.uuid}.`);
+        } else {
+            this.stickyUuids.add(row.uuid);
+            this.toastr.success(`Đã ghim bài viết ${row.uuid} lên đầu danh sách.`);
+        }
+        this.persistStickyState();
+        this.refreshRowsWithSticky();
+    }
+
+    /**
+     * Ghim / bỏ ghim hàng loạt các bài viết đang chọn.
+     * sticky = true  : ghim tất cả bài đã chọn
+     * sticky = false : bỏ ghim tất cả bài đã chọn
+     */
+    markSelectedSticky(sticky: boolean): void {
+        if (!this.selected || this.selected.length === 0) return;
+        let changed = 0;
+        this.selected.forEach((r: any) => {
+            if (r && r.uuid) {
+                if (sticky && !this.stickyUuids.has(r.uuid)) {
+                    this.stickyUuids.add(r.uuid);
+                    changed++;
+                } else if (!sticky && this.stickyUuids.has(r.uuid)) {
+                    this.stickyUuids.delete(r.uuid);
+                    changed++;
+                }
+            }
+        });
+        if (changed === 0) {
+            this.toastr.info(
+                sticky
+                    ? 'Các bài viết đã chọn đều đang được ghim.'
+                    : 'Các bài viết đã chọn đều không được ghim.',
+            );
+            return;
+        }
+        this.persistStickyState();
+        this.refreshRowsWithSticky();
+        this.toastr.success(
+            sticky
+                ? `Đã ghim ${changed} bài viết quan trọng lên đầu danh sách.`
+                : `Đã bỏ ghim ${changed} bài viết.`,
+        );
+    }
+
+    /**
+     * Xây dựng lại rows từ masterLoadedRows, đảm bảo bài sticky
+     * nằm trên đầu từng nhóm ngày và row header đếm đúng số lượng.
+     */
+    refreshRowsWithSticky(): void {
+        // Neu dang loc theo ngay, giu nguyen bo loc sau khi ghim/bo ghim
+        const filterActive =
+            this.selectedDateGroup &&
+            this.selectedDateGroup !== 'Tất cả thời gian';
+        if (filterActive) {
+            const allDocs =
+                this.masterLoadedRows && this.masterLoadedRows.length > 0
+                    ? this.masterLoadedRows
+                    : this.allRowsBackup
+                      ? this.allRowsBackup.filter(
+                            (r) => r && r.uuid && !r.isGroupHeader,
+                        )
+                      : [];
+            const filtered = allDocs.filter(
+                (row) =>
+                    row &&
+                    !row.isGroupHeader &&
+                    this.getDateGroup(row) === this.selectedDateGroup,
+            );
+            this.rows = this.groupRowsWithHeaders(filtered);
+        } else {
+            this.rows = this.groupRowsWithHeaders(this.masterLoadedRows || []);
+        }
+        this.totalElements =
+            this.actualTotalElements > 0
+                ? this.actualTotalElements
+                : this.rows.length;
+        this.cd.markForCheck();
+    }
     permissionScriptCommentLike: boolean = false;
 
     /* END TWO OBJECTS */
@@ -654,6 +788,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     getRowClass = (row: any) => {
         return {
             'is-group-header': row && row.isGroupHeader,
+            'row-sticky-active': this.isTaskSticky(row),
         };
     };
 
@@ -2085,6 +2220,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     ngOnInit(): void {
+        // Nạp trạng thái ghim (sticky) đã lưu từ lần chạy trước
+        this.loadStickyState();
         const isAutoSaveLocal =
             localStorage.getItem('ai_type_auto_save_local') !== 'false';
         if (isAutoSaveLocal) {
@@ -2277,8 +2414,29 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         });
 
         const result: any[] = [];
+
+        // Nhom "Da ghim" dat tren cung danh sach (gom toan bo bai ghim dang co du lieu)
+        const stickyDocs = realDocs.filter((doc) => this.isTaskSticky(doc));
+        if (stickyDocs.length > 0) {
+            // Giu thu tu moi nhat len truoc trong nhom ghim
+            stickyDocs.sort((a, b) => {
+                const ta = new Date(a.updated_at || a.created_at || 0).getTime();
+                const tb = new Date(b.updated_at || b.created_at || 0).getTime();
+                return tb - ta;
+            });
+            result.push({
+                isGroupHeader: true,
+                groupTitle: 'Đã ghim',
+                count: stickyDocs.length,
+                uuid: 'group-header-sticky',
+            });
+            result.push(...stickyDocs);
+        }
+
         groupOrder.forEach((groupName) => {
-            const docsInGroup = grouped[groupName] || [];
+            const docsInGroup = (grouped[groupName] || []).filter(
+                (doc) => !this.isTaskSticky(doc),
+            );
             if (docsInGroup.length > 0) {
                 result.push({
                     isGroupHeader: true,
