@@ -5812,12 +5812,29 @@ export class NodeEditorComponent
         // Only zoom if ctrl is pressed, otherwise native scroll works!
         if (event.ctrlKey || event.metaKey) {
             event.preventDefault();
+            const el = this.workspace.nativeElement;
+            const rect = el.getBoundingClientRect();
+            const cx = event.clientX - rect.left;
+            const cy = event.clientY - rect.top;
+
+            // Tọa độ nội dung đang nằm dưới con trỏ chuột trước khi zoom
+            const contentX = (cx + el.scrollLeft) / this.scale;
+            const contentY = (cy + el.scrollTop) / this.scale;
+
             const zoomIntensity = 0.03;
             const delta = event.deltaY > 0 ? -zoomIntensity : zoomIntensity;
-            let newScale = this.scale + delta;
-            // Restrict zoom out to 0.5x (50%) and zoom in to 1.5x (150%)
-            newScale = Math.min(Math.max(0.5, newScale), 1.5);
+            // Giới hạn zoom từ 0.1x (10%) đến 3x (300%) - zoom out sâu để nhìn bao quát toàn bộ
+            const newScale = Math.min(Math.max(0.1, this.scale + delta), 3);
+            if (newScale === this.scale) {
+                return;
+            }
             this.scale = newScale;
+
+            // Căn lại scroll để điểm nội dung dưới con trỏ chuột đứng yên
+            setTimeout(() => {
+                el.scrollLeft = Math.max(0, contentX * this.scale - cx);
+                el.scrollTop = Math.max(0, contentY * this.scale - cy);
+            }, 0);
         }
     }
 

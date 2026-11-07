@@ -12,10 +12,10 @@
     <!-- Huge canvas for native scrolling -->
     <div
         class="relative"
-        [style.width.px]="canvasWidth"
-        [style.height.px]="canvasHeight"
-        [style.minWidth.px]="canvasWidth"
-        [style.minHeight.px]="canvasHeight"
+        [style.width.px]="canvasWidth * scale"
+        [style.height.px]="canvasHeight * scale"
+        [style.minWidth.px]="canvasWidth * scale"
+        [style.minHeight.px]="canvasHeight * scale"
     >
         <!-- Zoom Layer -->
         <div

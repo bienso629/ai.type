@@ -2426,7 +2426,7 @@ export class VideoTimelineDialogComponent
     allClips: any[] = []; // Chứa danh sách tất cả các câu thoại có trong project
 
     // --- Timeline & Drag Logic ---
-    pixelsPerSecond: number = 20;
+    pixelsPerSecond: number = 25;
     draggingVideo: any = null;
     dragType: 'move' | 'left' | 'right' | null = null;
     dragStartX: number = 0;
@@ -2439,8 +2439,8 @@ export class VideoTimelineDialogComponent
         if (event) {
             event.stopPropagation();
         }
-        if (this.pixelsPerSecond < 100) {
-            this.pixelsPerSecond = Math.min(100, this.pixelsPerSecond + 5);
+        if (this.pixelsPerSecond < 200) {
+            this.pixelsPerSecond = Math.min(200, this.pixelsPerSecond + 10);
             this.onZoomChanged();
         }
     }
@@ -2449,8 +2449,9 @@ export class VideoTimelineDialogComponent
         if (event) {
             event.stopPropagation();
         }
-        if (this.pixelsPerSecond > 5) {
-            this.pixelsPerSecond = Math.max(5, this.pixelsPerSecond - 5);
+        // Zoom out sâu hơn để nhìn bao quát toàn bộ timeline
+        if (this.pixelsPerSecond > 1) {
+            this.pixelsPerSecond = Math.max(1, this.pixelsPerSecond - 10);
             this.onZoomChanged();
         }
     }
@@ -2459,13 +2460,13 @@ export class VideoTimelineDialogComponent
         if (event) {
             event.stopPropagation();
         }
-        this.pixelsPerSecond = 20;
+        this.pixelsPerSecond = 25;
         this.onZoomChanged();
     }
 
     private zoomDebounceTimer: any = null;
     onZoomChanged() {
-        this.updateRulerTicks();
+        this.updateTimelineTotalWidth();
         if (this.zoomDebounceTimer) {
             clearTimeout(this.zoomDebounceTimer);
         }
@@ -2769,32 +2770,78 @@ export class VideoTimelineDialogComponent
         this.currentSubtitleInfo = null;
     }
 
+    /** Lay text phu de theo ma ngon ngu tu 1 item (goc hoac ban sao) */
+    getSubtitleTextByLang(sub: any, langCode: string): string {
+        if (!sub) return '';
+        if (langCode === 'vi') {
+            return (
+                sub.vietnameseText ||
+                (sub.translations && sub.translations['vi']) ||
+                ''
+            );
+        }
+        if (langCode === 'original' || langCode === 'en') {
+            return (
+                sub.originalText ||
+                (sub.translations && sub.translations['original']) ||
+                (sub.translations && sub.translations['en']) ||
+                ''
+            );
+        }
+        return (sub.translations && sub.translations[langCode]) || '';
+    }
+
+    /** Ghi text vao dung slot ngon ngu cua item phu de */
+    setSubtitleTextByLang(sub: any, langCode: string, text: string): void {
+        if (!sub) return;
+        if (langCode === 'vi') {
+            sub.vietnameseText = text;
+            if (!sub.translations) sub.translations = {};
+            sub.translations['vi'] = text;
+        } else {
+            sub.originalText = text;
+            if (!sub.translations) sub.translations = {};
+            sub.translations['original'] = text;
+            sub.translations['en'] = text;
+        }
+    }
+
     onSubtitleTextChange(sub: any) {
         if (!sub) return;
-        if (this.currentSubtitleLang === 'vi') {
-            sub.vietnameseText = sub.text;
-            if (!sub.translations) sub.translations = {};
-            sub.translations['vi'] = sub.text;
-        } else if (this.currentSubtitleLang === 'original') {
-            sub.originalText = sub.text;
-            if (!sub.translations) sub.translations = {};
-            sub.translations['original'] = sub.text;
-        } else if (this.currentSubtitleLang) {
-            if (!sub.translations) sub.translations = {};
-            sub.translations[this.currentSubtitleLang] = sub.text;
-        }
 
-        if (this.isLikelyVietnamese(sub.text)) {
-            sub.vietnameseText = sub.text;
-        } else if (sub.text) {
-            sub.originalText = sub.text;
+        const text = (sub.text || '').trim();
+        if (text) {
+            // GHI DONG THOI (dual-write): luon cap nhat ca 2 ban dich
+            // de moi ngon ngu hien thi luon khop voi noi dung vua sua.
+            sub.originalText = text;
+            sub.vietnameseText = text;
+            if (!sub.translations) sub.translations = {};
+            sub.translations['original'] = text;
+            sub.translations['en'] = text;
+            sub.translations['vi'] = text;
+            // Danh dau phu de da duoc sua tay de sync khong ghi de lai
+            sub.textEdited = true;
+        } else {
+            // Xoa rong: chi xoa ngon ngu dang chon, giu ngon ngu con lai
+            if (this.currentSubtitleLang === 'vi') {
+                sub.vietnameseText = '';
+                if (!sub.translations) sub.translations = {};
+                sub.translations['vi'] = '';
+            } else {
+                sub.originalText = '';
+                if (!sub.translations) sub.translations = {};
+                sub.translations['original'] = '';
+                sub.translations['en'] = '';
+            }
         }
 
         this.updateActiveSubtitleInfo();
         this.updateFilteredMediaItems();
         this.markDirty();
+        this.saveData();
         this.cd.detectChanges();
     }
+
 
     get currentSubtitleText(): string | null {
         const info = this.currentSubtitleInfo;
@@ -5832,13 +5879,37 @@ export class VideoTimelineDialogComponent
     }
 
     onTimelineScroll(event: WheelEvent) {
-        if (event.ctrlKey) {
+        if (event.ctrlKey || event.metaKey) {
             event.preventDefault();
+            const container = document.getElementById(
+                'timeline-scroll-container',
+            );
+            if (!container) {
+                return;
+            }
+
+            const rect = container.getBoundingClientRect();
+            const cursorX = event.clientX - rect.left;
+
+            // Mốc thời gian đang nằm dưới con trỏ chuột (giữ nguyên sau khi zoom)
+            const timeAtCursor =
+                (cursorX + container.scrollLeft) / this.pixelsPerSecond;
+
             if (event.deltaY < 0) {
                 this.zoomInTimeline();
             } else if (event.deltaY > 0) {
                 this.zoomOutTimeline();
+            } else {
+                return;
             }
+
+            // Căn lại vị trí cuộn ngang để điểm thời gian dưới con trỏ đứng yên
+            setTimeout(() => {
+                container.scrollLeft = Math.max(
+                    0,
+                    timeAtCursor * this.pixelsPerSecond - cursorX,
+                );
+            }, 0);
             return;
         }
         if (event.deltaY !== 0) {
@@ -13908,24 +13979,27 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                 );
 
                 if (matchingAudio) {
-                    if (
-                        matchingAudio.originalText &&
-                        matchingAudio.originalText !== '[Âm thanh gốc]'
-                    ) {
-                        sub.originalText = matchingAudio.originalText;
-                    } else if (
-                        matchingAudio.text &&
-                        matchingAudio.text !== '[Âm thanh gốc]' &&
-                        !this.isLikelyVietnamese(matchingAudio.text)
-                    ) {
-                        sub.originalText = matchingAudio.text;
-                    }
+                    // Khong ghi de text cua phu de da duoc nguoi dung sua tay
+                    if (!sub.textEdited) {
+                        if (
+                            matchingAudio.originalText &&
+                            matchingAudio.originalText !== '[Âm thanh gốc]'
+                        ) {
+                            sub.originalText = matchingAudio.originalText;
+                        } else if (
+                            matchingAudio.text &&
+                            matchingAudio.text !== '[Âm thanh gốc]' &&
+                            !this.isLikelyVietnamese(matchingAudio.text)
+                        ) {
+                            sub.originalText = matchingAudio.text;
+                        }
 
-                    if (
-                        matchingAudio.vietnameseText &&
-                        matchingAudio.vietnameseText !== '[Âm thanh gốc]'
-                    ) {
-                        sub.vietnameseText = matchingAudio.vietnameseText;
+                        if (
+                            matchingAudio.vietnameseText &&
+                            matchingAudio.vietnameseText !== '[Âm thanh gốc]'
+                        ) {
+                            sub.vietnameseText = matchingAudio.vietnameseText;
+                        }
                     }
                 }
 

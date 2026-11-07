@@ -96,11 +96,8 @@ export class UserService {
     }
 
     public permissionVideo(user: User): boolean {
-        if (user.groups?.includes('nhóm-đã-mua-ai-type')) {
-            return true;
-        }
-
-        return false;
+        // Đã bỏ giới hạn: mọi tài khoản đều được dùng block "Video đã chọn"
+        return true;
     }
 
     public permissionVideoDownloader(user: User): boolean {

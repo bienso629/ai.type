@@ -2072,7 +2072,7 @@ export class SontinhSceneService implements OnDestroy {
         const zoomDir = Math.sign(delta);
         if (zoomDir !== 0) {
           const zoomSpeed = 0.16; // 16% mỗi notch chuột giữa
-          targetDistance = Math.max(3.5, Math.min(110.0, targetDistance * (1 - zoomDir * zoomSpeed)));
+          targetDistance = Math.max(3.5, Math.min(300.0, targetDistance * (1 - zoomDir * zoomSpeed)));
         }
       });
     }

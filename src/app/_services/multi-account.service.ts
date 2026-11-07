@@ -55,6 +55,9 @@ export class MultiAccountService {
     // Bây giờ sẽ được đồng bộ với IndexedDB để sống sót qua F5
     public memoryVideoFiles: { [key: string]: File } = {};
 
+    // Cờ báo hiệu đã nạp xong Media ở nền (tránh cảnh báo giả khi chưa nạp xong)
+    public mediaPreloadComplete = false;
+
     private syncActiveUserWithElectron(username: string | null): void {
         const electron = (window as any)?.electron;
         if (electron && electron.setActiveLocalUser) {
@@ -70,8 +73,29 @@ export class MultiAccountService {
     }
 
     constructor() {
-        // Tải dữ liệu lên Cache ngay khi Service khởi tạo
+        // Chỉ khôi phục PHIÊN đăng nhập (nhanh) - app mở khóa ngay khi xong bước này
         this.isReady = this.loadActiveAccount().then(() => true);
+        // Media (video dung lượng lớn) nạp ở nền, KHÔNG chặn việc mở khóa app
+        this.preloadMediaFilesInBackground();
+    }
+
+    /**
+     * Nạp Media File từ IndexedDB vào RAM ở nền (background).
+     * Trước đây khối này nằm trong loadActiveAccount() khiến provideAppInitializer
+     * phải chờ đọc hết toàn bộ video/media từ IndexedDB trước khi app được
+     * bootstrap => người dùng không bấm được nút nào cho đến khi data load xong.
+     */
+    private async preloadMediaFilesInBackground(): Promise<void> {
+        try {
+            const allMedia = await db.mediaFiles.toArray();
+            for (const m of allMedia) {
+                this.memoryVideoFiles[m.id] = m.file;
+            }
+        } catch (e) {
+            console.warn('Could not load media files', e);
+        } finally {
+            this.mediaPreloadComplete = true;
+        }
     }
 
     // ==========================================
@@ -230,16 +254,6 @@ export class MultiAccountService {
      */
     async loadActiveAccount(): Promise<any> {
         return this.safeDbCall(async () => {
-            try {
-                // Khôi phục tất cả Media File từ IndexedDB vào RAM sau khi F5
-                const allMedia = await db.mediaFiles.toArray();
-                for (const m of allMedia) {
-                    this.memoryVideoFiles[m.id] = m.file;
-                }
-            } catch (e) {
-                console.warn('Could not load media files', e);
-            }
-
             let activeRecord: any = null;
             const savedActiveId = localStorage.getItem('ai_type_active_account_id');
             if (savedActiveId) {

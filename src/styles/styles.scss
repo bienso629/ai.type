@@ -2684,3 +2684,18 @@ auth-sign-in {
     }
 }
 
+
+/* === FIX CHOT HA: TOAST/TOASTER KHONG DUOC CHAN CHUOT === */
+/* Container goc ma ngx-toastr v20 tu tao va gan vao <body> - luon trong suot voi chuot */
+body > .overlay-container {
+    pointer-events: none !important;
+    position: static !important;
+    height: 0 !important;
+    overflow: visible !important;
+}
+
+/* Wrapper toan man hinh cua CDK (snack-bar/dialog) - mac dinh khong chan chuot,
+   chi pane ben trong va backdrop cua dialog duoc phep nhan chuot */
+.cdk-global-overlay-wrapper {
+    pointer-events: none !important;
+}
