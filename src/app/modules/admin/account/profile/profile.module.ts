@@ -16,6 +16,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { ProfileComponent } from 'app/modules/admin/account/profile/profile.component';
 import { SontinhSceneService } from 'app/modules/admin/account/profile/sontinh-scene.service';
 import { ProfileDataService } from 'app/modules/admin/account/profile/profile-data.service';
+import { Design3DService } from 'app/_services/design3d.service';
 
 const routes: Route[] = [
     { path: '', component: ProfileComponent }
@@ -39,6 +40,6 @@ const routes: Route[] = [
         MatListModule,
         MatAutocompleteModule
     ],
-    providers: [SontinhSceneService, ProfileDataService]
+    providers: [SontinhSceneService, ProfileDataService, Design3DService]
 })
 export class ProfileModule { }

@@ -1495,3 +1495,27 @@
     opacity: 0.45;
     text-decoration: line-through;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   MẪU THIẾT KẾ 3D (Design Presets) - panel trong sidebar
+   ═══════════════════════════════════════════════════════════ */
+.design-preset-list {
+    max-height: 320px;
+    overflow-y: auto;
+
+    .design-preset-item {
+        transition: background-color 0.15s ease;
+
+        &:hover {
+            .mat-mdc-icon-button .mat-mdc-button-touch-target {
+                opacity: 1;
+            }
+        }
+    }
+
+    .design-preset-thumb {
+        img {
+            object-fit: cover;
+        }
+    }
+}

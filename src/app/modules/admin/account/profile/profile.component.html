@@ -183,6 +183,199 @@
 
             <!-- ACCORDION MENU -->
             <div class="sidebar-accordion">
+                <!-- MẪU THIẾT KẾ 3D CỦA TÔI -->
+                <details class="sidebar-panel" open>
+                    <summary class="sidebar-panel-header">
+                        <span class="sidebar-panel-label"
+                            >CỦA TÔI ({{ designPresets.length }})</span
+                        >
+                        <button
+                            type="button"
+                            class="props-reset-btn"
+                            matTooltip="Lưu cảnh hiện tại thành mẫu thiết kế"
+                            (click)="openDesignSaveForm(); $event.preventDefault()"
+                        >
+                            <mat-icon>save</mat-icon>
+                            <span>Lưu</span>
+                        </button>
+                        <mat-icon class="sidebar-panel-arrow"
+                            >expand_more</mat-icon
+                        >
+                    </summary>
+
+                    <!-- Form lưu mẫu thiết kế -->
+                    @if (showDesignSaveForm) {
+                        <div
+                            class="px-4 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40"
+                        >
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>Tên mẫu thiết kế</mat-label>
+                                <input
+                                    matInput
+                                    [(ngModel)]="newDesignName"
+                                    placeholder="VD: Phòng khách tối giản"
+                                />
+                            </mat-form-field>
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix w-full mt-2"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>Mô tả (tùy chọn)</mat-label>
+                                <input
+                                    matInput
+                                    [(ngModel)]="newDesignDesc"
+                                    placeholder="Mô tả ngắn về mẫu này"
+                                />
+                            </mat-form-field>
+                            <div class="flex gap-2 mt-2">
+                                <button
+                                    type="button"
+                                    mat-flat-button
+                                    color="primary"
+                                    class="flex-1"
+                                    [disabled]="savingDesign"
+                                    (click)="confirmSaveDesign()"
+                                >
+                                    <mat-icon>check</mat-icon>
+                                    <span class="ml-2">{{ pendingDesignId ? 'Cập nhật' : 'Lưu mẫu' }}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    mat-button
+                                    (click)="cancelDesignSave()"
+                                >
+                                    Hủy
+                                </button>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Ô tìm kiếm mẫu -->
+                    @if (designPresets.length > 3) {
+                        <div
+                            class="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800"
+                        >
+                            <mat-form-field
+                                class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-icon matPrefix>search</mat-icon>
+                                <input
+                                    matInput
+                                    [(ngModel)]="designSearch"
+                                    placeholder="Tìm mẫu thiết kế..."
+                                />
+                            </mat-form-field>
+                        </div>
+                    }
+
+                    <!-- Danh sách mẫu thiết kế -->
+                    <div class="design-preset-list px-2 py-1.5">
+                        @for (preset of filteredDesignPresets; track preset.id) {
+                            <div
+                                class="design-preset-item flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/60 rounded"
+                                (click)="applyDesignPreset(preset)"
+                            >
+                                <!-- Thumbnail -->
+                                <div
+                                    class="design-preset-thumb w-12 h-12 min-w-[48px] min-h-[48px] rounded overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center"
+                                >
+                                    @if (designThumbUrl(preset); as thumbUrl) {
+                                        <img
+                                            [src]="thumbUrl"
+                                            [alt]="preset.name"
+                                            class="w-full h-full object-cover"
+                                        />
+                                    } @else {
+                                        <mat-icon class="text-gray-400"
+                                            >view_in_ar</mat-icon
+                                        >
+                                    }
+                                </div>
+
+                                <!-- Thông tin -->
+                                <div class="min-w-0 flex-1">
+                                    <div
+                                        class="text-sm font-medium truncate"
+                                    >
+                                        {{ preset.name }}
+                                    </div>
+                                    @if (preset.description) {
+                                        <div
+                                            class="text-xs text-gray-500 truncate"
+                                        >
+                                            {{ preset.description }}
+                                        </div>
+                                    }
+                                    <div class="text-xs text-gray-400">
+                                        {{ preset.propCount || 0 }} đồ vật
+                                        @if (preset.updatedAt) {
+                                            ·
+                                            {{
+                                                preset.updatedAt
+                                                    | date: 'dd/MM HH:mm'
+                                            }}
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Hành động -->
+                                <div
+                                    class="flex items-center gap-0.5 shrink-0"
+                                >
+                                    <button
+                                        type="button"
+                                        mat-icon-button
+                                        matTooltip="Cập nhật mẫu này bằng cảnh hiện tại"
+                                        (click)="
+                                            updateDesignPreset(preset);
+                                            $event.stopPropagation()
+                                        "
+                                    >
+                                        <mat-icon class="text-lg"
+                                            >sync</mat-icon
+                                        >
+                                    </button>
+                                    <button
+                                        type="button"
+                                        mat-icon-button
+                                        matTooltip="Nhân bản"
+                                        (click)="
+                                            duplicateDesignPreset(preset);
+                                            $event.stopPropagation()
+                                        "
+                                    >
+                                        <mat-icon class="text-lg"
+                                            >content_copy</mat-icon
+                                        >
+                                    </button>
+                                    <button
+                                        type="button"
+                                        mat-icon-button
+                                        matTooltip="Xóa"
+                                        (click)="deleteDesignPreset(preset, $event)"
+                                    >
+                                        <mat-icon class="text-lg text-warn"
+                                            >delete</mat-icon
+                                        >
+                                    </button>
+                                </div>
+                            </div>
+                        } @empty {
+                            <div
+                                class="text-xs text-gray-400 text-center py-3"
+                            >
+                                Chưa có mẫu thiết kế nào.
+                                <br />
+                                Bố trí cảnh rồi bấm "Lưu" để lưu thành mẫu.
+                            </div>
+                        }
+                    </div>
+                </details>
+
                 <!-- ĐỒ VẬT -->
                 <details class="sidebar-panel" open>
                     <summary class="sidebar-panel-header">

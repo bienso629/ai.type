@@ -1,4 +1,4 @@
-# Graph Report - ai.type  (2026-11-07)
+# Graph Report - ai.type  (2026-11-08)
 
 ## Corpus Check
 - 686 files · ~1,739,724 words
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `617e2f2a`
+- Built from commit: `2ea98d41`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 
 
