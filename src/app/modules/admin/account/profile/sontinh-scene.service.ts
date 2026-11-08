@@ -575,19 +575,78 @@ export class SontinhSceneService implements OnDestroy {
     this._loadCustomCharacterGlb(blobUrl, this._profile?.character?.animationState ?? 'Walk');
   }
 
+  // Cache pc.Asset theo glbPath để các đồ vật nhân bản (duplicate) dùng chung GPU mesh/texture
+  private _glbAssetCache = new Map<string, pc.Asset>();
+  private _propIdToGlbKey = new Map<string, string>();
+  private _propIdToSoloAsset = new Map<string, pc.Asset>();
+
+  /** Giải phóng pc.Asset của propId khi xóa đồ vật nếu không còn bản sao nào khác tham chiếu */
+  releasePropGlbAsset(propId: string): void {
+    if (!propId) return;
+    const solo = this._propIdToSoloAsset.get(propId);
+    if (solo) {
+      this._propIdToSoloAsset.delete(propId);
+      try {
+        solo.unload();
+        this.app?.assets?.remove(solo);
+      } catch (_) {}
+    }
+    const key = this._propIdToGlbKey.get(propId);
+    if (!key) return;
+    this._propIdToGlbKey.delete(propId);
+    // Kiểm tra còn propId nào khác dùng chung glbPath này không
+    let stillUsed = false;
+    this._propIdToGlbKey.forEach((v) => {
+      if (v === key) stillUsed = true;
+    });
+    if (!stillUsed) {
+      const cached = this._glbAssetCache.get(key);
+      if (cached) {
+        this._glbAssetCache.delete(key);
+        try {
+          cached.unload();
+          this.app?.assets?.remove(cached);
+        } catch (_) {}
+      }
+    }
+  }
+
+  /** Giải phóng toàn bộ GLB cache khi reset hoặc hủy scene */
+  clearAllPropGlbAssets(): void {
+    this._propIdToSoloAsset.forEach((asset) => {
+      try { asset.unload(); this.app?.assets?.remove(asset); } catch (_) {}
+    });
+    this._propIdToSoloAsset.clear();
+    this._glbAssetCache.forEach((asset) => {
+      try { asset.unload(); this.app?.assets?.remove(asset); } catch (_) {}
+    });
+    this._glbAssetCache.clear();
+    this._propIdToGlbKey.clear();
+  }
+
+  /** Kiểm tra xem glbPath đã có sẵn trong Asset Cache chưa (tránh đọc lại file từ đĩa) */
+  hasCachedGlbAsset(glbPath?: string | null): boolean {
+    if (!glbPath || !this.app || this._destroyed) return false;
+    const asset = this._glbAssetCache.get(glbPath);
+    return !!(asset && asset.resource);
+  }
+
   /**
-   * Load GLB đồ vật do người dùng upload vào scene (blob URL).
+   * Load GLB đồ vật do người dùng upload vào scene (blob URL hoặc từ cache glbPath).
    * Wrapper đặt tên PropGLB_<id> để _applyProps tìm và cập nhật transform sau này.
    */
   loadPropGlb(propId: string, blobUrl: string, prop?: any, onLoaded?: (ok: boolean) => void): void {
     if (!this.app || this._destroyed || !propId) { onLoaded?.(false); return; }
-    this.app.assets.loadFromUrl(blobUrl, 'container', (err: any, asset?: pc.Asset) => {
-      if (err || !asset?.resource) {
-        console.warn('[SontinhSceneService] Prop GLB load failed:', propId, err);
-        onLoaded?.(false);
-        return;
+    const cacheKey: string | null = (prop && typeof prop.glbPath === 'string' && prop.glbPath.trim()) ? prop.glbPath.trim() : null;
+
+    const instantiateFromAsset = (asset: pc.Asset) => {
+      if (this._destroyed || !this.app || !asset?.resource) { onLoaded?.(false); return; }
+      if (cacheKey) {
+        this._glbAssetCache.set(cacheKey, asset);
+        this._propIdToGlbKey.set(propId, cacheKey);
+      } else {
+        this._propIdToSoloAsset.set(propId, asset);
       }
-      if (this._destroyed || !this.app) { onLoaded?.(false); return; }
       const container = asset.resource as any;
       const glbEntity = (container.instantiateRenderEntity?.() ?? container.instantiateModelEntity?.()) as pc.Entity;
       if (!glbEntity) { onLoaded?.(false); return; }
@@ -683,8 +742,30 @@ export class SontinhSceneService implements OnDestroy {
       }
       if (prop) (prop as any)._groundedAtScale = { x: s.x, y: s.y, z: s.z };
       wrapper.setPosition(p.x, finalY, p.z);
+      if (this._applyProps && prop) {
+        try { this._applyProps([prop]); } catch (_) {}
+      }
       console.log('[SontinhSceneService] Prop GLB loaded:', propId, 'bottomWorldY=', bottomWorldY, 'finalY=', finalY);
       onLoaded?.(true);
+    };
+
+    if (cacheKey && this._glbAssetCache.has(cacheKey)) {
+      const cachedAsset = this._glbAssetCache.get(cacheKey)!;
+      if (cachedAsset.resource) {
+        instantiateFromAsset(cachedAsset);
+        return;
+      }
+      this._glbAssetCache.delete(cacheKey);
+    }
+
+    if (!blobUrl) { onLoaded?.(false); return; }
+    this.app.assets.loadFromUrl(blobUrl, 'container', (err: any, asset?: pc.Asset) => {
+      if (err || !asset?.resource) {
+        console.warn('[SontinhSceneService] Prop GLB load failed:', propId, err);
+        onLoaded?.(false);
+        return;
+      }
+      instantiateFromAsset(asset);
     });
   }
 
@@ -1209,12 +1290,13 @@ export class SontinhSceneService implements OnDestroy {
       hideSelRing();
       if (_svc.onPropSelected) _svc.ngZone.run(() => _svc.onPropSelected!(null, null));
 
-      // Xóa mọi entity đồ vật người dùng (GLB wrapper + primitive)
+      // Xóa mọi entity đồ vật người dùng (GLB wrapper + primitive) và giải phóng GPU asset
       if (app?.root) {
         for (const ent of app.root.findByTag('user_prop') as pc.Entity[]) {
           try { ent.destroy(); } catch (_) {}
         }
       }
+      self.clearAllPropGlbAssets();
 
       // Sync dọn dẹp + phát callback component nạp lại panel
       if (_svc.onPropsReset) _svc.ngZone.run(() => _svc.onPropsReset!());
@@ -1233,6 +1315,7 @@ export class SontinhSceneService implements OnDestroy {
         console.warn('[SontinhScene] Delete prop failed:', propId, e);
         return false;
       }
+      self.releasePropGlbAsset(propId);
       if (propAnimMap.has(propId)) propAnimMap.delete(propId);
       if (selRingPropId === propId || tScrubPropId === propId) hideSelRing();
       hideSelRing();
@@ -3559,6 +3642,7 @@ export class SontinhSceneService implements OnDestroy {
           const rawId = nmFs.startsWith('PropGLB_') ? nmFs.slice(8) : nmFs;
           if (!keepIds.has(rawId)) {
             try { ent.destroy(); } catch (_) {}
+            self.releasePropGlbAsset(rawId);
           }
         }
       }
@@ -7209,6 +7293,7 @@ export class SontinhSceneService implements OnDestroy {
 
   ngOnDestroy(): void {
     this._destroyed = true;
+    this.clearAllPropGlbAssets();
     if (this.app) {
       try {
         this.app.destroy();

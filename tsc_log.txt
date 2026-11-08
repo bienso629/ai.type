@@ -1,0 +1,1 @@
+src/app/_services/design3d.service.ts(70,27): error TS2339: Property 'username' does not exist on type 'User'.

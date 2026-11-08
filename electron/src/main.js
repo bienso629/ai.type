@@ -26,6 +26,7 @@ app.commandLine.appendSwitch('disable-gpu-sandbox');
 const { registerExportImportHandlers } = require("./export-import-project");
 const { registerLocalArticlesHandlers } = require("./local-articles");
 const { registerProfileHandlers } = require("./local-profiles");
+const { registerDesignPresetHandlers } = require("./design-presets");
 const { registerFontsHandlers } = require("./fonts");
 const { generateEdgeAudio } = require("./edge-tts-v2");
 const { registerOperaCodecHandlers } = require("./opera-codec");
@@ -5752,6 +5753,7 @@ app.whenReady().then(async () => {
     registerExportImportHandlers();
     registerLocalArticlesHandlers();
     registerProfileHandlers();
+    registerDesignPresetHandlers();
     registerFontsHandlers();
     registerOperaCodecHandlers(ipcMain);
     initDatabase(app, ipcMain);

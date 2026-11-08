@@ -4,6 +4,8 @@ import {
     OnDestroy,
     ChangeDetectorRef,
     ChangeDetectionStrategy,
+    TemplateRef,
+    ViewChild,
 } from '@angular/core';
 import { ActivatedRoute, Router, Params } from '@angular/router';
 import { BlogService } from 'app/_services/blog';
@@ -13,7 +15,7 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { GenaiService } from 'app/genai.service';
 import { CrawlService } from 'app/_services/crawl';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-editor-settings-dialog/video-editor-settings-dialog.component';
 import { ArticlePasswordDialog } from './article-password-dialog';
 import * as CryptoJS from 'crypto-js';
@@ -92,8 +94,24 @@ interface ScreenplayLine {
                     </div>
                 </div>
 
-                <!-- Right Actions: Nút Dựng video -->
+                <!-- Right Actions: Nút Tạo lại kịch bản & Dựng video -->
                 <div class="flex items-center gap-3 mt-2 sm:mt-0">
+                    @if (uuid) {
+                        <button
+                            mat-stroked-button
+                            color="primary"
+                            class="gap-2 font-semibold bg-white"
+                            (click)="openRegenerateScriptDialog()"
+                            [disabled]="isRegenerating || isLoading"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                [class.animate-spin]="isRegenerating && regeneratingChapterIdx === null"
+                                svgIcon="heroicons_outline:refresh"
+                            ></mat-icon>
+                            <span>{{ isRegenerating && regeneratingChapterIdx === null ? 'Đang tạo lại...' : 'Tạo lại kịch bản' }}</span>
+                        </button>
+                    }
                     <button
                         mat-flat-button
                         color="primary"
@@ -267,7 +285,7 @@ interface ScreenplayLine {
                                                 mat-icon-button
                                                 class="w-8 h-8 min-h-8 min-w-8 text-gray-400 hover:text-primary-600"
                                                 (click)="
-                                                    regenerateSingleChapter(
+                                                    openRegenerateScriptDialog(
                                                         cIdx
                                                     );
                                                     $event.stopPropagation()
@@ -891,7 +909,7 @@ interface ScreenplayLine {
                                         mat-flat-button
                                         color="primary"
                                         class="shrink-0 text-xs px-2.5 h-8"
-                                        (click)="regenerateSingleChapter(cIdx)"
+                                        (click)="openRegenerateScriptDialog(cIdx)"
                                         [disabled]="isRegenerating"
                                     >
                                         Dựng lại chương này
@@ -922,6 +940,136 @@ interface ScreenplayLine {
                     </div>
                 </div>
             }
+
+            <!-- Dialog Custom Prompt & Phong cách viết khi Tạo lại kịch bản (MatDialog CDK Overlay nằm trên cùng tất cả) -->
+            <ng-template #regenerateScriptDialogTpl>
+                <div
+                    class="flex flex-col bg-card rounded-xl w-full p-5 gap-4 max-h-[85vh] overflow-hidden"
+                >
+                    <!-- Header -->
+                    <div
+                        class="flex items-center justify-between border-b pb-2.5 shrink-0"
+                    >
+                        <div class="flex items-center gap-2.5">
+                            <mat-icon
+                                class="text-primary-600 icon-size-6"
+                                svgIcon="heroicons_outline:sparkles"
+                            ></mat-icon>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-900 m-0">
+                                    {{
+                                        targetChapterIndexForRegen !== null
+                                            ? 'Tạo lại kịch bản Chương ' + (targetChapterIndexForRegen + 1)
+                                            : 'Tạo lại kịch bản theo yêu cầu'
+                                    }}
+                                </h3>
+                                <p class="text-xs text-gray-500 m-0 mt-0.5">
+                                    Chọn phong cách viết
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            mat-icon-button
+                            (click)="closeRegenerateScriptDialog()"
+                        >
+                            <mat-icon
+                                svgIcon="heroicons_outline:x"
+                            ></mat-icon>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="flex-1 overflow-y-auto flex flex-col gap-4 pr-1">
+                        <!-- Danh sách Phong cách viết -->
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-sm font-semibold text-gray-700 flex items-center justify-between">
+                                <span>Phong cách viết kịch bản</span>
+                                <span class="text-xs font-normal text-gray-400">
+                                    {{ styles.length }} phong cách có sẵn
+                                </span>
+                            </label>
+                            <mat-form-field
+                                appearance="outline"
+                                class="w-full fuse-mat-dense"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-select
+                                    [(ngModel)]="selectedStyle"
+                                    placeholder="Chọn phong cách viết"
+                                >
+                                    @for (st of styles; track st.name) {
+                                        <mat-option [value]="st">
+                                            <span class="font-semibold">{{ st.name }}</span>
+                                            @if (st.desc) {
+                                                <span class="text-xs text-gray-500 ml-1">- {{ st.desc }}</span>
+                                            }
+                                        </mat-option>
+                                    }
+                                </mat-select>
+                            </mat-form-field>
+                            @if (selectedStyle?.desc) {
+                                <div class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-2.5 leading-relaxed">
+                                    <span class="font-semibold text-gray-800">{{ selectedStyle.name }}:</span>
+                                    {{ selectedStyle.desc }}
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Custom Prompt -->
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-sm font-semibold text-gray-700">
+                                Custom Prompt / Yêu cầu đạo diễn (tùy chọn)
+                            </label>
+                            <mat-form-field
+                                appearance="outline"
+                                class="w-full"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <textarea
+                                    matInput
+                                    [(ngModel)]="customScriptPrompt"
+                                    rows="5"
+                                    placeholder="Ví dụ: Đẩy nhanh nhịp độ gay cấn ở các đoạn đối đầu, tăng chiều sâu độc thoại nội tâm, giữ lời thoại sắc bén mang màu sắc điện ảnh noir..."
+                                ></textarea>
+                            </mat-form-field>
+                            <span class="text-xs text-gray-400">
+                                Nếu để trống, AI sẽ chuyển thể bám sát nguyên tác kết hợp với phong cách viết đã chọn ở trên.
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="flex items-center justify-end gap-2 border-t pt-3 shrink-0">
+                        <button
+                            mat-button
+                            type="button"
+                            (click)="closeRegenerateScriptDialog()"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            class="gap-2 font-semibold"
+                            (click)="confirmRegenerateScript()"
+                            [disabled]="isRegenerating"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                svgIcon="heroicons_outline:refresh"
+                            ></mat-icon>
+                            <span>
+                                {{
+                                    targetChapterIndexForRegen !== null
+                                        ? 'Tạo lại chương này'
+                                        : 'Bắt đầu tạo lại kịch bản'
+                                }}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </ng-template>
         </div>
     `,
     styles: [
@@ -1032,8 +1180,36 @@ export class AIScriptComponent implements OnInit, OnDestroy {
     contactPhone: string = '';
     contactEmail: string = '';
     contactAddress: string = '';
+    @ViewChild('regenerateScriptDialogTpl') regenerateScriptDialogTpl!: TemplateRef<any>;
+    regenerateDialogRef: MatDialogRef<any> | null = null;
     showCoverEditModal: boolean = false;
     showSingleChapterModal: boolean = false;
+    showRegenerateDialog: boolean = false;
+    targetChapterIndexForRegen: number | null = null;
+    customScriptPrompt: string = "";
+    styles: any[] = [
+        {
+            name: "Phong cách tự do",
+            desc: "Văn phong thoải mái, gần gũi, dễ tiếp cận với mọi đối tượng độc giả.",
+        },
+        {
+            name: "Phong cách nghiêm túc, chuyên nghiệp",
+            desc: "Sử dụng từ ngữ chuẩn mực, cấu trúc chặt chẽ, phù hợp với nội dung học thuật, kinh doanh hoặc báo chí.",
+        },
+        {
+            name: "Phong cách hài hước, dí dỏm",
+            desc: "Lồng ghép yếu tố giải trí, cách nói chuyện thông minh, tạo cảm giác vui vẻ cho người đọc.",
+        },
+        {
+            name: "Phong cách truyền cảm hứng",
+            desc: "Ngôn từ mạnh mẽ, giàu cảm xúc, khơi dậy động lực và tinh thần tích cực.",
+        },
+        {
+            name: "Phong cách kể chuyện (Storytelling)",
+            desc: "Dẫn dắt nội dung qua các tình tiết, câu chuyện cụ thể để thu hút sự chú ý và tạo sự đồng cảm.",
+        },
+    ];
+    selectedStyle: any = null;
     isLoadingChapterList: boolean = false;
     availableChapters: any[] = [];
     chapterScriptStatusMap: Record<string, boolean> = {};
@@ -1066,6 +1242,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
     ) {}
 
     ngOnInit(): void {
+        this.loadWritingStyles();
         this.route.params
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((params: Params) => {
@@ -1121,6 +1298,103 @@ export class AIScriptComponent implements OnInit, OnDestroy {
                 targetUuid,
             ]);
         }
+    }
+
+    loadWritingStyles(): void {
+        const cachedStyles = this._multiAccountService.getItem('styles');
+        if (cachedStyles && Array.isArray(cachedStyles) && cachedStyles.length > 0) {
+            this.styles = cachedStyles;
+        }
+        const savedStyleStr = this._multiAccountService.getItem('ai_writer_selected_style');
+        if (savedStyleStr) {
+            try {
+                const parsed = typeof savedStyleStr === 'string' ? JSON.parse(savedStyleStr) : savedStyleStr;
+                const matched = this.styles.find((s: any) => s && s.name === parsed?.name);
+                this.selectedStyle = matched || parsed;
+            } catch (e) {
+                this.selectedStyle = this.styles[0] || null;
+            }
+        } else {
+            this.selectedStyle = this.styles[0] || null;
+        }
+    }
+
+    openRegenerateScriptDialog(chapterIdx: number | null = null): void {
+        this.loadWritingStyles();
+        this.targetChapterIndexForRegen = chapterIdx;
+        if (chapterIdx !== null) {
+            this.showSingleChapterModal = false;
+        }
+        this.showRegenerateDialog = true;
+        if (this.regenerateDialogRef) {
+            this.regenerateDialogRef.close();
+        }
+        this.regenerateDialogRef = this.dialog.open(this.regenerateScriptDialogTpl, {
+            width: '580px',
+            maxWidth: '95vw',
+            autoFocus: false,
+            panelClass: 'custom-dialog-bulk',
+        });
+        this.regenerateDialogRef.afterClosed().subscribe(() => {
+            this.showRegenerateDialog = false;
+            this.regenerateDialogRef = null;
+            this.cd.markForCheck();
+        });
+        this.cd.markForCheck();
+    }
+
+    closeRegenerateScriptDialog(): void {
+        if (this.regenerateDialogRef) {
+            this.regenerateDialogRef.close();
+            this.regenerateDialogRef = null;
+        }
+        this.showRegenerateDialog = false;
+        this.targetChapterIndexForRegen = null;
+        this.cd.markForCheck();
+    }
+
+    async confirmRegenerateScript(): Promise<void> {
+        const targetIdx = this.targetChapterIndexForRegen;
+        if (this.regenerateDialogRef) {
+            this.regenerateDialogRef.close();
+            this.regenerateDialogRef = null;
+        }
+        this.showRegenerateDialog = false;
+        if (this.selectedStyle) {
+            this._multiAccountService.setItem(
+                'ai_writer_selected_style',
+                JSON.stringify(this.selectedStyle)
+            );
+        }
+        this.cd.markForCheck();
+
+        if (targetIdx !== null) {
+            await this.regenerateSingleChapter(targetIdx);
+        } else {
+            await this.regenerateScript();
+        }
+    }
+
+    buildStyleAndCustomPromptBlock(fallbackStyle?: any): string {
+        let block = '';
+        const styleToUse = this.selectedStyle || fallbackStyle;
+        if (styleToUse) {
+            if (typeof styleToUse === 'string' && styleToUse.trim()) {
+                block += `\nPHONG CÁCH VIẾT KỊCH BẢN ÁP DỤNG (BẮT BUỘC TUÂN THỦ):\n${styleToUse.trim()}\n`;
+            } else if (typeof styleToUse === 'object') {
+                const styleName = styleToUse.name || '';
+                const styleDesc = styleToUse.desc || styleToUse.description || '';
+                if (styleName || styleDesc) {
+                    block += `\nPHONG CÁCH VIẾT KỊCH BẢN ÁP DỤNG (BẮT BUỘC TUÂN THỦ):\n`;
+                    if (styleName) block += `- Tên phong cách: ${styleName}\n`;
+                    if (styleDesc) block += `- Mô tả & Văn phong: ${styleDesc}\n`;
+                }
+            }
+        }
+        if (this.customScriptPrompt && this.customScriptPrompt.trim()) {
+            block += `\nYÊU CẦU ĐẶC BIỆT TỪ TÁC GIẢ / ĐẠO DIỄN (CUSTOM PROMPT - ƯU TIÊN THỰC HIỆN):\n${this.customScriptPrompt.trim()}\n`;
+        }
+        return block;
     }
 
     openCoverEditModal() {
@@ -1858,21 +2132,7 @@ Nhiệm vụ của bạn là CHUYỂN THỂ TRUNG THỰC TUYỆT ĐỐI (100% Hi
 TIÊU ĐỀ TÁC PHẨM TỔNG THỂ: ${collectionTitle}
 CHƯƠNG HIỆN TẠI (CHƯƠNG ${idx + 1}/${loadedFullDocs.length}): ${chapterTitle}\n`;
 
-            if (art.style) {
-                if (typeof art.style === 'string' && art.style.trim()) {
-                    prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n${art.style.trim()}\n`;
-                } else if (typeof art.style === 'object') {
-                    const styleName = art.style.name || '';
-                    const styleDesc = art.style.desc || '';
-                    if (styleName || styleDesc) {
-                        prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n`;
-                        if (styleName)
-                            prompt += `- Tên phong cách: ${styleName}\n`;
-                        if (styleDesc)
-                            prompt += `- Mô tả phong cách: ${styleDesc}\n`;
-                    }
-                }
-            }
+            prompt += this.buildStyleAndCustomPromptBlock(art.style);
 
             prompt += `\nNỘI DUNG VĂN BẢN GỐC CỦA CHƯƠNG NÀY TRONG CSDL (TRƯỜNG DONE):
 ${contentFromDone}
@@ -2028,21 +2288,7 @@ Nhiệm vụ của bạn là CHUYỂN THỂ TRUNG THỰC TUYỆT ĐỐI (100% Hi
 TIÊU ĐỀ TÁC PHẨM TỔNG THỂ: ${collectionTitle}
 CHƯƠNG HIỆN TẠI (CHƯƠNG ${originalIdx + 1}/${fullDocs.length}): ${chapterTitle}\n`;
 
-                if (art.style) {
-                    if (typeof art.style === 'string' && art.style.trim()) {
-                        prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n${art.style.trim()}\n`;
-                    } else if (typeof art.style === 'object') {
-                        const styleName = art.style.name || '';
-                        const styleDesc = art.style.desc || '';
-                        if (styleName || styleDesc) {
-                            prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n`;
-                            if (styleName)
-                                prompt += `- Tên phong cách: ${styleName}\n`;
-                            if (styleDesc)
-                                prompt += `- Mô tả phong cách: ${styleDesc}\n`;
-                        }
-                    }
-                }
+                prompt += this.buildStyleAndCustomPromptBlock(art.style);
 
                 prompt += `\nNỘI DUNG VĂN BẢN GỐC CỦA CHƯƠNG NÀY TRONG CSDL (TRƯỜNG DONE):
 ${contentFromDone}
@@ -2194,21 +2440,7 @@ Nhiệm vụ của bạn là CHUYỂN THỂ TRUNG THỰC TUYỆT ĐỐI (100% Hi
 TIÊU ĐỀ TÁC PHẨM TỔNG THỂ: ${collectionTitle}
 CHƯƠNG HIỆN TẠI (CHƯƠNG ${artIdx + 1}/${this.availableChapters.length}): ${chapterTitle}\n`;
 
-            if (art.style) {
-                if (typeof art.style === 'string' && art.style.trim()) {
-                    prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n${art.style.trim()}\n`;
-                } else if (typeof art.style === 'object') {
-                    const styleName = art.style.name || '';
-                    const styleDesc = art.style.desc || '';
-                    if (styleName || styleDesc) {
-                        prompt += `\nPHONG CÁCH TÁC GIẢ / NGUYÊN TÁC:\n`;
-                        if (styleName)
-                            prompt += `- Tên phong cách: ${styleName}\n`;
-                        if (styleDesc)
-                            prompt += `- Mô tả phong cách: ${styleDesc}\n`;
-                    }
-                }
-            }
+            prompt += this.buildStyleAndCustomPromptBlock(art.style);
 
             prompt += `\nNỘI DUNG VĂN BẢN GỐC CỦA CHƯƠNG NÀY TRONG CSDL (TRƯỜNG DONE):
 ${contentFromDone}

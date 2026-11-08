@@ -19,6 +19,7 @@ import { GenaiService } from 'app/genai.service';
 
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { Design3DService, Design3DSnapshot, Design3DPreset } from 'app/_services/design3d.service';
 
 // Scene PlayCanvas mặc định trống: không có món đồ mặc định nào (bàn trưng bày built-in đã bị gỡ bỏ), người dùng tự thêm đồ vật.
 const DEFAULT_PROPS: any[] = [];
@@ -204,6 +205,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   username = 'admin';
   promptText = '';
   charThumbnail: string | null = null;
+  // ── Quản lý mẫu thiết kế 3D (design presets) ──
+  designPresets: Design3DPreset[] = [];
+  designSearch = '';
+  savingDesign = false;
+  showDesignSaveForm = false;
+  newDesignName = '';
+  newDesignDesc = '';
+  pendingDesignId: string | null = null; // design đang chờ lưu (đã có id từ nút "Lưu lại")
+
   userAnimations: Array<{ id: string; name: string; glbPath: string; isMovement?: boolean; speed?: number; uploadedAt?: string }> = [];
   attachedImages: Array<{ dataUrl: string; base64: string; mimeType: string }> = [];
   attachedScripts: Array<{ name: string; code: string; size: number }> = [];
@@ -218,7 +228,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private toastr: ToastrService,
     private genaiService: GenaiService,
-    private _fuseConfirmationService: FuseConfirmationService
+    private _fuseConfirmationService: FuseConfirmationService,
+    private _design3dService: Design3DService
   ) {}
 
   async ngAfterViewInit(): Promise<void> {
@@ -250,6 +261,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       // 2. Load profile từ đĩa qua Electron IPC
       const profile = await this.profileDataService.loadProfile(this.username).toPromise();
       this.profile = profile ?? null;
+
+      // 2a. Nạp danh sách mẫu thiết kế 3D
+      this.loadDesignPresets();
 
       // 2b. Nạp danh sách đồ vật đã lưu NGAY LẬP TỨC (trước khi init scene)
       //     để loadSavedPropGlbs() ở bước 4c có dữ liệu duyệt
@@ -1592,6 +1606,17 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     let anyFailed = false;
     for (const prop of glbProps) {
       try {
+        // Nếu glbPath đã có sẵn trong Asset Cache (ví dụ các bản sao nhân bản cùng model),
+        // khởi tạo trực tiếp từ GPU asset đã nạp, KHÔNG đọc lại file từ đĩa qua IPC
+        if (this.sceneService.hasCachedGlbAsset(prop.glbPath)) {
+          const ok = await new Promise<boolean>((resolve) => {
+            this.sceneService.loadPropGlb(prop.id, '', prop, (loaded: boolean) => resolve(loaded));
+          });
+          if (ok) {
+            (prop as any)._glbLoaded = true;
+            continue;
+          }
+        }
         const blobUrl = await this.profileDataService.readGlbAsObjectUrl(prop.glbPath).toPromise();
         if (blobUrl) {
           const ok = await new Promise<boolean>((resolve) => {
@@ -1727,8 +1752,17 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       if (!prop.rotation) prop.rotation = { x: 0, y: 0, z: 0 };
       if (!prop.scale) prop.scale = { x: 1, y: 1, z: 1 };
 
-      // 2. Đọc GLB thành blob URL và nạp vào scene PlayCanvas
-      const blobUrl = await this.profileDataService.readGlbAsObjectUrl(prop.glbPath).toPromise();
+      // 2. Đọc GLB thành blob URL (hoặc lấy trực tiếp từ Asset Cache nếu đã nạp) và nạp vào scene PlayCanvas
+      const cached = this.sceneService.hasCachedGlbAsset(prop.glbPath);
+      const blobUrl = cached ? '' : await this.profileDataService.readGlbAsObjectUrl(prop.glbPath).toPromise();
+      if (cached) {
+        await new Promise<void>((resolve) => {
+          this.sceneService.loadPropGlb(prop.id, '', prop, (ok: boolean) => {
+            if (!ok) prop.visible = false;
+            resolve();
+          });
+        });
+      } else
       if (blobUrl) {
         await new Promise<void>((resolve) => {
           let settled = false;
@@ -3156,6 +3190,200 @@ ${JSON.stringify({
 
   exportVideo(): void {
     this.toggleVideoRecording();
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // QUẢN LÝ MẪU THIẾT KẾ 3D (Design Presets)
+  // ═══════════════════════════════════════════════════════════════
+
+  /** Nạp danh sách mẫu thiết kế từ backend */
+  loadDesignPresets(): void {
+    this._design3dService.list().subscribe((res: any) => {
+      const list = res?.data || res || [];
+      this.designPresets = Array.isArray(list) ? list : [];
+      this.cdr.markForCheck();
+    });
+  }
+
+  /** Snapshot dữ liệu scene hiện tại để lưu */
+  private _buildDesignSnapshot(): Design3DSnapshot {
+    const currentProfile: any = this.profile || {};
+    return {
+      props: JSON.parse(JSON.stringify(this.roomProps || [])),
+      character: currentProfile.character ? JSON.parse(JSON.stringify(currentProfile.character)) : undefined,
+      scene: currentProfile.scene ? JSON.parse(JSON.stringify(currentProfile.scene)) : undefined
+    };
+  }
+
+  /** Chụp thumbnail từ canvas 3D (PNG base64) */
+  private _captureThumbnail(): string | null {
+    try {
+      const canvas = this.canvasRef?.nativeElement;
+      if (!canvas) return null;
+      return canvas.toDataURL('image/png');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** Mở form lưu mẫu thiết kế mới */
+  openDesignSaveForm(): void {
+    this.newDesignName = 'Thiết kế ' + new Date().toLocaleString('vi-VN');
+    this.newDesignDesc = '';
+    this.showDesignSaveForm = true;
+    this.cdr.markForCheck();
+  }
+
+  /** Hủy form lưu */
+  cancelDesignSave(): void {
+    this.showDesignSaveForm = false;
+    this.pendingDesignId = null;
+    this.cdr.markForCheck();
+  }
+
+  /** Xác nhận lưu: tạo mới hoặc cập nhật (khi pendingDesignId có giá trị) */
+  confirmSaveDesign(): void {
+    const name = (this.newDesignName || '').trim();
+    if (!name) {
+      this.toastr.warning('Vui lòng nhập tên mẫu thiết kế.', 'Thiếu thông tin');
+      return;
+    }
+    const snapshot = this._buildDesignSnapshot();
+    this.savingDesign = true;
+
+    const save$ = this.pendingDesignId
+      ? this._design3dService.save({
+          id: this.pendingDesignId,
+          name,
+          description: this.newDesignDesc || '',
+          sceneData: snapshot
+        })
+      : this._design3dService.save({ name, description: this.newDesignDesc || '', sceneData: snapshot });
+
+    save$.subscribe((res: any) => {
+      this.savingDesign = false;
+      const ok = res?.success !== false && res?.error === undefined || res?.success === true;
+      if (ok) {
+        // Xác định designId: ưu tiên res.data, sau đó pendingDesignId, sau đó tự sinh
+        const designId = res?.data?.id || res?.data?.designId || this.pendingDesignId || ('design_' + Date.now());
+        const thumb = this._captureThumbnail();
+        if (thumb) {
+          this._design3dService.saveThumbnail(designId, thumb).subscribe(() => {
+            this.loadDesignPresets();
+          });
+        } else {
+          this.loadDesignPresets();
+        }
+        this.showDesignSaveForm = false;
+        this.pendingDesignId = null;
+        this.toastr.success(`Đã lưu mẫu thiết kế "${name}".`, 'Thành công');
+      } else {
+        this.toastr.error('Không thể lưu mẫu thiết kế. Vui lòng thử lại.', 'Lỗi');
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  /** Nạp 1 mẫu thiết kế vào cảnh hiện tại */
+  async applyDesignPreset(preset: Design3DPreset): Promise<void> {
+    if (!preset?.id) return;
+    const res: any = await this._design3dService.get(preset.id).toPromise();
+    const sceneData = res?.data?.sceneData || res?.data?.data || res?.sceneData;
+    if (!sceneData || !Array.isArray(sceneData.props)) {
+      this.toastr.error('Mẫu thiết kế không có dữ liệu hợp lệ.', 'Lỗi');
+      return;
+    }
+    try {
+      // 1. Cập nhật state props trong component
+      this.roomProps = this.mergeProps(sceneData.props);
+      (this.profile as any).props = this.roomProps;
+
+      // 2. Nếu có character thì áp vào profile
+      if (sceneData.character && this.profile) {
+        this.profile.character = { ...this.profile.character, ...sceneData.character };
+      }
+
+      // 3. Áp vào scene 3D
+      this.sceneService.applyProfile(this.profile, { skipCamera: true });
+
+      // 4. Nạp GLB cho các đồ vật dùng model GLB
+      await this.loadSavedPropGlbs();
+
+      // 5. Lưu profile hiện hành + refresh panel đồ vật
+      this.profileDataService.saveProps(this.roomProps).subscribe();
+      this.profileDataService.saveProfile({ props: this.roomProps } as any).subscribe();
+      this.onSearchChange();
+      this.cdr.markForCheck();
+
+      this.toastr.success(`Đã nạp mẫu thiết kế "${preset.name}".`, 'Thành công');
+    } catch (e) {
+      console.error('[Profile] Nạp mẫu thiết kế lỗi:', e);
+      this.toastr.error('Không nạp được mẫu thiết kế.', 'Lỗi');
+    }
+  }
+
+  /** Nhấn nút Lưu trên 1 mẫu có sẵn: nạp form cập nhật */
+  updateDesignPreset(preset: Design3DPreset): void {
+    this.pendingDesignId = preset.id;
+    this.newDesignName = preset.name;
+    this.newDesignDesc = preset.description || '';
+    this.showDesignSaveForm = true;
+    this.cdr.markForCheck();
+  }
+
+  /** Nhân bản mẫu thiết kế */
+  duplicateDesignPreset(preset: Design3DPreset): void {
+    this._design3dService.duplicate(preset.id).subscribe((res: any) => {
+      if (res?.success !== false) {
+        this.toastr.success(`Đã nhân bản "${preset.name}".`, 'Thành công');
+        this.loadDesignPresets();
+      } else {
+        this.toastr.error('Không thể nhân bản mẫu thiết kế.', 'Lỗi');
+      }
+    });
+  }
+
+  /** Xóa mẫu thiết kế với hộp thoại xác nhận */
+  deleteDesignPreset(preset: Design3DPreset, event: Event): void {
+    event.stopPropagation();
+    const confirmRef = this._fuseConfirmationService.open({
+      title: 'Xóa mẫu thiết kế',
+      message: `Bạn chắc chắn muốn xóa mẫu "${preset.name}"? Hành động này không thể hoàn tác.`,
+      icon: { name: 'delete_forever', color: 'warn' },
+      actions: {
+        confirm: { label: 'Xóa' },
+        cancel: { label: 'Hủy' }
+      },
+      dismissible: true
+    });
+    confirmRef.afterClosed().subscribe((result: any) => {
+      if (result !== 'confirmed') return;
+      this._design3dService.delete(preset.id).subscribe((res: any) => {
+        if (res?.success !== false) {
+          this.toastr.success(`Đã xóa mẫu "${preset.name}".`, 'Thành công');
+          this.loadDesignPresets();
+        } else {
+          this.toastr.error('Không thể xóa mẫu thiết kế.', 'Lỗi');
+        }
+      });
+    });
+  }
+
+  /** Lọc danh sách mẫu theo ô tìm kiếm */
+  get filteredDesignPresets(): Design3DPreset[] {
+    const q = (this.designSearch || '').toLowerCase().trim();
+    if (!q) return this.designPresets;
+    return this.designPresets.filter(d =>
+      (d.name || '').toLowerCase().includes(q) ||
+      (d.description || '').toLowerCase().includes(q)
+    );
+  }
+
+  /** Đường dẫn thumbnail hiển thị */
+  designThumbUrl(preset: Design3DPreset): string | null {
+    if (preset.sceneData?.thumbnail) return preset.sceneData.thumbnail;
+    if (preset.thumbnailPath) return preset.thumbnailPath;
+    return null;
   }
 
   get dataService(): ProfileDataService { return this.profileDataService; }
