@@ -84,3 +84,6 @@ electron/ai_agent_win.exe
 uploads/
 **/uploads/
 **/temp_uploads/
+
+# Du lieu cache phan tich noi bo (ten chua backslash - pha vo checkout Windows)
+\.knowledge-cache/
