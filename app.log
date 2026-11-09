@@ -49,3 +49,4 @@
 2026-10-09 17:17:26,775 INFO unified_app: [tray] pystray/pillow not installed -> skip system tray
 2026-10-09 17:17:26,776 INFO uvicorn.error: Application startup complete.
 2026-10-09 17:17:26,776 INFO uvicorn.error: Uvicorn running on http://0.0.0.0:48921 (Press CTRL+C to quit)
+2026-11-09 06:57:49,683 INFO unified_app: Logging initialized. Level=INFO, TTY=False, file=/home/yenai/Documents/Projects/Typing/ai.type/app.log

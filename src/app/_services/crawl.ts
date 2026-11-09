@@ -822,7 +822,7 @@ export class CrawlService {
     public archive(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
         const electron = (window as any).electron;
-        if (isAutoSaveLocal && electron && electron.listLocalArticles) {
+        if ((isAutoSaveLocal || dataForm?.forceLocal) && electron && electron.listLocalArticles) {
             return from(electron.listLocalArticles({
                 username: dataForm?.username || this.user?.name || 'admin',
                 page: dataForm?.page,
@@ -1362,7 +1362,7 @@ export class CrawlService {
     public collections(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
         const electron = (window as any).electron;
-        if (isAutoSaveLocal && electron && electron.listLocalCollections) {
+        if ((isAutoSaveLocal || dataForm?.forceLocal) && electron && electron.listLocalCollections) {
             return from(electron.listLocalCollections({
                 username: dataForm?.username || this.user?.name || 'admin'
             })).pipe(
@@ -1398,7 +1398,7 @@ export class CrawlService {
     public nodeInCollection(dataForm: any): Observable<any> {
         const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
         const electron = (window as any).electron;
-        if (isAutoSaveLocal && electron && electron.listLocalCollections) {
+        if ((isAutoSaveLocal || dataForm?.forceLocal) && electron && electron.listLocalCollections) {
             return from(electron.listLocalCollections({
                 username: dataForm?.username || this.user?.name || 'admin'
             })).pipe(

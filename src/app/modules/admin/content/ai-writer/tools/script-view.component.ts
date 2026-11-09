@@ -1848,15 +1848,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
         if (!uuids || uuids.length === 0) return [];
         let docsMap: Record<string, any> = {};
 
-        try {
-            const bulkRes: any = await firstValueFrom(
-                this._crawlService.archive({
-                    username: username,
-                    uuids: uuids,
-                    page: { size: Math.max(uuids.length, 2000) },
-                }),
-            ).catch(() => null);
-
+        const parseBulkRes = (bulkRes: any): any[] => {
             let docsList: any[] = [];
             if (bulkRes && bulkRes.data) {
                 if (Array.isArray(bulkRes.data.docs)) {
@@ -1868,6 +1860,40 @@ export class AIScriptComponent implements OnInit, OnDestroy {
                 }
             } else if (bulkRes && Array.isArray(bulkRes.docs)) {
                 docsList = bulkRes.docs;
+            }
+            return docsList;
+        };
+
+        try {
+            let bulkRes: any = await firstValueFrom(
+                this._crawlService.archive({
+                    username: username,
+                    uuids: uuids,
+                    page: { size: Math.max(uuids.length, 2000) },
+                }),
+            ).catch(() => null);
+
+            let docsList: any[] = parseBulkRes(bulkRes);
+
+            // FALLBACK: nguon hien tai tra rong nhung Electron con kha dung
+            // -> thu lai bat buoc qua SQLite cuc bo (phong khi "Luu cuc bo"
+            // bi tat hoac duong server tra ve thieu truong done).
+            if (docsList.length === 0) {
+                const electron = (window as any).electron;
+                if (electron && electron.listLocalArticles) {
+                    console.warn(
+                        '[script-view] Nguon hien tai tra rong, thu lai bat buoc qua SQLite cuc bo...',
+                    );
+                    bulkRes = await firstValueFrom(
+                        this._crawlService.archive({
+                            username: username,
+                            uuids: uuids,
+                            page: { size: Math.max(uuids.length, 2000) },
+                            forceLocal: true,
+                        }),
+                    ).catch(() => null);
+                    docsList = parseBulkRes(bulkRes);
+                }
             }
 
             docsList.forEach((doc: any) => {
@@ -1915,25 +1941,47 @@ export class AIScriptComponent implements OnInit, OnDestroy {
     }
 
     async getCollectionDocsFromDb(username: string): Promise<any[]> {
-        const colRes: any = await firstValueFrom(
-            this._crawlService.collections({
-                username: username,
-                page: { size: 500 },
-                includeUuid: true,
-            }),
-        ).catch(() => null);
-
-        let allCollections: any[] = [];
-        if (colRes && colRes.success && colRes.data) {
-            if (Array.isArray(colRes.data)) {
-                allCollections = colRes.data;
-            } else if (Array.isArray(colRes.data.docs)) {
-                allCollections = colRes.data.docs;
-            } else if (Array.isArray(colRes.data.data)) {
-                allCollections = colRes.data.data;
+        const parseCollections = (colRes: any): any[] => {
+            let allCollections: any[] = [];
+            if (colRes && colRes.success && colRes.data) {
+                if (Array.isArray(colRes.data)) {
+                    allCollections = colRes.data;
+                } else if (Array.isArray(colRes.data.docs)) {
+                    allCollections = colRes.data.docs;
+                } else if (Array.isArray(colRes.data.data)) {
+                    allCollections = colRes.data.data;
+                }
+            } else if (colRes && Array.isArray(colRes.docs)) {
+                allCollections = colRes.docs;
             }
-        } else if (colRes && Array.isArray(colRes.docs)) {
-            allCollections = colRes.docs;
+            return allCollections;
+        };
+
+        const loadCollections = (forceLocal: boolean) =>
+            firstValueFrom(
+                this._crawlService.collections({
+                    username: username,
+                    page: { size: 500 },
+                    includeUuid: true,
+                    forceLocal: forceLocal,
+                }),
+            ).catch(() => null);
+
+        let colRes: any = await loadCollections(false);
+
+        let allCollections: any[] = parseCollections(colRes);
+
+        // FALLBACK: danh sach collection rong nhung Electron con kha dung
+        // -> thu lai bat buoc qua SQLite cuc bo (phong khi "Luu cuc bo" bi tat).
+        if (allCollections.length === 0) {
+            const electron = (window as any).electron;
+            if (electron && electron.listLocalCollections) {
+                console.warn(
+                    '[script-view] Danh sach collection rong, thu lai bat buoc qua SQLite cuc bo...',
+                );
+                colRes = await loadCollections(true);
+                allCollections = parseCollections(colRes);
+            }
         }
 
         let targetCol: any = allCollections.find((c: any) => {
@@ -1978,6 +2026,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
                     this._crawlService.nodeInCollection({
                         uuid: this.uuid,
                         username: username,
+                        forceLocal: true,
                     }),
                 ).catch(() => null);
                 if (nodeColRes && nodeColRes.data) {
@@ -2097,9 +2146,19 @@ export class AIScriptComponent implements OnInit, OnDestroy {
         }
 
         if (!loadedFullDocs || loadedFullDocs.length === 0) {
+            const electronAvail = !!(window as any).electron;
+            console.error(
+                '[script-view] regenerateScript: khong tim thay bai viet nguon.',
+                { username, uuid: this.uuid, electronAvail },
+            );
             this.toastr.error(
-                'Không tìm thấy dữ liệu bài viết (trường done) trong cơ sở dữ liệu để tạo lại kịch bản!',
+                'Không tìm thấy dữ liệu bài viết nguồn để tạo lại kịch bản! ' +
+                    `Tài khoản: "${username}" - Kịch bản: "${this.uuid}". ` +
+                    (electronAvail
+                        ? 'Hãy bật "Lưu cục bộ" trong Cài đặt tài khoản, hoặc kiểm tra DB SQLite của tài khoản này.'
+                        : 'Ứng dụng không chạy trong môi trường Electron, hãy kiểm tra kết nối server.'),
                 'Lỗi dữ liệu',
+                { timeOut: 10000 },
             );
             this.isRegenerating = false;
             this.isLoading = false;

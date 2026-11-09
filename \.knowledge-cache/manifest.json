@@ -300,15 +300,15 @@
     "semantic_hash": ""
   },
   "electron/package.json": {
-    "mtime": 1793963588.7922852,
-    "seen": 1793963760.3180947,
-    "ast_hash": "45c257396c8a1ed7a7619241d83eaf78",
+    "mtime": 1794182069.5458717,
+    "seen": 1794182081.0108633,
+    "ast_hash": "cc0b11aaa0bd0013da72f57acbf7413e",
     "semantic_hash": ""
   },
   "electron/preload.js": {
-    "mtime": 1792034932.881721,
-    "seen": 1793443703.7001514,
-    "ast_hash": "01ca70a15bff4b4df0c3132ebd8e2333",
+    "mtime": 1794105780.7796087,
+    "seen": 1794181182.57166,
+    "ast_hash": "2548c93b5d02d8114bfdef8224e6cf19",
     "semantic_hash": ""
   },
   "electron/scripts/Flow mu\u1ed1n l\u00e0m intro gi\u1edbi thi\u1ec7u s\u1ea3n ph\u1ea9m ph\u1ea7n m\u1ec1m....mineru.json": {
@@ -396,9 +396,9 @@
     "semantic_hash": ""
   },
   "electron/src/main.js": {
-    "mtime": 1793356278.0591094,
-    "seen": 1793443703.7001662,
-    "ast_hash": "180abf9293eeb99225b3d096196a57a5",
+    "mtime": 1794105772.1297524,
+    "seen": 1794181182.5720904,
+    "ast_hash": "557d5563a5af3651d956819a3655451b",
     "semantic_hash": ""
   },
   "electron/src/mcp-client.js": {
@@ -1476,9 +1476,9 @@
     "semantic_hash": ""
   },
   "src/app/_services/crawl.ts": {
-    "mtime": 1792035502.068418,
-    "seen": 1793443703.700331,
-    "ast_hash": "2019b2eb1cbf30ea442ddec1a70e76a0",
+    "mtime": 1794194438.155126,
+    "seen": 1794194700.3352091,
+    "ast_hash": "123c9ad0c26c8d54ec15da71a0a54f13",
     "semantic_hash": ""
   },
   "src/app/_services/customer.ts": {
@@ -2490,21 +2490,21 @@
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/profile/profile.component.ts": {
-    "mtime": 1793793754.8284295,
-    "seen": 1793793763.8511405,
-    "ast_hash": "222180076ab4f03ee1077d56abb5f030",
+    "mtime": 1794148249.517521,
+    "seen": 1794181182.5831964,
+    "ast_hash": "ef228543eaee825006518a4b030f94f9",
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/profile/profile.module.ts": {
-    "mtime": 1786346097.6085248,
-    "seen": 1793443703.7004807,
-    "ast_hash": "14cd177467ef7f1b05b6a33cd1e7f7e8",
+    "mtime": 1794107943.7987287,
+    "seen": 1794181182.583198,
+    "ast_hash": "7cbcd36f3b612c3760ac31372ad4616f",
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/profile/sontinh-scene.service.ts": {
-    "mtime": 1794045878.411984,
-    "seen": 1794046057.734733,
-    "ast_hash": "ae4ca9708c4067f7b14f35ba313637a8",
+    "mtime": 1794147959.3498287,
+    "seen": 1794181182.5831993,
+    "ast_hash": "c53b8dfe936bb1f29387e254f5d88531",
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/settings/account/account.component.ts": {
@@ -2874,9 +2874,9 @@
     "semantic_hash": ""
   },
   "src/app/modules/admin/content/ai-writer/tools/script-view.component.ts": {
-    "mtime": 1792743021.1981926,
-    "seen": 1793443703.7005353,
-    "ast_hash": "debe912081f72cf5d30c09874fc4125c",
+    "mtime": 1794194478.848552,
+    "seen": 1794194700.3434856,
+    "ast_hash": "17131d08d7ef1c5c4e3db57abea50a82",
     "semantic_hash": ""
   },
   "src/app/modules/admin/content/ai-writer/tools/word-data-dialog.ts": {
@@ -4314,9 +4314,9 @@
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/profile/profile.component.html": {
-    "mtime": 1793799330.5270994,
-    "seen": 1793799460.7097042,
-    "ast_hash": "24c9fb3aab2d2ab95d3956dff4ef845b",
+    "mtime": 1794122741.3044472,
+    "seen": 1794181182.593503,
+    "ast_hash": "691cd49c7162a17887d70b11bfd9310b",
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/settings/account/account.component.html": {
@@ -6969,6 +6969,36 @@
     "mtime": 1793869615.807406,
     "seen": 1793879346.5985086,
     "ast_hash": "da2afdf2664cb6093e886a27c879c5cd",
+    "semantic_hash": ""
+  },
+  "electron/src/design-presets.js": {
+    "mtime": 1794103211.1226406,
+    "seen": 1794181182.5718925,
+    "ast_hash": "f6e94288679ccd9aa9769cfb6423dd31",
+    "semantic_hash": ""
+  },
+  "src/app/_services/design3d.service.ts": {
+    "mtime": 1794108896.1321335,
+    "seen": 1794181182.5776463,
+    "ast_hash": "512bf6b24aadae32ceb8f2983e2f3a1e",
+    "semantic_hash": ""
+  },
+  "tsc_log.txt": {
+    "mtime": 1794108027.7774677,
+    "seen": 1794181182.5971372,
+    "ast_hash": "adde20ecfea1a386dfb8c7027dcfc505",
+    "semantic_hash": ""
+  },
+  ".agent_backup/regen-fallback-patch/crawl.ts": {
+    "mtime": 1792035502.068418,
+    "seen": 1794194700.3271859,
+    "ast_hash": "2019b2eb1cbf30ea442ddec1a70e76a0",
+    "semantic_hash": ""
+  },
+  ".agent_backup/regen-fallback-patch/script-view.component.ts": {
+    "mtime": 1794150621.385452,
+    "seen": 1794194700.327192,
+    "ast_hash": "07db5f83b07561fd7a5b0fbe9cad00c8",
     "semantic_hash": ""
   },
   "electron/package-lock.json": {
