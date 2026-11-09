@@ -83,7 +83,14 @@ jobs:
 
       - name: Build Ubuntu/Linux installer (.deb, .AppImage)
         working-directory: electron
-        run: npx electron-builder --linux --publish never
+        run: |
+          for i in 1 2 3; do
+            npx electron-builder --linux --publish never && break || {
+              if [ $i -eq 3 ]; then exit 1; fi
+              echo "::warning::electron-builder failed (attempt $i), retrying in 15s..."
+              sleep 15
+            }
+          done
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -95,3 +102,12 @@ jobs:
             electron/dist/latest-linux.yml
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload npm debug logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ubuntu-npm-debug-logs-${{ github.run_number }}
+          path: /home/runner/.npm/_logs/
+          if-no-files-found: ignore
+          retention-days: 7
