@@ -30,6 +30,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfuse2 rpm fakeroot dpkg
 
+      # CI runner khong co SSH key -> ep moi URL git@github.com thanh https (anon clone)
+      - name: Force git URLs to HTTPS
+        run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" && git config --global url."https://github.com/".insteadOf "git@github.com:"
+
       - name: Install dependencies & Build Angular
         run: |
           for i in 1 2 3; do
