@@ -63,8 +63,6 @@ Thumbs.db
 /screenshots
 *.lock
 yarn.lock
-package-lock.json
-package-lock.json
 electron/dist
 electron/fallback
 electron/services
