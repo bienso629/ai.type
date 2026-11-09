@@ -162,5 +162,8 @@
   },
   "browser": {
     "stream": "stream-browserify"
+  },
+  "overrides": {
+    "sharp": "^0.33.5"
   }
 }
