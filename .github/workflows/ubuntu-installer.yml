@@ -32,12 +32,25 @@ jobs:
 
       - name: Install dependencies & Build Angular
         run: |
-          npm install
+          for i in 1 2 3; do
+            npm install && break || {
+              if [ $i -eq 3 ]; then exit 1; fi
+              echo "::warning::npm install failed (attempt $i), retrying in 15s..."
+              sleep 15
+            }
+          done
           npm run build:frontend
 
       - name: Install Electron dependencies
         working-directory: electron
-        run: npm install
+        run: |
+          for i in 1 2 3; do
+            npm install && break || {
+              if [ $i -eq 3 ]; then exit 1; fi
+              echo "::warning::npm install failed (attempt $i), retrying in 15s..."
+              sleep 15
+            }
+          done
 
       - name: Download ffmpeg & yt-dlp for Linux
         working-directory: electron
