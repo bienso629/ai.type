@@ -337,10 +337,67 @@ export class EditScenePromptDialogComponent {
     }
 
     private getBase64FromImageUrl(url: string): Promise<string> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             if (!url) {
                 reject('Empty URL');
                 return;
+            }
+
+            // [MULTI-CHARACTER-FIX] 1. Data URI -> tach base64 ngay
+            if (url.startsWith('data:image/')) {
+                const parts = url.split(',');
+                if (parts.length > 1) {
+                    resolve(parts[1]);
+                    return;
+                }
+            }
+
+            // 2. Electron IPC - doc file truc tiep (desktop app, khong bao gio bi CORS chan)
+            const electron = (window as any).electron;
+            if (electron) {
+                try {
+                    let pathCandidate = url
+                        .replace(/^file:\/\//i, '')
+                        .replace(/^unsafe:/i, '');
+                    if (electron.readFileBase64) {
+                        const fileRes = await electron.readFileBase64(pathCandidate);
+                        if (fileRes && fileRes.success && fileRes.base64) {
+                            resolve(fileRes.base64);
+                            return;
+                        }
+                    } else if (electron.invoke) {
+                        const fileRes = await electron.invoke('read-file-base64', { filePath: pathCandidate });
+                        if (fileRes && fileRes.success && fileRes.base64) {
+                            resolve(fileRes.base64);
+                            return;
+                        }
+                    }
+                } catch (electronErr) {
+                    console.warn('[getBase64FromImageUrl] Electron IPC that bai, thu fetch...', electronErr);
+                }
+            }
+
+            // 3. Fetch truc tiep (http/blob/media) - tranh mat anh nhan vat vi CORS
+            if (/^(https?|blob|media)/.test(url)) {
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const readerRes = await new Promise<string>((r2, rej2) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const result = reader.result as string;
+                                r2(result.split(',')[1]);
+                            };
+                            reader.onerror = rej2;
+                            reader.readAsDataURL(blob);
+                        });
+                        resolve(readerRes);
+                        return;
+                    }
+                } catch (fetchErr) {
+                    console.warn('[getBase64FromImageUrl] Fetch that bai, thu Image element...', fetchErr);
+                }
             }
 
             const img = new Image();
@@ -1157,6 +1214,7 @@ Instructions:
                                 mimeType: 'image/png',
                             },
                             referenceType: 'CHARACTER_REFERENCE',
+                            characterName: char.name || char.role || '',
                         });
                     } catch (e) {
                         console.error(
@@ -1327,7 +1385,8 @@ Instructions:
                     videoConfig.aspectRatio = this.selectedAspectRatio;
                 }
                 if (referenceImages.length > 0) {
-                    videoConfig.referenceImages = referenceImages.slice(0, 3);
+                    // Không cắt giảm danh sách: mỗi nhân vật trong prompt cần được gửi kèm ảnh tham chiếu riêng
+                    videoConfig.referenceImages = referenceImages;
                 }
 
                 operation = await ai.models.generateVideos({

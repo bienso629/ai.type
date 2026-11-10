@@ -4615,6 +4615,101 @@ function stopAiAgent() {
     console.log('[AI Agent] Đã tắt');
 }
 
+
+// --- SETTINGS MIRROR: Luu guong du lieu tai khoan (da ma hoa AES phia renderer) ra file JSON
+// trong userData. Muc dich: IndexedDB/LocalStorage cua Chromium gan voi origin cua trang
+// (dev: http://localhost:4200, production: file://), nen khi chuyen giua ban dev va ban dong goi
+// origin doi => DB trong => tuong nhu mat het settings. File mirror nay khong phu thuoc origin
+// nen dev va production dung chung mot kho du lieu.
+// Dung duong dan dung chung (khong phai userData) vi userData khac nhau giua dev
+// (~/.config/Electron) va production (~/.config/typing) => neu dat trong userData thi
+// mirror van khong dung chung du lieu duoc.
+const settingsMirrorPath = path.join(require('os').homedir(), '.config', 'ai.type-shared', 'ai_type_settings_mirror.json');
+
+function readSettingsMirror() {
+    try {
+        if (!fs.existsSync(settingsMirrorPath)) return { version: 1, accounts: {}, lastActiveId: null };
+        const parsed = JSON.parse(fs.readFileSync(settingsMirrorPath, 'utf8'));
+        if (!parsed || typeof parsed !== 'object') return { version: 1, accounts: {}, lastActiveId: null };
+        if (!parsed.accounts || typeof parsed.accounts !== 'object') parsed.accounts = {};
+        return parsed;
+    } catch (e) {
+        console.error('[SettingsMirror] Loi doc file mirror:', e);
+        return { version: 1, accounts: {}, lastActiveId: null };
+    }
+}
+
+function writeSettingsMirror(data) {
+    try {
+        fs.mkdirSync(path.dirname(settingsMirrorPath), { recursive: true });
+        // Ghi qua file tmp roi rename de tranh file bi huong neu app tat dot ngot giua luc ghi
+        const tmpPath = settingsMirrorPath + '.tmp';
+        fs.writeFileSync(tmpPath, JSON.stringify(data), 'utf8');
+        fs.renameSync(tmpPath, settingsMirrorPath);
+    } catch (e) {
+        console.error('[SettingsMirror] Loi ghi file mirror:', e);
+    }
+}
+
+ipcMain.handle('settings-mirror:save', (event, payload) => {
+    try {
+        if (!payload || typeof payload.accountId !== 'string' || !payload.accountId) return { ok: false };
+        const mirror = readSettingsMirror();
+        mirror.accounts[payload.accountId] = {
+            encryptedData: String(payload.encryptedData || ''),
+            savedAt: Date.now()
+        };
+        if (payload.isActive) mirror.lastActiveId = payload.accountId;
+        // Gioi han 20 tai khoan moi nhat de file khong phinh to vo han
+        const ids = Object.keys(mirror.accounts);
+        if (ids.length > 20) {
+            ids.sort((a, b) => (mirror.accounts[a].savedAt || 0) - (mirror.accounts[b].savedAt || 0));
+            for (const oldId of ids.slice(0, ids.length - 20)) delete mirror.accounts[oldId];
+        }
+        writeSettingsMirror(mirror);
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, error: String(e && e.message || e) };
+    }
+});
+
+ipcMain.handle('settings-mirror:load', (event, accountId) => {
+    try {
+        const mirror = readSettingsMirror();
+        if (accountId) {
+            return { ok: true, record: mirror.accounts[accountId] || null };
+        }
+        // Khong chi dinh accountId: tra ve tai khoan active gan nhat
+        const lastId = mirror.lastActiveId;
+        if (lastId && mirror.accounts[lastId]) {
+            return { ok: true, record: mirror.accounts[lastId], accountId: lastId };
+        }
+        // Fallback: tai khoan moi luu gan nhat
+        const ids = Object.keys(mirror.accounts);
+        if (ids.length === 0) return { ok: true, record: null };
+        ids.sort((a, b) => (mirror.accounts[b].savedAt || 0) - (mirror.accounts[a].savedAt || 0));
+        return { ok: true, record: mirror.accounts[ids[0]], accountId: ids[0] };
+    } catch (e) {
+        return { ok: false, record: null, error: String(e && e.message || e) };
+    }
+});
+
+ipcMain.handle('settings-mirror:clear', (event, accountId) => {
+    try {
+        const mirror = readSettingsMirror();
+        if (accountId && mirror.accounts[accountId]) {
+            delete mirror.accounts[accountId];
+            if (mirror.lastActiveId === accountId) {
+                mirror.lastActiveId = Object.keys(mirror.accounts)[0] || null;
+            }
+            writeSettingsMirror(mirror);
+        }
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, error: String(e && e.message || e) };
+    }
+});
+
 ipcMain.handle('toggle-ai-agent', (event, enable, apiKey, extra) => {
     try {
         const configData = { enable };

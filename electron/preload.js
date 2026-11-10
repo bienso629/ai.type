@@ -112,6 +112,11 @@ contextBridge.exposeInMainWorld('electron', {
     exportProject: (payload) => ipcRenderer.invoke('export-project', payload),
     importProject: (uuid) => ipcRenderer.invoke('import-project', uuid),
     setActiveLocalUser: (payload) => ipcRenderer.invoke('set-active-local-user', payload),
+
+    // ===== SETTINGS MIRROR (chong mat settings khi chuyen giua dev va production) =====
+    settingsMirrorSave: (payload) => ipcRenderer.invoke('settings-mirror:save', payload),
+    settingsMirrorLoad: (accountId) => ipcRenderer.invoke('settings-mirror:load', accountId),
+    settingsMirrorClear: (accountId) => ipcRenderer.invoke('settings-mirror:clear', accountId),
     saveLocalArticle: (payload) => ipcRenderer.invoke('save-local-article', payload),
     exportLocalArticleDialog: (payload) => ipcRenderer.invoke('export-local-article-dialog', payload),
     listLocalArticles: (payload) => ipcRenderer.invoke('list-local-articles', payload),
