@@ -1300,6 +1300,8 @@ export class GenaiService {
                                 refType = 'START_FRAME';
                             } else if (refType === 'last_frame') {
                                 refType = 'END_FRAME';
+                            } else if (refType === 'CHARACTER') {
+                                refType = 'CHARACTER_REFERENCE';
                             }
 
                             referenceImages.push({
@@ -2172,6 +2174,137 @@ export class GenaiService {
         }
     }
 
+    /**
+     * [MULTI-CHARACTER] Ghep cac anh nhan vat thanh 1 anh Character Sheet duy nhat
+     * (moi anh mot o, co ten nhan vat phia duoi) de model chi nhan 1 anh van thay du
+     * toan bo nhan vat. Ai doc canvas truc tiep (khong qua Electron) vi anh da la base64.
+     */
+    private async composeCharacterSheet(
+        characterRefUrls: string[],
+        characterLabels: string[]
+    ): Promise<string> {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return '';
+
+            const count = characterRefUrls.length;
+            const cols = Math.min(count, 2);
+            const rows = Math.ceil(count / cols);
+            const cellW = 512;
+            const cellH = 640;
+            const labelH = 48;
+            canvas.width = cols * cellW;
+            canvas.height = rows * (cellH + labelH);
+
+            // Nen trang
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const loadImage = async (src: string): Promise<HTMLImageElement | null> => {
+                let finalSrc = src;
+                // [CRITICAL-FIX] Uu tien fetch -> data URI truoc khi ve de tranh canvas bi taint
+                // (CORS) gay SecurityError tai toDataURL() -> mat toan bo Character Sheet.
+                if (/^https?:/i.test(src)) {
+                    try {
+                        const res = await fetch(src);
+                        if (res.ok) {
+                            const blob = await res.blob();
+                            finalSrc = await new Promise<string>((resolve2) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve2(reader.result as string);
+                                reader.onerror = () => resolve2(src);
+                                reader.readAsDataURL(blob);
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('[CharacterSheet] Fetch anh that bai, dung URL goc:', src);
+                    }
+                }
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null);
+                    img.src = finalSrc;
+                });
+            };
+
+            for (let i = 0; i < count; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const x = col * cellW;
+                const y = row * (cellH + labelH);
+
+                const img = await loadImage(characterRefUrls[i]);
+                if (img) {
+                    // cover-fit vao o
+                    const scale = Math.max(cellW / img.width, cellH / img.height);
+                    const dw = img.width * scale;
+                    const dh = img.height * scale;
+                    ctx.drawImage(img, x + (cellW - dw) / 2, y + (cellH - dh) / 2, dw, dh);
+                } else {
+                    ctx.fillStyle = '#eeeeee';
+                    ctx.fillRect(x, y, cellW, cellH);
+                    ctx.fillStyle = '#999999';
+                    ctx.font = '16px sans-serif';
+                    ctx.fillText('Image failed to load', x + 20, y + cellH / 2);
+                }
+
+                // Ky ten nhan vat ben duoi moi o
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 28px sans-serif';
+                ctx.textAlign = 'center';
+                const label = (characterLabels[i] || `Character ${i + 1}`).substring(0, 30);
+                ctx.fillText(label, x + cellW / 2, y + cellH + 34);
+                ctx.textAlign = 'left';
+            }
+
+            return canvas.toDataURL('image/jpeg', 0.9);
+        } catch (e) {
+            console.error('[CharacterSheet] Compose failed:', e);
+            return '';
+        }
+    }
+
+    /**
+     * [CRITICAL-FIX] Kiem tra payload co chua anh tham chieu that su khong
+     * (bo qua cac truong prompt/text de tranh nham lan tu khoa "image" trong loi van).
+     */
+    private payloadHasImageRef(req: any): boolean {
+        const stripPrompts = (obj: any): any => {
+            if (Array.isArray(obj)) return obj.map(stripPrompts);
+            if (obj && typeof obj === 'object') {
+                const out: any = {};
+                for (const k of Object.keys(obj)) {
+                    const kl = k.toLowerCase();
+                    if (kl === 'prompt' || kl === 'text' || kl === 'negative_prompt') continue;
+                    out[k] = stripPrompts(obj[k]);
+                }
+                return out;
+            }
+            return obj;
+        };
+        const hasRealImageValue = (obj: any): boolean => {
+            if (typeof obj === 'string') {
+                return obj.length > 0; // chuỗi non-empty (base64/URL/data URI) được coi là dữ liệu ảnh
+            }
+            if (Array.isArray(obj)) return obj.some(hasRealImageValue);
+            if (obj && typeof obj === 'object') {
+                return Object.values(obj).some(hasRealImageValue);
+            }
+            return false;
+        };
+        try {
+            const stripped = stripPrompts(req);
+            if (!hasRealImageValue(stripped)) return false;
+            const s = JSON.stringify(stripped).toLowerCase();
+            return s.includes('image') || s.includes('img_url') || s.includes('img_');
+        } catch (e) {
+            return false;
+        }
+    }
+
     public async generateVideoUModelverse(
         prompt: string,
         aspectRatio?: string,
@@ -2245,7 +2378,8 @@ export class GenaiService {
         if (referenceImages && referenceImages.length > 0) {
             // Lấy START_FRAME hoặc STORYBOARD. Nếu không có, lấy CONTROL_IMAGE làm fallback.
             const startImg = referenceImages.find(img => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD')
-                || referenceImages.find(img => img.referenceType === 'CONTROL_IMAGE');
+                || referenceImages.find(img => img.referenceType === 'CONTROL_IMAGE')
+                || referenceImages.find(img => img.referenceType === 'CHARACTER_REFERENCE' || img.referenceType === 'ASSET');
             if (startImg) {
                 refBase64Raw = startImg.image?.imageBytes || (typeof startImg === 'string' ? startImg : '');
                 if (refBase64Raw && !refBase64Raw.startsWith('data:')) {
@@ -2319,6 +2453,98 @@ export class GenaiService {
             }
         }
 
+        // [MULTI-CHARACTER] Thu thập TẤT CẢ ảnh nhân vật (CHARACTER_REFERENCE / ASSET).
+        // Mỗi nhân vật xuất hiện trong prompt phải được gửi kèm ảnh tham chiếu tương ứng.
+        let characterRefUrls: string[] = [];
+        let characterRefNames: string[] = [];
+        if (referenceImages && referenceImages.length > 0) {
+            const charRefItems = referenceImages.filter(
+                (img: any) =>
+                    img.referenceType === 'CHARACTER_REFERENCE' ||
+                    img.referenceType === 'ASSET',
+            );
+            for (const charImg of charRefItems) {
+                let raw = charImg.image?.imageBytes || (typeof charImg === 'string' ? charImg : '');
+                if (!raw) continue;
+                let dataUri = '';
+                if (raw.startsWith('http')) {
+                    if (!characterRefUrls.includes(raw)) {
+                        characterRefUrls.push(raw);
+                        characterRefNames.push(charImg.characterName || `Character ${characterRefUrls.length}`);
+                    }
+                    continue;
+                }
+                if (raw.startsWith('data:')) {
+                    dataUri = raw;
+                    raw = raw.split(',')[1];
+                } else {
+                    dataUri = `data:image/png;base64,${raw}`;
+                }
+                try {
+                    let hash = 0;
+                    for (let i = 0; i < dataUri.length; i += 100) {
+                        hash = (hash << 5) - hash + dataUri.charCodeAt(i);
+                        hash |= 0;
+                    }
+                    const cdnUrl = await this.uploadBase64ToCdn(dataUri, `char_ref_${Math.abs(hash)}.png`);
+                    const finalUrl = cdnUrl || dataUri;
+                    if (!characterRefUrls.includes(finalUrl)) {
+                        characterRefUrls.push(finalUrl);
+                        characterRefNames.push(charImg.characterName || `Character ${characterRefUrls.length}`);
+                    }
+                } catch (e) {
+                    if (!characterRefUrls.includes(dataUri)) {
+                        characterRefUrls.push(dataUri);
+                        characterRefNames.push(charImg.characterName || `Character ${characterRefUrls.length}`);
+                    }
+                }
+            }
+            if (characterRefUrls.length > 0) {
+                console.log(`[UModelverse] Đã chuẩn bị ${characterRefUrls.length} ảnh nhân vật tham chiếu để gửi kèm prompt:`, characterRefNames.join(', '));
+            }
+        }
+
+        // [MULTI-CHARACTER] Tạo ảnh Character Sheet tổng hợp (ghép tất cả nhân vật vào 1 ảnh
+        // có tên ký tên) - dùng làm ảnh chính khi model chỉ hỗ trợ 1 ảnh tham chiếu.
+        let characterSheetDataUri = '';
+        if (characterRefUrls.length > 0) {
+            characterSheetDataUri = await this.composeCharacterSheet(characterRefUrls, characterRefNames);
+            if (characterSheetDataUri) {
+                console.log(`[UModelverse] Đã tạo Character Sheet tổng hợp ${characterRefUrls.length} nhân vật.`);
+            }
+        }
+
+        // [MULTI-CHARACTER] Nếu KHÔNG có ảnh storyboard/start frame, dùng Character Sheet
+        // làm ảnh chính cho MỌI format payload (đảm bảo model luôn nhận được ảnh nhân vật).
+        if (!refBase64Raw && !refBase64DataUri && characterSheetDataUri) {
+            try {
+                const sheetCdn = await this.uploadBase64ToCdn(characterSheetDataUri, `char_sheet_main_${Date.now()}.jpg`);
+                const sheetUrl = sheetCdn || characterSheetDataUri;
+                refBase64CdnUrl = sheetCdn || '';
+                refBase64DataUri = sheetUrl;
+                refBase64Raw = sheetUrl;
+                refBase64RawOriginal = characterSheetDataUri.split(',')[1] || '';
+                refMimeType = 'image/jpeg';
+                prompt = `${prompt}\n[CHARACTER REFERENCE: The attached image is a character reference sheet. Each cell shows one character with the character's name labeled below it. Strictly match each character's appearance, face, hairstyle and outfit to the corresponding labeled cell.]`;
+                console.log('[UModelverse] Không có storyboard -> dùng Character Sheet làm ảnh chính:', sheetUrl);
+            } catch (e) {
+                console.error('[UModelverse] Lỗi upload Character Sheet chính:', e);
+            }
+        }
+
+        // [MULTI-CHARACTER-FIX] Neu Character Sheet tao that bai nhung van co anh nhan vat,
+        // dung anh nhan vat dau tien lam anh chinh de moi payload deu co anh.
+        if (!refBase64Raw && !refBase64DataUri && !characterSheetDataUri && characterRefUrls.length > 0) {
+            const firstCharUrl = characterRefUrls[0];
+            refBase64DataUri = firstCharUrl;
+            refBase64Raw = firstCharUrl.startsWith('data:') ? firstCharUrl.split(',')[1] : firstCharUrl;
+            if (!refBase64CdnUrl && firstCharUrl.startsWith('http')) {
+                refBase64CdnUrl = firstCharUrl;
+            }
+            prompt = `${prompt}\n[CHARACTER REFERENCE: The attached image is the main character reference. Strictly match the character's appearance to the attached image.]`;
+            console.log('[UModelverse] Character Sheet that bai -> dung anh nhan vat dau tien lam anh chinh.');
+        }
+
         // --- XÂY DỰNG PAYLOAD DỰA TRÊN CONFIG ---
         let candidateTaskRequests: any[] = [];
         const config = getModelverseConfig(model);
@@ -2389,6 +2615,18 @@ export class GenaiService {
                             }
                         } else {
                             klingImageList.push({ image_url: imageUrl });
+                            modifiedPrompt = `<<<image_${klingImageList.length}>>> ${modifiedPrompt}`;
+                        }
+                    }
+                }
+
+                // [MULTI-CHARACTER] Đảm bảo mỗi nhân vật trong prompt đều có ảnh trong image_list
+                // (mỗi nhân vật một ảnh tham chiếu riêng).
+                if (characterRefUrls.length > 0) {
+                    const existingUrls = klingImageList.map((k: any) => k.image_url);
+                    for (const charUrl of characterRefUrls) {
+                        if (!existingUrls.includes(charUrl)) {
+                            klingImageList.push({ image_url: charUrl });
                             modifiedPrompt = `<<<image_${klingImageList.length}>>> ${modifiedPrompt}`;
                         }
                     }
@@ -2511,6 +2749,25 @@ export class GenaiService {
                     contentArr.push({ type: 'image_url', image_url: { url: config.useDataUri && !endRefBase64Raw.startsWith('http') ? `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` : endRefBase64Raw } });
                 }
 
+                // [MULTI-CHARACTER] Doubao/Seedance (Ark API) chỉ đọc 1 ảnh đầu tiên trong content.
+                // Character Sheet đã được gán làm ảnh chính (refBase64Raw) khi không có storyboard.
+                // Chỉ chèn trực tiếp data URI nếu vì lý do nào đó chưa có ảnh chính nào.
+                if (characterSheetDataUri && !refBase64Raw) {
+                    contentArr.push({ type: 'image_url', image_url: { url: characterSheetDataUri } });
+                    console.log('[UModelverse Doubao] Đã chèn Character Sheet (data URI) vào content.');
+                }
+
+                // [MULTI-CHARACTER-FIX] Bảo đảm content luôn chứa ảnh nhân vật tham chiếu:
+                // nếu sau tất cả các bước trên content vẫn chưa có ảnh nào, chèn lần lượt
+                // từng ảnh nhân vật (mỗi nhân vật một ảnh) vào content.
+                const contentHasImage = contentArr.some((c: any) => c.type === 'image_url' && c.image_url && c.image_url.url && String(c.image_url.url).length > 0);
+                if (!contentHasImage && characterRefUrls.length > 0) {
+                    for (const charUrl of characterRefUrls) {
+                        contentArr.push({ type: 'image_url', image_url: { url: charUrl } });
+                    }
+                    console.log(`[UModelverse Doubao] Content thiếu ảnh -> đã chèn ${characterRefUrls.length} ảnh nhân vật tham chiếu.`);
+                }
+
                 let parsedSeed = undefined;
                 if (seed !== undefined && seed !== null && String(seed).trim() !== '') {
                     const num = Number(seed);
@@ -2526,11 +2783,16 @@ export class GenaiService {
                     ...seedParams
                 };
 
+                // [MULTI-CHARACTER] Ghi chú ý nghĩa Character Sheet vào prompt doubao
+                const doubaoPrompt = characterSheetDataUri && refBase64Raw && refBase64Raw.startsWith('http') && refBase64Raw.includes('char_sheet')
+                    ? `${prompt}\n[CHARACTER REFERENCE: The attached image is a character reference sheet. Each cell shows one character with the character's name labeled below it. Strictly match each character's appearance to the corresponding labeled cell.]`
+                    : prompt;
+
                 // Option 0: Format chuẩn Volcengine Ark (có input và parameters)
                 candidateTaskRequests.push({
                     model: model,
                     input: { 
-                        prompt: prompt,
+                        prompt: doubaoPrompt,
                         image_url: refBase64CdnUrl || refBase64Raw,
                         content: contentArr 
                     },
@@ -2541,7 +2803,7 @@ export class GenaiService {
                 candidateTaskRequests.push({
                     model: model,
                     input: { 
-                        prompt: prompt,
+                        prompt: doubaoPrompt,
                         image_url: refBase64CdnUrl || refBase64Raw,
                         content: contentArr 
                     },
@@ -2551,7 +2813,7 @@ export class GenaiService {
                 // Option 2: Format phẳng hoàn toàn (Doubao API flat format)
                 candidateTaskRequests.push({
                     model: model,
-                    prompt: prompt,
+                    prompt: doubaoPrompt,
                     image_url: refBase64CdnUrl || refBase64Raw,
                     content: contentArr,
                     ...commonParams
@@ -2622,6 +2884,63 @@ export class GenaiService {
 
             if (payload) {
                 candidateTaskRequests.push(payload);
+            }
+
+            // [MINIMAX-FIX] Adapter MiniMax (Hailuo) của proxy KHÔNG hỗ trợ convert
+            // format nested_input (input.image_url) -> lỗi
+            // "ConvertImageRequest not implemented for minimax adapter".
+            // Format chuẩn của MiniMax video API là FLAT: first_frame_image ở root
+            // (xem payload user bắt được khi model chạy đúng). Bổ sung các candidate
+            // flat để cơ chế thử lần lượt tự tìm được format tương thích.
+            if (model.toLowerCase().includes('minimax') || model.toLowerCase().includes('hailuo')) {
+                const primaryMiniMaxImg = refBase64CdnUrl || refBase64DataUri || (characterRefUrls.length > 0 ? characterRefUrls[0] : '');
+                if (primaryMiniMaxImg) {
+                    // Option M1: Flat chuẩn MiniMax Hailuo (first_frame_image ở root)
+                    candidateTaskRequests.push({
+                        model: model,
+                        prompt: prompt,
+                        first_frame_image: primaryMiniMaxImg,
+                        ...(characterRefUrls.length > 1 ? { reference_images: characterRefUrls } : {}),
+                        prompt_optimizer: false,
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: Math.ceil(duration || config.defaultDuration || 5)
+                    });
+                    // Option M2: Flat với image_url (một số adapter map theo key này)
+                    candidateTaskRequests.push({
+                        model: model,
+                        prompt: prompt,
+                        image_url: primaryMiniMaxImg,
+                        ...(characterRefUrls.length > 1 ? { reference_images: characterRefUrls } : {}),
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: Math.ceil(duration || config.defaultDuration || 5)
+                    });
+                    // Option M3: Nested nhưng dùng first_frame_image trong input
+                    candidateTaskRequests.push({
+                        model: model,
+                        input: {
+                            prompt: prompt,
+                            first_frame_image: primaryMiniMaxImg,
+                            ...(characterRefUrls.length > 1 ? { reference_images: characterRefUrls } : {})
+                        },
+                        parameters: {
+                            aspect_ratio: aspectRatio || '16:9',
+                            duration: Math.ceil(duration || config.defaultDuration || 5)
+                        }
+                    });
+                    // Option M4: Sora-style qua endpoint /v1/videos (da xac minh endpoint
+                    // ton tai tren proxy - tra 401 thay vi 404). Day la chuan OpenAI Videos
+                    // ma adapter cua proxy co the implement thay cho /v1/tasks/submit.
+                    candidateTaskRequests.push({
+                        model: model,
+                        input: {
+                            prompt: prompt,
+                            reference_image_urls: characterRefUrls.length > 0 ? characterRefUrls : [primaryMiniMaxImg]
+                        },
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: Math.ceil(duration || config.defaultDuration || 5)
+                    });
+                    console.log(`[UModelverse MiniMax] Đã bổ sung 3 candidate flat/nested first_frame_image cho ${model}.`);
+                }
             }
         }
 
@@ -2723,11 +3042,17 @@ export class GenaiService {
                     } : {})
                 },
                 // Option 4: Nested with full referenceImages array (kiểu Google SDK)
+                // [MULTI-CHARACTER-FIX] Chi gui URL anh nhan vat (loai bo base64 video mp4
+                // REFERENCE_VIDEO lam bay payload hoac bi proxy tu choi).
                 {
                     model: model,
                     input: {
                         prompt: prompt,
-                        reference_images: referenceImages
+                        reference_images: characterRefUrls.length > 0
+                            ? characterRefUrls
+                            : (referenceImages || []).filter(
+                                  (img: any) => img.referenceType !== 'REFERENCE_VIDEO',
+                              )
                     },
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9'
@@ -2746,6 +3071,46 @@ export class GenaiService {
                     prompt: prompt
                 }
             ];
+        }
+
+        // [MULTI-CHARACTER] Nếu prompt có từ 2 nhân vật trở lên, bổ sung option gửi kèm
+        // đầy đủ danh sách ảnh nhân vật (mỗi nhân vật một ảnh) để giữ nhất quán nhân vật.
+        if (characterRefUrls.length > 1) {
+            const primaryImg = refBase64CdnUrl || refBase64DataUri || characterRefUrls[0];
+            candidateTaskRequests.push({
+                model: model,
+                input: {
+                    prompt: prompt,
+                    image: primaryImg,
+                    image_url: primaryImg,
+                    reference_images: characterRefUrls
+                },
+                parameters: {
+                    aspect_ratio: aspectRatio || '16:9',
+                    duration: Math.ceil(duration || 5)
+                }
+            });
+            console.log(`[UModelverse Multi-Character] Prompt có ${characterRefUrls.length} nhân vật -> gửi kèm ${characterRefUrls.length} ảnh nhân vật.`);
+        }
+
+        // [CRITICAL-FIX] Nếu CÓ ảnh tham chiếu (storyboard hoặc nhân vật), TUYỆT ĐỐI
+        // loại bỏ mọi payload chỉ có prompt (text-only). Nguyên nhân gốc làm video
+        // "không dùng ảnh nhân vật": các payload có ảnh bị từ chối (base64 quá lớn,
+        // sai format...) thì cơ chế thử lần lượt sẽ rơi xuống payload text-only ở cuối
+        // danh sách và tạo video thuần văn bản một cách ÂM THẦM.
+        if (refBase64Raw || refBase64DataUri || characterRefUrls.length > 0) {
+            const beforeCount = candidateTaskRequests.length;
+            candidateTaskRequests = candidateTaskRequests.filter((req: any) => {
+                const hasImage = this.payloadHasImageRef(req);
+                if (!hasImage) {
+                    console.warn('[UModelverse Safety Filter] Loại bỏ payload KHÔNG có ảnh tham chiếu:', JSON.stringify(req).substring(0, 120));
+                }
+                return hasImage;
+            });
+            console.log(`[UModelverse Safety Filter] Payload có ảnh: ${candidateTaskRequests.length}/${beforeCount} (đã loại ${beforeCount - candidateTaskRequests.length} payload text-only).`);
+            if (candidateTaskRequests.length === 0) {
+                throw new Error('Có ảnh tham chiếu nhưng không xây dựng được payload hợp lệ chứa ảnh. Đã dừng để tránh tạo video bỏ qua ảnh nhân vật.');
+            }
         }
 
         let taskId = '';
@@ -2827,6 +3192,12 @@ export class GenaiService {
                         const errStr = responseText.toLowerCase();
                         if (errStr.includes('sensitive') || errStr.includes('privacyinformation') || errStr.includes('real person') || errStr.includes('violate') || errStr.includes('safety')) {
                             throw new Error("Hình ảnh hoặc nội dung vi phạm tiêu chuẩn an toàn của AI (có thể AI nhận diện nhầm là ảnh người thật, bạo lực, nhạy cảm...). Vui lòng thử hình/từ khoá khác.");
+                        }
+                        // [MINIMAX-ADAPTER] Adapter cua proxy khong ho tro chuyen doi anh
+                        // cho model nay -> moi payload co anh deu se bi tu choi giong het.
+                        // Dung som voi thong bao ro rang thay vi thu 30+ request that bai.
+                        if (errStr.includes('convertimagerequest not implemented')) {
+                            throw new Error("Model này trên proxy Mì Tôm AI hiện CHẢNG hỗ trợ gửi ảnh tham chiỏu (adapter báo: ConvertImageRequest not implemented). Vui lòng chọn model khác có hỗ trợ ảnh (vd: doubao-seedance, kling, wan, veo) hoảc liên hệ nhà cung cấp proxy bổ sung tính năng.");
                         }
                     }
                 } catch (e: any) {
@@ -2955,7 +3326,7 @@ export class GenaiService {
             sizeVal = '768x1024';
         }
 
-        const candidateRequests: any[] = [
+        let candidateRequests: any[] = [
             // [NEW] Thử lại các payload chuẩn xác của model đã tạo ở bước Async
             ...candidateTaskRequests,
             // Option 0 (Đầy đủ & đa dạng): Đầy đủ các tham số và nhiều cách biểu diễn để tương thích tối đa
@@ -3008,6 +3379,17 @@ export class GenaiService {
                 prompt: prompt
             }
         ];
+
+        // [CRITICAL-FIX] Ap dung cung bo loc cho buoc sync fallback:
+        // neu co anh tham chieu thi khong duoc gui payload text-only
+        if (refBase64Raw || refBase64DataUri || characterRefUrls.length > 0) {
+            const beforeSync = candidateRequests.length;
+            candidateRequests = candidateRequests.filter((req: any) => this.payloadHasImageRef(req));
+            console.log(`[UModelverse Safety Filter][Sync] Payload có ảnh: ${candidateRequests.length}/${beforeSync}`);
+            if (candidateRequests.length === 0) {
+                throw new Error('Có ảnh tham chiếu nhưng không xây dựng được payload hợp lệ chứa ảnh (sync fallback).');
+            }
+        }
 
         lastErrorMsg = '';
         let lastResponseStatus = 200;

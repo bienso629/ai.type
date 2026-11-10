@@ -7734,7 +7734,8 @@ export class VideoTimelineDialogComponent
                                         imageBytes: base64Data,
                                         mimeType: 'image/jpeg',
                                     },
-                                    referenceType: 'ASSET',
+                                    referenceType: 'CHARACTER_REFERENCE',
+                                    characterName: charName,
                                 });
                                 hasCharacterRef = true;
                             } catch (e) {
@@ -7816,14 +7817,8 @@ export class VideoTimelineDialogComponent
                     videoConfig.aspectRatio = this.projectData.aspectRatio;
                 }
                 if (referenceImages.length > 0) {
-                    videoConfig.referenceImages = referenceImages
-                        .slice(0, 3)
-                        .map((img) => {
-                            return {
-                                ...img,
-                                referenceType: 'ASSET',
-                            };
-                        });
+                    // Không cắt giảm danh sách: mỗi nhân vật trong prompt cần được gửi kèm ảnh tham chiếu riêng
+                    videoConfig.referenceImages = referenceImages;
                 }
 
                 operation = await ai.models.generateVideos({

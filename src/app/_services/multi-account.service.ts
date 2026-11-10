@@ -240,13 +240,32 @@ export class MultiAccountService {
                 localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
                 await db.sessions.where('id').notEqual(this.currentAccountId).modify({ isActive: 0 });
             }
+            // [SettingsMirror] Hop nhat du lieu tu mirror: mirror la ban ghi dung chung dev/
+            // production. DB thang tren moi truong da co (thong tin dang nhap moi nhat),
+            // mirror chi lap vao nhung vung thieu (vi du: settings chua nap kip sau login).
+            try {
+                const mirrorBg = await this.mirrorLoad(this.currentAccountId!);
+                if (mirrorBg.record && mirrorBg.record.encryptedData) {
+                    const mirrorData = this.decryptData(mirrorBg.record.encryptedData, this.currentAccountId!);
+                    if (mirrorData) {
+                        this.currentSessionData = this.mergeSessionData(this.currentSessionData, mirrorData);
+                    }
+                }
+            } catch (e) { }
             const encrypted = this.encryptData(this.currentSessionData);
             await db.sessions.put({
                 id: this.currentAccountId!,
                 isActive: 1,
-                encryptedData: encrypted
-            });
+                encryptedData: encrypted,
+                savedAt: Date.now()
+            } as any);
         }, undefined);
+
+        // [SettingsMirror] Guong du lieu ra main process (file JSON trong userData, khong phu
+        // thuoc origin) de khoi phuc khi IndexedDB trong sau khi chuyen giua dev va production.
+        if (this.currentAccountId) {
+            this.mirrorSave(this.currentAccountId, true);
+        }
     }
 
     /**
@@ -276,10 +295,55 @@ export class MultiAccountService {
                 }
             }
 
+            // [SettingsMirror] DB trong hoan toan (vi du mo ban production lan dau sau khi tung
+            // dung ban dev, do origin khac nhau) => khoi phuc phien tu file mirror cua main process.
+            if (!activeRecord) {
+                const mirror = await this.mirrorLoad();
+                if (mirror.record && mirror.record.encryptedData) {
+                    const restoreId = mirror.accountId || 'default_user';
+                    const restoredData = this.decryptData(mirror.record.encryptedData, restoreId);
+                    if (restoredData) {
+                        await db.sessions.put({ id: restoreId, isActive: 1, encryptedData: mirror.record.encryptedData });
+                        activeRecord = { id: restoreId, isActive: 1, encryptedData: mirror.record.encryptedData };
+                    }
+                }
+            }
+
             if (activeRecord && activeRecord.encryptedData) {
+                // [SettingsMirror] Hop nhat (merge) mirror voi DB: DB thang phan dang nhap,
+                // mirror lap phan thieu (settings, tools_urls...). Tuyet doi khong ghi de
+                // ca session bang mirror vi mirror co the la session cu thieu settings.
+                try {
+                    const mirrorCur = await this.mirrorLoad(activeRecord.id);
+                    if (mirrorCur.record && mirrorCur.record.encryptedData && mirrorCur.accountId === activeRecord.id) {
+                        const mirrorData = this.decryptData(mirrorCur.record.encryptedData, activeRecord.id);
+                        const dbData = this.decryptData(activeRecord.encryptedData, activeRecord.id);
+                        if (mirrorData) {
+                            const merged = this.mergeSessionData(dbData, mirrorData);
+                            const mergedEnc = this.encryptData(merged);
+                            if (mergedEnc) {
+                                const mergedSavedAt = Math.max((activeRecord as any).savedAt || 0, mirrorCur.record.savedAt || 0);
+                                activeRecord.encryptedData = mergedEnc;
+                                (activeRecord as any).savedAt = mergedSavedAt;
+                                await db.sessions.put({ id: activeRecord.id, isActive: 1, encryptedData: mergedEnc, savedAt: mergedSavedAt } as any);
+                            }
+                        }
+                    }
+                } catch (e) { }
                 this.currentAccountId = activeRecord.id;
                 localStorage.setItem('ai_type_active_account_id', activeRecord.id);
                 this.currentSessionData = this.decryptData(activeRecord.encryptedData, activeRecord.id) || {};
+
+                // [Fix 2026-11-10] Tu chua co ai_type_auto_save_local bi ket 'false' do luu cau hinh
+                // khi settings con trong: neu session khong khai bao autoSaveLocal thi xoa co de
+                // ung dung mac dinh di duong local (SQLite), tranh mat bai viet o production.
+                try {
+                    if ((this.currentSessionData as any).settings &&
+                        (this.currentSessionData as any).settings.autoSaveLocal === undefined &&
+                        localStorage.getItem('ai_type_auto_save_local') === 'false') {
+                        localStorage.removeItem('ai_type_auto_save_local');
+                    }
+                } catch (e) { }
                 
                 const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
                 const uname = userObj?.name || userObj?.username || this.currentAccountId;
@@ -330,6 +394,21 @@ export class MultiAccountService {
             return {};
         }, {});
 
+        // [SettingsMirror] Luon hop nhat mirror vao du lieu cu truoc khi gan session moi:
+        // DB thang phan dang nhap, mirror lap phan thieu (settings, tools_urls...).
+        // Truoc day chi dung khi DB trong => session yeu hon trong DB lam mat settings.
+        try {
+            const mirrorNew = await this.mirrorLoad(accountId);
+            if (mirrorNew.record && mirrorNew.record.encryptedData && mirrorNew.accountId === accountId) {
+                const mirrorData = this.decryptData(mirrorNew.record.encryptedData, accountId);
+                if (mirrorData) {
+                    existingData = (!existingData || Object.keys(existingData).length === 0)
+                        ? mirrorData
+                        : this.mergeSessionData(existingData, mirrorData);
+                }
+            }
+        } catch (e) { }
+
         // Giữ lại accessToken nếu có trong existingData hoặc currentSessionData mà rawData không truyền
         const preservedToken = rawData.accessToken || existingData.accessToken || this.currentSessionData?.accessToken;
         this.currentSessionData = this.sanitizeAccountData(accountId, { ...existingData, ...rawData }); 
@@ -373,7 +452,15 @@ export class MultiAccountService {
      */
     async switchAccount(accountId: string): Promise<boolean> {
         return this.safeDbCall(async () => {
-            const targetAccount = await db.sessions.get(accountId);
+            let targetAccount = await db.sessions.get(accountId);
+            if (!targetAccount || !targetAccount.encryptedData) {
+                // [SettingsMirror] Khong co trong DB (origin moi) => thu khoi phuc tu mirror
+                const mirror = await this.mirrorLoad(accountId);
+                if (mirror.record && mirror.record.encryptedData) {
+                    await db.sessions.put({ id: accountId, isActive: 0, encryptedData: mirror.record.encryptedData });
+                    targetAccount = await db.sessions.get(accountId);
+                }
+            }
             if (!targetAccount || !targetAccount.encryptedData) return false;
 
             await db.sessions.toCollection().modify({ isActive: 0 });
@@ -397,6 +484,8 @@ export class MultiAccountService {
     async removeAccount(accountId: string): Promise<void> {
         await this.safeDbCall(async () => {
             await db.sessions.delete(accountId);
+            // [SettingsMirror] Don guong cua tai khoan bi xoa
+            try { this.electronBridge?.settingsMirrorClear?.(accountId)?.catch?.(() => { }); } catch (e) { }
             
             if (this.currentAccountId === accountId) {
                 const fallback = await db.sessions.toCollection().first();
@@ -460,6 +549,57 @@ export class MultiAccountService {
             }
         }
         return data;
+    }
+
+    // ==========================================
+    // 5. MIRROR QUA MAIN PROCESS (CHONG MAT SETTINGS KHI DOI ORIGIN)
+    // ==========================================
+    // IndexedDB/LocalStorage cua Chromium gan voi origin cua trang (dev: http://localhost:4200,
+    // production: file://). Khi chuyen giua ban dev va ban dong goi, origin doi => DB trong =>
+    // tuong nhu mat het settings. Giai phap: luu guong ban ghi da ma hoa AES ra file JSON trong
+    // userData qua main process (khong phu thuoc origin) va khoi phuc khi DB trong.
+
+    private get electronBridge(): any {
+        return (window as any)?.electron || null;
+    }
+
+    /**
+     * [SettingsMirror] Hop nhat hai phien: dbData (moi, thang) uu tien tren mirrorData
+     * (ban ghi dung chung dev/production). Rieng settings hop nhat theo tung truong de
+     * mirror lap vao nhung cau hinh ma DB chua co (vi du sau khi dang nhap lai).
+     */
+    private mergeSessionData(dbData: any, mirrorData: any): any {
+        const db = (dbData && typeof dbData === 'object') ? dbData : {};
+        const mr = (mirrorData && typeof mirrorData === 'object') ? mirrorData : {};
+        const merged: any = { ...mr, ...db };
+        const mSettings = mr.settings;
+        const dbSettings = db.settings;
+        if (mSettings && typeof mSettings === 'object') {
+            merged.settings = { ...mSettings, ...((dbSettings && typeof dbSettings === 'object') ? dbSettings : {}) };
+        }
+        return merged;
+    }
+
+    private mirrorSave(accountId: string, isActive: boolean): void {
+        try {
+            const bridge = this.electronBridge;
+            if (!bridge || !bridge.settingsMirrorSave || !accountId) return;
+            const encryptedData = this.encryptData(this.currentSessionData);
+            if (!encryptedData) return;
+            bridge.settingsMirrorSave({ accountId, encryptedData, isActive }).catch(() => {});
+        } catch (e) { }
+    }
+
+    private async mirrorLoad(accountId?: string): Promise<{ record: any; accountId: string | null }> {
+        try {
+            const bridge = this.electronBridge;
+            if (!bridge || !bridge.settingsMirrorLoad) return { record: null, accountId: null };
+            const res = await bridge.settingsMirrorLoad(accountId || null);
+            if (res && res.ok && res.record) {
+                return { record: res.record, accountId: res.accountId || accountId || null };
+            }
+        } catch (e) { }
+        return { record: null, accountId: null };
     }
 
     private encryptData(data: any): string {

@@ -2543,7 +2543,7 @@ export class NodeEditorComponent
                                             await this.getBase64FromImageUrl(
                                                 url,
                                             );
-                                        let rType = 'CHARACTER';
+                                        let rType = 'CHARACTER_REFERENCE';
                                         if (
                                             targetModality === 'VIDEO' &&
                                             imgIdx === 0

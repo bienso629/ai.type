@@ -361,7 +361,7 @@ export class SettingsAccountComponent implements OnInit {
                 this.isElectron
                     ? ((settings && settings.autoSaveLocal !== undefined)
                         ? settings.autoSaveLocal
-                        : (localStorage.getItem('ai_type_auto_save_local') !== 'false'))
+                        : true)
                     : false
             ],
             closethread: [false],
