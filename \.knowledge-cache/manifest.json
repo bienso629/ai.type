@@ -300,9 +300,9 @@
     "semantic_hash": ""
   },
   "electron/package.json": {
-    "mtime": 1794203187.5116594,
-    "seen": 1794203382.7861955,
-    "ast_hash": "a221f2c5c69411ecda05d72199b93504",
+    "mtime": 1794319867.7343702,
+    "seen": 1794319884.3306186,
+    "ast_hash": "b65103b57bfb4ea285680d41ce25e827",
     "semantic_hash": ""
   },
   "electron/preload.js": {
@@ -666,9 +666,9 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1794203129.1755302,
-    "seen": 1794203382.7878945,
-    "ast_hash": "6c3acba0bff6fc995b84b5cf3f095320",
+    "mtime": 1794319867.7341857,
+    "seen": 1794319884.3325024,
+    "ast_hash": "6a27fec1231a7b8715cda674ff8bb9b1",
     "semantic_hash": ""
   },
   "parse_manual.py": {
@@ -1896,9 +1896,9 @@
     "semantic_hash": ""
   },
   "src/app/app.component.ts": {
-    "mtime": 1792389235.557224,
-    "seen": 1793443703.7003927,
-    "ast_hash": "d16f8629884ded2ec89180bf93e0caac",
+    "mtime": 1794317813.7176404,
+    "seen": 1794318445.38826,
+    "ast_hash": "8093ebd7841b5a192290c67e05e59947",
     "semantic_hash": ""
   },
   "src/app/app.directive.ts": {
@@ -2508,9 +2508,9 @@
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/settings/account/account.component.ts": {
-    "mtime": 1794305319.4374146,
-    "seen": 1794305484.8736117,
-    "ast_hash": "c0d5f02db91549b234dd2b6fbcd04683",
+    "mtime": 1794318681.7740548,
+    "seen": 1794318685.4604251,
+    "ast_hash": "151320f93383d2b16e8b25d20d25481b",
     "semantic_hash": ""
   },
   "src/app/modules/admin/account/settings/active/active.component.ts": {

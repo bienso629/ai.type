@@ -244,9 +244,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private _titleService: Title,
         private _genaiService: GenaiService,
     ) {
-        // Khôi phục tài khoản đang Active
-        this.multiAccountService.loadActiveAccount();
-
+        // Khôi phục tài khoản đang Active và chờ DB nạp xong trước khi đọc settings
+        // [Fix 2026-11-10] loadActiveAccount là async (nạp IndexedDB mất vài trăm ms).
+        // Nếu đọc settings ngay lập tức, RAM còn rỗng => ghi nhầm settings mặc định rỗng
+        // đè mất session thật (nguyên nhân settings bị xóa mỗi lần mở app).
+        // isReady đã tự gọi loadActiveAccount() trong constructor của service;
+        // chỉ cần chờ promise này xong thì RAM chắc chắn đã có session thật.
+        this.multiAccountService.isReady.then(() => {
         let settings: any = this.multiAccountService.getItem('settings');
         if (!settings || settings == 'undefined') {
             settings = {
@@ -280,6 +284,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         if (settings.language) {
             this._translocoService.setActiveLang(settings.language);
         }
+        });
 
         // We use native DOM events in ngAfterViewInit instead of ResizeObserver to prevent lag
     }

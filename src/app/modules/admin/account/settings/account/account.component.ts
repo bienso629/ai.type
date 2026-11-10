@@ -344,6 +344,9 @@ export class SettingsAccountComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
+        // [Fix 2026-11-10] Chờ DB nạp xong trước khi đọc settings để form không nạp dữ liệu
+        // rỗng rồi ghi đè mất session thật khi người dùng bấm Lưu ngay sau khi mở app.
+        this.multiAccountService.isReady.then(() => {
         let settings: any = this.multiAccountService.getItem('settings');
 
         // Create the form
@@ -443,7 +446,9 @@ export class SettingsAccountComponent implements OnInit {
                     });
             }
         }
+    });
     }
+
 
     public applySettingsToForm(settings: any): void {
         if (!this.accountForm) return;

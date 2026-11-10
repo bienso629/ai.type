@@ -1,25 +1,25 @@
 # Graph Report - ai.type  (2026-11-10)
 
 ## Corpus Check
-- 691 files · ~1,769,407 words
+- 691 files · ~1,769,526 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 406 file(s) not represented in the graph (top: .scss 76, .ttf 71, .jmod 70)
 
 ## Summary
-- 9091 nodes · 22065 edges · 463 communities (209 shown, 254 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 1840 edges (avg confidence: 0.85)
+- 9091 nodes · 22064 edges · 463 communities (209 shown, 254 thin omitted)
+- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 1839 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1055cd32`
+- Built from commit: `8048c0d8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 
 
 ## Community Hubs (Navigation)
 - AuthService
 - User
-- ChatGPTService
-- .getItem
+- LandingAppComponent
+- ._getActiveInfo
 - .agent_backup_baseurl/main.js
 - electron/package.json
 - src/main.js
@@ -92,14 +92,14 @@
 - EditScenePromptDialogComponent
 - ProfilesComponent
 - build
-- BlogService
+- .getItem
 - .getComponent
 - .open
-- LandingAppComponent
-- ai-tts.component.ts
+- layout.module.ts
+- SettingsAdminComponent
 - ShortcutsComponent
 - BroadcastPreviewDialogComponent
-- @angular/forms
+- app/genai.service.ts
 - SitemapComponent
 - local-articles.js
 - with
@@ -145,7 +145,7 @@
 - mcp-client.js
 - jlong
 - Cẩm nang Hướng dẫn Sử dụng Ứng dụng AI.TYPE
-- SettingsAdminComponent
+- ai-tts.component.ts
 - mock-api.service.ts
 - MinerUClient
 - tailwind.config.js
@@ -181,7 +181,7 @@
 - SpeechError
 - DraggableDirective
 - ProfileDataService
-- SettingsComponent
+- ChatGPTService
 - FuseNavigationService
 - test_snow_accum_pipeline.js
 - AI.Type - Electron App Context for AI Agent
@@ -199,7 +199,6 @@
 - AuthSignInComponent
 - HelpComponent
 - ReportDialog
-- LayoutComponent
 - EnterpriseLayoutComponent
 - er
 - ro
@@ -211,6 +210,7 @@
 - ChatGPTQuestionSheet
 - SynonymFormComponent
 - EditAccountDialog
+- SettingsComponent
 - install-ubuntu.sh
 - ZaloComponent
 - scroll-reset.directive.ts
@@ -221,8 +221,10 @@
 - scrumboard/api.ts
 - MomoQrDialog
 - FileListDialogComponent
+- KeywordGoogleDataDialog
 - ReadComponent
 - profile-data.service.ts
+- LayoutComponent
 - DirectorModeComponent
 - inspect_glsl.js
 - FuseVerticalNavigationCollapsableItemComponent
@@ -291,11 +293,14 @@
 - fuse-version.ts
 - vl_utils_source.py
 - Module: MARKETING
-- KeywordGoogleDataDialog
+- FuseLoadingBarComponent
+- DenseLayoutComponent
 - DatatableScrollLockDirective
 - DocTypeDialogComponent
+- CenteredLayoutComponent
 - JsonComponent
 - SMSDialog
+- MaterialLayoutComponent
 - CommentDialog
 - VideoEditorSettingsDialogComponent
 - FuseHorizontalNavigationComponent
@@ -308,7 +313,10 @@
 - Module: CHATBOT
 - edge-tts-universal
 - ScriptDialog
+- FuturisticLayoutComponent
+- EmailDialogComponent
 - AIToolsComponent
+- font.component.ts
 - en
 - runPropEffect
 - @capacitor/cli
@@ -356,42 +364,40 @@
 - build_mac.sh
 - Package.swift
 - CapApp-SPM/README.md
-- layout.module.ts
 - NavigationMockApi
 - FuseVerticalNavigationGroupItemComponent
 - @angular/core
+- FuseScrollResetDirective
 - EmptyLayoutComponent
-- FuseLoadingBarComponent
 - angular-draggable-droppable@^9.0.1
-- DenseLayoutComponent
-- FuturisticLayoutComponent
+- @capacitor/android@^8.5.2
 - CopyPasteDialog
 - apexcharts
 - SettingsTeamComponent
 - _0x310169
 - theme.ts
 - killPort
+- date-fns@^4.1.0
 - test_snow_v4.js
 - updateCharacterWalkingAI
-- CenteredLayoutComponent
-- leader-line@^1.0.7
+- jsdom@^29.0.0
+- karma-coverage-istanbul-reporter@^3.0.3
 - ws
 - TranslocoHttpLoader
-- @capacitor/android@^8.5.2
-- MaterialLayoutComponent
-- @xenova/transformers@^2.17.2
-- SettingsSecurityComponent
-- angular-tag-cloud-module
-- karma-coverage-istanbul-reporter@^3.0.3
-- pdfjs-dist
-- VideoProjectsComponent
+- leader-line@^1.0.7
 - ngx-cookieconsent@^6.0.0
 - ngx-datatable@^1.0.3
-- FuseHorizontalNavigationDividerItemComponent
-- EmailDialogComponent
+- pdfjs-dist
+- SettingsSecurityComponent
+- angular-tag-cloud-module
+- playcanvas
 - tslint@^5.20.1
-- FuseScrollResetDirective
-- font.component.ts
+- VideoProjectsComponent
+- @xenova/transformers@^2.17.2
+- xml2js@^0.6.2
+- FuseHorizontalNavigationDividerItemComponent
+- ChatGPTLayoutModule
+- AppDB
 - resolveGaKeyFile
 - facebookCrawl
 - openChromeApp
@@ -402,15 +408,9 @@
 - a0_0x1ed9
 - isAiAgentEnabled
 - @capacitor/ios@^8.5.2
-- date-fns@^4.1.0
 - jasmine-spec-reporter@^7.0.0
-- jsdom@^29.0.0
 - plain-draggable@^2.5.14
-- playcanvas
 - prismjs@^1.30.0
-- xml2js@^0.6.2
-- ChatGPTLayoutModule
-- AppDB
 
 ## God Nodes (most connected - your core abstractions)
 1. `@angular/core` - 360 edges
@@ -647,7 +647,7 @@ Nodes (22): appMock, created, disabled, engineLogs, ents, FakeEntity, FakeMeshIn
 Cohesion: 0.07
 Nodes (30): build, appId, asar, dmg, extraResources, files, linux, mac (+22 more)
 
-### Community 80 - "BlogService"
+### Community 80 - ".getItem"
 Cohesion: 0.04
 Nodes (3): initializeApp(), GeminiMatrixDialog, BlogService
 
@@ -659,15 +659,15 @@ Nodes (4): ModernLayoutComponent, ClassicLayoutComponent, FuseVerticalNavigation
 Cohesion: 0.07
 Nodes (3): DollarComponent, AllTubeComponent, SynonymComponent
 
-### Community 84 - "ai-tts.component.ts"
-Cohesion: 0.18
-Nodes (10): ScreenplayLine, decryptPbkdf2AesCbc(), EncryptedPayloadObject, isMasterKey(), MASTER_ENCRYPTION_KEYS, tryDecryptWithMasterFallback(), AudioClip, ArticlePasswordDialog (+2 more)
+### Community 83 - "layout.module.ts"
+Cohesion: 0.07
+Nodes (13): SettingsModule, LayoutModule, layoutModules, EmptyLayoutModule, CenteredLayoutModule, EnterpriseLayoutModule, MaterialLayoutModule, ModernLayoutModule (+5 more)
 
 ### Community 85 - "ShortcutsComponent"
 Cohesion: 0.12
 Nodes (3): ShortcutsComponent, ShortcutsService, Shortcut
 
-### Community 87 - "@angular/forms"
+### Community 87 - "app/genai.service.ts"
 Cohesion: 0.06
 Nodes (24): NodeConnection, NodeItem, @capacitor/filesystem, @google/genai, wavesurfer.js, Scope, AIEditHistoryEntry, EditorState (+16 more)
 
@@ -782,6 +782,10 @@ Nodes (18): CallLongMethod(), CallLongMethodV(), CallNonvirtualLongMethod(), Cal
 ### Community 137 - "Cẩm nang Hướng dẫn Sử dụng Ứng dụng AI.TYPE"
 Cohesion: 0.11
 Nodes (18): 1. Màn hình "AI Writer" (Công cụ tạo content), 2. Màn hình "Tự động cào bài" (AI Crawl), 3. Màn hình "Text2Speech" (Chuyển văn bản thành giọng nói), 4. Màn hình "Hỏi ChatGPT" (Quản lý Trợ lý ảo / Simple Chatbot), 5. Màn hình "Kéo view cho website" (GoLogin Profiles), 6. Nhóm Màn hình Quản lý SEO, 7. Nhóm Màn hình "Kịch bản" (Tự động hóa Mạng Xã Hội), 8. Màn hình "Cài đặt" (+10 more)
+
+### Community 138 - "ai-tts.component.ts"
+Cohesion: 0.18
+Nodes (10): ScreenplayLine, decryptPbkdf2AesCbc(), EncryptedPayloadObject, isMasterKey(), MASTER_ENCRYPTION_KEYS, tryDecryptWithMasterFallback(), AudioClip, ArticlePasswordDialog (+2 more)
 
 ### Community 140 - "mock-api.service.ts"
 Cohesion: 0.16
@@ -1147,6 +1151,10 @@ Nodes (5): Module: CHATBOT, Màn hình: doc-type-dialog.component.html, Màn hì
 Cohesion: 0.40
 Nodes (4): edge-tts-universal@^1.4.0, edge-tts-universal, tts, { UniversalEdgeTTS }
 
+### Community 336 - "font.component.ts"
+Cohesion: 0.50
+Nodes (3): AppFontGroup, AppFontItem, ActiveFontVariant
+
 ### Community 338 - "en"
 Cohesion: 0.50
 Nodes (4): en(), tn(), Ue(), ze()
@@ -1263,10 +1271,6 @@ Nodes (3): Action, CHANGE_THEME, TRANSCRIPT
 Cohesion: 0.67
 Nodes (3): Module: N8N, Màn hình: script.component.html, Màn hình: share.component.html
 
-### Community 392 - "layout.module.ts"
-Cohesion: 0.07
-Nodes (13): SettingsModule, LayoutModule, layoutModules, EmptyLayoutModule, CenteredLayoutModule, EnterpriseLayoutModule, MaterialLayoutModule, ModernLayoutModule (+5 more)
-
 ### Community 396 - "@angular/core"
 Cohesion: 0.02
 Nodes (122): angular-calendar-timeline, @angular/cdk, @angular/core, @angular/forms, @angular/material, @angular/router, angularx-qrcode, @jsverse/transloco (+114 more)
@@ -1286,10 +1290,6 @@ Nodes (5): getEffectiveWalkSpeed(), spawnStepGlowRipple(), switchCharAnim(), upd
 ### Community 430 - "ws"
 Cohesion: 0.50
 Nodes (4): ws@^8.18.3, ws, generateRawEdgeTTS(), WebSocket
-
-### Community 451 - "font.component.ts"
-Cohesion: 0.50
-Nodes (3): AppFontGroup, AppFontItem, ActiveFontVariant
 
 ### Community 454 - "resolveGaKeyFile"
 Cohesion: 0.50
@@ -1315,17 +1315,17 @@ Nodes (3): loadLocalBookVectors(), localFaissUserDir(), localVectorPaths()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `@angular/core` connect `@angular/core` to `AuthService`, `User`, `fuse.module.ts`, `LocalDbService`, `FuseHighlightComponent`, `layout.module.ts`, `dependencies`, `mock-api.service.ts`, `analytics/api.ts`, `crypto/api.ts`, `finance/api.ts`, `package.json`, `project/api.ts`, `activities/api.ts`, `animations/public-api.ts`, `ai-writer.component.ts`, `PolicyLayoutComponent`, `FuseUtilsService`, `GenaiService`, `file-manager/api.ts`, `AddToolDialog`, `confirmation.service.ts`, `FuseFullscreenComponent`, `thin.module.ts`, `config.module.ts`, `FuseNavigationService`, `FuseScrollbarDirective`, `luxon`, `FuseNavigationService`, `UserService`, `api/index.ts`, `chat/api.ts`, `font.component.ts`, `help-center/api.ts`, `loading-bar.component.ts`, `ai-tts.component.ts`, `@angular/forms`, `scroll-reset.directive.ts`, `academy/api.ts`, `mailbox/api.ts`, `scrumboard/api.ts`, `profile-data.service.ts`, `find-by-key.module.ts`, `inventory/api.ts`, `icons/api.ts`, `lodash-es`, `auto-layout-dialog.service.ts`?**
+- **Why does `@angular/core` connect `@angular/core` to `AuthService`, `User`, `fuse.module.ts`, `LocalDbService`, `FuseHighlightComponent`, `ai-tts.component.ts`, `dependencies`, `mock-api.service.ts`, `analytics/api.ts`, `crypto/api.ts`, `finance/api.ts`, `package.json`, `project/api.ts`, `activities/api.ts`, `animations/public-api.ts`, `ai-writer.component.ts`, `PolicyLayoutComponent`, `FuseUtilsService`, `GenaiService`, `file-manager/api.ts`, `AddToolDialog`, `confirmation.service.ts`, `loading-bar.component.ts`, `FuseFullscreenComponent`, `thin.module.ts`, `config.module.ts`, `FuseNavigationService`, `FuseScrollbarDirective`, `luxon`, `FuseNavigationService`, `UserService`, `api/index.ts`, `chat/api.ts`, `font.component.ts`, `help-center/api.ts`, `layout.module.ts`, `app/genai.service.ts`, `scroll-reset.directive.ts`, `academy/api.ts`, `mailbox/api.ts`, `scrumboard/api.ts`, `profile-data.service.ts`, `find-by-key.module.ts`, `inventory/api.ts`, `icons/api.ts`, `lodash-es`, `auto-layout-dialog.service.ts`?**
   _High betweenness centrality (0.136) - this node is a cross-community bridge._
 - **What connects `x`, `y`, `width` to the rest of the system?**
   _174 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `AuthService` be split into smaller, more focused modules?**
   _Cohesion score 0.050241545893719805 - nodes in this community are weakly interconnected._
-- **Why does `User` connect `User` to `PaymentComponent`, `ChatGPTService`, `.getItem`, `DialogLinksProfile`, `layout.module.ts`, `ChatBotComponent`, `SettingsAdminComponent`, `AMXHComponent`, `AIWriterComponent`, `AMXHScriptAppComponent`, `@angular/core`, `FuturisticLayoutComponent`, `SettingsLicenseKeysComponent`, `Voice2videoComponent`, `ai-writer.component.ts`, `SettingsDomainComponent`, `WP2MDComponent`, `AIWordComponent`, `AMXHScheduleComponent`, `AIImageComponent`, `AIArchiveComponent`, `ChatGPTLayoutComponent`, `AINodesComponent`, `GSCReportComponent`, `XCmsComponent`, `LinksComponent`, `MediaDataDialog`, `ArchiveComponent`, `WoocommerceExportComponent`, `AMXHProfileAppComponent`, `SettingsComponent`, `AIFacePostComponent`, `.setItem`, `KeywordGoogleDataDialog`, `VideoProjectsComponent`, `CollectionComponent`, `Design3DService`, `YoutubeService`, `BigDataLogsDialog`, `FuseNavigationService`, `NotificationsComponent`, `SettingsFontComponent`, `UserService`, `GoLoginService`, `BigDataComponent`, `AuthSignInComponent`, `ReportDialog`, `ProfilesComponent`, `AIToolsComponent`, `BlogService`, `.open`, `ai-tts.component.ts`, `ShortcutsComponent`, `ChatGPTQuestionSheet`, `SynonymFormComponent`, `SitemapComponent`, `MXHAutoService`, `SettingsPluginsComponent`, `MomoQrDialog`, `FileListDialogComponent`, `ReadComponent`, `DashboardComponent`, `AddStyleDialog`, `AuthSignUpComponent`, `ScanVideoLinkFormComponent`, `ThinLayoutComponent`, `AiAgentKnowledgeService`, `UserComponent`, `LinkFormComponent`, `.sendChat`, `FPTAIService`, `AIText2SpeechComponent`?**
+- **Why does `User` connect `User` to `PaymentComponent`, `._getActiveInfo`, `DialogLinksProfile`, `ChatBotComponent`, `AMXHComponent`, `ai-tts.component.ts`, `AIWriterComponent`, `AMXHScriptAppComponent`, `@angular/core`, `SettingsLicenseKeysComponent`, `Voice2videoComponent`, `WP2MDComponent`, `ai-writer.component.ts`, `SettingsDomainComponent`, `AMXHScheduleComponent`, `AIWordComponent`, `AIImageComponent`, `AIArchiveComponent`, `ChatGPTLayoutComponent`, `AINodesComponent`, `GSCReportComponent`, `XCmsComponent`, `LinksComponent`, `MediaDataDialog`, `ArchiveComponent`, `WoocommerceExportComponent`, `AMXHProfileAppComponent`, `ChatGPTService`, `AIFacePostComponent`, `.setItem`, `VideoProjectsComponent`, `CollectionComponent`, `Design3DService`, `YoutubeService`, `BigDataLogsDialog`, `FuseNavigationService`, `NotificationsComponent`, `SettingsFontComponent`, `UserService`, `GoLoginService`, `BigDataComponent`, `AuthSignInComponent`, `ReportDialog`, `FuturisticLayoutComponent`, `ProfilesComponent`, `AIToolsComponent`, `.getItem`, `.open`, `layout.module.ts`, `SettingsAdminComponent`, `ShortcutsComponent`, `ChatGPTQuestionSheet`, `SynonymFormComponent`, `SitemapComponent`, `SettingsComponent`, `MXHAutoService`, `SettingsPluginsComponent`, `MomoQrDialog`, `FileListDialogComponent`, `KeywordGoogleDataDialog`, `ReadComponent`, `DashboardComponent`, `AddStyleDialog`, `AuthSignUpComponent`, `ScanVideoLinkFormComponent`, `ThinLayoutComponent`, `AiAgentKnowledgeService`, `UserComponent`, `LinkFormComponent`, `.sendChat`, `FPTAIService`, `AIText2SpeechComponent`?**
   _High betweenness centrality (0.062) - this node is a cross-community bridge._
 - **Should `User` be split into smaller, more focused modules?**
   _Cohesion score 0.0502269873466628 - nodes in this community are weakly interconnected._
-- **Why does `VideoTimelineDialogComponent` connect `VideoTimelineDialogComponent` to `.getRawMediaUrl`, `.autoGenerateVideo`, `.normalizeData`, `UserService`, `.onKeydownHandler`, `MagicKlingPromptDialogComponent`, `.markDirty`, `.saveData`, `HostListener`, `ai-tts.component.ts`, `.saveData`, `ai-writer.component.ts`, `@angular/forms`, `.loadFrameAssets`?**
+- **Why does `VideoTimelineDialogComponent` connect `VideoTimelineDialogComponent` to `.getRawMediaUrl`, `.autoGenerateVideo`, `.normalizeData`, `UserService`, `.onKeydownHandler`, `MagicKlingPromptDialogComponent`, `.markDirty`, `ai-tts.component.ts`, `.saveData`, `HostListener`, `.saveData`, `ai-writer.component.ts`, `app/genai.service.ts`, `.loadFrameAssets`?**
   _High betweenness centrality (0.050) - this node is a cross-community bridge._
-- **Should `.getItem` be split into smaller, more focused modules?**
-  _Cohesion score 0.0579047619047619 - nodes in this community are weakly interconnected._
+- **Should `LandingAppComponent` be split into smaller, more focused modules?**
+  _Cohesion score 0.125 - nodes in this community are weakly interconnected._
